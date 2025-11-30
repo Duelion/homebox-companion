@@ -1,0 +1,371 @@
+2025-11-30 14:18:21 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:18:21 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:18:21 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:18:21 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:18:21 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:19:18 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:19:18 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:19:18 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:19:18 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:19:18 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:19:31 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:19:31 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:19:31 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:19:31 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:19:31 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:19:46 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:19:46 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:19:46 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:19:46 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:19:46 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:19:54 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:19:54 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:19:54 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:19:54 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:19:54 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:19:56 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:19:56 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:19:56 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:19:56 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:19:56 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:20:45 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:20:45 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:20:45 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:20:45 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:20:45 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:20:47 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:20:47 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:20:47 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:20:47 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:20:47 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:20:48 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:20:48 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:20:48 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:20:48 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:20:48 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:20:58 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:20:58 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:20:58 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:20:58 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:20:58 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:21:02 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:21:02 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:21:02 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:21:02 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:21:02 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:21:40 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:21:40 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:21:40 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:21:40 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:21:58 | INFO     | server.main:login:184 - Login attempt for user: demo@example.com
+2025-11-30 14:21:59 | INFO     | server.main:login:188 - Login successful for user: demo@example.com
+2025-11-30 14:22:16 | INFO     | server.main:detect_items:287 - Detecting items from image: Untitled.jpg
+2025-11-30 14:22:16 | ERROR    | server.main:detect_items:293 - HOMEBOX_VISION_OPENAI_API_KEY not configured
+2025-11-30 14:22:20 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:22:20 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:22:20 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:22:20 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:22:20 | WARNING  | server.main:<module>:54 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-11-30 14:22:20 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:22:20 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:22:20 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:22:20 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:22:24 | INFO     | server.main:detect_items:287 - Detecting items from image: Untitled.jpg
+2025-11-30 14:22:24 | ERROR    | server.main:detect_items:293 - HOMEBOX_VISION_OPENAI_API_KEY not configured
+2025-11-30 14:22:33 | INFO     | server.main:detect_items:287 - Detecting items from image: Untitled.jpg
+2025-11-30 14:22:33 | ERROR    | server.main:detect_items:293 - HOMEBOX_VISION_OPENAI_API_KEY not configured
+2025-11-30 14:22:33 | INFO     | server.main:detect_items:287 - Detecting items from image: Untitled.jpg
+2025-11-30 14:22:33 | ERROR    | server.main:detect_items:293 - HOMEBOX_VISION_OPENAI_API_KEY not configured
+2025-11-30 14:24:54 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 14:24:54 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 14:24:54 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:24:54 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 14:25:49 | INFO     | server.main:login:184 - Login attempt for user: demo@example.com
+2025-11-30 14:25:50 | INFO     | server.main:login:188 - Login successful for user: demo@example.com
+2025-11-30 14:26:02 | INFO     | server.main:detect_items:287 - Detecting items from image: Untitled.jpg
+2025-11-30 14:26:02 | DEBUG    | server.main:detect_items:305 - Image size: 207212 bytes
+2025-11-30 14:26:02 | DEBUG    | server.main:detect_items:309 - Content type: image/jpeg
+2025-11-30 14:26:03 | DEBUG    | server.main:detect_items:321 - Loaded 8 labels for context
+2025-11-30 14:26:03 | INFO     | server.main:detect_items:328 - Starting OpenAI vision detection...
+2025-11-30 14:26:03 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 14:26:03 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-11-30 14:26:03 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 14:26:08 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {"items":[{"name":"Super Lube Multi-Use Synthetic Oil","quantity":1,"description":"32 oz (946.35 ml) synthetic oil with Syncolon (PTFE). Food grade and dielectric.","labelIds":["ceba1e15-5f38-4231-8294-9d847965a8cf"]},{"name":"Super Lube Multi-Purpose Synthetic Grease","quantity":1,"description":"Synthetic grease with Syncolon (PTFE). High-performance lubrication.","labelIds":["ceba1e15-5f38-4231-8294-9d847965a8cf"]}]}...
+2025-11-30 14:26:08 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 2 items
+2025-11-30 14:26:08 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube Multi-Use Synthetic Oil, qty: 1, labels: ['ceba1e15-5f38-4231-8294-9d847965a8cf']
+2025-11-30 14:26:08 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube Multi-Purpose Synthetic Grease, qty: 1, labels: ['ceba1e15-5f38-4231-8294-9d847965a8cf']
+2025-11-30 14:26:08 | INFO     | server.main:detect_items:336 - Detected 2 items
+2025-11-30 14:26:08 | DEBUG    | server.main:detect_items:338 -   - Super Lube Multi-Use Synthetic Oil (qty: 1, labels: ['ceba1e15-5f38-4231-8294-9d847965a8cf'])
+2025-11-30 14:26:08 | DEBUG    | server.main:detect_items:338 -   - Super Lube Multi-Purpose Synthetic Grease (qty: 1, labels: ['ceba1e15-5f38-4231-8294-9d847965a8cf'])
+2025-11-30 14:26:21 | INFO     | server.main:analyze_item_advanced:421 - Advanced analysis for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:26:21 | DEBUG    | server.main:analyze_item_advanced:422 - Description: 32 oz (946.35 ml) synthetic oil with Syncolon (PTFE). Food grade and dielectric.
+2025-11-30 14:26:21 | DEBUG    | server.main:analyze_item_advanced:423 - Number of images: 2
+2025-11-30 14:26:21 | INFO     | server.main:analyze_item_advanced:462 - Analyzing 2 images with OpenAI...
+2025-11-30 14:26:21 | INFO     | homebox_vision.llm:analyze_item_details_from_images:208 - Analyzing 2 images for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:26:21 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:209 - Item description: 32 oz (946.35 ml) synthetic oil with Syncolon (PTFE). Food grade and dielectric.
+2025-11-30 14:26:21 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:214 - Available labels: 8
+2025-11-30 14:26:21 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:233 - Calling OpenAI API for advanced analysis...
+2025-11-30 14:26:26 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:286 - OpenAI response: {
+  "name": "Super Lube Multi-Use Synthetic Oil",
+  "description": "32 oz (946.35 ml) synthetic oil with Syncolon (PTFE). Food grade and dielectric. High viscosity.",
+  "serialNumber": null,
+  "modelNumber": "51030",
+  "manufacturer": "Super Lube",
+  "purchasePrice": 22.60,
+  "notes": "The product is packaged in a translucent white bottle. The label indicates that it is dielectric and food grade, registered under NSF guidelines. The product is suitable for use in various applications, as noted b...
+2025-11-30 14:26:26 | INFO     | homebox_vision.llm:analyze_item_details_from_images:289 - Advanced analysis complete. Fields found: ['name', 'description', 'serialNumber', 'modelNumber', 'manufacturer', 'purchasePrice', 'notes', 'labelIds']
+2025-11-30 14:26:26 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:290 - Full result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 oz (946.35 ml) synthetic oil with Syncolon (PTFE). Food grade and dielectric. High viscosity.', 'serialNumber': None, 'modelNumber': '51030', 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'The product is packaged in a translucent white bottle. The label indicates that it is dielectric and food grade, registered under NSF guidelines. The product is suitable for use in various applications, as noted by its multipurpose nature.', 'labelIds': ['General']}
+2025-11-30 14:26:26 | INFO     | server.main:analyze_item_advanced:471 - Analysis complete
+2025-11-30 14:26:26 | DEBUG    | server.main:analyze_item_advanced:472 - Analysis result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 oz (946.35 ml) synthetic oil with Syncolon (PTFE). Food grade and dielectric. High viscosity.', 'serialNumber': None, 'modelNumber': '51030', 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'The product is packaged in a translucent white bottle. The label indicates that it is dielectric and food grade, registered under NSF guidelines. The product is suitable for use in various applications, as noted by its multipurpose nature.', 'labelIds': ['General']}
+2025-11-30 14:26:26 | DEBUG    | server.main:analyze_item_advanced:487 - Returning: name='Super Lube Multi-Use Synthetic Oil' description='32 oz (946.35 ml) synthetic oil with Syncolon (PTFE). Food grade and dielectric. High viscosity.' serial_number=None model_number='51030' manufacturer='Super Lube' purchase_price=22.6 notes='The product is packaged in a translucent white bottle. The label indicates that it is dielectric and food grade, registered under NSF guidelines. The product is suitable for use in various applications, as noted by its multipurpose nature.' label_ids=['General']
+2025-11-30 14:26:36 | INFO     | server.main:create_items:362 - Creating 2 items
+2025-11-30 14:26:36 | DEBUG    | server.main:create_items:363 - Request location_id: 7808c430-2b8e-4ef8-984f-a239d871c912
+2025-11-30 14:26:36 | DEBUG    | server.main:create_items:375 - Creating item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:26:36 | DEBUG    | server.main:create_items:376 -   location_id: 7808c430-2b8e-4ef8-984f-a239d871c912
+2025-11-30 14:26:36 | DEBUG    | server.main:create_items:377 -   label_ids: None
+2025-11-30 14:26:36 | INFO     | server.main:create_items:389 - Created item: Super Lube Multi-Use Synthetic Oil (id: d41b1a92-d4d0-4d75-beb9-16482dc74d37)
+2025-11-30 14:26:36 | DEBUG    | server.main:create_items:375 - Creating item: Super Lube Multi-Purpose Synthetic Grease
+2025-11-30 14:26:36 | DEBUG    | server.main:create_items:376 -   location_id: 7808c430-2b8e-4ef8-984f-a239d871c912
+2025-11-30 14:26:36 | DEBUG    | server.main:create_items:377 -   label_ids: ['ceba1e15-5f38-4231-8294-9d847965a8cf']
+2025-11-30 14:26:37 | INFO     | server.main:create_items:389 - Created item: Super Lube Multi-Purpose Synthetic Grease (id: e6fc5b46-6fe9-48e0-b11a-d02e46ae7669)
+2025-11-30 14:26:37 | INFO     | server.main:create_items:396 - Item creation complete: 2 created, 0 failed
+2025-11-30 14:26:47 | INFO     | server.main:login:184 - Login attempt for user: demo@example.com
+2025-11-30 14:26:47 | INFO     | server.main:login:188 - Login successful for user: demo@example.com
+2025-11-30 14:27:01 | INFO     | server.main:login:184 - Login attempt for user: demo@example.com
+2025-11-30 14:27:02 | INFO     | server.main:login:188 - Login successful for user: demo@example.com
+2025-11-30 14:30:26 | INFO     | server.main:detect_items:287 - Detecting items from image: Screenshot 2025-11-30 134838.png
+2025-11-30 14:30:26 | DEBUG    | server.main:detect_items:305 - Image size: 32280 bytes
+2025-11-30 14:30:26 | DEBUG    | server.main:detect_items:309 - Content type: image/png
+2025-11-30 14:30:26 | DEBUG    | server.main:detect_items:321 - Loaded 8 labels for context
+2025-11-30 14:30:26 | INFO     | server.main:detect_items:328 - Starting OpenAI vision detection...
+2025-11-30 14:30:26 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 14:30:26 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-11-30 14:30:27 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 14:30:29 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {"items":[{"name":"Super Lube 51030 Synthetic Oil","quantity":1,"description":"High viscosity synthetic oil with PTFE in a 1 quart bottle, translucent white color.","labelIds":["ceba1e15-5f38-4231-8294-9d847965a8cf"]}]}...
+2025-11-30 14:30:29 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 1 items
+2025-11-30 14:30:29 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube 51030 Synthetic Oil, qty: 1, labels: ['ceba1e15-5f38-4231-8294-9d847965a8cf']
+2025-11-30 14:30:29 | INFO     | server.main:detect_items:336 - Detected 1 items
+2025-11-30 14:30:29 | DEBUG    | server.main:detect_items:338 -   - Super Lube 51030 Synthetic Oil (qty: 1, labels: ['ceba1e15-5f38-4231-8294-9d847965a8cf'])
+2025-11-30 14:30:35 | INFO     | server.main:create_items:362 - Creating 1 items
+2025-11-30 14:30:35 | DEBUG    | server.main:create_items:363 - Request location_id: bb5590b8-6412-40cb-a6c8-ca2a5722f006
+2025-11-30 14:30:35 | DEBUG    | server.main:create_items:375 - Creating item: Super Lube 51030 Synthetic Oil
+2025-11-30 14:30:35 | DEBUG    | server.main:create_items:376 -   location_id: bb5590b8-6412-40cb-a6c8-ca2a5722f006
+2025-11-30 14:30:35 | DEBUG    | server.main:create_items:377 -   label_ids: ['ceba1e15-5f38-4231-8294-9d847965a8cf']
+2025-11-30 14:30:36 | INFO     | server.main:create_items:389 - Created item: Super Lube 51030 Synthetic Oil (id: c7ade132-2419-4ff5-9bd1-c7656560722b)
+2025-11-30 14:30:36 | INFO     | server.main:create_items:396 - Item creation complete: 1 created, 0 failed
+2025-11-30 14:30:49 | INFO     | server.main:login:184 - Login attempt for user: demo@example.com
+2025-11-30 14:30:50 | INFO     | server.main:login:188 - Login successful for user: demo@example.com
+2025-11-30 15:28:16 | INFO     | server.main:detect_items:287 - Detecting items from image: Screenshot 2025-11-30 134838.png
+2025-11-30 15:28:16 | DEBUG    | server.main:detect_items:305 - Image size: 32280 bytes
+2025-11-30 15:28:16 | DEBUG    | server.main:detect_items:309 - Content type: image/png
+2025-11-30 15:28:17 | WARNING  | server.main:detect_items:323 - Failed to load labels: Fetch labels failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 15:28:17 | INFO     | server.main:detect_items:328 - Starting OpenAI vision detection...
+2025-11-30 15:28:17 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 15:28:17 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 0
+2025-11-30 15:28:17 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 15:28:21 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "Super Lube 51030 Synthetic Oil",
+      "quantity": 1,
+      "description": "High viscosity synthetic oil with PTFE, in a 1 quart bottle, translucent white.",
+      "labelIds": []
+    }
+  ]
+}...
+2025-11-30 15:28:21 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 1 items
+2025-11-30 15:28:21 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube 51030 Synthetic Oil, qty: 1, labels: None
+2025-11-30 15:28:21 | INFO     | server.main:detect_items:336 - Detected 1 items
+2025-11-30 15:28:21 | DEBUG    | server.main:detect_items:338 -   - Super Lube 51030 Synthetic Oil (qty: 1, labels: None)
+2025-11-30 15:35:46 | INFO     | server.main:login:184 - Login attempt for user: demo@example.com
+2025-11-30 15:35:47 | INFO     | server.main:login:188 - Login successful for user: demo@example.com
+2025-11-30 15:36:02 | INFO     | server.main:detect_items:287 - Detecting items from image: Untitled.jpg
+2025-11-30 15:36:02 | DEBUG    | server.main:detect_items:305 - Image size: 207212 bytes
+2025-11-30 15:36:02 | DEBUG    | server.main:detect_items:309 - Content type: image/jpeg
+2025-11-30 15:36:03 | DEBUG    | server.main:detect_items:321 - Loaded 8 labels for context
+2025-11-30 15:36:03 | INFO     | server.main:detect_items:328 - Starting OpenAI vision detection...
+2025-11-30 15:36:03 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 15:36:03 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-11-30 15:36:04 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 15:36:08 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "Super Lube Multi-Use Synthetic Oil",
+      "quantity": 1,
+      "description": "32 oz bottle of synthetic oil with Syncolon (PTFE), dielectric, food grade, and clean.",
+      "labelIds": ["f5925f9a-81f8-4e55-8b5d-361caa3f8d37"]
+    },
+    {
+      "name": "Super Lube Multi-Purpose Synthetic Grease",
+      "quantity": 1,
+      "description": "Tube of multi-purpose synthetic grease with Syncolon (PTFE), heavy-duty, dielectric, food grade.",
+      "labelIds": ["f5...
+2025-11-30 15:36:08 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 2 items
+2025-11-30 15:36:08 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube Multi-Use Synthetic Oil, qty: 1, labels: ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37']
+2025-11-30 15:36:08 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube Multi-Purpose Synthetic Grease, qty: 1, labels: ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37']
+2025-11-30 15:36:08 | INFO     | server.main:detect_items:336 - Detected 2 items
+2025-11-30 15:36:08 | DEBUG    | server.main:detect_items:338 -   - Super Lube Multi-Use Synthetic Oil (qty: 1, labels: ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37'])
+2025-11-30 15:36:08 | DEBUG    | server.main:detect_items:338 -   - Super Lube Multi-Purpose Synthetic Grease (qty: 1, labels: ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37'])
+2025-11-30 15:36:14 | INFO     | server.main:analyze_item_advanced:421 - Advanced analysis for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 15:36:14 | DEBUG    | server.main:analyze_item_advanced:422 - Description: 32 oz bottle of synthetic oil with Syncolon (PTFE), dielectric, food grade, and clean.
+2025-11-30 15:36:14 | DEBUG    | server.main:analyze_item_advanced:423 - Number of images: 2
+2025-11-30 15:36:15 | INFO     | server.main:analyze_item_advanced:462 - Analyzing 2 images with OpenAI...
+2025-11-30 15:36:15 | INFO     | homebox_vision.llm:analyze_item_details_from_images:208 - Analyzing 2 images for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 15:36:15 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:209 - Item description: 32 oz bottle of synthetic oil with Syncolon (PTFE), dielectric, food grade, and clean.
+2025-11-30 15:36:15 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:214 - Available labels: 8
+2025-11-30 15:36:15 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:233 - Calling OpenAI API for advanced analysis...
+2025-11-30 15:36:22 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:286 - OpenAI response: {
+  "name": "Super Lube Multi-Use Synthetic Oil",
+  "description": "32 oz bottle of synthetic oil containing Syncolon (PTFE). The oil is dielectric, food grade, and labeled as clean. It is suitable for various applications. The packaging includes instructions in both English and Spanish.",
+  "serialNumber": null,
+  "modelNumber": "51030",
+  "manufacturer": "Super Lube",
+  "purchasePrice": 22.60,
+  "notes": "The item is noted to be of high viscosity and comes in a translucent white bottle. The pr...
+2025-11-30 15:36:22 | INFO     | homebox_vision.llm:analyze_item_details_from_images:289 - Advanced analysis complete. Fields found: ['name', 'description', 'serialNumber', 'modelNumber', 'manufacturer', 'purchasePrice', 'notes', 'labelIds']
+2025-11-30 15:36:22 | DEBUG    | homebox_vision.llm:analyze_item_details_from_images:290 - Full result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 oz bottle of synthetic oil containing Syncolon (PTFE). The oil is dielectric, food grade, and labeled as clean. It is suitable for various applications. The packaging includes instructions in both English and Spanish.', 'serialNumber': None, 'modelNumber': '51030', 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'The item is noted to be of high viscosity and comes in a translucent white bottle. The product is registered under NSF (H1) guidelines for food applications.', 'labelIds': ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37']}
+2025-11-30 15:36:22 | INFO     | server.main:analyze_item_advanced:471 - Analysis complete
+2025-11-30 15:36:22 | DEBUG    | server.main:analyze_item_advanced:472 - Analysis result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 oz bottle of synthetic oil containing Syncolon (PTFE). The oil is dielectric, food grade, and labeled as clean. It is suitable for various applications. The packaging includes instructions in both English and Spanish.', 'serialNumber': None, 'modelNumber': '51030', 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'The item is noted to be of high viscosity and comes in a translucent white bottle. The product is registered under NSF (H1) guidelines for food applications.', 'labelIds': ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37']}
+2025-11-30 15:36:22 | DEBUG    | server.main:analyze_item_advanced:487 - Returning: name='Super Lube Multi-Use Synthetic Oil' description='32 oz bottle of synthetic oil containing Syncolon (PTFE). The oil is dielectric, food grade, and labeled as clean. It is suitable for various applications. The packaging includes instructions in both English and Spanish.' serial_number=None model_number='51030' manufacturer='Super Lube' purchase_price=22.6 notes='The item is noted to be of high viscosity and comes in a translucent white bottle. The product is registered under NSF (H1) guidelines for food applications.' label_ids=['f5925f9a-81f8-4e55-8b5d-361caa3f8d37']
+2025-11-30 15:37:54 | INFO     | server.main:create_items:362 - Creating 2 items
+2025-11-30 15:37:54 | DEBUG    | server.main:create_items:363 - Request location_id: ebd7ab0d-d055-4908-84c1-f7983ece2731
+2025-11-30 15:37:54 | DEBUG    | server.main:create_items:375 - Creating item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 15:37:54 | DEBUG    | server.main:create_items:376 -   location_id: ebd7ab0d-d055-4908-84c1-f7983ece2731
+2025-11-30 15:37:54 | DEBUG    | server.main:create_items:377 -   label_ids: ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37']
+2025-11-30 15:37:55 | INFO     | server.main:create_items:389 - Created item: Super Lube Multi-Use Synthetic Oil (id: 1e594651-387c-4b8f-afe2-39eaba85e388)
+2025-11-30 15:37:55 | DEBUG    | server.main:create_items:375 - Creating item: Super Lube Multi-Purpose Synthetic Grease
+2025-11-30 15:37:55 | DEBUG    | server.main:create_items:376 -   location_id: ebd7ab0d-d055-4908-84c1-f7983ece2731
+2025-11-30 15:37:55 | DEBUG    | server.main:create_items:377 -   label_ids: ['f5925f9a-81f8-4e55-8b5d-361caa3f8d37']
+2025-11-30 15:37:55 | INFO     | server.main:create_items:389 - Created item: Super Lube Multi-Purpose Synthetic Grease (id: d54cba7c-5136-46ec-9d45-06b56671b76e)
+2025-11-30 15:37:55 | INFO     | server.main:create_items:396 - Item creation complete: 2 created, 0 failed
+2025-11-30 15:43:15 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 15:43:15 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:43:15 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:43:15 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:43:21 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 15:43:21 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:43:21 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:43:21 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:43:30 | INFO     | server.main:<module>:46 - Starting Homebox Vision Companion API
+2025-11-30 15:43:30 | INFO     | server.main:<module>:47 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:43:30 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:43:30 | WARNING  | server.main:<module>:50 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:43:37 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:43:37 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:43:37 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:43:37 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:44:00 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:44:00 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:44:00 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:44:00 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:47:01 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:47:01 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:47:01 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:47:01 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:47:24 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:47:24 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:47:24 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:47:24 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:48:22 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:48:22 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:48:22 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:48:22 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:48:58 | INFO     | server.main:login:185 - Login attempt for user: demo@example.com
+2025-11-30 15:48:59 | INFO     | server.main:login:189 - Login successful for user: demo@example.com
+2025-11-30 15:49:16 | INFO     | server.main:detect_items:288 - Detecting items from image: solder.jpg
+2025-11-30 15:49:16 | DEBUG    | server.main:detect_items:306 - Image size: 243502 bytes
+2025-11-30 15:49:16 | DEBUG    | server.main:detect_items:310 - Content type: image/jpeg
+2025-11-30 15:49:18 | DEBUG    | server.main:detect_items:322 - Loaded 9 labels for context
+2025-11-30 15:49:18 | INFO     | server.main:detect_items:329 - Starting OpenAI vision detection...
+2025-11-30 15:49:18 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 15:49:18 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 9
+2025-11-30 15:49:18 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 15:49:25 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "solder",
+      "quantity": 2,
+      "description": "Blue and orange solder for electronic use, suitable for various soldering tasks.",
+      "labelIds": ["1845626c-63ee-4933-b9f5-a2b833fb9f7f"]
+    },
+    {
+      "name": "UV curing solder mask kit",
+      "quantity": 2,
+      "description": "Packaged UV curing solder mask kit for protecting solder joints.",
+      "labelIds": ["1845626c-63ee-4933-b9f5-a2b833fb9f7f"]
+    },
+    {
+      "name": "electronic stando...
+2025-11-30 15:49:25 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 3 items
+2025-11-30 15:49:25 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: solder, qty: 2, labels: ['1845626c-63ee-4933-b9f5-a2b833fb9f7f']
+2025-11-30 15:49:25 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: UV curing solder mask kit, qty: 2, labels: ['1845626c-63ee-4933-b9f5-a2b833fb9f7f']
+2025-11-30 15:49:25 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: electronic standoffs, qty: 1, labels: ['1845626c-63ee-4933-b9f5-a2b833fb9f7f']
+2025-11-30 15:49:25 | INFO     | server.main:detect_items:337 - Detected 3 items
+2025-11-30 15:49:25 | DEBUG    | server.main:detect_items:339 -   - solder (qty: 2, labels: ['1845626c-63ee-4933-b9f5-a2b833fb9f7f'])
+2025-11-30 15:49:25 | DEBUG    | server.main:detect_items:339 -   - UV curing solder mask kit (qty: 2, labels: ['1845626c-63ee-4933-b9f5-a2b833fb9f7f'])
+2025-11-30 15:49:25 | DEBUG    | server.main:detect_items:339 -   - electronic standoffs (qty: 1, labels: ['1845626c-63ee-4933-b9f5-a2b833fb9f7f'])
+2025-11-30 15:50:41 | INFO     | server.main:merge_items:513 - Merging 2 items
+2025-11-30 15:50:41 | DEBUG    | server.main:merge_items:515 -   - UV curing solder mask kit: Packaged UV curing solder mask kit for protecting 
+2025-11-30 15:50:41 | DEBUG    | server.main:merge_items:515 -   - electronic standoffs: Pack of metal electronic standoffs for mounting ci
+2025-11-30 15:50:42 | INFO     | server.main:merge_items:540 - Calling OpenAI for item merge...
+2025-11-30 15:50:42 | INFO     | homebox_vision.llm:merge_items_with_openai:321 - Merging 2 items with AI
+2025-11-30 15:50:42 | DEBUG    | homebox_vision.llm:merge_items_with_openai:364 - Calling OpenAI API for item merge...
+2025-11-30 15:50:47 | DEBUG    | homebox_vision.llm:merge_items_with_openai:393 - OpenAI merge response: {
+  "name": "UV Curing Solder Mask and Electronic Standoffs Kit",
+  "quantity": 4,
+  "description": "Packaged UV curing solder mask kit for protecting solder joints, along with a pack of metal electronic standoffs for mounting circuit boards or other components.",
+  "labelIds": [
+    "4c9d7b3a-becb-4bfa-afec-3d2900b9c950",
+    "1845626c-63ee-4933-b9f5-a2b833fb9f7f",
+    "f5925f9a-81f8-4e55-8b5d-361caa3f8d37"
+  ]
+}...
+2025-11-30 15:50:47 | INFO     | homebox_vision.llm:merge_items_with_openai:396 - Merge complete: UV Curing Solder Mask and Electronic Standoffs Kit
+2025-11-30 15:50:47 | INFO     | server.main:merge_items:547 - Merge complete: UV Curing Solder Mask and Electronic Standoffs Kit
+2025-11-30 15:50:55 | INFO     | server.main:create_items:363 - Creating 2 items
+2025-11-30 15:50:55 | DEBUG    | server.main:create_items:364 - Request location_id: 59a7e7ad-ef8d-4679-8ba3-21203a93fe77
+2025-11-30 15:50:55 | DEBUG    | server.main:create_items:376 - Creating item: solder
+2025-11-30 15:50:55 | DEBUG    | server.main:create_items:377 -   location_id: 59a7e7ad-ef8d-4679-8ba3-21203a93fe77
+2025-11-30 15:50:55 | DEBUG    | server.main:create_items:378 -   label_ids: ['1845626c-63ee-4933-b9f5-a2b833fb9f7f']
+2025-11-30 15:50:56 | INFO     | server.main:create_items:390 - Created item: solder (id: 71a94421-4689-483f-b72d-d8fcb8202bdf)
+2025-11-30 15:50:56 | DEBUG    | server.main:create_items:376 - Creating item: UV Curing Solder Mask and Electronic Standoffs Kit
+2025-11-30 15:50:56 | DEBUG    | server.main:create_items:377 -   location_id: 59a7e7ad-ef8d-4679-8ba3-21203a93fe77
+2025-11-30 15:50:56 | DEBUG    | server.main:create_items:378 -   label_ids: ['4c9d7b3a-becb-4bfa-afec-3d2900b9c950', '1845626c-63ee-4933-b9f5-a2b833fb9f7f', 'f5925f9a-81f8-4e55-8b5d-361caa3f8d37']
+2025-11-30 15:50:56 | INFO     | server.main:create_items:390 - Created item: UV Curing Solder Mask and Electronic Standoffs Kit (id: 8763c63c-729b-482a-9cdd-bba3eaae2887)
+2025-11-30 15:50:56 | INFO     | server.main:create_items:397 - Item creation complete: 2 created, 0 failed
+2025-11-30 15:55:52 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:55:52 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:55:52 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:55:52 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:56:04 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:56:04 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:56:04 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:56:04 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:56:06 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:56:06 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:56:06 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:56:06 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:56:09 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:56:09 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:56:09 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:56:09 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:56:11 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:56:11 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:56:11 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:56:11 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:56:46 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:56:46 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:56:46 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:56:46 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:56:48 | INFO     | server.main:<module>:47 - Starting Homebox Vision Companion API
+2025-11-30 15:56:48 | INFO     | server.main:<module>:48 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:56:48 | INFO     | server.main:<module>:49 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:56:48 | WARNING  | server.main:<module>:51 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:57:00 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 15:57:00 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:57:00 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:57:00 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:57:59 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 15:57:59 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:57:59 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:57:59 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance

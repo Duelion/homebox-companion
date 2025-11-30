@@ -1,3 +1,29 @@
+Metadata-Version: 2.4
+Name: homebox-vision
+Version: 0.5.0
+Summary: AI-powered companion app for Homebox - detect and catalog household items from photos
+License: MIT
+Project-URL: Repository, https://github.com/yourusername/homebox-vision
+Project-URL: Documentation, https://github.com/yourusername/homebox-vision#readme
+Keywords: homebox,inventory,ai,vision,openai,home-inventory
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Framework :: FastAPI
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Home Automation
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: openai>=2.8.1
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.32.0
+Requires-Dist: python-multipart>=0.0.17
+Requires-Dist: loguru>=0.7.3
+
 # Homebox Vision Companion
 
 🏠📸 **AI-powered item detection for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.**
@@ -50,8 +76,8 @@ export HOMEBOX_VISION_OPENAI_API_KEY="sk-your-api-key-here"
 # Required: Your Homebox API URL
 export HOMEBOX_VISION_API_URL="https://your-homebox.example.com/api/v1"
 
-# Optional: OpenAI model (default: gpt-4.1-mini)
-export HOMEBOX_VISION_OPENAI_MODEL="gpt-4.1-mini"
+# Optional: OpenAI model (default: gpt-4o-mini)
+export HOMEBOX_VISION_OPENAI_MODEL="gpt-4o-mini"
 
 # Optional: Server configuration
 export HOMEBOX_VISION_SERVER_HOST="0.0.0.0"
@@ -90,7 +116,7 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 |----------|----------|---------|-------------|
 | `HOMEBOX_VISION_OPENAI_API_KEY` | ✅ Yes | - | Your OpenAI API key |
 | `HOMEBOX_VISION_API_URL` | ✅ Yes | Demo server | Your Homebox API URL |
-| `HOMEBOX_VISION_OPENAI_MODEL` | No | `gpt-4.1-mini` | OpenAI model for vision |
+| `HOMEBOX_VISION_OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model for vision |
 | `HOMEBOX_VISION_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HOMEBOX_VISION_SERVER_PORT` | No | `8000` | Server port |
 | `HOMEBOX_VISION_LOG_LEVEL` | No | `INFO` | Logging level |

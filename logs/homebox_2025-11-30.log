@@ -169,3 +169,30 @@
 2025-11-30 14:09:54 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
 2025-11-30 14:09:54 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
 2025-11-30 14:09:54 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:10:50 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:10:50 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:10:50 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:14:28 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:14:28 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:14:28 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:14:41 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:14:41 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:14:41 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:14:55 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:14:55 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:14:55 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:14:57 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:14:57 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:14:57 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:15:49 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:15:49 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:15:49 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:15:51 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:15:51 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:15:51 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:16:38 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:16:38 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:16:38 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:16:39 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:16:39 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:16:39 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
