@@ -793,6 +793,50 @@ function renderItemCards() {
                         </div>
                     </div>
                 </div>
+                
+                <!-- Correction Section -->
+                <div class="correction-section">
+                    <button type="button" class="correction-toggle" onclick="toggleCorrectionSection(${index})">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        <span>Correct Detection</span>
+                    </button>
+                    <div class="correction-content" id="correctionContent${index}" style="display: none;">
+                        <p class="correction-hint">
+                            Tell the AI what's wrong with this detection. You can:
+                        </p>
+                        <ul class="correction-examples">
+                            <li>"Actually these are soldering tips, not screws"</li>
+                            <li>"These are two separate items: wire solder and paste solder"</li>
+                            <li>"This is a Fluke 87V multimeter, not a generic meter"</li>
+                        </ul>
+                        <div class="form-group">
+                            <textarea 
+                                id="correctionInput${index}" 
+                                class="correction-input"
+                                placeholder="Describe what's wrong or how to fix the detection..."
+                                rows="3"
+                            ></textarea>
+                        </div>
+                        <div class="correction-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCorrectionSection(${index})">
+                                Cancel
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="handleApplyCorrection(${index})">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span>Apply Correction</span>
+                            </button>
+                        </div>
+                        <div id="correctionLoader${index}" class="loader-inline" style="display: none;">
+                            <div class="loader-spinner small"></div>
+                            <span>AI is analyzing your correction...</span>
+                        </div>
+                    </div>
+                </div>
             </form>
         `;
         
@@ -838,6 +882,124 @@ function toggleAdvancedFields(index) {
     } else {
         content.style.display = 'none';
         arrow.classList.remove('rotated');
+    }
+}
+
+function toggleCorrectionSection(index) {
+    const content = document.getElementById(`correctionContent${index}`);
+    const isVisible = content.style.display !== 'none';
+    content.style.display = isVisible ? 'none' : 'block';
+    
+    // Focus the textarea when opening
+    if (!isVisible) {
+        const textarea = document.getElementById(`correctionInput${index}`);
+        if (textarea) {
+            setTimeout(() => textarea.focus(), 100);
+        }
+    }
+}
+
+async function handleApplyCorrection(index) {
+    const correctionInput = document.getElementById(`correctionInput${index}`);
+    const correctionText = correctionInput?.value.trim();
+    
+    if (!correctionText) {
+        showToast('Please describe what needs to be corrected', 'warning');
+        return;
+    }
+    
+    const item = state.detectedItems[index];
+    const loader = document.getElementById(`correctionLoader${index}`);
+    const content = document.getElementById(`correctionContent${index}`);
+    
+    // Get current values from the form
+    const nameInput = document.getElementById(`itemName${index}`);
+    const quantityInput = document.getElementById(`itemQuantity${index}`);
+    const descriptionInput = document.getElementById(`itemDescription${index}`);
+    
+    const currentItem = {
+        name: nameInput?.value || item.name,
+        quantity: parseInt(quantityInput?.value) || item.quantity || 1,
+        description: descriptionInput?.value || item.description || '',
+    };
+    
+    // Show loader, hide action buttons
+    const actionBtns = content.querySelector('.correction-actions');
+    if (actionBtns) actionBtns.style.display = 'none';
+    if (loader) loader.style.display = 'flex';
+    
+    try {
+        // Prepare form data
+        const formData = new FormData();
+        
+        // Add the original image
+        if (state.capturedImage) {
+            formData.append('image', state.capturedImage);
+        } else {
+            showToast('Original image not available', 'error');
+            return;
+        }
+        
+        formData.append('current_item', JSON.stringify(currentItem));
+        formData.append('correction_instructions', correctionText);
+        
+        const response = await fetch('/api/correct-item', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: formData,
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || 'Correction failed');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.items || data.items.length === 0) {
+            showToast('Correction did not produce any items', 'warning');
+            return;
+        }
+        
+        // Handle the corrected items
+        if (data.items.length === 1) {
+            // Single item - update the current item in place
+            const correctedItem = data.items[0];
+            state.detectedItems[index] = {
+                ...item,
+                name: correctedItem.name,
+                quantity: correctedItem.quantity,
+                description: correctedItem.description || '',
+                label_ids: correctedItem.label_ids || [],
+            };
+            
+            showToast('Item corrected successfully!', 'success');
+        } else {
+            // Multiple items - replace current item with new items
+            const newItems = data.items.map(correctedItem => ({
+                name: correctedItem.name,
+                quantity: correctedItem.quantity,
+                description: correctedItem.description || '',
+                label_ids: correctedItem.label_ids || [],
+                additionalImages: [],
+                advancedFields: {},
+                showAdvanced: false,
+            }));
+            
+            // Remove current item and insert new items at the same position
+            state.detectedItems.splice(index, 1, ...newItems);
+            
+            showToast(`Split into ${data.items.length} separate items!`, 'success');
+        }
+        
+        // Re-render the cards
+        renderItemCards();
+        
+    } catch (error) {
+        showToast(error.message || 'Correction failed', 'error');
+    } finally {
+        if (loader) loader.style.display = 'none';
+        if (actionBtns) actionBtns.style.display = 'flex';
     }
 }
 

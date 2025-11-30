@@ -18,8 +18,8 @@ from homebox_vision import (
     AsyncHomeboxClient,
     DetectedItem,
     analyze_item_details_from_images,
+    correct_item_with_openai,
     detect_items_from_bytes,
-    discriminatory_detect_items,
     encode_image_bytes_to_data_uri,
     merge_items_with_openai,
     settings,
@@ -555,6 +555,122 @@ async def merge_items(
         quantity=merged.get("quantity", sum(item.get("quantity", 1) for item in request.items)),
         description=merged.get("description"),
         label_ids=merged.get("labelIds"),
+    )
+
+
+class CorrectionRequest(BaseModel):
+    """Request to correct an item based on user feedback."""
+
+    current_item: dict
+    correction_instructions: str
+
+
+class CorrectedItemResponse(BaseModel):
+    """A corrected item from AI analysis."""
+
+    name: str
+    quantity: int
+    description: str | None = None
+    label_ids: list[str] | None = None
+
+
+class CorrectionResponse(BaseModel):
+    """Response with corrected item(s)."""
+
+    items: list[CorrectedItemResponse]
+    message: str = "Correction complete"
+
+
+@app.post("/api/correct-item", response_model=CorrectionResponse)
+async def correct_item(
+    image: Annotated[UploadFile, File(description="Original image of the item")],
+    current_item: Annotated[str, Form(description="JSON string of current item")],
+    correction_instructions: Annotated[str, Form(description="User's correction feedback")],
+    authorization: Annotated[str | None, Header()] = None,
+) -> CorrectionResponse:
+    """Correct an item based on user feedback.
+
+    This endpoint allows users to provide feedback about a detected item,
+    such as "actually these are soldering tips, not screws" or
+    "these are two separate items: wire solder and paste solder".
+
+    The AI will re-analyze the image with the user's feedback and return
+    either a single corrected item or multiple items if the user indicated
+    they should be split.
+    """
+    logger.info("Item correction request received")
+    logger.debug(f"Correction instructions: {correction_instructions}")
+
+    get_token(authorization)
+
+    if not settings.openai_api_key:
+        logger.error("HOMEBOX_VISION_OPENAI_API_KEY not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="HOMEBOX_VISION_OPENAI_API_KEY not configured",
+        )
+
+    # Parse current item from JSON string
+    try:
+        import json
+        current_item_dict = json.loads(current_item)
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON for current_item: {e}")
+        raise HTTPException(status_code=400, detail="Invalid current_item JSON") from e
+
+    logger.debug(f"Current item: {current_item_dict}")
+
+    # Read and encode image
+    image_bytes = await image.read()
+    if not image_bytes:
+        logger.warning("Empty image file received")
+        raise HTTPException(status_code=400, detail="Empty image file")
+
+    content_type = image.content_type or "image/jpeg"
+    image_data_uri = encode_image_bytes_to_data_uri(image_bytes, content_type)
+
+    # Fetch labels for context
+    client = get_client()
+    token = get_token(authorization)
+    try:
+        raw_labels = await client.list_labels(token)
+        labels = [
+            {"id": str(label.get("id", "")), "name": str(label.get("name", ""))}
+            for label in raw_labels
+            if label.get("id") and label.get("name")
+        ]
+        logger.debug(f"Loaded {len(labels)} labels for context")
+    except Exception as e:
+        logger.warning(f"Failed to load labels: {e}")
+        labels = []
+
+    # Call the correction function
+    try:
+        logger.info("Starting OpenAI item correction...")
+        corrected_items = correct_item_with_openai(
+            image_data_uri=image_data_uri,
+            current_item=current_item_dict,
+            correction_instructions=correction_instructions,
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
+            labels=labels,
+        )
+        logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
+    except Exception as e:
+        logger.error(f"Item correction failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Correction failed: {e}") from e
+
+    return CorrectionResponse(
+        items=[
+            CorrectedItemResponse(
+                name=item.get("name", "Unknown"),
+                quantity=item.get("quantity", 1),
+                description=item.get("description"),
+                label_ids=item.get("labelIds"),
+            )
+            for item in corrected_items
+        ],
+        message=f"Corrected to {len(corrected_items)} item(s)",
     )
 
 

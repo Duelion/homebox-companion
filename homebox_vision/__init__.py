@@ -13,6 +13,7 @@ from .client import (
 from .config import settings
 from .llm import (
     analyze_item_details_from_images,
+    correct_item_with_openai,
     detect_items_from_bytes,
     detect_items_with_openai,
     discriminatory_detect_items,
@@ -22,7 +23,7 @@ from .llm import (
 )
 from .models import DetectedItem
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     # Configuration
@@ -34,6 +35,7 @@ __all__ = [
     "DetectedItem",
     # LLM utilities
     "analyze_item_details_from_images",
+    "correct_item_with_openai",
     "detect_items_from_bytes",
     "detect_items_with_openai",
     "discriminatory_detect_items",
