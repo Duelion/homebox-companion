@@ -55,7 +55,7 @@ def test_detect_items_with_openai_live() -> None:
             "HOMEBOX_VISION_OPENAI_API_KEY must be set to hit the OpenAI API for live tests."
         )
 
-    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-4.1-mini")
+    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
 
     detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
 

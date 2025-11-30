@@ -50,8 +50,8 @@ export HOMEBOX_VISION_OPENAI_API_KEY="sk-your-api-key-here"
 # Required: Your Homebox API URL
 export HOMEBOX_VISION_API_URL="https://your-homebox.example.com/api/v1"
 
-# Optional: OpenAI model (default: gpt-4.1-mini)
-export HOMEBOX_VISION_OPENAI_MODEL="gpt-4.1-mini"
+# Optional: OpenAI model (default: gpt-5-mini)
+export HOMEBOX_VISION_OPENAI_MODEL="gpt-5-mini"
 
 # Optional: Server configuration
 export HOMEBOX_VISION_SERVER_HOST="0.0.0.0"
@@ -90,7 +90,7 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 |----------|----------|---------|-------------|
 | `HOMEBOX_VISION_OPENAI_API_KEY` | ✅ Yes | - | Your OpenAI API key |
 | `HOMEBOX_VISION_API_URL` | ✅ Yes | Demo server | Your Homebox API URL |
-| `HOMEBOX_VISION_OPENAI_MODEL` | No | `gpt-4.1-mini` | OpenAI model for vision |
+| `HOMEBOX_VISION_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision |
 | `HOMEBOX_VISION_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HOMEBOX_VISION_SERVER_PORT` | No | `8000` | Server port |
 | `HOMEBOX_VISION_LOG_LEVEL` | No | `INFO` | Logging level |

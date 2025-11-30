@@ -6,7 +6,7 @@ clashes with other applications on the same system.
 Environment Variables:
     HOMEBOX_VISION_API_URL: Base URL of your Homebox API (default: demo server)
     HOMEBOX_VISION_OPENAI_API_KEY: Your OpenAI API key for vision detection
-    HOMEBOX_VISION_OPENAI_MODEL: OpenAI model to use (default: gpt-4.1-mini)
+    HOMEBOX_VISION_OPENAI_MODEL: OpenAI model to use (default: gpt-5-mini)
     HOMEBOX_VISION_SERVER_HOST: Host to bind the web server to (default: 0.0.0.0)
     HOMEBOX_VISION_SERVER_PORT: Port for the web server (default: 8000)
     HOMEBOX_VISION_LOG_LEVEL: Logging level (default: INFO)
@@ -40,7 +40,7 @@ class Settings:
         "HOMEBOX_VISION_OPENAI_API_KEY", ""
     ))
     openai_model: str = field(default_factory=lambda: os.environ.get(
-        "HOMEBOX_VISION_OPENAI_MODEL", "gpt-4.1-mini"
+        "HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini"
     ))
 
     # Web server configuration
