@@ -1,4 +1,5 @@
-"""FastAPI backend for the Homebox mobile web app."""
+"""FastAPI backend for the Homebox Vision Companion web app."""
+
 from __future__ import annotations
 
 import os
@@ -13,13 +14,15 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from pydantic import BaseModel
 
-from homebox import (
-    DEMO_BASE_URL,
+from homebox_vision import (
     AsyncHomeboxClient,
     DetectedItem,
     analyze_item_details_from_images,
     detect_items_from_bytes,
+    discriminatory_detect_items,
     encode_image_bytes_to_data_uri,
+    merge_items_with_openai,
+    settings,
 )
 
 # Configure loguru
@@ -31,25 +34,26 @@ logger.add(
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
         "<level>{message}</level>"
     ),
-    level="DEBUG",
+    level=settings.log_level,
     colorize=True,
 )
 logger.add(
-    "logs/homebox_{time:YYYY-MM-DD}.log",
+    "logs/homebox_vision_{time:YYYY-MM-DD}.log",
     rotation="1 day",
     retention="7 days",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     level="DEBUG",
 )
 
-# Configuration
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-HOMEBOX_BASE_URL = os.environ.get("HOMEBOX_BASE_URL", DEMO_BASE_URL)
+logger.info("Starting Homebox Vision Companion API")
+logger.info(f"Homebox API URL: {settings.api_url}")
+logger.info(f"OpenAI Model: {settings.openai_model}")
+if settings.is_demo_mode:
+    logger.warning("Using demo server - set HOMEBOX_VISION_API_URL for your own instance")
 
-logger.info("Starting Homebox Mobile API")
-logger.info(f"Using Homebox API: {HOMEBOX_BASE_URL}")
-logger.info(f"OpenAI Model: {OPENAI_MODEL}")
+# Validate settings on startup
+for issue in settings.validate():
+    logger.warning(issue)
 
 
 # Shared async client for connection pooling
@@ -60,16 +64,16 @@ _homebox_client: AsyncHomeboxClient | None = None
 async def lifespan(app: FastAPI):
     """Manage shared resources across the app lifecycle."""
     global _homebox_client
-    _homebox_client = AsyncHomeboxClient(base_url=HOMEBOX_BASE_URL)
+    _homebox_client = AsyncHomeboxClient(base_url=settings.api_url)
     yield
     if _homebox_client:
         await _homebox_client.aclose()
 
 
 app = FastAPI(
-    title="Homebox Mobile API",
-    description="Backend API for the Homebox mobile web app",
-    version="0.4.0",
+    title="Homebox Vision Companion",
+    description="AI-powered item detection for Homebox inventory management",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -87,8 +91,8 @@ app.add_middleware(
 class LoginRequest(BaseModel):
     """Login credentials."""
 
-    username: str = "demo@example.com"
-    password: str = "demo"
+    username: str
+    password: str
 
 
 class LoginResponse(BaseModel):
@@ -287,11 +291,11 @@ async def detect_items(
     # Validate auth (even though detection doesn't require it, we want logged-in users)
     get_token(authorization)
 
-    if not OPENAI_API_KEY:
-        logger.error("OPENAI_API_KEY not configured")
+    if not settings.openai_api_key:
+        logger.error("HOMEBOX_VISION_OPENAI_API_KEY not configured")
         raise HTTPException(
             status_code=500,
-            detail="OPENAI_API_KEY not configured",
+            detail="HOMEBOX_VISION_OPENAI_API_KEY not configured",
         )
 
     # Read image bytes
@@ -326,9 +330,9 @@ async def detect_items(
         logger.info("Starting OpenAI vision detection...")
         detected = detect_items_from_bytes(
             image_bytes=image_bytes,
-            api_key=OPENAI_API_KEY,
+            api_key=settings.openai_api_key,
             mime_type=content_type,
-            model=OPENAI_MODEL,
+            model=settings.openai_model,
             labels=labels,
         )
         logger.info(f"Detected {len(detected)} items")
@@ -401,8 +405,7 @@ async def create_items(
             "created": created,
             "errors": errors,
             "message": (
-                f"Created {len(created)} items"
-                + (f", {len(errors)} failed" if errors else "")
+                f"Created {len(created)} items" + (f", {len(errors)} failed" if errors else "")
             ),
         },
         status_code=200 if not errors else 207,  # 207 Multi-Status if partial success
@@ -423,9 +426,9 @@ async def analyze_item_advanced(
 
     get_token(authorization)
 
-    if not OPENAI_API_KEY:
-        logger.error("OPENAI_API_KEY not configured")
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+    if not settings.openai_api_key:
+        logger.error("HOMEBOX_VISION_OPENAI_API_KEY not configured")
+        raise HTTPException(status_code=500, detail="HOMEBOX_VISION_OPENAI_API_KEY not configured")
 
     if not images:
         logger.warning("No images provided for analysis")
@@ -463,8 +466,8 @@ async def analyze_item_advanced(
             image_data_uris=image_data_uris,
             item_name=item_name,
             item_description=item_description,
-            api_key=OPENAI_API_KEY,
-            model=OPENAI_MODEL,
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
             labels=labels,
         )
         logger.info("Analysis complete")
@@ -485,6 +488,74 @@ async def analyze_item_advanced(
     )
     logger.debug(f"Returning: {result}")
     return result
+
+
+class MergeItemsRequest(BaseModel):
+    """Request to merge multiple items into one."""
+
+    items: list[dict]
+
+
+class MergedItemResponse(BaseModel):
+    """Response with merged item data."""
+
+    name: str
+    quantity: int
+    description: str | None = None
+    label_ids: list[str] | None = None
+
+
+@app.post("/api/merge-items", response_model=MergedItemResponse)
+async def merge_items(
+    request: MergeItemsRequest,
+    authorization: Annotated[str | None, Header()] = None,
+) -> MergedItemResponse:
+    """Merge multiple items into a single consolidated item using AI."""
+    logger.info(f"Merging {len(request.items)} items")
+    for item in request.items:
+        logger.debug(f"  - {item.get('name')}: {item.get('description', '')[:50]}")
+
+    get_token(authorization)
+
+    if not settings.openai_api_key:
+        logger.error("HOMEBOX_VISION_OPENAI_API_KEY not configured")
+        raise HTTPException(status_code=500, detail="HOMEBOX_VISION_OPENAI_API_KEY not configured")
+
+    if len(request.items) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 items are required to merge")
+
+    # Fetch labels for context
+    client = get_client()
+    token = get_token(authorization)
+    try:
+        raw_labels = await client.list_labels(token)
+        labels = [
+            {"id": str(label.get("id", "")), "name": str(label.get("name", ""))}
+            for label in raw_labels
+            if label.get("id") and label.get("name")
+        ]
+    except Exception:
+        labels = []
+
+    try:
+        logger.info("Calling OpenAI for item merge...")
+        merged = merge_items_with_openai(
+            items=request.items,
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
+            labels=labels,
+        )
+        logger.info(f"Merge complete: {merged.get('name')}")
+    except Exception as e:
+        logger.error(f"Merge failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Merge failed: {e}") from e
+
+    return MergedItemResponse(
+        name=merged.get("name", "Merged Item"),
+        quantity=merged.get("quantity", sum(item.get("quantity", 1) for item in request.items)),
+        description=merged.get("description"),
+        label_ids=merged.get("labelIds"),
+    )
 
 
 @app.post("/api/items/{item_id}/attachments")
@@ -533,8 +604,16 @@ async def serve_index() -> FileResponse:
     raise HTTPException(status_code=404, detail="Frontend not found")
 
 
-if __name__ == "__main__":
+def run():
+    """Entry point for the homebox-vision CLI command."""
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host=settings.server_host,
+        port=settings.server_port,
+    )
 
+
+if __name__ == "__main__":
+    run()

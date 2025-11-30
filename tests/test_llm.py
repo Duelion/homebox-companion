@@ -8,8 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from homebox.llm import detect_items_with_openai, encode_image_to_data_uri
-from homebox.models import DetectedItem
+from homebox_vision import DetectedItem, detect_items_with_openai, encode_image_to_data_uri
 
 IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "output.txt"
@@ -21,7 +20,7 @@ def test_encode_image_to_data_uri_round_trip() -> None:
     prefix = "data:image/jpg;base64,"
     assert uri.startswith(prefix)
 
-    encoded = uri[len(prefix) :]
+    encoded = uri[len(prefix):]
     assert base64.b64decode(encoded) == IMAGE_PATH.read_bytes()
 
 
@@ -50,11 +49,13 @@ def test_detected_item_from_raw_items_handles_invalid_entries() -> None:
 
 @pytest.mark.integration
 def test_detect_items_with_openai_live() -> None:
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("HOMEBOX_VISION_OPENAI_API_KEY")
     if not api_key:
-        pytest.skip("OPENAI_API_KEY must be set to hit the OpenAI API for live tests.")
+        pytest.skip(
+            "HOMEBOX_VISION_OPENAI_API_KEY must be set to hit the OpenAI API for live tests."
+        )
 
-    model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-4.1-mini")
 
     detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
 

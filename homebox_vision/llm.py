@@ -1,0 +1,524 @@
+"""LLM utilities for extracting Homebox items from images.
+
+This module provides functions to analyze images using OpenAI's vision
+models and extract structured item data suitable for Homebox.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+from pathlib import Path
+
+from loguru import logger
+from openai import OpenAI
+
+from .config import settings
+from .models import DetectedItem
+
+
+def encode_image_to_data_uri(image_path: Path) -> str:
+    """Read an image file and return a data URI for OpenAI's vision API.
+
+    Args:
+        image_path: Path to the image file.
+
+    Returns:
+        A data URI string (e.g., "data:image/jpeg;base64,...").
+    """
+    suffix = image_path.suffix.lower().lstrip(".") or "jpeg"
+    payload = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    return f"data:image/{suffix};base64,{payload}"
+
+
+def encode_image_bytes_to_data_uri(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+    """Encode raw image bytes to a data URI for OpenAI's vision API.
+
+    Args:
+        image_bytes: Raw image data.
+        mime_type: MIME type of the image.
+
+    Returns:
+        A data URI string.
+    """
+    suffix = mime_type.split("/")[-1] if "/" in mime_type else "jpeg"
+    payload = base64.b64encode(image_bytes).decode("ascii")
+    return f"data:image/{suffix};base64,{payload}"
+
+
+def detect_items_with_openai(
+    image_path: Path,
+    api_key: str | None = None,
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+) -> list[DetectedItem]:
+    """Use an OpenAI vision model to detect items in an image file.
+
+    Args:
+        image_path: Path to the image to analyze.
+        api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
+        model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
+        labels: Optional list of Homebox labels to suggest for items.
+
+    Returns:
+        List of detected items with quantities and descriptions.
+    """
+    data_uri = encode_image_to_data_uri(image_path)
+    return _detect_items_from_data_uri(
+        data_uri,
+        api_key or settings.openai_api_key,
+        model or settings.openai_model,
+        labels,
+    )
+
+
+def detect_items_from_bytes(
+    image_bytes: bytes,
+    api_key: str | None = None,
+    mime_type: str = "image/jpeg",
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+) -> list[DetectedItem]:
+    """Use an OpenAI vision model to detect items from raw image bytes.
+
+    Args:
+        image_bytes: Raw image data.
+        api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
+        mime_type: MIME type of the image.
+        model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
+        labels: Optional list of Homebox labels to suggest for items.
+
+    Returns:
+        List of detected items with quantities and descriptions.
+    """
+    data_uri = encode_image_bytes_to_data_uri(image_bytes, mime_type)
+    return _detect_items_from_data_uri(
+        data_uri,
+        api_key or settings.openai_api_key,
+        model or settings.openai_model,
+        labels,
+    )
+
+
+def _detect_items_from_data_uri(
+    data_uri: str,
+    api_key: str,
+    model: str,
+    labels: list[dict[str, str]] | None = None,
+) -> list[DetectedItem]:
+    """Core detection logic using a data URI."""
+    logger.debug(f"Starting item detection with model: {model}")
+
+    if labels is None:
+        labels = []
+
+    label_prompt = (
+        "No labels are available; omit labelIds."
+        if not labels
+        else "IMPORTANT: You MUST assign appropriate labelIds from this list to each item. "
+        "Select all labels that apply to each item. Available labels:\n"
+        + "\n".join(f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id"))
+    )
+
+    logger.debug(f"Labels provided: {len(labels)}")
+
+    client = OpenAI(api_key=api_key)
+    logger.debug("Calling OpenAI API...")
+
+    completion = client.chat.completions.create(
+        model=model,
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an inventory assistant for the Homebox API. "
+                    "Return a single JSON object with an `items` array. Each item must "
+                    "include: `name` (<=255 characters), integer `quantity` (>=1), "
+                    "`description` (<=1000 characters) summarizing condition or "
+                    "notable attributes, and `labelIds` (array of label IDs that match). "
+                    "Combine identical objects into a single entry with the correct quantity. "
+                    "Do not add extra commentary. Ignore background elements (floors, walls, "
+                    "benches, shelves, packaging, shadows) and only count objects that are "
+                    "the clear focus of the image.\n\n" + label_prompt
+                ),
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "List all distinct items that are the logical focus of this image "
+                            "and ignore background objects or incidental surfaces. "
+                            "For each item, include labelIds with matching label IDs. "
+                            "Return only JSON. Example: "
+                            '{"items":[{"name":"hammer","quantity":2,'
+                            '"description":"Steel claw hammer","labelIds":["id1"]}]}.'
+                        ),
+                    },
+                    {"type": "image_url", "image_url": {"url": data_uri}},
+                ],
+            },
+        ],
+    )
+    message = completion.choices[0].message
+    raw_content = message.content or "{}"
+    logger.debug(f"OpenAI response: {raw_content[:500]}...")
+
+    parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
+    items = DetectedItem.from_raw_items(parsed_content.get("items", []))
+
+    logger.info(f"Detected {len(items)} items")
+    for item in items:
+        logger.debug(f"  Item: {item.name}, qty: {item.quantity}, labels: {item.label_ids}")
+
+    return items
+
+
+def analyze_item_details_from_images(
+    image_data_uris: list[str],
+    item_name: str,
+    item_description: str | None,
+    api_key: str | None = None,
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+) -> dict:
+    """Analyze multiple images of an item to extract detailed information.
+
+    This function takes multiple images of the same item and uses AI to
+    extract as much detail as possible, including serial numbers, model
+    numbers, manufacturer, etc.
+
+    Args:
+        image_data_uris: List of data URI strings for each image.
+        item_name: The name of the item being analyzed.
+        item_description: Optional initial description of the item.
+        api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
+        model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
+        labels: Optional list of Homebox labels to suggest.
+
+    Returns:
+        Dictionary with extracted fields: name, description, serialNumber,
+        modelNumber, manufacturer, purchasePrice, notes, labelIds.
+    """
+    api_key = api_key or settings.openai_api_key
+    model = model or settings.openai_model
+
+    logger.info(f"Analyzing {len(image_data_uris)} images for item: {item_name}")
+    logger.debug(f"Item description: {item_description}")
+
+    if labels is None:
+        labels = []
+
+    logger.debug(f"Available labels: {len(labels)}")
+
+    label_prompt = (
+        "No labels are available; omit labelIds."
+        if not labels
+        else (
+            "IMPORTANT: Assign appropriate labelIds from this list.\n"
+            "Available labels:\n"
+            + "\n".join(
+                f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id")
+            )
+        )
+    )
+
+    # Build image content for the message
+    image_content = []
+    for data_uri in image_data_uris:
+        image_content.append({"type": "image_url", "image_url": {"url": data_uri}})
+
+    logger.debug("Calling OpenAI API for advanced analysis...")
+    client = OpenAI(api_key=api_key)
+    completion = client.chat.completions.create(
+        model=model,
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an inventory assistant analyzing images of an item to extract "
+                    "detailed information for the Homebox inventory system. The user has "
+                    f"identified this item as: '{item_name}'"
+                    + (f" with description: '{item_description}'" if item_description else "")
+                    + ".\n\n"
+                    "Analyze ALL provided images carefully. Look for:\n"
+                    "- Serial numbers (on labels, stickers, engravings)\n"
+                    "- Model numbers (on product labels, packaging)\n"
+                    "- Manufacturer/brand name\n"
+                    "- Any visible price tags or receipts\n"
+                    "- Warranty information (stickers, cards)\n"
+                    "- Condition notes (scratches, wear, damage)\n"
+                    "- Any other relevant details\n\n"
+                    "Return a single JSON object with these fields (omit fields you cannot "
+                    "determine, use null for truly unknown values):\n"
+                    "- name: string (improved name if you can determine a more specific one)\n"
+                    "- description: string (detailed description based on all images)\n"
+                    "- serialNumber: string or null\n"
+                    "- modelNumber: string or null\n"
+                    "- manufacturer: string or null\n"
+                    "- purchasePrice: number or null (in local currency, just the number)\n"
+                    "- notes: string (any additional observations)\n"
+                    "- labelIds: array of label IDs that apply\n\n"
+                    "Available labels:\n" + label_prompt
+                ),
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Analyze these images of the item and extract as much detail as "
+                            "possible. Look carefully at all angles, labels, and markings. "
+                            "Return only JSON with the fields described."
+                        ),
+                    },
+                    *image_content,
+                ],
+            },
+        ],
+    )
+    message = completion.choices[0].message
+    raw_content = message.content or "{}"
+    logger.debug(f"OpenAI response: {raw_content[:500]}...")
+
+    parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
+    logger.info(f"Advanced analysis complete. Fields found: {list(parsed_content.keys())}")
+    logger.debug(f"Full result: {parsed_content}")
+
+    return parsed_content
+
+
+def merge_items_with_openai(
+    items: list[dict],
+    image_data_uris: list[str] | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+) -> dict:
+    """Merge multiple similar items into a single consolidated item using AI.
+
+    This function takes multiple items (e.g., different grit sandpapers) and
+    uses AI to create a single merged item with an appropriate name, combined
+    quantity, and merged description.
+
+    Args:
+        items: List of item dictionaries with name, quantity, description fields.
+        image_data_uris: Optional list of image data URIs for context.
+        api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
+        model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
+        labels: Optional list of Homebox labels to suggest.
+
+    Returns:
+        Dictionary with merged item fields: name, quantity, description, labelIds.
+    """
+    api_key = api_key or settings.openai_api_key
+    model = model or settings.openai_model
+
+    logger.info(f"Merging {len(items)} items with AI")
+
+    if labels is None:
+        labels = []
+
+    # Format items for the prompt
+    items_text = "\n".join(
+        f"- {item.get('name', 'Unknown')} (qty: {item.get('quantity', 1)}): "
+        f"{item.get('description', 'No description')}"
+        for item in items
+    )
+
+    label_prompt = (
+        "No labels are available; omit labelIds."
+        if not labels
+        else (
+            "Assign appropriate labelIds from this list:\n"
+            + "\n".join(
+                f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id")
+            )
+        )
+    )
+
+    # Build message content
+    content = [
+        {
+            "type": "text",
+            "text": (
+                f"Merge these {len(items)} items into a single consolidated inventory item:\n\n"
+                f"{items_text}\n\n"
+                "Create a single item that represents all of these. For example, if merging "
+                "'80 grit sandpaper', '120 grit sandpaper', '220 grit sandpaper', you might create "
+                "'Sandpaper Assortment (80/120/220 grit)' with combined quantity.\n\n"
+                "Return only JSON with the merged item."
+            ),
+        }
+    ]
+
+    # Add images if provided
+    if image_data_uris:
+        for data_uri in image_data_uris:
+            content.append({"type": "image_url", "image_url": {"url": data_uri}})
+
+    logger.debug("Calling OpenAI API for item merge...")
+    client = OpenAI(api_key=api_key)
+    completion = client.chat.completions.create(
+        model=model,
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an inventory assistant helping to merge multiple similar items "
+                    "into a single consolidated inventory entry. Create a sensible merged item "
+                    "that represents all the input items.\n\n"
+                    "Return a single JSON object with:\n"
+                    "- name: string (consolidated name for all items, <=255 chars)\n"
+                    "- quantity: integer (total combined quantity)\n"
+                    "- description: string (merged description with all variants, <=1000 chars)\n"
+                    "- labelIds: array of label IDs that apply to the merged item\n\n"
+                    + label_prompt
+                ),
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
+        ],
+    )
+
+    message = completion.choices[0].message
+    raw_content = message.content or "{}"
+    logger.debug(f"OpenAI merge response: {raw_content[:500]}...")
+
+    parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
+    logger.info(f"Merge complete: {parsed_content.get('name', 'Unknown')}")
+
+    return parsed_content
+
+
+def discriminatory_detect_items(
+    image_data_uris: list[str],
+    previous_merged_item: dict | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+) -> list[DetectedItem]:
+    """Re-detect items from images with more discriminatory instructions.
+
+    This function is used when a user "unmerges" items - it re-analyzes
+    the images with specific instructions to be more discriminatory and
+    separate items that might have been grouped together previously.
+
+    Args:
+        image_data_uris: List of data URI strings for each image.
+        previous_merged_item: The previously merged item dict for context.
+        api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
+        model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
+        labels: Optional list of Homebox labels to suggest for items.
+
+    Returns:
+        List of detected items, ideally more specific/separated than before.
+    """
+    api_key = api_key or settings.openai_api_key
+    model = model or settings.openai_model
+
+    logger.info(f"Discriminatory detection with {len(image_data_uris)} images")
+
+    if labels is None:
+        labels = []
+
+    label_prompt = (
+        "No labels are available; omit labelIds."
+        if not labels
+        else (
+            "IMPORTANT: Assign appropriate labelIds from this list to each item:\n"
+            + "\n".join(
+                f"- {label['name']} (id: {label['id']})"
+                for label in labels
+                if label.get("id")
+            )
+        )
+    )
+
+    # Context about what was previously detected
+    context = ""
+    if previous_merged_item:
+        context = (
+            f"\n\nPreviously, these items were grouped as: "
+            f"'{previous_merged_item.get('name', 'unknown')}' "
+            f"(qty: {previous_merged_item.get('quantity', 1)}). "
+            f"Description: {previous_merged_item.get('description', 'N/A')}.\n"
+            "The user believes these should be SEPARATE items. "
+            "Please look more carefully and identify distinct items."
+        )
+
+    # Build message content with images
+    content: list[dict] = [
+        {
+            "type": "text",
+            "text": (
+                "Please carefully examine these images and identify ALL DISTINCT items. "
+                "Be MORE DISCRIMINATORY than usual - if items look similar but have "
+                "differences (like different sizes, colors, brands, models, grits, etc.), "
+                "list them as SEPARATE items.\n\n"
+                "For example:\n"
+                "- Different grit sandpapers → separate entries for each grit\n"
+                "- Different sized screws → separate entries for each size\n"
+                "- Different colored items → separate entries for each color\n"
+                "- Different brands → separate entries for each brand\n\n"
+                "Be specific in names and descriptions. Include distinguishing "
+                "characteristics like size, color, brand, model number, etc."
+                + context
+                + "\n\nReturn only JSON."
+            ),
+        }
+    ]
+
+    # Add all images
+    for data_uri in image_data_uris:
+        content.append({"type": "image_url", "image_url": {"url": data_uri}})
+
+    logger.debug("Calling OpenAI API for discriminatory detection...")
+    client = OpenAI(api_key=api_key)
+    completion = client.chat.completions.create(
+        model=model,
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an inventory assistant for the Homebox API. Your task is to "
+                    "identify items with MAXIMUM SPECIFICITY. Do NOT group similar items "
+                    "together - instead, list each distinct variant separately.\n\n"
+                    "Return a JSON object with an `items` array. Each item must include:\n"
+                    "- name: string (be specific - include size, color, brand, model, etc.)\n"
+                    "- quantity: integer (count of THIS SPECIFIC variant)\n"
+                    "- description: string (detailed description with distinguishing features)\n"
+                    "- labelIds: array of matching label IDs\n\n"
+                    "Be thorough. If you see 3 sandpapers of different grits, that's 3 "
+                    "separate items. If you see 5 screws of 2 sizes, that's 2 separate items.\n\n"
+                    + label_prompt
+                ),
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
+        ],
+    )
+
+    message = completion.choices[0].message
+    raw_content = message.content or "{}"
+    logger.debug(f"OpenAI discriminatory response: {raw_content[:500]}...")
+
+    parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
+    items = DetectedItem.from_raw_items(parsed_content.get("items", []))
+
+    logger.info(f"Discriminatory detection found {len(items)} items")
+    for item in items:
+        logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
+
+    return items
+

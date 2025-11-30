@@ -21,6 +21,9 @@ const state = {
     confirmedItems: [],
     currentItemIndex: 0,
     originalImageDataUrl: null, // Base64 of original detection image
+    // Merge state
+    isMergeReview: false,    // Whether we're reviewing a merged item
+    mergedItemImages: [],    // Images from items being merged
 };
 
 // ========================================
@@ -235,10 +238,15 @@ function handleLogout() {
     state.detectedItems = [];
     state.confirmedItems = [];
     
-    // Reset location UI
+    // Reset location UI completely
     elements.selectedLocationDisplay.style.display = 'none';
     elements.selectCurrentLocationBtn.style.display = 'none';
     elements.continueToCapture.disabled = true;
+    
+    // Reset location list and breadcrumb visibility (they get hidden when a location is selected)
+    elements.locationList.style.display = 'flex';
+    elements.locationBreadcrumb.style.display = 'flex';
+    elements.locationList.innerHTML = '';  // Clear the list
     
     showSection('loginSection');
     showToast('Logged out successfully', 'info');
@@ -1155,15 +1163,36 @@ function handleConfirmItem() {
     const purchaseFrom = document.getElementById(`itemPurchaseFrom${index}`)?.value.trim() || null;
     const notes = document.getElementById(`itemNotes${index}`)?.value.trim() || null;
     
-    // Collect images to upload (original + additional)
+    // Collect images to upload (original + additional) with dataUrls for preview
     const imagesToUpload = [];
-    if (state.capturedImage) {
-        imagesToUpload.push({ file: state.capturedImage, isPrimary: true });
-    }
-    if (item.additionalImages && item.additionalImages.length > 0) {
-        item.additionalImages.forEach(img => {
-            imagesToUpload.push({ file: img.file, isPrimary: false });
+    
+    // In merge review mode, use the merged images
+    if (state.isMergeReview && state.mergedItemImages) {
+        state.mergedItemImages.forEach(img => {
+            imagesToUpload.push({
+                file: img.file,
+                dataUrl: img.dataUrl,
+                isPrimary: false,
+            });
         });
+    } else {
+        if (state.capturedImage) {
+            imagesToUpload.push({ 
+                file: state.capturedImage, 
+                isPrimary: true,
+                dataUrl: state.originalImageDataUrl,
+                isOriginal: true
+            });
+        }
+        if (item.additionalImages && item.additionalImages.length > 0) {
+            item.additionalImages.forEach(img => {
+                imagesToUpload.push({ 
+                    file: img.file, 
+                    isPrimary: false,
+                    dataUrl: img.dataUrl
+                });
+            });
+        }
     }
     
     // Get selected labels from checkboxes
@@ -1182,6 +1211,8 @@ function handleConfirmItem() {
         purchase_from: purchaseFrom,
         notes: notes,
         images: imagesToUpload,
+        coverImageDataUrl: null, // Will be set if user crops an image
+        selectedImageIndex: 0,   // Index of selected image for cover
     };
     
     state.confirmedItems.push(confirmedItem);
@@ -1191,6 +1222,18 @@ function handleConfirmItem() {
 }
 
 function moveToNextOrSummary() {
+    // Handle merge review mode differently
+    if (state.isMergeReview) {
+        // Merged item confirmed, go back to summary
+        state.isMergeReview = false;
+        state.detectedItems = [];
+        state.currentItemIndex = 0;
+        renderSummary();
+        showSection('summarySection');
+        showToast('Merged item added!', 'success');
+        return;
+    }
+    
     if (state.currentItemIndex < state.detectedItems.length - 1) {
         state.currentItemIndex++;
         updateItemNavigation();
@@ -1211,24 +1254,540 @@ function moveToNextOrSummary() {
 // Summary
 // ========================================
 
+// Track selected items for merging
+let selectedItemIndices = new Set();
+
 function renderSummary() {
     elements.summarySubtitle.textContent = `${state.confirmedItems.length} item(s) ready to submit`;
     elements.summaryLocation.textContent = state.selectedLocationPath || state.selectedLocationName || 'Unknown';
     
     elements.summaryList.innerHTML = '';
+    selectedItemIndices.clear();
+    updateSelectionToolbar();
     
     state.confirmedItems.forEach((item, index) => {
         const div = document.createElement('div');
         div.className = 'summary-item';
+        div.dataset.index = index;
+        
+        // Get the cover image (cropped version if available, otherwise first image)
+        const coverImage = item.coverImageDataUrl || 
+            (item.images && item.images.length > 0 ? item.images[0].dataUrl : null) ||
+            state.originalImageDataUrl;
+        
         div.innerHTML = `
+            <label class="summary-item-checkbox">
+                <input type="checkbox" data-index="${index}" onchange="handleItemCheckboxChange(${index}, this.checked)">
+                <span class="checkbox-custom">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </span>
+            </label>
+            <div class="summary-item-image" data-index="${index}" onclick="handleSummaryImageClick(${index})">
+                ${coverImage 
+                    ? `<img src="${coverImage}" alt="${escapeHtml(item.name)}">`
+                    : `<div class="image-placeholder">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                       </div>`
+                }
+            </div>
             <div class="summary-item-info">
                 <span class="summary-item-name">${escapeHtml(item.name)}</span>
                 ${item.description ? `<span class="summary-item-meta">${escapeHtml(item.description.substring(0, 50))}${item.description.length > 50 ? '...' : ''}</span>` : ''}
             </div>
-            <span class="summary-item-quantity">×${item.quantity}</span>
+            <div class="summary-item-actions">
+                <span class="summary-item-quantity">×${item.quantity}</span>
+                <button type="button" class="btn-edit" onclick="handleEditItem(${index})" title="Edit item">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button>
+            </div>
         `;
         elements.summaryList.appendChild(div);
     });
+}
+
+function handleItemCheckboxChange(index, checked) {
+    if (checked) {
+        selectedItemIndices.add(index);
+    } else {
+        selectedItemIndices.delete(index);
+    }
+    
+    // Update visual state
+    const item = document.querySelector(`.summary-item[data-index="${index}"]`);
+    if (item) {
+        item.classList.toggle('selected', checked);
+    }
+    
+    updateSelectionToolbar();
+}
+
+function updateSelectionToolbar() {
+    const toolbar = document.getElementById('selectionToolbar');
+    const countSpan = document.getElementById('selectionCount');
+    const mergeBtn = document.getElementById('mergeSelectedBtn');
+    
+    const count = selectedItemIndices.size;
+    
+    if (count > 0) {
+        toolbar.style.display = 'flex';
+        countSpan.textContent = `${count} selected`;
+        mergeBtn.disabled = count < 2;
+    } else {
+        toolbar.style.display = 'none';
+    }
+}
+
+function clearItemSelection() {
+    selectedItemIndices.clear();
+    
+    // Uncheck all checkboxes
+    document.querySelectorAll('.summary-item-checkbox input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    document.querySelectorAll('.summary-item.selected').forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    updateSelectionToolbar();
+}
+
+async function handleMergeSelected() {
+    if (selectedItemIndices.size < 2) {
+        showToast('Select at least 2 items to merge', 'warning');
+        return;
+    }
+    
+    const indices = Array.from(selectedItemIndices).sort((a, b) => a - b);
+    const itemsToMerge = indices.map(i => state.confirmedItems[i]);
+    
+    // Show loader
+    document.getElementById('mergeLoader').style.display = 'flex';
+    document.getElementById('mergeSelectedBtn').disabled = true;
+    
+    try {
+        // Call merge API
+        const response = await apiRequest('/api/merge-items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: itemsToMerge.map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    description: item.description,
+                })),
+            }),
+        });
+        
+        // Collect all images from merged items
+        const mergedImages = [];
+        itemsToMerge.forEach(item => {
+            if (item.images) {
+                item.images.forEach(img => {
+                    mergedImages.push({
+                        file: img.file,
+                        dataUrl: img.dataUrl,
+                        isPrimary: false,
+                    });
+                });
+            }
+            // Preserve cover image selections
+            if (item.coverImageDataUrl) {
+                mergedImages.unshift({
+                    dataUrl: item.coverImageDataUrl,
+                    isCover: true,
+                });
+            }
+        });
+        
+        // Create merged item for review
+        const mergedItem = {
+            name: response.name,
+            quantity: response.quantity,
+            description: response.description,
+            label_ids: response.label_ids,
+            additionalImages: [],
+            advancedFields: {},
+            showAdvanced: false,
+            // Store original items for reference
+            _mergedFrom: indices,
+            _mergedImages: mergedImages,
+        };
+        
+        // Remove the original items from confirmed (in reverse order to maintain indices)
+        for (let i = indices.length - 1; i >= 0; i--) {
+            state.confirmedItems.splice(indices[i], 1);
+        }
+        
+        // Add merged item to detected items for review
+        state.detectedItems = [mergedItem];
+        state.currentItemIndex = 0;
+        state.isMergeReview = true;
+        state.mergedItemImages = mergedImages;
+        
+        // Go to review section for the merged item
+        renderItemCards();
+        showSection('reviewSection');
+        showToast('Items merged! Review the combined item.', 'success');
+        
+    } catch (error) {
+        showToast(error.message || 'Failed to merge items', 'error');
+    } finally {
+        document.getElementById('mergeLoader').style.display = 'none';
+        document.getElementById('mergeSelectedBtn').disabled = false;
+    }
+}
+
+// ========================================
+// Edit Item Modal
+// ========================================
+
+let editingItemIndex = null;
+let selectedImageIndex = 0;
+
+function handleEditItem(index) {
+    editingItemIndex = index;
+    const item = state.confirmedItems[index];
+    
+    // Populate form fields
+    document.getElementById('editItemName').value = item.name || '';
+    document.getElementById('editItemQuantity').value = item.quantity || 1;
+    document.getElementById('editItemDescription').value = item.description || '';
+    
+    // Set up image gallery
+    renderEditImageGallery(item);
+    
+    // Update preview image
+    updateEditPreviewImage(item);
+    
+    // Show modal
+    document.getElementById('editItemModal').style.display = 'flex';
+}
+
+function renderEditImageGallery(item) {
+    const gallery = document.getElementById('editImageGallery');
+    const allImages = getAllItemImages(item);
+    
+    if (allImages.length === 0) {
+        gallery.innerHTML = '<span style="color: var(--text-muted); font-size: 0.875rem;">No images available</span>';
+        return;
+    }
+    
+    gallery.innerHTML = allImages.map((img, index) => `
+        <div class="edit-image-gallery-item ${index === (item.selectedImageIndex || 0) ? 'selected' : ''}" 
+             data-index="${index}" 
+             onclick="handleGalleryImageSelect(${index})">
+            <img src="${img.dataUrl}" alt="Image ${index + 1}">
+            <div class="crop-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path>
+                    <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path>
+                </svg>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getAllItemImages(item) {
+    const images = [];
+    
+    // Add original image if available
+    if (state.originalImageDataUrl) {
+        images.push({ 
+            dataUrl: state.originalImageDataUrl, 
+            file: state.capturedImage,
+            isOriginal: true 
+        });
+    }
+    
+    // Add any additional images
+    if (item.images && item.images.length > 0) {
+        item.images.forEach((img, idx) => {
+            // Avoid duplicates with original
+            if (!img.isOriginal || !state.originalImageDataUrl) {
+                if (img.dataUrl) {
+                    images.push(img);
+                } else if (img.file) {
+                    // Generate data URL if not present
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        img.dataUrl = e.target.result;
+                    };
+                    reader.readAsDataURL(img.file);
+                }
+            }
+        });
+    }
+    
+    return images;
+}
+
+function updateEditPreviewImage(item) {
+    const previewImg = document.getElementById('editPreviewImg');
+    const allImages = getAllItemImages(item);
+    
+    if (item.coverImageDataUrl) {
+        previewImg.src = item.coverImageDataUrl;
+    } else if (allImages.length > 0) {
+        const selectedIdx = item.selectedImageIndex || 0;
+        previewImg.src = allImages[selectedIdx]?.dataUrl || allImages[0].dataUrl;
+    } else {
+        previewImg.src = '';
+    }
+}
+
+function handleGalleryImageSelect(index) {
+    selectedImageIndex = index;
+    const item = state.confirmedItems[editingItemIndex];
+    item.selectedImageIndex = index;
+    
+    // Update selected state in gallery
+    document.querySelectorAll('.edit-image-gallery-item').forEach((el, i) => {
+        el.classList.toggle('selected', i === index);
+    });
+    
+    // Open cropper for this image
+    openImageCropper(index);
+}
+
+function handleSummaryImageClick(index) {
+    // Open edit modal with focus on image
+    handleEditItem(index);
+}
+
+function closeEditModal() {
+    document.getElementById('editItemModal').style.display = 'none';
+    editingItemIndex = null;
+}
+
+function saveEditChanges() {
+    if (editingItemIndex === null) return;
+    
+    const item = state.confirmedItems[editingItemIndex];
+    
+    // Update item with form values
+    item.name = document.getElementById('editItemName').value.trim();
+    item.quantity = parseInt(document.getElementById('editItemQuantity').value) || 1;
+    item.description = document.getElementById('editItemDescription').value.trim();
+    
+    // Re-render summary
+    renderSummary();
+    closeEditModal();
+    showToast('Item updated', 'success');
+}
+
+// ========================================
+// Image Cropper
+// ========================================
+
+let cropperState = {
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    imageDataUrl: null,
+    imageIndex: null,
+};
+
+function openImageCropper(imageIndex) {
+    const item = state.confirmedItems[editingItemIndex];
+    const allImages = getAllItemImages(item);
+    
+    if (!allImages[imageIndex]) return;
+    
+    cropperState = {
+        scale: 1,
+        translateX: 0,
+        translateY: 0,
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        imageDataUrl: allImages[imageIndex].dataUrl,
+        imageIndex: imageIndex,
+    };
+    
+    const cropperImage = document.getElementById('cropperImage');
+    cropperImage.src = cropperState.imageDataUrl;
+    cropperImage.style.transform = `translate(${cropperState.translateX}px, ${cropperState.translateY}px) scale(${cropperState.scale})`;
+    
+    // Reset zoom slider
+    document.getElementById('zoomSlider').value = 100;
+    
+    // Show cropper modal
+    document.getElementById('imageCropperModal').style.display = 'flex';
+    
+    // Initialize cropper interactions
+    initCropperInteractions();
+}
+
+function initCropperInteractions() {
+    const wrapper = document.getElementById('cropperImageWrapper');
+    const image = document.getElementById('cropperImage');
+    
+    // Remove existing listeners
+    wrapper.onpointerdown = null;
+    wrapper.onpointermove = null;
+    wrapper.onpointerup = null;
+    wrapper.onwheel = null;
+    
+    // Pointer/touch handling for drag
+    wrapper.onpointerdown = (e) => {
+        e.preventDefault();
+        cropperState.isDragging = true;
+        cropperState.startX = e.clientX - cropperState.translateX;
+        cropperState.startY = e.clientY - cropperState.translateY;
+        wrapper.setPointerCapture(e.pointerId);
+    };
+    
+    wrapper.onpointermove = (e) => {
+        if (!cropperState.isDragging) return;
+        e.preventDefault();
+        
+        cropperState.translateX = e.clientX - cropperState.startX;
+        cropperState.translateY = e.clientY - cropperState.startY;
+        
+        updateCropperTransform();
+    };
+    
+    wrapper.onpointerup = (e) => {
+        cropperState.isDragging = false;
+        wrapper.releasePointerCapture(e.pointerId);
+    };
+    
+    // Mouse wheel for zoom
+    wrapper.onwheel = (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        cropperState.scale = Math.max(0.5, Math.min(3, cropperState.scale + delta));
+        document.getElementById('zoomSlider').value = cropperState.scale * 100;
+        updateCropperTransform();
+    };
+    
+    // Touch pinch-to-zoom
+    let initialDistance = 0;
+    let initialScale = 1;
+    
+    wrapper.ontouchstart = (e) => {
+        if (e.touches.length === 2) {
+            initialDistance = getDistance(e.touches[0], e.touches[1]);
+            initialScale = cropperState.scale;
+        }
+    };
+    
+    wrapper.ontouchmove = (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const currentDistance = getDistance(e.touches[0], e.touches[1]);
+            const scaleFactor = currentDistance / initialDistance;
+            cropperState.scale = Math.max(0.5, Math.min(3, initialScale * scaleFactor));
+            document.getElementById('zoomSlider').value = cropperState.scale * 100;
+            updateCropperTransform();
+        }
+    };
+}
+
+function getDistance(touch1, touch2) {
+    return Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+}
+
+function updateCropperTransform() {
+    const image = document.getElementById('cropperImage');
+    image.style.transform = `translate(${cropperState.translateX}px, ${cropperState.translateY}px) scale(${cropperState.scale})`;
+}
+
+function handleZoomIn() {
+    cropperState.scale = Math.min(3, cropperState.scale + 0.2);
+    document.getElementById('zoomSlider').value = cropperState.scale * 100;
+    updateCropperTransform();
+}
+
+function handleZoomOut() {
+    cropperState.scale = Math.max(0.5, cropperState.scale - 0.2);
+    document.getElementById('zoomSlider').value = cropperState.scale * 100;
+    updateCropperTransform();
+}
+
+function handleZoomSlider(e) {
+    cropperState.scale = e.target.value / 100;
+    updateCropperTransform();
+}
+
+function closeCropperModal() {
+    document.getElementById('imageCropperModal').style.display = 'none';
+}
+
+function applyCrop() {
+    const container = document.getElementById('cropperContainer');
+    const image = document.getElementById('cropperImage');
+    const frame = document.getElementById('cropperFrame');
+    
+    // Get dimensions
+    const containerRect = container.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    
+    // Create canvas for cropped image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set output size (square)
+    const outputSize = 256;
+    canvas.width = outputSize;
+    canvas.height = outputSize;
+    
+    // Create temp image to get natural dimensions
+    const tempImg = new Image();
+    tempImg.onload = () => {
+        // Calculate the visible area of the image
+        const imageRect = image.getBoundingClientRect();
+        
+        // Calculate scale between displayed and natural image
+        const displayScale = tempImg.naturalWidth / imageRect.width;
+        
+        // Calculate crop area in natural image coordinates
+        const cropX = (frameRect.left - imageRect.left) * displayScale;
+        const cropY = (frameRect.top - imageRect.top) * displayScale;
+        const cropWidth = frameRect.width * displayScale;
+        const cropHeight = frameRect.height * displayScale;
+        
+        // Draw cropped portion to canvas
+        ctx.drawImage(
+            tempImg,
+            cropX, cropY, cropWidth, cropHeight,
+            0, 0, outputSize, outputSize
+        );
+        
+        // Get data URL of cropped image
+        const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        
+        // Save to item
+        if (editingItemIndex !== null) {
+            const item = state.confirmedItems[editingItemIndex];
+            item.coverImageDataUrl = croppedDataUrl;
+            item.selectedImageIndex = cropperState.imageIndex;
+            
+            // Update preview in edit modal
+            updateEditPreviewImage(item);
+            
+            // Update gallery selection
+            document.querySelectorAll('.edit-image-gallery-item').forEach((el, i) => {
+                el.classList.toggle('selected', i === cropperState.imageIndex);
+            });
+        }
+        
+        closeCropperModal();
+        showToast('Image cropped', 'success');
+    };
+    tempImg.src = cropperState.imageDataUrl;
 }
 
 function handleAddMore() {
@@ -1336,7 +1895,23 @@ function handleStartOver() {
     state.confirmedItems = [];
     state.detectedItems = [];
     resetCaptureState();
-    showSection('captureSection');
+    
+    // Go back to location selection, but keep the last selected location
+    // This allows the user to either continue with the same location or navigate elsewhere
+    if (state.selectedLocationId) {
+        // Show location list and breadcrumb so user can navigate further if desired
+        elements.locationList.style.display = 'flex';
+        elements.locationBreadcrumb.style.display = 'flex';
+        
+        // Re-render the current location level so user can navigate to sub-locations
+        renderLocationLevel();
+        
+        // Keep the selected location display visible
+        elements.selectedLocationDisplay.style.display = 'flex';
+        elements.continueToCapture.disabled = false;
+    }
+    
+    showSection('locationSection');
 }
 
 function resetCaptureState() {
@@ -1388,6 +1963,45 @@ function initEventListeners() {
     
     // Success
     elements.startOverBtn.addEventListener('click', handleStartOver);
+    
+    // Merge functionality
+    document.getElementById('mergeSelectedBtn').addEventListener('click', handleMergeSelected);
+    document.getElementById('clearSelectionBtn').addEventListener('click', clearItemSelection);
+    
+    // Edit Item Modal
+    document.getElementById('closeEditModal').addEventListener('click', closeEditModal);
+    document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
+    document.getElementById('saveEditBtn').addEventListener('click', saveEditChanges);
+    document.getElementById('changeImageBtn').addEventListener('click', () => {
+        // Open cropper with first image if available
+        if (editingItemIndex !== null) {
+            const item = state.confirmedItems[editingItemIndex];
+            const allImages = getAllItemImages(item);
+            if (allImages.length > 0) {
+                openImageCropper(item.selectedImageIndex || 0);
+            }
+        }
+    });
+    
+    // Image Cropper Modal
+    document.getElementById('closeCropperModal').addEventListener('click', closeCropperModal);
+    document.getElementById('cancelCropBtn').addEventListener('click', closeCropperModal);
+    document.getElementById('applyCropBtn').addEventListener('click', applyCrop);
+    document.getElementById('zoomInBtn').addEventListener('click', handleZoomIn);
+    document.getElementById('zoomOutBtn').addEventListener('click', handleZoomOut);
+    document.getElementById('zoomSlider').addEventListener('input', handleZoomSlider);
+    
+    // Close modals on overlay click
+    document.getElementById('editItemModal').addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) {
+            closeEditModal();
+        }
+    });
+    document.getElementById('imageCropperModal').addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) {
+            closeCropperModal();
+        }
+    });
 }
 
 // ========================================

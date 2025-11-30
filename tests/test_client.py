@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from homebox import HomeboxClient
+from homebox_vision import HomeboxClient
 
 
 class MockTransport(httpx.BaseTransport):

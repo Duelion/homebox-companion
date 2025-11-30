@@ -8,19 +8,19 @@ from pprint import pformat
 
 import pytest
 
-from homebox import DetectedItem, HomeboxDemoClient, detect_items_with_openai
+from homebox_vision import DetectedItem, HomeboxClient, detect_items_with_openai
 
 IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 
 
 @pytest.mark.integration
 @pytest.mark.skipif(
-    "OPENAI_API_KEY" not in os.environ,
-    reason="OPENAI_API_KEY must be set to hit the OpenAI API for integration tests.",
+    "HOMEBOX_VISION_OPENAI_API_KEY" not in os.environ,
+    reason="HOMEBOX_VISION_OPENAI_API_KEY must be set for integration tests.",
 )
 def test_detect_items_with_openai_returns_items() -> None:
-    api_key = os.environ["OPENAI_API_KEY"]
-    model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+    api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
+    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-4.1-mini")
 
     detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
 
@@ -40,9 +40,10 @@ def test_detect_items_with_openai_returns_items() -> None:
 
 @pytest.mark.integration
 def test_create_item_in_demo_environment() -> None:
-    client = HomeboxDemoClient()
+    # Use demo server for testing
+    client = HomeboxClient(base_url="https://demo.homebox.software/api/v1")
 
-    token = client.login()
+    token = client.login("demo@example.com", "demo")
     locations = client.list_locations(token)
     assert locations, "The demo API should return at least one location."
 
@@ -50,7 +51,7 @@ def test_create_item_in_demo_environment() -> None:
     item = DetectedItem(
         name=f"Integration item {datetime.now(UTC).isoformat(timespec='seconds')}",
         quantity=1,
-        description="Created via integration test for the Homebox demo API.",
+        description="Created via integration test for the Homebox Vision Companion.",
         location_id=location_id,
     )
 
@@ -64,18 +65,19 @@ def test_create_item_in_demo_environment() -> None:
 
 @pytest.mark.integration
 @pytest.mark.skipif(
-    "OPENAI_API_KEY" not in os.environ,
-    reason="OPENAI_API_KEY must be set to hit the OpenAI API for integration tests.",
+    "HOMEBOX_VISION_OPENAI_API_KEY" not in os.environ,
+    reason="HOMEBOX_VISION_OPENAI_API_KEY must be set for integration tests.",
 )
 def test_detect_and_create_items_from_image() -> None:
-    api_key = os.environ["OPENAI_API_KEY"]
-    model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+    api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
+    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-4.1-mini")
 
     detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
     assert detected_items, "Expected at least one detected item to create."
 
-    client = HomeboxDemoClient()
-    token = client.login()
+    # Use demo server for testing
+    client = HomeboxClient(base_url="https://demo.homebox.software/api/v1")
+    token = client.login("demo@example.com", "demo")
     locations = client.list_locations(token)
     assert locations, "The demo API should return at least one location."
 
