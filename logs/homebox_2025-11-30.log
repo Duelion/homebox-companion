@@ -1,0 +1,171 @@
+2025-11-30 14:01:32 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:01:32 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:01:32 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:01:55 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:01:55 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:01:55 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:02:04 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:02:04 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:02:04 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:02:18 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:02:18 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:02:18 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:02:25 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:02:25 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:02:25 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:02:34 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:02:34 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:02:34 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:03:06 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:03:06 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:03:06 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:03:27 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:03:27 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:03:27 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:03:42 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:03:42 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:03:42 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:03:52 | INFO     | server.main:<module>:46 - Starting Homebox Mobile API
+2025-11-30 14:03:52 | INFO     | server.main:<module>:47 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:03:52 | INFO     | server.main:<module>:48 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:03:58 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:03:58 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:03:58 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:04:04 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:04:04 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:04:04 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:04:11 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:04:11 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:04:11 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:04:37 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:04:37 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:04:37 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:05:00 | INFO     | server.main:login:182 - Login attempt for user: fsozale@gmail.com
+2025-11-30 14:05:00 | INFO     | server.main:login:186 - Login successful for user: fsozale@gmail.com
+2025-11-30 14:05:10 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:05:10 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:05:10 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:05:17 | INFO     | server.main:detect_items:285 - Detecting items from image: Untitled.jpg
+2025-11-30 14:05:17 | DEBUG    | server.main:detect_items:303 - Image size: 207212 bytes
+2025-11-30 14:05:17 | DEBUG    | server.main:detect_items:307 - Content type: image/jpeg
+2025-11-30 14:05:17 | WARNING  | server.main:detect_items:321 - Failed to load labels: Fetch labels failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 14:05:17 | INFO     | server.main:detect_items:326 - Starting OpenAI vision detection...
+2025-11-30 14:05:17 | DEBUG    | homebox.llm:_detect_items_from_data_uri:60 - Starting item detection with model: gpt-4o-mini
+2025-11-30 14:05:17 | DEBUG    | homebox.llm:_detect_items_from_data_uri:76 - Labels provided: 0
+2025-11-30 14:05:17 | DEBUG    | homebox.llm:_detect_items_from_data_uri:79 - Calling OpenAI API...
+2025-11-30 14:05:23 | DEBUG    | homebox.llm:_detect_items_from_data_uri:120 - OpenAI response: {
+  "items": [
+    {
+      "name": "Super Lube Multi-Use Synthetic Oil",
+      "quantity": 1,
+      "description": "32 fl oz (946.35 ml) of multi-use synthetic oil with Syncolon (PTFE), suitable for use in various applications.",
+      "labelIds": []
+    },
+    {
+      "name": "Super Lube Multi-Purpose Synthetic Grease",
+      "quantity": 1,
+      "description": "Synthetic grease for heavy-duty applications with Syncolon (PTFE), NSF registered.",
+      "labelIds": []
+    }
+  ]
+}...
+2025-11-30 14:05:23 | INFO     | homebox.llm:_detect_items_from_data_uri:125 - Detected 2 items
+2025-11-30 14:05:23 | DEBUG    | homebox.llm:_detect_items_from_data_uri:127 -   Item: Super Lube Multi-Use Synthetic Oil, qty: 1, labels: None
+2025-11-30 14:05:23 | DEBUG    | homebox.llm:_detect_items_from_data_uri:127 -   Item: Super Lube Multi-Purpose Synthetic Grease, qty: 1, labels: None
+2025-11-30 14:05:23 | INFO     | server.main:detect_items:334 - Detected 2 items
+2025-11-30 14:05:23 | DEBUG    | server.main:detect_items:336 -   - Super Lube Multi-Use Synthetic Oil (qty: 1, labels: None)
+2025-11-30 14:05:23 | DEBUG    | server.main:detect_items:336 -   - Super Lube Multi-Purpose Synthetic Grease (qty: 1, labels: None)
+2025-11-30 14:05:31 | INFO     | server.main:analyze_item_advanced:405 - Advanced analysis for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:05:31 | DEBUG    | server.main:analyze_item_advanced:406 - Description: 32 fl oz (946.35 ml) of multi-use synthetic oil with Syncolon (PTFE), suitable for use in various applications.
+2025-11-30 14:05:31 | DEBUG    | server.main:analyze_item_advanced:407 - Number of images: 2
+2025-11-30 14:05:32 | INFO     | server.main:analyze_item_advanced:446 - Analyzing 2 images with OpenAI...
+2025-11-30 14:05:32 | INFO     | homebox.llm:analyze_item_details_from_images:195 - Analyzing 2 images for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:05:32 | DEBUG    | homebox.llm:analyze_item_details_from_images:196 - Item description: 32 fl oz (946.35 ml) of multi-use synthetic oil with Syncolon (PTFE), suitable for use in various applications.
+2025-11-30 14:05:32 | DEBUG    | homebox.llm:analyze_item_details_from_images:201 - Available labels: 0
+2025-11-30 14:05:32 | DEBUG    | homebox.llm:analyze_item_details_from_images:222 - Calling OpenAI API for advanced analysis...
+2025-11-30 14:05:38 | DEBUG    | homebox.llm:analyze_item_details_from_images:275 - OpenAI response: {
+  "name": "Super Lube Multi-Use Synthetic Oil",
+  "description": "32 fl oz (946.35 ml) of multi-use synthetic oil with Syncolon (PTFE), ISO 100. Suitable for use in various applications, including those requiring dielectric and food-grade properties.",
+  "serialNumber": null,
+  "modelNumber": "51030",
+  "manufacturer": "Super Lube",
+  "purchasePrice": 22.60,
+  "notes": "The product is labeled as high viscosity and translucent white. It is NSF registered and meets former USDA (H1) guidelines fo...
+2025-11-30 14:05:38 | INFO     | homebox.llm:analyze_item_details_from_images:278 - Advanced analysis complete. Fields found: ['name', 'description', 'serialNumber', 'modelNumber', 'manufacturer', 'purchasePrice', 'notes', 'labelIds']
+2025-11-30 14:05:38 | DEBUG    | homebox.llm:analyze_item_details_from_images:279 - Full result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 fl oz (946.35 ml) of multi-use synthetic oil with Syncolon (PTFE), ISO 100. Suitable for use in various applications, including those requiring dielectric and food-grade properties.', 'serialNumber': None, 'modelNumber': '51030', 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'The product is labeled as high viscosity and translucent white. It is NSF registered and meets former USDA (H1) guidelines for food-grade applications.', 'labelIds': []}
+2025-11-30 14:05:38 | INFO     | server.main:analyze_item_advanced:455 - Analysis complete
+2025-11-30 14:05:38 | DEBUG    | server.main:analyze_item_advanced:456 - Analysis result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 fl oz (946.35 ml) of multi-use synthetic oil with Syncolon (PTFE), ISO 100. Suitable for use in various applications, including those requiring dielectric and food-grade properties.', 'serialNumber': None, 'modelNumber': '51030', 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'The product is labeled as high viscosity and translucent white. It is NSF registered and meets former USDA (H1) guidelines for food-grade applications.', 'labelIds': []}
+2025-11-30 14:05:38 | DEBUG    | server.main:analyze_item_advanced:471 - Returning: name='Super Lube Multi-Use Synthetic Oil' description='32 fl oz (946.35 ml) of multi-use synthetic oil with Syncolon (PTFE), ISO 100. Suitable for use in various applications, including those requiring dielectric and food-grade properties.' serial_number=None model_number='51030' manufacturer='Super Lube' purchase_price=22.6 notes='The product is labeled as high viscosity and translucent white. It is NSF registered and meets former USDA (H1) guidelines for food-grade applications.' label_ids=[]
+2025-11-30 14:07:30 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:07:30 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:07:30 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:08:01 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:08:01 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:08:01 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini
+2025-11-30 14:08:10 | INFO     | server.main:login:182 - Login attempt for user: demo@example.com
+2025-11-30 14:08:10 | WARNING  | server.main:login:189 - Login failed for user demo@example.com: Login failed with 500: invalid username or password
+2025-11-30 14:08:28 | INFO     | server.main:login:182 - Login attempt for user: fsozale@gmail.com
+2025-11-30 14:08:29 | INFO     | server.main:login:186 - Login successful for user: fsozale@gmail.com
+2025-11-30 14:08:42 | INFO     | server.main:detect_items:285 - Detecting items from image: Untitled.jpg
+2025-11-30 14:08:42 | DEBUG    | server.main:detect_items:303 - Image size: 207212 bytes
+2025-11-30 14:08:42 | DEBUG    | server.main:detect_items:307 - Content type: image/jpeg
+2025-11-30 14:08:42 | DEBUG    | server.main:detect_items:319 - Loaded 6 labels for context
+2025-11-30 14:08:42 | INFO     | server.main:detect_items:326 - Starting OpenAI vision detection...
+2025-11-30 14:08:42 | DEBUG    | homebox.llm:_detect_items_from_data_uri:60 - Starting item detection with model: gpt-4o-mini
+2025-11-30 14:08:42 | DEBUG    | homebox.llm:_detect_items_from_data_uri:76 - Labels provided: 6
+2025-11-30 14:08:42 | DEBUG    | homebox.llm:_detect_items_from_data_uri:79 - Calling OpenAI API...
+2025-11-30 14:08:50 | DEBUG    | homebox.llm:_detect_items_from_data_uri:120 - OpenAI response: {
+  "items": [
+    {
+      "name": "Super Lube Multi-Use Synthetic Oil",
+      "quantity": 1,
+      "description": "32 fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), suitable for dielectric use and food grade.",
+      "labelIds": ["e3c3a585-757e-416c-b449-e15ff21fdfbf", "04ef96e7-1b53-4b35-9c01-e1637650ff1f"]
+    },
+    {
+      "name": "Super Lube Multi-Purpose Synthetic Grease",
+      "quantity": 1,
+      "description": "Synthetic grease in a tube, contains Syncolon (PTFE), registered NS...
+2025-11-30 14:08:50 | INFO     | homebox.llm:_detect_items_from_data_uri:125 - Detected 2 items
+2025-11-30 14:08:50 | DEBUG    | homebox.llm:_detect_items_from_data_uri:127 -   Item: Super Lube Multi-Use Synthetic Oil, qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf', '04ef96e7-1b53-4b35-9c01-e1637650ff1f']
+2025-11-30 14:08:50 | DEBUG    | homebox.llm:_detect_items_from_data_uri:127 -   Item: Super Lube Multi-Purpose Synthetic Grease, qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf', '04ef96e7-1b53-4b35-9c01-e1637650ff1f']
+2025-11-30 14:08:50 | INFO     | server.main:detect_items:334 - Detected 2 items
+2025-11-30 14:08:50 | DEBUG    | server.main:detect_items:336 -   - Super Lube Multi-Use Synthetic Oil (qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf', '04ef96e7-1b53-4b35-9c01-e1637650ff1f'])
+2025-11-30 14:08:50 | DEBUG    | server.main:detect_items:336 -   - Super Lube Multi-Purpose Synthetic Grease (qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf', '04ef96e7-1b53-4b35-9c01-e1637650ff1f'])
+2025-11-30 14:08:59 | INFO     | server.main:analyze_item_advanced:420 - Advanced analysis for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:08:59 | DEBUG    | server.main:analyze_item_advanced:421 - Description: 32 fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), suitable for dielectric use and food grade.
+2025-11-30 14:08:59 | DEBUG    | server.main:analyze_item_advanced:422 - Number of images: 2
+2025-11-30 14:08:59 | INFO     | server.main:analyze_item_advanced:461 - Analyzing 2 images with OpenAI...
+2025-11-30 14:08:59 | INFO     | homebox.llm:analyze_item_details_from_images:195 - Analyzing 2 images for item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:08:59 | DEBUG    | homebox.llm:analyze_item_details_from_images:196 - Item description: 32 fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), suitable for dielectric use and food grade.
+2025-11-30 14:08:59 | DEBUG    | homebox.llm:analyze_item_details_from_images:201 - Available labels: 6
+2025-11-30 14:08:59 | DEBUG    | homebox.llm:analyze_item_details_from_images:222 - Calling OpenAI API for advanced analysis...
+2025-11-30 14:09:05 | DEBUG    | homebox.llm:analyze_item_details_from_images:275 - OpenAI response: {
+  "name": "Super Lube Multi-Use Synthetic Oil",
+  "description": "32 fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), suitable for dielectric use and food grade. Product is registered with NSF for H1 guidelines.",
+  "serialNumber": "51030",
+  "modelNumber": null,
+  "manufacturer": "Super Lube",
+  "purchasePrice": 22.60,
+  "notes": "Product is in a clear bottle, labeled with multiple use information and suited for high viscosity applications.",
+  "labelIds": [
+    "e3c3a585-757e-416c-b449-...
+2025-11-30 14:09:05 | INFO     | homebox.llm:analyze_item_details_from_images:278 - Advanced analysis complete. Fields found: ['name', 'description', 'serialNumber', 'modelNumber', 'manufacturer', 'purchasePrice', 'notes', 'labelIds']
+2025-11-30 14:09:05 | DEBUG    | homebox.llm:analyze_item_details_from_images:279 - Full result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), suitable for dielectric use and food grade. Product is registered with NSF for H1 guidelines.', 'serialNumber': '51030', 'modelNumber': None, 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'Product is in a clear bottle, labeled with multiple use information and suited for high viscosity applications.', 'labelIds': ['e3c3a585-757e-416c-b449-e15ff21fdfbf']}
+2025-11-30 14:09:05 | INFO     | server.main:analyze_item_advanced:470 - Analysis complete
+2025-11-30 14:09:05 | DEBUG    | server.main:analyze_item_advanced:471 - Analysis result: {'name': 'Super Lube Multi-Use Synthetic Oil', 'description': '32 fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), suitable for dielectric use and food grade. Product is registered with NSF for H1 guidelines.', 'serialNumber': '51030', 'modelNumber': None, 'manufacturer': 'Super Lube', 'purchasePrice': 22.6, 'notes': 'Product is in a clear bottle, labeled with multiple use information and suited for high viscosity applications.', 'labelIds': ['e3c3a585-757e-416c-b449-e15ff21fdfbf']}
+2025-11-30 14:09:05 | DEBUG    | server.main:analyze_item_advanced:486 - Returning: name='Super Lube Multi-Use Synthetic Oil' description='32 fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), suitable for dielectric use and food grade. Product is registered with NSF for H1 guidelines.' serial_number='51030' model_number=None manufacturer='Super Lube' purchase_price=22.6 notes='Product is in a clear bottle, labeled with multiple use information and suited for high viscosity applications.' label_ids=['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 14:09:17 | INFO     | server.main:create_items:360 - Creating 2 items
+2025-11-30 14:09:17 | DEBUG    | server.main:create_items:361 - Request location_id: 4e895d2c-dfbd-4cce-b777-f204fcc2199b
+2025-11-30 14:09:17 | DEBUG    | server.main:create_items:373 - Creating item: Super Lube Multi-Use Synthetic Oil
+2025-11-30 14:09:17 | DEBUG    | server.main:create_items:374 -   location_id: 4e895d2c-dfbd-4cce-b777-f204fcc2199b
+2025-11-30 14:09:17 | DEBUG    | server.main:create_items:375 -   label_ids: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 14:09:18 | INFO     | server.main:create_items:387 - Created item: Super Lube Multi-Use Synthetic Oil (id: cbfd44fc-6b2f-40d0-8494-5ce9a67eb13d)
+2025-11-30 14:09:18 | DEBUG    | server.main:create_items:373 - Creating item: Super Lube Multi-Purpose Synthetic Grease
+2025-11-30 14:09:18 | DEBUG    | server.main:create_items:374 -   location_id: 4e895d2c-dfbd-4cce-b777-f204fcc2199b
+2025-11-30 14:09:18 | DEBUG    | server.main:create_items:375 -   label_ids: ['04ef96e7-1b53-4b35-9c01-e1637650ff1f', 'e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 14:09:18 | INFO     | server.main:create_items:387 - Created item: Super Lube Multi-Purpose Synthetic Grease (id: ec1d989f-8fa7-46b2-b861-2e9c5b0fb646)
+2025-11-30 14:09:18 | INFO     | server.main:create_items:394 - Item creation complete: 2 created, 0 failed
+2025-11-30 14:09:54 | INFO     | server.main:<module>:50 - Starting Homebox Mobile API
+2025-11-30 14:09:54 | INFO     | server.main:<module>:51 - Using Homebox API: https://homebox.duelion.com/api/v1
+2025-11-30 14:09:54 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-4o-mini

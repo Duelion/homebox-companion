@@ -8,6 +8,7 @@ from .client import (
     HomeboxDemoClient,
 )
 from .llm import (
+    analyze_item_details_from_images,
     detect_items_from_bytes,
     detect_items_with_openai,
     encode_image_bytes_to_data_uri,
@@ -25,6 +26,7 @@ __all__ = [
     "DetectedItem",
     "HomeboxClient",
     "HomeboxDemoClient",
+    "analyze_item_details_from_images",
     "detect_items_from_bytes",
     "detect_items_with_openai",
     "encode_image_bytes_to_data_uri",
