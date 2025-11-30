@@ -21,7 +21,7 @@ def encode_image_to_data_uri(image_path: Path) -> str:
 def detect_items_with_openai(
     image_path: Path,
     api_key: str,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5-mini",
 ) -> list[DetectedItem]:
     """Use an OpenAI vision model to detect items and quantities in an image."""
 
@@ -30,7 +30,6 @@ def detect_items_with_openai(
     completion = client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
-        temperature=0,
         messages=[
             {
                 "role": "system",
@@ -40,7 +39,10 @@ def detect_items_with_openai(
                     "include: `name` (<=255 characters), integer `quantity` (>=1), and "
                     "optional `description` (<=1000 characters) summarizing condition or "
                     "notable attributes. Combine identical objects into a single entry "
-                    "with the correct quantity. Do not add extra commentary."
+                    "with the correct quantity. Do not add extra commentary. Ignore "
+                    "background elements (floors, walls, benches, shelves, packaging, "
+                    "labels, shadows) and only count objects that are the clear focus of "
+                    "the image."
                 ),
             },
             {
@@ -49,8 +51,9 @@ def detect_items_with_openai(
                     {
                         "type": "text",
                         "text": (
-                            "List all distinct items visible in this image. Return only JSON. "
-                            "Example format: {\"items\":[{\"name\":\"hammer\",\"quantity\":2,"
+                            "List all distinct items that are the logical focus of this image "
+                            "and ignore background objects or incidental surfaces. Return only "
+                            "JSON. Example format: {\"items\":[{\"name\":\"hammer\",\"quantity\":2,"
                             "\"description\":\"Steel head with wooden handle\"}]}."
                         ),
                     },
