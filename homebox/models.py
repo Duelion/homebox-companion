@@ -57,12 +57,24 @@ class DetectedItem:
             except (TypeError, ValueError):
                 quantity = 1
 
+            raw_label_ids = item.get("labelIds") or item.get("label_ids")
+            label_ids: list[str] | None = None
+            if isinstance(raw_label_ids, Iterable) and not isinstance(raw_label_ids, (str, bytes)):
+                label_ids = [
+                    str(label_id).strip()
+                    for label_id in raw_label_ids
+                    if str(label_id).strip()
+                ]
+                if not label_ids:
+                    label_ids = None
+
             description = item.get("description")
             detected.append(
                 DetectedItem(
                     name=name,
-                    quantity=quantity,
+                    quantity=max(quantity, 1),
                     description=description,
+                    label_ids=label_ids,
                 )
             )
         return detected
