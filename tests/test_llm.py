@@ -27,9 +27,14 @@ def test_encode_image_to_data_uri_round_trip() -> None:
 
 def test_detected_item_from_raw_items_handles_invalid_entries() -> None:
     raw_items = [
-        {"name": "   box  ", "quantity": "3", "description": "Cardboard"},
+        {
+            "name": "   box  ",
+            "quantity": "3",
+            "description": "Cardboard",
+            "labelIds": ["abc123", ""],
+        },
         {"name": "", "quantity": 2},
-        {"name": "Shelf", "quantity": "invalid"},
+        {"name": "Shelf", "quantity": "invalid", "label_ids": [123]},
     ]
 
     detected = DetectedItem.from_raw_items(raw_items)
@@ -37,8 +42,10 @@ def test_detected_item_from_raw_items_handles_invalid_entries() -> None:
     assert len(detected) == 2
     assert detected[0].name == "box"
     assert detected[0].quantity == 3
+    assert detected[0].label_ids == ["abc123"]
     assert detected[1].name == "Shelf"
     assert detected[1].quantity == 1
+    assert detected[1].label_ids == ["123"]
 
 
 @pytest.mark.integration
