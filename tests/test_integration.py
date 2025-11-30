@@ -60,3 +60,40 @@ def test_create_item_in_demo_environment() -> None:
     created = created_items[0]
     assert created.get("id"), "Created item response should include an ID."
     assert created.get("name", "").startswith("Integration item")
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    "OPENAI_API_KEY" not in os.environ,
+    reason="OPENAI_API_KEY must be set to hit the OpenAI API for integration tests.",
+)
+def test_detect_and_create_items_from_image() -> None:
+    api_key = os.environ["OPENAI_API_KEY"]
+    model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+
+    detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
+    assert detected_items, "Expected at least one detected item to create."
+
+    client = HomeboxDemoClient()
+    token = client.login()
+    locations = client.list_locations(token)
+    assert locations, "The demo API should return at least one location."
+
+    location_id = locations[0]["id"]
+    items_to_create = [
+        DetectedItem(
+            name=item.name,
+            quantity=item.quantity,
+            description=item.description,
+            location_id=location_id,
+            label_ids=item.label_ids,
+        )
+        for item in detected_items[:2]
+    ]
+
+    created_items = client.create_items(token, items_to_create)
+
+    assert len(created_items) == len(items_to_create)
+    for created in created_items:
+        assert created.get("id"), "Created item response should include an ID."
+        assert created.get("locationId") == location_id
