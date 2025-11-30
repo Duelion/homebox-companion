@@ -1,0 +1,24 @@
+name: Deploy to homelab
+
+on:
+  push:
+    branches: [ main ]   # change if you deploy from another branch
+
+jobs:
+  deploy:
+    runs-on: self-hosted   # uses your LXC runner
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Deploy into /home/homebox/homebox-app
+        run: |
+          cd /home/homebox/homebox-app
+          git fetch origin
+          git reset --hard origin/main
+          /home/homebox/homebox-app/.venv/bin/pip install -r requirements.txt
+
+      - name: Restart HomeBox service
+        run: |
+          sudo systemctl restart homebox.service
