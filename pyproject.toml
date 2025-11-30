@@ -19,6 +19,7 @@ include = ["homebox*"]
 
 [dependency-groups]
 dev = [
+    "pytest>=9.0.1",
     "ruff>=0.14.7",
 ]
 
@@ -34,4 +35,9 @@ select = [
     "B",
     "UP",
     "I",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that hit the real Homebox demo API and OpenAI API.",
 ]
