@@ -113,8 +113,33 @@ with homebox.Session() as hb:
         labels=["tools", "garage"],  # or pass Label objects
     )
 
-    # Update an item
-    updated = hb.update_item("item-id", name="New Name", quantity=5)
+    # Update an item (with typed parameters)
+    updated = hb.update_item(
+        "item-id",
+        name="New Name",
+        quantity=5,
+        description="Updated description",
+    )
+
+    # Update purchase info
+    hb.update_item(
+        "item-id",
+        purchase_from="Amazon",
+        purchase_price=29.99,
+        purchase_time="2024-01-15",
+    )
+
+    # Update warranty info
+    hb.update_item(
+        "item-id",
+        lifetime_warranty=False,
+        warranty_expires="2026-01-15",
+        warranty_details="2-year manufacturer warranty",
+    )
+
+    # Archive/unarchive items
+    hb.archive_item("item-id")
+    hb.unarchive_item("item-id")
 
     # Delete an item
     hb.delete_item("item-id")

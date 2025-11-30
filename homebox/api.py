@@ -13,6 +13,7 @@ Example:
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -66,6 +67,17 @@ class HomeboxError(Exception):
 
 class AuthenticationError(HomeboxError):
     """Raised when authentication fails."""
+
+
+def _to_iso_string(value: str | date | datetime | None) -> str | None:
+    """Convert a date/datetime to ISO string format."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
 
 
 class Session:
@@ -370,24 +382,204 @@ class Session:
             created.append(self.create_item(item))
         return created
 
-    def update_item(self, item_id: str, **updates: Any) -> Item:
+    def update_item(
+        self,
+        item_id: str,
+        *,
+        # Basic info
+        name: str | None = None,
+        description: str | None = None,
+        quantity: int | None = None,
+        # Organization
+        location: str | Location | None = None,
+        labels: Iterable[str | Label] | None = None,
+        parent: str | Item | None = None,
+        # Status flags
+        archived: bool | None = None,
+        insured: bool | None = None,
+        # Identification
+        asset_id: str | None = None,
+        serial_number: str | None = None,
+        model_number: str | None = None,
+        manufacturer: str | None = None,
+        # Purchase info
+        purchase_from: str | None = None,
+        purchase_price: float | None = None,
+        purchase_time: str | date | datetime | None = None,
+        # Sale info
+        sold_to: str | None = None,
+        sold_price: float | None = None,
+        sold_time: str | date | datetime | None = None,
+        sold_notes: str | None = None,
+        # Warranty
+        lifetime_warranty: bool | None = None,
+        warranty_expires: str | date | datetime | None = None,
+        warranty_details: str | None = None,
+        # Extras
+        notes: str | None = None,
+        fields: list[dict[str, Any]] | None = None,
+        # Sync
+        sync_child_locations: bool | None = None,
+    ) -> Item:
         """Update an existing item.
+
+        Only the provided fields will be updated. All parameters are optional.
 
         Args:
             item_id: The item ID to update.
-            **updates: Fields to update (name, quantity, description, etc.).
+
+            name: Item name (1-255 characters).
+            description: Item description (max 1000 characters).
+            quantity: Number of items.
+
+            location: New location (ID or Location object).
+            labels: New labels (list of IDs or Label objects).
+            parent: Parent item (ID or Item object).
+
+            archived: Whether the item is archived.
+            insured: Whether the item is insured.
+
+            asset_id: Custom asset identifier.
+            serial_number: Serial number.
+            model_number: Model number.
+            manufacturer: Manufacturer name.
+
+            purchase_from: Where the item was purchased.
+            purchase_price: Purchase price.
+            purchase_time: Purchase date/time.
+
+            sold_to: Who the item was sold to.
+            sold_price: Sale price.
+            sold_time: Sale date/time.
+            sold_notes: Notes about the sale.
+
+            lifetime_warranty: Whether item has lifetime warranty.
+            warranty_expires: Warranty expiration date.
+            warranty_details: Warranty details/notes.
+
+            notes: Additional notes.
+            fields: Custom fields (list of field dicts).
+            sync_child_locations: Sync location to child items.
 
         Returns:
             The updated Item.
 
         Example:
-            >>> updated = hb.update_item("item-123", name="New Name", quantity=5)
+            >>> # Update basic info
+            >>> item = hb.update_item("item-123", name="New Name", quantity=5)
+
+            >>> # Update purchase info
+            >>> item = hb.update_item(
+            ...     "item-123",
+            ...     purchase_from="Amazon",
+            ...     purchase_price=29.99,
+            ...     purchase_time="2024-01-15",
+            ... )
+
+            >>> # Archive an item
+            >>> item = hb.update_item("item-123", archived=True)
         """
-        logger.debug("Updating item {}: {}", item_id, updates)
-        response = self._request("PUT", f"/items/{item_id}", json=updates)
+        payload: dict[str, Any] = {}
+
+        # Basic info
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        if quantity is not None:
+            payload["quantity"] = quantity
+
+        # Organization
+        if location is not None:
+            payload["locationId"] = location.id if isinstance(location, Location) else location
+        if labels is not None:
+            payload["labelIds"] = [
+                lbl.id if isinstance(lbl, Label) else lbl for lbl in labels
+            ]
+        if parent is not None:
+            payload["parentId"] = parent.id if isinstance(parent, Item) else parent
+
+        # Status flags
+        if archived is not None:
+            payload["archived"] = archived
+        if insured is not None:
+            payload["insured"] = insured
+
+        # Identification
+        if asset_id is not None:
+            payload["assetId"] = asset_id
+        if serial_number is not None:
+            payload["serialNumber"] = serial_number
+        if model_number is not None:
+            payload["modelNumber"] = model_number
+        if manufacturer is not None:
+            payload["manufacturer"] = manufacturer
+
+        # Purchase info
+        if purchase_from is not None:
+            payload["purchaseFrom"] = purchase_from
+        if purchase_price is not None:
+            payload["purchasePrice"] = purchase_price
+        if purchase_time is not None:
+            payload["purchaseTime"] = _to_iso_string(purchase_time)
+
+        # Sale info
+        if sold_to is not None:
+            payload["soldTo"] = sold_to
+        if sold_price is not None:
+            payload["soldPrice"] = sold_price
+        if sold_time is not None:
+            payload["soldTime"] = _to_iso_string(sold_time)
+        if sold_notes is not None:
+            payload["soldNotes"] = sold_notes
+
+        # Warranty
+        if lifetime_warranty is not None:
+            payload["lifetimeWarranty"] = lifetime_warranty
+        if warranty_expires is not None:
+            payload["warrantyExpires"] = _to_iso_string(warranty_expires)
+        if warranty_details is not None:
+            payload["warrantyDetails"] = warranty_details
+
+        # Extras
+        if notes is not None:
+            payload["notes"] = notes
+        if fields is not None:
+            payload["fields"] = fields
+        if sync_child_locations is not None:
+            payload["syncChildItemsLocations"] = sync_child_locations
+
+        if not payload:
+            logger.warning("update_item called with no fields to update")
+            return self.item(item_id)
+
+        logger.debug("Updating item {}: {}", item_id, list(payload.keys()))
+        response = self._request("PUT", f"/items/{item_id}", json=payload)
         updated = Item.from_dict(response.json())
         logger.info("Updated item {}", item_id)
         return updated
+
+    def archive_item(self, item_id: str) -> Item:
+        """Archive an item.
+
+        Args:
+            item_id: The item ID to archive.
+
+        Returns:
+            The updated Item.
+        """
+        return self.update_item(item_id, archived=True)
+
+    def unarchive_item(self, item_id: str) -> Item:
+        """Unarchive an item.
+
+        Args:
+            item_id: The item ID to unarchive.
+
+        Returns:
+            The updated Item.
+        """
+        return self.update_item(item_id, archived=False)
 
     def delete_item(self, item_id: str) -> None:
         """Delete an item.

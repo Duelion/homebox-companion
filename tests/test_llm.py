@@ -28,6 +28,13 @@ def test_encode_image_round_trip() -> None:
     assert base64.b64decode(encoded) == IMAGE_PATH.read_bytes()
 
 
+def test_vision_client_encode_image_static() -> None:
+    """Test that VisionClient.encode_image works as a static method."""
+    uri = VisionClient.encode_image(IMAGE_PATH)
+
+    assert uri.startswith("data:image/jpg;base64,")
+
+
 def test_item_from_list_handles_invalid_entries() -> None:
     """Test that Item.from_list filters and normalizes invalid data."""
     raw_items = [
@@ -103,6 +110,23 @@ def test_detect_requires_api_key() -> None:
             os.environ["OPENAI_API_KEY"] = original_key
 
 
+def test_vision_client_build_label_prompt() -> None:
+    """Test the label prompt builder."""
+    from homebox import Label
+
+    client = VisionClient(api_key="test")
+
+    # Empty labels
+    prompt = client._build_label_prompt([])
+    assert "No labels are available" in prompt
+
+    # With labels
+    labels = [Label(id="1", name="Tools"), Label(id="2", name="Kitchen")]
+    prompt = client._build_label_prompt(labels)
+    assert "Tools (id: 1)" in prompt
+    assert "Kitchen (id: 2)" in prompt
+
+
 @pytest.mark.integration
 def test_detect_live() -> None:
     """Test detect() with real OpenAI API."""
@@ -172,6 +196,23 @@ def test_vision_client_fetch_labels_live() -> None:
         print(f"  - {label.name} (id: {label.id})")
 
     assert isinstance(labels, list)
+
+
+@pytest.mark.integration
+def test_vision_client_labels_caching() -> None:
+    """Test that VisionClient caches labels."""
+    vision = VisionClient(api_key="unused-for-labels")
+
+    # First call fetches
+    labels1 = vision.labels()
+    # Second call returns cached
+    labels2 = vision.labels()
+
+    assert labels1 is labels2  # Same object (cached)
+
+    # Force refresh
+    labels3 = vision.labels(refresh=True)
+    assert labels3 is not labels1  # New object
 
 
 # Backwards compatibility tests

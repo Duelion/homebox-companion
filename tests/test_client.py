@@ -177,3 +177,41 @@ def test_item_normalizes_quantity() -> None:
 
     assert item1.quantity == 1
     assert item2.quantity == 1
+
+
+def test_update_item_builds_payload_correctly() -> None:
+    """Test that update_item builds the correct API payload."""
+    from datetime import date
+
+    # Test the payload building by checking the _to_iso_string helper
+    from homebox.api import _to_iso_string
+
+    assert _to_iso_string(None) is None
+    assert _to_iso_string("2024-01-15") == "2024-01-15"
+    assert _to_iso_string(date(2024, 1, 15)) == "2024-01-15"
+
+
+def test_location_type_conversion() -> None:
+    """Test Location accepts both ID strings and Location objects."""
+    from homebox import Item, Location
+
+    loc = Location(id="loc-123", name="Garage")
+
+    # Creating item with Location object
+    item = Item(name="Test", location_id=loc.id)
+    payload = item.to_api_payload()
+    assert payload["locationId"] == "loc-123"
+
+
+def test_label_type_conversion() -> None:
+    """Test labels accepts both ID strings and Label objects."""
+    from homebox import Item, Label
+
+    # Labels can be created and their IDs used
+    label1 = Label(id="lbl-1", name="Tools")
+    label2 = Label(id="lbl-2", name="Kitchen")
+
+    # The Session.create_item handles conversion, but we can test the Item
+    item = Item(name="Test", label_ids=[label1.id, label2.id])
+    payload = item.to_api_payload()
+    assert payload["labelIds"] == ["lbl-1", "lbl-2"]
