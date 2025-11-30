@@ -482,3 +482,4 @@ class AsyncHomeboxClient:
             detail = response.text
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
 
+

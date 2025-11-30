@@ -1661,31 +1661,29 @@ function renderEditImageGallery(item) {
 function getAllItemImages(item) {
     const images = [];
     
-    // Add original image if available
-    if (state.originalImageDataUrl) {
+    // Check if item.images already has the images (preferred source after editing)
+    if (item.images && item.images.length > 0) {
+        item.images.forEach((img, idx) => {
+            if (img.dataUrl) {
+                images.push(img);
+            } else if (img.file) {
+                // Generate data URL if not present
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    img.dataUrl = e.target.result;
+                };
+                reader.readAsDataURL(img.file);
+                // Still add the image reference (dataUrl will be populated async)
+                images.push(img);
+            }
+        });
+    }
+    // Only add original image if no images in item.images array yet
+    else if (state.originalImageDataUrl) {
         images.push({ 
             dataUrl: state.originalImageDataUrl, 
             file: state.capturedImage,
             isOriginal: true 
-        });
-    }
-    
-    // Add any additional images
-    if (item.images && item.images.length > 0) {
-        item.images.forEach((img, idx) => {
-            // Avoid duplicates with original
-            if (!img.isOriginal || !state.originalImageDataUrl) {
-                if (img.dataUrl) {
-                    images.push(img);
-                } else if (img.file) {
-                    // Generate data URL if not present
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        img.dataUrl = e.target.result;
-                    };
-                    reader.readAsDataURL(img.file);
-                }
-            }
         });
     }
     
@@ -2128,23 +2126,59 @@ function applyCrop() {
         // Get data URL of cropped image
         const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
         
-        // Save to item
-        if (editingItemIndex !== null) {
-            const item = state.confirmedItems[editingItemIndex];
-            item.coverImageDataUrl = croppedDataUrl;
-            item.selectedImageIndex = cropperState.imageIndex;
+        // Convert canvas to Blob/File for upload
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                showToast('Failed to create cropped image', 'error');
+                return;
+            }
             
-            // Update preview in edit modal
-            updateEditPreviewImage(item);
+            // Create a File object from the blob
+            const croppedFile = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
             
-            // Update gallery selection
-            document.querySelectorAll('.edit-image-gallery-item').forEach((el, i) => {
-                el.classList.toggle('selected', i === cropperState.imageIndex);
-            });
-        }
-        
-        closeCropperModal();
-        showToast('Image cropped', 'success');
+            // Save to item
+            if (editingItemIndex !== null) {
+                const item = state.confirmedItems[editingItemIndex];
+                item.coverImageDataUrl = croppedDataUrl;
+                item.selectedImageIndex = cropperState.imageIndex;
+                
+                // Replace the image in the images array with the cropped version
+                if (item.images && item.images[cropperState.imageIndex]) {
+                    item.images[cropperState.imageIndex] = {
+                        file: croppedFile,
+                        dataUrl: croppedDataUrl,
+                        isPrimary: item.images[cropperState.imageIndex].isPrimary || false,
+                        isCropped: true
+                    };
+                } else if (item.images && item.images.length > 0) {
+                    // If index doesn't match (e.g., original image was added separately), 
+                    // update the first image or add as primary
+                    item.images[0] = {
+                        file: croppedFile,
+                        dataUrl: croppedDataUrl,
+                        isPrimary: true,
+                        isCropped: true
+                    };
+                } else {
+                    // No images array, create one
+                    item.images = [{
+                        file: croppedFile,
+                        dataUrl: croppedDataUrl,
+                        isPrimary: true,
+                        isCropped: true
+                    }];
+                }
+                
+                // Update preview in edit modal
+                updateEditPreviewImage(item);
+                
+                // Update gallery with the new cropped image
+                renderEditImageGallery(item);
+            }
+            
+            closeCropperModal();
+            showToast('Image cropped and saved', 'success');
+        }, 'image/jpeg', 0.9);
     };
     tempImg.src = cropperState.imageDataUrl;
 }
