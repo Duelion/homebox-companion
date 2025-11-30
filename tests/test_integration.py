@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import os
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
+from pprint import pformat
 
 import pytest
 
 from homebox import DetectedItem, HomeboxDemoClient, detect_items_with_openai
 
-IMAGE_PATH = Path(__file__).resolve().parent.parent / "image.jpg"
+IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 
 
 @pytest.mark.integration
@@ -18,9 +20,16 @@ IMAGE_PATH = Path(__file__).resolve().parent.parent / "image.jpg"
 )
 def test_detect_items_with_openai_returns_items() -> None:
     api_key = os.environ["OPENAI_API_KEY"]
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
     detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
+
+    print("Raw detected items from OpenAI:")
+    for idx, item in enumerate(detected_items, start=1):
+        summary = f"  {idx}. {item.name} (qty: {item.quantity})"
+        details = item.description or "no description"
+        print(f"{summary} - {details}")
+    print("Full payload:\n" + pformat([asdict(item) for item in detected_items]))
 
     assert detected_items, "Expected at least one item from OpenAI vision response."
     for item in detected_items:
