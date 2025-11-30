@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "homebox"
 version = "0.1.0"
@@ -7,4 +11,27 @@ requires-python = ">=3.12"
 dependencies = [
     "openai>=2.8.1",
     "requests>=2.32.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["homebox*"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.7",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "B",
+    "UP",
+    "I",
 ]
