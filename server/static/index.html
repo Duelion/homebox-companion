@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Homebox Scanner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <span>Homebox</span>
+            </div>
+            <div class="header-actions">
+                <button id="logoutBtn" class="btn-icon" style="display: none;" title="Logout">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Step 1: Login -->
+            <section id="loginSection" class="section active">
+                <div class="section-content">
+                    <div class="welcome-illustration">
+                        <div class="floating-box box-1"></div>
+                        <div class="floating-box box-2"></div>
+                        <div class="floating-box box-3"></div>
+                    </div>
+                    <h1 class="section-title">Welcome to Homebox</h1>
+                    <p class="section-subtitle">Scan and organize your inventory with AI-powered detection</p>
+                    
+                    <form id="loginForm" class="form">
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" value="demo@example.com" placeholder="Enter your email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" value="demo" placeholder="Enter your password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">
+                            <span>Sign In</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Step 2: Location Selection -->
+            <section id="locationSection" class="section">
+                <div class="section-content">
+                    <div class="step-indicator">
+                        <span class="step active">1</span>
+                        <span class="step-line"></span>
+                        <span class="step">2</span>
+                        <span class="step-line"></span>
+                        <span class="step">3</span>
+                        <span class="step-line"></span>
+                        <span class="step">4</span>
+                    </div>
+                    
+                    <h2 class="section-title">Select Location</h2>
+                    <p class="section-subtitle">Choose where your items will be stored</p>
+                    
+                    <div class="form-group">
+                        <label for="locationSelect">Storage Location</label>
+                        <div class="select-wrapper">
+                            <select id="locationSelect" required>
+                                <option value="">Loading locations...</option>
+                            </select>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <button id="continueToCapture" class="btn btn-primary btn-full" disabled>
+                        <span>Continue to Capture</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 3: Image Capture -->
+            <section id="captureSection" class="section">
+                <div class="section-content">
+                    <div class="step-indicator">
+                        <span class="step completed">✓</span>
+                        <span class="step-line completed"></span>
+                        <span class="step active">2</span>
+                        <span class="step-line"></span>
+                        <span class="step">3</span>
+                        <span class="step-line"></span>
+                        <span class="step">4</span>
+                    </div>
+                    
+                    <h2 class="section-title">Capture Items</h2>
+                    <p class="section-subtitle">Take a photo or upload an image of your items</p>
+                    
+                    <div class="capture-zone" id="captureZone">
+                        <div class="capture-preview" id="capturePreview" style="display: none;">
+                            <img id="previewImage" alt="Preview">
+                            <button type="button" class="btn-icon btn-remove" id="removeImage">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="capture-placeholder" id="capturePlaceholder">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                            <p>Tap to capture or upload</p>
+                        </div>
+                        <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
+                    </div>
+                    
+                    <div class="capture-actions">
+                        <button type="button" id="cameraBtn" class="btn btn-secondary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                            <span>Camera</span>
+                        </button>
+                        <button type="button" id="uploadBtn" class="btn btn-secondary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Upload</span>
+                        </button>
+                    </div>
+                    
+                    <button id="analyzeBtn" class="btn btn-primary btn-full" disabled>
+                        <span>Analyze with AI</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </button>
+                    
+                    <div id="analyzeLoader" class="loader" style="display: none;">
+                        <div class="loader-spinner"></div>
+                        <p>Analyzing image with AI...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 4: Review Items -->
+            <section id="reviewSection" class="section">
+                <div class="section-content">
+                    <div class="step-indicator">
+                        <span class="step completed">✓</span>
+                        <span class="step-line completed"></span>
+                        <span class="step completed">✓</span>
+                        <span class="step-line completed"></span>
+                        <span class="step active">3</span>
+                        <span class="step-line"></span>
+                        <span class="step">4</span>
+                    </div>
+                    
+                    <h2 class="section-title">Review Items</h2>
+                    <p class="section-subtitle">Edit or skip detected items</p>
+                    
+                    <div id="itemCarousel" class="item-carousel">
+                        <!-- Items will be injected here -->
+                    </div>
+                    
+                    <div class="carousel-nav">
+                        <button id="prevItem" class="btn btn-icon" disabled>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+                        <span id="itemCounter">1 / 1</span>
+                        <button id="nextItem" class="btn btn-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="review-actions">
+                        <button id="skipItem" class="btn btn-secondary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            <span>Skip</span>
+                        </button>
+                        <button id="confirmItem" class="btn btn-primary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Confirm</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 5: Summary -->
+            <section id="summarySection" class="section">
+                <div class="section-content">
+                    <div class="step-indicator">
+                        <span class="step completed">✓</span>
+                        <span class="step-line completed"></span>
+                        <span class="step completed">✓</span>
+                        <span class="step-line completed"></span>
+                        <span class="step completed">✓</span>
+                        <span class="step-line completed"></span>
+                        <span class="step active">4</span>
+                    </div>
+                    
+                    <h2 class="section-title">Review & Submit</h2>
+                    <p class="section-subtitle" id="summarySubtitle">Confirm items to add to your inventory</p>
+                    
+                    <div id="summaryList" class="summary-list">
+                        <!-- Summary items will be injected here -->
+                    </div>
+                    
+                    <div class="summary-location">
+                        <span class="label">Location:</span>
+                        <span id="summaryLocation" class="value">-</span>
+                    </div>
+                    
+                    <div class="summary-actions">
+                        <button id="addMoreBtn" class="btn btn-secondary btn-full">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Scan More Items</span>
+                        </button>
+                        <button id="submitAllBtn" class="btn btn-primary btn-full">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Submit All Items</span>
+                        </button>
+                    </div>
+                    
+                    <div id="submitLoader" class="loader" style="display: none;">
+                        <div class="loader-spinner"></div>
+                        <p>Creating items...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Success Section -->
+            <section id="successSection" class="section">
+                <div class="section-content center">
+                    <div class="success-animation">
+                        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <h2 class="section-title">Success!</h2>
+                    <p class="section-subtitle" id="successMessage">Items have been added to your inventory</p>
+                    
+                    <button id="startOverBtn" class="btn btn-primary btn-full">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        <span>Scan More Items</span>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div id="toastContainer" class="toast-container"></div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
