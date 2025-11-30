@@ -61,12 +61,28 @@ class HomeboxDemoClient:
             raise RuntimeError("Login response did not include a token field.")
         return token
 
-    def list_locations(self, token: str) -> list[dict[str, Any]]:
-        """Return all available locations for the authenticated user."""
+    def list_locations(
+        self, token: str, *, filter_children: bool | None = None
+    ) -> list[dict[str, Any]]:
+        """Return all available locations for the authenticated user.
+
+        Args:
+            token: Bearer token returned from :meth:`login`.
+            filter_children: When provided, forwards the ``filterChildren`` query parameter
+                to filter locations that have parents.
+        """
+
+        params = None
+        if filter_children is not None:
+            params = {"filterChildren": str(filter_children).lower()}
 
         response = self.session.get(
             f"{self.base_url}/locations",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            params=params,
             timeout=20,
         )
         self._ensure_success(response, "Fetch locations")
@@ -92,6 +108,24 @@ class HomeboxDemoClient:
             self._ensure_success(response, "Create item")
             created.append(response.json())
         return created
+
+    def update_item(self, token: str, item_id: str, item_data: dict[str, Any]) -> dict[str, Any]:
+        """Update a single item by ID in the Homebox demo environment."""
+
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+        response = self.session.put(
+            f"{self.base_url}/items/{item_id}",
+            headers=headers,
+            json=item_data,
+            timeout=20,
+        )
+        self._ensure_success(response, "Update item")
+        return response.json()
 
     @staticmethod
     def _ensure_success(response: requests.Response, context: str) -> None:
