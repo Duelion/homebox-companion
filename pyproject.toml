@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox"
-version = "0.1.1"
+version = "0.1.2"
 description = "Demo API utilities and OpenAI vision helpers for Homebox"
 readme = "README.md"
 requires-python = ">=3.12"
