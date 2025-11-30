@@ -222,6 +222,18 @@ class AsyncHomeboxClient:
         self._ensure_success(response, "Fetch locations")
         return response.json()
 
+    async def get_location(self, token: str, location_id: str) -> dict[str, Any]:
+        """Return a specific location by ID with its children."""
+        response = await self.client.get(
+            f"{self.base_url}/locations/{location_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Fetch location")
+        return response.json()
+
     async def list_labels(self, token: str) -> list[dict[str, Any]]:
         """Return all available labels for the authenticated user."""
         response = await self.client.get(
@@ -269,6 +281,39 @@ class AsyncHomeboxClient:
             json=item_data,
         )
         self._ensure_success(response, "Update item")
+        return response.json()
+
+    async def upload_attachment(
+        self,
+        token: str,
+        item_id: str,
+        file_bytes: bytes,
+        filename: str,
+        mime_type: str = "image/jpeg",
+        attachment_type: str = "photo",
+    ) -> dict[str, Any]:
+        """Upload an attachment (image) to an item."""
+        files = {"file": (filename, file_bytes, mime_type)}
+        data = {"type": attachment_type, "name": filename}
+        response = await self.client.post(
+            f"{self.base_url}/items/{item_id}/attachments",
+            headers={"Authorization": f"Bearer {token}"},
+            files=files,
+            data=data,
+        )
+        self._ensure_success(response, "Upload attachment")
+        return response.json()
+
+    async def get_item(self, token: str, item_id: str) -> dict[str, Any]:
+        """Get full item details by ID."""
+        response = await self.client.get(
+            f"{self.base_url}/items/{item_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Get item")
         return response.json()
 
     @staticmethod

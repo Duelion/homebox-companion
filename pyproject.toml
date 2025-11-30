@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox"
-version = "0.2.0"
+version = "0.4.0"
 description = "Demo API utilities and OpenAI vision helpers for Homebox"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,6 +14,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.17",
+    "loguru>=0.7.3",
 ]
 
 [tool.setuptools.packages.find]
