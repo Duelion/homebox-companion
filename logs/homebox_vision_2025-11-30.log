@@ -369,3 +369,167 @@
 2025-11-30 15:57:59 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
 2025-11-30 15:57:59 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
 2025-11-30 15:57:59 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 15:59:37 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 15:59:37 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 15:59:37 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
+2025-11-30 15:59:37 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:00:48 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:00:48 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:00:48 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
+2025-11-30 16:00:48 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:00:53 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:00:54 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-11-30 16:01:08 | INFO     | server.main:detect_items:289 - Detecting items from image: solder.jpg
+2025-11-30 16:01:08 | DEBUG    | server.main:detect_items:307 - Image size: 243502 bytes
+2025-11-30 16:01:08 | DEBUG    | server.main:detect_items:311 - Content type: image/jpeg
+2025-11-30 16:01:11 | DEBUG    | server.main:detect_items:323 - Loaded 8 labels for context
+2025-11-30 16:01:11 | INFO     | server.main:detect_items:330 - Starting OpenAI vision detection...
+2025-11-30 16:01:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 16:01:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-11-30 16:01:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 16:01:18 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "solder",
+      "quantity": 2,
+      "description": "Mechanic solder in blue containers",
+      "labelIds": ["71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31", "f552a704-8731-41b3-948a-5c05fe3a4088"]
+    },
+    {
+      "name": "UV curing solder kit",
+      "quantity": 2,
+      "description": "UV curing solder kit in clear packaging",
+      "labelIds": ["71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31", "f552a704-8731-41b3-948a-5c05fe3a4088"]
+    },
+    {
+      "name": "bag of electr...
+2025-11-30 16:01:18 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 3 items
+2025-11-30 16:01:18 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: solder, qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:01:18 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: UV curing solder kit, qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:01:18 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: bag of electronic screws, qty: 1, labels: ['f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:01:18 | INFO     | server.main:detect_items:338 - Detected 3 items
+2025-11-30 16:01:18 | DEBUG    | server.main:detect_items:340 -   - solder (qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:01:18 | DEBUG    | server.main:detect_items:340 -   - UV curing solder kit (qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:01:18 | DEBUG    | server.main:detect_items:340 -   - bag of electronic screws (qty: 1, labels: ['f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:02:42 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:02:42 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:02:42 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
+2025-11-30 16:02:42 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:02:42 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:02:42 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:02:42 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
+2025-11-30 16:02:42 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:03:01 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:03:02 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-11-30 16:03:14 | INFO     | server.main:detect_items:289 - Detecting items from image: solder.jpg
+2025-11-30 16:03:14 | DEBUG    | server.main:detect_items:307 - Image size: 243502 bytes
+2025-11-30 16:03:14 | DEBUG    | server.main:detect_items:311 - Content type: image/jpeg
+2025-11-30 16:03:14 | DEBUG    | server.main:detect_items:323 - Loaded 8 labels for context
+2025-11-30 16:03:14 | INFO     | server.main:detect_items:330 - Starting OpenAI vision detection...
+2025-11-30 16:03:14 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 16:03:14 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-11-30 16:03:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 16:03:24 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "UV curing solder",
+      "quantity": 2,
+      "description": "UV curing solder in sealed packaging.",
+      "labelIds": ["71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31", "f552a704-8731-41b3-948a-5c05fe3a4088"]
+    },
+    {
+      "name": "Solder wire",
+      "quantity": 2,
+      "description": "Blue solder wire in packaging.",
+      "labelIds": ["71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31", "f552a704-8731-41b3-948a-5c05fe3a4088"]
+    },
+    {
+      "name": "Electronic screws"...
+2025-11-30 16:03:24 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 4 items
+2025-11-30 16:03:24 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: UV curing solder, qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:03:24 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Solder wire, qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:03:24 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Electronic screws, qty: 1, labels: ['f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:03:24 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: High-quality solder paste, qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:03:24 | INFO     | server.main:detect_items:338 - Detected 4 items
+2025-11-30 16:03:24 | DEBUG    | server.main:detect_items:340 -   - UV curing solder (qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:03:24 | DEBUG    | server.main:detect_items:340 -   - Solder wire (qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:03:24 | DEBUG    | server.main:detect_items:340 -   - Electronic screws (qty: 1, labels: ['f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:03:24 | DEBUG    | server.main:detect_items:340 -   - High-quality solder paste (qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:04:34 | INFO     | server.main:create_items:364 - Creating 4 items
+2025-11-30 16:04:34 | DEBUG    | server.main:create_items:365 - Request location_id: 3372c913-cb15-4e0f-b290-f74e16e47bbd
+2025-11-30 16:04:34 | DEBUG    | server.main:create_items:377 - Creating item: UV curing solder
+2025-11-30 16:04:34 | DEBUG    | server.main:create_items:378 -   location_id: 3372c913-cb15-4e0f-b290-f74e16e47bbd
+2025-11-30 16:04:34 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:04:35 | INFO     | server.main:create_items:391 - Created item: UV curing solder (id: d3cfeadf-f134-4391-9313-a4887fa911a1)
+2025-11-30 16:04:35 | DEBUG    | server.main:create_items:377 - Creating item: Solder wire
+2025-11-30 16:04:35 | DEBUG    | server.main:create_items:378 -   location_id: 3372c913-cb15-4e0f-b290-f74e16e47bbd
+2025-11-30 16:04:35 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:04:36 | INFO     | server.main:create_items:391 - Created item: Solder wire (id: 6f4e5a24-cd02-458f-a1e1-514ec7142911)
+2025-11-30 16:04:36 | DEBUG    | server.main:create_items:377 - Creating item: Electronic screws
+2025-11-30 16:04:36 | DEBUG    | server.main:create_items:378 -   location_id: 3372c913-cb15-4e0f-b290-f74e16e47bbd
+2025-11-30 16:04:36 | DEBUG    | server.main:create_items:379 -   label_ids: ['f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:04:37 | INFO     | server.main:create_items:391 - Created item: Electronic screws (id: a2ca7b21-c303-4829-96de-2ce439d1c2dd)
+2025-11-30 16:04:37 | DEBUG    | server.main:create_items:377 - Creating item: High-quality solder paste
+2025-11-30 16:04:37 | DEBUG    | server.main:create_items:378 -   location_id: 3372c913-cb15-4e0f-b290-f74e16e47bbd
+2025-11-30 16:04:37 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:04:37 | INFO     | server.main:create_items:391 - Created item: High-quality solder paste (id: e05e8228-a58b-459a-82fc-a8446d1f4b03)
+2025-11-30 16:04:37 | INFO     | server.main:create_items:398 - Item creation complete: 4 created, 0 failed
+2025-11-30 16:05:23 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:05:23 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:05:23 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:05:23 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:05:29 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:05:30 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-11-30 16:05:41 | INFO     | server.main:detect_items:289 - Detecting items from image: solder.jpg
+2025-11-30 16:05:41 | DEBUG    | server.main:detect_items:307 - Image size: 243502 bytes
+2025-11-30 16:05:41 | DEBUG    | server.main:detect_items:311 - Content type: image/jpeg
+2025-11-30 16:05:42 | DEBUG    | server.main:detect_items:323 - Loaded 8 labels for context
+2025-11-30 16:05:42 | INFO     | server.main:detect_items:330 - Starting OpenAI vision detection...
+2025-11-30 16:05:42 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-11-30 16:05:42 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-11-30 16:05:42 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 16:05:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "electronic solder",
+      "quantity": 2,
+      "description": "Spools of electronic solder for circuit repairs.",
+      "labelIds": [
+        "71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31",
+        "f552a704-8731-41b3-948a-5c05fe3a4088"
+      ]
+    },
+    {
+      "name": "UV curing solder mask kit",
+      "quantity": 1,
+      "description": "Packaged UV curing solder mask kit for PCB applications.",
+      "labelIds": [
+        "71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31",
+ ...
+2025-11-30 16:05:50 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 4 items
+2025-11-30 16:05:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: electronic solder, qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:05:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: UV curing solder mask kit, qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:05:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: high quality solder, qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:05:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: metal pins, qty: 6, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:05:50 | INFO     | server.main:detect_items:338 - Detected 4 items
+2025-11-30 16:05:50 | DEBUG    | server.main:detect_items:340 -   - electronic solder (qty: 2, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:05:50 | DEBUG    | server.main:detect_items:340 -   - UV curing solder mask kit (qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:05:50 | DEBUG    | server.main:detect_items:340 -   - high quality solder (qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:05:50 | DEBUG    | server.main:detect_items:340 -   - metal pins (qty: 6, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:06:38 | INFO     | server.main:merge_items:514 - Merging 2 items
+2025-11-30 16:06:38 | DEBUG    | server.main:merge_items:516 -   - electronic solder: Spools of electronic solder for circuit repairs.
+2025-11-30 16:06:38 | DEBUG    | server.main:merge_items:516 -   - UV curing solder mask kit: Packaged UV curing solder mask kit for PCB applica
+2025-11-30 16:06:39 | INFO     | server.main:merge_items:541 - Calling OpenAI for item merge...
+2025-11-30 16:06:39 | INFO     | homebox_vision.llm:merge_items_with_openai:321 - Merging 2 items with AI
+2025-11-30 16:06:39 | DEBUG    | homebox_vision.llm:merge_items_with_openai:364 - Calling OpenAI API for item merge...
+2025-11-30 16:06:43 | DEBUG    | homebox_vision.llm:merge_items_with_openai:393 - OpenAI merge response: {
+  "name": "Solder and Solder Mask Kit",
+  "quantity": 3,
+  "description": "Combination of electronic solder in spools for circuit repairs (2 spools) and a UV curing solder mask kit designed for PCB applications (1 kit).",
+  "labelIds": [
+    "71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31",
+    "f552a704-8731-41b3-948a-5c05fe3a4088"
+  ]
+}...
+2025-11-30 16:06:43 | INFO     | homebox_vision.llm:merge_items_with_openai:396 - Merge complete: Solder and Solder Mask Kit
+2025-11-30 16:06:43 | INFO     | server.main:merge_items:548 - Merge complete: Solder and Solder Mask Kit

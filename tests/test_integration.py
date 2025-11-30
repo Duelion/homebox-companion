@@ -20,7 +20,7 @@ IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 )
 def test_detect_items_with_openai_returns_items() -> None:
     api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
-    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-4.1-mini")
+    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
 
     detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
 
@@ -70,7 +70,7 @@ def test_create_item_in_demo_environment() -> None:
 )
 def test_detect_and_create_items_from_image() -> None:
     api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
-    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-4.1-mini")
+    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
 
     detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
     assert detected_items, "Expected at least one detected item to create."
