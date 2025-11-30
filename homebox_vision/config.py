@@ -80,4 +80,3 @@ def get_settings() -> Settings:
 
 # Default settings instance for easy import
 settings = get_settings()
-

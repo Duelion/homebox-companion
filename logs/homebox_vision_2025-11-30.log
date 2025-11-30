@@ -880,3 +880,133 @@
 2025-11-30 16:34:34 | DEBUG    | server.main:create_items:379 -   label_ids: ['f552a704-8731-41b3-948a-5c05fe3a4088']
 2025-11-30 16:34:34 | INFO     | server.main:create_items:391 - Created item: blue metal pen (id: ddc1bc17-c1a8-4791-9787-21f62082e662)
 2025-11-30 16:34:34 | INFO     | server.main:create_items:398 - Item creation complete: 2 created, 0 failed
+2025-11-30 16:37:04 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:37:04 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:37:04 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:37:04 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:38:11 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:38:11 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:38:11 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:40:07 | INFO     | server.main:login:186 - Login attempt for user: fsozale@gmail.com
+2025-11-30 16:40:07 | WARNING  | server.main:login:193 - Login failed for user fsozale@gmail.com: Login failed with 500: invalid username or password
+2025-11-30 16:40:13 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:40:14 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-11-30 16:42:18 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:42:19 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-11-30 16:46:09 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:46:09 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:46:09 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:46:09 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:46:09 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:46:09 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:46:09 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:46:13 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:46:13 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:46:13 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:46:35 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:46:35 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:46:35 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:46:35 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:47:04 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:04 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:47:04 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:04 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:47:05 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:05 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:47:05 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:11 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:11 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:47:11 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:11 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:11 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:47:11 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:11 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:47:25 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:25 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:47:25 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:25 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:25 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:47:25 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:25 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:47:33 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:33 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:47:33 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:33 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:33 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:47:33 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:33 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:47:45 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:45 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:47:45 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:45 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:45 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:47:45 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:47:45 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:47:59 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:47:59 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:47:59 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:48:00 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:48:00 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:48:00 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:48:00 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:48:06 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:48:07 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-11-30 16:48:58 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:48:59 | WARNING  | server.main:login:193 - Login failed for user demo@example.com: Login failed with 500: invalid username or password
+2025-11-30 16:49:09 | INFO     | server.main:login:186 - Login attempt for user: fsozale@gmail.com
+2025-11-30 16:49:10 | INFO     | server.main:login:190 - Login successful for user: fsozale@gmail.com
+2025-11-30 16:49:19 | INFO     | server.main:login:186 - Login attempt for user: fsozale@gmail.com
+2025-11-30 16:49:20 | INFO     | server.main:login:190 - Login successful for user: fsozale@gmail.com
+2025-11-30 16:49:38 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:49:38 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:49:38 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:49:53 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:49:53 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:49:53 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:50:59 | INFO     | server.main:login:186 - Login attempt for user: fsozale@gmail.com
+2025-11-30 16:51:00 | INFO     | server.main:login:190 - Login successful for user: fsozale@gmail.com
+2025-11-30 16:51:26 | INFO     | server.main:detect_items:289 - Detecting items from image: image.jpg
+2025-11-30 16:51:26 | DEBUG    | server.main:detect_items:307 - Image size: 3112709 bytes
+2025-11-30 16:51:26 | DEBUG    | server.main:detect_items:311 - Content type: image/jpeg
+2025-11-30 16:51:27 | DEBUG    | server.main:detect_items:323 - Loaded 6 labels for context
+2025-11-30 16:51:27 | INFO     | server.main:detect_items:330 - Starting OpenAI vision detection...
+2025-11-30 16:51:27 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-5-mini
+2025-11-30 16:51:27 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 6
+2025-11-30 16:51:27 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 16:51:46 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {"items":[{"name":"X-Acto #2 blade box","quantity":1,"description":"Cardboard box of X-Acto #2 replacement blades (appears to contain multiple blades, labeled 100 blades).","labelIds":["e3c3a585-757e-416c-b449-e15ff21fdfbf"]},{"name":"X-Acto craft knife","quantity":1,"description":"Aluminum hobby/craft knife handle with a pointed replaceable blade installed, typical precision cutting tool.","labelIds":["e3c3a585-757e-416c-b449-e15ff21fdfbf"]},{"name":"White gel pens","quantity":3,"description":"...
+2025-11-30 16:51:46 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 5 items
+2025-11-30 16:51:46 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: X-Acto #2 blade box, qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:51:46 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: X-Acto craft knife, qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:51:46 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: White gel pens, qty: 3, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:51:46 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Long white pen/marker, qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:51:46 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Locking hemostat/forceps scissors, qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:51:46 | INFO     | server.main:detect_items:338 - Detected 5 items
+2025-11-30 16:51:46 | DEBUG    | server.main:detect_items:340 -   - X-Acto #2 blade box (qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf'])
+2025-11-30 16:51:46 | DEBUG    | server.main:detect_items:340 -   - X-Acto craft knife (qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf'])
+2025-11-30 16:51:46 | DEBUG    | server.main:detect_items:340 -   - White gel pens (qty: 3, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf'])
+2025-11-30 16:51:46 | DEBUG    | server.main:detect_items:340 -   - Long white pen/marker (qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf'])
+2025-11-30 16:51:46 | DEBUG    | server.main:detect_items:340 -   - Locking hemostat/forceps scissors (qty: 1, labels: ['e3c3a585-757e-416c-b449-e15ff21fdfbf'])
+2025-11-30 16:53:06 | INFO     | server.main:create_items:364 - Creating 4 items
+2025-11-30 16:53:06 | DEBUG    | server.main:create_items:365 - Request location_id: 73841fe1-abc1-46ea-b210-d2c859786676
+2025-11-30 16:53:06 | DEBUG    | server.main:create_items:377 - Creating item: X-Acto #2 blade box
+2025-11-30 16:53:06 | DEBUG    | server.main:create_items:378 -   location_id: 73841fe1-abc1-46ea-b210-d2c859786676
+2025-11-30 16:53:06 | DEBUG    | server.main:create_items:379 -   label_ids: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:53:07 | INFO     | server.main:create_items:391 - Created item: X-Acto #2 blade box (id: 2a4c59ce-13f2-481e-ad8e-4253e6122df6)
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:377 - Creating item: X-Acto craft knife
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:378 -   location_id: 73841fe1-abc1-46ea-b210-d2c859786676
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:379 -   label_ids: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:53:07 | INFO     | server.main:create_items:391 - Created item: X-Acto craft knife (id: eb17ca08-9928-4f98-80a6-52dcee481a24)
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:377 - Creating item: White gel pens
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:378 -   location_id: 73841fe1-abc1-46ea-b210-d2c859786676
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:379 -   label_ids: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:53:07 | INFO     | server.main:create_items:391 - Created item: White gel pens (id: 2598ad76-1177-4f3d-bbe3-6024e55f319d)
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:377 - Creating item: Locking hemostat/forceps scissors
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:378 -   location_id: 73841fe1-abc1-46ea-b210-d2c859786676
+2025-11-30 16:53:07 | DEBUG    | server.main:create_items:379 -   label_ids: ['e3c3a585-757e-416c-b449-e15ff21fdfbf']
+2025-11-30 16:53:07 | INFO     | server.main:create_items:391 - Created item: Locking hemostat/forceps scissors (id: 8d61b9f8-4ce8-4068-9715-c794f9469ab4)
+2025-11-30 16:53:07 | INFO     | server.main:create_items:398 - Item creation complete: 4 created, 0 failed
+2025-11-30 16:54:46 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:54:46 | INFO     | server.main:<module>:49 - Homebox API URL: https://homebox.duelion.com/api/v1
+2025-11-30 16:54:46 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:56:55 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:56:56 | WARNING  | server.main:login:193 - Login failed for user demo@example.com: Login failed with 500: invalid username or password
