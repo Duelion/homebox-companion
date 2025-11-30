@@ -486,6 +486,7 @@
                                     <path d="M2.5 8a10 10 0 1 1 4.343-7.657"></path>
                                 </svg>
                             </button>
+                            <input type="range" id="rotationSlider" min="-180" max="180" value="0" class="rotation-slider">
                             <span class="rotation-label" id="rotationLabel">0°</span>
                             <button type="button" class="btn btn-icon" id="rotateRightBtn" title="Rotate right 90°">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -495,7 +496,7 @@
                             </button>
                         </div>
                     </div>
-                    <p class="cropper-hint">Drag to reposition • Pinch or slider to zoom • Rotate with buttons</p>
+                    <p class="cropper-hint">Drag to reposition • Scroll/pinch to zoom • Drag slider to rotate</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="cancelCropBtn">Cancel</button>
