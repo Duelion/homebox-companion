@@ -1004,7 +1004,7 @@ body::before {
 
 .toast-container {
     position: fixed;
-    bottom: calc(var(--space-lg) + env(safe-area-inset-bottom));
+    top: calc(var(--space-lg) + env(safe-area-inset-top));
     left: var(--space-lg);
     right: var(--space-lg);
     display: flex;
@@ -1063,7 +1063,7 @@ body::before {
 @keyframes toastIn {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(-20px);
     }
     to {
         opacity: 1;
@@ -1078,7 +1078,7 @@ body::before {
     }
     to {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(-20px);
     }
 }
 
@@ -1869,6 +1869,38 @@ body::before {
     cursor: pointer;
     border: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.rotation-slider {
+    flex: 1;
+    max-width: 120px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--surface-tertiary);
+    border-radius: var(--radius-full);
+    outline: none;
+}
+
+.rotation-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent-secondary);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.rotation-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--accent-secondary);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .cropper-hint {

@@ -1754,11 +1754,18 @@ let cropperState = {
     scale: 1,
     translateX: 0,
     translateY: 0,
+    rotation: 0,
     isDragging: false,
     startX: 0,
     startY: 0,
     imageDataUrl: null,
     imageIndex: null,
+    // Zoom limits based on image size
+    minScale: 0.5,
+    maxScale: 3,
+    baseScale: 1, // Scale at which image fills the frame
+    naturalWidth: 0,
+    naturalHeight: 0,
 };
 
 function openImageCropper(imageIndex) {
@@ -1771,25 +1778,110 @@ function openImageCropper(imageIndex) {
         scale: 1,
         translateX: 0,
         translateY: 0,
+        rotation: 0,
         isDragging: false,
         startX: 0,
         startY: 0,
         imageDataUrl: allImages[imageIndex].dataUrl,
         imageIndex: imageIndex,
+        minScale: 0.5,
+        maxScale: 3,
+        baseScale: 1,
+        naturalWidth: 0,
+        naturalHeight: 0,
     };
     
     const cropperImage = document.getElementById('cropperImage');
-    cropperImage.src = cropperState.imageDataUrl;
-    cropperImage.style.transform = `translate(${cropperState.translateX}px, ${cropperState.translateY}px) scale(${cropperState.scale})`;
     
-    // Reset zoom slider
-    document.getElementById('zoomSlider').value = 100;
+    // Load image to get natural dimensions and calculate zoom limits
+    const tempImg = new Image();
+    tempImg.onload = () => {
+        cropperState.naturalWidth = tempImg.naturalWidth;
+        cropperState.naturalHeight = tempImg.naturalHeight;
+        
+        // Calculate zoom limits based on image vs frame size
+        calculateZoomLimits();
+        
+        // Set initial scale to fill the frame
+        cropperState.scale = cropperState.baseScale;
+        
+        // Update UI
+        updateZoomSlider();
+        cropperImage.src = cropperState.imageDataUrl;
+        updateCropperTransform();
+    };
+    tempImg.src = cropperState.imageDataUrl;
+    
+    // Reset rotation slider and label
+    document.getElementById('rotationSlider').value = 0;
+    document.getElementById('rotationLabel').textContent = '0°';
     
     // Show cropper modal
     document.getElementById('imageCropperModal').style.display = 'flex';
     
     // Initialize cropper interactions
     initCropperInteractions();
+}
+
+function calculateZoomLimits() {
+    const container = document.getElementById('cropperContainer');
+    const frame = document.getElementById('cropperFrame');
+    
+    if (!container || !frame) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    
+    // Frame is 80% of container (from CSS)
+    const frameWidth = frameRect.width || containerRect.width * 0.8;
+    const frameHeight = frameRect.height || containerRect.height * 0.8;
+    
+    const { naturalWidth, naturalHeight } = cropperState;
+    
+    if (!naturalWidth || !naturalHeight) return;
+    
+    // Calculate the scale needed to fill the frame (cover)
+    const scaleToFillWidth = frameWidth / naturalWidth;
+    const scaleToFillHeight = frameHeight / naturalHeight;
+    const fillScale = Math.max(scaleToFillWidth, scaleToFillHeight);
+    
+    // Calculate the scale needed to fit the image (contain)
+    const fitScale = Math.min(scaleToFillWidth, scaleToFillHeight);
+    
+    // Base scale is what makes the image fill the frame
+    cropperState.baseScale = fillScale;
+    
+    // Min scale: allow zooming out to 50% of fill scale, but not smaller than fit
+    cropperState.minScale = Math.max(fitScale * 0.5, fillScale * 0.5);
+    
+    // Max scale: allow zooming to 4x fill scale, but cap at 1:1 pixel ratio * 2
+    const maxPixelScale = 2 / fillScale; // 2x the natural resolution relative to display
+    cropperState.maxScale = Math.min(fillScale * 4, Math.max(fillScale * 2, maxPixelScale));
+    
+    // Ensure min < max
+    if (cropperState.minScale >= cropperState.maxScale) {
+        cropperState.minScale = cropperState.maxScale * 0.5;
+    }
+}
+
+function updateZoomSlider() {
+    const slider = document.getElementById('zoomSlider');
+    const { minScale, maxScale, scale, baseScale } = cropperState;
+    
+    // Map scale to 0-100 slider range
+    // 0 = minScale, 50 = baseScale (fill), 100 = maxScale
+    let sliderValue;
+    if (scale <= baseScale) {
+        // 0-50 range
+        sliderValue = ((scale - minScale) / (baseScale - minScale)) * 50;
+    } else {
+        // 50-100 range
+        sliderValue = 50 + ((scale - baseScale) / (maxScale - baseScale)) * 50;
+    }
+    
+    slider.min = 0;
+    slider.max = 100;
+    slider.value = Math.round(Math.max(0, Math.min(100, sliderValue)));
 }
 
 function initCropperInteractions() {
@@ -1829,9 +1921,11 @@ function initCropperInteractions() {
     // Mouse wheel for zoom
     wrapper.onwheel = (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        cropperState.scale = Math.max(0.5, Math.min(3, cropperState.scale + delta));
-        document.getElementById('zoomSlider').value = cropperState.scale * 100;
+        const { minScale, maxScale } = cropperState;
+        const range = maxScale - minScale;
+        const delta = e.deltaY > 0 ? -range * 0.05 : range * 0.05;
+        cropperState.scale = Math.max(minScale, Math.min(maxScale, cropperState.scale + delta));
+        updateZoomSlider();
         updateCropperTransform();
     };
     
@@ -1849,10 +1943,11 @@ function initCropperInteractions() {
     wrapper.ontouchmove = (e) => {
         if (e.touches.length === 2) {
             e.preventDefault();
+            const { minScale, maxScale } = cropperState;
             const currentDistance = getDistance(e.touches[0], e.touches[1]);
             const scaleFactor = currentDistance / initialDistance;
-            cropperState.scale = Math.max(0.5, Math.min(3, initialScale * scaleFactor));
-            document.getElementById('zoomSlider').value = cropperState.scale * 100;
+            cropperState.scale = Math.max(minScale, Math.min(maxScale, initialScale * scaleFactor));
+            updateZoomSlider();
             updateCropperTransform();
         }
     };
@@ -1864,23 +1959,63 @@ function getDistance(touch1, touch2) {
 
 function updateCropperTransform() {
     const image = document.getElementById('cropperImage');
-    image.style.transform = `translate(${cropperState.translateX}px, ${cropperState.translateY}px) scale(${cropperState.scale})`;
+    image.style.transform = `translate(${cropperState.translateX}px, ${cropperState.translateY}px) scale(${cropperState.scale}) rotate(${cropperState.rotation}deg)`;
+}
+
+function handleRotateLeft() {
+    // Quick 90° rotation
+    cropperState.rotation = Math.round((cropperState.rotation - 90) / 90) * 90;
+    if (cropperState.rotation < -180) cropperState.rotation += 360;
+    document.getElementById('rotationSlider').value = cropperState.rotation;
+    document.getElementById('rotationLabel').textContent = `${cropperState.rotation}°`;
+    updateCropperTransform();
+}
+
+function handleRotateRight() {
+    // Quick 90° rotation
+    cropperState.rotation = Math.round((cropperState.rotation + 90) / 90) * 90;
+    if (cropperState.rotation > 180) cropperState.rotation -= 360;
+    document.getElementById('rotationSlider').value = cropperState.rotation;
+    document.getElementById('rotationLabel').textContent = `${cropperState.rotation}°`;
+    updateCropperTransform();
+}
+
+function handleRotationSlider(e) {
+    cropperState.rotation = parseInt(e.target.value);
+    document.getElementById('rotationLabel').textContent = `${cropperState.rotation}°`;
+    updateCropperTransform();
 }
 
 function handleZoomIn() {
-    cropperState.scale = Math.min(3, cropperState.scale + 0.2);
-    document.getElementById('zoomSlider').value = cropperState.scale * 100;
+    const { minScale, maxScale, baseScale } = cropperState;
+    const step = (maxScale - minScale) * 0.1;
+    cropperState.scale = Math.min(maxScale, cropperState.scale + step);
+    updateZoomSlider();
     updateCropperTransform();
 }
 
 function handleZoomOut() {
-    cropperState.scale = Math.max(0.5, cropperState.scale - 0.2);
-    document.getElementById('zoomSlider').value = cropperState.scale * 100;
+    const { minScale, maxScale } = cropperState;
+    const step = (maxScale - minScale) * 0.1;
+    cropperState.scale = Math.max(minScale, cropperState.scale - step);
+    updateZoomSlider();
     updateCropperTransform();
 }
 
 function handleZoomSlider(e) {
-    cropperState.scale = e.target.value / 100;
+    const sliderValue = parseFloat(e.target.value);
+    const { minScale, maxScale, baseScale } = cropperState;
+    
+    // Map 0-100 slider to scale range
+    // 0 = minScale, 50 = baseScale (fill), 100 = maxScale
+    if (sliderValue <= 50) {
+        // 0-50 range maps to minScale-baseScale
+        cropperState.scale = minScale + (sliderValue / 50) * (baseScale - minScale);
+    } else {
+        // 50-100 range maps to baseScale-maxScale
+        cropperState.scale = baseScale + ((sliderValue - 50) / 50) * (maxScale - baseScale);
+    }
+    
     updateCropperTransform();
 }
 
@@ -1909,22 +2044,84 @@ function applyCrop() {
     // Create temp image to get natural dimensions
     const tempImg = new Image();
     tempImg.onload = () => {
-        // Calculate the visible area of the image
-        const imageRect = image.getBoundingClientRect();
+        const rotation = cropperState.rotation;
+        const rotationRad = (rotation * Math.PI) / 180;
+        const scale = cropperState.scale;
+        const translateX = cropperState.translateX;
+        const translateY = cropperState.translateY;
         
-        // Calculate scale between displayed and natural image
-        const displayScale = tempImg.naturalWidth / imageRect.width;
+        const naturalWidth = tempImg.naturalWidth;
+        const naturalHeight = tempImg.naturalHeight;
         
-        // Calculate crop area in natural image coordinates
-        const cropX = (frameRect.left - imageRect.left) * displayScale;
-        const cropY = (frameRect.top - imageRect.top) * displayScale;
-        const cropWidth = frameRect.width * displayScale;
-        const cropHeight = frameRect.height * displayScale;
+        // The image is displayed at: translate -> scale -> rotate (CSS transform order is right-to-left)
+        // To reverse: un-rotate -> un-scale -> un-translate
         
-        // Draw cropped portion to canvas
+        // Frame center in container coordinates
+        const containerCenterX = containerRect.width / 2;
+        const containerCenterY = containerRect.height / 2;
+        const frameCenterX = (frameRect.left - containerRect.left) + frameRect.width / 2;
+        const frameCenterY = (frameRect.top - containerRect.top) + frameRect.height / 2;
+        
+        // Frame center relative to the transformed image center
+        // Image center after translate is at (containerCenterX + translateX, containerCenterY + translateY)
+        const relX = frameCenterX - (containerCenterX + translateX);
+        const relY = frameCenterY - (containerCenterY + translateY);
+        
+        // Un-rotate the relative position
+        const cos = Math.cos(-rotationRad);
+        const sin = Math.sin(-rotationRad);
+        const unrotatedX = relX * cos - relY * sin;
+        const unrotatedY = relX * sin + relY * cos;
+        
+        // Un-scale to get position in natural image coordinates
+        // The image at scale=1 would be naturalWidth x naturalHeight centered in container
+        // At current scale, it's naturalWidth*scale x naturalHeight*scale
+        const naturalX = unrotatedX / scale + naturalWidth / 2;
+        const naturalY = unrotatedY / scale + naturalHeight / 2;
+        
+        // Frame size in natural image coordinates (un-scaled)
+        const cropWidth = frameRect.width / scale;
+        const cropHeight = frameRect.height / scale;
+        
+        // Create a temporary canvas to handle rotation
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Set temp canvas size to accommodate rotated image
+        const maxDim = Math.max(naturalWidth, naturalHeight) * 2;
+        tempCanvas.width = maxDim;
+        tempCanvas.height = maxDim;
+        
+        // Draw the rotated image
+        tempCtx.translate(maxDim / 2, maxDim / 2);
+        tempCtx.rotate(rotationRad);
+        tempCtx.drawImage(tempImg, -naturalWidth / 2, -naturalHeight / 2);
+        
+        // The crop center in the temp canvas coordinates
+        // The natural image center is at (maxDim/2, maxDim/2) before rotation
+        // After rotation, we need to find where (naturalX, naturalY) from the original image maps to
+        const offsetFromCenter = {
+            x: naturalX - naturalWidth / 2,
+            y: naturalY - naturalHeight / 2
+        };
+        
+        // Rotate this offset
+        const rotatedOffset = {
+            x: offsetFromCenter.x * Math.cos(rotationRad) - offsetFromCenter.y * Math.sin(rotationRad),
+            y: offsetFromCenter.x * Math.sin(rotationRad) + offsetFromCenter.y * Math.cos(rotationRad)
+        };
+        
+        const srcCenterX = maxDim / 2 + rotatedOffset.x;
+        const srcCenterY = maxDim / 2 + rotatedOffset.y;
+        
+        // Source coordinates for the crop
+        const srcX = srcCenterX - cropWidth / 2;
+        const srcY = srcCenterY - cropHeight / 2;
+        
+        // Draw the cropped area to final canvas
         ctx.drawImage(
-            tempImg,
-            cropX, cropY, cropWidth, cropHeight,
+            tempCanvas,
+            srcX, srcY, cropWidth, cropHeight,
             0, 0, outputSize, outputSize
         );
         
@@ -2152,6 +2349,9 @@ function initEventListeners() {
     document.getElementById('zoomInBtn').addEventListener('click', handleZoomIn);
     document.getElementById('zoomOutBtn').addEventListener('click', handleZoomOut);
     document.getElementById('zoomSlider').addEventListener('input', handleZoomSlider);
+    document.getElementById('rotateLeftBtn').addEventListener('click', handleRotateLeft);
+    document.getElementById('rotateRightBtn').addEventListener('click', handleRotateRight);
+    document.getElementById('rotationSlider').addEventListener('input', handleRotationSlider);
     
     // Close modals on overlay click
     document.getElementById('editItemModal').addEventListener('click', (e) => {
