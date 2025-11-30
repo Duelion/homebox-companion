@@ -1,12 +1,28 @@
 # Agent Guidelines
 
 ## Environment & Tooling
-- Target the Homebox **demo** API at `https://demo.homebox.software/api/v1` using the demo credentials (`demo@example.com` / `demo`). Do not reference or use production environments.
+
+- Target any Homebox instance via the `HOMEBOX_VISION_API_URL` environment variable. For testing, use the **demo** API at `https://demo.homebox.software/api/v1` with demo credentials (`demo@example.com` / `demo`).
 - Manage Python tooling with **uv**: create a virtual environment via `uv venv`, add dependencies with `uv add`, and run scripts with `uv run`. Keep dependencies tracked in `pyproject.toml` and `uv.lock`.
-- The OpenAI API key is provided via the `OPENAI_API_KEY` environment variable.
+- The OpenAI API key is provided via the `HOMEBOX_VISION_OPENAI_API_KEY` environment variable.
 - When testing functionality, hit the real demo API and the real OpenAI API rather than mocks or stubs.
 - Run `uv run ruff check .` before sending a commit to keep lint feedback consistent.
 - Increment the project version number in `pyproject.toml` for every pull request.
+
+---
+
+## Environment Variables
+
+All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts with other applications:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `HOMEBOX_VISION_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
+| `HOMEBOX_VISION_API_URL` | Yes | Demo server | Your Homebox API URL |
+| `HOMEBOX_VISION_OPENAI_MODEL` | No | `gpt-4.1-mini` | OpenAI model for vision |
+| `HOMEBOX_VISION_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
+| `HOMEBOX_VISION_SERVER_PORT` | No | `8000` | Server port |
+| `HOMEBOX_VISION_LOG_LEVEL` | No | `INFO` | Logging level |
 
 ---
 
@@ -93,10 +109,38 @@
                               │
               ┌───────────────┴───────────────┐
               ▼                               ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│   Homebox Demo API      │     │     OpenAI API          │
-│   (External)            │     │     (Vision/LLM)        │
-└─────────────────────────┘     └─────────────────────────┘
+┌─────────────────────────────┐     ┌─────────────────────────┐
+│   Homebox Instance          │     │     OpenAI API          │
+│   (Self-hosted or demo)     │     │     (Vision/LLM)        │
+└─────────────────────────────┘     └─────────────────────────┘
+```
+
+---
+
+## Project Structure
+
+```
+homebox-vision/
+├── homebox_vision/          # Core library
+│   ├── __init__.py          # Public API exports
+│   ├── client.py            # Homebox API client (sync + async)
+│   ├── config.py            # Centralized configuration
+│   ├── llm.py               # OpenAI vision integration
+│   └── models.py            # Data models
+├── server/                   # FastAPI web app
+│   ├── __init__.py
+│   ├── main.py              # API routes
+│   └── static/              # Frontend files
+│       ├── index.html
+│       ├── app.js
+│       └── styles.css
+├── tests/                    # Test suite
+│   ├── test_client.py       # Client unit tests
+│   ├── test_llm.py          # LLM unit tests
+│   └── test_integration.py  # Integration tests
+├── pyproject.toml           # Project configuration
+├── uv.lock                  # Dependency lock file
+└── README.md                # Documentation
 ```
 
 ---
@@ -107,8 +151,15 @@
 # Install dependencies
 uv sync
 
+# Set required environment variables
+export HOMEBOX_VISION_OPENAI_API_KEY="sk-your-key"
+export HOMEBOX_VISION_API_URL="https://your-homebox.example.com/api/v1"
+
 # Start the server (default port 8000)
 uv run python -m server.main
+
+# Or with the CLI command
+homebox-vision
 
 # Or with uvicorn directly
 uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000

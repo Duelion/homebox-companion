@@ -1,4 +1,9 @@
-"""HTTP client wrapper for the Homebox demo environment using HTTPX."""
+"""HTTP client wrapper for the Homebox API using HTTPX.
+
+This module provides both synchronous and asynchronous clients for
+interacting with the Homebox REST API.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -6,14 +11,13 @@ from typing import Any
 
 import httpx
 
+from .config import settings
 from .models import DetectedItem
-
-DEMO_BASE_URL = "https://demo.homebox.software/api/v1"
 
 # Default timeout configuration
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
-# Reuse the browser-style headers to avoid being blocked by network protections.
+# Browser-style headers to avoid being blocked by network protections
 DEFAULT_HEADERS: dict[str, str] = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -22,26 +26,32 @@ DEFAULT_HEADERS: dict[str, str] = {
     ),
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
-    "Origin": "https://demo.homebox.software",
-    "Referer": "https://demo.homebox.software/",
     "Connection": "keep-alive",
-    "DNT": "1",
-    "Sec-GPC": "1",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
 }
 
 
 class HomeboxClient:
-    """Synchronous client for the Homebox API using HTTPX."""
+    """Synchronous client for the Homebox API using HTTPX.
+
+    This client provides connection pooling and session management
+    for interacting with a Homebox instance.
+
+    Args:
+        base_url: The base URL of the Homebox API. Defaults to the configured API URL.
+        client: Optional pre-configured HTTPX client to use.
+
+    Example:
+        >>> with HomeboxClient() as client:
+        ...     token = client.login("user@example.com", "password")
+        ...     locations = client.list_locations(token)
+    """
 
     def __init__(
         self,
-        base_url: str = DEMO_BASE_URL,
+        base_url: str | None = None,
         client: httpx.Client | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (base_url or settings.api_url).rstrip("/")
         self._owns_client = client is None
         self.client = client or httpx.Client(
             headers=DEFAULT_HEADERS,
@@ -60,8 +70,19 @@ class HomeboxClient:
     def __exit__(self, *args: object) -> None:
         self.close()
 
-    def login(self, username: str = "demo@example.com", password: str = "demo") -> str:
-        """Authenticate and return the bearer token."""
+    def login(self, username: str, password: str) -> str:
+        """Authenticate with Homebox and return the bearer token.
+
+        Args:
+            username: The user's email address.
+            password: The user's password.
+
+        Returns:
+            The bearer token for subsequent API calls.
+
+        Raises:
+            RuntimeError: If authentication fails.
+        """
         payload = {
             "username": username,
             "password": password,
@@ -82,7 +103,15 @@ class HomeboxClient:
     def list_locations(
         self, token: str, *, filter_children: bool | None = None
     ) -> list[dict[str, Any]]:
-        """Return all available locations for the authenticated user."""
+        """Return all available locations for the authenticated user.
+
+        Args:
+            token: The bearer token from login.
+            filter_children: If True, returns only top-level locations.
+
+        Returns:
+            List of location dictionaries.
+        """
         params = {}
         if filter_children is not None:
             params["filterChildren"] = str(filter_children).lower()
@@ -99,7 +128,14 @@ class HomeboxClient:
         return response.json()
 
     def list_labels(self, token: str) -> list[dict[str, Any]]:
-        """Return all available labels for the authenticated user."""
+        """Return all available labels for the authenticated user.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            List of label dictionaries.
+        """
         response = self.client.get(
             f"{self.base_url}/labels",
             headers={
@@ -111,7 +147,15 @@ class HomeboxClient:
         return response.json()
 
     def create_item(self, token: str, item: DetectedItem) -> dict[str, Any]:
-        """Create a single item in Homebox."""
+        """Create a single item in Homebox.
+
+        Args:
+            token: The bearer token from login.
+            item: The detected item to create.
+
+        Returns:
+            The created item dictionary from the API.
+        """
         response = self.client.post(
             f"{self.base_url}/items",
             headers={
@@ -125,14 +169,31 @@ class HomeboxClient:
         return response.json()
 
     def create_items(self, token: str, items: Iterable[DetectedItem]) -> list[dict[str, Any]]:
-        """Create multiple items in Homebox."""
+        """Create multiple items in Homebox.
+
+        Args:
+            token: The bearer token from login.
+            items: Iterable of detected items to create.
+
+        Returns:
+            List of created item dictionaries.
+        """
         created: list[dict[str, Any]] = []
         for item in items:
             created.append(self.create_item(token, item))
         return created
 
     def update_item(self, token: str, item_id: str, item_data: dict[str, Any]) -> dict[str, Any]:
-        """Update a single item by ID."""
+        """Update a single item by ID.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to update.
+            item_data: Dictionary of fields to update.
+
+        Returns:
+            The updated item dictionary.
+        """
         response = self.client.put(
             f"{self.base_url}/items/{item_id}",
             headers={
@@ -158,14 +219,27 @@ class HomeboxClient:
 
 
 class AsyncHomeboxClient:
-    """Async client for the Homebox API using HTTPX AsyncClient."""
+    """Async client for the Homebox API using HTTPX AsyncClient.
+
+    This client provides connection pooling and session management
+    for asynchronous interaction with a Homebox instance.
+
+    Args:
+        base_url: The base URL of the Homebox API. Defaults to the configured API URL.
+        client: Optional pre-configured HTTPX AsyncClient to use.
+
+    Example:
+        >>> async with AsyncHomeboxClient() as client:
+        ...     token = await client.login("user@example.com", "password")
+        ...     locations = await client.list_locations(token)
+    """
 
     def __init__(
         self,
-        base_url: str = DEMO_BASE_URL,
+        base_url: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (base_url or settings.api_url).rstrip("/")
         self._owns_client = client is None
         self.client = client or httpx.AsyncClient(
             headers=DEFAULT_HEADERS,
@@ -184,8 +258,19 @@ class AsyncHomeboxClient:
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
 
-    async def login(self, username: str = "demo@example.com", password: str = "demo") -> str:
-        """Authenticate and return the bearer token."""
+    async def login(self, username: str, password: str) -> str:
+        """Authenticate with Homebox and return the bearer token.
+
+        Args:
+            username: The user's email address.
+            password: The user's password.
+
+        Returns:
+            The bearer token for subsequent API calls.
+
+        Raises:
+            RuntimeError: If authentication fails.
+        """
         payload = {
             "username": username,
             "password": password,
@@ -206,7 +291,15 @@ class AsyncHomeboxClient:
     async def list_locations(
         self, token: str, *, filter_children: bool | None = None
     ) -> list[dict[str, Any]]:
-        """Return all available locations for the authenticated user."""
+        """Return all available locations for the authenticated user.
+
+        Args:
+            token: The bearer token from login.
+            filter_children: If True, returns only top-level locations.
+
+        Returns:
+            List of location dictionaries.
+        """
         params = {}
         if filter_children is not None:
             params["filterChildren"] = str(filter_children).lower()
@@ -223,7 +316,15 @@ class AsyncHomeboxClient:
         return response.json()
 
     async def get_location(self, token: str, location_id: str) -> dict[str, Any]:
-        """Return a specific location by ID with its children."""
+        """Return a specific location by ID with its children.
+
+        Args:
+            token: The bearer token from login.
+            location_id: The ID of the location to fetch.
+
+        Returns:
+            Location dictionary including children.
+        """
         response = await self.client.get(
             f"{self.base_url}/locations/{location_id}",
             headers={
@@ -235,7 +336,14 @@ class AsyncHomeboxClient:
         return response.json()
 
     async def list_labels(self, token: str) -> list[dict[str, Any]]:
-        """Return all available labels for the authenticated user."""
+        """Return all available labels for the authenticated user.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            List of label dictionaries.
+        """
         response = await self.client.get(
             f"{self.base_url}/labels",
             headers={
@@ -247,7 +355,15 @@ class AsyncHomeboxClient:
         return response.json()
 
     async def create_item(self, token: str, item: DetectedItem) -> dict[str, Any]:
-        """Create a single item in Homebox."""
+        """Create a single item in Homebox.
+
+        Args:
+            token: The bearer token from login.
+            item: The detected item to create.
+
+        Returns:
+            The created item dictionary from the API.
+        """
         response = await self.client.post(
             f"{self.base_url}/items",
             headers={
@@ -260,8 +376,18 @@ class AsyncHomeboxClient:
         self._ensure_success(response, "Create item")
         return response.json()
 
-    async def create_items(self, token: str, items: Iterable[DetectedItem]) -> list[dict[str, Any]]:
-        """Create multiple items in Homebox."""
+    async def create_items(
+        self, token: str, items: Iterable[DetectedItem]
+    ) -> list[dict[str, Any]]:
+        """Create multiple items in Homebox.
+
+        Args:
+            token: The bearer token from login.
+            items: Iterable of detected items to create.
+
+        Returns:
+            List of created item dictionaries.
+        """
         created: list[dict[str, Any]] = []
         for item in items:
             created.append(await self.create_item(token, item))
@@ -270,7 +396,16 @@ class AsyncHomeboxClient:
     async def update_item(
         self, token: str, item_id: str, item_data: dict[str, Any]
     ) -> dict[str, Any]:
-        """Update a single item by ID."""
+        """Update a single item by ID.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to update.
+            item_data: Dictionary of fields to update.
+
+        Returns:
+            The updated item dictionary.
+        """
         response = await self.client.put(
             f"{self.base_url}/items/{item_id}",
             headers={
@@ -292,7 +427,19 @@ class AsyncHomeboxClient:
         mime_type: str = "image/jpeg",
         attachment_type: str = "photo",
     ) -> dict[str, Any]:
-        """Upload an attachment (image) to an item."""
+        """Upload an attachment (image) to an item.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to attach to.
+            file_bytes: The file content as bytes.
+            filename: Name for the uploaded file.
+            mime_type: MIME type of the file.
+            attachment_type: Type of attachment (default: "photo").
+
+        Returns:
+            The attachment response dictionary.
+        """
         files = {"file": (filename, file_bytes, mime_type)}
         data = {"type": attachment_type, "name": filename}
         response = await self.client.post(
@@ -305,7 +452,15 @@ class AsyncHomeboxClient:
         return response.json()
 
     async def get_item(self, token: str, item_id: str) -> dict[str, Any]:
-        """Get full item details by ID."""
+        """Get full item details by ID.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to fetch.
+
+        Returns:
+            The item dictionary with all details.
+        """
         response = await self.client.get(
             f"{self.base_url}/items/{item_id}",
             headers={
@@ -327,6 +482,3 @@ class AsyncHomeboxClient:
             detail = response.text
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
 
-
-# Backwards compatibility alias
-HomeboxDemoClient = HomeboxClient
