@@ -1,6 +1,7 @@
-"""Backward-compatible imports for the Homebox demo helpers used in testing.
+"""Backward-compatible imports for the Homebox demo helpers.
 
-Prefer importing from the :mod:`homebox` package directly for new code.
+.. deprecated::
+    Import from the `homebox` package directly.
 """
 from __future__ import annotations
 

@@ -1,95 +1,234 @@
 # homebox
 
-Utilities for interacting with the Homebox demo API.
+A human-friendly Python library for Homebox inventory management.
 
-The package exposes a small, pythonic API that pairs the Homebox demo environment with
-OpenAI vision helpers so the community can build quick experiments without reimplementing
-HTTP plumbing or prompt scaffolding.
+**homebox** provides a clean, Pythonic interface for interacting with the [Homebox](https://github.com/hay-kot/homebox) API, plus AI-powered item detection from images. Think of it as `requests` for inventory management.
 
-## Setup (uv)
+## ✨ Features
 
-1. Create and activate a virtual environment managed by **uv**:
+- **Pythonic API** — Clean, intuitive interface inspired by `requests`
+- **AI Vision** — Detect items in photos using OpenAI's vision models
+- **Smart Logging** — Built-in logging with [loguru](https://github.com/Delgan/loguru)
+- **Context Managers** — Automatic session handling with `with` statements
+- **Type Hints** — Full type annotations for IDE support
+- **Demo Ready** — Works out-of-the-box with Homebox demo environment
 
-   ```bash
-   uv venv
-   source .venv/bin/activate
-   ```
+## 🚀 Quick Start
 
-2. Install dependencies from `pyproject.toml` / `uv.lock`:
-
-   ```bash
-   uv sync
-   ```
-
-3. To add new dependencies, prefer `uv add <package>` so both `pyproject.toml` and `uv.lock` stay in sync.
-
-## Linting
-
-Run Ruff with uv to keep contributions consistent:
+### Installation
 
 ```bash
-uv run ruff .
+uv add homebox
+# or
+pip install homebox
 ```
 
-## Create an item via the demo API
+### Basic Usage
 
-Run the helper script with uv. It logs into the demo instance using the demo credentials (`demo@example.com` / `demo`), picks the first available location, and creates a uniquely named item.
+```python
+import homebox
 
-```bash
-uv run python create_homebox_item.py
+# Connect to Homebox (uses demo credentials by default)
+with homebox.Session() as hb:
+    # List locations
+    for location in hb.locations():
+        print(f"📍 {location.name}")
+
+    # Create an item
+    item = hb.create_item(
+        "Hammer",
+        quantity=2,
+        description="Claw hammer with wooden handle",
+        location=hb.locations()[0],
+    )
+    print(f"✅ Created: {item.name} (id: {item.id})")
 ```
 
-## Library usage
+### AI-Powered Detection
 
-The `homebox` package targets the demo environment
-(`https://demo.homebox.software/api/v1`) using the provided demo credentials. It exposes
-helpers for both raw API access and OpenAI-powered image parsing.
+Detect items in photos using OpenAI's vision models:
 
-### Create items with the demo client
+```python
+import homebox
 
-```bash
-uv run python - <<'PY'
-from datetime import UTC, datetime
+# Detect items in an image
+items = homebox.detect("tools.jpg")
 
-from homebox import DetectedItem, HomeboxDemoClient
+for item in items:
+    print(f"Found: {item.name} x{item.quantity}")
+    # Found: Hammer x2
+    # Found: Screwdriver x5
 
-client = HomeboxDemoClient()
-token = client.login()  # uses demo@example.com / demo
-location_id = client.list_locations(token)[0]["id"]
+# Create detected items in Homebox
+with homebox.Session() as hb:
+    location = hb.locations()[0]
+    for item in items:
+        created = hb.create_item(item, location=location)
+        print(f"Created: {created.name}")
+```
 
-item = DetectedItem(
-    name=f"Demo API item {datetime.now(UTC).isoformat(timespec='seconds')}",
-    quantity=1,
-    description="Created via automation script.",
-    location_id=location_id,
+## 📖 Usage Guide
+
+### Sessions
+
+The `Session` class manages authentication and provides methods for all API operations:
+
+```python
+import homebox
+
+# Option 1: Context manager (recommended)
+with homebox.Session() as hb:
+    items = hb.items()
+
+# Option 2: Manual management
+hb = homebox.Session()
+hb.login()
+items = hb.items()
+hb.close()
+
+# Option 3: Custom credentials
+hb = homebox.Session(
+    url="https://my-homebox.example.com/api/v1",
+    email="me@example.com",
+    password="secret",
+)
+```
+
+### Working with Items
+
+```python
+with homebox.Session() as hb:
+    # List all items
+    items = hb.items()
+
+    # Get a specific item
+    item = hb.item("item-id-123")
+
+    # Create an item
+    item = hb.create_item(
+        "Screwdriver Set",
+        quantity=1,
+        description="Phillips and flathead",
+        location="location-id",  # or pass a Location object
+        labels=["tools", "garage"],  # or pass Label objects
+    )
+
+    # Update an item
+    updated = hb.update_item("item-id", name="New Name", quantity=5)
+
+    # Delete an item
+    hb.delete_item("item-id")
+```
+
+### Locations and Labels
+
+```python
+with homebox.Session() as hb:
+    # List all locations
+    locations = hb.locations()
+    for loc in locations:
+        print(f"{loc.name}: {loc.item_count} items")
+
+    # List all labels
+    labels = hb.labels()
+    for label in labels:
+        print(f"🏷️ {label.name}")
+```
+
+### AI Vision Detection
+
+```python
+import homebox
+
+# Simple one-liner
+items = homebox.detect("photo.jpg")
+
+# With custom settings
+items = homebox.detect(
+    "photo.jpg",
+    api_key="sk-...",  # or set OPENAI_API_KEY env var
+    model="gpt-4o",  # default: gpt-4o-mini
 )
 
-created = client.create_items(token, [item])
-print(created)
-PY
+# Using VisionClient for multiple images
+vision = homebox.VisionClient(model="gpt-4o")
+items1 = vision.detect("photo1.jpg")
+items2 = vision.detect("photo2.jpg")
 ```
 
-### Detect items with OpenAI vision
+### Logging
 
-Example usage (requires `OPENAI_API_KEY`):
+homebox uses [loguru](https://github.com/Delgan/loguru) for beautiful, configurable logging:
+
+```python
+import homebox
+
+# Set log level
+homebox.configure(level="DEBUG")
+
+# Access the logger directly
+homebox.logger.info("Custom message")
+
+# Disable logging
+homebox.configure(level="CRITICAL")
+```
+
+## 🔧 Development Setup
 
 ```bash
-uv run python - <<'PY'
-from pathlib import Path
+# Clone the repo
+git clone https://github.com/your-org/homebox-py
+cd homebox-py
 
-from homebox import HomeboxDemoClient, detect_items_with_openai
+# Create virtual environment
+uv venv
+source .venv/bin/activate
 
-image_path = Path("/path/to/photo.jpg")
-items = detect_items_with_openai(image_path, api_key="${OPENAI_API_KEY}")
+# Install dependencies
+uv sync
 
-client = HomeboxDemoClient()
-token = client.login()  # uses demo@example.com / demo
-created = client.create_items(token, items)
-print(created)
-PY
+# Run linting
+uv run ruff check .
+
+# Run tests
+uv run pytest
+
+# Run integration tests (requires OPENAI_API_KEY)
+uv run pytest -m integration
 ```
 
-The `detect_items_with_openai` helper prompts the OpenAI API to return Homebox-ready entries
-with `name` (<=255 characters), integer `quantity`, and an optional `description` (<=1000
-characters) summarizing the item. The client enforces these limits before posting each item
-to the demo API's `/items` endpoint.
+## 📚 API Reference
+
+### Core Classes
+
+| Class | Description |
+|-------|-------------|
+| `Session` | Main API client with authentication |
+| `Item` | Inventory item data structure |
+| `Location` | Storage location |
+| `Label` | Item tag/label |
+| `VisionClient` | AI-powered item detection |
+
+### Top-Level Functions
+
+| Function | Description |
+|----------|-------------|
+| `detect(image)` | Detect items in an image using AI |
+| `configure(level=...)` | Configure logging |
+| `encode_image(path)` | Encode image as base64 data URI |
+
+### Exceptions
+
+| Exception | Description |
+|-----------|-------------|
+| `HomeboxError` | Base exception for API errors |
+| `AuthenticationError` | Login/auth failures |
+
+## 🔗 Links
+
+- [Homebox](https://github.com/hay-kot/homebox) — Self-hosted inventory management
+- [Demo Instance](https://demo.homebox.software) — Try it out (demo@example.com / demo)
+
+## 📄 License
+
+MIT
