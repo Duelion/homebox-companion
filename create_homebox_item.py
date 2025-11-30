@@ -3,24 +3,18 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from homebox_demo_adapter import DetectedItem, HomeboxDemoAdapter
+from homebox import DetectedItem, HomeboxDemoClient
 
 
-def pick_first_location_id(client: HomeboxDemoAdapter, token: str) -> str:
-    response = client.session.get(
-        f"{client.base_url}/locations",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=20,
-    )
-    client._ensure_success(response, "Fetch locations")
-    locations = response.json()
+def pick_first_location_id(client: HomeboxDemoClient, token: str) -> str:
+    locations = client.list_locations(token)
     if not locations:
         raise RuntimeError("No locations available in the demo account.")
     return locations[0]["id"]
 
 
 def main() -> None:
-    client = HomeboxDemoAdapter()
+    client = HomeboxDemoClient()
     token = client.login()
     location_id = pick_first_location_id(client, token)
     timestamp = datetime.now(UTC).isoformat(timespec="seconds")
