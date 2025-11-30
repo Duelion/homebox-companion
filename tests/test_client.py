@@ -3,12 +3,14 @@ from __future__ import annotations
 import json as jsonlib
 from typing import Any
 
-import requests
+import httpx
 
-from homebox import HomeboxDemoClient
+from homebox import HomeboxClient
 
 
-class MockSession:
+class MockTransport(httpx.BaseTransport):
+    """Mock transport for testing HTTPX client."""
+
     def __init__(
         self,
         *,
@@ -16,59 +18,38 @@ class MockSession:
         put_json: Any = None,
         put_status: int = 200,
     ) -> None:
-        self.headers: dict[str, str] = {}
         self.get_json = get_json
         self.put_json = put_json
         self.put_status = put_status
         self.calls: list[dict[str, Any]] = []
 
-    def get(
-        self,
-        url: str,
-        headers: dict[str, str] | None = None,
-        params: dict[str, str] | None = None,
-        timeout: int | None = None,
-    ) -> requests.Response:
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
         self.calls.append(
             {
-                "method": "GET",
-                "url": url,
-                "headers": headers or {},
-                "params": params,
-                "timeout": timeout,
+                "method": request.method,
+                "url": str(request.url),
+                "headers": dict(request.headers),
+                "params": dict(request.url.params) if request.url.params else None,
+                "json": jsonlib.loads(request.content) if request.content else None,
             }
         )
-        response = requests.Response()
-        response.status_code = 200
-        response._content = jsonlib.dumps(self.get_json or []).encode()
-        response.encoding = "utf-8"
-        return response
 
-    def put(
-        self,
-        url: str,
-        headers: dict[str, str] | None = None,
-        json: Any | None = None,
-        timeout: int | None = None,
-    ) -> requests.Response:
-        self.calls.append(
-            {
-                "method": "PUT",
-                "url": url,
-                "headers": headers or {},
-                "json": json,
-                "timeout": timeout,
-            }
-        )
-        response = requests.Response()
-        response.status_code = self.put_status
-        response._content = jsonlib.dumps(self.put_json or {}).encode()
-        response.encoding = "utf-8"
-        return response
+        if request.method == "GET":
+            return httpx.Response(
+                status_code=200,
+                json=self.get_json or [],
+            )
+        elif request.method == "PUT":
+            return httpx.Response(
+                status_code=self.put_status,
+                json=self.put_json or {},
+            )
+        else:
+            return httpx.Response(status_code=200, json={})
 
 
 def test_list_locations_supports_filter_children_flag() -> None:
-    session = MockSession(
+    transport = MockTransport(
         get_json=[
             {
                 "id": "loc-1",
@@ -80,38 +61,41 @@ def test_list_locations_supports_filter_children_flag() -> None:
             }
         ]
     )
-    client = HomeboxDemoClient(session=session)
+    http_client = httpx.Client(transport=transport)
+    client = HomeboxClient(client=http_client)
 
     locations = client.list_locations("token", filter_children=True)
 
     assert locations[0]["id"] == "loc-1"
-    call = session.calls[0]
-    assert call["url"].endswith("/locations")
-    assert call["headers"]["Authorization"] == "Bearer token"
-    assert call["headers"]["Accept"] == "application/json"
+    call = transport.calls[0]
+    assert "/locations" in call["url"]
+    assert call["headers"]["authorization"] == "Bearer token"
+    assert call["headers"]["accept"] == "application/json"
     assert call["params"] == {"filterChildren": "true"}
 
 
 def test_list_locations_omits_filter_children_when_not_requested() -> None:
-    session = MockSession(get_json=[])
-    client = HomeboxDemoClient(session=session)
+    transport = MockTransport(get_json=[])
+    http_client = httpx.Client(transport=transport)
+    client = HomeboxClient(client=http_client)
 
     client.list_locations("token")
 
-    call = session.calls[0]
-    assert call["params"] is None
+    call = transport.calls[0]
+    assert call["params"] is None or call["params"] == {}
 
 
 def test_update_item_sends_payload_and_returns_response() -> None:
-    session = MockSession(put_json={"id": "item-1", "name": "Updated"})
-    client = HomeboxDemoClient(session=session)
+    transport = MockTransport(put_json={"id": "item-1", "name": "Updated"})
+    http_client = httpx.Client(transport=transport)
+    client = HomeboxClient(client=http_client)
 
     payload = {"name": "Updated", "quantity": 2}
     response = client.update_item("token", "item-1", payload)
 
-    call = session.calls[0]
-    assert call["url"].endswith("/items/item-1")
+    call = transport.calls[0]
+    assert "/items/item-1" in call["url"]
     assert call["json"] == payload
-    assert call["headers"]["Authorization"] == "Bearer token"
-    assert call["headers"]["Content-Type"] == "application/json"
+    assert call["headers"]["authorization"] == "Bearer token"
+    assert call["headers"]["content-type"] == "application/json"
     assert response == {"id": "item-1", "name": "Updated"}

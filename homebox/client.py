@@ -1,14 +1,17 @@
-"""HTTP client wrapper for the Homebox demo environment."""
+"""HTTP client wrapper for the Homebox demo environment using HTTPX."""
 from __future__ import annotations
 
 from collections.abc import Iterable
 from typing import Any
 
-import requests
+import httpx
 
 from .models import DetectedItem
 
 DEMO_BASE_URL = "https://demo.homebox.software/api/v1"
+
+# Default timeout configuration
+DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 # Reuse the browser-style headers to avoid being blocked by network protections.
 DEFAULT_HEADERS: dict[str, str] = {
@@ -30,29 +33,44 @@ DEFAULT_HEADERS: dict[str, str] = {
 }
 
 
-class HomeboxDemoClient:
-    """Minimal client for the Homebox demo environment."""
+class HomeboxClient:
+    """Synchronous client for the Homebox API using HTTPX."""
 
     def __init__(
         self,
         base_url: str = DEMO_BASE_URL,
-        session: requests.Session | None = None,
+        client: httpx.Client | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.session = session or requests.Session()
-        self.session.headers.update(DEFAULT_HEADERS)
+        self._owns_client = client is None
+        self.client = client or httpx.Client(
+            headers=DEFAULT_HEADERS,
+            timeout=DEFAULT_TIMEOUT,
+            follow_redirects=True,
+        )
+
+    def close(self) -> None:
+        """Close the underlying HTTP client if we own it."""
+        if self._owns_client:
+            self.client.close()
+
+    def __enter__(self) -> HomeboxClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
     def login(self, username: str = "demo@example.com", password: str = "demo") -> str:
+        """Authenticate and return the bearer token."""
         payload = {
             "username": username,
             "password": password,
             "stayLoggedIn": True,
         }
-        response = self.session.post(
+        response = self.client.post(
             f"{self.base_url}/users/login",
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data=payload,
-            timeout=20,
         )
         self._ensure_success(response, "Login")
         data = response.json()
@@ -64,76 +82,206 @@ class HomeboxDemoClient:
     def list_locations(
         self, token: str, *, filter_children: bool | None = None
     ) -> list[dict[str, Any]]:
-        """Return all available locations for the authenticated user.
-
-        Args:
-            token: Bearer token returned from :meth:`login`.
-            filter_children: When provided, forwards the ``filterChildren`` query parameter
-                to filter locations that have parents.
-        """
-
-        params = None
+        """Return all available locations for the authenticated user."""
+        params = {}
         if filter_children is not None:
-            params = {"filterChildren": str(filter_children).lower()}
+            params["filterChildren"] = str(filter_children).lower()
 
-        response = self.session.get(
+        response = self.client.get(
             f"{self.base_url}/locations",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
             },
-            params=params,
-            timeout=20,
+            params=params or None,
         )
         self._ensure_success(response, "Fetch locations")
-        locations: list[dict[str, Any]] = response.json()
-        return locations
+        return response.json()
+
+    def list_labels(self, token: str) -> list[dict[str, Any]]:
+        """Return all available labels for the authenticated user."""
+        response = self.client.get(
+            f"{self.base_url}/labels",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Fetch labels")
+        return response.json()
+
+    def create_item(self, token: str, item: DetectedItem) -> dict[str, Any]:
+        """Create a single item in Homebox."""
+        response = self.client.post(
+            f"{self.base_url}/items",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=item.as_item_payload(),
+        )
+        self._ensure_success(response, "Create item")
+        return response.json()
 
     def create_items(self, token: str, items: Iterable[DetectedItem]) -> list[dict[str, Any]]:
-        """Persist the provided items to the Homebox demo environment."""
-
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }
+        """Create multiple items in Homebox."""
         created: list[dict[str, Any]] = []
         for item in items:
-            response = self.session.post(
-                f"{self.base_url}/items",
-                headers=headers,
-                json=item.as_item_payload(),
-                timeout=20,
-            )
-            self._ensure_success(response, "Create item")
-            created.append(response.json())
+            created.append(self.create_item(token, item))
         return created
 
     def update_item(self, token: str, item_id: str, item_data: dict[str, Any]) -> dict[str, Any]:
-        """Update a single item by ID in the Homebox demo environment."""
-
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }
-
-        response = self.session.put(
+        """Update a single item by ID."""
+        response = self.client.put(
             f"{self.base_url}/items/{item_id}",
-            headers=headers,
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
             json=item_data,
-            timeout=20,
         )
         self._ensure_success(response, "Update item")
         return response.json()
 
     @staticmethod
-    def _ensure_success(response: requests.Response, context: str) -> None:
+    def _ensure_success(response: httpx.Response, context: str) -> None:
+        """Raise an error if the response indicates failure."""
+        if response.is_success:
+            return
         try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            try:
-                detail = response.json()
-            except ValueError:
-                detail = response.text
-            raise RuntimeError(f"{context} failed with {response.status_code}: {detail}") from exc
+            detail = response.json()
+        except ValueError:
+            detail = response.text
+        raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
+
+
+class AsyncHomeboxClient:
+    """Async client for the Homebox API using HTTPX AsyncClient."""
+
+    def __init__(
+        self,
+        base_url: str = DEMO_BASE_URL,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self._owns_client = client is None
+        self.client = client or httpx.AsyncClient(
+            headers=DEFAULT_HEADERS,
+            timeout=DEFAULT_TIMEOUT,
+            follow_redirects=True,
+        )
+
+    async def aclose(self) -> None:
+        """Close the underlying HTTP client if we own it."""
+        if self._owns_client:
+            await self.client.aclose()
+
+    async def __aenter__(self) -> AsyncHomeboxClient:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.aclose()
+
+    async def login(self, username: str = "demo@example.com", password: str = "demo") -> str:
+        """Authenticate and return the bearer token."""
+        payload = {
+            "username": username,
+            "password": password,
+            "stayLoggedIn": True,
+        }
+        response = await self.client.post(
+            f"{self.base_url}/users/login",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=payload,
+        )
+        self._ensure_success(response, "Login")
+        data = response.json()
+        token = data.get("token") or data.get("jwt") or data.get("accessToken")
+        if not token:
+            raise RuntimeError("Login response did not include a token field.")
+        return token
+
+    async def list_locations(
+        self, token: str, *, filter_children: bool | None = None
+    ) -> list[dict[str, Any]]:
+        """Return all available locations for the authenticated user."""
+        params = {}
+        if filter_children is not None:
+            params["filterChildren"] = str(filter_children).lower()
+
+        response = await self.client.get(
+            f"{self.base_url}/locations",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            params=params or None,
+        )
+        self._ensure_success(response, "Fetch locations")
+        return response.json()
+
+    async def list_labels(self, token: str) -> list[dict[str, Any]]:
+        """Return all available labels for the authenticated user."""
+        response = await self.client.get(
+            f"{self.base_url}/labels",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Fetch labels")
+        return response.json()
+
+    async def create_item(self, token: str, item: DetectedItem) -> dict[str, Any]:
+        """Create a single item in Homebox."""
+        response = await self.client.post(
+            f"{self.base_url}/items",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=item.as_item_payload(),
+        )
+        self._ensure_success(response, "Create item")
+        return response.json()
+
+    async def create_items(self, token: str, items: Iterable[DetectedItem]) -> list[dict[str, Any]]:
+        """Create multiple items in Homebox."""
+        created: list[dict[str, Any]] = []
+        for item in items:
+            created.append(await self.create_item(token, item))
+        return created
+
+    async def update_item(
+        self, token: str, item_id: str, item_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Update a single item by ID."""
+        response = await self.client.put(
+            f"{self.base_url}/items/{item_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=item_data,
+        )
+        self._ensure_success(response, "Update item")
+        return response.json()
+
+    @staticmethod
+    def _ensure_success(response: httpx.Response, context: str) -> None:
+        """Raise an error if the response indicates failure."""
+        if response.is_success:
+            return
+        try:
+            detail = response.json()
+        except ValueError:
+            detail = response.text
+        raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
+
+
+# Backwards compatibility alias
+HomeboxDemoClient = HomeboxClient
