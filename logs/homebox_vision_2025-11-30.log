@@ -533,3 +533,143 @@
 }...
 2025-11-30 16:06:43 | INFO     | homebox_vision.llm:merge_items_with_openai:396 - Merge complete: Solder and Solder Mask Kit
 2025-11-30 16:06:43 | INFO     | server.main:merge_items:548 - Merge complete: Solder and Solder Mask Kit
+2025-11-30 16:08:01 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:08:01 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:08:01 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-4o-mini
+2025-11-30 16:08:01 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:08:01 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:08:01 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:08:01 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:08:01 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:13:07 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:13:07 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:13:07 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:13:07 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:13:21 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:13:21 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:13:21 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:13:21 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:13:24 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:13:24 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:13:24 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:13:24 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:13:31 | INFO     | server.main:<module>:49 - Starting Homebox Vision Companion API
+2025-11-30 16:13:31 | INFO     | server.main:<module>:50 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:13:31 | INFO     | server.main:<module>:51 - OpenAI Model: gpt-5-mini
+2025-11-30 16:13:31 | WARNING  | server.main:<module>:53 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:13:56 | INFO     | server.main:<module>:49 - Starting Homebox Vision Companion API
+2025-11-30 16:13:56 | INFO     | server.main:<module>:50 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:13:56 | INFO     | server.main:<module>:51 - OpenAI Model: gpt-5-mini
+2025-11-30 16:13:56 | WARNING  | server.main:<module>:53 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:15:37 | INFO     | server.main:<module>:49 - Starting Homebox Vision Companion API
+2025-11-30 16:15:37 | INFO     | server.main:<module>:50 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:15:37 | INFO     | server.main:<module>:51 - OpenAI Model: gpt-5-mini
+2025-11-30 16:15:37 | WARNING  | server.main:<module>:53 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:15:50 | INFO     | server.main:<module>:49 - Starting Homebox Vision Companion API
+2025-11-30 16:15:50 | INFO     | server.main:<module>:50 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:15:50 | INFO     | server.main:<module>:51 - OpenAI Model: gpt-5-mini
+2025-11-30 16:15:50 | WARNING  | server.main:<module>:53 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:15:57 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:15:57 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:15:57 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:15:57 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:16:23 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:16:23 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:16:23 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:16:23 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:16:36 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-11-30 16:16:37 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-11-30 16:16:49 | INFO     | server.main:detect_items:289 - Detecting items from image: solder.jpg
+2025-11-30 16:16:49 | DEBUG    | server.main:detect_items:307 - Image size: 243502 bytes
+2025-11-30 16:16:49 | DEBUG    | server.main:detect_items:311 - Content type: image/jpeg
+2025-11-30 16:16:49 | DEBUG    | server.main:detect_items:323 - Loaded 8 labels for context
+2025-11-30 16:16:49 | INFO     | server.main:detect_items:330 - Starting OpenAI vision detection...
+2025-11-30 16:16:49 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-5-mini
+2025-11-30 16:16:49 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-11-30 16:16:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-11-30 16:17:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "UV curing solder mask ink tube (sealed pouch)",
+      "quantity": 3,
+      "description": "Three factory-sealed white pouches, each containing a UV-curing solder mask ink tube for PCB solder mask application; appears new and unopened.",
+      "labelIds": [
+        "71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31",
+        "f552a704-8731-41b3-948a-5c05fe3a4088"
+      ]
+    },
+    {
+      "name": "Solder wire spool (blue reel)",
+      "quantity": 1,
+      "description": "B...
+2025-11-30 16:17:15 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 5 items
+2025-11-30 16:17:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: UV curing solder mask ink tube (sealed pouch), qty: 3, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:17:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Solder wire spool (blue reel), qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:17:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Solder paste / flux container (blue tub), qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:17:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Soldering iron tips (assorted), qty: 8, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:17:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Sealed black foil package (electronic solder supplies), qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:17:15 | INFO     | server.main:detect_items:338 - Detected 5 items
+2025-11-30 16:17:15 | DEBUG    | server.main:detect_items:340 -   - UV curing solder mask ink tube (sealed pouch) (qty: 3, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:17:15 | DEBUG    | server.main:detect_items:340 -   - Solder wire spool (blue reel) (qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:17:15 | DEBUG    | server.main:detect_items:340 -   - Solder paste / flux container (blue tub) (qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:17:15 | DEBUG    | server.main:detect_items:340 -   - Soldering iron tips (assorted) (qty: 8, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:17:15 | DEBUG    | server.main:detect_items:340 -   - Sealed black foil package (electronic solder supplies) (qty: 1, labels: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088'])
+2025-11-30 16:18:06 | INFO     | server.main:correct_item:601 - Item correction request received
+2025-11-30 16:18:06 | DEBUG    | server.main:correct_item:602 - Correction instructions: This is actually liquid flux for soldering.
+2025-11-30 16:18:06 | DEBUG    | server.main:correct_item:621 - Current item: {'name': 'Sealed black foil package (electronic solder supplies)', 'quantity': 1, 'description': "One sealed black foil pouch labeled 'High Quality Electronic Solder Supplies' with barcode; likely additional solder wire or related consumables, factory-sealed."}
+2025-11-30 16:18:07 | DEBUG    | server.main:correct_item:642 - Loaded 8 labels for context
+2025-11-30 16:18:07 | INFO     | server.main:correct_item:649 - Starting OpenAI item correction...
+2025-11-30 16:18:07 | INFO     | homebox_vision.llm:correct_item_with_openai:435 - Correcting item 'Sealed black foil package (electronic solder supplies)' with user instructions
+2025-11-30 16:18:07 | DEBUG    | homebox_vision.llm:correct_item_with_openai:436 - User correction: This is actually liquid flux for soldering.
+2025-11-30 16:18:07 | DEBUG    | homebox_vision.llm:correct_item_with_openai:472 - Calling OpenAI API for item correction...
+2025-11-30 16:18:18 | DEBUG    | homebox_vision.llm:correct_item_with_openai:511 - OpenAI correction response: {
+  "items": [
+    {
+      "name": "Liquid solder flux (syringe) — factory-sealed",
+      "quantity": 1,
+      "description": "One factory-sealed black foil pouch labeled 'High Quality Electronic Solder Supplies' containing a syringe of liquid solder flux for electronics soldering. Intended for PCB/component soldering to improve wetting and remove oxidation. Sealed with visible barcode and appears unopened.",
+      "labelIds": [
+        "71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31"
+      ]
+    }
+  ]
+}...
+2025-11-30 16:18:18 | INFO     | homebox_vision.llm:correct_item_with_openai:520 - Correction resulted in 1 item(s)
+2025-11-30 16:18:18 | DEBUG    | homebox_vision.llm:correct_item_with_openai:522 -   Corrected item: Liquid solder flux (syringe) — factory-sealed, qty: 1
+2025-11-30 16:18:18 | INFO     | server.main:correct_item:658 - Correction resulted in 1 item(s)
+2025-11-30 16:18:21 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:18:21 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:18:21 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:18:21 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:18:21 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-11-30 16:18:21 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-11-30 16:18:21 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-11-30 16:18:21 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-11-30 16:19:32 | INFO     | server.main:create_items:364 - Creating 5 items
+2025-11-30 16:19:32 | DEBUG    | server.main:create_items:365 - Request location_id: 251561db-d8ff-40c4-88df-7670964fc911
+2025-11-30 16:19:32 | DEBUG    | server.main:create_items:377 - Creating item: UV curing solder mask ink tube (sealed pouch)
+2025-11-30 16:19:32 | DEBUG    | server.main:create_items:378 -   location_id: 251561db-d8ff-40c4-88df-7670964fc911
+2025-11-30 16:19:32 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:19:33 | ERROR    | server.main:create_items:395 - Failed to create 'UV curing solder mask ink tube (sealed pouch)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:377 - Creating item: Solder wire spool (blue reel)
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:378 -   location_id: 251561db-d8ff-40c4-88df-7670964fc911
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:19:33 | ERROR    | server.main:create_items:395 - Failed to create 'Solder wire spool (blue reel)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:377 - Creating item: Solder paste / flux container (blue tub)
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:378 -   location_id: 251561db-d8ff-40c4-88df-7670964fc911
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:19:33 | ERROR    | server.main:create_items:395 - Failed to create 'Solder paste / flux container (blue tub)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:377 - Creating item: Soldering iron tips (assorted)
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:378 -   location_id: 251561db-d8ff-40c4-88df-7670964fc911
+2025-11-30 16:19:33 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31', 'f552a704-8731-41b3-948a-5c05fe3a4088']
+2025-11-30 16:19:34 | ERROR    | server.main:create_items:395 - Failed to create 'Soldering iron tips (assorted)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:34 | DEBUG    | server.main:create_items:377 - Creating item: Liquid solder flux (syringe) — factory-sealed
+2025-11-30 16:19:34 | DEBUG    | server.main:create_items:378 -   location_id: 251561db-d8ff-40c4-88df-7670964fc911
+2025-11-30 16:19:34 | DEBUG    | server.main:create_items:379 -   label_ids: ['71f4c9bf-b2f7-45e5-a9a9-ae9f39196d31']
+2025-11-30 16:19:34 | ERROR    | server.main:create_items:395 - Failed to create 'Liquid solder flux (syringe) — factory-sealed': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:34 | INFO     | server.main:create_items:398 - Item creation complete: 0 created, 5 failed
+2025-11-30 16:19:34 | WARNING  | server.main:create_items:401 -   Error: Failed to create 'UV curing solder mask ink tube (sealed pouch)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:34 | WARNING  | server.main:create_items:401 -   Error: Failed to create 'Solder wire spool (blue reel)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:34 | WARNING  | server.main:create_items:401 -   Error: Failed to create 'Solder paste / flux container (blue tub)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:34 | WARNING  | server.main:create_items:401 -   Error: Failed to create 'Soldering iron tips (assorted)': Create item failed with 401: {'error': 'valid authorization token is required'}
+2025-11-30 16:19:34 | WARNING  | server.main:create_items:401 -   Error: Failed to create 'Liquid solder flux (syringe) — factory-sealed': Create item failed with 401: {'error': 'valid authorization token is required'}

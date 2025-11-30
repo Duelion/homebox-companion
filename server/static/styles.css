@@ -1879,6 +1879,123 @@ body::before {
 }
 
 /* ========================================
+   Correction Section
+   ======================================== */
+
+.correction-section {
+    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.correction-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: var(--radius-md);
+    color: #f5a623;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.correction-toggle:hover {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 152, 0, 0.15) 100%);
+    border-color: rgba(255, 193, 7, 0.5);
+}
+
+.correction-toggle svg {
+    color: #f5a623;
+}
+
+.correction-content {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    background: var(--surface-tertiary);
+    border-radius: var(--radius-md);
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.correction-hint {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-xs) 0;
+}
+
+.correction-examples {
+    margin: 0 0 var(--space-md) 0;
+    padding-left: var(--space-lg);
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.correction-examples li {
+    margin-bottom: var(--space-xs);
+}
+
+.correction-examples li:last-child {
+    margin-bottom: 0;
+}
+
+.correction-input {
+    width: 100%;
+    padding: var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.correction-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.15);
+}
+
+.correction-input::placeholder {
+    color: var(--text-muted);
+}
+
+.correction-actions {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    justify-content: flex-end;
+}
+
+.correction-actions .btn {
+    padding: var(--space-sm) var(--space-md);
+}
+
+.correction-actions .btn-primary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+/* ========================================
    Unmerge Section
    ======================================== */
 
