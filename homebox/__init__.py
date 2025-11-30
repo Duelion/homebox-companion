@@ -1,6 +1,6 @@
 """Public API for the Homebox demo helper library."""
 from .client import DEFAULT_HEADERS, DEMO_BASE_URL, HomeboxDemoClient
-from .llm import detect_items_with_openai, encode_image_to_data_uri
+from .llm import HomeboxLLMClient, detect_items_with_openai, encode_image_to_data_uri
 from .models import DetectedItem
 
 __all__ = [
@@ -8,6 +8,7 @@ __all__ = [
     "DEFAULT_HEADERS",
     "DetectedItem",
     "HomeboxDemoClient",
+    "HomeboxLLMClient",
     "detect_items_with_openai",
     "encode_image_to_data_uri",
 ]

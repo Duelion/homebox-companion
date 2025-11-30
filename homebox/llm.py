@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from pathlib import Path
 
 import requests
@@ -20,68 +21,155 @@ def encode_image_to_data_uri(image_path: Path) -> str:
     return f"data:image/{suffix};base64,{payload}"
 
 
+class HomeboxLLMClient:
+    """Client for detecting Homebox items from images using OpenAI vision models."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "gpt-5-mini",
+        homebox_base_url: str = DEMO_BASE_URL,
+    ) -> None:
+        """Initialize the LLM client.
+
+        Args:
+            api_key: OpenAI API key. If not provided, falls back to the
+                ``OPENAI_API_KEY`` environment variable when needed.
+            model: The OpenAI model to use for vision tasks.
+            homebox_base_url: Base URL for the Homebox API (used to fetch labels).
+        """
+        self._api_key = api_key
+        self.model = model
+        self.homebox_base_url = homebox_base_url.rstrip("/")
+        self._openai_client: OpenAI | None = None
+
+    @property
+    def api_key(self) -> str:
+        """Return the OpenAI API key, falling back to environment variable."""
+        key = self._api_key or os.environ.get("OPENAI_API_KEY")
+        if not key:
+            raise ValueError(
+                "OpenAI API key must be provided either via the api_key argument "
+                "or the OPENAI_API_KEY environment variable."
+            )
+        return key
+
+    @property
+    def openai_client(self) -> OpenAI:
+        """Lazily initialize and return the OpenAI client."""
+        if self._openai_client is None:
+            self._openai_client = OpenAI(api_key=self.api_key)
+        return self._openai_client
+
+    def fetch_labels(self) -> list[dict[str, str]]:
+        """Fetch the available labels from the Homebox API."""
+
+        response = requests.get(
+            f"{self.homebox_base_url}/labels",
+            headers=DEFAULT_HEADERS,
+            timeout=20,
+        )
+        response.raise_for_status()
+        labels = response.json()
+        if not isinstance(labels, list):
+            return []
+
+        cleaned: list[dict[str, str]] = []
+        for label in labels:
+            label_id = str(label.get("id", "")).strip()
+            label_name = str(label.get("name", "")).strip()
+            if label_id and label_name:
+                cleaned.append({"id": label_id, "name": label_name})
+        return cleaned
+
+    def detect_items(self, image_path: Path) -> list[DetectedItem]:
+        """Use the OpenAI vision model to detect items and quantities in an image.
+
+        Args:
+            image_path: Path to the image file to analyze.
+
+        Returns:
+            A list of detected items with their names, quantities, and descriptions.
+        """
+
+        data_uri = encode_image_to_data_uri(image_path)
+        labels = self.fetch_labels()
+        label_prompt = (
+            "No labels are available; omit labelIds."
+            if not labels
+            else "\n".join(
+                f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id")
+            )
+        )
+
+        completion = self.openai_client.chat.completions.create(
+            model=self.model,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an inventory assistant for the Homebox API. "
+                        "Return a single JSON object with an `items` array. Each item must "
+                        "include: `name` (<=255 characters), integer `quantity` (>=1), and "
+                        "optional `description` (<=1000 characters) summarizing condition or "
+                        "notable attributes. Combine identical objects into a single entry "
+                        "with the correct quantity. Do not add extra commentary. Ignore "
+                        "background elements (floors, walls, benches, shelves, packaging, "
+                        "labels, shadows) and only count objects that are the clear focus of "
+                        "the image. When possible, set `labelIds` using the exact IDs from "
+                        "the available labels list. If none match, omit `labelIds`. Available "
+                        "labels:\n" + label_prompt
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "List all distinct items that are the logical focus of this image "
+                                "and ignore background objects or incidental surfaces. Return only "
+                                'JSON. Example format: {"items":[{"name":"hammer","quantity":2,'
+                                '"description":"Steel head with wooden handle"}]}.'
+                            ),
+                        },
+                        {"type": "image_url", "image_url": {"url": data_uri}},
+                    ],
+                },
+            ],
+        )
+        message = completion.choices[0].message
+        raw_content = message.content or "{}"
+        parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
+        return DetectedItem.from_raw_items(parsed_content.get("items", []))
+
+
+# Backwards-compatible standalone functions
+
+
 def detect_items_with_openai(
     image_path: Path,
     api_key: str,
     model: str = "gpt-5-mini",
 ) -> list[DetectedItem]:
-    """Use an OpenAI vision model to detect items and quantities in an image."""
+    """Use an OpenAI vision model to detect items and quantities in an image.
 
-    data_uri = encode_image_to_data_uri(image_path)
-    labels = fetch_demo_labels()
-    label_prompt = "No labels are available; omit labelIds." if not labels else "\n".join(
-        f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id")
-    )
-
-    client = OpenAI(api_key=api_key)
-    completion = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are an inventory assistant for the Homebox API. "
-                    "Return a single JSON object with an `items` array. Each item must "
-                    "include: `name` (<=255 characters), integer `quantity` (>=1), and "
-                    "optional `description` (<=1000 characters) summarizing condition or "
-                    "notable attributes. Combine identical objects into a single entry "
-                    "with the correct quantity. Do not add extra commentary. Ignore "
-                    "background elements (floors, walls, benches, shelves, packaging, "
-                    "labels, shadows) and only count objects that are the clear focus of "
-                    "the image. When possible, set `labelIds` using the exact IDs from "
-                    "the available labels list. If none match, omit `labelIds`. Available "
-                    "labels:\n" + label_prompt
-                ),
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "List all distinct items that are the logical focus of this image "
-                            "and ignore background objects or incidental surfaces. Return only "
-                            "JSON. Example format: {\"items\":[{\"name\":\"hammer\",\"quantity\":2,"
-                            "\"description\":\"Steel head with wooden handle\"}]}."
-                        ),
-                    },
-                    {"type": "image_url", "image_url": {"url": data_uri}},
-                ],
-            },
-        ],
-    )
-    message = completion.choices[0].message
-    raw_content = message.content or "{}"
-    parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
-    return DetectedItem.from_raw_items(parsed_content.get("items", []))
+    .. deprecated::
+        Use :class:`HomeboxLLMClient` instead for a cleaner interface.
+    """
+    client = HomeboxLLMClient(api_key=api_key, model=model)
+    return client.detect_items(image_path)
 
 
 def fetch_demo_labels(base_url: str = DEMO_BASE_URL) -> list[dict[str, str]]:
-    """Fetch the available labels from the Homebox demo API."""
+    """Fetch the available labels from the Homebox demo API.
 
+    .. deprecated::
+        Use :class:`HomeboxLLMClient` instead for a cleaner interface.
+    """
     response = requests.get(
-        f"{base_url}/labels",
+        f"{base_url.rstrip('/')}/labels",
         headers=DEFAULT_HEADERS,
         timeout=20,
     )
