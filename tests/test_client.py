@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import json as jsonlib
+from typing import Any
+
+import requests
+
+from homebox import HomeboxDemoClient
+
+
+class MockSession:
+    def __init__(
+        self,
+        *,
+        get_json: Any = None,
+        put_json: Any = None,
+        put_status: int = 200,
+    ) -> None:
+        self.headers: dict[str, str] = {}
+        self.get_json = get_json
+        self.put_json = put_json
+        self.put_status = put_status
+        self.calls: list[dict[str, Any]] = []
+
+    def get(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        params: dict[str, str] | None = None,
+        timeout: int | None = None,
+    ) -> requests.Response:
+        self.calls.append(
+            {
+                "method": "GET",
+                "url": url,
+                "headers": headers or {},
+                "params": params,
+                "timeout": timeout,
+            }
+        )
+        response = requests.Response()
+        response.status_code = 200
+        response._content = jsonlib.dumps(self.get_json or []).encode()
+        response.encoding = "utf-8"
+        return response
+
+    def put(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        json: Any | None = None,
+        timeout: int | None = None,
+    ) -> requests.Response:
+        self.calls.append(
+            {
+                "method": "PUT",
+                "url": url,
+                "headers": headers or {},
+                "json": json,
+                "timeout": timeout,
+            }
+        )
+        response = requests.Response()
+        response.status_code = self.put_status
+        response._content = jsonlib.dumps(self.put_json or {}).encode()
+        response.encoding = "utf-8"
+        return response
+
+
+def test_list_locations_supports_filter_children_flag() -> None:
+    session = MockSession(
+        get_json=[
+            {
+                "id": "loc-1",
+                "name": "Garage",
+                "description": "Detached garage",
+                "itemCount": 3,
+                "createdAt": "2024-01-01T00:00:00Z",
+                "updatedAt": "2024-01-02T00:00:00Z",
+            }
+        ]
+    )
+    client = HomeboxDemoClient(session=session)
+
+    locations = client.list_locations("token", filter_children=True)
+
+    assert locations[0]["id"] == "loc-1"
+    call = session.calls[0]
+    assert call["url"].endswith("/locations")
+    assert call["headers"]["Authorization"] == "Bearer token"
+    assert call["headers"]["Accept"] == "application/json"
+    assert call["params"] == {"filterChildren": "true"}
+
+
+def test_list_locations_omits_filter_children_when_not_requested() -> None:
+    session = MockSession(get_json=[])
+    client = HomeboxDemoClient(session=session)
+
+    client.list_locations("token")
+
+    call = session.calls[0]
+    assert call["params"] is None
+
+
+def test_update_item_sends_payload_and_returns_response() -> None:
+    session = MockSession(put_json={"id": "item-1", "name": "Updated"})
+    client = HomeboxDemoClient(session=session)
+
+    payload = {"name": "Updated", "quantity": 2}
+    response = client.update_item("token", "item-1", payload)
+
+    call = session.calls[0]
+    assert call["url"].endswith("/items/item-1")
+    assert call["json"] == payload
+    assert call["headers"]["Authorization"] == "Bearer token"
+    assert call["headers"]["Content-Type"] == "application/json"
+    assert response == {"id": "item-1", "name": "Updated"}

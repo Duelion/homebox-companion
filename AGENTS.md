@@ -4,3 +4,4 @@
 - The OpenAI API key is provided via the `OPENAI_API_KEY` environment variable.
 - When testing functionality, hit the real demo API and the real OpenAI API rather than mocks or stubs.
 - Run `uv run ruff check .` before sending a commit to keep lint feedback consistent.
+- Increment the project version number in `pyproject.toml` for every pull request.
