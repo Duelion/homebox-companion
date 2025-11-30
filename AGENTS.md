@@ -1,5 +1,4 @@
 # Agent Guidelines
-
-- The production Homebox API URL is `https://homebox.duelion.com`, with endpoints under `/api`.
-- Read the Homebox credentials from environment variables: `HOMEBOX_USER` for the username/email and `HOMEBOX_PASS` for the password. Do not hardcode credentials.
-- When interacting with Homebox, always target the real production API; avoid stubs or mocks.
+- Target the Homebox **demo** API at `https://demo.homebox.software/api/v1` using the demo credentials (`demo@example.com` / `demo`). Do not reference or use the duelion production environment.
+- Manage Python tooling with **uv**: create a virtual environment via `uv venv`, add dependencies with `uv add`, and run scripts with `uv run`. Keep dependencies tracked in `pyproject.toml` and `uv.lock`.
+- When testing functionality, hit the real demo API rather than mocks or stubs.
