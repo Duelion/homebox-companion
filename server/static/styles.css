@@ -267,6 +267,72 @@ body::before {
 }
 
 /* ========================================
+   Back Button
+   ======================================== */
+
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-family: var(--font-primary);
+    cursor: pointer;
+    padding: var(--space-xs) 0;
+    margin-bottom: var(--space-md);
+    transition: color var(--transition-fast);
+}
+
+.btn-back:hover {
+    color: var(--accent-primary);
+}
+
+.btn-back svg {
+    transition: transform var(--transition-fast);
+}
+
+.btn-back:hover svg {
+    transform: translateX(-2px);
+}
+
+/* ========================================
+   Offline Banner
+   ======================================== */
+
+.offline-banner {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    z-index: 99;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--warning);
+    color: #000;
+    font-size: 0.875rem;
+    font-weight: 500;
+    animation: slideDown var(--transition-base) ease;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+.offline-banner svg {
+    flex-shrink: 0;
+}
+
+/* ========================================
    Step Indicator
    ======================================== */
 

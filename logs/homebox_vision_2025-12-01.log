@@ -311,3 +311,84 @@
 2025-12-01 10:08:29 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
 2025-12-01 10:08:29 | INFO     | __main__:create_items:391 - Created item: Super Lube 51030 Synthetic Oil (id: 09444796-dffd-4fce-831b-3b860c93c55c)
 2025-12-01 10:08:29 | INFO     | __main__:create_items:398 - Item creation complete: 5 created, 0 failed
+2025-12-01 10:19:13 | INFO     | __main__:login:186 - Login attempt for user: demo@example.com
+2025-12-01 10:19:14 | INFO     | __main__:login:190 - Login successful for user: demo@example.com
+2025-12-01 10:20:59 | INFO     | __main__:detect_items:289 - Detecting items from image: Screenshot 2025-11-30 134838.png
+2025-12-01 10:20:59 | DEBUG    | __main__:detect_items:307 - Image size: 32280 bytes
+2025-12-01 10:20:59 | DEBUG    | __main__:detect_items:311 - Content type: image/png
+2025-12-01 10:20:59 | INFO     | __main__:detect_items:289 - Detecting items from image: Untitled.jpg
+2025-12-01 10:20:59 | DEBUG    | __main__:detect_items:307 - Image size: 207212 bytes
+2025-12-01 10:20:59 | DEBUG    | __main__:detect_items:311 - Content type: image/jpeg
+2025-12-01 10:20:59 | INFO     | __main__:detect_items:289 - Detecting items from image: photo-1679119790850-161688b0417e.jpg
+2025-12-01 10:20:59 | DEBUG    | __main__:detect_items:307 - Image size: 517194 bytes
+2025-12-01 10:20:59 | DEBUG    | __main__:detect_items:311 - Content type: image/jpeg
+2025-12-01 10:21:00 | DEBUG    | __main__:detect_items:323 - Loaded 8 labels for context
+2025-12-01 10:21:00 | INFO     | __main__:detect_items:330 - Starting OpenAI vision detection...
+2025-12-01 10:21:00 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-12-01 10:21:00 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-12-01 10:21:00 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-12-01 10:21:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "blue pen",
+      "quantity": 1,
+      "description": "Metallic blue pen with a sleek design.",
+      "labelIds": ["1c2629da-f5e5-440c-af72-662ce3ee9bd1"]
+    },
+    {
+      "name": "notebook",
+      "quantity": 1,
+      "description": "Spiral-bound notebook with lined pages.",
+      "labelIds": ["1c2629da-f5e5-440c-af72-662ce3ee9bd1"]
+    }
+  ]
+}...
+2025-12-01 10:21:06 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 2 items
+2025-12-01 10:21:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: blue pen, qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:21:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: notebook, qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:21:06 | INFO     | __main__:detect_items:338 - Detected 2 items
+2025-12-01 10:21:06 | DEBUG    | __main__:detect_items:340 -   - blue pen (qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:21:06 | DEBUG    | __main__:detect_items:340 -   - notebook (qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:21:06 | DEBUG    | __main__:detect_items:323 - Loaded 8 labels for context
+2025-12-01 10:21:06 | INFO     | __main__:detect_items:330 - Starting OpenAI vision detection...
+2025-12-01 10:21:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-12-01 10:21:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-12-01 10:21:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-12-01 10:21:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "Super Lube Multi-Use Synthetic Oil",
+      "quantity": 1,
+      "description": "32 US fl oz (946.35 ml) synthetic oil with Syncolon (PTFE), dielectric and food-grade, clean.",
+      "labelIds": ["1c2629da-f5e5-440c-af72-662ce3ee9bd1"]
+    },
+    {
+      "name": "Super Lube Multi-Purpose Synthetic Grease",
+      "quantity": 1,
+      "description": "Synthetic grease with Syncolon (PTFE), heavy-duty, dielectric and food-grade.",
+      "labelIds": ["1c2629da-f5e5-...
+2025-12-01 10:21:11 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 2 items
+2025-12-01 10:21:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube Multi-Use Synthetic Oil, qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:21:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube Multi-Purpose Synthetic Grease, qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:21:11 | INFO     | __main__:detect_items:338 - Detected 2 items
+2025-12-01 10:21:11 | DEBUG    | __main__:detect_items:340 -   - Super Lube Multi-Use Synthetic Oil (qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:21:11 | DEBUG    | __main__:detect_items:340 -   - Super Lube Multi-Purpose Synthetic Grease (qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:21:11 | DEBUG    | __main__:detect_items:323 - Loaded 8 labels for context
+2025-12-01 10:21:11 | INFO     | __main__:detect_items:330 - Starting OpenAI vision detection...
+2025-12-01 10:21:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:110 - Starting item detection with model: gpt-4o-mini
+2025-12-01 10:21:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:123 - Labels provided: 8
+2025-12-01 10:21:11 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:126 - Calling OpenAI API...
+2025-12-01 10:21:13 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:167 - OpenAI response: {
+  "items": [
+    {
+      "name": "Super Lube 51030 Synthetic Oil",
+      "quantity": 1,
+      "description": "High viscosity synthetic oil with PTFE, presented in a 1 quart bottle, translucent white.",
+      "labelIds": ["1c2629da-f5e5-440c-af72-662ce3ee9bd1"]
+    }
+  ]
+}...
+2025-12-01 10:21:13 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:172 - Detected 1 items
+2025-12-01 10:21:13 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube 51030 Synthetic Oil, qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:21:13 | INFO     | __main__:detect_items:338 - Detected 1 items
+2025-12-01 10:21:13 | DEBUG    | __main__:detect_items:340 -   - Super Lube 51030 Synthetic Oil (qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
