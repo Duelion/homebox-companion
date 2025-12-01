@@ -16,11 +16,10 @@ const state = {
     selectedLocationId: null,
     selectedLocationName: null,
     selectedLocationPath: '', // Full path string for display
-    capturedImage: null,
-    detectedItems: [],       // Items with additionalImages array
+    capturedImages: [],      // Array of {file, dataUrl} for multi-image upload
+    detectedItems: [],       // Items with additionalImages array and sourceImageIndex
     confirmedItems: [],
     currentItemIndex: 0,
-    originalImageDataUrl: null, // Base64 of original detection image
     // Merge state
     isMergeReview: false,    // Whether we're reviewing a merged item
     mergedItemImages: [],    // Images from items being merged
@@ -54,17 +53,25 @@ const elements = {
     selectCurrentLocationBtn: document.getElementById('selectCurrentLocationBtn'),
     continueToCapture: document.getElementById('continueToCapture'),
     
-    // Capture
+    // Capture - Multi-image
     captureZone: document.getElementById('captureZone'),
     capturePlaceholder: document.getElementById('capturePlaceholder'),
-    capturePreview: document.getElementById('capturePreview'),
-    previewImage: document.getElementById('previewImage'),
+    multiImageContainer: document.getElementById('multiImageContainer'),
+    multiImageGrid: document.getElementById('multiImageGrid'),
+    addMoreImagesZone: document.getElementById('addMoreImagesZone'),
     imageInput: document.getElementById('imageInput'),
+    cameraInput: document.getElementById('cameraInput'),
     cameraBtn: document.getElementById('cameraBtn'),
     uploadBtn: document.getElementById('uploadBtn'),
-    removeImage: document.getElementById('removeImage'),
+    imageCountDisplay: document.getElementById('imageCountDisplay'),
+    imageCountText: document.getElementById('imageCountText'),
+    clearAllImages: document.getElementById('clearAllImages'),
     analyzeBtn: document.getElementById('analyzeBtn'),
     analyzeLoader: document.getElementById('analyzeLoader'),
+    analyzeProgress: document.getElementById('analyzeProgress'),
+    progressBar: document.getElementById('progressBar'),
+    progressText: document.getElementById('progressText'),
+    progressStatus: document.getElementById('progressStatus'),
     
     // Review
     itemCarousel: document.getElementById('itemCarousel'),
@@ -234,7 +241,7 @@ function handleLogout() {
     state.selectedLocationId = null;
     state.selectedLocationName = null;
     state.selectedLocationPath = '';
-    state.capturedImage = null;
+    state.capturedImages = [];
     state.detectedItems = [];
     state.confirmedItems = [];
     
@@ -247,6 +254,12 @@ function handleLogout() {
     elements.locationList.style.display = 'flex';
     elements.locationBreadcrumb.style.display = 'flex';
     elements.locationList.innerHTML = '';  // Clear the list
+    
+    // Reset multi-image UI
+    elements.multiImageGrid.innerHTML = '';
+    elements.multiImageContainer.classList.remove('active');
+    elements.captureZone.classList.remove('hidden');
+    elements.imageCountDisplay.style.display = 'none';
     
     showSection('loginSection');
     showToast('Logged out successfully', 'info');
@@ -580,7 +593,7 @@ function handleContinueToCapture() {
 }
 
 // ========================================
-// Image Capture
+// Image Capture - Multi-Image Support
 // ========================================
 
 function handleCaptureZoneClick() {
@@ -588,97 +601,257 @@ function handleCaptureZoneClick() {
 }
 
 function handleCameraClick() {
-    elements.imageInput.setAttribute('capture', 'environment');
-    elements.imageInput.click();
+    // Use separate camera input for single photo capture
+    elements.cameraInput.click();
 }
 
 function handleUploadClick() {
-    elements.imageInput.removeAttribute('capture');
+    elements.imageInput.click();
+}
+
+function handleAddMoreImagesClick() {
     elements.imageInput.click();
 }
 
 function handleImageSelect(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    // Process each selected file
+    Array.from(files).forEach(file => {
+        if (!file.type.startsWith('image/')) {
+            showToast(`Skipped ${file.name}: not an image`, 'warning');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            state.capturedImages.push({
+                file: file,
+                dataUrl: e.target.result,
+            });
+            updateMultiImageUI();
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    // Reset input so same file can be selected again
+    event.target.value = '';
+}
+
+function handleCameraCapture(event) {
     const file = event.target.files?.[0];
     if (!file) return;
     
     if (!file.type.startsWith('image/')) {
-        showToast('Please select an image file', 'error');
+        showToast('Please capture an image', 'error');
         return;
     }
-    
-    state.capturedImage = file;
     
     const reader = new FileReader();
     reader.onload = (e) => {
-        elements.previewImage.src = e.target.result;
-        state.originalImageDataUrl = e.target.result; // Store for later use
-        elements.capturePreview.style.display = 'block';
-        elements.capturePlaceholder.style.display = 'none';
-        elements.analyzeBtn.disabled = false;
+        state.capturedImages.push({
+            file: file,
+            dataUrl: e.target.result,
+        });
+        updateMultiImageUI();
     };
     reader.readAsDataURL(file);
+    
+    // Reset input
+    event.target.value = '';
 }
 
-function handleRemoveImage() {
-    state.capturedImage = null;
-    elements.previewImage.src = '';
-    elements.capturePreview.style.display = 'none';
-    elements.capturePlaceholder.style.display = 'flex';
-    elements.analyzeBtn.disabled = true;
+function updateMultiImageUI() {
+    const hasImages = state.capturedImages.length > 0;
+    
+    // Toggle visibility of capture zone vs multi-image container
+    if (hasImages) {
+        elements.captureZone.classList.add('hidden');
+        elements.multiImageContainer.classList.add('active');
+    } else {
+        elements.captureZone.classList.remove('hidden');
+        elements.multiImageContainer.classList.remove('active');
+    }
+    
+    // Update image count display
+    if (hasImages) {
+        elements.imageCountDisplay.style.display = 'flex';
+        elements.imageCountText.textContent = `${state.capturedImages.length} photo${state.capturedImages.length !== 1 ? 's' : ''} selected`;
+    } else {
+        elements.imageCountDisplay.style.display = 'none';
+    }
+    
+    // Render image grid
+    renderMultiImageGrid();
+    
+    // Enable/disable analyze button
+    elements.analyzeBtn.disabled = !hasImages;
+}
+
+function renderMultiImageGrid() {
+    elements.multiImageGrid.innerHTML = '';
+    
+    state.capturedImages.forEach((img, index) => {
+        const item = document.createElement('div');
+        item.className = 'multi-image-item';
+        item.dataset.index = index;
+        
+        item.innerHTML = `
+            <img src="${img.dataUrl}" alt="Photo ${index + 1}">
+            <button type="button" class="image-remove-btn" onclick="handleRemoveMultiImage(${index})" title="Remove">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <span class="image-index">${index + 1}</span>
+        `;
+        
+        elements.multiImageGrid.appendChild(item);
+    });
+}
+
+function handleRemoveMultiImage(index) {
+    state.capturedImages.splice(index, 1);
+    updateMultiImageUI();
+}
+
+function handleClearAllImages() {
+    state.capturedImages = [];
+    updateMultiImageUI();
     elements.imageInput.value = '';
+    elements.cameraInput.value = '';
 }
 
 async function handleAnalyze() {
-    if (!state.capturedImage) {
-        showToast('Please capture or upload an image first', 'warning');
+    if (state.capturedImages.length === 0) {
+        showToast('Please capture or upload at least one image', 'warning');
         return;
     }
     
-    elements.analyzeBtn.style.display = 'none';
-    elements.analyzeLoader.style.display = 'flex';
+    const totalImages = state.capturedImages.length;
     
-    try {
-        const formData = new FormData();
-        formData.append('image', state.capturedImage);
+    // Hide analyze button and show progress
+    elements.analyzeBtn.style.display = 'none';
+    elements.analyzeProgress.style.display = 'block';
+    
+    // Initialize progress
+    updateProgress(0, totalImages, 'Starting analysis...');
+    
+    // Store all detected items from all images
+    const allDetectedItems = [];
+    let processedCount = 0;
+    let errorCount = 0;
+    
+    // Process images in parallel (max 3 concurrent)
+    const concurrentLimit = 3;
+    const imageQueue = [...state.capturedImages.map((img, index) => ({ ...img, index }))];
+    const activePromises = new Map();
+    
+    const processImage = async (imageData) => {
+        const { file, dataUrl, index } = imageData;
         
-        const response = await fetch('/api/detect', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: formData,
-        });
-        
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ detail: response.statusText }));
-            throw new Error(error.detail || 'Detection failed');
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            const response = await fetch('/api/detect', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: formData,
+            });
+            
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ detail: response.statusText }));
+                throw new Error(error.detail || 'Detection failed');
+            }
+            
+            const data = await response.json();
+            
+            if (data.items && data.items.length > 0) {
+                // Add source image info to each detected item
+                const itemsWithSource = data.items.map(item => ({
+                    ...item,
+                    additionalImages: [],
+                    advancedFields: {},
+                    showAdvanced: false,
+                    sourceImageIndex: index,
+                    sourceImageDataUrl: dataUrl,
+                    sourceImageFile: file,
+                }));
+                
+                return itemsWithSource;
+            }
+            
+            return [];
+        } catch (error) {
+            console.error(`Failed to process image ${index + 1}:`, error);
+            errorCount++;
+            return [];
+        }
+    };
+    
+    // Process images with concurrency control
+    while (imageQueue.length > 0 || activePromises.size > 0) {
+        // Start new tasks up to the concurrency limit
+        while (imageQueue.length > 0 && activePromises.size < concurrentLimit) {
+            const imageData = imageQueue.shift();
+            const promise = processImage(imageData).then(items => {
+                processedCount++;
+                updateProgress(processedCount, totalImages, `Processing photo ${processedCount} of ${totalImages}...`);
+                
+                if (items.length > 0) {
+                    allDetectedItems.push(...items);
+                }
+                
+                activePromises.delete(imageData.index);
+                return items;
+            });
+            
+            activePromises.set(imageData.index, promise);
         }
         
-        const data = await response.json();
-        
-        if (!data.items || data.items.length === 0) {
-            showToast('No items detected in the image', 'warning');
-            elements.analyzeBtn.style.display = 'flex';
-            elements.analyzeLoader.style.display = 'none';
-            return;
+        // Wait for at least one to complete
+        if (activePromises.size > 0) {
+            await Promise.race(activePromises.values());
         }
-        
-        // Initialize additional fields for each item
-        state.detectedItems = data.items.map(item => ({
-            ...item,
-            additionalImages: [],      // Files for additional photos
-            advancedFields: {},        // AI-analyzed advanced fields
-            showAdvanced: false,       // Whether advanced section is expanded
-        }));
-        state.currentItemIndex = 0;
-        
-        showToast(`Detected ${data.items.length} item(s)`, 'success');
-        renderItemCards();
-        showSection('reviewSection');
-    } catch (error) {
-        showToast(error.message || 'Analysis failed', 'error');
-    } finally {
-        elements.analyzeBtn.style.display = 'flex';
-        elements.analyzeLoader.style.display = 'none';
     }
+    
+    // Hide progress
+    elements.analyzeProgress.style.display = 'none';
+    elements.analyzeBtn.style.display = 'flex';
+    
+    // Check results
+    if (allDetectedItems.length === 0) {
+        if (errorCount > 0) {
+            showToast(`Analysis failed for ${errorCount} image(s). No items detected.`, 'error');
+        } else {
+            showToast('No items detected in any of the images', 'warning');
+        }
+        return;
+    }
+    
+    // Set detected items and proceed to review
+    state.detectedItems = allDetectedItems;
+    state.currentItemIndex = 0;
+    
+    let successMsg = `Detected ${allDetectedItems.length} item(s) from ${totalImages} photo${totalImages !== 1 ? 's' : ''}`;
+    if (errorCount > 0) {
+        successMsg += ` (${errorCount} failed)`;
+    }
+    showToast(successMsg, 'success');
+    
+    renderItemCards();
+    showSection('reviewSection');
+}
+
+function updateProgress(current, total, statusText) {
+    const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+    
+    elements.progressBar.style.width = `${percentage}%`;
+    elements.progressText.textContent = `${current} / ${total}`;
+    elements.progressStatus.textContent = statusText;
 }
 
 // ========================================
@@ -690,7 +863,8 @@ function renderItemCards() {
     
     state.detectedItems.forEach((item, index) => {
         const card = document.createElement('div');
-        card.className = `item-card${index === state.currentItemIndex ? ' active' : ''}`;
+        const isConfirmed = item.confirmed || false;
+        card.className = `item-card${index === state.currentItemIndex ? ' active' : ''}${isConfirmed ? ' confirmed' : ''}`;
         card.dataset.index = index;
         
         const imageCount = item.additionalImages?.length || 0;
@@ -698,7 +872,28 @@ function renderItemCards() {
         const showAdvanced = item.showAdvanced || false;
         const selectedLabelIds = item.label_ids || [];
         
+        // Source image thumbnail
+        const sourceImageHtml = item.sourceImageDataUrl ? `
+            <div class="source-image-header">
+                <div class="source-image-thumb">
+                    <img src="${item.sourceImageDataUrl}" alt="Source photo">
+                </div>
+                <div class="source-image-info">
+                    <span class="source-label">Detected from photo ${(item.sourceImageIndex || 0) + 1}</span>
+                    ${isConfirmed ? `
+                        <span class="confirmed-badge">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Confirmed
+                        </span>
+                    ` : ''}
+                </div>
+            </div>
+        ` : '';
+        
         card.innerHTML = `
+            ${sourceImageHtml}
             <form class="form" onsubmit="return false;">
                 <div class="form-group">
                     <label for="itemName${index}">Item Name</label>
@@ -932,11 +1127,11 @@ async function handleApplyCorrection(index) {
         // Prepare form data
         const formData = new FormData();
         
-        // Add the original image
-        if (state.capturedImage) {
-            formData.append('image', state.capturedImage);
+        // Add the source image for this specific item
+        if (item.sourceImageFile) {
+            formData.append('image', item.sourceImageFile);
         } else {
-            showToast('Original image not available', 'error');
+            showToast('Source image not available for this item', 'error');
             return;
         }
         
@@ -976,6 +1171,7 @@ async function handleApplyCorrection(index) {
             showToast('Item corrected successfully!', 'success');
         } else {
             // Multiple items - replace current item with new items
+            // Preserve source image info for all split items
             const newItems = data.items.map(correctedItem => ({
                 name: correctedItem.name,
                 quantity: correctedItem.quantity,
@@ -984,6 +1180,9 @@ async function handleApplyCorrection(index) {
                 additionalImages: [],
                 advancedFields: {},
                 showAdvanced: false,
+                sourceImageIndex: item.sourceImageIndex,
+                sourceImageDataUrl: item.sourceImageDataUrl,
+                sourceImageFile: item.sourceImageFile,
             }));
             
             // Remove current item and insert new items at the same position
@@ -1101,9 +1300,9 @@ async function handleAnalyzeAdvanced(itemIndex) {
     try {
         const formData = new FormData();
         
-        // Add the original image first
-        if (state.capturedImage) {
-            formData.append('images', state.capturedImage);
+        // Add the source image for this specific item first
+        if (item.sourceImageFile) {
+            formData.append('images', item.sourceImageFile);
         }
         
         // Add all additional images
@@ -1325,7 +1524,7 @@ function handleConfirmItem() {
     const purchaseFrom = document.getElementById(`itemPurchaseFrom${index}`)?.value.trim() || null;
     const notes = document.getElementById(`itemNotes${index}`)?.value.trim() || null;
     
-    // Collect images to upload (original + additional) with dataUrls for preview
+    // Collect images to upload (source image + additional) with dataUrls for preview
     const imagesToUpload = [];
     
     // In merge review mode, use the merged images
@@ -1338,12 +1537,14 @@ function handleConfirmItem() {
             });
         });
     } else {
-        if (state.capturedImage) {
+        // Use the source image from this specific item (each item tracks its source photo)
+        if (item.sourceImageFile && item.sourceImageDataUrl) {
             imagesToUpload.push({ 
-                file: state.capturedImage, 
+                file: item.sourceImageFile, 
                 isPrimary: true,
-                dataUrl: state.originalImageDataUrl,
-                isOriginal: true
+                dataUrl: item.sourceImageDataUrl,
+                isOriginal: true,
+                sourceImageIndex: item.sourceImageIndex
             });
         }
         if (item.additionalImages && item.additionalImages.length > 0) {
@@ -1375,9 +1576,15 @@ function handleConfirmItem() {
         images: imagesToUpload,
         coverImageDataUrl: null, // Will be set if user crops an image
         selectedImageIndex: 0,   // Index of selected image for cover
+        sourceImageIndex: item.sourceImageIndex, // Track which photo this came from
     };
     
     state.confirmedItems.push(confirmedItem);
+    
+    // Mark the item as confirmed in detectedItems for visual indicator
+    item.confirmed = true;
+    renderItemCards(); // Re-render to show confirmation badge
+    
     showToast(`"${confirmedItem.name}" confirmed`, 'success');
     
     moveToNextOrSummary();
@@ -1434,8 +1641,7 @@ function renderSummary() {
         
         // Get the cover image (cropped version if available, otherwise first image)
         const coverImage = item.coverImageDataUrl || 
-            (item.images && item.images.length > 0 ? item.images[0].dataUrl : null) ||
-            state.originalImageDataUrl;
+            (item.images && item.images.length > 0 ? item.images[0].dataUrl : null);
         
         div.innerHTML = `
             <label class="summary-item-checkbox">
@@ -1549,26 +1755,37 @@ async function handleMergeSelected() {
             }),
         });
         
-        // Collect all images from merged items
-        const mergedImages = [];
+        // Collect and deduplicate images from merged items
+        // Use dataUrl as the unique identifier for each image
+        const seenDataUrls = new Set();
+        const uniqueImages = [];
+        
         itemsToMerge.forEach(item => {
             if (item.images) {
                 item.images.forEach(img => {
-                    mergedImages.push({
+                    // Skip if we've already seen this exact image
+                    if (img.dataUrl && seenDataUrls.has(img.dataUrl)) {
+                        return;
+                    }
+                    
+                    if (img.dataUrl) {
+                        seenDataUrls.add(img.dataUrl);
+                    }
+                    
+                    uniqueImages.push({
                         file: img.file,
                         dataUrl: img.dataUrl,
                         isPrimary: false,
+                        sourceImageIndex: img.sourceImageIndex,
                     });
                 });
             }
-            // Preserve cover image selections
-            if (item.coverImageDataUrl) {
-                mergedImages.unshift({
-                    dataUrl: item.coverImageDataUrl,
-                    isCover: true,
-                });
-            }
         });
+        
+        // If there were duplicate images, notify the user
+        const totalImagesBeforeDedup = itemsToMerge.reduce((count, item) => 
+            count + (item.images?.length || 0), 0);
+        const dupesRemoved = totalImagesBeforeDedup - uniqueImages.length;
         
         // Create merged item for review
         const mergedItem = {
@@ -1579,9 +1796,13 @@ async function handleMergeSelected() {
             additionalImages: [],
             advancedFields: {},
             showAdvanced: false,
+            // Use the first unique image as source
+            sourceImageIndex: uniqueImages[0]?.sourceImageIndex,
+            sourceImageDataUrl: uniqueImages[0]?.dataUrl,
+            sourceImageFile: uniqueImages[0]?.file,
             // Store original items for reference
             _mergedFrom: indices,
-            _mergedImages: mergedImages,
+            _mergedImages: uniqueImages,
         };
         
         // Remove the original items from confirmed (in reverse order to maintain indices)
@@ -1593,12 +1814,17 @@ async function handleMergeSelected() {
         state.detectedItems = [mergedItem];
         state.currentItemIndex = 0;
         state.isMergeReview = true;
-        state.mergedItemImages = mergedImages;
+        state.mergedItemImages = uniqueImages;
         
         // Go to review section for the merged item
         renderItemCards();
         showSection('reviewSection');
-        showToast('Items merged! Review the combined item.', 'success');
+        
+        let mergeMsg = 'Items merged! Review the combined item.';
+        if (dupesRemoved > 0) {
+            mergeMsg += ` (${dupesRemoved} duplicate image${dupesRemoved !== 1 ? 's' : ''} removed)`;
+        }
+        showToast(mergeMsg, 'success');
         
     } catch (error) {
         showToast(error.message || 'Failed to merge items', 'error');
@@ -1678,14 +1904,6 @@ function getAllItemImages(item) {
             }
         });
     }
-    // Only add original image if no images in item.images array yet
-    else if (state.originalImageDataUrl) {
-        images.push({ 
-            dataUrl: state.originalImageDataUrl, 
-            file: state.capturedImage,
-            isOriginal: true 
-        });
-    }
     
     return images;
 }
@@ -1698,7 +1916,7 @@ function updateEditPreviewImage(item) {
         previewImg.src = item.coverImageDataUrl;
     } else if (allImages.length > 0) {
         const selectedIdx = item.selectedImageIndex || 0;
-        previewImg.src = allImages[selectedIdx]?.dataUrl || allImages[0].dataUrl;
+        previewImg.src = allImages[selectedIdx]?.dataUrl || allImages[0]?.dataUrl || '';
     } else {
         previewImg.src = '';
     }
@@ -2308,14 +2526,22 @@ function handleStartOver() {
 }
 
 function resetCaptureState() {
-    state.capturedImage = null;
+    state.capturedImages = [];
     state.detectedItems = [];
     state.currentItemIndex = 0;
-    elements.previewImage.src = '';
-    elements.capturePreview.style.display = 'none';
-    elements.capturePlaceholder.style.display = 'flex';
+    
+    // Reset multi-image UI
+    elements.multiImageGrid.innerHTML = '';
+    elements.multiImageContainer.classList.remove('active');
+    elements.captureZone.classList.remove('hidden');
+    elements.imageCountDisplay.style.display = 'none';
+    
+    // Hide progress
+    elements.analyzeProgress.style.display = 'none';
+    
     elements.analyzeBtn.disabled = true;
     elements.imageInput.value = '';
+    elements.cameraInput.value = '';
 }
 
 // ========================================
@@ -2333,15 +2559,14 @@ function initEventListeners() {
     elements.selectCurrentLocationBtn.addEventListener('click', handleSelectCurrentLocation);
     elements.continueToCapture.addEventListener('click', handleContinueToCapture);
     
-    // Capture
+    // Capture - Multi-image
     elements.captureZone.addEventListener('click', handleCaptureZoneClick);
     elements.cameraBtn.addEventListener('click', handleCameraClick);
     elements.uploadBtn.addEventListener('click', handleUploadClick);
+    elements.addMoreImagesZone.addEventListener('click', handleAddMoreImagesClick);
     elements.imageInput.addEventListener('change', handleImageSelect);
-    elements.removeImage.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleRemoveImage();
-    });
+    elements.cameraInput.addEventListener('change', handleCameraCapture);
+    elements.clearAllImages.addEventListener('click', handleClearAllImages);
     elements.analyzeBtn.addEventListener('click', handleAnalyze);
     
     // Review
