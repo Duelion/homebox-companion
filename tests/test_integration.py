@@ -8,7 +8,7 @@ from pprint import pformat
 
 import pytest
 
-from homebox_vision import DetectedItem, HomeboxClient, detect_items_with_openai
+from homebox_vision import DetectedItem, HomeboxClient, detect_items
 
 IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 
@@ -18,11 +18,12 @@ IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
     "HOMEBOX_VISION_OPENAI_API_KEY" not in os.environ,
     reason="HOMEBOX_VISION_OPENAI_API_KEY must be set for integration tests.",
 )
-def test_detect_items_with_openai_returns_items() -> None:
+def test_detect_items_returns_items() -> None:
+    """Test that detect_items returns valid items from an image."""
     api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
     model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
 
-    detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
+    detected_items = detect_items(image_path=IMAGE_PATH, api_key=api_key, model=model)
 
     print("Raw detected items from OpenAI:")
     for idx, item in enumerate(detected_items, start=1):
@@ -69,10 +70,11 @@ def test_create_item_in_demo_environment() -> None:
     reason="HOMEBOX_VISION_OPENAI_API_KEY must be set for integration tests.",
 )
 def test_detect_and_create_items_from_image() -> None:
+    """Test the full flow: detect items from image and create them in Homebox."""
     api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
     model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
 
-    detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
+    detected_items = detect_items(image_path=IMAGE_PATH, api_key=api_key, model=model)
     assert detected_items, "Expected at least one detected item to create."
 
     # Use demo server for testing

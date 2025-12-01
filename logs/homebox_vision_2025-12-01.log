@@ -490,3 +490,173 @@
 2025-12-01 10:45:00 | DEBUG    | server.main:create_items:379 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
 2025-12-01 10:45:00 | INFO     | server.main:create_items:391 - Created item: High Quality Electronic Solder Supplies Pack (id: 0103c7bb-ed1f-40ec-8614-557429785adb)
 2025-12-01 10:45:00 | INFO     | server.main:create_items:398 - Item creation complete: 6 created, 0 failed
+2025-12-01 10:46:07 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-12-01 10:46:07 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 10:46:07 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-12-01 10:46:07 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 10:54:30 | INFO     | __main__:<module>:49 - Starting Homebox Vision Companion API
+2025-12-01 10:54:30 | INFO     | __main__:<module>:50 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 10:54:30 | INFO     | __main__:<module>:51 - OpenAI Model: gpt-5-mini
+2025-12-01 10:54:30 | WARNING  | __main__:<module>:53 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 10:55:14 | INFO     | __main__:login:187 - Login attempt for user: demo@example.com
+2025-12-01 10:55:15 | INFO     | __main__:login:191 - Login successful for user: demo@example.com
+2025-12-01 10:55:36 | INFO     | __main__:detect_items:290 - Detecting items from image: solder.jpg
+2025-12-01 10:55:36 | DEBUG    | __main__:detect_items:308 - Image size: 243502 bytes
+2025-12-01 10:55:36 | DEBUG    | __main__:detect_items:312 - Content type: image/jpeg
+2025-12-01 10:55:36 | INFO     | __main__:detect_items:290 - Detecting items from image: IMG_4384.jpeg
+2025-12-01 10:55:36 | DEBUG    | __main__:detect_items:308 - Image size: 3886744 bytes
+2025-12-01 10:55:36 | DEBUG    | __main__:detect_items:312 - Content type: image/jpeg
+2025-12-01 10:55:37 | DEBUG    | __main__:detect_items:324 - Loaded 8 labels for context
+2025-12-01 10:55:37 | INFO     | __main__:detect_items:331 - Starting OpenAI vision detection...
+2025-12-01 10:55:37 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:109 - Starting item detection with model: gpt-5-mini
+2025-12-01 10:55:37 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:122 - Labels provided: 8
+2025-12-01 10:55:37 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:125 - Calling OpenAI API...
+2025-12-01 10:55:37 | DEBUG    | __main__:detect_items:324 - Loaded 8 labels for context
+2025-12-01 10:55:37 | INFO     | __main__:detect_items:331 - Starting OpenAI vision detection...
+2025-12-01 10:55:37 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:109 - Starting item detection with model: gpt-5-mini
+2025-12-01 10:55:37 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:122 - Labels provided: 8
+2025-12-01 10:55:37 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:125 - Calling OpenAI API...
+2025-12-01 10:55:54 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:165 - OpenAI response: {"items":[{"name":"Wool Felt Polishing Wheel Mandrel","quantity":3,"description":"Cream-colored wool felt polishing wheel mounted on a metal mandrel for use with rotary tools; appears unused and individually sealed in clear resealable plastic bags with barcode/label stickers.","labelIds":["1c2629da-f5e5-440c-af72-662ce3ee9bd1"]}]}...
+2025-12-01 10:55:54 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:170 - Detected 1 items
+2025-12-01 10:55:54 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Wool Felt Polishing Wheel Mandrel, qty: 3, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:55:54 | INFO     | __main__:detect_items:339 - Detected 1 items
+2025-12-01 10:55:54 | DEBUG    | __main__:detect_items:341 -   - Wool Felt Polishing Wheel Mandrel (qty: 3, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:56:05 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:165 - OpenAI response: {"items":[{"name":"Mechanic UV Curing Solder Mask Kit","quantity":3,"description":"MECHANIC brand UV-curing solder mask kit in sealed pouch, includes UV curing pen and solder mask ink, unopened, intended for applying solder mask to PCBs","labelIds":["69de101b-5337-4af5-b909-93ab4ef7a99a","1c2629da-f5e5-440c-af72-662ce3ee9bd1"]},{"name":"Mechanic Solder Paste Jar","quantity":1,"description":"Mechanic-branded solder paste/flux in a small blue plastic jar, used for surface-mount soldering and reflo...
+2025-12-01 10:56:05 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:170 - Detected 5 items
+2025-12-01 10:56:05 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Mechanic UV Curing Solder Mask Kit, qty: 3, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:56:05 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Mechanic Solder Paste Jar, qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:56:05 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Rosin-Core Solder Wire Spool, qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:56:05 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Replacement Soldering Iron Tips Assortment, qty: 8, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:56:05 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: High Quality Electronic Solder Supplies Pouch, qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:56:05 | INFO     | __main__:detect_items:339 - Detected 5 items
+2025-12-01 10:56:05 | DEBUG    | __main__:detect_items:341 -   - Mechanic UV Curing Solder Mask Kit (qty: 3, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:56:05 | DEBUG    | __main__:detect_items:341 -   - Mechanic Solder Paste Jar (qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:56:05 | DEBUG    | __main__:detect_items:341 -   - Rosin-Core Solder Wire Spool (qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:56:05 | DEBUG    | __main__:detect_items:341 -   - Replacement Soldering Iron Tips Assortment (qty: 8, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:56:05 | DEBUG    | __main__:detect_items:341 -   - High Quality Electronic Solder Supplies Pouch (qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:56:39 | INFO     | __main__:merge_items:515 - Merging 2 items
+2025-12-01 10:56:39 | DEBUG    | __main__:merge_items:517 -   - Wool Felt Polishing Wheel Mandrel: Cream-colored wool felt polishing wheel mounted on
+2025-12-01 10:56:39 | DEBUG    | __main__:merge_items:517 -   - Mechanic UV Curing Solder Mask Kit: MECHANIC brand UV-curing solder mask kit in sealed
+2025-12-01 10:56:40 | INFO     | __main__:merge_items:542 - Calling OpenAI for item merge...
+2025-12-01 10:56:40 | INFO     | homebox_vision.llm:merge_items_with_openai:321 - Merging 2 items with AI
+2025-12-01 10:56:40 | DEBUG    | homebox_vision.llm:merge_items_with_openai:365 - Calling OpenAI API for item merge...
+2025-12-01 10:56:47 | DEBUG    | homebox_vision.llm:merge_items_with_openai:397 - OpenAI merge response: {
+  "name": "Electronics Repair Accessories Assortment",
+  "quantity": 6,
+  "description": "Includes cream-colored wool felt polishing wheel mandrels for rotary tools (mounted on metal mandrels, individually sealed in resealable plastic bags with barcode/label stickers) and MECHANIC brand UV-curing solder mask kits (sealed pouches containing a UV curing pen and solder mask ink for applying solder mask to PCBs).",
+  "labelIds": [
+    "69de101b-5337-4af5-b909-93ab4ef7a99a",
+    "1c2629da-f5e5-440c...
+2025-12-01 10:56:47 | INFO     | homebox_vision.llm:merge_items_with_openai:400 - Merge complete: Electronics Repair Accessories Assortment
+2025-12-01 10:56:47 | INFO     | __main__:merge_items:549 - Merge complete: Electronics Repair Accessories Assortment
+2025-12-01 10:57:30 | INFO     | __main__:create_items:365 - Creating 5 items
+2025-12-01 10:57:30 | DEBUG    | __main__:create_items:366 - Request location_id: 2b22d46a-ee1d-4686-88d9-4f5087f07580
+2025-12-01 10:57:30 | DEBUG    | __main__:create_items:378 - Creating item: Mechanic Solder Paste Jar
+2025-12-01 10:57:30 | DEBUG    | __main__:create_items:379 -   location_id: 2b22d46a-ee1d-4686-88d9-4f5087f07580
+2025-12-01 10:57:30 | DEBUG    | __main__:create_items:380 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:57:31 | INFO     | __main__:create_items:392 - Created item: Mechanic Solder Paste Jar (id: d91bc63b-3153-4e69-a6a2-ec00ab8bb8bc)
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:378 - Creating item: Rosin-Core Solder Wire Spool
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:379 -   location_id: 2b22d46a-ee1d-4686-88d9-4f5087f07580
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:380 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:57:31 | INFO     | __main__:create_items:392 - Created item: Rosin-Core Solder Wire Spool (id: e1bcac62-f853-4d60-bd45-5ad9e8beeee3)
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:378 - Creating item: Replacement Soldering Iron Tips Assortment
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:379 -   location_id: 2b22d46a-ee1d-4686-88d9-4f5087f07580
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:380 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:57:31 | INFO     | __main__:create_items:392 - Created item: Replacement Soldering Iron Tips Assortment (id: fe68f5de-547d-41b4-95e3-a7884e069745)
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:378 - Creating item: High Quality Electronic Solder Supplies Pouch
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:379 -   location_id: 2b22d46a-ee1d-4686-88d9-4f5087f07580
+2025-12-01 10:57:31 | DEBUG    | __main__:create_items:380 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:57:32 | INFO     | __main__:create_items:392 - Created item: High Quality Electronic Solder Supplies Pouch (id: 338e361a-d0c3-4e9f-bc15-31839731c23b)
+2025-12-01 10:57:32 | DEBUG    | __main__:create_items:378 - Creating item: Electronics Repair Accessories Assortment
+2025-12-01 10:57:32 | DEBUG    | __main__:create_items:379 -   location_id: 2b22d46a-ee1d-4686-88d9-4f5087f07580
+2025-12-01 10:57:32 | DEBUG    | __main__:create_items:380 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:57:32 | INFO     | __main__:create_items:392 - Created item: Electronics Repair Accessories Assortment (id: e45e0c61-0217-4d19-8fa5-c1e36700ce74)
+2025-12-01 10:57:32 | INFO     | __main__:create_items:399 - Item creation complete: 5 created, 0 failed
+2025-12-01 11:02:27 | INFO     | __main__:<module>:49 - Starting Homebox Vision Companion API
+2025-12-01 11:02:27 | INFO     | __main__:<module>:50 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 11:02:27 | INFO     | __main__:<module>:51 - OpenAI Model: gpt-5-mini
+2025-12-01 11:02:27 | WARNING  | __main__:<module>:53 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 11:06:28 | INFO     | __main__:<module>:49 - Starting Homebox Vision Companion API
+2025-12-01 11:06:28 | INFO     | __main__:<module>:50 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 11:06:28 | INFO     | __main__:<module>:51 - OpenAI Model: gpt-5-mini
+2025-12-01 11:06:28 | WARNING  | __main__:<module>:53 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 11:10:09 | INFO     | __main__:<module>:50 - Starting Homebox Vision Companion API
+2025-12-01 11:10:09 | INFO     | __main__:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 11:10:09 | INFO     | __main__:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-01 11:10:09 | WARNING  | __main__:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 11:10:33 | INFO     | __main__:login:188 - Login attempt for user: demo@example.com
+2025-12-01 11:10:33 | INFO     | __main__:login:192 - Login successful for user: demo@example.com
+2025-12-01 11:10:49 | INFO     | __main__:detect_items:299 - Detecting items from image: solder.jpg
+2025-12-01 11:10:49 | DEBUG    | __main__:detect_items:317 - Image size: 243502 bytes
+2025-12-01 11:10:49 | DEBUG    | __main__:detect_items:321 - Content type: image/jpeg
+2025-12-01 11:10:49 | INFO     | __main__:detect_items:299 - Detecting items from image: IMG_4384.jpeg
+2025-12-01 11:10:49 | DEBUG    | __main__:detect_items:317 - Image size: 3886744 bytes
+2025-12-01 11:10:49 | DEBUG    | __main__:detect_items:321 - Content type: image/jpeg
+2025-12-01 11:10:50 | DEBUG    | __main__:detect_items:333 - Loaded 8 labels for context
+2025-12-01 11:10:50 | INFO     | __main__:detect_items:340 - Starting OpenAI vision detection...
+2025-12-01 11:10:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:109 - Starting item detection with model: gpt-5-mini
+2025-12-01 11:10:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:122 - Labels provided: 8
+2025-12-01 11:10:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:125 - Calling OpenAI API...
+2025-12-01 11:10:50 | DEBUG    | __main__:detect_items:333 - Loaded 8 labels for context
+2025-12-01 11:10:50 | INFO     | __main__:detect_items:340 - Starting OpenAI vision detection...
+2025-12-01 11:10:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:109 - Starting item detection with model: gpt-5-mini
+2025-12-01 11:10:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:122 - Labels provided: 8
+2025-12-01 11:10:51 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:125 - Calling OpenAI API...
+2025-12-01 11:11:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:165 - OpenAI response: {"items":[{"name":"Felt Polishing Wheel With Metal Shank","quantity":3,"description":"Cream-colored felt polishing wheel mounted on a straight metal shank for rotary tools. Appears unused and individually sealed in clear resealable plastic bags with printed identification labels.","labelIds":["0ea70e2b-9ac9-4aac-89e2-19138a8090e8"]}]}...
+2025-12-01 11:11:06 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:170 - Detected 1 items
+2025-12-01 11:11:06 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Felt Polishing Wheel With Metal Shank, qty: 3, labels: ['0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:11:06 | INFO     | __main__:detect_items:348 - Detected 1 items
+2025-12-01 11:11:06 | DEBUG    | __main__:detect_items:350 -   - Felt Polishing Wheel With Metal Shank (qty: 3, labels: ['0ea70e2b-9ac9-4aac-89e2-19138a8090e8'])
+2025-12-01 11:11:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:165 - OpenAI response: {"items":[{"name":"UV Curing Solder Mask Kit","quantity":3,"description":"Sealed retail foil pouch containing a UV-curing solder mask pen and accessories for PCB repair and insulation; intended for precision rework and coating of solder joints","labelIds":["a660156e-8462-4853-ab52-5d503f5ed8d5","0ea70e2b-9ac9-4aac-89e2-19138a8090e8"]},{"name":"Mechanic Solder Wire Spool","quantity":1,"description":"Plastic spool of rosin-core solder wire for electronic soldering; suitable for PCB work, blue/oran...
+2025-12-01 11:11:15 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:170 - Detected 5 items
+2025-12-01 11:11:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: UV Curing Solder Mask Kit, qty: 3, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:11:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Mechanic Solder Wire Spool, qty: 1, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:11:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Mechanic Solder Paste Jar, qty: 1, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:11:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: Replacement Soldering Iron Tips Set, qty: 8, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:11:15 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:172 -   Item: High Quality Electronic Solder Supplies Bag, qty: 1, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:11:15 | INFO     | __main__:detect_items:348 - Detected 5 items
+2025-12-01 11:11:15 | DEBUG    | __main__:detect_items:350 -   - UV Curing Solder Mask Kit (qty: 3, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8'])
+2025-12-01 11:11:15 | DEBUG    | __main__:detect_items:350 -   - Mechanic Solder Wire Spool (qty: 1, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8'])
+2025-12-01 11:11:15 | DEBUG    | __main__:detect_items:350 -   - Mechanic Solder Paste Jar (qty: 1, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8'])
+2025-12-01 11:11:15 | DEBUG    | __main__:detect_items:350 -   - Replacement Soldering Iron Tips Set (qty: 8, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8'])
+2025-12-01 11:11:15 | DEBUG    | __main__:detect_items:350 -   - High Quality Electronic Solder Supplies Bag (qty: 1, labels: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8'])
+2025-12-01 11:12:08 | INFO     | __main__:merge_items:524 - Merging 2 items
+2025-12-01 11:12:08 | DEBUG    | __main__:merge_items:526 -   - Mechanic Solder Paste Jar: Small plastic jar of solder paste/flux for reflow 
+2025-12-01 11:12:08 | DEBUG    | __main__:merge_items:526 -   - High Quality Electronic Solder Supplies Bag: Sealed foil retail pack labeled 'High Quality' con
+2025-12-01 11:12:09 | INFO     | __main__:merge_items:551 - Calling OpenAI for item merge...
+2025-12-01 11:12:09 | INFO     | homebox_vision.llm:merge_items_with_openai:321 - Merging 2 items with AI
+2025-12-01 11:12:09 | DEBUG    | homebox_vision.llm:merge_items_with_openai:365 - Calling OpenAI API for item merge...
+2025-12-01 11:12:17 | DEBUG    | homebox_vision.llm:merge_items_with_openai:397 - OpenAI merge response: {
+  "name": "Mechanic Solder Paste And General Soldering Supplies",
+  "quantity": 2,
+  "description": "Includes a jar of Mechanic solder paste/flux for reflow and PCB rework (blue lid, brand-labeled) and a sealed foil retail pack labeled \"High Quality\" containing general electronic soldering accessories for repair work.",
+  "labelIds": [
+    "a660156e-8462-4853-ab52-5d503f5ed8d5",
+    "0ea70e2b-9ac9-4aac-89e2-19138a8090e8"
+  ]
+}...
+2025-12-01 11:12:17 | INFO     | homebox_vision.llm:merge_items_with_openai:400 - Merge complete: Mechanic Solder Paste And General Soldering Supplies
+2025-12-01 11:12:17 | INFO     | __main__:merge_items:558 - Merge complete: Mechanic Solder Paste And General Soldering Supplies
+2025-12-01 11:12:35 | INFO     | __main__:create_items:374 - Creating 5 items
+2025-12-01 11:12:35 | DEBUG    | __main__:create_items:375 - Request location_id: dca2f933-640e-4a5b-8797-dd2dc6b8e624
+2025-12-01 11:12:35 | DEBUG    | __main__:create_items:387 - Creating item: Felt Polishing Wheel With Metal Shank
+2025-12-01 11:12:35 | DEBUG    | __main__:create_items:388 -   location_id: dca2f933-640e-4a5b-8797-dd2dc6b8e624
+2025-12-01 11:12:35 | DEBUG    | __main__:create_items:389 -   label_ids: ['0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:12:36 | INFO     | __main__:create_items:401 - Created item: Felt Polishing Wheel With Metal Shank (id: 06bd686c-0b94-4cc9-aeb2-0dd73c883a97)
+2025-12-01 11:12:36 | DEBUG    | __main__:create_items:387 - Creating item: UV Curing Solder Mask Kit
+2025-12-01 11:12:36 | DEBUG    | __main__:create_items:388 -   location_id: dca2f933-640e-4a5b-8797-dd2dc6b8e624
+2025-12-01 11:12:36 | DEBUG    | __main__:create_items:389 -   label_ids: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:12:36 | INFO     | __main__:create_items:401 - Created item: UV Curing Solder Mask Kit (id: 2e4c18d0-8805-405a-a394-5c5ea389290d)
+2025-12-01 11:12:36 | DEBUG    | __main__:create_items:387 - Creating item: Mechanic Solder Wire Spool
+2025-12-01 11:12:36 | DEBUG    | __main__:create_items:388 -   location_id: dca2f933-640e-4a5b-8797-dd2dc6b8e624
+2025-12-01 11:12:36 | DEBUG    | __main__:create_items:389 -   label_ids: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:12:37 | INFO     | __main__:create_items:401 - Created item: Mechanic Solder Wire Spool (id: 9d45b391-c1d9-41f8-aa4d-f135373ae2f4)
+2025-12-01 11:12:37 | DEBUG    | __main__:create_items:387 - Creating item: Replacement Soldering Iron Tips Set
+2025-12-01 11:12:37 | DEBUG    | __main__:create_items:388 -   location_id: dca2f933-640e-4a5b-8797-dd2dc6b8e624
+2025-12-01 11:12:37 | DEBUG    | __main__:create_items:389 -   label_ids: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:12:37 | INFO     | __main__:create_items:401 - Created item: Replacement Soldering Iron Tips Set (id: 98bd9a33-e1b2-44c2-94c1-64c205ddadad)
+2025-12-01 11:12:37 | DEBUG    | __main__:create_items:387 - Creating item: Mechanic Solder Paste And General Soldering Supplies
+2025-12-01 11:12:37 | DEBUG    | __main__:create_items:388 -   location_id: dca2f933-640e-4a5b-8797-dd2dc6b8e624
+2025-12-01 11:12:37 | DEBUG    | __main__:create_items:389 -   label_ids: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
+2025-12-01 11:12:37 | INFO     | __main__:create_items:401 - Created item: Mechanic Solder Paste And General Soldering Supplies (id: 02482acf-1fdd-46a1-9fe8-1a4c431fbd2d)
+2025-12-01 11:12:37 | INFO     | __main__:create_items:408 - Item creation complete: 5 created, 0 failed

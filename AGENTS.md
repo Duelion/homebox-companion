@@ -193,18 +193,24 @@ The `homebox_vision` package exports these primary utilities:
 from homebox_vision import (
     # Configuration
     settings,
-    # Clients
-    AsyncHomeboxClient,
+    
+    # Clients (sync and async)
     HomeboxClient,
-    # Models
+    AsyncHomeboxClient,
+    
+    # Data models
     DetectedItem,
-    # LLM utilities
-    detect_items_with_openai,
-    detect_items_from_bytes,
+    
+    # Detection functions
+    detect_items,              # Sync - for scripts
+    detect_items_from_bytes,   # Async - for servers
+    
+    # Advanced AI functions (async)
     analyze_item_details_from_images,
     correct_item_with_openai,
     merge_items_with_openai,
-    discriminatory_detect_items,
+    
+    # Image encoding
     encode_image_to_data_uri,
     encode_image_bytes_to_data_uri,
 )
