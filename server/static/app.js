@@ -978,10 +978,22 @@ async function handleAnalyze() {
             if (data.items && data.items.length > 0) {
                 // Add source image info to each detected item
                 // Map extended fields from API response to advancedFields object
+                console.log('Detection API response items:', JSON.stringify(data.items, null, 2));
+                
                 const itemsWithSource = data.items.map(item => {
                     // Check if any extended fields were detected
                     const hasExtendedFields = item.manufacturer || item.model_number || 
                         item.serial_number || item.purchase_price || item.purchase_from || item.notes;
+                    
+                    console.log(`Item "${item.name}" extended fields:`, {
+                        manufacturer: item.manufacturer,
+                        model_number: item.model_number,
+                        serial_number: item.serial_number,
+                        purchase_price: item.purchase_price,
+                        purchase_from: item.purchase_from,
+                        notes: item.notes,
+                        hasExtendedFields
+                    });
                     
                     return {
                         ...item,
@@ -1773,6 +1785,16 @@ function handleConfirmItem() {
     const purchasePrice = parseFloat(document.getElementById(`itemPurchasePrice${index}`)?.value) || null;
     const purchaseFrom = document.getElementById(`itemPurchaseFrom${index}`)?.value.trim() || null;
     const notes = document.getElementById(`itemNotes${index}`)?.value.trim() || null;
+    
+    console.log(`Confirming item "${nameInput.value}" with extended fields:`, {
+        serialNumber,
+        modelNumber,
+        manufacturer,
+        purchasePrice,
+        purchaseFrom,
+        notes,
+        fromAdvancedFields: item.advancedFields
+    });
     
     // Collect images to upload (source image + additional) with dataUrls for preview
     const imagesToUpload = [];

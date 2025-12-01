@@ -431,6 +431,10 @@ async def create_items(
         logger.debug(f"Creating item: {item_input.name}")
         logger.debug(f"  location_id: {location_id}")
         logger.debug(f"  label_ids: {item_input.label_ids}")
+        logger.debug(f"  Extended from request: manufacturer={item_input.manufacturer}, "
+                     f"model={item_input.model_number}, serial={item_input.serial_number}, "
+                     f"price={item_input.purchase_price}, from={item_input.purchase_from}, "
+                     f"notes={item_input.notes}")
 
         detected_item = DetectedItem(
             name=item_input.name,

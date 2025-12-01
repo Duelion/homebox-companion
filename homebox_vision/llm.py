@@ -253,7 +253,7 @@ async def _detect_items_from_data_uri(
     )
     message = completion.choices[0].message
     raw_content = message.content or "{}"
-    logger.debug(f"OpenAI response: {raw_content[:500]}...")
+    logger.debug(f"OpenAI response: {raw_content}")
 
     parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
     items = DetectedItem.from_raw_items(parsed_content.get("items", []))
@@ -379,7 +379,7 @@ async def analyze_item_details_from_images(
     )
     message = completion.choices[0].message
     raw_content = message.content or "{}"
-    logger.debug(f"OpenAI response: {raw_content[:500]}...")
+    logger.debug(f"OpenAI response: {raw_content}")
 
     parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
     logger.info(f"Advanced analysis complete. Fields found: {list(parsed_content.keys())}")
@@ -490,7 +490,7 @@ async def merge_items_with_openai(
 
     message = completion.choices[0].message
     raw_content = message.content or "{}"
-    logger.debug(f"OpenAI merge response: {raw_content[:500]}...")
+    logger.debug(f"OpenAI merge response: {raw_content}")
 
     parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
     logger.info(f"Merge complete: {parsed_content.get('name', 'Unknown')}")
@@ -605,7 +605,7 @@ async def correct_item_with_openai(
 
     message = completion.choices[0].message
     raw_content = message.content or "{}"
-    logger.debug(f"OpenAI correction response: {raw_content[:500]}...")
+    logger.debug(f"OpenAI correction response: {raw_content}")
 
     parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
     items = parsed_content.get("items", [])
@@ -746,7 +746,7 @@ async def discriminatory_detect_items(
 
     message = completion.choices[0].message
     raw_content = message.content or "{}"
-    logger.debug(f"OpenAI discriminatory response: {raw_content[:500]}...")
+    logger.debug(f"OpenAI discriminatory response: {raw_content}")
 
     parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
     items = DetectedItem.from_raw_items(parsed_content.get("items", []))
