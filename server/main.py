@@ -730,6 +730,12 @@ async def upload_item_attachment(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/version")
+async def get_version() -> dict[str, str]:
+    """Return the application version."""
+    return {"version": app.version}
+
+
 # Serve static frontend files
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(STATIC_DIR):

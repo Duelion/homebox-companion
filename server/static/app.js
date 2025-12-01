@@ -2964,11 +2964,34 @@ function handleOffline() {
 }
 
 // ========================================
+// Version Display
+// ========================================
+
+async function fetchAndDisplayVersion() {
+    try {
+        const response = await fetch('/api/version');
+        if (response.ok) {
+            const data = await response.json();
+            const versionDisplay = document.getElementById('versionDisplay');
+            if (versionDisplay && data.version) {
+                versionDisplay.textContent = `v${data.version}`;
+            }
+        }
+    } catch (error) {
+        // Silently ignore version fetch errors - not critical
+        console.debug('Could not fetch version:', error);
+    }
+}
+
+// ========================================
 // Initialization
 // ========================================
 
 async function init() {
     initEventListeners();
+    
+    // Fetch and display version (non-blocking)
+    fetchAndDisplayVersion();
     
     // Check for existing token
     if (loadToken()) {
