@@ -384,7 +384,7 @@ async def detect_items(
         logger.error(f"Detection failed: {e}")
         raise HTTPException(status_code=500, detail=f"Detection failed: {e}") from e
 
-    return DetectionResponse(
+    response = DetectionResponse(
         items=[
             DetectedItemResponse(
                 name=item.name,
@@ -401,6 +401,9 @@ async def detect_items(
             for item in detected
         ]
     )
+    # Debug: Log the actual JSON that will be returned
+    logger.debug(f"API Response JSON: {response.model_dump_json()}")
+    return response
 
 
 @app.post("/api/items")
