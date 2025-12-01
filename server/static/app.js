@@ -977,15 +977,31 @@ async function handleAnalyze() {
             
             if (data.items && data.items.length > 0) {
                 // Add source image info to each detected item
-                const itemsWithSource = data.items.map(item => ({
-                    ...item,
-                    additionalImages: [],
-                    advancedFields: {},
-                    showAdvanced: false,
-                    sourceImageIndex: index,
-                    sourceImageDataUrl: dataUrl,
-                    sourceImageFile: file,
-                }));
+                // Map extended fields from API response to advancedFields object
+                const itemsWithSource = data.items.map(item => {
+                    // Check if any extended fields were detected
+                    const hasExtendedFields = item.manufacturer || item.model_number || 
+                        item.serial_number || item.purchase_price || item.purchase_from || item.notes;
+                    
+                    return {
+                        ...item,
+                        additionalImages: [],
+                        // Map API response extended fields to advancedFields
+                        advancedFields: {
+                            manufacturer: item.manufacturer || '',
+                            modelNumber: item.model_number || '',
+                            serialNumber: item.serial_number || '',
+                            purchasePrice: item.purchase_price || '',
+                            purchaseFrom: item.purchase_from || '',
+                            notes: item.notes || '',
+                        },
+                        // Auto-show advanced section if extended fields were detected
+                        showAdvanced: hasExtendedFields,
+                        sourceImageIndex: index,
+                        sourceImageDataUrl: dataUrl,
+                        sourceImageFile: file,
+                    };
+                });
                 
                 return itemsWithSource;
             }
@@ -1366,30 +1382,58 @@ async function handleApplyCorrection(index) {
         if (data.items.length === 1) {
             // Single item - update the current item in place
             const correctedItem = data.items[0];
+            // Check if any extended fields were returned
+            const hasExtendedFields = correctedItem.manufacturer || correctedItem.model_number ||
+                correctedItem.serial_number || correctedItem.purchase_price ||
+                correctedItem.purchase_from || correctedItem.notes;
+            
             state.detectedItems[index] = {
                 ...item,
                 name: correctedItem.name,
                 quantity: correctedItem.quantity,
                 description: correctedItem.description || '',
                 label_ids: correctedItem.label_ids || [],
+                advancedFields: {
+                    manufacturer: correctedItem.manufacturer || item.advancedFields?.manufacturer || '',
+                    modelNumber: correctedItem.model_number || item.advancedFields?.modelNumber || '',
+                    serialNumber: correctedItem.serial_number || item.advancedFields?.serialNumber || '',
+                    purchasePrice: correctedItem.purchase_price || item.advancedFields?.purchasePrice || '',
+                    purchaseFrom: correctedItem.purchase_from || item.advancedFields?.purchaseFrom || '',
+                    notes: correctedItem.notes || item.advancedFields?.notes || '',
+                },
+                showAdvanced: hasExtendedFields || item.showAdvanced,
             };
             
             showToast('Item corrected successfully!', 'success');
         } else {
             // Multiple items - replace current item with new items
             // Preserve source image info for all split items
-            const newItems = data.items.map(correctedItem => ({
-                name: correctedItem.name,
-                quantity: correctedItem.quantity,
-                description: correctedItem.description || '',
-                label_ids: correctedItem.label_ids || [],
-                additionalImages: [],
-                advancedFields: {},
-                showAdvanced: false,
-                sourceImageIndex: item.sourceImageIndex,
-                sourceImageDataUrl: item.sourceImageDataUrl,
-                sourceImageFile: item.sourceImageFile,
-            }));
+            const newItems = data.items.map(correctedItem => {
+                // Check if any extended fields were returned
+                const hasExtendedFields = correctedItem.manufacturer || correctedItem.model_number ||
+                    correctedItem.serial_number || correctedItem.purchase_price ||
+                    correctedItem.purchase_from || correctedItem.notes;
+
+                return {
+                    name: correctedItem.name,
+                    quantity: correctedItem.quantity,
+                    description: correctedItem.description || '',
+                    label_ids: correctedItem.label_ids || [],
+                    additionalImages: [],
+                    advancedFields: {
+                        manufacturer: correctedItem.manufacturer || '',
+                        modelNumber: correctedItem.model_number || '',
+                        serialNumber: correctedItem.serial_number || '',
+                        purchasePrice: correctedItem.purchase_price || '',
+                        purchaseFrom: correctedItem.purchase_from || '',
+                        notes: correctedItem.notes || '',
+                    },
+                    showAdvanced: hasExtendedFields,
+                    sourceImageIndex: item.sourceImageIndex,
+                    sourceImageDataUrl: item.sourceImageDataUrl,
+                    sourceImageFile: item.sourceImageFile,
+                };
+            });
             
             // Remove current item and insert new items at the same position
             state.detectedItems.splice(index, 1, ...newItems);
@@ -2012,14 +2056,26 @@ async function handleMergeSelected() {
         const dupesRemoved = totalImagesBeforeDedup - uniqueImages.length;
         
         // Create merged item for review
+        // Check if any extended fields were returned from the merge
+        const hasExtendedFields = response.manufacturer || response.model_number ||
+            response.serial_number || response.purchase_price ||
+            response.purchase_from || response.notes;
+        
         const mergedItem = {
             name: response.name,
             quantity: response.quantity,
             description: response.description,
             label_ids: response.label_ids,
             additionalImages: [],
-            advancedFields: {},
-            showAdvanced: false,
+            advancedFields: {
+                manufacturer: response.manufacturer || '',
+                modelNumber: response.model_number || '',
+                serialNumber: response.serial_number || '',
+                purchasePrice: response.purchase_price || '',
+                purchaseFrom: response.purchase_from || '',
+                notes: response.notes || '',
+            },
+            showAdvanced: hasExtendedFields,
             // Use the first unique image as source
             sourceImageIndex: uniqueImages[0]?.sourceImageIndex,
             sourceImageDataUrl: uniqueImages[0]?.dataUrl,
