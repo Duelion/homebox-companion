@@ -2,21 +2,43 @@ name: Deploy to homelab
 
 on:
   push:
-    branches: [ main ]   # change if you deploy from another branch
+    branches:
+      - main    # runs only when main is updated
 
 jobs:
   deploy:
-    runs-on: self-hosted   # uses your LXC runner
+    # If you added a custom label like "homebox" when configuring the runner,
+    # you can change this to: [self-hosted, homebox]
+    runs-on: self-hosted
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Deploy into /home/homebox/homebox-app
+      - name: Sanity-check app repo on runner
         run: |
+          if [ ! -d /home/homebox/homebox-app/.git ]; then
+            echo "ERROR: /home/homebox/homebox-app is missing or not a git repo."
+            exit 1
+          fi
+
+      - name: Deploy latest code to /home/homebox/homebox-app
+        run: |
+          set -e
+
+          # Make sure uv is visible; systemd won't load your interactive PATH
+          export PATH="$HOME/.local/bin:$PATH"
+
           cd /home/homebox/homebox-app
+
+          echo "--- git state before ---"
+          git status -sb || true
+          echo
+
+          echo "--- fetching origin/main ---"
           git fetch origin
+
+          echo "--- resetting to origin/main ---"
           git reset --hard origin/main
+
+          echo "--- syncing Python environment with uv ---"
           uv sync
 
       - name: Restart HomeBox Vision service
