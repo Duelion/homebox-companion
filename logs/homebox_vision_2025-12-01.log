@@ -696,3 +696,7 @@
 2025-12-01 15:53:30 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
 2025-12-01 15:53:44 | INFO     | server.main:login:195 - Login attempt for user: demo@example.com
 2025-12-01 15:53:45 | INFO     | server.main:login:199 - Login successful for user: demo@example.com
+2025-12-01 18:07:37 | INFO     | server.main:login:195 - Login attempt for user: demo@example.com
+2025-12-01 18:07:38 | INFO     | server.main:login:199 - Login successful for user: demo@example.com
+2025-12-01 18:18:11 | INFO     | server.main:login:195 - Login attempt for user: demo@example.com
+2025-12-01 18:18:12 | INFO     | server.main:login:199 - Login successful for user: demo@example.com

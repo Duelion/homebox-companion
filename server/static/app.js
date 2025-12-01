@@ -1,11 +1,11 @@
 /**
  * Homebox Scanner - Mobile Web App
  * Main application logic
- * Version: 0.14.0 (2025-12-01)
+ * Version: 0.15.0 (2025-12-01)
  */
 
 // Debug: Log when script loads to verify cache is cleared
-console.log('=== Homebox Scanner v0.14.0 loaded ===');
+console.log('=== Homebox Scanner v0.15.0 loaded ===');
 
 // ========================================
 // State Management
@@ -27,6 +27,9 @@ const state = {
     // Merge state
     isMergeReview: false,    // Whether we're reviewing a merged item
     mergedItemImages: [],    // Images from items being merged
+    // Edit from summary state
+    isEditingFromSummary: false,  // Whether we're editing a confirmed item from summary
+    editingConfirmedIndex: null,  // Index of the confirmed item being edited
 };
 
 // ========================================
@@ -1220,11 +1223,28 @@ function updateProgress(current, total, statusText) {
 function renderItemCards() {
     elements.itemCarousel.innerHTML = '';
     
-    state.detectedItems.forEach((item, index) => {
+    // Get only unconfirmed items for display (unless editing from summary)
+    const itemsToShow = state.isEditingFromSummary 
+        ? state.detectedItems 
+        : state.detectedItems.filter(item => !item.confirmed);
+    
+    // If no items to show, go to summary
+    if (itemsToShow.length === 0 && !state.isEditingFromSummary) {
+        if (state.confirmedItems.length > 0) {
+            renderSummary();
+            showSection('summarySection');
+        }
+        return;
+    }
+    
+    itemsToShow.forEach((item, displayIndex) => {
+        // Get the actual index in detectedItems
+        const index = state.detectedItems.indexOf(item);
+        
         const card = document.createElement('div');
-        const isConfirmed = item.confirmed || false;
-        card.className = `item-card${index === state.currentItemIndex ? ' active' : ''}${isConfirmed ? ' confirmed' : ''}`;
+        card.className = `item-card${displayIndex === 0 ? ' active' : ''}`;
         card.dataset.index = index;
+        card.dataset.displayIndex = displayIndex;
         
         const imageCount = item.additionalImages?.length || 0;
         const advancedFields = item.advancedFields || {};
@@ -1239,20 +1259,40 @@ function renderItemCards() {
                 </div>
                 <div class="source-image-info">
                     <span class="source-label">Detected from photo ${(item.sourceImageIndex || 0) + 1}</span>
-                    ${isConfirmed ? `
-                        <span class="confirmed-badge">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            Confirmed
-                        </span>
-                    ` : ''}
+                </div>
+            </div>
+        ` : '';
+        
+        // Cover image selection section
+        const allItemImages = getDetectedItemImages(item);
+        const coverImageHtml = allItemImages.length > 0 ? `
+            <div class="cover-image-section">
+                <label>Cover Image</label>
+                <div class="cover-image-preview" id="coverImagePreview${index}">
+                    <img src="${item.coverImageDataUrl || allItemImages[item.selectedImageIndex || 0]?.dataUrl || allItemImages[0]?.dataUrl}" alt="Cover preview">
+                    <div class="cover-image-hint">Tap an image below to select & crop</div>
+                </div>
+                <div class="cover-image-gallery" id="coverImageGallery${index}">
+                    ${allItemImages.map((img, imgIdx) => `
+                        <div class="cover-gallery-item ${imgIdx === (item.selectedImageIndex || 0) ? 'selected' : ''}" 
+                             data-index="${imgIdx}" 
+                             onclick="handleReviewCoverImageSelect(${index}, ${imgIdx})">
+                            <img src="${img.dataUrl}" alt="Image ${imgIdx + 1}">
+                            <div class="crop-icon">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path>
+                                    <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         ` : '';
         
         card.innerHTML = `
             ${sourceImageHtml}
+            ${coverImageHtml}
             <form class="form" onsubmit="return false;">
                 <div class="form-group">
                     <label for="itemName${index}">Item Name</label>
@@ -1348,7 +1388,8 @@ function renderItemCards() {
                     </div>
                 </div>
                 
-                <!-- Correction Section -->
+                <!-- Correction Section (hide when editing from summary) -->
+                ${!state.isEditingFromSummary ? `
                 <div class="correction-section">
                     <button type="button" class="correction-toggle" onclick="toggleCorrectionSection(${index})">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1391,14 +1432,133 @@ function renderItemCards() {
                         </div>
                     </div>
                 </div>
+                ` : ''}
             </form>
         `;
         
         elements.itemCarousel.appendChild(card);
     });
     
+    // Reset currentItemIndex to 0 since we're showing filtered items
+    if (!state.isEditingFromSummary) {
+        state.currentItemIndex = 0;
+    }
+    
     updateItemNavigation();
 }
+
+// Get all images for a detected item (for cover image selection)
+function getDetectedItemImages(item) {
+    const images = [];
+    
+    // Add source image first
+    if (item.sourceImageDataUrl && item.sourceImageFile) {
+        images.push({
+            file: item.sourceImageFile,
+            dataUrl: item.sourceImageDataUrl,
+            isPrimary: true,
+            isSource: true
+        });
+    }
+    
+    // Add additional images
+    if (item.additionalImages && item.additionalImages.length > 0) {
+        item.additionalImages.forEach(img => {
+            if (img.dataUrl) {
+                images.push({
+                    file: img.file,
+                    dataUrl: img.dataUrl,
+                    isPrimary: false
+                });
+            }
+        });
+    }
+    
+    return images;
+}
+
+// Handle cover image selection in review section
+function handleReviewCoverImageSelect(itemIndex, imageIndex) {
+    const item = state.detectedItems[itemIndex];
+    item.selectedImageIndex = imageIndex;
+    
+    // Update selected state in gallery
+    const gallery = document.getElementById(`coverImageGallery${itemIndex}`);
+    if (gallery) {
+        gallery.querySelectorAll('.cover-gallery-item').forEach((el, i) => {
+            el.classList.toggle('selected', i === imageIndex);
+        });
+    }
+    
+    // Open cropper for this image
+    openReviewImageCropper(itemIndex, imageIndex);
+}
+
+// Open image cropper in review mode
+function openReviewImageCropper(itemIndex, imageIndex) {
+    const item = state.detectedItems[itemIndex];
+    const allImages = getDetectedItemImages(item);
+    
+    if (!allImages[imageIndex]) return;
+    
+    // Store reference to which item we're editing
+    reviewCropperState.itemIndex = itemIndex;
+    reviewCropperState.imageIndex = imageIndex;
+    
+    cropperState = {
+        scale: 1,
+        translateX: 0,
+        translateY: 0,
+        rotation: 0,
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        imageDataUrl: allImages[imageIndex].dataUrl,
+        imageIndex: imageIndex,
+        minScale: 0.5,
+        maxScale: 3,
+        baseScale: 1,
+        naturalWidth: 0,
+        naturalHeight: 0,
+    };
+    
+    const cropperImage = document.getElementById('cropperImage');
+    
+    // Load image to get natural dimensions and calculate zoom limits
+    const tempImg = new Image();
+    tempImg.onload = () => {
+        cropperState.naturalWidth = tempImg.naturalWidth;
+        cropperState.naturalHeight = tempImg.naturalHeight;
+        
+        // Calculate zoom limits based on image vs frame size
+        calculateZoomLimits();
+        
+        // Set initial scale to fill the frame
+        cropperState.scale = cropperState.baseScale;
+        
+        // Update UI
+        updateZoomSlider();
+        cropperImage.src = cropperState.imageDataUrl;
+        updateCropperTransform();
+    };
+    tempImg.src = cropperState.imageDataUrl;
+    
+    // Reset rotation slider and label
+    document.getElementById('rotationSlider').value = 0;
+    document.getElementById('rotationLabel').textContent = '0°';
+    
+    // Show cropper modal
+    document.getElementById('imageCropperModal').style.display = 'flex';
+    
+    // Initialize cropper interactions
+    initCropperInteractions();
+}
+
+// State for review cropper
+const reviewCropperState = {
+    itemIndex: null,
+    imageIndex: null
+};
 
 function renderAdditionalImageThumbnails(images, itemIndex) {
     if (!images || images.length === 0) return '';
@@ -1859,16 +2019,52 @@ function updateItemLabels(itemIndex, labelIds) {
 }
 
 function updateItemNavigation() {
-    const total = state.detectedItems.length;
+    // Get unconfirmed items for navigation (unless editing from summary)
+    const itemsToShow = state.isEditingFromSummary 
+        ? state.detectedItems 
+        : state.detectedItems.filter(item => !item.confirmed);
+    
+    const total = itemsToShow.length;
     const current = state.currentItemIndex + 1;
     
     elements.itemCounter.textContent = `${current} / ${total}`;
     elements.prevItem.disabled = state.currentItemIndex === 0;
     elements.nextItem.disabled = state.currentItemIndex >= total - 1;
     
+    // Update button text for editing from summary mode
+    if (state.isEditingFromSummary) {
+        elements.confirmItem.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Save Changes</span>
+        `;
+        elements.skipItem.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            <span>Cancel</span>
+        `;
+    } else {
+        elements.confirmItem.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Confirm</span>
+        `;
+        elements.skipItem.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            <span>Skip</span>
+        `;
+    }
+    
     // Update active card
-    document.querySelectorAll('.item-card').forEach((card, index) => {
-        card.classList.toggle('active', index === state.currentItemIndex);
+    document.querySelectorAll('.item-card').forEach((card, displayIndex) => {
+        card.classList.toggle('active', displayIndex === state.currentItemIndex);
     });
 }
 
@@ -1880,18 +2076,39 @@ function handlePrevItem() {
 }
 
 function handleNextItem() {
-    if (state.currentItemIndex < state.detectedItems.length - 1) {
+    // Get unconfirmed items count for navigation (unless editing from summary)
+    const itemsToShow = state.isEditingFromSummary 
+        ? state.detectedItems 
+        : state.detectedItems.filter(item => !item.confirmed);
+    
+    if (state.currentItemIndex < itemsToShow.length - 1) {
         state.currentItemIndex++;
         updateItemNavigation();
     }
 }
 
 function handleSkipItem() {
+    // If editing from summary, cancel and go back
+    if (state.isEditingFromSummary) {
+        cancelEditFromSummary();
+        return;
+    }
     moveToNextOrSummary();
 }
 
+function cancelEditFromSummary() {
+    state.isEditingFromSummary = false;
+    state.editingConfirmedIndex = null;
+    state.detectedItems = [];
+    state.currentItemIndex = 0;
+    renderSummary();
+    showSection('summarySection');
+}
+
 function handleConfirmItem() {
-    const index = state.currentItemIndex;
+    // Get the actual item index from the card's data attribute
+    const activeCard = document.querySelector('.item-card.active');
+    const index = activeCard ? parseInt(activeCard.dataset.index) : state.currentItemIndex;
     const item = state.detectedItems[index];
     
     const nameInput = document.getElementById(`itemName${index}`);
@@ -1978,16 +2195,29 @@ function handleConfirmItem() {
         purchase_from: purchaseFrom,
         notes: notes,
         images: imagesToUpload,
-        coverImageDataUrl: null, // Will be set if user crops an image
-        selectedImageIndex: 0,   // Index of selected image for cover
+        coverImageDataUrl: item.coverImageDataUrl || null, // Preserve cropped cover image
+        selectedImageIndex: item.selectedImageIndex || 0,   // Preserve selected image index
         sourceImageIndex: item.sourceImageIndex, // Track which photo this came from
     };
+    
+    // If editing from summary, update existing confirmed item
+    if (state.isEditingFromSummary && state.editingConfirmedIndex !== null) {
+        state.confirmedItems[state.editingConfirmedIndex] = confirmedItem;
+        state.isEditingFromSummary = false;
+        state.editingConfirmedIndex = null;
+        state.detectedItems = [];
+        state.currentItemIndex = 0;
+        renderSummary();
+        showSection('summarySection');
+        showToast(`"${confirmedItem.name}" updated`, 'success');
+        return;
+    }
     
     state.confirmedItems.push(confirmedItem);
     
     // Mark the item as confirmed in detectedItems for visual indicator
     item.confirmed = true;
-    renderItemCards(); // Re-render to show confirmation badge
+    renderItemCards(); // Re-render to hide confirmed item
     
     showToast(`"${confirmedItem.name}" confirmed`, 'success');
     
@@ -2276,22 +2506,49 @@ let editingItemIndex = null;
 let selectedImageIndex = 0;
 
 function handleEditItem(index) {
-    editingItemIndex = index;
     const item = state.confirmedItems[index];
     
-    // Populate form fields
-    document.getElementById('editItemName').value = item.name || '';
-    document.getElementById('editItemQuantity').value = item.quantity || 1;
-    document.getElementById('editItemDescription').value = item.description || '';
+    // Convert confirmed item back to a detected item for editing
+    const editableItem = {
+        name: item.name,
+        quantity: item.quantity,
+        description: item.description || '',
+        label_ids: item.label_ids || [],
+        additionalImages: [],
+        advancedFields: {
+            serialNumber: item.serial_number || '',
+            modelNumber: item.model_number || '',
+            manufacturer: item.manufacturer || '',
+            purchasePrice: item.purchase_price || '',
+            purchaseFrom: item.purchase_from || '',
+            notes: item.notes || '',
+        },
+        showAdvanced: !!(item.serial_number || item.model_number || item.manufacturer || 
+                        item.purchase_price || item.purchase_from || item.notes),
+        sourceImageIndex: item.sourceImageIndex,
+        sourceImageDataUrl: item.images && item.images.length > 0 ? item.images[0].dataUrl : null,
+        sourceImageFile: item.images && item.images.length > 0 ? item.images[0].file : null,
+        coverImageDataUrl: item.coverImageDataUrl,
+        selectedImageIndex: item.selectedImageIndex || 0,
+    };
     
-    // Set up image gallery
-    renderEditImageGallery(item);
+    // Add additional images (skip the first one which is the source)
+    if (item.images && item.images.length > 1) {
+        editableItem.additionalImages = item.images.slice(1).map(img => ({
+            file: img.file,
+            dataUrl: img.dataUrl
+        }));
+    }
     
-    // Update preview image
-    updateEditPreviewImage(item);
+    // Set up state for editing from summary
+    state.isEditingFromSummary = true;
+    state.editingConfirmedIndex = index;
+    state.detectedItems = [editableItem];
+    state.currentItemIndex = 0;
     
-    // Show modal
-    document.getElementById('editItemModal').style.display = 'flex';
+    // Navigate to review section
+    renderItemCards();
+    showSection('reviewSection');
 }
 
 function renderEditImageGallery(item) {
@@ -2851,7 +3108,33 @@ function applyCrop() {
             // Create a File object from the blob
             const croppedFile = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
             
-            // Save to item
+            // Check if we're cropping from review section (detected items)
+            if (reviewCropperState.itemIndex !== null) {
+                const item = state.detectedItems[reviewCropperState.itemIndex];
+                if (item) {
+                    item.coverImageDataUrl = croppedDataUrl;
+                    item.selectedImageIndex = reviewCropperState.imageIndex;
+                    
+                    // Update preview in review section
+                    const preview = document.getElementById(`coverImagePreview${reviewCropperState.itemIndex}`);
+                    if (preview) {
+                        const previewImg = preview.querySelector('img');
+                        if (previewImg) {
+                            previewImg.src = croppedDataUrl;
+                        }
+                    }
+                }
+                
+                // Reset review cropper state
+                reviewCropperState.itemIndex = null;
+                reviewCropperState.imageIndex = null;
+                
+                closeCropperModal();
+                showToast('Cover image set', 'success');
+                return;
+            }
+            
+            // Save to confirmed item (editing from summary modal - legacy code)
             if (editingItemIndex !== null) {
                 const item = state.confirmedItems[editingItemIndex];
                 item.coverImageDataUrl = croppedDataUrl;
