@@ -1,11 +1,11 @@
 /**
  * Homebox Scanner - Mobile Web App
  * Main application logic
- * Version: 0.15.0 (2025-12-01)
+ * Version: 0.15.1 (2025-12-01)
  */
 
 // Debug: Log when script loads to verify cache is cleared
-console.log('=== Homebox Scanner v0.15.0 loaded ===');
+console.log('=== Homebox Scanner v0.15.1 loaded ===');
 
 // ========================================
 // State Management
@@ -1072,14 +1072,14 @@ async function handleAnalyze() {
     const activePromises = new Map();
     
     const processImage = async (imageData) => {
-        const { file, dataUrl, index, additionalImages, separateItems, extraInstructions } = imageData;
+        const { file, dataUrl, index, additionalImages: captureAdditionalImages, separateItems, extraInstructions } = imageData;
         
         try {
             const formData = new FormData();
             formData.append('image', file);
             
-            // Add additional images for this item
-            additionalImages.forEach((addImg, addIndex) => {
+            // Add additional images for this item (for AI analysis)
+            captureAdditionalImages.forEach((addImg, addIndex) => {
                 formData.append('additional_images', addImg.file);
             });
             
@@ -1125,7 +1125,11 @@ async function handleAnalyze() {
                     
                     return {
                         ...item,
-                        additionalImages: [],
+                        // Preserve additional images from capture phase
+                        additionalImages: captureAdditionalImages.map(img => ({
+                            file: img.file,
+                            dataUrl: img.dataUrl
+                        })),
                         // Map API response extended fields to advancedFields
                         advancedFields: {
                             manufacturer: item.manufacturer || '',
@@ -1791,7 +1795,7 @@ function updateItemCardImages(index) {
     const item = state.detectedItems[index];
     const images = item.additionalImages || [];
     
-    // Update thumbnails
+    // Update additional images thumbnails
     grid.innerHTML = renderAdditionalImageThumbnails(images, index) + `
         <button type="button" class="add-image-btn" onclick="handleAddImage(${index})">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1801,6 +1805,9 @@ function updateItemCardImages(index) {
             <span>Add Photo</span>
         </button>
     `;
+    
+    // Update cover image gallery (to include new additional images)
+    updateCoverImageGallery(index);
     
     // Show/hide analyze button based on image count
     const section = grid.closest('.additional-images-section');
@@ -1826,6 +1833,42 @@ function updateItemCardImages(index) {
     } else if (images.length === 0 && analyzeBtn) {
         analyzeBtn.remove();
         if (analyzeLoader) analyzeLoader.remove();
+    }
+}
+
+// Update the cover image gallery for a specific item
+function updateCoverImageGallery(index) {
+    const gallery = document.getElementById(`coverImageGallery${index}`);
+    const preview = document.getElementById(`coverImagePreview${index}`);
+    if (!gallery) return;
+    
+    const item = state.detectedItems[index];
+    const allItemImages = getDetectedItemImages(item);
+    
+    if (allItemImages.length === 0) return;
+    
+    // Update gallery thumbnails
+    gallery.innerHTML = allItemImages.map((img, imgIdx) => `
+        <div class="cover-gallery-item ${imgIdx === (item.selectedImageIndex || 0) ? 'selected' : ''}" 
+             data-index="${imgIdx}" 
+             onclick="handleReviewCoverImageSelect(${index}, ${imgIdx})">
+            <img src="${img.dataUrl}" alt="Image ${imgIdx + 1}">
+            <div class="crop-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path>
+                    <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path>
+                </svg>
+            </div>
+        </div>
+    `).join('');
+    
+    // Update preview image if needed
+    if (preview && !item.coverImageDataUrl) {
+        const selectedIdx = item.selectedImageIndex || 0;
+        const previewImg = preview.querySelector('img');
+        if (previewImg && allItemImages[selectedIdx]) {
+            previewImg.src = allItemImages[selectedIdx].dataUrl;
+        }
     }
 }
 
