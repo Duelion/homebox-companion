@@ -7,56 +7,21 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted
-
-    # Make the environment sane for git and for our commands
-    env:
-      APP_DIR: /home/homebox/homebox-app
-      HOME: /root   # needed so `git config --global` works when runner runs as root
+    runs-on: self-hosted   # assumes this is your only self-hosted runner
 
     steps:
-      - name: Show environment (debug)
-        run: |
-          echo "whoami: $(whoami)"
-          echo "HOME:   $HOME"
-          echo "PATH:   $PATH"
-
-      - name: Ensure app repo exists
-        run: |
-          if [ ! -d "$APP_DIR/.git" ]; then
-            echo "ERROR: $APP_DIR is not a git repo"
-            exit 1
-          fi
-
-      - name: Allow git to use app repo
-        run: |
-          git config --global --add safe.directory "$APP_DIR"
-          echo "Configured safe.directory entries:"
-          git config --global --get-all safe.directory || true
-
-      - name: Deploy latest code to app directory
+      - name: Deploy latest code and restart service
         run: |
           set -e
 
-          # PATH from the runner service already includes /home/homebox/.local/bin,
-          # but this doesn't hurt if it doesn't.
-          export PATH="/home/homebox/.local/bin:$PATH"
+          cd /home/homebox/homebox-app
 
-          cd "$APP_DIR"
-
-          echo "--- git state before ---"
-          git status -sb || true
-          echo
-
-          echo "--- fetching origin/main ---"
+          # pull latest main
           git fetch origin
-
-          echo "--- resetting to origin/main ---"
           git reset --hard origin/main
 
-          echo "--- syncing Python environment with uv ---"
+          # update venv
           uv sync
 
-      - name: Restart HomeBox Vision service
-        run: |
+          # restart the app
           sudo systemctl restart homebox-vision.service
