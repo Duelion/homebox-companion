@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Homebox Vision Companion",
     description="AI-powered item detection for Homebox inventory management",
-    version="0.15.1",
+    version="0.15.2",
     lifespan=lifespan,
 )
 
