@@ -1,11 +1,11 @@
 /**
  * Homebox Scanner - Mobile Web App
  * Main application logic
- * Version: 0.15.1 (2025-12-01)
+ * Version: 0.15.2 (2025-12-01)
  */
 
 // Debug: Log when script loads to verify cache is cleared
-console.log('=== Homebox Scanner v0.15.1 loaded ===');
+console.log('=== Homebox Scanner v0.15.2 loaded ===');
 
 // ========================================
 // State Management
@@ -1227,13 +1227,13 @@ function updateProgress(current, total, statusText) {
 function renderItemCards() {
     elements.itemCarousel.innerHTML = '';
     
-    // Get only unconfirmed items for display (unless editing from summary)
-    const itemsToShow = state.isEditingFromSummary 
-        ? state.detectedItems 
-        : state.detectedItems.filter(item => !item.confirmed);
+    // In editing from summary mode, show the single item
+    // Otherwise, show the current item in the sequence
+    const index = state.currentItemIndex;
+    const item = state.detectedItems[index];
     
-    // If no items to show, go to summary
-    if (itemsToShow.length === 0 && !state.isEditingFromSummary) {
+    // If no item at current index, we're done - go to summary
+    if (!item && !state.isEditingFromSummary) {
         if (state.confirmedItems.length > 0) {
             renderSummary();
             showSection('summarySection');
@@ -1241,16 +1241,14 @@ function renderItemCards() {
         return;
     }
     
-    itemsToShow.forEach((item, displayIndex) => {
-        // Get the actual index in detectedItems
-        const index = state.detectedItems.indexOf(item);
-        
-        const card = document.createElement('div');
-        card.className = `item-card${displayIndex === 0 ? ' active' : ''}`;
-        card.dataset.index = index;
-        card.dataset.displayIndex = displayIndex;
-        
-        const imageCount = item.additionalImages?.length || 0;
+    if (!item) return;
+    
+    // Render only the current item
+    const card = document.createElement('div');
+    card.className = 'item-card active';
+    card.dataset.index = index;
+    
+    const imageCount = item.additionalImages?.length || 0;
         const advancedFields = item.advancedFields || {};
         const showAdvanced = item.showAdvanced || false;
         const selectedLabelIds = item.label_ids || [];
@@ -1439,15 +1437,8 @@ function renderItemCards() {
                 ` : ''}
             </form>
         `;
-        
-        elements.itemCarousel.appendChild(card);
-    });
     
-    // Reset currentItemIndex to 0 since we're showing filtered items
-    if (!state.isEditingFromSummary) {
-        state.currentItemIndex = 0;
-    }
-    
+    elements.itemCarousel.appendChild(card);
     updateItemNavigation();
 }
 
@@ -2062,17 +2053,15 @@ function updateItemLabels(itemIndex, labelIds) {
 }
 
 function updateItemNavigation() {
-    // Get unconfirmed items for navigation (unless editing from summary)
-    const itemsToShow = state.isEditingFromSummary 
-        ? state.detectedItems 
-        : state.detectedItems.filter(item => !item.confirmed);
-    
-    const total = itemsToShow.length;
+    const total = state.detectedItems.length;
     const current = state.currentItemIndex + 1;
     
+    // Show progress as "current / total" (total stays fixed)
     elements.itemCounter.textContent = `${current} / ${total}`;
-    elements.prevItem.disabled = state.currentItemIndex === 0;
-    elements.nextItem.disabled = state.currentItemIndex >= total - 1;
+    
+    // Hide prev/next buttons - user can only confirm or skip
+    elements.prevItem.style.display = 'none';
+    elements.nextItem.style.display = 'none';
     
     // Update button text for editing from summary mode
     if (state.isEditingFromSummary) {
@@ -2089,6 +2078,11 @@ function updateItemNavigation() {
             </svg>
             <span>Cancel</span>
         `;
+        // Show nav buttons when editing (to allow cancel without changing position)
+        elements.prevItem.style.display = '';
+        elements.nextItem.style.display = '';
+        elements.prevItem.disabled = true;
+        elements.nextItem.disabled = true;
     } else {
         elements.confirmItem.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2104,29 +2098,21 @@ function updateItemNavigation() {
             <span>Skip</span>
         `;
     }
-    
-    // Update active card
-    document.querySelectorAll('.item-card').forEach((card, displayIndex) => {
-        card.classList.toggle('active', displayIndex === state.currentItemIndex);
-    });
 }
 
 function handlePrevItem() {
+    // Navigation is disabled in normal mode, but kept for editing mode
     if (state.currentItemIndex > 0) {
         state.currentItemIndex--;
-        updateItemNavigation();
+        renderItemCards();
     }
 }
 
 function handleNextItem() {
-    // Get unconfirmed items count for navigation (unless editing from summary)
-    const itemsToShow = state.isEditingFromSummary 
-        ? state.detectedItems 
-        : state.detectedItems.filter(item => !item.confirmed);
-    
-    if (state.currentItemIndex < itemsToShow.length - 1) {
+    // Navigation is disabled in normal mode, but kept for editing mode
+    if (state.currentItemIndex < state.detectedItems.length - 1) {
         state.currentItemIndex++;
-        updateItemNavigation();
+        renderItemCards();
     }
 }
 
@@ -2258,9 +2244,8 @@ function handleConfirmItem() {
     
     state.confirmedItems.push(confirmedItem);
     
-    // Mark the item as confirmed in detectedItems for visual indicator
+    // Mark the item as confirmed (for reference, not for hiding)
     item.confirmed = true;
-    renderItemCards(); // Re-render to hide confirmed item
     
     showToast(`"${confirmedItem.name}" confirmed`, 'success');
     
@@ -2282,7 +2267,7 @@ function moveToNextOrSummary() {
     
     if (state.currentItemIndex < state.detectedItems.length - 1) {
         state.currentItemIndex++;
-        updateItemNavigation();
+        renderItemCards(); // Re-render to show next item
     } else {
         // All items reviewed
         if (state.confirmedItems.length === 0) {
