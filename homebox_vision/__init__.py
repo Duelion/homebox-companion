@@ -36,7 +36,7 @@ from .llm import (
 )
 from .models import DetectedItem
 
-__version__ = "0.15.0"
+__version__ = "0.15.1"
 
 __all__ = [
     # Configuration
