@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Homebox Vision Companion",
     description="AI-powered item detection for Homebox inventory management",
-    version="0.12.0",
+    version="0.13.0",
     lifespan=lifespan,
 )
 
@@ -156,6 +156,13 @@ class DetectedItemResponse(BaseModel):
     quantity: int
     description: str | None = None
     label_ids: list[str] | None = None
+    # Extended fields (extracted when visible in image)
+    manufacturer: str | None = None
+    model_number: str | None = None
+    serial_number: str | None = None
+    purchase_price: float | None = None
+    purchase_from: str | None = None
+    notes: str | None = None
 
 
 class DetectionResponse(BaseModel):
@@ -296,6 +303,7 @@ async def detect_items(
     authorization: Annotated[str | None, Header()] = None,
     single_item: Annotated[bool, Form()] = False,
     extra_instructions: Annotated[str | None, Form()] = None,
+    extract_extended_fields: Annotated[bool, Form()] = True,
 ) -> DetectionResponse:
     """Analyze an uploaded image and detect items using OpenAI vision.
 
@@ -306,9 +314,13 @@ async def detect_items(
             (do not separate into multiple items).
         extra_instructions: Optional user hint about what's in the image
             (e.g., "the items in the photo are static grass for train models").
+        extract_extended_fields: If True (default), also extract extended fields
+            like manufacturer, modelNumber, serialNumber when visible in the image.
+            These are extracted on a criteria basis - only when clearly visible.
     """
     logger.info(f"Detecting items from image: {image.filename}")
     logger.info(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
+    logger.info(f"Extract extended fields: {extract_extended_fields}")
 
     # Validate auth (even though detection doesn't require it, we want logged-in users)
     get_token(authorization)
@@ -358,10 +370,16 @@ async def detect_items(
             labels=labels,
             single_item=single_item,
             extra_instructions=extra_instructions,
+            extract_extended_fields=extract_extended_fields,
         )
         logger.info(f"Detected {len(detected)} items")
         for item in detected:
             logger.debug(f"  - {item.name} (qty: {item.quantity}, labels: {item.label_ids})")
+            if item.has_extended_fields():
+                logger.debug(
+                    f"    Extended: manufacturer={item.manufacturer}, "
+                    f"model={item.model_number}, serial={item.serial_number}"
+                )
     except Exception as e:
         logger.error(f"Detection failed: {e}")
         raise HTTPException(status_code=500, detail=f"Detection failed: {e}") from e
@@ -373,6 +391,12 @@ async def detect_items(
                 quantity=item.quantity,
                 description=item.description,
                 label_ids=item.label_ids,
+                manufacturer=item.manufacturer,
+                model_number=item.model_number,
+                serial_number=item.serial_number,
+                purchase_price=item.purchase_price,
+                purchase_from=item.purchase_from,
+                notes=item.notes,
             )
             for item in detected
         ]
@@ -384,7 +408,13 @@ async def create_items(
     request: BatchCreateRequest,
     authorization: Annotated[str | None, Header()] = None,
 ) -> JSONResponse:
-    """Create multiple items in Homebox."""
+    """Create multiple items in Homebox.
+
+    For each item, first creates it with basic fields (name, description, quantity,
+    locationId, labelIds), then updates it with any extended fields (manufacturer,
+    modelNumber, serialNumber, purchasePrice, purchaseFrom, notes) since the
+    Homebox API only accepts extended fields via update, not create.
+    """
     logger.info(f"Creating {len(request.items)} items")
     logger.debug(f"Request location_id: {request.location_id}")
 
@@ -408,11 +438,42 @@ async def create_items(
             description=item_input.description,
             location_id=location_id,
             label_ids=item_input.label_ids,
+            # Extended fields (will be applied via update)
+            manufacturer=item_input.manufacturer,
+            model_number=item_input.model_number,
+            serial_number=item_input.serial_number,
+            purchase_price=item_input.purchase_price,
+            purchase_from=item_input.purchase_from,
+            notes=item_input.notes,
         )
 
         try:
+            # Step 1: Create item with basic fields
             result = await client.create_item(token, detected_item)
-            logger.info(f"Created item: {result.get('name')} (id: {result.get('id')})")
+            item_id = result.get("id")
+            logger.info(f"Created item: {result.get('name')} (id: {item_id})")
+
+            # Step 2: If there are extended fields, update the item
+            if item_id and detected_item.has_extended_fields():
+                extended_payload = detected_item.get_extended_fields_payload()
+                if extended_payload:
+                    logger.debug(f"  Updating with extended fields: {extended_payload.keys()}")
+                    # Get the full item to merge with extended fields
+                    full_item = await client.get_item(token, item_id)
+                    # Merge extended fields into the full item data
+                    update_data = {
+                        "name": full_item.get("name"),
+                        "description": full_item.get("description"),
+                        "quantity": full_item.get("quantity"),
+                        "locationId": full_item.get("location", {}).get("id"),
+                        "labelIds": [
+                            lbl.get("id") for lbl in full_item.get("labels", []) if lbl.get("id")
+                        ],
+                        **extended_payload,
+                    }
+                    result = await client.update_item(token, item_id, update_data)
+                    logger.info("  Updated item with extended fields")
+
             created.append(result)
         except Exception as e:
             error_msg = f"Failed to create '{item_input.name}': {e}"

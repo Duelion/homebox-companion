@@ -41,6 +41,29 @@ ITEM_SCHEMA = """Each item must include:
 - description: string (max 1000 chars, condition/attributes only, NEVER mention quantity)
 - labelIds: array of matching label IDs from the available labels"""
 
+# Extended fields that can be extracted when visible/applicable
+EXTENDED_FIELDS_SCHEMA = """
+OPTIONAL EXTENDED FIELDS - Only include when clearly visible/determinable from the image:
+
+- manufacturer: string or null (brand name ONLY if clearly visible via logo, label, or packaging)
+- modelNumber: string or null (ONLY if product code/model number is visible on label or item)
+- serialNumber: string or null (ONLY if serial number is visible on sticker/label/engraving)
+- purchasePrice: number or null (ONLY if price tag or receipt is visible in image)
+- purchaseFrom: string or null (ONLY if store name/retailer is visible on packaging/receipt)
+- notes: string or null (ONLY for significant observations: condition issues, damage,
+  special features, or notable details not fitting in description)
+
+CRITERIA FOR EXTENDED FIELDS (IMPORTANT):
+- DO NOT guess or infer fields you cannot see clearly
+- manufacturer: Include ONLY when brand/logo is VISIBLE (e.g., "DeWalt" visible on tool)
+- modelNumber: Include ONLY when model/part number TEXT is VISIBLE (e.g., "DCD771C2" on label)
+- serialNumber: Include ONLY when S/N text is VISIBLE (usually on sticker/label)
+- purchasePrice: Include ONLY if price tag/receipt is IN THE IMAGE
+- purchaseFrom: Include ONLY if retailer name is visible (e.g., "Home Depot" on packaging)
+- notes: Include ONLY for genuinely useful observations (damage, wear, modifications, etc.)
+
+If a field cannot be determined from what's visible, omit it or set to null."""
+
 
 def encode_image_to_data_uri(image_path: Path) -> str:
     """Read an image file and return a data URI for OpenAI's vision API.
@@ -79,6 +102,7 @@ async def detect_items_from_bytes(
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
+    extract_extended_fields: bool = False,
 ) -> list[DetectedItem]:
     """Use OpenAI vision model to detect items from raw image bytes.
 
@@ -92,9 +116,15 @@ async def detect_items_from_bytes(
             (do not separate into multiple items).
         extra_instructions: Optional user hint about what's in the image
             (e.g., "the items in the photo are static grass for train models").
+        extract_extended_fields: If True, also attempt to extract extended item
+            fields like manufacturer, modelNumber, serialNumber, purchasePrice,
+            purchaseFrom, and notes when they are clearly visible in the image.
+            These fields are extracted on a criteria basis - only when the AI
+            can determine them with confidence from visible text/labels.
 
     Returns:
-        List of detected items with quantities and descriptions.
+        List of detected items with quantities, descriptions, and optionally
+        extended fields when extract_extended_fields is True.
     """
     data_uri = encode_image_bytes_to_data_uri(image_bytes, mime_type)
     return await _detect_items_from_data_uri(
@@ -104,6 +134,7 @@ async def detect_items_from_bytes(
         labels,
         single_item=single_item,
         extra_instructions=extra_instructions,
+        extract_extended_fields=extract_extended_fields,
     )
 
 
@@ -114,6 +145,7 @@ async def _detect_items_from_data_uri(
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
+    extract_extended_fields: bool = False,
 ) -> list[DetectedItem]:
     """Core detection logic using a data URI.
 
@@ -124,9 +156,12 @@ async def _detect_items_from_data_uri(
         labels: Optional list of Homebox labels for item tagging.
         single_item: If True, treat everything as a single item (don't separate).
         extra_instructions: User-provided hint about image contents.
+        extract_extended_fields: If True, also extract manufacturer, modelNumber, etc.
+            when visible in the image.
     """
     logger.debug(f"Starting item detection with model: {model}")
     logger.debug(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
+    logger.debug(f"Extract extended fields: {extract_extended_fields}")
 
     if labels is None:
         labels = []
@@ -165,6 +200,15 @@ async def _detect_items_from_data_uri(
             "and identify the items in the image."
         )
 
+    # Include extended fields schema when requested
+    extended_prompt = ""
+    extended_example = ""
+    if extract_extended_fields:
+        extended_prompt = f"\n\n{EXTENDED_FIELDS_SCHEMA}"
+        extended_example = (
+            ',"manufacturer":"DeWalt","modelNumber":"DCD771C2","notes":"Minor wear on handle"'
+        )
+
     client = AsyncOpenAI(api_key=api_key)
     logger.debug("Calling OpenAI API...")
 
@@ -178,7 +222,8 @@ async def _detect_items_from_data_uri(
                     "You are an inventory assistant for the Homebox API. "
                     "Return a single JSON object with an `items` array.\n\n"
                     f"{NAMING_RULES}\n\n"
-                    f"{ITEM_SCHEMA}\n\n"
+                    f"{ITEM_SCHEMA}"
+                    f"{extended_prompt}\n\n"
                     f"{grouping_instructions} "
                     "Do not add extra commentary. Ignore background elements (floors, walls, "
                     "benches, shelves, packaging, shadows) and only count objects that are "
@@ -196,7 +241,8 @@ async def _detect_items_from_data_uri(
                             "For each item, include labelIds with matching label IDs. "
                             "Return only JSON. Example: "
                             '{"items":[{"name":"Claw Hammer","quantity":2,"description":'
-                            '"Steel claw hammer with rubber grip","labelIds":["id1"]}]}.'
+                            f'"Steel claw hammer","labelIds":["id1"]{extended_example}'
+                            "}]}."
                             + user_hint
                         ),
                     },
@@ -215,6 +261,11 @@ async def _detect_items_from_data_uri(
     logger.info(f"Detected {len(items)} items")
     for item in items:
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}, labels: {item.label_ids}")
+        if extract_extended_fields:
+            logger.debug(
+                f"    Extended: manufacturer={item.manufacturer}, "
+                f"model={item.model_number}, serial={item.serial_number}"
+            )
 
     return items
 
@@ -576,6 +627,7 @@ async def discriminatory_detect_items(
     api_key: str | None = None,
     model: str | None = None,
     labels: list[dict[str, str]] | None = None,
+    extract_extended_fields: bool = True,
 ) -> list[DetectedItem]:
     """Re-detect items from images with more discriminatory instructions.
 
@@ -589,6 +641,8 @@ async def discriminatory_detect_items(
         api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
         model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
         labels: Optional list of Homebox labels to suggest for items.
+        extract_extended_fields: If True (default), also extract extended item
+            fields like manufacturer, modelNumber, serialNumber when visible.
 
     Returns:
         List of detected items, ideally more specific/separated than before.
@@ -597,6 +651,7 @@ async def discriminatory_detect_items(
     model = model or settings.openai_model
 
     logger.info(f"Discriminatory detection with {len(image_data_uris)} images")
+    logger.debug(f"Extract extended fields: {extract_extended_fields}")
 
     if labels is None:
         labels = []
@@ -613,6 +668,11 @@ async def discriminatory_detect_items(
             )
         )
     )
+
+    # Include extended fields schema when requested
+    extended_prompt = ""
+    if extract_extended_fields:
+        extended_prompt = f"\n\n{EXTENDED_FIELDS_SCHEMA}"
 
     # Context about what was previously detected
     context = ""
@@ -666,7 +726,8 @@ async def discriminatory_detect_items(
                     "together - instead, list each distinct variant separately.\n\n"
                     f"{NAMING_RULES}\n\n"
                     "Return a JSON object with an `items` array.\n"
-                    f"{ITEM_SCHEMA}\n\n"
+                    f"{ITEM_SCHEMA}"
+                    f"{extended_prompt}\n\n"
                     "SPECIFICITY RULES:\n"
                     "- Be specific: include size, color, brand, model in the name when visible\n"
                     "- Each distinct variant gets its own entry (e.g., '80 Grit Sandpaper' and "
@@ -693,6 +754,11 @@ async def discriminatory_detect_items(
     logger.info(f"Discriminatory detection found {len(items)} items")
     for item in items:
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
+        if extract_extended_fields and item.has_extended_fields():
+            logger.debug(
+                f"    Extended: manufacturer={item.manufacturer}, "
+                f"model={item.model_number}, serial={item.serial_number}"
+            )
 
     return items
 
