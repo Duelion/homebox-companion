@@ -133,6 +133,9 @@ function showSection(sectionId) {
     if (target) {
         target.classList.add('active');
     }
+    
+    // Scroll to top when showing a new section
+    window.scrollTo(0, 0);
 }
 
 function showToast(message, type = 'info') {
