@@ -3,29 +3,46 @@ name: Deploy to homelab
 on:
   push:
     branches:
-      - main    # runs only when main is updated
+      - main
 
 jobs:
   deploy:
     runs-on: self-hosted
 
-    steps:
-      - name: Allow git to use /home/homebox/homebox-app
-        run: |
-          git config --global --add safe.directory /home/homebox/homebox-app
+    # Make the environment sane for git and for our commands
+    env:
+      APP_DIR: /home/homebox/homebox-app
+      HOME: /root   # needed so `git config --global` works when runner runs as root
 
-      - name: Sanity-check app repo on runner
+    steps:
+      - name: Show environment (debug)
         run: |
-          if [ ! -d /home/homebox/homebox-app/.git ]; then
-            echo "ERROR: /home/homebox/homebox-app is missing or not a git repo."
+          echo "whoami: $(whoami)"
+          echo "HOME:   $HOME"
+          echo "PATH:   $PATH"
+
+      - name: Ensure app repo exists
+        run: |
+          if [ ! -d "$APP_DIR/.git" ]; then
+            echo "ERROR: $APP_DIR is not a git repo"
             exit 1
           fi
 
-      - name: Deploy latest code to /home/homebox/homebox-app
+      - name: Allow git to use app repo
+        run: |
+          git config --global --add safe.directory "$APP_DIR"
+          echo "Configured safe.directory entries:"
+          git config --global --get-all safe.directory || true
+
+      - name: Deploy latest code to app directory
         run: |
           set -e
-          export PATH="$HOME/.local/bin:$PATH"
-          cd /home/homebox/homebox-app
+
+          # PATH from the runner service already includes /home/homebox/.local/bin,
+          # but this doesn't hurt if it doesn't.
+          export PATH="/home/homebox/.local/bin:$PATH"
+
+          cd "$APP_DIR"
 
           echo "--- git state before ---"
           git status -sb || true
@@ -43,4 +60,3 @@ jobs:
       - name: Restart HomeBox Vision service
         run: |
           sudo systemctl restart homebox-vision.service
-
