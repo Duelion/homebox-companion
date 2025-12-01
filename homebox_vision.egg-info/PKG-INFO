@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: homebox-vision
-Version: 0.10.0
+Version: 0.11.0
 Summary: AI-powered companion app for Homebox - detect and catalog household items from photos
 License: MIT
 Project-URL: Repository, https://github.com/yourusername/homebox-vision
@@ -190,11 +190,12 @@ homebox-vision/
 The `homebox_vision` package can also be used as a Python library:
 
 ```python
-from homebox_vision import HomeboxClient, detect_items_with_openai
-from pathlib import Path
+from homebox_vision import detect_items, HomeboxClient
 
-# Detect items in an image
-items = detect_items_with_openai(Path("photo.jpg"))
+# Detect items in an image (sync - great for scripts)
+items = detect_items("photo.jpg")
+for item in items:
+    print(f"{item.name}: {item.quantity}")
 
 # Create items in Homebox
 with HomeboxClient(base_url="https://your-homebox/api/v1") as client:
@@ -221,13 +222,15 @@ from homebox_vision import (
     DetectedItem,
     
     # Detection functions
-    detect_items_with_openai,      # Detect from file path
-    detect_items_from_bytes,       # Detect from image bytes
-    analyze_item_details_from_images,  # Multi-image analysis
-    merge_items_with_openai,       # Merge multiple items
-    correct_item_with_openai,      # Correct item with feedback
+    detect_items,              # Sync - detect from file path (for scripts)
+    detect_items_from_bytes,   # Async - detect from raw bytes (for servers)
     
-    # Utilities
+    # Advanced AI functions (all async)
+    analyze_item_details_from_images,  # Multi-image detailed analysis
+    merge_items_with_openai,           # Combine similar items
+    correct_item_with_openai,          # Fix detection with user feedback
+    
+    # Image encoding utilities
     encode_image_to_data_uri,
     encode_image_bytes_to_data_uri,
 )
