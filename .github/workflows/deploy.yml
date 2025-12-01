@@ -7,11 +7,13 @@ on:
 
 jobs:
   deploy:
-    # If you added a custom label like "homebox" when configuring the runner,
-    # you can change this to: [self-hosted, homebox]
     runs-on: self-hosted
 
     steps:
+      - name: Allow git to use /home/homebox/homebox-app
+        run: |
+          git config --global --add safe.directory /home/homebox/homebox-app
+
       - name: Sanity-check app repo on runner
         run: |
           if [ ! -d /home/homebox/homebox-app/.git ]; then
@@ -22,10 +24,7 @@ jobs:
       - name: Deploy latest code to /home/homebox/homebox-app
         run: |
           set -e
-
-          # Make sure uv is visible; systemd won't load your interactive PATH
           export PATH="$HOME/.local/bin:$PATH"
-
           cd /home/homebox/homebox-app
 
           echo "--- git state before ---"
@@ -44,3 +43,4 @@ jobs:
       - name: Restart HomeBox Vision service
         run: |
           sudo systemctl restart homebox-vision.service
+
