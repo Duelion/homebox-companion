@@ -2,23 +2,26 @@ name: Deploy to homelab
 
 on:
   push:
-    branches: [ main ]   # change if you deploy from another branch
+    branches:
+      - main
 
 jobs:
   deploy:
-    runs-on: self-hosted   # uses your LXC runner
+    runs-on: self-hosted   # assumes this is your only self-hosted runner
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Deploy into /home/homebox/homebox-app
+      - name: Deploy latest code and restart service
         run: |
+          set -e
+
           cd /home/homebox/homebox-app
+
+          # pull latest main
           git fetch origin
           git reset --hard origin/main
+
+          # update venv
           uv sync
 
-      - name: Restart HomeBox Vision service
-        run: |
+          # restart the app
           sudo systemctl restart homebox-vision.service
