@@ -14,6 +14,13 @@ import httpx
 from .config import settings
 from .models import DetectedItem
 
+
+class AuthenticationError(Exception):
+    """Raised when authentication fails (401 Unauthorized)."""
+
+    pass
+
+
 # Default timeout configuration
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
@@ -127,6 +134,26 @@ class HomeboxClient:
         self._ensure_success(response, "Fetch locations")
         return response.json()
 
+    def get_location(self, token: str, location_id: str) -> dict[str, Any]:
+        """Return a specific location by ID with its children.
+
+        Args:
+            token: The bearer token from login.
+            location_id: The ID of the location to fetch.
+
+        Returns:
+            Location dictionary including children.
+        """
+        response = self.client.get(
+            f"{self.base_url}/locations/{location_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Fetch location")
+        return response.json()
+
     def list_labels(self, token: str) -> list[dict[str, Any]]:
         """Return all available labels for the authenticated user.
 
@@ -206,6 +233,59 @@ class HomeboxClient:
         self._ensure_success(response, "Update item")
         return response.json()
 
+    def get_item(self, token: str, item_id: str) -> dict[str, Any]:
+        """Get full item details by ID.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to fetch.
+
+        Returns:
+            The item dictionary with all details.
+        """
+        response = self.client.get(
+            f"{self.base_url}/items/{item_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Get item")
+        return response.json()
+
+    def upload_attachment(
+        self,
+        token: str,
+        item_id: str,
+        file_bytes: bytes,
+        filename: str,
+        mime_type: str = "image/jpeg",
+        attachment_type: str = "photo",
+    ) -> dict[str, Any]:
+        """Upload an attachment (image) to an item.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to attach to.
+            file_bytes: The file content as bytes.
+            filename: Name for the uploaded file.
+            mime_type: MIME type of the file.
+            attachment_type: Type of attachment (default: "photo").
+
+        Returns:
+            The attachment response dictionary.
+        """
+        files = {"file": (filename, file_bytes, mime_type)}
+        data = {"type": attachment_type, "name": filename}
+        response = self.client.post(
+            f"{self.base_url}/items/{item_id}/attachments",
+            headers={"Authorization": f"Bearer {token}"},
+            files=files,
+            data=data,
+        )
+        self._ensure_success(response, "Upload attachment")
+        return response.json()
+
     @staticmethod
     def _ensure_success(response: httpx.Response, context: str) -> None:
         """Raise an error if the response indicates failure."""
@@ -215,6 +295,9 @@ class HomeboxClient:
             detail = response.json()
         except ValueError:
             detail = response.text
+        # Raise AuthenticationError for 401 so callers can handle session expiry
+        if response.status_code == 401:
+            raise AuthenticationError(f"{context} failed: {detail}")
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
 
 
@@ -480,6 +563,9 @@ class AsyncHomeboxClient:
             detail = response.json()
         except ValueError:
             detail = response.text
+        # Raise AuthenticationError for 401 so callers can handle session expiry
+        if response.status_code == 401:
+            raise AuthenticationError(f"{context} failed: {detail}")
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
 
 

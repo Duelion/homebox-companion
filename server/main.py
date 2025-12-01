@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 
 from homebox_vision import (
     AsyncHomeboxClient,
+    AuthenticationError,
     DetectedItem,
     analyze_item_details_from_images,
     correct_item_with_openai,
@@ -73,7 +75,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Homebox Vision Companion",
     description="AI-powered item detection for Homebox inventory management",
-    version="0.10.0",
+    version="0.11.0",
     lifespan=lifespan,
 )
 
@@ -208,6 +210,8 @@ async def get_locations(
     client = get_client()
     try:
         return await client.list_locations(token, filter_children=filter_children)
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -249,6 +253,8 @@ async def get_locations_tree(
                 })
 
         return enriched
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -263,6 +269,8 @@ async def get_location(
     client = get_client()
     try:
         return await client.get_location(token, location_id)
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -276,6 +284,8 @@ async def get_labels(
     client = get_client()
     try:
         return await client.list_labels(token)
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -612,7 +622,6 @@ async def correct_item(
 
     # Parse current item from JSON string
     try:
-        import json
         current_item_dict = json.loads(current_item)
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON for current_item: {e}")
@@ -701,6 +710,8 @@ async def upload_item_attachment(
             attachment_type="photo",
         )
         return result
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

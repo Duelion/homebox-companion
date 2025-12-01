@@ -274,7 +274,10 @@ async function handleLogin(event) {
         await loadLocations();
         showSection('locationSection');
     } catch (error) {
-        showToast(error.message || 'Login failed', 'error');
+        // Don't show duplicate error for session expiration (already handled)
+        if (error.message !== 'SESSION_EXPIRED') {
+            showToast(error.message || 'Login failed', 'error');
+        }
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>Sign In</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
@@ -352,9 +355,17 @@ async function loadLocations() {
             const labels = await apiRequest('/api/labels');
             state.labels = labels;
         } catch (e) {
-            console.warn('Could not load labels:', e);
+            // Ignore label loading errors if session expired (already handled)
+            if (e.message !== 'SESSION_EXPIRED') {
+                console.warn('Could not load labels:', e);
+            }
         }
     } catch (error) {
+        // Don't show error UI for session expiration - apiRequest already handled it
+        if (error.message === 'SESSION_EXPIRED') {
+            throw error; // Re-throw so callers know to stop
+        }
+        
         showToast('Failed to load locations: ' + error.message, 'error');
         elements.locationList.innerHTML = `
             <div class="location-empty">
@@ -416,6 +427,10 @@ async function renderLocationLevel() {
                 // Cache the children in the path
                 currentParent.children = childLocations;
             } catch (e) {
+                // Don't log or render if session expired (already handled)
+                if (e.message === 'SESSION_EXPIRED') {
+                    return;
+                }
                 console.warn('Could not fetch location children:', e);
                 childLocations = [];
             }
@@ -1866,24 +1881,42 @@ async function handleMergeSelected() {
         const seenDataUrls = new Set();
         const uniqueImages = [];
         
+        // Helper to add an image if not already seen
+        const addUniqueImage = (img) => {
+            if (!img || !img.dataUrl) return;
+            
+            // Skip if we've already seen this exact image (by dataUrl)
+            if (seenDataUrls.has(img.dataUrl)) {
+                return;
+            }
+            
+            seenDataUrls.add(img.dataUrl);
+            uniqueImages.push({
+                file: img.file,
+                dataUrl: img.dataUrl,
+                isPrimary: false,
+                sourceImageIndex: img.sourceImageIndex,
+            });
+        };
+        
         itemsToMerge.forEach(item => {
-            if (item.images) {
-                item.images.forEach(img => {
-                    // Skip if we've already seen this exact image
-                    if (img.dataUrl && seenDataUrls.has(img.dataUrl)) {
-                        return;
-                    }
-                    
-                    if (img.dataUrl) {
-                        seenDataUrls.add(img.dataUrl);
-                    }
-                    
-                    uniqueImages.push({
-                        file: img.file,
-                        dataUrl: img.dataUrl,
-                        isPrimary: false,
-                        sourceImageIndex: img.sourceImageIndex,
-                    });
+            // First, check the item.images array (primary source for confirmed items)
+            if (item.images && item.images.length > 0) {
+                item.images.forEach(img => addUniqueImage(img));
+            }
+            
+            // Also check for coverImageDataUrl (cropped image)
+            if (item.coverImageDataUrl && !seenDataUrls.has(item.coverImageDataUrl)) {
+                // If there's a cropped cover image that's different from what's in images,
+                // we don't add it separately since the cropped version replaced the original
+            }
+            
+            // Check sourceImageDataUrl as fallback (for items that might not have images array populated)
+            if (item.sourceImageDataUrl && item.sourceImageFile && !seenDataUrls.has(item.sourceImageDataUrl)) {
+                addUniqueImage({
+                    file: item.sourceImageFile,
+                    dataUrl: item.sourceImageDataUrl,
+                    sourceImageIndex: item.sourceImageIndex,
                 });
             }
         });
@@ -2281,31 +2314,94 @@ function getDistance(touch1, touch2) {
 
 function updateCropperTransform() {
     const image = document.getElementById('cropperImage');
+    // Standard transform - rotation compensation is handled in rotation functions
     image.style.transform = `translate(${cropperState.translateX}px, ${cropperState.translateY}px) scale(${cropperState.scale}) rotate(${cropperState.rotation}deg)`;
 }
 
+function getFrameCenterOffset() {
+    // Calculate the offset from container center to frame center
+    const container = document.getElementById('cropperContainer');
+    const frame = document.getElementById('cropperFrame');
+    
+    if (!container || !frame) return { x: 0, y: 0 };
+    
+    const containerRect = container.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    
+    const frameCenterX = (frameRect.left - containerRect.left) + frameRect.width / 2;
+    const frameCenterY = (frameRect.top - containerRect.top) + frameRect.height / 2;
+    const containerCenterX = containerRect.width / 2;
+    const containerCenterY = containerRect.height / 2;
+    
+    return {
+        x: frameCenterX - containerCenterX,
+        y: frameCenterY - containerCenterY
+    };
+}
+
+function rotateAroundFrameCenter(newRotation) {
+    // Rotate around the crop frame center instead of image center
+    // This keeps the cropped area visually stable while rotating
+    
+    const oldRotation = cropperState.rotation;
+    const deltaRotation = newRotation - oldRotation;
+    
+    if (Math.abs(deltaRotation) < 0.01) return; // No change
+    
+    const deltaRad = (deltaRotation * Math.PI) / 180;
+    
+    // Get the current point that's at the frame center (in image-relative coordinates)
+    // This is the point we want to keep fixed
+    const frameOffset = getFrameCenterOffset();
+    
+    // Current position of frame center relative to image center
+    // (accounting for current translation)
+    const pivotX = frameOffset.x - cropperState.translateX;
+    const pivotY = frameOffset.y - cropperState.translateY;
+    
+    // When we rotate, the pivot point will move. We need to compensate.
+    // The point at (pivotX, pivotY) will rotate around (0,0) by deltaRotation
+    const cos = Math.cos(deltaRad);
+    const sin = Math.sin(deltaRad);
+    
+    // New position of pivot point after rotation
+    const newPivotX = pivotX * cos - pivotY * sin;
+    const newPivotY = pivotX * sin + pivotY * cos;
+    
+    // Adjust translation to keep frame center fixed
+    cropperState.translateX += (pivotX - newPivotX);
+    cropperState.translateY += (pivotY - newPivotY);
+    cropperState.rotation = newRotation;
+    
+    updateCropperTransform();
+}
+
 function handleRotateLeft() {
-    // Quick 90° rotation
-    cropperState.rotation = Math.round((cropperState.rotation - 90) / 90) * 90;
-    if (cropperState.rotation < -180) cropperState.rotation += 360;
+    // Quick 90° rotation around frame center
+    let newRotation = Math.round((cropperState.rotation - 90) / 90) * 90;
+    if (newRotation < -180) newRotation += 360;
+    
+    rotateAroundFrameCenter(newRotation);
+    
     document.getElementById('rotationSlider').value = cropperState.rotation;
     document.getElementById('rotationLabel').textContent = `${cropperState.rotation}°`;
-    updateCropperTransform();
 }
 
 function handleRotateRight() {
-    // Quick 90° rotation
-    cropperState.rotation = Math.round((cropperState.rotation + 90) / 90) * 90;
-    if (cropperState.rotation > 180) cropperState.rotation -= 360;
+    // Quick 90° rotation around frame center
+    let newRotation = Math.round((cropperState.rotation + 90) / 90) * 90;
+    if (newRotation > 180) newRotation -= 360;
+    
+    rotateAroundFrameCenter(newRotation);
+    
     document.getElementById('rotationSlider').value = cropperState.rotation;
     document.getElementById('rotationLabel').textContent = `${cropperState.rotation}°`;
-    updateCropperTransform();
 }
 
 function handleRotationSlider(e) {
-    cropperState.rotation = parseInt(e.target.value);
+    const newRotation = parseInt(e.target.value);
+    rotateAroundFrameCenter(newRotation);
     document.getElementById('rotationLabel').textContent = `${cropperState.rotation}°`;
-    updateCropperTransform();
 }
 
 function handleZoomIn() {
@@ -2795,7 +2891,14 @@ async function init() {
             await loadLocations();
             showSection('locationSection');
         } catch (error) {
-            // Token expired or invalid
+            // Token expired or invalid - apiRequest already handled 401
+            // (cleared token, showed toast, switched to login)
+            // Just make sure we're on login section
+            if (error.message === 'SESSION_EXPIRED') {
+                // Already handled by apiRequest
+                return;
+            }
+            // For other errors, clear token and show login
             clearToken();
             showSection('loginSection');
         }

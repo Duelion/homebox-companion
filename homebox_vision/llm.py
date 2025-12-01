@@ -1,13 +1,22 @@
 """LLM utilities for extracting Homebox items from images.
 
-This module provides async functions to analyze images using OpenAI's vision
+This module provides functions to analyze images using OpenAI's vision
 models and extract structured item data suitable for Homebox.
 
-All functions are async for optimal performance in async contexts like FastAPI.
+Primary functions:
+    - detect_items: Simple sync function for detecting items in an image file
+    - detect_items_from_bytes: Async function for raw image bytes
+    - analyze_item_details_from_images: Multi-image detailed analysis
+    - merge_items_with_openai: Combine similar items
+    - correct_item_with_openai: Fix detection errors with user feedback
+
+Note: Core detection functions have sync wrappers for convenience.
+Use async versions in async contexts (FastAPI, etc.) for better performance.
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from pathlib import Path
@@ -641,3 +650,74 @@ async def discriminatory_detect_items(
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
 
     return items
+
+
+# =============================================================================
+# Synchronous Wrapper Functions
+# =============================================================================
+# These provide a convenient sync interface for scripts and simple use cases.
+# For async contexts (FastAPI, etc.), use the async versions directly.
+
+
+def _run_sync(coro):
+    """Run an async coroutine synchronously.
+
+    Handles the case where we're already in an event loop (e.g., Jupyter)
+    by creating a new loop in a thread.
+    """
+    try:
+        asyncio.get_running_loop()
+        # Already in an async context - run in a new thread
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            future = pool.submit(asyncio.run, coro)
+            return future.result()
+    except RuntimeError:
+        # No running loop - we can use asyncio.run()
+        return asyncio.run(coro)
+
+
+def detect_items(
+    image_path: Path | str,
+    api_key: str | None = None,
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+) -> list[DetectedItem]:
+    """Detect items in an image file using OpenAI vision.
+
+    This is a convenience wrapper that reads an image file and runs detection.
+    For raw bytes or async contexts, use detect_items_from_bytes instead.
+
+    Args:
+        image_path: Path to the image file (JPEG, PNG, etc.).
+        api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
+        model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
+        labels: Optional list of Homebox labels to suggest for items.
+
+    Returns:
+        List of detected items with names, quantities, and descriptions.
+
+    Example:
+        >>> from homebox_vision import detect_items
+        >>> items = detect_items("photo.jpg")
+        >>> for item in items:
+        ...     print(f"{item.name}: {item.quantity}")
+    """
+    path = Path(image_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Image file not found: {path}")
+
+    image_bytes = path.read_bytes()
+    suffix = path.suffix.lower().lstrip(".") or "jpeg"
+    mime_type = f"image/{suffix}"
+
+    return _run_sync(
+        detect_items_from_bytes(
+            image_bytes=image_bytes,
+            api_key=api_key,
+            mime_type=mime_type,
+            model=model,
+            labels=labels,
+        )
+    )

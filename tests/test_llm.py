@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from homebox_vision import DetectedItem, detect_items_with_openai, encode_image_to_data_uri
+from homebox_vision import DetectedItem, detect_items, encode_image_to_data_uri
 
 IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "output.txt"
@@ -48,7 +48,8 @@ def test_detected_item_from_raw_items_handles_invalid_entries() -> None:
 
 
 @pytest.mark.integration
-def test_detect_items_with_openai_live() -> None:
+def test_detect_items_live() -> None:
+    """Test that detect_items works with the real OpenAI API."""
     api_key = os.environ.get("HOMEBOX_VISION_OPENAI_API_KEY")
     if not api_key:
         pytest.skip(
@@ -57,7 +58,7 @@ def test_detect_items_with_openai_live() -> None:
 
     model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
 
-    detected_items = detect_items_with_openai(image_path=IMAGE_PATH, api_key=api_key, model=model)
+    detected_items = detect_items(image_path=IMAGE_PATH, api_key=api_key, model=model)
 
     print("Live OpenAI detection response:")
     output_lines = ["Live OpenAI detection response:"]
