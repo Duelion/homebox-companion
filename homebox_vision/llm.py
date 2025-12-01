@@ -77,6 +77,8 @@ async def detect_items_from_bytes(
     mime_type: str = "image/jpeg",
     model: str | None = None,
     labels: list[dict[str, str]] | None = None,
+    single_item: bool = False,
+    extra_instructions: str | None = None,
 ) -> list[DetectedItem]:
     """Use OpenAI vision model to detect items from raw image bytes.
 
@@ -86,6 +88,10 @@ async def detect_items_from_bytes(
         mime_type: MIME type of the image.
         model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
         labels: Optional list of Homebox labels to suggest for items.
+        single_item: If True, treat everything in the image as a single item
+            (do not separate into multiple items).
+        extra_instructions: Optional user hint about what's in the image
+            (e.g., "the items in the photo are static grass for train models").
 
     Returns:
         List of detected items with quantities and descriptions.
@@ -96,6 +102,8 @@ async def detect_items_from_bytes(
         api_key or settings.openai_api_key,
         model or settings.openai_model,
         labels,
+        single_item=single_item,
+        extra_instructions=extra_instructions,
     )
 
 
@@ -104,9 +112,21 @@ async def _detect_items_from_data_uri(
     api_key: str,
     model: str,
     labels: list[dict[str, str]] | None = None,
+    single_item: bool = False,
+    extra_instructions: str | None = None,
 ) -> list[DetectedItem]:
-    """Core detection logic using a data URI."""
+    """Core detection logic using a data URI.
+
+    Args:
+        data_uri: Base64-encoded image data URI.
+        api_key: OpenAI API key.
+        model: OpenAI model name.
+        labels: Optional list of Homebox labels for item tagging.
+        single_item: If True, treat everything as a single item (don't separate).
+        extra_instructions: User-provided hint about image contents.
+    """
     logger.debug(f"Starting item detection with model: {model}")
+    logger.debug(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
 
     if labels is None:
         labels = []
@@ -120,6 +140,30 @@ async def _detect_items_from_data_uri(
     )
 
     logger.debug(f"Labels provided: {len(labels)}")
+
+    # Build system prompt based on single_item mode
+    if single_item:
+        grouping_instructions = (
+            "IMPORTANT: Treat EVERYTHING visible in this image as a SINGLE item. "
+            "Do NOT separate objects into multiple items. Even if you see multiple pieces "
+            "or components, group them all as ONE item with an appropriate collective name "
+            "and set quantity to 1. For example, if you see a bag of screws, return one item "
+            "'Bag of Screws' with quantity 1, not individual screws."
+        )
+    else:
+        grouping_instructions = (
+            "Combine identical objects into a single entry with the correct quantity. "
+            "Separate distinctly different items into separate entries."
+        )
+
+    # Build user context hint if provided
+    user_hint = ""
+    if extra_instructions and extra_instructions.strip():
+        user_hint = (
+            f"\n\nUSER CONTEXT: The user has provided this hint about the image contents: "
+            f'"{extra_instructions.strip()}". Use this information to better understand '
+            "and identify the items in the image."
+        )
 
     client = AsyncOpenAI(api_key=api_key)
     logger.debug("Calling OpenAI API...")
@@ -135,7 +179,7 @@ async def _detect_items_from_data_uri(
                     "Return a single JSON object with an `items` array.\n\n"
                     f"{NAMING_RULES}\n\n"
                     f"{ITEM_SCHEMA}\n\n"
-                    "Combine identical objects into a single entry with the correct quantity. "
+                    f"{grouping_instructions} "
                     "Do not add extra commentary. Ignore background elements (floors, walls, "
                     "benches, shelves, packaging, shadows) and only count objects that are "
                     "the clear focus of the image.\n\n" + label_prompt
@@ -153,6 +197,7 @@ async def _detect_items_from_data_uri(
                             "Return only JSON. Example: "
                             '{"items":[{"name":"Claw Hammer","quantity":2,"description":'
                             '"Steel claw hammer with rubber grip","labelIds":["id1"]}]}.'
+                            + user_hint
                         ),
                     },
                     {"type": "image_url", "image_url": {"url": data_uri}},

@@ -660,3 +660,15 @@
 2025-12-01 11:12:37 | DEBUG    | __main__:create_items:389 -   label_ids: ['a660156e-8462-4853-ab52-5d503f5ed8d5', '0ea70e2b-9ac9-4aac-89e2-19138a8090e8']
 2025-12-01 11:12:37 | INFO     | __main__:create_items:401 - Created item: Mechanic Solder Paste And General Soldering Supplies (id: 02482acf-1fdd-46a1-9fe8-1a4c431fbd2d)
 2025-12-01 11:12:37 | INFO     | __main__:create_items:408 - Item creation complete: 5 created, 0 failed
+2025-12-01 15:10:52 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-01 15:10:52 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 15:10:52 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-01 15:10:52 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 15:10:52 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-01 15:11:09 | INFO     | server.main:login:188 - Login attempt for user: demo@example.com
+2025-12-01 15:11:10 | INFO     | server.main:login:192 - Login successful for user: demo@example.com
+2025-12-01 15:12:02 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-01 15:12:02 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 15:12:02 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-01 15:12:02 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 15:12:02 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
