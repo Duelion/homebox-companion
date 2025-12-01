@@ -95,7 +95,21 @@ const elements = {
     
     // Toast
     toastContainer: document.getElementById('toastContainer'),
+    
+    // Navigation
+    backToLocationBtn: document.getElementById('backToLocationBtn'),
+    backToCaptureBtn: document.getElementById('backToCaptureBtn'),
+    
+    // Offline banner
+    offlineBanner: document.getElementById('offlineBanner'),
 };
+
+// ========================================
+// Constants
+// ========================================
+
+const MAX_IMAGES = 10;
+const MAX_FILE_SIZE_MB = 10;
 
 // ========================================
 // Utility Functions
@@ -155,21 +169,56 @@ function getAuthHeaders() {
     };
 }
 
-async function apiRequest(url, options = {}) {
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            ...options.headers,
-            ...(state.token ? getAuthHeaders() : {}),
-        },
-    });
-    
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: response.statusText }));
-        throw new Error(error.detail || 'Request failed');
+// Check if user is online
+function isOnline() {
+    return navigator.onLine;
+}
+
+// API request with timeout and better error handling
+async function apiRequest(url, options = {}, timeoutMs = 30000) {
+    // Check network status first
+    if (!isOnline()) {
+        throw new Error('No internet connection. Please check your network.');
     }
     
-    return response.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+                ...options.headers,
+                ...(state.token ? getAuthHeaders() : {}),
+            },
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Handle session expiration
+        if (response.status === 401) {
+            clearToken();
+            showToast('Session expired. Please log in again.', 'warning');
+            showSection('loginSection');
+            throw new Error('SESSION_EXPIRED');
+        }
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || 'Request failed');
+        }
+        
+        return response.json();
+    } catch (error) {
+        clearTimeout(timeoutId);
+        
+        if (error.name === 'AbortError') {
+            throw new Error('Request timed out. Please check your connection and try again.');
+        }
+        
+        throw error;
+    }
 }
 
 // ========================================
@@ -233,6 +282,17 @@ async function handleLogin(event) {
 }
 
 function handleLogout() {
+    // Confirm if there's unsaved work
+    const hasUnsavedWork = state.capturedImages.length > 0 || 
+                          state.detectedItems.length > 0 || 
+                          state.confirmedItems.length > 0;
+    
+    if (hasUnsavedWork) {
+        if (!confirm('You have unsaved items. Are you sure you want to logout?')) {
+            return;
+        }
+    }
+    
     clearToken();
     state.locations = [];
     state.locationTree = [];
@@ -617,10 +677,29 @@ function handleImageSelect(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
     
+    // Check if adding these files would exceed the limit
+    const remainingSlots = MAX_IMAGES - state.capturedImages.length;
+    if (remainingSlots <= 0) {
+        showToast(`Maximum ${MAX_IMAGES} photos allowed`, 'warning');
+        event.target.value = '';
+        return;
+    }
+    
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+    if (files.length > remainingSlots) {
+        showToast(`Only adding ${remainingSlots} photo(s). Maximum is ${MAX_IMAGES}.`, 'warning');
+    }
+    
     // Process each selected file
-    Array.from(files).forEach(file => {
+    filesToProcess.forEach(file => {
         if (!file.type.startsWith('image/')) {
             showToast(`Skipped ${file.name}: not an image`, 'warning');
+            return;
+        }
+        
+        // Check file size
+        if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+            showToast(`${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`, 'warning');
             return;
         }
         
@@ -643,8 +722,22 @@ function handleCameraCapture(event) {
     const file = event.target.files?.[0];
     if (!file) return;
     
+    // Check image limit
+    if (state.capturedImages.length >= MAX_IMAGES) {
+        showToast(`Maximum ${MAX_IMAGES} photos allowed`, 'warning');
+        event.target.value = '';
+        return;
+    }
+    
     if (!file.type.startsWith('image/')) {
         showToast('Please capture an image', 'error');
+        return;
+    }
+    
+    // Check file size
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        showToast(`Photo is too large (max ${MAX_FILE_SIZE_MB}MB)`, 'warning');
+        event.target.value = '';
         return;
     }
     
@@ -664,6 +757,7 @@ function handleCameraCapture(event) {
 
 function updateMultiImageUI() {
     const hasImages = state.capturedImages.length > 0;
+    const count = state.capturedImages.length;
     
     // Toggle visibility of capture zone vs multi-image container
     if (hasImages) {
@@ -677,7 +771,8 @@ function updateMultiImageUI() {
     // Update image count display
     if (hasImages) {
         elements.imageCountDisplay.style.display = 'flex';
-        elements.imageCountText.textContent = `${state.capturedImages.length} photo${state.capturedImages.length !== 1 ? 's' : ''} selected`;
+        const remaining = MAX_IMAGES - count;
+        elements.imageCountText.textContent = `${count} photo${count !== 1 ? 's' : ''} selected${remaining < 3 ? ` (${remaining} more allowed)` : ''}`;
     } else {
         elements.imageCountDisplay.style.display = 'none';
     }
@@ -685,8 +780,12 @@ function updateMultiImageUI() {
     // Render image grid
     renderMultiImageGrid();
     
-    // Enable/disable analyze button
+    // Enable/disable analyze button and update text
     elements.analyzeBtn.disabled = !hasImages;
+    const analyzeSpan = elements.analyzeBtn.querySelector('span');
+    if (analyzeSpan) {
+        analyzeSpan.textContent = hasImages ? `Analyze ${count} Photo${count !== 1 ? 's' : ''} with AI` : 'Analyze with AI';
+    }
 }
 
 function renderMultiImageGrid() {
@@ -718,6 +817,13 @@ function handleRemoveMultiImage(index) {
 }
 
 function handleClearAllImages() {
+    // Confirm before clearing multiple images
+    if (state.capturedImages.length > 1) {
+        if (!confirm(`Remove all ${state.capturedImages.length} photos?`)) {
+            return;
+        }
+    }
+    
     state.capturedImages = [];
     updateMultiImageUI();
     elements.imageInput.value = '';
@@ -825,9 +931,9 @@ async function handleAnalyze() {
     // Check results
     if (allDetectedItems.length === 0) {
         if (errorCount > 0) {
-            showToast(`Analysis failed for ${errorCount} image(s). No items detected.`, 'error');
+            showToast(`Analysis failed for ${errorCount} image(s). Please check your connection and try again.`, 'error');
         } else {
-            showToast('No items detected in any of the images', 'warning');
+            showToast('No items detected. Try: better lighting, closer photos, or less cluttered backgrounds.', 'warning');
         }
         return;
     }
@@ -2623,6 +2729,57 @@ function initEventListeners() {
             closeCropperModal();
         }
     });
+    
+    // Back navigation
+    elements.backToLocationBtn.addEventListener('click', handleBackToLocation);
+    elements.backToCaptureBtn.addEventListener('click', handleBackToCapture);
+    
+    // Offline/Online detection
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Check initial offline state
+    if (!navigator.onLine) {
+        handleOffline();
+    }
+}
+
+// ========================================
+// Navigation Handlers
+// ========================================
+
+function handleBackToLocation() {
+    // Confirm if images have been captured
+    if (state.capturedImages.length > 0) {
+        if (!confirm('Going back will keep your photos. Continue?')) {
+            return;
+        }
+    }
+    showSection('locationSection');
+}
+
+function handleBackToCapture() {
+    // Confirm if items have been detected but not all confirmed
+    const unconfirmedItems = state.detectedItems.filter(item => !item.confirmed);
+    if (unconfirmedItems.length > 0) {
+        if (!confirm('You have unreviewed items. Go back anyway?')) {
+            return;
+        }
+    }
+    showSection('captureSection');
+}
+
+// ========================================
+// Offline Handling
+// ========================================
+
+function handleOnline() {
+    elements.offlineBanner.style.display = 'none';
+    showToast('Back online!', 'success');
+}
+
+function handleOffline() {
+    elements.offlineBanner.style.display = 'flex';
 }
 
 // ========================================
