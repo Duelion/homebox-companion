@@ -1,7 +1,9 @@
 """LLM utilities for extracting Homebox items from images.
 
-This module provides functions to analyze images using OpenAI's vision
+This module provides async functions to analyze images using OpenAI's vision
 models and extract structured item data suitable for Homebox.
+
+All functions are async for optimal performance in async contexts like FastAPI.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ import json
 from pathlib import Path
 
 from loguru import logger
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from .config import settings
 from .models import DetectedItem
@@ -60,40 +62,14 @@ def encode_image_bytes_to_data_uri(image_bytes: bytes, mime_type: str = "image/j
     return f"data:image/{suffix};base64,{payload}"
 
 
-def detect_items_with_openai(
-    image_path: Path,
-    api_key: str | None = None,
-    model: str | None = None,
-    labels: list[dict[str, str]] | None = None,
-) -> list[DetectedItem]:
-    """Use an OpenAI vision model to detect items in an image file.
-
-    Args:
-        image_path: Path to the image to analyze.
-        api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
-        model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
-        labels: Optional list of Homebox labels to suggest for items.
-
-    Returns:
-        List of detected items with quantities and descriptions.
-    """
-    data_uri = encode_image_to_data_uri(image_path)
-    return _detect_items_from_data_uri(
-        data_uri,
-        api_key or settings.openai_api_key,
-        model or settings.openai_model,
-        labels,
-    )
-
-
-def detect_items_from_bytes(
+async def detect_items_from_bytes(
     image_bytes: bytes,
     api_key: str | None = None,
     mime_type: str = "image/jpeg",
     model: str | None = None,
     labels: list[dict[str, str]] | None = None,
 ) -> list[DetectedItem]:
-    """Use an OpenAI vision model to detect items from raw image bytes.
+    """Use OpenAI vision model to detect items from raw image bytes.
 
     Args:
         image_bytes: Raw image data.
@@ -106,7 +82,7 @@ def detect_items_from_bytes(
         List of detected items with quantities and descriptions.
     """
     data_uri = encode_image_bytes_to_data_uri(image_bytes, mime_type)
-    return _detect_items_from_data_uri(
+    return await _detect_items_from_data_uri(
         data_uri,
         api_key or settings.openai_api_key,
         model or settings.openai_model,
@@ -114,7 +90,7 @@ def detect_items_from_bytes(
     )
 
 
-def _detect_items_from_data_uri(
+async def _detect_items_from_data_uri(
     data_uri: str,
     api_key: str,
     model: str,
@@ -136,10 +112,10 @@ def _detect_items_from_data_uri(
 
     logger.debug(f"Labels provided: {len(labels)}")
 
-    client = OpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key)
     logger.debug("Calling OpenAI API...")
 
-    completion = client.chat.completions.create(
+    completion = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[
@@ -189,7 +165,7 @@ def _detect_items_from_data_uri(
     return items
 
 
-def analyze_item_details_from_images(
+async def analyze_item_details_from_images(
     image_data_uris: list[str],
     item_name: str,
     item_description: str | None,
@@ -244,8 +220,8 @@ def analyze_item_details_from_images(
         image_content.append({"type": "image_url", "image_url": {"url": data_uri}})
 
     logger.debug("Calling OpenAI API for advanced analysis...")
-    client = OpenAI(api_key=api_key)
-    completion = client.chat.completions.create(
+    client = AsyncOpenAI(api_key=api_key)
+    completion = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[
@@ -307,7 +283,7 @@ def analyze_item_details_from_images(
     return parsed_content
 
 
-def merge_items_with_openai(
+async def merge_items_with_openai(
     items: list[dict],
     image_data_uris: list[str] | None = None,
     api_key: str | None = None,
@@ -378,8 +354,8 @@ def merge_items_with_openai(
             content.append({"type": "image_url", "image_url": {"url": data_uri}})
 
     logger.debug("Calling OpenAI API for item merge...")
-    client = OpenAI(api_key=api_key)
-    completion = client.chat.completions.create(
+    client = AsyncOpenAI(api_key=api_key)
+    completion = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[
@@ -395,7 +371,7 @@ def merge_items_with_openai(
                     "'Sandpaper Assortment' or 'Mixed Screwdriver Set')\n"
                     "- quantity: integer (total combined quantity)\n"
                     "- description: string (list the variants/types included, but do NOT include "
-                    "counts or quantities, max 1000 chars, e.g., 'Includes 80, 120, and 220 grit')\n"
+                    "counts or quantities, max 1000 chars, e.g., 'Includes 80, 120, 220 grit')\n"
                     "- labelIds: array of label IDs that apply to the merged item\n\n"
                     + label_prompt
                 ),
@@ -417,7 +393,7 @@ def merge_items_with_openai(
     return parsed_content
 
 
-def correct_item_with_openai(
+async def correct_item_with_openai(
     image_data_uri: str,
     current_item: dict,
     correction_instructions: str,
@@ -489,8 +465,8 @@ def correct_item_with_openai(
     ]
 
     logger.debug("Calling OpenAI API for item correction...")
-    client = OpenAI(api_key=api_key)
-    completion = client.chat.completions.create(
+    client = AsyncOpenAI(api_key=api_key)
+    completion = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[
@@ -540,7 +516,7 @@ def correct_item_with_openai(
     return items
 
 
-def discriminatory_detect_items(
+async def discriminatory_detect_items(
     image_data_uris: list[str],
     previous_merged_item: dict | None = None,
     api_key: str | None = None,
@@ -623,8 +599,8 @@ def discriminatory_detect_items(
         content.append({"type": "image_url", "image_url": {"url": data_uri}})
 
     logger.debug("Calling OpenAI API for discriminatory detection...")
-    client = OpenAI(api_key=api_key)
-    completion = client.chat.completions.create(
+    client = AsyncOpenAI(api_key=api_key)
+    completion = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[
@@ -665,4 +641,3 @@ def discriminatory_detect_items(
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
 
     return items
-

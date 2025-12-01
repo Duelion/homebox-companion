@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Homebox Vision Companion",
     description="AI-powered item detection for Homebox inventory management",
-    version="0.9.0",
+    version="0.10.0",
     lifespan=lifespan,
 )
 
@@ -328,7 +328,7 @@ async def detect_items(
     # Detect items
     try:
         logger.info("Starting OpenAI vision detection...")
-        detected = detect_items_from_bytes(
+        detected = await detect_items_from_bytes(
             image_bytes=image_bytes,
             api_key=settings.openai_api_key,
             mime_type=content_type,
@@ -462,7 +462,7 @@ async def analyze_item_advanced(
     # Analyze images
     try:
         logger.info(f"Analyzing {len(image_data_uris)} images with OpenAI...")
-        details = analyze_item_details_from_images(
+        details = await analyze_item_details_from_images(
             image_data_uris=image_data_uris,
             item_name=item_name,
             item_description=item_description,
@@ -539,7 +539,7 @@ async def merge_items(
 
     try:
         logger.info("Calling OpenAI for item merge...")
-        merged = merge_items_with_openai(
+        merged = await merge_items_with_openai(
             items=request.items,
             api_key=settings.openai_api_key,
             model=settings.openai_model,
@@ -647,7 +647,7 @@ async def correct_item(
     # Call the correction function
     try:
         logger.info("Starting OpenAI item correction...")
-        corrected_items = correct_item_with_openai(
+        corrected_items = await correct_item_with_openai(
             image_data_uri=image_data_uri,
             current_item=current_item_dict,
             correction_instructions=correction_instructions,
