@@ -223,6 +223,19 @@ from homebox_vision import (
 Keep versions synchronized across:
 - `pyproject.toml` - The source of truth
 - `server/main.py` - FastAPI app version (for API docs)
+- `server/static/app.js` - Version in file header comment and console.log
 - `homebox_vision/__init__.py` - Package `__version__`
+- `server/static/index.html` - Cache-busting query parameters on CSS and JS imports
 
-Increment all three when releasing a new version.
+Increment all five locations when releasing a new version.
+
+### Cache-Busting for Mobile Browsers
+
+Mobile browsers (especially iOS Safari) aggressively cache static files. To ensure users get the latest version, update the query parameters in `index.html`:
+
+```html
+<link rel="stylesheet" href="/static/styles.css?v=X.Y.Z">
+<script src="/static/app.js?v=X.Y.Z"></script>
+```
+
+Replace `X.Y.Z` with the new version number. This forces browsers to re-download the files.
