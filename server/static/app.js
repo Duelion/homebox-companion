@@ -773,6 +773,7 @@ function handleCameraCapture(event) {
 function updateMultiImageUI() {
     const hasImages = state.capturedImages.length > 0;
     const count = state.capturedImages.length;
+    const atMaxImages = count >= MAX_IMAGES;
     
     // Toggle visibility of capture zone vs multi-image container
     if (hasImages) {
@@ -787,9 +788,34 @@ function updateMultiImageUI() {
     if (hasImages) {
         elements.imageCountDisplay.style.display = 'flex';
         const remaining = MAX_IMAGES - count;
-        elements.imageCountText.textContent = `${count} photo${count !== 1 ? 's' : ''} selected${remaining < 3 ? ` (${remaining} more allowed)` : ''}`;
+        if (atMaxImages) {
+            elements.imageCountText.textContent = `${count} photos selected (maximum reached)`;
+        } else {
+            elements.imageCountText.textContent = `${count} photo${count !== 1 ? 's' : ''} selected${remaining < 3 ? ` (${remaining} more allowed)` : ''}`;
+        }
     } else {
         elements.imageCountDisplay.style.display = 'none';
+    }
+    
+    // Disable/enable capture buttons when at max images
+    const cameraBtn = document.getElementById('cameraBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const addMoreZone = document.getElementById('addMoreImagesZone');
+    
+    if (cameraBtn) {
+        cameraBtn.disabled = atMaxImages;
+        cameraBtn.style.opacity = atMaxImages ? '0.5' : '1';
+        cameraBtn.style.cursor = atMaxImages ? 'not-allowed' : 'pointer';
+    }
+    if (uploadBtn) {
+        uploadBtn.disabled = atMaxImages;
+        uploadBtn.style.opacity = atMaxImages ? '0.5' : '1';
+        uploadBtn.style.cursor = atMaxImages ? 'not-allowed' : 'pointer';
+    }
+    if (addMoreZone) {
+        addMoreZone.style.opacity = atMaxImages ? '0.5' : '1';
+        addMoreZone.style.cursor = atMaxImages ? 'not-allowed' : 'pointer';
+        addMoreZone.style.pointerEvents = atMaxImages ? 'none' : 'auto';
     }
     
     // Render image grid
