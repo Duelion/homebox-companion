@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Homebox Vision Companion",
     description="AI-powered item detection for Homebox inventory management",
-    version="0.13.0",
+    version="0.14.0",
     lifespan=lifespan,
 )
 
@@ -299,16 +299,19 @@ async def get_labels(
 
 @app.post("/api/detect", response_model=DetectionResponse)
 async def detect_items(
-    image: Annotated[UploadFile, File(description="Image file to analyze")],
+    image: Annotated[UploadFile, File(description="Primary image file to analyze")],
     authorization: Annotated[str | None, Header()] = None,
     single_item: Annotated[bool, Form()] = False,
     extra_instructions: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
+    additional_images: Annotated[
+        list[UploadFile] | None, File(description="Additional images for the same item")
+    ] = None,
 ) -> DetectionResponse:
     """Analyze an uploaded image and detect items using OpenAI vision.
 
     Args:
-        image: The image file to analyze.
+        image: The primary image file to analyze.
         authorization: Bearer token for authentication.
         single_item: If True, treat everything in the image as a single item
             (do not separate into multiple items).
@@ -317,8 +320,11 @@ async def detect_items(
         extract_extended_fields: If True (default), also extract extended fields
             like manufacturer, modelNumber, serialNumber when visible in the image.
             These are extracted on a criteria basis - only when clearly visible.
+        additional_images: Optional additional images showing the same item(s)
+            from different angles or showing additional details.
     """
-    logger.info(f"Detecting items from image: {image.filename}")
+    additional_count = len(additional_images) if additional_images else 0
+    logger.info(f"Detecting items from image: {image.filename} (+ {additional_count} additional)")
     logger.info(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
     logger.info(f"Extract extended fields: {extract_extended_fields}")
 
@@ -332,17 +338,27 @@ async def detect_items(
             detail="HOMEBOX_VISION_OPENAI_API_KEY not configured",
         )
 
-    # Read image bytes
+    # Read primary image bytes
     image_bytes = await image.read()
     if not image_bytes:
         logger.warning("Empty image file received")
         raise HTTPException(status_code=400, detail="Empty image file")
 
-    logger.debug(f"Image size: {len(image_bytes)} bytes")
+    logger.debug(f"Primary image size: {len(image_bytes)} bytes")
 
     # Determine MIME type
     content_type = image.content_type or "image/jpeg"
     logger.debug(f"Content type: {content_type}")
+
+    # Read additional images if provided
+    additional_image_data: list[tuple[bytes, str]] = []
+    if additional_images:
+        for add_img in additional_images:
+            add_bytes = await add_img.read()
+            if add_bytes:
+                add_mime = add_img.content_type or "image/jpeg"
+                additional_image_data.append((add_bytes, add_mime))
+                logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
 
     # Fetch labels for context
     client = get_client()
@@ -371,6 +387,7 @@ async def detect_items(
             single_item=single_item,
             extra_instructions=extra_instructions,
             extract_extended_fields=extract_extended_fields,
+            additional_images=additional_image_data,
         )
         logger.info(f"Detected {len(detected)} items")
         for item in detected:
