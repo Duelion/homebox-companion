@@ -103,13 +103,14 @@ async def detect_items_from_bytes(
     single_item: bool = False,
     extra_instructions: str | None = None,
     extract_extended_fields: bool = False,
+    additional_images: list[tuple[bytes, str]] | None = None,
 ) -> list[DetectedItem]:
     """Use OpenAI vision model to detect items from raw image bytes.
 
     Args:
-        image_bytes: Raw image data.
+        image_bytes: Raw image data for the primary image.
         api_key: OpenAI API key. Defaults to HOMEBOX_VISION_OPENAI_API_KEY.
-        mime_type: MIME type of the image.
+        mime_type: MIME type of the primary image.
         model: Model name. Defaults to HOMEBOX_VISION_OPENAI_MODEL.
         labels: Optional list of Homebox labels to suggest for items.
         single_item: If True, treat everything in the image as a single item
@@ -121,14 +122,22 @@ async def detect_items_from_bytes(
             purchaseFrom, and notes when they are clearly visible in the image.
             These fields are extracted on a criteria basis - only when the AI
             can determine them with confidence from visible text/labels.
+        additional_images: Optional list of (bytes, mime_type) tuples for
+            additional images showing the same item(s) from different angles.
 
     Returns:
         List of detected items with quantities, descriptions, and optionally
         extended fields when extract_extended_fields is True.
     """
-    data_uri = encode_image_bytes_to_data_uri(image_bytes, mime_type)
-    return await _detect_items_from_data_uri(
-        data_uri,
+    # Build list of all image data URIs
+    image_data_uris = [encode_image_bytes_to_data_uri(image_bytes, mime_type)]
+
+    if additional_images:
+        for add_bytes, add_mime in additional_images:
+            image_data_uris.append(encode_image_bytes_to_data_uri(add_bytes, add_mime))
+
+    return await _detect_items_from_data_uris(
+        image_data_uris,
         api_key or settings.openai_api_key,
         model or settings.openai_model,
         labels,
@@ -259,6 +268,169 @@ async def _detect_items_from_data_uri(
     items = DetectedItem.from_raw_items(parsed_content.get("items", []))
 
     logger.info(f"Detected {len(items)} items")
+    for item in items:
+        logger.debug(f"  Item: {item.name}, qty: {item.quantity}, labels: {item.label_ids}")
+        if extract_extended_fields:
+            logger.debug(
+                f"    Extended: manufacturer={item.manufacturer}, "
+                f"model={item.model_number}, serial={item.serial_number}"
+            )
+
+    return items
+
+
+async def _detect_items_from_data_uris(
+    image_data_uris: list[str],
+    api_key: str,
+    model: str,
+    labels: list[dict[str, str]] | None = None,
+    single_item: bool = False,
+    extra_instructions: str | None = None,
+    extract_extended_fields: bool = False,
+) -> list[DetectedItem]:
+    """Core detection logic supporting multiple images.
+
+    Args:
+        image_data_uris: List of base64-encoded image data URIs.
+        api_key: OpenAI API key.
+        model: OpenAI model name.
+        labels: Optional list of Homebox labels for item tagging.
+        single_item: If True, treat everything as a single item (don't separate).
+        extra_instructions: User-provided hint about image contents.
+        extract_extended_fields: If True, also extract manufacturer, modelNumber, etc.
+            when visible in the images.
+    """
+    if not image_data_uris:
+        return []
+
+    # If only one image, use the simpler single-image function
+    if len(image_data_uris) == 1:
+        return await _detect_items_from_data_uri(
+            image_data_uris[0],
+            api_key,
+            model,
+            labels,
+            single_item=single_item,
+            extra_instructions=extra_instructions,
+            extract_extended_fields=extract_extended_fields,
+        )
+
+    logger.debug(f"Starting multi-image detection with model: {model}")
+    logger.debug(f"Number of images: {len(image_data_uris)}")
+    logger.debug(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
+    logger.debug(f"Extract extended fields: {extract_extended_fields}")
+
+    if labels is None:
+        labels = []
+
+    label_prompt = (
+        "No labels are available; omit labelIds."
+        if not labels
+        else "IMPORTANT: You MUST assign appropriate labelIds from this list to each item. "
+        "Select all labels that apply to each item. Available labels:\n"
+        + "\n".join(f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id"))
+    )
+
+    logger.debug(f"Labels provided: {len(labels)}")
+
+    # Build system prompt based on single_item mode
+    if single_item:
+        grouping_instructions = (
+            "IMPORTANT: Treat EVERYTHING visible across ALL images as a SINGLE item. "
+            "Do NOT separate objects into multiple items. These images show the same item "
+            "from different angles or with additional details. Group everything as ONE item "
+            "with an appropriate name and set quantity to 1."
+        )
+        multi_image_hint = (
+            "You are being shown multiple images of the SAME item from different angles "
+            "or with different details visible. Use all images together to identify and "
+            "describe this single item."
+        )
+    else:
+        grouping_instructions = (
+            "Combine identical objects into a single entry with the correct quantity. "
+            "Separate distinctly different items into separate entries."
+        )
+        multi_image_hint = (
+            "You are being shown multiple images that may contain the same or related items. "
+            "Analyze all images together to identify all distinct items, avoiding duplicates."
+        )
+
+    # Build user context hint if provided
+    user_hint = ""
+    if extra_instructions and extra_instructions.strip():
+        user_hint = (
+            f"\n\nUSER CONTEXT: The user has provided this hint about the image contents: "
+            f'"{extra_instructions.strip()}". Use this information to better understand '
+            "and identify the items in the images."
+        )
+
+    # Include extended fields schema when requested
+    extended_prompt = ""
+    extended_example = ""
+    if extract_extended_fields:
+        extended_prompt = f"\n\n{EXTENDED_FIELDS_SCHEMA}"
+        extended_example = (
+            ',"manufacturer":"DeWalt","modelNumber":"DCD771C2","notes":"Minor wear on handle"'
+        )
+
+    client = AsyncOpenAI(api_key=api_key)
+    logger.debug("Calling OpenAI API with multiple images...")
+
+    # Build content list with all images
+    content: list[dict] = [
+        {
+            "type": "text",
+            "text": (
+                f"{multi_image_hint} "
+                "List all distinct items that are the logical focus of these images "
+                "and ignore background objects or incidental surfaces. "
+                "For each item, include labelIds with matching label IDs. "
+                "Return only JSON. Example: "
+                '{"items":[{"name":"Claw Hammer","quantity":2,"description":'
+                f'"Steel claw hammer","labelIds":["id1"]{extended_example}'
+                "}]}."
+                + user_hint
+            ),
+        },
+    ]
+
+    # Add all images
+    for data_uri in image_data_uris:
+        content.append({"type": "image_url", "image_url": {"url": data_uri}})
+
+    completion = await client.chat.completions.create(
+        model=model,
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an inventory assistant for the Homebox API. "
+                    "Return a single JSON object with an `items` array.\n\n"
+                    f"{NAMING_RULES}\n\n"
+                    f"{ITEM_SCHEMA}"
+                    f"{extended_prompt}\n\n"
+                    f"{grouping_instructions} "
+                    "Do not add extra commentary. Ignore background elements (floors, walls, "
+                    "benches, shelves, packaging, shadows) and only count objects that are "
+                    "the clear focus of the images.\n\n" + label_prompt
+                ),
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
+        ],
+    )
+    message = completion.choices[0].message
+    raw_content = message.content or "{}"
+    logger.debug(f"OpenAI response: {raw_content}")
+
+    parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
+    items = DetectedItem.from_raw_items(parsed_content.get("items", []))
+
+    logger.info(f"Detected {len(items)} items from {len(image_data_uris)} images")
     for item in items:
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}, labels: {item.label_ids}")
         if extract_extended_fields:

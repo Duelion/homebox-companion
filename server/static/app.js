@@ -1,11 +1,11 @@
 /**
  * Homebox Scanner - Mobile Web App
  * Main application logic
- * Version: 0.13.0-debug (2025-12-01)
+ * Version: 0.14.0 (2025-12-01)
  */
 
 // Debug: Log when script loads to verify cache is cleared
-console.log('=== Homebox Scanner v0.13.0-debug loaded ===');
+console.log('=== Homebox Scanner v0.14.0 loaded ===');
 
 // ========================================
 // State Management
@@ -20,7 +20,7 @@ const state = {
     selectedLocationId: null,
     selectedLocationName: null,
     selectedLocationPath: '', // Full path string for display
-    capturedImages: [],      // Array of {file, dataUrl, singleItem, extraInstructions} for multi-image upload
+    capturedImages: [],      // Array of {file, dataUrl, additionalImages, separateItems, extraInstructions} for multi-image upload
     detectedItems: [],       // Items with additionalImages array and sourceImageIndex
     confirmedItems: [],
     currentItemIndex: 0,
@@ -730,7 +730,8 @@ function handleImageSelect(event) {
             state.capturedImages.push({
                 file: file,
                 dataUrl: e.target.result,
-                singleItem: false,        // Don't separate into multiple items
+                additionalImages: [],     // Additional images for the same item
+                separateItems: false,     // If true, separate into multiple items (default: keep as one)
                 extraInstructions: '',    // User hint about image contents
             });
             updateMultiImageUI();
@@ -770,7 +771,8 @@ function handleCameraCapture(event) {
         state.capturedImages.push({
             file: file,
             dataUrl: e.target.result,
-            singleItem: false,        // Don't separate into multiple items
+            additionalImages: [],     // Additional images for the same item
+            separateItems: false,     // If true, separate into multiple items (default: keep as one)
             extraInstructions: '',    // User hint about image contents
         });
         updateMultiImageUI();
@@ -848,6 +850,9 @@ function renderMultiImageGrid() {
         item.className = 'image-row-card';
         item.dataset.index = index;
         
+        const additionalImages = img.additionalImages || [];
+        const additionalImagesHtml = renderCaptureAdditionalImages(additionalImages, index);
+        
         item.innerHTML = `
             <div class="image-row-header">
                 <div class="image-row-thumb">
@@ -856,7 +861,7 @@ function renderMultiImageGrid() {
                 </div>
                 <div class="image-row-info">
                     <span class="image-row-name">${escapeHtml(img.file.name)}</span>
-                    <span class="image-row-size">${formatFileSize(img.file.size)}</span>
+                    <span class="image-row-size">${formatFileSize(img.file.size)}${additionalImages.length > 0 ? ` • +${additionalImages.length} more` : ''}</span>
                 </div>
                 <button type="button" class="btn-icon image-row-remove" onclick="handleRemoveMultiImage(${index})" title="Remove photo">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -865,17 +870,32 @@ function renderMultiImageGrid() {
                     </svg>
                 </button>
             </div>
+            
+            <!-- Additional Images for this item -->
+            <div class="image-row-additional">
+                <div class="additional-images-capture-grid" id="captureAdditionalGrid${index}">
+                    ${additionalImagesHtml}
+                    <button type="button" class="add-capture-image-btn" onclick="handleAddCaptureImage(${index})" title="Add more photos for this item">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+                <input type="file" id="captureAdditionalInput${index}" accept="image/*" multiple style="display: none;" onchange="handleCaptureAdditionalImageSelect(event, ${index})">
+            </div>
+            
             <div class="image-row-options">
                 <label class="image-option-checkbox">
                     <input type="checkbox" 
-                        ${img.singleItem ? 'checked' : ''} 
-                        onchange="handleImageOptionChange(${index}, 'singleItem', this.checked)">
+                        ${img.separateItems ? 'checked' : ''} 
+                        onchange="handleImageOptionChange(${index}, 'separateItems', this.checked)">
                     <span class="checkbox-visual">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                             <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
                     </span>
-                    <span class="checkbox-label">Keep as single item</span>
+                    <span class="checkbox-label">Separate into multiple items</span>
                 </label>
                 <div class="image-option-hint">
                     <input type="text" 
@@ -890,6 +910,98 @@ function renderMultiImageGrid() {
         
         elements.multiImageGrid.appendChild(item);
     });
+}
+
+// Render additional images thumbnails for capture section
+function renderCaptureAdditionalImages(images, rowIndex) {
+    if (!images || images.length === 0) return '';
+    
+    return images.map((img, imgIndex) => `
+        <div class="capture-additional-thumb">
+            <img src="${img.dataUrl}" alt="Additional ${imgIndex + 1}">
+            <button type="button" class="capture-thumb-remove" onclick="handleRemoveCaptureAdditionalImage(${rowIndex}, ${imgIndex})">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Handle adding additional image to a capture row
+function handleAddCaptureImage(rowIndex) {
+    document.getElementById(`captureAdditionalInput${rowIndex}`).click();
+}
+
+// Handle selection of additional images for a capture row
+function handleCaptureAdditionalImageSelect(event, rowIndex) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    const capturedImage = state.capturedImages[rowIndex];
+    if (!capturedImage.additionalImages) capturedImage.additionalImages = [];
+    
+    Array.from(files).forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        
+        // Check file size
+        if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+            showToast(`${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`, 'warning');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            capturedImage.additionalImages.push({
+                file: file,
+                dataUrl: e.target.result,
+            });
+            updateCaptureAdditionalImagesUI(rowIndex);
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    // Reset input
+    event.target.value = '';
+}
+
+// Handle removing an additional image from a capture row
+function handleRemoveCaptureAdditionalImage(rowIndex, imageIndex) {
+    const capturedImage = state.capturedImages[rowIndex];
+    if (capturedImage.additionalImages) {
+        capturedImage.additionalImages.splice(imageIndex, 1);
+        updateCaptureAdditionalImagesUI(rowIndex);
+    }
+}
+
+// Update the additional images grid for a specific capture row
+function updateCaptureAdditionalImagesUI(rowIndex) {
+    const grid = document.getElementById(`captureAdditionalGrid${rowIndex}`);
+    if (!grid) return;
+    
+    const capturedImage = state.capturedImages[rowIndex];
+    const images = capturedImage.additionalImages || [];
+    
+    // Update thumbnails
+    grid.innerHTML = renderCaptureAdditionalImages(images, rowIndex) + `
+        <button type="button" class="add-capture-image-btn" onclick="handleAddCaptureImage(${rowIndex})" title="Add more photos for this item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+    `;
+    
+    // Update the image row info to show additional count
+    const rowCard = grid.closest('.image-row-card');
+    if (rowCard) {
+        const sizeSpan = rowCard.querySelector('.image-row-size');
+        if (sizeSpan) {
+            const baseSize = formatFileSize(capturedImage.file.size);
+            sizeSpan.textContent = images.length > 0 ? `${baseSize} • +${images.length} more` : baseSize;
+        }
+    }
 }
 
 // Handle image option changes (checkbox or hint input)
@@ -950,18 +1062,27 @@ async function handleAnalyze() {
     const imageQueue = [...state.capturedImages.map((img, index) => ({ 
         ...img, 
         index,
-        singleItem: img.singleItem || false,
+        additionalImages: img.additionalImages || [],
+        separateItems: img.separateItems || false,
         extraInstructions: img.extraInstructions || '',
     }))];
     const activePromises = new Map();
     
     const processImage = async (imageData) => {
-        const { file, dataUrl, index, singleItem, extraInstructions } = imageData;
+        const { file, dataUrl, index, additionalImages, separateItems, extraInstructions } = imageData;
         
         try {
             const formData = new FormData();
             formData.append('image', file);
-            formData.append('single_item', singleItem ? 'true' : 'false');
+            
+            // Add additional images for this item
+            additionalImages.forEach((addImg, addIndex) => {
+                formData.append('additional_images', addImg.file);
+            });
+            
+            // Invert logic: separateItems=true means separate, so single_item should be false
+            // separateItems=false means keep as one, so single_item should be true
+            formData.append('single_item', separateItems ? 'false' : 'true');
             if (extraInstructions && extraInstructions.trim()) {
                 formData.append('extra_instructions', extraInstructions.trim());
             }
