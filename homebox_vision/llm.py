@@ -134,8 +134,8 @@ def _detect_items_from_data_uri(
                 "content": (
                     "You are an inventory assistant for the Homebox API. "
                     "Return a single JSON object with an `items` array. Each item must "
-                    "include: `name` (<=255 characters), integer `quantity` (>=1), "
-                    "`description` (<=1000 characters) summarizing condition or "
+                    "include: `name` (<=255 characters, do not include quantity on name, use Title Case), integer `quantity` (>=1), "
+                    "`description` (<=1000 characters, do not mention quantity in description) summarizing condition or "
                     "notable attributes, and `labelIds` (array of label IDs that match). "
                     "Combine identical objects into a single entry with the correct quantity. "
                     "Do not add extra commentary. Ignore background elements (floors, walls, "
