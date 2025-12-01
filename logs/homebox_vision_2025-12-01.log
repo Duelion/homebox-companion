@@ -392,3 +392,34 @@
 2025-12-01 10:21:13 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:174 -   Item: Super Lube 51030 Synthetic Oil, qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
 2025-12-01 10:21:13 | INFO     | __main__:detect_items:338 - Detected 1 items
 2025-12-01 10:21:13 | DEBUG    | __main__:detect_items:340 -   - Super Lube 51030 Synthetic Oil (qty: 1, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:23:50 | INFO     | __main__:create_items:364 - Creating 7 items
+2025-12-01 10:23:50 | DEBUG    | __main__:create_items:365 - Request location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:50 | DEBUG    | __main__:create_items:377 - Creating item: blue pen
+2025-12-01 10:23:50 | DEBUG    | __main__:create_items:378 -   location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:50 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:23:51 | INFO     | __main__:create_items:391 - Created item: blue pen (id: 7e393aeb-265a-4712-a733-a5df6b7c0ab5)
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:377 - Creating item: notebook
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:378 -   location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:23:51 | INFO     | __main__:create_items:391 - Created item: notebook (id: 9b4d7850-6879-4162-b605-361a861e36e4)
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:377 - Creating item: Super Lube Multi-Use Synthetic Oil
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:378 -   location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:23:51 | INFO     | __main__:create_items:391 - Created item: Super Lube Multi-Use Synthetic Oil (id: 11715834-7360-4fdc-acb3-3f2229ac2835)
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:377 - Creating item: Super Lube Multi-Purpose Synthetic Grease
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:378 -   location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:23:51 | INFO     | __main__:create_items:391 - Created item: Super Lube Multi-Purpose Synthetic Grease (id: f23c80e3-eea0-4d2f-ac90-b4f87f02edc0)
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:377 - Creating item: Super Lube Multi-Use Synthetic Oil
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:378 -   location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:51 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:23:52 | INFO     | __main__:create_items:391 - Created item: Super Lube Multi-Use Synthetic Oil (id: 0df3fe77-808c-4816-ba72-b5fab209cace)
+2025-12-01 10:23:52 | DEBUG    | __main__:create_items:377 - Creating item: Super Lube Multi-Purpose Synthetic Grease
+2025-12-01 10:23:52 | DEBUG    | __main__:create_items:378 -   location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:52 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:23:52 | INFO     | __main__:create_items:391 - Created item: Super Lube Multi-Purpose Synthetic Grease (id: 5cc7cb3b-7acc-415f-838a-12eb22e79eb3)
+2025-12-01 10:23:52 | DEBUG    | __main__:create_items:377 - Creating item: Super Lube 51030 Synthetic Oil
+2025-12-01 10:23:52 | DEBUG    | __main__:create_items:378 -   location_id: 33bdb059-df08-4c8b-aaa0-c3ada028d19e
+2025-12-01 10:23:52 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:23:52 | INFO     | __main__:create_items:391 - Created item: Super Lube 51030 Synthetic Oil (id: f69b7a88-2251-4d35-a419-4a25915929d9)
+2025-12-01 10:23:52 | INFO     | __main__:create_items:398 - Item creation complete: 7 created, 0 failed
