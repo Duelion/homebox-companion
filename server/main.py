@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Homebox Vision Companion",
     description="AI-powered item detection for Homebox inventory management",
-    version="0.11.0",
+    version="0.12.0",
     lifespan=lifespan,
 )
 
@@ -294,9 +294,21 @@ async def get_labels(
 async def detect_items(
     image: Annotated[UploadFile, File(description="Image file to analyze")],
     authorization: Annotated[str | None, Header()] = None,
+    single_item: Annotated[bool, Form()] = False,
+    extra_instructions: Annotated[str | None, Form()] = None,
 ) -> DetectionResponse:
-    """Analyze an uploaded image and detect items using OpenAI vision."""
+    """Analyze an uploaded image and detect items using OpenAI vision.
+
+    Args:
+        image: The image file to analyze.
+        authorization: Bearer token for authentication.
+        single_item: If True, treat everything in the image as a single item
+            (do not separate into multiple items).
+        extra_instructions: Optional user hint about what's in the image
+            (e.g., "the items in the photo are static grass for train models").
+    """
     logger.info(f"Detecting items from image: {image.filename}")
+    logger.info(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
 
     # Validate auth (even though detection doesn't require it, we want logged-in users)
     get_token(authorization)
@@ -344,6 +356,8 @@ async def detect_items(
             mime_type=content_type,
             model=settings.openai_model,
             labels=labels,
+            single_item=single_item,
+            extra_instructions=extra_instructions,
         )
         logger.info(f"Detected {len(detected)} items")
         for item in detected:
