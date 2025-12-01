@@ -158,27 +158,36 @@
                     </div>
                     
                     <h2 class="section-title">Capture Items</h2>
-                    <p class="section-subtitle">Take a photo or upload an image of your items</p>
+                    <p class="section-subtitle">Add one or more photos to detect items</p>
                     
-                    <div class="capture-zone" id="captureZone">
-                        <div class="capture-preview" id="capturePreview" style="display: none;">
-                            <img id="previewImage" alt="Preview">
-                            <button type="button" class="btn-icon btn-remove" id="removeImage">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                </svg>
-                            </button>
+                    <!-- Multi-image grid -->
+                    <div class="multi-image-container" id="multiImageContainer">
+                        <div class="multi-image-grid" id="multiImageGrid">
+                            <!-- Image thumbnails will be injected here -->
                         </div>
+                        <div class="add-more-images" id="addMoreImagesZone">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <p>Add photos</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Empty state placeholder -->
+                    <div class="capture-zone" id="captureZone">
                         <div class="capture-placeholder" id="capturePlaceholder">
                             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                                 <circle cx="12" cy="13" r="4"></circle>
                             </svg>
-                            <p>Tap to capture or upload</p>
+                            <p>Tap to capture or upload photos</p>
+                            <span class="capture-hint">You can select multiple photos at once</span>
                         </div>
-                        <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
                     </div>
+                    
+                    <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
                     
                     <div class="capture-actions">
                         <button type="button" id="cameraBtn" class="btn btn-secondary">
@@ -198,6 +207,11 @@
                         </button>
                     </div>
                     
+                    <div id="imageCountDisplay" class="image-count-display" style="display: none;">
+                        <span id="imageCountText">0 photos selected</span>
+                        <button type="button" id="clearAllImages" class="btn-link">Clear all</button>
+                    </div>
+                    
                     <button id="analyzeBtn" class="btn btn-primary btn-full" disabled>
                         <span>Analyze with AI</span>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -205,6 +219,18 @@
                             <path d="m21 21-4.35-4.35"></path>
                         </svg>
                     </button>
+                    
+                    <!-- Progress bar for multi-image processing -->
+                    <div id="analyzeProgress" class="analyze-progress" style="display: none;">
+                        <div class="progress-header">
+                            <span class="progress-title">Analyzing photos...</span>
+                            <span id="progressText" class="progress-text">0 / 0</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="progressBar" class="progress-bar"></div>
+                        </div>
+                        <div id="progressStatus" class="progress-status">Processing photo 1...</div>
+                    </div>
                     
                     <div id="analyzeLoader" class="loader" style="display: none;">
                         <div class="loader-spinner"></div>
