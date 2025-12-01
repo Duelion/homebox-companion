@@ -16,7 +16,7 @@ const state = {
     selectedLocationId: null,
     selectedLocationName: null,
     selectedLocationPath: '', // Full path string for display
-    capturedImages: [],      // Array of {file, dataUrl} for multi-image upload
+    capturedImages: [],      // Array of {file, dataUrl, singleItem, extraInstructions} for multi-image upload
     detectedItems: [],       // Items with additionalImages array and sourceImageIndex
     confirmedItems: [],
     currentItemIndex: 0,
@@ -726,6 +726,8 @@ function handleImageSelect(event) {
             state.capturedImages.push({
                 file: file,
                 dataUrl: e.target.result,
+                singleItem: false,        // Don't separate into multiple items
+                extraInstructions: '',    // User hint about image contents
             });
             updateMultiImageUI();
         };
@@ -764,6 +766,8 @@ function handleCameraCapture(event) {
         state.capturedImages.push({
             file: file,
             dataUrl: e.target.result,
+            singleItem: false,        // Don't separate into multiple items
+            extraInstructions: '',    // User hint about image contents
         });
         updateMultiImageUI();
     };
@@ -837,22 +841,65 @@ function renderMultiImageGrid() {
     
     state.capturedImages.forEach((img, index) => {
         const item = document.createElement('div');
-        item.className = 'multi-image-item';
+        item.className = 'image-row-card';
         item.dataset.index = index;
         
         item.innerHTML = `
-            <img src="${img.dataUrl}" alt="Photo ${index + 1}">
-            <button type="button" class="image-remove-btn" onclick="handleRemoveMultiImage(${index})" title="Remove">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
-            <span class="image-index">${index + 1}</span>
+            <div class="image-row-header">
+                <div class="image-row-thumb">
+                    <img src="${img.dataUrl}" alt="Photo ${index + 1}">
+                    <span class="image-row-index">${index + 1}</span>
+                </div>
+                <div class="image-row-info">
+                    <span class="image-row-name">${escapeHtml(img.file.name)}</span>
+                    <span class="image-row-size">${formatFileSize(img.file.size)}</span>
+                </div>
+                <button type="button" class="btn-icon image-row-remove" onclick="handleRemoveMultiImage(${index})" title="Remove photo">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="image-row-options">
+                <label class="image-option-checkbox">
+                    <input type="checkbox" 
+                        ${img.singleItem ? 'checked' : ''} 
+                        onchange="handleImageOptionChange(${index}, 'singleItem', this.checked)">
+                    <span class="checkbox-visual">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </span>
+                    <span class="checkbox-label">Keep as single item</span>
+                </label>
+                <div class="image-option-hint">
+                    <input type="text" 
+                        class="hint-input"
+                        placeholder="Optional: describe what's in this photo..."
+                        value="${escapeHtml(img.extraInstructions || '')}"
+                        onchange="handleImageOptionChange(${index}, 'extraInstructions', this.value)"
+                        oninput="handleImageOptionChange(${index}, 'extraInstructions', this.value)">
+                </div>
+            </div>
         `;
         
         elements.multiImageGrid.appendChild(item);
     });
+}
+
+// Handle image option changes (checkbox or hint input)
+function handleImageOptionChange(index, option, value) {
+    if (index >= 0 && index < state.capturedImages.length) {
+        state.capturedImages[index][option] = value;
+    }
+}
+
+// Format file size for display
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 function handleRemoveMultiImage(index) {
@@ -896,15 +943,24 @@ async function handleAnalyze() {
     
     // Process images in parallel (max 3 concurrent)
     const concurrentLimit = 3;
-    const imageQueue = [...state.capturedImages.map((img, index) => ({ ...img, index }))];
+    const imageQueue = [...state.capturedImages.map((img, index) => ({ 
+        ...img, 
+        index,
+        singleItem: img.singleItem || false,
+        extraInstructions: img.extraInstructions || '',
+    }))];
     const activePromises = new Map();
     
     const processImage = async (imageData) => {
-        const { file, dataUrl, index } = imageData;
+        const { file, dataUrl, index, singleItem, extraInstructions } = imageData;
         
         try {
             const formData = new FormData();
             formData.append('image', file);
+            formData.append('single_item', singleItem ? 'true' : 'false');
+            if (extraInstructions && extraInstructions.trim()) {
+                formData.append('extra_instructions', extraInstructions.trim());
+            }
             
             const response = await fetch('/api/detect', {
                 method: 'POST',

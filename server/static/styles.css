@@ -892,9 +892,9 @@ body::before {
 }
 
 .multi-image-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
     margin-bottom: var(--space-md);
 }
 
@@ -951,6 +951,183 @@ body::before {
     font-weight: 600;
     padding: 2px 6px;
     border-radius: var(--radius-sm);
+}
+
+/* ========================================
+   Image Row Cards (Enhanced Upload UI)
+   ======================================== */
+
+.image-row-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+    animation: fadeIn var(--transition-fast) ease;
+}
+
+.image-row-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.image-row-thumb {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+}
+
+.image-row-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-row-index {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    min-width: 18px;
+    text-align: center;
+}
+
+.image-row-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.image-row-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.image-row-size {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.image-row-remove {
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    padding: var(--space-xs);
+    flex-shrink: 0;
+}
+
+.image-row-remove:hover {
+    color: var(--error);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.image-row-options {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* Enhanced Checkbox Styling */
+.image-option-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+    user-select: none;
+}
+
+.image-option-checkbox input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.checkbox-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.checkbox-visual svg {
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all var(--transition-fast);
+    color: white;
+}
+
+.image-option-checkbox input[type="checkbox"]:checked + .checkbox-visual {
+    background: var(--accent-tertiary);
+    border-color: var(--accent-tertiary);
+}
+
+.image-option-checkbox input[type="checkbox"]:checked + .checkbox-visual svg {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.image-option-checkbox:hover .checkbox-visual {
+    border-color: var(--accent-tertiary);
+}
+
+.checkbox-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Hint Input */
+.image-option-hint {
+    width: 100%;
+}
+
+.hint-input {
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-primary);
+    font-size: 0.875rem;
+    transition: all var(--transition-fast);
+}
+
+.hint-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.hint-input::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
 }
 
 .add-more-images {
