@@ -1728,6 +1728,108 @@ body::before {
 }
 
 /* ========================================
+   Cover Image Section (Review)
+   ======================================== */
+
+.cover-image-section {
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.cover-image-section > label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cover-image-preview {
+    position: relative;
+    width: 100%;
+    max-width: 200px;
+    aspect-ratio: 1;
+    margin: 0 auto var(--space-md);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--surface-primary);
+    border: 2px solid var(--bg-tertiary);
+}
+
+.cover-image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cover-image-hint {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--space-sm);
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    color: white;
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.cover-image-gallery {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.cover-gallery-item {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all var(--transition-fast);
+}
+
+.cover-gallery-item:hover {
+    border-color: var(--text-muted);
+}
+
+.cover-gallery-item.selected {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(var(--accent-primary-rgb), 0.3);
+}
+
+.cover-gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cover-gallery-item .crop-icon {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.cover-gallery-item:hover .crop-icon {
+    opacity: 1;
+}
+
+.cover-gallery-item .crop-icon svg {
+    color: white;
+}
+
+/* ========================================
    Additional Images Section
    ======================================== */
 
