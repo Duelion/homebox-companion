@@ -1,7 +1,11 @@
 /**
  * Homebox Scanner - Mobile Web App
  * Main application logic
+ * Version: 0.13.0-debug (2025-12-01)
  */
+
+// Debug: Log when script loads to verify cache is cleared
+console.log('=== Homebox Scanner v0.13.0-debug loaded ===');
 
 // ========================================
 // State Management
@@ -1786,14 +1790,21 @@ function handleConfirmItem() {
     const purchaseFrom = document.getElementById(`itemPurchaseFrom${index}`)?.value.trim() || null;
     const notes = document.getElementById(`itemNotes${index}`)?.value.trim() || null;
     
-    console.log(`Confirming item "${nameInput.value}" with extended fields:`, {
+    console.log(`Confirming item "${nameInput.value}" - DEBUG INFO:`);
+    console.log('  - Item from state:', JSON.stringify(item, null, 2));
+    console.log('  - advancedFields object:', item.advancedFields);
+    console.log('  - Form DOM values:', {
         serialNumber,
         modelNumber,
         manufacturer,
         purchasePrice,
         purchaseFrom,
         notes,
-        fromAdvancedFields: item.advancedFields
+    });
+    console.log('  - DOM element exists?', {
+        serialNumberEl: !!document.getElementById(`itemSerialNumber${index}`),
+        modelNumberEl: !!document.getElementById(`itemModelNumber${index}`),
+        manufacturerEl: !!document.getElementById(`itemManufacturer${index}`),
     });
     
     // Collect images to upload (source image + additional) with dataUrls for preview
