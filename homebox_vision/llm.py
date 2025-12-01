@@ -16,6 +16,20 @@ from openai import OpenAI
 from .config import settings
 from .models import DetectedItem
 
+# Shared naming rules for consistent LLM output across all functions
+NAMING_RULES = """NAMING RULES (IMPORTANT - follow strictly):
+- Use Title Case for all item names (e.g., "Claw Hammer", "Phillips Screwdriver")
+- Do NOT include quantity in the name (wrong: "3 Screws", correct: "Screw")
+- Do NOT include quantity in the description (wrong: "Pack of 10", correct: "Zinc-plated")
+- Be specific: include brand, model, size, or distinguishing features when visible
+- Keep names concise but descriptive (max 255 characters)"""
+
+ITEM_SCHEMA = """Each item must include:
+- name: string (Title Case, no quantity, max 255 characters)
+- quantity: integer (>= 1, count of identical items)
+- description: string (max 1000 chars, condition/attributes only, NEVER mention quantity)
+- labelIds: array of matching label IDs from the available labels"""
+
 
 def encode_image_to_data_uri(image_path: Path) -> str:
     """Read an image file and return a data URI for OpenAI's vision API.
@@ -133,10 +147,9 @@ def _detect_items_from_data_uri(
                 "role": "system",
                 "content": (
                     "You are an inventory assistant for the Homebox API. "
-                    "Return a single JSON object with an `items` array. Each item must "
-                    "include: `name` (<=255 characters, do not include quantity on name, use Title Case), integer `quantity` (>=1), "
-                    "`description` (<=1000 characters, do not mention quantity in description) summarizing condition or "
-                    "notable attributes, and `labelIds` (array of label IDs that match). "
+                    "Return a single JSON object with an `items` array.\n\n"
+                    f"{NAMING_RULES}\n\n"
+                    f"{ITEM_SCHEMA}\n\n"
                     "Combine identical objects into a single entry with the correct quantity. "
                     "Do not add extra commentary. Ignore background elements (floors, walls, "
                     "benches, shelves, packaging, shadows) and only count objects that are "
@@ -153,8 +166,8 @@ def _detect_items_from_data_uri(
                             "and ignore background objects or incidental surfaces. "
                             "For each item, include labelIds with matching label IDs. "
                             "Return only JSON. Example: "
-                            '{"items":[{"name":"hammer","quantity":2,'
-                            '"description":"Steel claw hammer","labelIds":["id1"]}]}.'
+                            '{"items":[{"name":"Claw Hammer","quantity":2,"description":'
+                            '"Steel claw hammer with rubber grip","labelIds":["id1"]}]}.'
                         ),
                     },
                     {"type": "image_url", "image_url": {"url": data_uri}},
@@ -244,6 +257,7 @@ def analyze_item_details_from_images(
                     f"identified this item as: '{item_name}'"
                     + (f" with description: '{item_description}'" if item_description else "")
                     + ".\n\n"
+                    f"{NAMING_RULES}\n\n"
                     "Analyze ALL provided images carefully. Look for:\n"
                     "- Serial numbers (on labels, stickers, engravings)\n"
                     "- Model numbers (on product labels, packaging)\n"
@@ -254,15 +268,16 @@ def analyze_item_details_from_images(
                     "- Any other relevant details\n\n"
                     "Return a single JSON object with these fields (omit fields you cannot "
                     "determine, use null for truly unknown values):\n"
-                    "- name: string (improved name if you can determine a more specific one)\n"
-                    "- description: string (detailed description based on all images)\n"
+                    "- name: string (Title Case, improved name if you can determine a more "
+                    "specific one, max 255 characters)\n"
+                    "- description: string (detailed description, no quantity, max 1000 chars)\n"
                     "- serialNumber: string or null\n"
                     "- modelNumber: string or null\n"
                     "- manufacturer: string or null\n"
                     "- purchasePrice: number or null (in local currency, just the number)\n"
                     "- notes: string (any additional observations)\n"
                     "- labelIds: array of label IDs that apply\n\n"
-                    "Available labels:\n" + label_prompt
+                    + label_prompt
                 ),
             },
             {
@@ -348,9 +363,10 @@ def merge_items_with_openai(
             "text": (
                 f"Merge these {len(items)} items into a single consolidated inventory item:\n\n"
                 f"{items_text}\n\n"
-                "Create a single item that represents all of these. For example, if merging "
-                "'80 grit sandpaper', '120 grit sandpaper', '220 grit sandpaper', you might create "
-                "'Sandpaper Assortment (80/120/220 grit)' with combined quantity.\n\n"
+                "Create a single item that represents all of these. Use Title Case for the name. "
+                "For example, if merging '80 Grit Sandpaper', '120 Grit Sandpaper', '220 Grit "
+                "Sandpaper', create 'Sandpaper Assortment' with combined quantity and a "
+                "description listing the variants (e.g., 'Includes 80, 120, and 220 grit').\n\n"
                 "Return only JSON with the merged item."
             ),
         }
@@ -373,10 +389,13 @@ def merge_items_with_openai(
                     "You are an inventory assistant helping to merge multiple similar items "
                     "into a single consolidated inventory entry. Create a sensible merged item "
                     "that represents all the input items.\n\n"
+                    f"{NAMING_RULES}\n\n"
                     "Return a single JSON object with:\n"
-                    "- name: string (consolidated name for all items, <=255 chars)\n"
+                    "- name: string (Title Case, consolidated name, max 255 chars, e.g., "
+                    "'Sandpaper Assortment' or 'Mixed Screwdriver Set')\n"
                     "- quantity: integer (total combined quantity)\n"
-                    "- description: string (merged description with all variants, <=1000 chars)\n"
+                    "- description: string (list the variants/types included, but do NOT include "
+                    "counts or quantities, max 1000 chars, e.g., 'Includes 80, 120, and 220 grit')\n"
                     "- labelIds: array of label IDs that apply to the merged item\n\n"
                     + label_prompt
                 ),
@@ -485,17 +504,14 @@ def correct_item_with_openai(
                     "   saying items should be split, or providing more specific details)\n"
                     "2. Re-analyze the image with this new understanding\n"
                     "3. Return the corrected item(s)\n\n"
-                    "IMPORTANT:\n"
+                    f"{NAMING_RULES}\n\n"
+                    "CORRECTION RULES:\n"
                     "- If the user says 'these are two separate items' or similar, return "
                     "  multiple items in the array\n"
                     "- If the user is just correcting the name/description, return a single item\n"
-                    "- Always look at the image to verify the user's feedback makes sense\n"
-                    "- Be specific with names and descriptions\n\n"
-                    "Return a JSON object with an `items` array. Each item must have:\n"
-                    "- name: string (<=255 chars, be specific)\n"
-                    "- quantity: integer (>=1)\n"
-                    "- description: string (<=1000 chars, detailed)\n"
-                    "- labelIds: array of matching label IDs\n\n"
+                    "- Always look at the image to verify the user's feedback makes sense\n\n"
+                    "Return a JSON object with an `items` array.\n"
+                    f"{ITEM_SCHEMA}\n\n"
                     + label_prompt
                 ),
             },
@@ -589,11 +605,11 @@ def discriminatory_detect_items(
                 "Be MORE DISCRIMINATORY than usual - if items look similar but have "
                 "differences (like different sizes, colors, brands, models, grits, etc.), "
                 "list them as SEPARATE items.\n\n"
-                "For example:\n"
-                "- Different grit sandpapers → separate entries for each grit\n"
-                "- Different sized screws → separate entries for each size\n"
-                "- Different colored items → separate entries for each color\n"
-                "- Different brands → separate entries for each brand\n\n"
+                "For example (using Title Case):\n"
+                "- Different grit sandpapers → '80 Grit Sandpaper', '120 Grit Sandpaper'\n"
+                "- Different sized screws → 'M3 Phillips Screw', 'M5 Phillips Screw'\n"
+                "- Different colored items → 'Red Marker', 'Blue Marker'\n"
+                "- Different brands → 'DeWalt Drill Bit', 'Bosch Drill Bit'\n\n"
                 "Be specific in names and descriptions. Include distinguishing "
                 "characteristics like size, color, brand, model number, etc."
                 + context
@@ -618,13 +634,15 @@ def discriminatory_detect_items(
                     "You are an inventory assistant for the Homebox API. Your task is to "
                     "identify items with MAXIMUM SPECIFICITY. Do NOT group similar items "
                     "together - instead, list each distinct variant separately.\n\n"
-                    "Return a JSON object with an `items` array. Each item must include:\n"
-                    "- name: string (be specific - include size, color, brand, model, etc.)\n"
-                    "- quantity: integer (count of THIS SPECIFIC variant)\n"
-                    "- description: string (detailed description with distinguishing features)\n"
-                    "- labelIds: array of matching label IDs\n\n"
-                    "Be thorough. If you see 3 sandpapers of different grits, that's 3 "
-                    "separate items. If you see 5 screws of 2 sizes, that's 2 separate items.\n\n"
+                    f"{NAMING_RULES}\n\n"
+                    "Return a JSON object with an `items` array.\n"
+                    f"{ITEM_SCHEMA}\n\n"
+                    "SPECIFICITY RULES:\n"
+                    "- Be specific: include size, color, brand, model in the name when visible\n"
+                    "- Each distinct variant gets its own entry (e.g., '80 Grit Sandpaper' and "
+                    "'120 Grit Sandpaper' are separate items)\n"
+                    "- If you see 3 sandpapers of different grits, that's 3 separate items\n"
+                    "- If you see 5 screws of 2 sizes, that's 2 separate items with quantities\n\n"
                     + label_prompt
                 ),
             },
