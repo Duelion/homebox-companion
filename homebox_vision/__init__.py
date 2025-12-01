@@ -2,6 +2,8 @@
 
 This package provides utilities for detecting household items from images
 using OpenAI's vision models and creating them in your Homebox instance.
+
+All LLM functions are async for optimal performance.
 """
 
 from .client import (
@@ -15,7 +17,6 @@ from .llm import (
     analyze_item_details_from_images,
     correct_item_with_openai,
     detect_items_from_bytes,
-    detect_items_with_openai,
     discriminatory_detect_items,
     encode_image_bytes_to_data_uri,
     encode_image_to_data_uri,
@@ -23,7 +24,7 @@ from .llm import (
 )
 from .models import DetectedItem
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 __all__ = [
     # Configuration
@@ -33,11 +34,10 @@ __all__ = [
     "HomeboxClient",
     # Models
     "DetectedItem",
-    # LLM utilities
+    # LLM utilities (all async)
     "analyze_item_details_from_images",
     "correct_item_with_openai",
     "detect_items_from_bytes",
-    "detect_items_with_openai",
     "discriminatory_detect_items",
     "encode_image_bytes_to_data_uri",
     "encode_image_to_data_uri",
@@ -46,4 +46,3 @@ __all__ = [
     "DEFAULT_HEADERS",
     "DEFAULT_TIMEOUT",
 ]
-

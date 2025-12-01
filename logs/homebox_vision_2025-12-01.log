@@ -423,3 +423,70 @@
 2025-12-01 10:23:52 | DEBUG    | __main__:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
 2025-12-01 10:23:52 | INFO     | __main__:create_items:391 - Created item: Super Lube 51030 Synthetic Oil (id: f69b7a88-2251-4d35-a419-4a25915929d9)
 2025-12-01 10:23:52 | INFO     | __main__:create_items:398 - Item creation complete: 7 created, 0 failed
+2025-12-01 10:43:33 | INFO     | server.main:<module>:48 - Starting Homebox Vision Companion API
+2025-12-01 10:43:33 | INFO     | server.main:<module>:49 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-01 10:43:33 | INFO     | server.main:<module>:50 - OpenAI Model: gpt-5-mini
+2025-12-01 10:43:33 | WARNING  | server.main:<module>:52 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-01 10:43:53 | INFO     | server.main:login:186 - Login attempt for user: demo@example.com
+2025-12-01 10:43:54 | INFO     | server.main:login:190 - Login successful for user: demo@example.com
+2025-12-01 10:44:21 | INFO     | server.main:detect_items:289 - Detecting items from image: solder.jpg
+2025-12-01 10:44:21 | DEBUG    | server.main:detect_items:307 - Image size: 243502 bytes
+2025-12-01 10:44:21 | DEBUG    | server.main:detect_items:311 - Content type: image/jpeg
+2025-12-01 10:44:21 | INFO     | server.main:detect_items:289 - Detecting items from image: IMG_4384.jpeg
+2025-12-01 10:44:21 | DEBUG    | server.main:detect_items:307 - Image size: 3886744 bytes
+2025-12-01 10:44:21 | DEBUG    | server.main:detect_items:311 - Content type: image/jpeg
+2025-12-01 10:44:21 | DEBUG    | server.main:detect_items:323 - Loaded 8 labels for context
+2025-12-01 10:44:21 | INFO     | server.main:detect_items:330 - Starting OpenAI vision detection...
+2025-12-01 10:44:21 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:100 - Starting item detection with model: gpt-5-mini
+2025-12-01 10:44:21 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:113 - Labels provided: 8
+2025-12-01 10:44:21 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:116 - Calling OpenAI API...
+2025-12-01 10:44:21 | DEBUG    | server.main:detect_items:323 - Loaded 8 labels for context
+2025-12-01 10:44:21 | INFO     | server.main:detect_items:330 - Starting OpenAI vision detection...
+2025-12-01 10:44:21 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:100 - Starting item detection with model: gpt-5-mini
+2025-12-01 10:44:21 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:113 - Labels provided: 8
+2025-12-01 10:44:22 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:116 - Calling OpenAI API...
+2025-12-01 10:44:38 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:156 - OpenAI response: {"items":[{"name":"Felt Polishing Wheel Mandrel","quantity":3,"description":"Wool felt ball polishing wheel mounted on a metal shank for rotary tools. Cream-colored felt, suitable for buffing and polishing metal and jewelry. New condition, individually sealed in clear plastic packaging.","labelIds":["1c2629da-f5e5-440c-af72-662ce3ee9bd1"]}]}...
+2025-12-01 10:44:38 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:161 - Detected 1 items
+2025-12-01 10:44:38 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:163 -   Item: Felt Polishing Wheel Mandrel, qty: 3, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:38 | INFO     | server.main:detect_items:338 - Detected 1 items
+2025-12-01 10:44:38 | DEBUG    | server.main:detect_items:340 -   - Felt Polishing Wheel Mandrel (qty: 3, labels: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:44:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:156 - OpenAI response: {"items":[{"name":"UV Curing Solder Mask Ink","quantity":3,"description":"Sealed retail pouch containing UV-curing solder mask ink in a syringe; Mechanic branding and printed instructions visible on packaging; tamper-sealed plastic bag.","labelIds":["69de101b-5337-4af5-b909-93ab4ef7a99a","1c2629da-f5e5-440c-af72-662ce3ee9bd1"]},{"name":"Mechanic Solder Wire Reel","quantity":1,"description":"Rosin-core solder wire wound on a plastic reel with orange/blue label and Mechanic branding; intended for ...
+2025-12-01 10:44:50 | INFO     | homebox_vision.llm:_detect_items_from_data_uri:161 - Detected 5 items
+2025-12-01 10:44:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:163 -   Item: UV Curing Solder Mask Ink, qty: 3, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:163 -   Item: Mechanic Solder Wire Reel, qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:163 -   Item: Mechanic Solder Paste Jar, qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:163 -   Item: Soldering Iron Tip, qty: 8, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:50 | DEBUG    | homebox_vision.llm:_detect_items_from_data_uri:163 -   Item: High Quality Electronic Solder Supplies Pack, qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:50 | INFO     | server.main:detect_items:338 - Detected 5 items
+2025-12-01 10:44:50 | DEBUG    | server.main:detect_items:340 -   - UV Curing Solder Mask Ink (qty: 3, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:44:50 | DEBUG    | server.main:detect_items:340 -   - Mechanic Solder Wire Reel (qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:44:50 | DEBUG    | server.main:detect_items:340 -   - Mechanic Solder Paste Jar (qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:44:50 | DEBUG    | server.main:detect_items:340 -   - Soldering Iron Tip (qty: 8, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:44:50 | DEBUG    | server.main:detect_items:340 -   - High Quality Electronic Solder Supplies Pack (qty: 1, labels: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1'])
+2025-12-01 10:44:58 | INFO     | server.main:create_items:364 - Creating 6 items
+2025-12-01 10:44:58 | DEBUG    | server.main:create_items:365 - Request location_id: 6bac030e-46f0-438a-9481-9216dd2ca27a
+2025-12-01 10:44:58 | DEBUG    | server.main:create_items:377 - Creating item: Felt Polishing Wheel Mandrel
+2025-12-01 10:44:58 | DEBUG    | server.main:create_items:378 -   location_id: 6bac030e-46f0-438a-9481-9216dd2ca27a
+2025-12-01 10:44:58 | DEBUG    | server.main:create_items:379 -   label_ids: ['1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:59 | INFO     | server.main:create_items:391 - Created item: Felt Polishing Wheel Mandrel (id: 3f07fc01-13a0-4006-b22f-9e8a75be0256)
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:377 - Creating item: UV Curing Solder Mask Ink
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:378 -   location_id: 6bac030e-46f0-438a-9481-9216dd2ca27a
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:379 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:59 | INFO     | server.main:create_items:391 - Created item: UV Curing Solder Mask Ink (id: a028499a-222f-495b-b7b1-e983ac9e95e2)
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:377 - Creating item: Mechanic Solder Wire Reel
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:378 -   location_id: 6bac030e-46f0-438a-9481-9216dd2ca27a
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:379 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:44:59 | INFO     | server.main:create_items:391 - Created item: Mechanic Solder Wire Reel (id: 39c91943-0dc8-4459-98ad-bdcb37a2c7be)
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:377 - Creating item: Mechanic Solder Paste Jar
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:378 -   location_id: 6bac030e-46f0-438a-9481-9216dd2ca27a
+2025-12-01 10:44:59 | DEBUG    | server.main:create_items:379 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:45:00 | INFO     | server.main:create_items:391 - Created item: Mechanic Solder Paste Jar (id: 30261e36-85b0-43d9-baf1-34053ea3658f)
+2025-12-01 10:45:00 | DEBUG    | server.main:create_items:377 - Creating item: Soldering Iron Tip
+2025-12-01 10:45:00 | DEBUG    | server.main:create_items:378 -   location_id: 6bac030e-46f0-438a-9481-9216dd2ca27a
+2025-12-01 10:45:00 | DEBUG    | server.main:create_items:379 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:45:00 | INFO     | server.main:create_items:391 - Created item: Soldering Iron Tip (id: 8707966a-1b10-47ec-beb0-7ae226a09814)
+2025-12-01 10:45:00 | DEBUG    | server.main:create_items:377 - Creating item: High Quality Electronic Solder Supplies Pack
+2025-12-01 10:45:00 | DEBUG    | server.main:create_items:378 -   location_id: 6bac030e-46f0-438a-9481-9216dd2ca27a
+2025-12-01 10:45:00 | DEBUG    | server.main:create_items:379 -   label_ids: ['69de101b-5337-4af5-b909-93ab4ef7a99a', '1c2629da-f5e5-440c-af72-662ce3ee9bd1']
+2025-12-01 10:45:00 | INFO     | server.main:create_items:391 - Created item: High Quality Electronic Solder Supplies Pack (id: 0103c7bb-ed1f-40ec-8614-557429785adb)
+2025-12-01 10:45:00 | INFO     | server.main:create_items:398 - Item creation complete: 6 created, 0 failed
