@@ -19,6 +19,14 @@ class DetectedItem:
         description: Optional description of the item (max 1000 characters).
         location_id: Optional Homebox location ID where the item should be stored.
         label_ids: Optional list of Homebox label IDs to attach to the item.
+
+    Extended fields (require update after creation):
+        manufacturer: Brand/manufacturer name when visible on the item.
+        model_number: Model or part number when visible on labels/packaging.
+        serial_number: Serial number when visible on stickers/engravings.
+        purchase_price: Price when visible on tags/receipts.
+        purchase_from: Retailer name when visible on packaging/receipts.
+        notes: Notable observations about condition, wear, or special features.
     """
 
     name: str
@@ -26,12 +34,22 @@ class DetectedItem:
     description: str | None = None
     location_id: str | None = None
     label_ids: list[str] | None = None
+    # Extended fields (can only be set via update, not create)
+    manufacturer: str | None = None
+    model_number: str | None = None
+    serial_number: str | None = None
+    purchase_price: float | None = None
+    purchase_from: str | None = None
+    notes: str | None = None
 
     def as_item_payload(self) -> dict[str, str | int | list[str]]:
         """Convert the detected item into the payload expected by the Homebox API.
 
         The API accepts names up to 255 characters and descriptions up to 1000
         characters. Values are clamped to stay within those limits.
+
+        Note: This returns only the fields accepted during item creation.
+        Use `get_extended_fields_payload()` for fields that require an update.
 
         Returns:
             A dictionary suitable for POSTing to the Homebox items endpoint.
@@ -54,6 +72,45 @@ class DetectedItem:
         if self.label_ids:
             payload["labelIds"] = self.label_ids
         return payload
+
+    def get_extended_fields_payload(self) -> dict[str, str | float] | None:
+        """Get the extended fields that require an update after item creation.
+
+        These fields (manufacturer, modelNumber, serialNumber, purchasePrice,
+        purchaseFrom, notes) cannot be set during item creation and must be
+        added via a subsequent PUT request.
+
+        Returns:
+            A dictionary with extended fields if any are present, or None
+            if no extended fields are set.
+        """
+        payload: dict[str, str | float] = {}
+
+        if self.manufacturer:
+            payload["manufacturer"] = str(self.manufacturer).strip()[:255]
+        if self.model_number:
+            payload["modelNumber"] = str(self.model_number).strip()[:255]
+        if self.serial_number:
+            payload["serialNumber"] = str(self.serial_number).strip()[:255]
+        if self.purchase_price is not None and self.purchase_price > 0:
+            payload["purchasePrice"] = self.purchase_price
+        if self.purchase_from:
+            payload["purchaseFrom"] = str(self.purchase_from).strip()[:255]
+        if self.notes:
+            payload["notes"] = str(self.notes).strip()[:1000]
+
+        return payload if payload else None
+
+    def has_extended_fields(self) -> bool:
+        """Check if this item has any extended fields that need updating."""
+        return bool(
+            self.manufacturer
+            or self.model_number
+            or self.serial_number
+            or (self.purchase_price is not None and self.purchase_price > 0)
+            or self.purchase_from
+            or self.notes
+        )
 
     @staticmethod
     def from_raw_items(raw_items: Iterable[dict]) -> list[DetectedItem]:
@@ -89,12 +146,60 @@ class DetectedItem:
                     label_ids = None
 
             description = item.get("description")
+
+            # Parse extended fields (may be present from enhanced detection)
+            manufacturer = item.get("manufacturer")
+            if manufacturer and not str(manufacturer).strip():
+                manufacturer = None
+            elif manufacturer:
+                manufacturer = str(manufacturer).strip()
+
+            model_number = item.get("modelNumber") or item.get("model_number")
+            if model_number and not str(model_number).strip():
+                model_number = None
+            elif model_number:
+                model_number = str(model_number).strip()
+
+            serial_number = item.get("serialNumber") or item.get("serial_number")
+            if serial_number and not str(serial_number).strip():
+                serial_number = None
+            elif serial_number:
+                serial_number = str(serial_number).strip()
+
+            purchase_price: float | None = None
+            raw_price = item.get("purchasePrice") or item.get("purchase_price")
+            if raw_price is not None:
+                try:
+                    purchase_price = float(raw_price)
+                    if purchase_price <= 0:
+                        purchase_price = None
+                except (TypeError, ValueError):
+                    purchase_price = None
+
+            purchase_from = item.get("purchaseFrom") or item.get("purchase_from")
+            if purchase_from and not str(purchase_from).strip():
+                purchase_from = None
+            elif purchase_from:
+                purchase_from = str(purchase_from).strip()
+
+            notes = item.get("notes")
+            if notes and not str(notes).strip():
+                notes = None
+            elif notes:
+                notes = str(notes).strip()
+
             detected.append(
                 DetectedItem(
                     name=name,
                     quantity=max(quantity, 1),
                     description=description,
                     label_ids=label_ids,
+                    manufacturer=manufacturer,
+                    model_number=model_number,
+                    serial_number=serial_number,
+                    purchase_price=purchase_price,
+                    purchase_from=purchase_from,
+                    notes=notes,
                 )
             )
         return detected

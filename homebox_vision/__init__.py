@@ -29,13 +29,14 @@ from .llm import (
     correct_item_with_openai,
     detect_items,
     detect_items_from_bytes,
+    discriminatory_detect_items,
     encode_image_bytes_to_data_uri,
     encode_image_to_data_uri,
     merge_items_with_openai,
 )
 from .models import DetectedItem
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 __all__ = [
     # Configuration
@@ -50,6 +51,7 @@ __all__ = [
     # Detection functions
     "detect_items",  # Sync - for scripts, simple use cases
     "detect_items_from_bytes",  # Async - for FastAPI, performance
+    "discriminatory_detect_items",  # Async - for re-detection with specificity
     # Advanced AI functions (all async)
     "analyze_item_details_from_images",
     "correct_item_with_openai",
