@@ -9,8 +9,10 @@ Take a photo of your stuff, and let AI identify and catalog items directly into 
 - 📷 **Photo-based Detection** – Upload or capture photos of items
 - 🤖 **AI Vision Analysis** – Uses OpenAI GPT-4o to identify items in images
 - 🏷️ **Smart Labeling** – Automatically suggests labels from your Homebox labels
-- 📍 **Location Selection** – Choose where to store detected items
+- 📍 **Hierarchical Locations** – Navigate your location tree to place items
 - ✏️ **Review & Edit** – Edit AI suggestions before saving
+- 🔀 **Merge Items** – Combine multiple detected items into one
+- 🔧 **AI Corrections** – Tell the AI what it got wrong and it will fix it
 - 📱 **Mobile-First UI** – Designed for phones (works on desktop too)
 
 ## Quick Start
@@ -43,6 +45,7 @@ pip install -e .
 
 Set the required environment variables:
 
+**Linux/macOS:**
 ```bash
 # Required: Your OpenAI API key
 export HOMEBOX_VISION_OPENAI_API_KEY="sk-your-api-key-here"
@@ -61,7 +64,7 @@ export HOMEBOX_VISION_SERVER_PORT="8000"
 export HOMEBOX_VISION_LOG_LEVEL="INFO"
 ```
 
-On Windows (PowerShell):
+**Windows (PowerShell):**
 ```powershell
 $env:HOMEBOX_VISION_OPENAI_API_KEY = "sk-your-api-key-here"
 $env:HOMEBOX_VISION_API_URL = "https://your-homebox.example.com/api/v1"
@@ -98,10 +101,12 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 ## Usage
 
 1. **Login** – Enter your Homebox credentials
-2. **Select Location** – Choose where items will be stored
+2. **Select Location** – Navigate your location hierarchy to choose where items will be stored
 3. **Capture/Upload Photo** – Take or upload a photo of items
 4. **Review Detection** – AI identifies items in the image
 5. **Edit & Confirm** – Adjust names, quantities, labels as needed
+   - Use **Merge** to combine similar items
+   - Use **Correct** to tell the AI what it got wrong
 6. **Save to Homebox** – Items are created in your inventory
 
 ## Using with Demo Server
@@ -138,8 +143,8 @@ uv run pytest -m integration
 ```
 homebox-vision/
 ├── homebox_vision/          # Core library
-│   ├── __init__.py
-│   ├── client.py            # Homebox API client
+│   ├── __init__.py          # Public API exports
+│   ├── client.py            # Homebox API client (sync + async)
 │   ├── config.py            # Configuration management
 │   ├── llm.py               # OpenAI vision integration
 │   └── models.py            # Data models
@@ -151,12 +156,12 @@ homebox-vision/
 │       └── styles.css
 ├── tests/                    # Test suite
 ├── pyproject.toml           # Project configuration
-└── README.md
+└── README.md                # This file
 ```
 
 ## Library Usage
 
-The `homebox_vision` package can also be used as a library:
+The `homebox_vision` package can also be used as a Python library:
 
 ```python
 from homebox_vision import HomeboxClient, detect_items_with_openai
@@ -174,6 +179,51 @@ with HomeboxClient(base_url="https://your-homebox/api/v1") as client:
         item.location_id = locations[0]["id"]
         client.create_item(token, item)
 ```
+
+### Available Functions
+
+```python
+from homebox_vision import (
+    # Configuration
+    settings,
+    
+    # Clients (sync and async)
+    HomeboxClient,
+    AsyncHomeboxClient,
+    
+    # Models
+    DetectedItem,
+    
+    # Detection functions
+    detect_items_with_openai,      # Detect from file path
+    detect_items_from_bytes,       # Detect from image bytes
+    analyze_item_details_from_images,  # Multi-image analysis
+    merge_items_with_openai,       # Merge multiple items
+    correct_item_with_openai,      # Correct item with feedback
+    
+    # Utilities
+    encode_image_to_data_uri,
+    encode_image_bytes_to_data_uri,
+)
+```
+
+## API Endpoints
+
+The FastAPI backend exposes these endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/login` | Authenticate with Homebox |
+| GET | `/api/locations` | List all locations |
+| GET | `/api/locations/tree` | Get hierarchical location tree |
+| GET | `/api/locations/{id}` | Get single location details |
+| GET | `/api/labels` | List all labels |
+| POST | `/api/detect` | Detect items in uploaded image |
+| POST | `/api/items` | Batch create items |
+| POST | `/api/analyze-advanced` | Multi-image item analysis |
+| POST | `/api/merge-items` | Merge items using AI |
+| POST | `/api/correct-item` | Correct item with feedback |
+| POST | `/api/items/{id}/attachments` | Upload item attachment |
 
 ## Contributing
 

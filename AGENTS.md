@@ -1,5 +1,9 @@
 # Agent Guidelines
 
+Instructions for AI/LLM agents working on this codebase.
+
+---
+
 ## Environment & Tooling
 
 - Target any Homebox instance via the `HOMEBOX_VISION_API_URL` environment variable. For testing, use the **demo** API at `https://demo.homebox.software/api/v1` with demo credentials (`demo@example.com` / `demo`).
@@ -37,7 +41,7 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 
 ### 2. Location Selection
 - After login, immediately fetch the list of available locations from Homebox via API.
-- Present the locations in a dropdown menu for the user to select.
+- Present the locations in a hierarchical dropdown menu for the user to select.
 - Store the selected location and use it for all subsequent item operations in this session.
 
 ### 3. Image Upload / Capture & Item Detection
@@ -47,8 +51,10 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 
 ### 4. Pre-fill Item Forms for User Review
 - For each detected item, render a form on the frontend with pre-filled values (as suggested by the LLM).
-- Allow the user to review and edit each item (e.g., name, quantity, description, location).
-- Provide the ability to accept, edit, or skip any item (e.g., if the LLM mistakenly detected a non-relevant object).
+- Allow the user to review and edit each item (e.g., name, quantity, description, location, labels).
+- Provide the ability to accept, edit, merge, correct, or skip any item.
+- Support item corrections via AI when users provide feedback (e.g., "these are actually screwdrivers").
+- Support merging multiple items into one when they represent the same thing.
 - After confirming one item, proceed to the next; repeat until all items are processed.
 
 ### 5. Summary & Final Confirmation
@@ -89,9 +95,9 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 │  (HTML/CSS/JS - runs in browser)                                │
 ├─────────────────────────────────────────────────────────────────┤
 │  • Login form                                                    │
-│  • Location dropdown                                             │
+│  • Hierarchical location picker                                  │
 │  • Camera/file upload                                            │
-│  • Item review forms                                             │
+│  • Item review forms with merge/correct                          │
 │  • Summary & confirmation                                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -100,11 +106,17 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 │                     FastAPI Backend                              │
 │  (Python - server/main.py)                                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  POST /api/login          → Proxy to Homebox login              │
-│  GET  /api/locations      → Fetch locations (auth required)     │
-│  GET  /api/labels         → Fetch labels (auth required)        │
-│  POST /api/detect         → Upload image, run LLM detection     │
-│  POST /api/items          → Batch create items in Homebox       │
+│  POST /api/login              → Proxy to Homebox login          │
+│  GET  /api/locations          → Fetch locations (flat list)     │
+│  GET  /api/locations/tree     → Fetch locations (hierarchical)  │
+│  GET  /api/locations/{id}     → Fetch single location details   │
+│  GET  /api/labels             → Fetch labels (auth required)    │
+│  POST /api/detect             → Upload image, run LLM detection │
+│  POST /api/items              → Batch create items in Homebox   │
+│  POST /api/analyze-advanced   → Multi-image item analysis       │
+│  POST /api/merge-items        → Merge multiple items via AI     │
+│  POST /api/correct-item       → Correct item based on feedback  │
+│  POST /api/items/{id}/attachments → Upload item attachment      │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┴───────────────┐
@@ -126,21 +138,25 @@ homebox-vision/
 │   ├── client.py            # Homebox API client (sync + async)
 │   ├── config.py            # Centralized configuration
 │   ├── llm.py               # OpenAI vision integration
-│   └── models.py            # Data models
+│   └── models.py            # Data models (DetectedItem)
 ├── server/                   # FastAPI web app
 │   ├── __init__.py
 │   ├── main.py              # API routes
 │   └── static/              # Frontend files
-│       ├── index.html
-│       ├── app.js
-│       └── styles.css
+│       ├── index.html       # Main HTML page
+│       ├── app.js           # Frontend JavaScript
+│       └── styles.css       # Styling
 ├── tests/                    # Test suite
+│   ├── assets/              # Test images
+│   │   └── test_detection.jpg
 │   ├── test_client.py       # Client unit tests
 │   ├── test_llm.py          # LLM unit tests
 │   └── test_integration.py  # Integration tests
+├── logs/                     # Application logs (auto-generated)
 ├── pyproject.toml           # Project configuration
 ├── uv.lock                  # Dependency lock file
-└── README.md                # Documentation
+├── AGENTS.md                # This file (LLM instructions)
+└── README.md                # User documentation
 ```
 
 ---
@@ -161,8 +177,46 @@ uv run python -m server.main
 # Or with the CLI command
 homebox-vision
 
-# Or with uvicorn directly
+# Or with uvicorn directly (with hot reload for development)
 uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Then open `http://localhost:8000` in a mobile browser or desktop browser with mobile emulation.
+
+---
+
+## Key Library Exports
+
+The `homebox_vision` package exports these primary utilities:
+
+```python
+from homebox_vision import (
+    # Configuration
+    settings,
+    # Clients
+    AsyncHomeboxClient,
+    HomeboxClient,
+    # Models
+    DetectedItem,
+    # LLM utilities
+    detect_items_with_openai,
+    detect_items_from_bytes,
+    analyze_item_details_from_images,
+    correct_item_with_openai,
+    merge_items_with_openai,
+    discriminatory_detect_items,
+    encode_image_to_data_uri,
+    encode_image_bytes_to_data_uri,
+)
+```
+
+---
+
+## Version Management
+
+Keep versions synchronized across:
+- `pyproject.toml` - The source of truth
+- `server/main.py` - FastAPI app version (for API docs)
+- `homebox_vision/__init__.py` - Package `__version__`
+
+Increment all three when releasing a new version.
