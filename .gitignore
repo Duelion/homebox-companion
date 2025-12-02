@@ -1,4 +1,11 @@
 .venv/
 __pycache__/
 *.pyc
-homebox.egg-info/
+*.egg-info/
+logs/
+.svelte-kit/
+node_modules/
+frontend/build/
+
+# Server static files (populated at deploy time from frontend build)
+server/static/

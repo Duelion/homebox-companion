@@ -1,2 +1,0 @@
-homebox_companion
-server

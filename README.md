@@ -54,7 +54,7 @@ export HBC_API_URL="https://your-homebox.example.com/api/v1"
 # Optional: OpenAI model (default: gpt-4o-mini)
 export HBC_OPENAI_MODEL="gpt-4o-mini"
 
-# Optional: Server configuration
+# Optional: Server configuration (in production, this serves both API and frontend)
 export HBC_SERVER_HOST="0.0.0.0"
 export HBC_SERVER_PORT="8000"
 
@@ -70,27 +70,37 @@ $env:HBC_API_URL = "https://your-homebox.example.com/api/v1"
 
 ### Running the App
 
-**Development (both backend and frontend):**
+**Development (two terminals, two ports):**
+
+During development, the frontend and backend run separately for hot-reloading:
 
 ```bash
-# Terminal 1: Start backend
+# Terminal 1: Start backend API (port 8000)
 uv run uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
 
-# Terminal 2: Start frontend dev server
+# Terminal 2: Start frontend dev server (port 5173)
 cd frontend && npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+Open `http://localhost:5173` in your browser. The Vite dev server proxies `/api` requests to the backend automatically.
 
-**Production:**
+**Production (single service, single port):**
+
+In production, the frontend is built as static files and served by FastAPI on a single port:
 
 ```bash
-# Build frontend
-cd frontend && npm run build && cd ..
+# Build frontend to static files
+cd frontend && npm run build
 
-# Start server
+# Copy build output to server static directory
+cp -r build/* ../server/static/
+cd ..
+
+# Start server (serves both API and frontend on port 8000)
 uv run python -m server.app
 ```
+
+Open `http://localhost:8000` (or your configured `HBC_SERVER_PORT`) in your browser.
 
 ## Environment Variables Reference
 
@@ -102,7 +112,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion).
 | `HBC_API_URL` | ✅ Yes | Demo server | Your Homebox API URL |
 | `HBC_OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model for vision |
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
-| `HBC_SERVER_PORT` | No | `8000` | Server port |
+| `HBC_SERVER_PORT` | No | `8000` | Server port (serves both API and frontend in production) |
 | `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
 
 ## Usage
