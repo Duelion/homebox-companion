@@ -605,3 +605,125 @@
 2025-12-02 11:03:21 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
 2025-12-02 11:03:21 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
 2025-12-02 11:03:21 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 11:03:54 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:03:54 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:03:54 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:03:54 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:03:54 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 12:03:17 | INFO     | server.api.auth:login:15 - Login attempt for user: demo@example.com
+2025-12-02 12:03:18 | INFO     | server.api.auth:login:19 - Login successful for user: demo@example.com
+2025-12-02 12:04:48 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: example2.jpg (+ 2 additional)
+2025-12-02 12:04:48 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 12:04:48 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 12:04:48 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 473103 bytes
+2025-12-02 12:04:48 | DEBUG    | server.api.tools.vision:detect_items:87 - Additional image: example1.jpg, size: 421347 bytes
+2025-12-02 12:04:48 | DEBUG    | server.api.tools.vision:detect_items:87 - Additional image: Screenshot 2025-12-02 120437.png, size: 139953 bytes
+2025-12-02 12:04:49 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 12:04:49 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 12:04:49 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting multi-image detection
+2025-12-02 12:04:49 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 12:04:49 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 12:04:49 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 12:04:49 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 12:04:58 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Reciprocating Sander",
+      "quantity": 1,
+      "description": "Electric USB charge reciprocating sander with various interchangeable tips, compact design, suitable for detailed sanding tasks.",
+      "labelIds": [
+        "d9448745-47c5-4ec2-8db2-ab7e7f9bd7ae",
+        "76f83ff2-d670-46f7-ad38-fbd9cf33f6bf"
+      ],
+      "manufacturer": "DSPIAE",
+      "modelNumber": "ES-A",
+      "purchasePrice": 28.257,
+      "purchaseFrom": "AliExpress",
+      "notes": ...
+2025-12-02 12:04:58 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 3 image(s)
+2025-12-02 12:04:58 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Reciprocating Sander, qty: 1, labels: ['d9448745-47c5-4ec2-8db2-ab7e7f9bd7ae', '76f83ff2-d670-46f7-ad38-fbd9cf33f6bf']
+2025-12-02 12:04:58 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:126 -     Extended: manufacturer=DSPIAE, model=ES-A, serial=None
+2025-12-02 12:04:58 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 12:06:23 | INFO     | server.api.items:create_items:28 - Creating 1 items
+2025-12-02 12:06:23 | DEBUG    | server.api.items:create_items:29 - Request location_id: 1251a643-4a12-45b7-be15-cb6f82e9df41
+2025-12-02 12:06:23 | DEBUG    | server.api.items:create_items:41 - Creating item: Reciprocating Sander
+2025-12-02 12:06:23 | DEBUG    | server.api.items:create_items:42 -   location_id: 1251a643-4a12-45b7-be15-cb6f82e9df41
+2025-12-02 12:06:23 | DEBUG    | server.api.items:create_items:43 -   label_ids: ['d9448745-47c5-4ec2-8db2-ab7e7f9bd7ae', '76f83ff2-d670-46f7-ad38-fbd9cf33f6bf']
+2025-12-02 12:06:24 | INFO     | server.api.items:create_items:72 - Created item: Reciprocating Sander (id: b0aac129-5fac-4809-ae26-825d397fc150)
+2025-12-02 12:06:24 | DEBUG    | server.api.items:create_items:78 -   Updating with extended fields: dict_keys(['manufacturer', 'modelNumber', 'purchasePrice', 'purchaseFrom', 'notes'])
+2025-12-02 12:06:25 | INFO     | server.api.items:create_items:93 -   Updated item with extended fields
+2025-12-02 12:06:25 | INFO     | server.api.items:create_items:101 - Item creation complete: 1 created, 0 failed
+2025-12-02 12:06:25 | INFO     | server.api.items:upload_item_attachment:122 - Uploading attachment to item: b0aac129-5fac-4809-ae26-825d397fc150
+2025-12-02 12:06:25 | DEBUG    | server.api.items:upload_item_attachment:123 - File: example2.jpg, content_type: image/jpeg
+2025-12-02 12:06:26 | INFO     | server.api.items:upload_item_attachment:145 - Successfully uploaded attachment to item b0aac129-5fac-4809-ae26-825d397fc150
+2025-12-02 12:06:26 | INFO     | server.api.items:upload_item_attachment:122 - Uploading attachment to item: b0aac129-5fac-4809-ae26-825d397fc150
+2025-12-02 12:06:26 | DEBUG    | server.api.items:upload_item_attachment:123 - File: example1.jpg, content_type: image/jpeg
+2025-12-02 12:06:27 | INFO     | server.api.items:upload_item_attachment:145 - Successfully uploaded attachment to item b0aac129-5fac-4809-ae26-825d397fc150
+2025-12-02 12:06:27 | INFO     | server.api.items:upload_item_attachment:122 - Uploading attachment to item: b0aac129-5fac-4809-ae26-825d397fc150
+2025-12-02 12:06:27 | DEBUG    | server.api.items:upload_item_attachment:123 - File: Screenshot 2025-12-02 120437.png, content_type: image/png
+2025-12-02 12:06:27 | INFO     | server.api.items:upload_item_attachment:145 - Successfully uploaded attachment to item b0aac129-5fac-4809-ae26-825d397fc150
+2025-12-02 12:12:06 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: example1.jpg (+ 2 additional)
+2025-12-02 12:12:06 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 12:12:06 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 12:12:06 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 421347 bytes
+2025-12-02 12:12:06 | DEBUG    | server.api.tools.vision:detect_items:87 - Additional image: Screenshot 2025-12-02 120437.png, size: 139953 bytes
+2025-12-02 12:12:06 | DEBUG    | server.api.tools.vision:detect_items:87 - Additional image: example2.jpg, size: 473103 bytes
+2025-12-02 12:12:07 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 12:12:07 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 12:12:07 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting multi-image detection
+2025-12-02 12:12:07 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 12:12:07 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 12:12:07 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 12:12:07 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 12:12:16 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Reciprocating Sander",
+      "quantity": 1,
+      "description": "Electric USB charge grinding pen with multiple interchangeable tips, designed for intricate sanding tasks.",
+      "labelIds": [
+        "d9448745-47c5-4ec2-8db2-ab7e7f9bd7ae",
+        "76f83ff2-d670-46f7-ad38-fbd9cf33f6bf"
+      ],
+      "manufacturer": "DSPIAE",
+      "modelNumber": "ES-A",
+      "purchasePrice": 28.257,
+      "purchaseFrom": "One Brilliant Life Store",
+      "notes": "Comes w...
+2025-12-02 12:12:16 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 3 image(s)
+2025-12-02 12:12:16 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Reciprocating Sander, qty: 1, labels: ['d9448745-47c5-4ec2-8db2-ab7e7f9bd7ae', '76f83ff2-d670-46f7-ad38-fbd9cf33f6bf']
+2025-12-02 12:12:16 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:126 -     Extended: manufacturer=DSPIAE, model=ES-A, serial=None
+2025-12-02 12:12:16 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 12:12:51 | INFO     | server.api.items:create_items:28 - Creating 1 items
+2025-12-02 12:12:51 | DEBUG    | server.api.items:create_items:29 - Request location_id: a52f1a7a-1c1b-4d45-a19f-eb9ee9b5a17f
+2025-12-02 12:12:51 | DEBUG    | server.api.items:create_items:41 - Creating item: Reciprocating Sander
+2025-12-02 12:12:51 | DEBUG    | server.api.items:create_items:42 -   location_id: a52f1a7a-1c1b-4d45-a19f-eb9ee9b5a17f
+2025-12-02 12:12:51 | DEBUG    | server.api.items:create_items:43 -   label_ids: ['d9448745-47c5-4ec2-8db2-ab7e7f9bd7ae', '76f83ff2-d670-46f7-ad38-fbd9cf33f6bf']
+2025-12-02 12:12:51 | INFO     | server.api.items:create_items:72 - Created item: Reciprocating Sander (id: 4656a195-efe2-4d13-8409-18b2026547f8)
+2025-12-02 12:12:51 | DEBUG    | server.api.items:create_items:78 -   Updating with extended fields: dict_keys(['manufacturer', 'modelNumber', 'purchasePrice', 'purchaseFrom', 'notes'])
+2025-12-02 12:12:52 | INFO     | server.api.items:create_items:93 -   Updated item with extended fields
+2025-12-02 12:12:52 | INFO     | server.api.items:create_items:101 - Item creation complete: 1 created, 0 failed
+2025-12-02 12:12:52 | INFO     | server.api.items:upload_item_attachment:122 - Uploading attachment to item: 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:12:52 | DEBUG    | server.api.items:upload_item_attachment:123 - File: thumbnail_Reciprocating_Sander.jpg, content_type: image/jpeg
+2025-12-02 12:12:53 | INFO     | server.api.items:upload_item_attachment:145 - Successfully uploaded attachment to item 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:12:53 | INFO     | server.api.items:upload_item_attachment:122 - Uploading attachment to item: 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:12:53 | DEBUG    | server.api.items:upload_item_attachment:123 - File: example1.jpg, content_type: image/jpeg
+2025-12-02 12:12:54 | INFO     | server.api.items:upload_item_attachment:145 - Successfully uploaded attachment to item 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:12:54 | INFO     | server.api.items:upload_item_attachment:122 - Uploading attachment to item: 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:12:54 | DEBUG    | server.api.items:upload_item_attachment:123 - File: Screenshot 2025-12-02 120437.png, content_type: image/png
+2025-12-02 12:12:54 | INFO     | server.api.items:upload_item_attachment:145 - Successfully uploaded attachment to item 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:12:54 | INFO     | server.api.items:upload_item_attachment:122 - Uploading attachment to item: 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:12:54 | DEBUG    | server.api.items:upload_item_attachment:123 - File: example2.jpg, content_type: image/jpeg
+2025-12-02 12:12:55 | INFO     | server.api.items:upload_item_attachment:145 - Successfully uploaded attachment to item 4656a195-efe2-4d13-8409-18b2026547f8
+2025-12-02 12:14:46 | INFO     | server.api.auth:login:15 - Login attempt for user: demo@example.com
+2025-12-02 12:14:47 | INFO     | server.api.auth:login:19 - Login successful for user: demo@example.com
+2025-12-02 12:21:34 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 12:21:34 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 12:21:34 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 12:21:34 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 12:21:34 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 12:21:37 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 12:21:37 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 12:21:37 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 12:21:37 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 12:21:37 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
