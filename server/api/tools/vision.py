@@ -303,6 +303,12 @@ async def correct_item(
                 quantity=item.get("quantity", 1),
                 description=item.get("description"),
                 label_ids=item.get("labelIds"),
+                manufacturer=item.get("manufacturer"),
+                model_number=item.get("modelNumber") or item.get("model_number"),
+                serial_number=item.get("serialNumber") or item.get("serial_number"),
+                purchase_price=item.get("purchasePrice") or item.get("purchase_price"),
+                purchase_from=item.get("purchaseFrom") or item.get("purchase_from"),
+                notes=item.get("notes"),
             )
             for item in corrected_items
         ],

@@ -61,6 +61,13 @@ class CorrectedItemResponse(BaseModel):
     quantity: int
     description: str | None = None
     label_ids: list[str] | None = None
+    # Extended fields
+    manufacturer: str | None = None
+    model_number: str | None = None
+    serial_number: str | None = None
+    purchase_price: float | None = None
+    purchase_from: str | None = None
+    notes: str | None = None
 
 
 class CorrectionResponse(BaseModel):

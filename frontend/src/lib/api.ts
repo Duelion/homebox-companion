@@ -291,6 +291,12 @@ export interface MergeItem {
 	name: string;
 	quantity: number;
 	description?: string | null;
+	manufacturer?: string | null;
+	model_number?: string | null;
+	serial_number?: string | null;
+	purchase_price?: number | null;
+	purchase_from?: string | null;
+	notes?: string | null;
 }
 
 export interface MergedItemResponse {

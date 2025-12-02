@@ -26,6 +26,9 @@
 	let cameraInput: HTMLInputElement;
 	let isAnalyzing = $state(false);
 	let analysisProgress = $state({ current: 0, total: 0, status: '' });
+	
+	// Track which images are expanded (collapsed by default after adding)
+	let expandedImages = $state<Set<number>>(new Set());
 
 	// Redirect if not authenticated or no location selected
 	onMount(() => {
@@ -39,9 +42,20 @@
 		}
 	});
 
+	function toggleImageExpanded(index: number) {
+		expandedImages = new Set(expandedImages);
+		if (expandedImages.has(index)) {
+			expandedImages.delete(index);
+		} else {
+			expandedImages.add(index);
+		}
+	}
+
 	function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (!input.files) return;
+
+		const startIndex = $capturedImages.length;
 
 		for (const file of Array.from(input.files)) {
 			if ($capturedImages.length >= MAX_IMAGES) {
@@ -63,6 +77,7 @@
 					separateItems: false,
 					extraInstructions: '',
 				});
+				// Images are collapsed by default (not added to expandedImages)
 			};
 			reader.readAsDataURL(file);
 		}
@@ -73,10 +88,90 @@
 
 	function removeImage(index: number) {
 		removeCapturedImage(index);
+		// Adjust expanded indices
+		expandedImages = new Set(
+			[...expandedImages]
+				.filter(i => i !== index)
+				.map(i => i > index ? i - 1 : i)
+		);
 	}
 
 	function clearAll() {
 		clearCapturedImages();
+		expandedImages = new Set();
+	}
+
+	function updateImageOption(index: number, field: 'separateItems' | 'extraInstructions', value: boolean | string) {
+		capturedImages.update(images => {
+			const updated = [...images];
+			updated[index] = { ...updated[index], [field]: value };
+			return updated;
+		});
+	}
+
+	// Track which image is receiving additional files
+	let additionalImageInputs: { [key: number]: HTMLInputElement } = {};
+
+	function handleAdditionalImageSelect(imageIndex: number, e: Event) {
+		const input = e.target as HTMLInputElement;
+		if (!input.files) return;
+
+		const newFiles: File[] = [];
+		const newDataUrls: string[] = [];
+		let processedCount = 0;
+		const totalFiles = input.files.length;
+
+		for (const file of Array.from(input.files)) {
+			if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+				showToast(`File ${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`, 'warning');
+				processedCount++;
+				continue;
+			}
+
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				const dataUrl = e.target?.result as string;
+				newFiles.push(file);
+				newDataUrls.push(dataUrl);
+				processedCount++;
+
+				// When all files are processed, update the store
+				if (processedCount === totalFiles) {
+					capturedImages.update(images => {
+						const updated = [...images];
+						const current = updated[imageIndex];
+						updated[imageIndex] = {
+							...current,
+							additionalFiles: [...(current.additionalFiles || []), ...newFiles],
+							additionalDataUrls: [...(current.additionalDataUrls || []), ...newDataUrls],
+						};
+						return updated;
+					});
+				}
+			};
+			reader.readAsDataURL(file);
+		}
+
+		input.value = '';
+	}
+
+	function removeAdditionalImage(imageIndex: number, additionalIndex: number) {
+		capturedImages.update(images => {
+			const updated = [...images];
+			const current = updated[imageIndex];
+			updated[imageIndex] = {
+				...current,
+				additionalFiles: current.additionalFiles?.filter((_, i) => i !== additionalIndex),
+				additionalDataUrls: current.additionalDataUrls?.filter((_, i) => i !== additionalIndex),
+			};
+			return updated;
+		});
+	}
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 	}
 
 	async function analyzeImages() {
@@ -94,15 +189,16 @@
 			for (let i = 0; i < $capturedImages.length; i++) {
 				const image = $capturedImages[i];
 				analysisProgress = {
-					current: i + 1,
+					current: i,
 					total: $capturedImages.length,
-					status: `Analyzing image ${i + 1} of ${$capturedImages.length}...`,
+					status: `Analyzing item ${i + 1} of ${$capturedImages.length}...`,
 				};
 
 				const response = await vision.detect(image.file, {
-					singleItem: image.separateItems,
+					singleItem: !image.separateItems, // Note: separateItems=true means multiple items
 					extraInstructions: image.extraInstructions || undefined,
 					extractExtendedFields: true,
+					additionalImages: image.additionalFiles,
 				});
 
 				// Add source image info to each detected item
@@ -111,6 +207,7 @@
 						...item,
 						sourceImageIndex: i,
 						originalFile: image.file,
+						additionalImages: image.additionalFiles || [],
 					});
 				}
 			}
@@ -161,29 +258,156 @@
 	<StepIndicator currentStep={2} />
 
 	<h2 class="text-2xl font-bold text-text mb-2">Capture Items</h2>
-	<p class="text-text-muted mb-6">Add one or more photos to detect items</p>
+	<p class="text-text-muted mb-6">Add photos and configure detection options for each</p>
 
-	<!-- Image grid -->
+	<!-- Image list with collapsible cards -->
 	{#if $capturedImages.length > 0}
-		<div class="grid grid-cols-3 gap-2 mb-4">
+		<div class="space-y-3 mb-4">
 			{#each $capturedImages as image, index}
-				<div class="relative aspect-square rounded-xl overflow-hidden bg-surface-elevated border border-border group">
-					<img
-						src={image.dataUrl}
-						alt="Captured {index + 1}"
-						class="w-full h-full object-cover"
-					/>
-				<button
-					type="button"
-					class="absolute top-1 right-1 p-1.5 bg-black/60 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity"
-					aria-label="Remove image"
-					onclick={() => removeImage(index)}
-				>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<line x1="18" y1="6" x2="6" y2="18" />
-							<line x1="6" y1="6" x2="18" y2="18" />
-						</svg>
-					</button>
+				<div class="bg-surface rounded-xl border border-border overflow-hidden">
+					<!-- Header (always visible) -->
+					<div class="flex items-center gap-3 p-3">
+						<!-- Thumbnail -->
+						<div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-surface-elevated relative">
+							<img
+								src={image.dataUrl}
+								alt="Captured {index + 1}"
+								class="w-full h-full object-cover"
+							/>
+							<div class="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+								{index + 1}
+							</div>
+						</div>
+
+						<!-- File info -->
+						<div class="flex-1 min-w-0">
+							<div class="flex items-center gap-2">
+								<p class="text-sm font-medium text-text truncate">{image.file.name}</p>
+								{#if image.additionalFiles && image.additionalFiles.length > 0}
+									<span class="px-1.5 py-0.5 bg-primary/20 text-primary-light rounded text-xs">
+										+{image.additionalFiles.length}
+									</span>
+								{/if}
+							</div>
+							<p class="text-xs text-text-muted">{formatFileSize(image.file.size)}</p>
+						</div>
+
+						<!-- Action buttons -->
+						<div class="flex items-center gap-1">
+							<button
+								type="button"
+								class="p-2 text-text-muted hover:text-text transition-colors"
+								aria-label={expandedImages.has(index) ? 'Collapse options' : 'Expand options'}
+								onclick={() => toggleImageExpanded(index)}
+							>
+							<svg 
+								class="w-5 h-5 transition-transform {expandedImages.has(index) ? 'rotate-180' : ''}" 
+								fill="none" 
+								stroke="currentColor" 
+								viewBox="0 0 24 24"
+							>
+								<polyline points="18 15 12 9 6 15" />
+								</svg>
+							</button>
+							<button
+								type="button"
+								class="p-2 text-text-muted hover:text-danger transition-colors"
+								aria-label="Remove image"
+								onclick={() => removeImage(index)}
+							>
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<line x1="18" y1="6" x2="6" y2="18" />
+									<line x1="6" y1="6" x2="18" y2="18" />
+								</svg>
+							</button>
+						</div>
+					</div>
+
+					<!-- Expandable options -->
+					{#if expandedImages.has(index)}
+						<div class="px-3 pb-3 pt-0 space-y-3 border-t border-border/50 mt-0">
+							<!-- Separate into multiple items toggle -->
+							<label class="flex items-center gap-3 pt-3 cursor-pointer">
+								<div class="relative">
+									<input
+										type="checkbox"
+										checked={image.separateItems}
+										onchange={(e) => updateImageOption(index, 'separateItems', (e.target as HTMLInputElement).checked)}
+										class="sr-only peer"
+									/>
+									<div class="w-10 h-6 bg-surface-elevated rounded-full peer-checked:bg-primary transition-colors"></div>
+									<div class="absolute left-1 top-1 w-4 h-4 bg-text-muted rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-all"></div>
+								</div>
+								<span class="text-sm text-text">Separate into multiple items</span>
+							</label>
+
+							<!-- Optional instructions -->
+							<div>
+								<input
+									type="text"
+									placeholder="Optional: describe what's in this photo..."
+									value={image.extraInstructions}
+									oninput={(e) => updateImageOption(index, 'extraInstructions', (e.target as HTMLInputElement).value)}
+									class="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+								/>
+							</div>
+
+							<!-- Additional images for this item -->
+							<div class="pt-2 border-t border-border/30">
+								<div class="flex items-center justify-between mb-2">
+									<span class="text-xs text-text-muted">
+										Additional photos for this item
+										{#if image.additionalFiles && image.additionalFiles.length > 0}
+											<span class="text-primary-light">({image.additionalFiles.length})</span>
+										{/if}
+									</span>
+									<button
+										type="button"
+										class="text-xs text-primary hover:underline"
+										onclick={() => additionalImageInputs[index]?.click()}
+									>
+										+ Add photos
+									</button>
+								</div>
+								
+								<input
+									type="file"
+									accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
+									multiple
+									bind:this={additionalImageInputs[index]}
+									onchange={(e) => handleAdditionalImageSelect(index, e)}
+									class="hidden"
+								/>
+
+								{#if image.additionalDataUrls && image.additionalDataUrls.length > 0}
+									<div class="flex flex-wrap gap-2">
+										{#each image.additionalDataUrls as additionalUrl, additionalIndex}
+											<div class="relative w-12 h-12 rounded-lg overflow-hidden bg-surface-elevated group">
+												<img
+													src={additionalUrl}
+													alt="Additional {additionalIndex + 1}"
+													class="w-full h-full object-cover"
+												/>
+												<button
+													type="button"
+													class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+													aria-label="Remove additional image"
+													onclick={() => removeAdditionalImage(index, additionalIndex)}
+												>
+													<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<line x1="18" y1="6" x2="6" y2="18" />
+														<line x1="6" y1="6" x2="18" y2="18" />
+													</svg>
+												</button>
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<p class="text-xs text-text-dim">Add extra angles or close-ups to help AI detect details</p>
+								{/if}
+							</div>
+						</div>
+					{/if}
 				</div>
 			{/each}
 
@@ -191,14 +415,14 @@
 			{#if $capturedImages.length < MAX_IMAGES}
 				<button
 					type="button"
-					class="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-1 text-text-muted hover:text-text transition-colors"
+					class="w-full p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center gap-2 text-text-muted hover:text-text transition-colors"
 					onclick={() => fileInput.click()}
 				>
-					<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<line x1="12" y1="5" x2="12" y2="19" />
 						<line x1="5" y1="12" x2="19" y2="12" />
 					</svg>
-					<span class="text-xs">Add</span>
+					<span>Add more photos</span>
 				</button>
 			{/if}
 		</div>
@@ -232,7 +456,7 @@
 	<!-- Hidden file inputs -->
 	<input
 		type="file"
-		accept="image/*"
+		accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
 		multiple
 		bind:this={fileInput}
 		onchange={handleFileSelect}
@@ -240,7 +464,7 @@
 	/>
 	<input
 		type="file"
-		accept="image/*"
+		accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
 		capture="environment"
 		bind:this={cameraInput}
 		onchange={handleFileSelect}
@@ -297,4 +521,3 @@
 		</svg>
 	</Button>
 </div>
-
