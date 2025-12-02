@@ -727,3 +727,18 @@
 2025-12-02 12:21:37 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
 2025-12-02 12:21:37 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
 2025-12-02 12:21:37 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 12:31:42 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 12:31:42 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 12:31:42 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 12:31:42 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 12:31:42 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 12:31:54 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 12:31:54 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 12:31:54 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 12:31:54 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 12:31:54 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 12:33:22 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 12:33:22 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 12:33:22 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 12:33:22 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 12:33:22 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance

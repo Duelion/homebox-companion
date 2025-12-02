@@ -1,6 +1,0 @@
-openai>=2.8.1
-httpx>=0.27.0
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-python-multipart>=0.0.17
-loguru>=0.7.3

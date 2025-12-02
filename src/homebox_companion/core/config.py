@@ -8,7 +8,8 @@ Environment Variables:
     HBC_OPENAI_API_KEY: Your OpenAI API key for vision detection
     HBC_OPENAI_MODEL: OpenAI model to use (default: gpt-4o-mini)
     HBC_SERVER_HOST: Host to bind the web server to (default: 0.0.0.0)
-    HBC_SERVER_PORT: Port for the web server (default: 8000)
+    HBC_SERVER_PORT: Port for the web server (default: 8000). In production,
+        this single port serves both the API and the static frontend.
     HBC_LOG_LEVEL: Logging level (default: INFO)
 """
 
