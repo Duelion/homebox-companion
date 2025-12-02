@@ -1,0 +1,2 @@
+[console_scripts]
+homebox-companion = server.app:run

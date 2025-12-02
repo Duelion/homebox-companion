@@ -1,6 +1,6 @@
-# Homebox Vision Companion
+# Homebox Companion
 
-🏠📸 **AI-powered item detection for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.**
+🏠📸 **AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.**
 
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
 
@@ -20,6 +20,7 @@ Take a photo of your stuff, and let AI identify and catalog items directly into 
 ### Prerequisites
 
 - Python 3.12+
+- Node.js 18+ (for frontend development)
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 - An OpenAI API key ([get one here](https://platform.openai.com/api-keys))
 - A Homebox instance (or use the demo server)
@@ -28,17 +29,14 @@ Take a photo of your stuff, and let AI identify and catalog items directly into 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/homebox-vision.git
-cd homebox-vision
+git clone https://github.com/yourusername/homebox-companion.git
+cd homebox-companion
 
-# Create virtual environment and install dependencies
-uv venv
+# Install Python dependencies
 uv sync
 
-# Or with pip
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e .
+# Install frontend dependencies
+cd frontend && npm install && cd ..
 ```
 
 ### Configuration
@@ -48,55 +46,64 @@ Set the required environment variables:
 **Linux/macOS:**
 ```bash
 # Required: Your OpenAI API key
-export HOMEBOX_VISION_OPENAI_API_KEY="sk-your-api-key-here"
+export HBC_OPENAI_API_KEY="sk-your-api-key-here"
 
 # Required: Your Homebox API URL
-export HOMEBOX_VISION_API_URL="https://your-homebox.example.com/api/v1"
+export HBC_API_URL="https://your-homebox.example.com/api/v1"
 
-# Optional: OpenAI model (default: gpt-5-mini)
-export HOMEBOX_VISION_OPENAI_MODEL="gpt-5-mini"
+# Optional: OpenAI model (default: gpt-4o-mini)
+export HBC_OPENAI_MODEL="gpt-4o-mini"
 
 # Optional: Server configuration
-export HOMEBOX_VISION_SERVER_HOST="0.0.0.0"
-export HOMEBOX_VISION_SERVER_PORT="8000"
+export HBC_SERVER_HOST="0.0.0.0"
+export HBC_SERVER_PORT="8000"
 
 # Optional: Log level (DEBUG, INFO, WARNING, ERROR)
-export HOMEBOX_VISION_LOG_LEVEL="INFO"
+export HBC_LOG_LEVEL="INFO"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-$env:HOMEBOX_VISION_OPENAI_API_KEY = "sk-your-api-key-here"
-$env:HOMEBOX_VISION_API_URL = "https://your-homebox.example.com/api/v1"
+$env:HBC_OPENAI_API_KEY = "sk-your-api-key-here"
+$env:HBC_API_URL = "https://your-homebox.example.com/api/v1"
 ```
 
 ### Running the App
 
+**Development (both backend and frontend):**
+
 ```bash
-# Using uv
-uv run python -m server.main
+# Terminal 1: Start backend
+uv run uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
 
-# Or with the CLI command (after pip install -e .)
-homebox-vision
-
-# Or with uvicorn directly
-uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
+# Terminal 2: Start frontend dev server
+cd frontend && npm run dev
 ```
 
-Open `http://localhost:8000` in your browser.
+Open `http://localhost:5173` in your browser.
+
+**Production:**
+
+```bash
+# Build frontend
+cd frontend && npm run build && cd ..
+
+# Start server
+uv run python -m server.app
+```
 
 ## Environment Variables Reference
 
-All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts with other applications.
+All environment variables use the `HBC_` prefix (short for Homebox Companion).
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `HOMEBOX_VISION_OPENAI_API_KEY` | ✅ Yes | - | Your OpenAI API key |
-| `HOMEBOX_VISION_API_URL` | ✅ Yes | Demo server | Your Homebox API URL |
-| `HOMEBOX_VISION_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision |
-| `HOMEBOX_VISION_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
-| `HOMEBOX_VISION_SERVER_PORT` | No | `8000` | Server port |
-| `HOMEBOX_VISION_LOG_LEVEL` | No | `INFO` | Logging level |
+| `HBC_OPENAI_API_KEY` | ✅ Yes | - | Your OpenAI API key |
+| `HBC_API_URL` | ✅ Yes | Demo server | Your Homebox API URL |
+| `HBC_OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model for vision |
+| `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
+| `HBC_SERVER_PORT` | No | `8000` | Server port |
+| `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
 
 ## Usage
 
@@ -105,8 +112,6 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 3. **Capture/Upload Photo** – Take or upload a photo of items
 4. **Review Detection** – AI identifies items in the image
 5. **Edit & Confirm** – Adjust names, quantities, labels as needed
-   - Use **Merge** to combine similar items
-   - Use **Correct** to tell the AI what it got wrong
 6. **Save to Homebox** – Items are created in your inventory
 
 ## Using with Demo Server
@@ -114,10 +119,34 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 For testing, you can use the Homebox demo server:
 
 ```bash
-export HOMEBOX_VISION_API_URL="https://demo.homebox.software/api/v1"
+export HBC_API_URL="https://demo.homebox.software/api/v1"
 ```
 
 Demo credentials: `demo@example.com` / `demo`
+
+## Project Structure
+
+```
+homebox-companion/
+├── src/
+│   └── homebox_companion/          # Python package
+│       ├── core/                   # Config, logging, exceptions
+│       ├── homebox/                # Homebox API client
+│       ├── ai/                     # OpenAI integration
+│       └── tools/                  # AI tools (vision, etc.)
+│           └── vision/             # Item detection
+├── server/                         # FastAPI backend
+│   ├── app.py                      # App factory
+│   ├── api/                        # API routers
+│   └── schemas/                    # Pydantic models
+├── frontend/                       # Svelte + Tailwind frontend
+│   └── src/
+│       ├── lib/                    # Stores, API client
+│       └── routes/                 # Pages
+├── tests/                          # Test suite
+├── pyproject.toml                  # Python config
+└── AGENTS.md                       # AI agent guidelines
+```
 
 ## Development
 
@@ -138,81 +167,16 @@ uv run pytest
 uv run pytest -m integration
 ```
 
-### Project Structure
+### Frontend Development
 
-```
-homebox-vision/
-├── homebox_vision/          # Core library
-│   ├── __init__.py          # Public API exports
-│   ├── client.py            # Homebox API client (sync + async)
-│   ├── config.py            # Configuration management
-│   ├── llm.py               # OpenAI vision integration
-│   └── models.py            # Data models
-├── server/                   # FastAPI web app
-│   ├── main.py              # API routes
-│   └── static/              # Frontend files
-│       ├── index.html
-│       ├── app.js
-│       └── styles.css
-├── tests/                    # Test suite
-├── pyproject.toml           # Project configuration
-└── README.md                # This file
-```
-
-## Library Usage
-
-The `homebox_vision` package can also be used as a Python library:
-
-```python
-from homebox_vision import detect_items, HomeboxClient
-
-# Detect items in an image (sync - great for scripts)
-items = detect_items("photo.jpg")
-for item in items:
-    print(f"{item.name}: {item.quantity}")
-
-# Create items in Homebox
-with HomeboxClient(base_url="https://your-homebox/api/v1") as client:
-    token = client.login("user@example.com", "password")
-    locations = client.list_locations(token)
-    
-    for item in items:
-        item.location_id = locations[0]["id"]
-        client.create_item(token, item)
-```
-
-### Available Functions
-
-```python
-from homebox_vision import (
-    # Configuration
-    settings,
-    
-    # Clients (sync and async)
-    HomeboxClient,
-    AsyncHomeboxClient,
-    
-    # Models
-    DetectedItem,
-    
-    # Detection functions
-    detect_items,              # Sync - detect from file path (for scripts)
-    detect_items_from_bytes,   # Async - detect from raw bytes (for servers)
-    
-    # Advanced AI functions (all async)
-    analyze_item_details_from_images,  # Multi-image detailed analysis
-    merge_items_with_openai,           # Combine similar items
-    correct_item_with_openai,          # Fix detection with user feedback
-    
-    # Image encoding utilities
-    encode_image_to_data_uri,
-    encode_image_bytes_to_data_uri,
-)
+```bash
+cd frontend
+npm run dev      # Start dev server
+npm run build    # Production build
+npm run preview  # Preview production build
 ```
 
 ## API Endpoints
-
-The FastAPI backend exposes these endpoints:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -221,12 +185,38 @@ The FastAPI backend exposes these endpoints:
 | GET | `/api/locations/tree` | Get hierarchical location tree |
 | GET | `/api/locations/{id}` | Get single location details |
 | GET | `/api/labels` | List all labels |
-| POST | `/api/detect` | Detect items in uploaded image |
 | POST | `/api/items` | Batch create items |
-| POST | `/api/analyze-advanced` | Multi-image item analysis |
-| POST | `/api/merge-items` | Merge items using AI |
-| POST | `/api/correct-item` | Correct item with feedback |
 | POST | `/api/items/{id}/attachments` | Upload item attachment |
+| POST | `/api/tools/vision/detect` | Detect items in image |
+| POST | `/api/tools/vision/analyze` | Multi-image analysis |
+| POST | `/api/tools/vision/merge` | Merge items using AI |
+| POST | `/api/tools/vision/correct` | Correct item with feedback |
+
+## Library Usage
+
+The `homebox_companion` package can also be used as a Python library:
+
+```python
+from homebox_companion import detect_items_from_bytes, HomeboxClient
+
+# Detect items in an image (async)
+items = await detect_items_from_bytes(image_bytes)
+for item in items:
+    print(f"{item.name}: {item.quantity}")
+
+# Create items in Homebox
+async with HomeboxClient() as client:
+    token = await client.login("user@example.com", "password")
+    locations = await client.list_locations(token)
+    
+    for item in items:
+        await client.create_item(token, ItemCreate(
+            name=item.name,
+            quantity=item.quantity,
+            description=item.description,
+            location_id=locations[0]["id"],
+        ))
+```
 
 ## Contributing
 
@@ -245,3 +235,5 @@ MIT License - see LICENSE file for details.
 - [Homebox](https://github.com/sysadminsmedia/homebox) - The excellent home inventory system this companion is built for
 - [OpenAI](https://openai.com) - For the vision AI capabilities
 - [FastAPI](https://fastapi.tiangolo.com) - The modern Python web framework
+- [SvelteKit](https://kit.svelte.dev) - The elegant frontend framework
+- [Tailwind CSS](https://tailwindcss.com) - The utility-first CSS framework
