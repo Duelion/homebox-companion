@@ -27,9 +27,13 @@ jobs:
           npm run build
           
           # Copy built frontend to server/static
+          mkdir -p ../server/static
           rm -rf ../server/static/*
           cp -r build/* ../server/static/
           cd ..
+          
+          # Fix ownership (runner may create files as different user)
+          sudo chown -R homebox:homebox /home/homebox/homebox-app
           
           # Restart the app
           sudo systemctl restart homebox-vision.service
