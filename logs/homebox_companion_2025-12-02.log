@@ -1,0 +1,607 @@
+2025-12-02 09:55:25 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 09:55:25 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 09:55:25 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:55:25 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 09:55:25 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 09:55:56 | INFO     | server.api.auth:login:15 - Login attempt for user: demo@example.com
+2025-12-02 09:55:57 | INFO     | server.api.auth:login:19 - Login successful for user: demo@example.com
+2025-12-02 09:59:09 | INFO     | server.api.auth:login:15 - Login attempt for user: demo@example.com
+2025-12-02 09:59:10 | INFO     | server.api.auth:login:19 - Login successful for user: demo@example.com
+2025-12-02 10:01:40 | INFO     | server.api.auth:login:15 - Login attempt for user: demo@example.com
+2025-12-02 10:01:41 | INFO     | server.api.auth:login:19 - Login successful for user: demo@example.com
+2025-12-02 10:03:02 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: IMG_4384.jpeg (+ 0 additional)
+2025-12-02 10:03:02 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: False, Extra instructions: None
+2025-12-02 10:03:02 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:03:02 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 3886744 bytes
+2025-12-02 10:03:02 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:03:02 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:03:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:03:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: False
+2025-12-02 10:03:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:03:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:03:02 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:03:14 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Felt Ball Feet",
+      "quantity": 4,
+      "description": "Soft felt balls attached to metal pins for furniture protection",
+      "labelIds": ["e41ce226-cc49-4064-8ed0-2cd763067226"]
+    }
+  ]
+}...
+2025-12-02 10:03:14 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:03:14 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Felt Ball Feet, qty: 4, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:03:14 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:06:11 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: m6w46php3k4f1.webp (+ 0 additional)
+2025-12-02 10:06:11 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: False, Extra instructions: None
+2025-12-02 10:06:11 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:06:11 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 108960 bytes
+2025-12-02 10:06:12 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:06:12 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:06:12 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:06:12 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: False
+2025-12-02 10:06:12 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:06:12 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:06:12 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:06:20 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Bronze Sculpture of Boy","quantity":1,"description":"Bronze sculpture depicting a young boy in a standing pose, holding a sword, with a detailed finish on the figure","labelIds":["e41ce226-cc49-4064-8ed0-2cd763067226"]},{"name":"Majora's Mask Decoration","quantity":1,"description":"Colorful wall decoration designed to resemble Majora's Mask, featuring vibrant eyes and spikes, likely a fan art piece","labelIds":["e41ce226-cc49-4064-8ed0-2cd763067226"]},{"name":"Table Lamp","qua...
+2025-12-02 10:06:20 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 4 items from 1 image(s)
+2025-12-02 10:06:20 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Bronze Sculpture of Boy, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:06:20 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Majora's Mask Decoration, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:06:20 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Table Lamp, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:06:20 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Books, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:06:20 | INFO     | server.api.tools.vision:detect_items:107 - Detected 4 items
+2025-12-02 10:08:01 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: IMG_4384.jpeg (+ 0 additional)
+2025-12-02 10:08:01 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:08:01 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:08:01 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 3886744 bytes
+2025-12-02 10:08:02 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:08:02 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:08:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:08:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:08:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:08:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:08:02 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:08:13 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Felt Balls with Pins",
+      "quantity": 1,
+      "description": "Four felt balls attached to metal pins, packaged in resealable bags",
+      "labelIds": ["general"]
+    }
+  ]
+}...
+2025-12-02 10:08:13 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:08:13 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Felt Balls with Pins, qty: 1, labels: ['general']
+2025-12-02 10:08:13 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:08:13 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: m6w46php3k4f1.webp (+ 0 additional)
+2025-12-02 10:08:13 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:08:13 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:08:13 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 108960 bytes
+2025-12-02 10:08:14 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:08:14 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:08:14 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:08:14 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:08:14 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:08:14 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:08:14 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:08:22 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Boy Statue",
+      "quantity": 1,
+      "description": "Bronze statue of a boy holding a sword, mounted on a marble base",
+      "labelIds": ["e41ce226-cc49-4064-8ed0-2cd763067226"]
+    },
+    {
+      "name": "Majora's Mask",
+      "quantity": 1,
+      "description": "Colorful replica of Majora's Mask from video game, features large eyes and spikes",
+      "labelIds": ["e41ce226-cc49-4064-8ed0-2cd763067226"]
+    },
+    {
+      "name": "Table Lamp",
+      "quan...
+2025-12-02 10:08:22 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 4 items from 1 image(s)
+2025-12-02 10:08:22 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Boy Statue, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:08:22 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Majora's Mask, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:08:22 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Table Lamp, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:08:22 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Books, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:08:22 | INFO     | server.api.tools.vision:detect_items:107 - Detected 4 items
+2025-12-02 10:08:57 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: IMG_4384.jpeg (+ 0 additional)
+2025-12-02 10:08:57 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:08:57 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:08:57 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 3886744 bytes
+2025-12-02 10:08:57 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:08:57 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:08:57 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:08:57 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:08:57 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:08:57 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:08:57 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:09:06 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Felt Ball Point Refills","quantity":1,"description":"Set of four felt ball point refills for various applications, packed in plastic bags. Suitable for use with compatible drawing instruments or tools.","labelIds":["general"]}]}...
+2025-12-02 10:09:06 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:09:06 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Felt Ball Point Refills, qty: 1, labels: ['general']
+2025-12-02 10:09:06 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:09:37 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: IMG_4384.jpeg (+ 0 additional)
+2025-12-02 10:09:37 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:09:37 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:09:37 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 3886744 bytes
+2025-12-02 10:09:38 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:09:38 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:09:38 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:09:38 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:09:38 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:09:38 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:09:38 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:09:48 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Felt Ball Feet","quantity":1,"description":"Soft felt ball feet for furniture legs, designed to prevent scratches and reduce noise on hard floors. Comes in plastic packaging with a resealable top.","labelIds":["e41ce226-cc49-4064-8ed0-2cd763067226"]}]}...
+2025-12-02 10:09:48 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:09:48 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Felt Ball Feet, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:09:48 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:14:32 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: first.jpg (+ 0 additional)
+2025-12-02 10:14:32 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:14:32 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:14:32 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 72634 bytes
+2025-12-02 10:14:32 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:14:32 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:14:32 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:14:32 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:14:32 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:14:32 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:14:32 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:14:37 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Hex Key",
+      "quantity": 1,
+      "description": "Blue hex key with a rounded end, suitable for various fastening applications.",
+      "labelIds": [
+        "e41ce226-cc49-4064-8ed0-2cd763067226"
+      ],
+      "manufacturer": null,
+      "modelNumber": null,
+      "serialNumber": null,
+      "purchasePrice": null,
+      "purchaseFrom": null,
+      "notes": null
+    }
+  ]
+}...
+2025-12-02 10:14:37 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:14:37 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Hex Key, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:14:37 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:14:37 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: example2.jpg (+ 0 additional)
+2025-12-02 10:14:37 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: False, Extra instructions: separate them on the tool, but the heads keep them as one item.
+2025-12-02 10:14:37 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:14:37 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 473103 bytes
+2025-12-02 10:14:37 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:14:37 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:14:37 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:14:37 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: False
+2025-12-02 10:14:37 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:14:37 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:14:37 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:14:42 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Precision Screwdriver Set","quantity":1,"description":"Red precision screwdriver with multiple interchangeable heads stored in a compact case. Ideal for small electronics work.","labelIds":["784c000f-3177-446b-8cc8-52dab16795cd","e41ce226-cc49-4064-8ed0-2cd763067226"]}]}...
+2025-12-02 10:14:42 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:14:42 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Precision Screwdriver Set, qty: 1, labels: ['784c000f-3177-446b-8cc8-52dab16795cd', 'e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:14:42 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:15:02 | INFO     | server.api.tools.vision:correct_item:249 - Item correction request received
+2025-12-02 10:15:02 | DEBUG    | server.api.tools.vision:correct_item:250 - Correction instructions: The brand is MyBeautifulTool
+2025-12-02 10:15:02 | DEBUG    | server.api.tools.vision:correct_item:268 - Current item: {'name': 'Hex Key', 'quantity': 1, 'description': 'Blue hex key with a rounded end, suitable for various fastening applications.'}
+2025-12-02 10:15:02 | DEBUG    | server.api.tools.vision:correct_item:281 - Loaded 8 labels for context
+2025-12-02 10:15:02 | INFO     | server.api.tools.vision:correct_item:285 - Starting OpenAI item correction...
+2025-12-02 10:15:02 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:46 - Correcting item 'Hex Key' with user instructions
+2025-12-02 10:15:02 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:47 - User correction: The brand is MyBeautifulTool
+2025-12-02 10:15:02 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:15:06 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "MyBeautifulTool Hex Key",
+      "quantity": 1,
+      "description": "Blue hex key with a rounded end, suitable for various fastening applications.",
+      "labelIds": [
+        "e41ce226-cc49-4064-8ed0-2cd763067226"
+      ]
+    }
+  ]
+}...
+2025-12-02 10:15:06 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:97 - Correction resulted in 1 item(s)
+2025-12-02 10:15:06 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:99 -   Corrected item: MyBeautifulTool Hex Key, qty: 1
+2025-12-02 10:15:06 | INFO     | server.api.tools.vision:correct_item:294 - Correction resulted in 1 item(s)
+2025-12-02 10:15:27 | INFO     | server.api.tools.vision:correct_item:249 - Item correction request received
+2025-12-02 10:15:27 | DEBUG    | server.api.tools.vision:correct_item:250 - Correction instructions: The Model Number: 897098
+2025-12-02 10:15:27 | DEBUG    | server.api.tools.vision:correct_item:268 - Current item: {'name': 'MyBeautifulTool Hex Key', 'quantity': 1, 'description': 'Blue hex key with a rounded end, suitable for various fastening applications.'}
+2025-12-02 10:15:28 | DEBUG    | server.api.tools.vision:correct_item:281 - Loaded 8 labels for context
+2025-12-02 10:15:28 | INFO     | server.api.tools.vision:correct_item:285 - Starting OpenAI item correction...
+2025-12-02 10:15:28 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:46 - Correcting item 'MyBeautifulTool Hex Key' with user instructions
+2025-12-02 10:15:28 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:47 - User correction: The Model Number: 897098
+2025-12-02 10:15:28 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:15:32 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "MyBeautifulTool Hex Key Model 897098",
+      "quantity": 1,
+      "description": "Blue hex key with a rounded end, suitable for various fastening applications.",
+      "labelIds": [
+        "e41ce226-cc49-4064-8ed0-2cd763067226"
+      ]
+    }
+  ]
+}...
+2025-12-02 10:15:32 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:97 - Correction resulted in 1 item(s)
+2025-12-02 10:15:32 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:99 -   Corrected item: MyBeautifulTool Hex Key Model 897098, qty: 1
+2025-12-02 10:15:32 | INFO     | server.api.tools.vision:correct_item:294 - Correction resulted in 1 item(s)
+2025-12-02 10:18:02 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: first.jpg (+ 0 additional)
+2025-12-02 10:18:02 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:18:02 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:18:02 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 72634 bytes
+2025-12-02 10:18:02 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:18:02 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:18:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:18:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:18:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:18:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:18:02 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:18:06 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Blue L-shaped Hex Key","quantity":1,"description":"L-shaped hex key in blue finish, used for hex screws and bolts, designed for torque application","labelIds":["e41ce226-cc49-4064-8ed0-2cd763067226"]}]}...
+2025-12-02 10:18:06 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:18:06 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Blue L-shaped Hex Key, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:18:06 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:18:06 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: example2.jpg (+ 0 additional)
+2025-12-02 10:18:06 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: False, Extra instructions: None
+2025-12-02 10:18:06 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:18:06 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 473103 bytes
+2025-12-02 10:18:06 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:18:06 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:18:06 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:18:06 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: False
+2025-12-02 10:18:06 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:18:06 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:18:06 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:18:15 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Electric Screwdriver",
+      "quantity": 1,
+      "description": "Red electric screwdriver with interchangeable bits, designed for precision tasks.",
+      "labelIds": ["e41ce226-cc49-4064-8ed0-2cd763067226"],
+      "manufacturer": "Dremel",
+      "modelNumber": null,
+      "serialNumber": null,
+      "purchasePrice": null,
+      "purchaseFrom": null,
+      "notes": null
+    },
+    {
+      "name": "Interchangeable Bits",
+      "quantity": 1,
+      "description...
+2025-12-02 10:18:15 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 2 items from 1 image(s)
+2025-12-02 10:18:15 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Electric Screwdriver, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:18:15 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:126 -     Extended: manufacturer=Dremel, model=None, serial=None
+2025-12-02 10:18:15 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Interchangeable Bits, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:18:15 | INFO     | server.api.tools.vision:detect_items:107 - Detected 2 items
+2025-12-02 10:18:41 | INFO     | server.api.tools.vision:correct_item:249 - Item correction request received
+2025-12-02 10:18:41 | DEBUG    | server.api.tools.vision:correct_item:250 - Correction instructions: It is not a dremel, its a Browsnor brand
+2025-12-02 10:18:41 | DEBUG    | server.api.tools.vision:correct_item:268 - Current item: {'name': 'Electric Screwdriver', 'quantity': 1, 'description': 'Red electric screwdriver with interchangeable bits, designed for precision tasks.'}
+2025-12-02 10:18:42 | DEBUG    | server.api.tools.vision:correct_item:281 - Loaded 8 labels for context
+2025-12-02 10:18:42 | INFO     | server.api.tools.vision:correct_item:285 - Starting OpenAI item correction...
+2025-12-02 10:18:42 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:46 - Correcting item 'Electric Screwdriver' with user instructions
+2025-12-02 10:18:42 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:47 - User correction: It is not a dremel, its a Browsnor brand
+2025-12-02 10:18:42 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:18:47 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Browsnor Electric Screwdriver",
+      "quantity": 1,
+      "description": "Red electric screwdriver with interchangeable bits, designed for precision tasks.",
+      "labelIds": [
+        "e41ce226-cc49-4064-8ed0-2cd763067226",
+        "784c000f-3177-446b-8cc8-52dab16795cd"
+      ]
+    }
+  ]
+}...
+2025-12-02 10:18:47 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:97 - Correction resulted in 1 item(s)
+2025-12-02 10:18:47 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:99 -   Corrected item: Browsnor Electric Screwdriver, qty: 1
+2025-12-02 10:18:47 | INFO     | server.api.tools.vision:correct_item:294 - Correction resulted in 1 item(s)
+2025-12-02 10:20:11 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 10:20:11 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 10:20:11 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 10:20:11 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 10:20:11 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 10:20:20 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 10:20:20 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 10:20:20 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 10:20:20 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 10:20:20 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 10:20:33 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 10:20:33 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 10:20:33 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 10:20:33 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 10:20:33 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 10:21:04 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 10:21:04 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 10:21:04 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 10:21:04 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 10:21:04 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 10:24:55 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: example2.jpg (+ 1 additional)
+2025-12-02 10:24:55 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:24:55 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:24:55 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 473103 bytes
+2025-12-02 10:24:55 | DEBUG    | server.api.tools.vision:detect_items:87 - Additional image: example1.jpg, size: 421347 bytes
+2025-12-02 10:24:56 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 0 labels for context
+2025-12-02 10:24:56 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:24:56 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting multi-image detection
+2025-12-02 10:24:56 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:24:56 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:24:56 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 0
+2025-12-02 10:24:56 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:25:02 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Precision Screwdriver Set",
+      "quantity": 1,
+      "description": "Red precision screwdriver with interchangeable bits. Comes in a sturdy case with multiple bit styles for various applications.",
+      "manufacturer": "Deprat",
+      "notes": "Includes an assortment of bits suitable for different screw types."
+    }
+  ]
+}...
+2025-12-02 10:25:02 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 2 image(s)
+2025-12-02 10:25:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Precision Screwdriver Set, qty: 1, labels: None
+2025-12-02 10:25:02 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:126 -     Extended: manufacturer=Deprat, model=None, serial=None
+2025-12-02 10:25:02 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:26:29 | INFO     | server.api.auth:login:15 - Login attempt for user: demo@example.com
+2025-12-02 10:26:30 | INFO     | server.api.auth:login:19 - Login successful for user: demo@example.com
+2025-12-02 10:27:02 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: example2.jpg (+ 1 additional)
+2025-12-02 10:27:02 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:27:02 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:27:02 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 473103 bytes
+2025-12-02 10:27:02 | DEBUG    | server.api.tools.vision:detect_items:87 - Additional image: example1.jpg, size: 421347 bytes
+2025-12-02 10:27:03 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:27:03 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:27:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting multi-image detection
+2025-12-02 10:27:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:27:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:27:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:27:03 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:27:09 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Electric Screwdriver",
+      "quantity": 1,
+      "description": "Cordless electric screwdriver with a red finish and multiple interchangeable bits included in a case.",
+      "labelIds": [
+        "e41ce226-cc49-4064-8ed0-2cd763067226"
+      ],
+      "manufacturer": "DeWalt",
+      "notes": "Includes various bit types for versatility."
+    }
+  ]
+}...
+2025-12-02 10:27:09 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 2 image(s)
+2025-12-02 10:27:09 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Electric Screwdriver, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:27:09 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:126 -     Extended: manufacturer=DeWalt, model=None, serial=None
+2025-12-02 10:27:09 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:30:02 | INFO     | server.api.items:create_items:28 - Creating 1 items
+2025-12-02 10:30:02 | DEBUG    | server.api.items:create_items:29 - Request location_id: 768edd6c-fb12-467e-aff4-f1f48f404fd2
+2025-12-02 10:30:02 | DEBUG    | server.api.items:create_items:41 - Creating item: Electric Screwdriver
+2025-12-02 10:30:02 | DEBUG    | server.api.items:create_items:42 -   location_id: 768edd6c-fb12-467e-aff4-f1f48f404fd2
+2025-12-02 10:30:02 | DEBUG    | server.api.items:create_items:43 -   label_ids: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:30:03 | INFO     | server.api.items:create_items:72 - Created item: Electric Screwdriver (id: 5126f137-2f8a-48fd-8ea6-7c47c2feb4e6)
+2025-12-02 10:30:03 | DEBUG    | server.api.items:create_items:78 -   Updating with extended fields: dict_keys(['manufacturer', 'notes'])
+2025-12-02 10:30:03 | INFO     | server.api.items:create_items:93 -   Updated item with extended fields
+2025-12-02 10:30:03 | INFO     | server.api.items:create_items:101 - Item creation complete: 1 created, 0 failed
+2025-12-02 10:32:15 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: IMG_4384.jpeg (+ 0 additional)
+2025-12-02 10:32:15 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:32:15 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:32:15 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 3886744 bytes
+2025-12-02 10:32:16 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:32:16 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:32:16 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:32:16 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:32:16 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:32:16 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:32:16 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:32:27 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Felt Balls with Pins",
+      "quantity": 1,
+      "description": "Packaged felt balls with metal pins for various applications.",
+      "labelIds": ["e41ce226-cc49-4064-8ed0-2cd763067226"]
+    }
+  ]
+}...
+2025-12-02 10:32:27 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:32:27 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Felt Balls with Pins, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:32:27 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:33:28 | INFO     | server.api.auth:login:15 - Login attempt for user: demo@example.com
+2025-12-02 10:33:29 | INFO     | server.api.auth:login:19 - Login successful for user: demo@example.com
+2025-12-02 10:33:42 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: first.jpg (+ 0 additional)
+2025-12-02 10:33:42 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:33:42 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:33:42 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 72634 bytes
+2025-12-02 10:33:43 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:33:43 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:33:43 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:33:43 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:33:43 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:33:43 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:33:43 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:33:46 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Allen Wrench","quantity":1,"description":"Blue hex key with a ball end for better reach and grip","labelIds":["e41ce226-cc49-4064-8ed0-2cd763067226"]}]}...
+2025-12-02 10:33:46 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:33:46 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Allen Wrench, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:33:46 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:34:10 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: IMG_4384.jpeg (+ 0 additional)
+2025-12-02 10:34:10 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:34:10 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:34:10 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 3886744 bytes
+2025-12-02 10:34:11 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:34:11 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:34:11 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:34:11 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:34:11 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:34:11 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:34:11 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:34:22 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Felt Balls with Pins","quantity":1,"description":"Set of felt balls attached to metal pins, suitable for crafting or decoration purposes.","labelIds":["e41ce226-cc49-4064-8ed0-2cd763067226"]}]}...
+2025-12-02 10:34:22 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:34:22 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Felt Balls with Pins, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:34:22 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:56:27 | INFO     | server.api.items:create_items:28 - Creating 1 items
+2025-12-02 10:56:27 | DEBUG    | server.api.items:create_items:29 - Request location_id: 892d3d9b-7440-4bc6-8cc1-bf5d884eba93
+2025-12-02 10:56:27 | DEBUG    | server.api.items:create_items:41 - Creating item: Felt Balls with Pins
+2025-12-02 10:56:27 | DEBUG    | server.api.items:create_items:42 -   location_id: 892d3d9b-7440-4bc6-8cc1-bf5d884eba93
+2025-12-02 10:56:27 | DEBUG    | server.api.items:create_items:43 -   label_ids: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:56:28 | INFO     | server.api.items:create_items:72 - Created item: Felt Balls with Pins (id: 751e1767-02b0-42d2-ada2-6fc54cfa6cb4)
+2025-12-02 10:56:28 | INFO     | server.api.items:create_items:101 - Item creation complete: 1 created, 0 failed
+2025-12-02 10:57:03 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: example2.jpg (+ 1 additional)
+2025-12-02 10:57:03 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:57:03 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:57:03 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 473103 bytes
+2025-12-02 10:57:03 | DEBUG    | server.api.tools.vision:detect_items:87 - Additional image: example1.jpg, size: 421347 bytes
+2025-12-02 10:57:03 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:57:03 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:57:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting multi-image detection
+2025-12-02 10:57:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:57:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:57:03 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:57:03 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:57:12 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Electric Screwdriver",
+      "quantity": 1,
+      "description": "Red electric screwdriver with multiple interchangeable bits housed in a plastic case, featuring a comfortable grip and an on/off switch.",
+      "labelIds": ["e41ce226-cc49-4064-8ed0-2cd763067226"]
+    }
+  ]
+}...
+2025-12-02 10:57:12 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 2 image(s)
+2025-12-02 10:57:12 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Electric Screwdriver, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:57:12 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:57:27 | INFO     | server.api.tools.vision:correct_item:249 - Item correction request received
+2025-12-02 10:57:27 | DEBUG    | server.api.tools.vision:correct_item:250 - Correction instructions: The brand is "Delmap"
+2025-12-02 10:57:27 | DEBUG    | server.api.tools.vision:correct_item:268 - Current item: {'name': 'Electric Screwdriver', 'quantity': 1, 'description': 'Red electric screwdriver with multiple interchangeable bits housed in a plastic case, featuring a comfortable grip and an on/off switch.', 'manufacturer': None, 'model_number': None, 'serial_number': None, 'purchase_price': None, 'purchase_from': None, 'notes': None}
+2025-12-02 10:57:28 | DEBUG    | server.api.tools.vision:correct_item:281 - Loaded 8 labels for context
+2025-12-02 10:57:28 | INFO     | server.api.tools.vision:correct_item:285 - Starting OpenAI item correction...
+2025-12-02 10:57:28 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:46 - Correcting item 'Electric Screwdriver' with user instructions
+2025-12-02 10:57:28 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:47 - User correction: The brand is "Delmap"
+2025-12-02 10:57:28 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:57:35 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Electric Screwdriver",
+      "quantity": 1,
+      "description": "Red electric screwdriver with multiple interchangeable bits housed in a plastic case, featuring a comfortable grip and an on/off switch.",
+      "labelIds": [
+        "e41ce226-cc49-4064-8ed0-2cd763067226"
+      ],
+      "manufacturer": "Delmap",
+      "modelNumber": null,
+      "serialNumber": null,
+      "purchasePrice": null,
+      "purchaseFrom": null,
+      "notes": null
+    }
+  ]
+}...
+2025-12-02 10:57:35 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:119 - Correction resulted in 1 item(s)
+2025-12-02 10:57:35 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:121 -   Corrected item: Electric Screwdriver, qty: 1
+2025-12-02 10:57:35 | INFO     | server.api.tools.vision:correct_item:294 - Correction resulted in 1 item(s)
+2025-12-02 10:57:53 | INFO     | server.api.tools.vision:correct_item:249 - Item correction request received
+2025-12-02 10:57:53 | DEBUG    | server.api.tools.vision:correct_item:250 - Correction instructions: The price is 20 usd dolars
+2025-12-02 10:57:53 | DEBUG    | server.api.tools.vision:correct_item:268 - Current item: {'name': 'Electric Screwdriver', 'quantity': 1, 'description': 'Red electric screwdriver with multiple interchangeable bits housed in a plastic case, featuring a comfortable grip and an on/off switch.', 'manufacturer': None, 'model_number': None, 'serial_number': None, 'purchase_price': None, 'purchase_from': None, 'notes': None}
+2025-12-02 10:57:53 | DEBUG    | server.api.tools.vision:correct_item:281 - Loaded 8 labels for context
+2025-12-02 10:57:53 | INFO     | server.api.tools.vision:correct_item:285 - Starting OpenAI item correction...
+2025-12-02 10:57:53 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:46 - Correcting item 'Electric Screwdriver' with user instructions
+2025-12-02 10:57:53 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:47 - User correction: The price is 20 usd dolars
+2025-12-02 10:57:53 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:57:59 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {
+  "items": [
+    {
+      "name": "Electric Screwdriver",
+      "quantity": 1,
+      "description": "Red electric screwdriver with multiple interchangeable bits housed in a plastic case, featuring a comfortable grip and an on/off switch.",
+      "labelIds": [
+        "e41ce226-cc49-4064-8ed0-2cd763067226"
+      ],
+      "manufacturer": null,
+      "modelNumber": null,
+      "serialNumber": null,
+      "purchasePrice": 20,
+      "purchaseFrom": null,
+      "notes": null
+    }
+  ]
+}...
+2025-12-02 10:57:59 | INFO     | homebox_companion.tools.vision.corrector:correct_item_with_openai:119 - Correction resulted in 1 item(s)
+2025-12-02 10:57:59 | DEBUG    | homebox_companion.tools.vision.corrector:correct_item_with_openai:121 -   Corrected item: Electric Screwdriver, qty: 1
+2025-12-02 10:57:59 | INFO     | server.api.tools.vision:correct_item:294 - Correction resulted in 1 item(s)
+2025-12-02 10:58:37 | INFO     | server.api.items:create_items:28 - Creating 1 items
+2025-12-02 10:58:37 | DEBUG    | server.api.items:create_items:29 - Request location_id: 892d3d9b-7440-4bc6-8cc1-bf5d884eba93
+2025-12-02 10:58:37 | DEBUG    | server.api.items:create_items:41 - Creating item: Electric Screwdriver
+2025-12-02 10:58:37 | DEBUG    | server.api.items:create_items:42 -   location_id: 892d3d9b-7440-4bc6-8cc1-bf5d884eba93
+2025-12-02 10:58:37 | DEBUG    | server.api.items:create_items:43 -   label_ids: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:58:37 | INFO     | server.api.items:create_items:72 - Created item: Electric Screwdriver (id: c2c49716-47f4-4c16-ac00-9356f089a8b8)
+2025-12-02 10:58:37 | INFO     | server.api.items:create_items:101 - Item creation complete: 1 created, 0 failed
+2025-12-02 10:58:50 | INFO     | server.api.tools.vision:detect_items:56 - Detecting items from image: first.jpg (+ 0 additional)
+2025-12-02 10:58:50 | INFO     | server.api.tools.vision:detect_items:57 - Single item mode: True, Extra instructions: None
+2025-12-02 10:58:50 | INFO     | server.api.tools.vision:detect_items:58 - Extract extended fields: True
+2025-12-02 10:58:50 | DEBUG    | server.api.tools.vision:detect_items:76 - Primary image size: 72634 bytes
+2025-12-02 10:58:51 | DEBUG    | server.api.tools.vision:detect_items:91 - Loaded 8 labels for context
+2025-12-02 10:58:51 | INFO     | server.api.tools.vision:detect_items:95 - Starting OpenAI vision detection...
+2025-12-02 10:58:51 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:92 - Starting single-image detection
+2025-12-02 10:58:51 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:93 - Model: gpt-4o-mini, Single item: True
+2025-12-02 10:58:51 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:94 - Extract extended fields: True
+2025-12-02 10:58:51 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:95 - Labels provided: 8
+2025-12-02 10:58:51 | DEBUG    | homebox_companion.ai.openai:chat_completion:35 - Calling OpenAI API with model: gpt-4o-mini
+2025-12-02 10:58:54 | DEBUG    | homebox_companion.ai.openai:chat_completion:50 - OpenAI response: {"items":[{"name":"Hex Key Wrench","quantity":1,"description":"Blue hex key wrench with ball end for better reach and grip","labelIds":["e41ce226-cc49-4064-8ed0-2cd763067226"]}]}...
+2025-12-02 10:58:54 | INFO     | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:122 - Detected 1 items from 1 image(s)
+2025-12-02 10:58:54 | DEBUG    | homebox_companion.tools.vision.detector:_detect_items_from_data_uris:124 -   Item: Hex Key Wrench, qty: 1, labels: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:58:54 | INFO     | server.api.tools.vision:detect_items:107 - Detected 1 items
+2025-12-02 10:59:07 | INFO     | server.api.items:create_items:28 - Creating 1 items
+2025-12-02 10:59:07 | DEBUG    | server.api.items:create_items:29 - Request location_id: 892d3d9b-7440-4bc6-8cc1-bf5d884eba93
+2025-12-02 10:59:07 | DEBUG    | server.api.items:create_items:41 - Creating item: Hex Key Wrench
+2025-12-02 10:59:07 | DEBUG    | server.api.items:create_items:42 -   location_id: 892d3d9b-7440-4bc6-8cc1-bf5d884eba93
+2025-12-02 10:59:07 | DEBUG    | server.api.items:create_items:43 -   label_ids: ['e41ce226-cc49-4064-8ed0-2cd763067226']
+2025-12-02 10:59:08 | INFO     | server.api.items:create_items:72 - Created item: Hex Key Wrench (id: 669ca948-a1a5-4bef-a3eb-0a0f620dbdbf)
+2025-12-02 10:59:08 | DEBUG    | server.api.items:create_items:78 -   Updating with extended fields: dict_keys(['serialNumber'])
+2025-12-02 10:59:09 | INFO     | server.api.items:create_items:93 -   Updated item with extended fields
+2025-12-02 10:59:09 | INFO     | server.api.items:create_items:101 - Item creation complete: 1 created, 0 failed
+2025-12-02 11:00:17 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:00:17 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:00:17 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:00:17 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:00:17 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 11:00:25 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:00:25 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:00:25 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:00:25 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:00:25 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 11:01:25 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:01:25 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:01:25 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:01:25 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:01:25 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 11:01:53 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:01:53 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:01:53 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:01:53 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:01:53 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 11:02:10 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:02:10 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:02:10 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:02:10 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:02:10 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 11:03:12 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:03:12 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:03:12 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:03:12 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:03:12 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance
+2025-12-02 11:03:21 | INFO     | server.app:lifespan:32 - Starting Homebox Companion API
+2025-12-02 11:03:21 | INFO     | server.app:lifespan:33 - Version: 1.0.0
+2025-12-02 11:03:21 | INFO     | server.app:lifespan:34 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 11:03:21 | INFO     | server.app:lifespan:35 - OpenAI Model: gpt-4o-mini
+2025-12-02 11:03:21 | WARNING  | server.app:lifespan:38 - Using demo server - set HBC_API_URL for your own instance

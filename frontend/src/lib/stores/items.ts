@@ -10,6 +10,8 @@ export interface CapturedImage {
 	dataUrl: string;
 	separateItems: boolean;
 	extraInstructions: string;
+	additionalFiles?: File[];
+	additionalDataUrls?: string[];
 }
 
 export const capturedImages = writable<CapturedImage[]>([]);
@@ -22,6 +24,7 @@ export interface ReviewItem extends DetectedItem {
 	sourceImageIndex: number;
 	additionalImages?: File[];
 	originalFile?: File;
+	customThumbnail?: string; // Custom cropped thumbnail data URL
 }
 
 export const detectedItems = writable<ReviewItem[]>([]);
@@ -84,6 +87,42 @@ export function confirmCurrentItem(item: ReviewItem) {
 // Remove confirmed item
 export function removeConfirmedItem(index: number) {
 	confirmedItems.update((items) => items.filter((_, i) => i !== index));
+}
+
+// Edit a confirmed item (move it back to detectedItems for re-review)
+export function editConfirmedItem(index: number): ReviewItem | null {
+	let result: ReviewItem | null = null;
+	
+	confirmedItems.update((items) => {
+		if (index >= 0 && index < items.length) {
+			const item = items[index];
+		// Convert back to ReviewItem
+		const reviewItem: ReviewItem = {
+			name: item.name,
+			quantity: item.quantity,
+			description: item.description,
+			label_ids: item.label_ids,
+			manufacturer: item.manufacturer,
+			model_number: item.model_number,
+			serial_number: item.serial_number,
+			purchase_price: item.purchase_price,
+			purchase_from: item.purchase_from,
+			notes: item.notes,
+			sourceImageIndex: item.sourceImageIndex,
+			additionalImages: item.additionalImages,
+			originalFile: item.originalFile,
+			customThumbnail: item.customThumbnail,
+		};
+			// Set as the only item to review
+			detectedItems.set([reviewItem]);
+			currentItemIndex.set(0);
+			result = reviewItem;
+			return items.filter((_, i) => i !== index);
+		}
+		return items;
+	});
+	
+	return result;
 }
 
 // Toggle item selection for merge

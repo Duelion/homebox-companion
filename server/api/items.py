@@ -119,11 +119,15 @@ async def upload_item_attachment(
     authorization: Annotated[str | None, Header()] = None,
 ) -> dict[str, Any]:
     """Upload an attachment (image) to an existing item."""
+    logger.info(f"Uploading attachment to item: {item_id}")
+    logger.debug(f"File: {file.filename}, content_type: {file.content_type}")
+    
     token = get_token(authorization)
     client = get_client()
 
     file_bytes = await file.read()
     if not file_bytes:
+        logger.warning("Empty file received")
         raise HTTPException(status_code=400, detail="Empty file")
 
     filename = file.filename or "image.jpg"
@@ -138,9 +142,12 @@ async def upload_item_attachment(
             mime_type=mime_type,
             attachment_type="photo",
         )
+        logger.info(f"Successfully uploaded attachment to item {item_id}")
         return result
     except AuthenticationError as e:
+        logger.error(f"Auth error uploading attachment: {e}")
         raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
+        logger.error(f"Error uploading attachment to item {item_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 

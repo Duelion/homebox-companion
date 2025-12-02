@@ -5,7 +5,7 @@ from __future__ import annotations
 from loguru import logger
 
 from ...ai.openai import vision_completion
-from ...ai.prompts import ITEM_SCHEMA, NAMING_RULES, build_label_prompt
+from ...ai.prompts import EXTENDED_FIELDS_SCHEMA, ITEM_SCHEMA, NAMING_RULES, build_label_prompt
 from ...core.config import settings
 
 
@@ -55,29 +55,65 @@ async def correct_item_with_openai(
         "1. Understand the user's correction (they might be correcting the name, "
         "   saying items should be split, or providing more specific details)\n"
         "2. Re-analyze the image with this new understanding\n"
-        "3. Return the corrected item(s)\n\n"
+        "3. Return the corrected item(s) with ALL fields\n\n"
         f"{NAMING_RULES}\n\n"
         "CORRECTION RULES:\n"
         "- If the user says 'these are two separate items' or similar, return "
         "  multiple items in the array\n"
         "- If the user is just correcting the name/description, return a single item\n"
+        "- If the user specifies a brand/manufacturer, use that information\n"
+        "- If the user specifies a PRICE (e.g., '20 usd', '$15', 'costs 50 dollars'), "
+        "  set purchasePrice to that numeric value\n"
+        "- If the user specifies where they bought it (e.g., 'from Amazon', 'at Home Depot'), "
+        "  set purchaseFrom to that store name\n"
+        "- If the user provides ANY specific information about the item, incorporate it\n"
         "- Always look at the image to verify the user's feedback makes sense\n\n"
         "Return a JSON object with an `items` array.\n"
         f"{ITEM_SCHEMA}\n\n"
+        "EXTENDED FIELDS (include when user provides info OR visible in image):\n"
+        "- manufacturer: string or null (brand name from user input or visible in image)\n"
+        "- modelNumber: string or null (model/part number from user or visible on item)\n"
+        "- serialNumber: string or null (serial number from user or visible on item)\n"
+        "- purchasePrice: number or null (price in USD - from user input like '$20' or '20 dollars')\n"
+        "- purchaseFrom: string or null (store/retailer name from user or visible on packaging)\n"
+        "- notes: string or null (additional details from user or observations from image)\n\n"
         + label_prompt
     )
 
+    # Build current item details including extended fields
+    current_details = [
+        f"- Name: {current_item.get('name', 'Unknown')}",
+        f"- Quantity: {current_item.get('quantity', 1)}",
+        f"- Description: {current_item.get('description', 'None')}",
+    ]
+    if current_item.get('manufacturer'):
+        current_details.append(f"- Manufacturer: {current_item.get('manufacturer')}")
+    if current_item.get('modelNumber') or current_item.get('model_number'):
+        current_details.append(f"- Model Number: {current_item.get('modelNumber') or current_item.get('model_number')}")
+    if current_item.get('serialNumber') or current_item.get('serial_number'):
+        current_details.append(f"- Serial Number: {current_item.get('serialNumber') or current_item.get('serial_number')}")
+    if current_item.get('purchasePrice') or current_item.get('purchase_price'):
+        current_details.append(f"- Purchase Price: {current_item.get('purchasePrice') or current_item.get('purchase_price')}")
+    if current_item.get('purchaseFrom') or current_item.get('purchase_from'):
+        current_details.append(f"- Purchase From: {current_item.get('purchaseFrom') or current_item.get('purchase_from')}")
+    if current_item.get('notes'):
+        current_details.append(f"- Notes: {current_item.get('notes')}")
+
     user_prompt = (
         f"I previously detected an item in this image as:\n"
-        f"- Name: {current_item.get('name', 'Unknown')}\n"
-        f"- Quantity: {current_item.get('quantity', 1)}\n"
-        f"- Description: {current_item.get('description', 'None')}\n\n"
+        + "\n".join(current_details) + "\n\n"
         f"The user has provided this correction/feedback:\n"
         f'"{correction_instructions}"\n\n'
-        "Based on this feedback, re-analyze the image and provide the corrected "
-        "item(s). If the user indicates these should be multiple separate items, "
-        "return multiple items. Otherwise, return a single corrected item.\n\n"
-        "Return only JSON."
+        "IMPORTANT: Parse the user's feedback for:\n"
+        "- Name corrections (e.g., 'this is actually a...')\n"
+        "- Brand/manufacturer (e.g., 'it's a Bosch', 'made by DeWalt')\n"
+        "- Price information (e.g., 'costs $20', 'price is 20 usd', 'I paid 50 dollars') -> set purchasePrice\n"
+        "- Store/retailer (e.g., 'bought from Amazon', 'from Home Depot') -> set purchaseFrom\n"
+        "- Model numbers (e.g., 'model XYZ-123') -> set modelNumber\n"
+        "- Any other specific details\n\n"
+        "Apply ALL information from the user's feedback to the appropriate fields.\n"
+        "Return the corrected item(s) with ALL fields.\n\n"
+        "Return only JSON with an 'items' array."
     )
 
     parsed_content = await vision_completion(
@@ -97,6 +133,12 @@ async def correct_item_with_openai(
     logger.info(f"Correction resulted in {len(items)} item(s)")
     for item in items:
         logger.debug(f"  Corrected item: {item.get('name')}, qty: {item.get('quantity', 1)}")
+        if item.get('manufacturer'):
+            logger.debug(f"    Manufacturer: {item.get('manufacturer')}")
+        if item.get('modelNumber') or item.get('model_number'):
+            logger.debug(f"    Model: {item.get('modelNumber') or item.get('model_number')}")
+        if item.get('purchasePrice') or item.get('purchase_price'):
+            logger.debug(f"    Price: {item.get('purchasePrice') or item.get('purchase_price')}")
 
     return items
 
