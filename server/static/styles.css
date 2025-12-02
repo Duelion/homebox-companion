@@ -1025,6 +1025,35 @@ body::before {
     color: var(--text-muted);
 }
 
+.image-row-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+}
+
+.image-row-toggle {
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    padding: var(--space-xs);
+    transition: all var(--transition-fast);
+}
+
+.image-row-toggle svg {
+    transition: transform var(--transition-fast);
+    transform: rotate(180deg);
+}
+
+.image-row-toggle.expanded svg {
+    transform: rotate(0deg);
+}
+
+.image-row-toggle:hover {
+    color: var(--accent-primary);
+    background: rgba(138, 43, 226, 0.1);
+}
+
 .image-row-remove {
     color: var(--text-muted);
     background: transparent;
@@ -1036,6 +1065,22 @@ body::before {
 .image-row-remove:hover {
     color: var(--error);
     background: rgba(239, 68, 68, 0.1);
+}
+
+/* Collapsible Section */
+.image-row-collapsible {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease-out;
+}
+
+.image-row-collapsible > .image-row-collapsible-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.image-row-collapsible.expanded {
+    grid-template-rows: 1fr;
 }
 
 .image-row-options {
