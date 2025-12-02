@@ -7,21 +7,29 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted   # assumes this is your only self-hosted runner
-
+    runs-on: self-hosted
     steps:
       - name: Deploy latest code and restart service
         run: |
           set -e
-
           cd /home/homebox/homebox-app
-
-          # pull latest main
+          
+          # Pull latest main
           git fetch origin
           git reset --hard origin/main
-
-          # update venv
+          
+          # Update Python dependencies
           uv sync
-
-          # restart the app
+          
+          # Build frontend
+          cd frontend
+          npm ci
+          npm run build
+          
+          # Copy built frontend to server/static
+          rm -rf ../server/static/*
+          cp -r build/* ../server/static/
+          cd ..
+          
+          # Restart the app
           sudo systemctl restart homebox-vision.service
