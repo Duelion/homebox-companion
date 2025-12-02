@@ -12,6 +12,7 @@ Instructions for AI/LLM agents working on this codebase.
 - When testing functionality, hit the real demo API and the real OpenAI API rather than mocks or stubs.
 - Run `uv run ruff check .` before sending a commit to keep lint feedback consistent.
 - Increment the project version number in `pyproject.toml` for every pull request.
+- **Frontend dependencies**: When modifying `frontend/package.json`, always run `npm install` in the `frontend/` directory to update `package-lock.json`, then commit both files together. The CI uses `npm ci` which requires the lock file to be in sync.
 
 ---
 
@@ -271,3 +272,74 @@ __version__ = version("homebox-companion")
 ```
 
 Increment version in `pyproject.toml` only.
+
+---
+
+## Deployment
+
+The application deploys to a homelab server via GitHub Actions on push to `main`.
+
+### Pre-Commit Checklist
+
+Before pushing changes, ensure:
+
+1. **Python changes**: Run `uv run ruff check .` to verify linting
+2. **Frontend dependency changes**: If you modified `frontend/package.json`:
+   ```bash
+   cd frontend
+   npm install
+   ```
+   Then commit both `package.json` and `package-lock.json` together.
+3. **Version bump**: Increment version in `pyproject.toml` for PRs
+
+### How Deployment Works
+
+The frontend uses `@sveltejs/adapter-static` to build as a static SPA. The FastAPI backend serves these static files from `server/static/`.
+
+**GitHub Actions workflow** (`.github/workflows/deploy.yml`):
+
+```yaml
+name: Deploy to homelab
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Deploy latest code and restart service
+        run: |
+          set -e
+          cd /home/homebox/homebox-app
+          
+          # Pull latest main
+          git fetch origin
+          git reset --hard origin/main
+          
+          # Update Python dependencies
+          uv sync
+          
+          # Build frontend
+          cd frontend
+          npm ci
+          npm run build
+          
+          # Copy built frontend to server/static
+          rm -rf ../server/static/*
+          cp -r build/* ../server/static/
+          cd ..
+          
+          # Restart the app
+          sudo systemctl restart homebox-vision.service
+```
+
+### Common Deployment Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `npm ci` fails with "Missing package from lock file" | `package-lock.json` out of sync | Run `npm install` locally and commit the updated lock file |
+| Frontend not updating | Build output not copied | Check `server/static/` contains the build files |
+| 404 on frontend routes | SPA fallback not working | Ensure `+layout.ts` has `export const ssr = false` |
