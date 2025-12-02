@@ -78,25 +78,38 @@ def create_app() -> FastAPI:
         """Return the application version."""
         return {"version": __version__}
 
-    # Serve static frontend files
+    # Serve static frontend files (SvelteKit SPA)
     static_dir = os.path.join(os.path.dirname(__file__), "static")
-    if os.path.isdir(static_dir):
-        app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    # Serve index.html for root
-    @app.get("/")
-    async def serve_index() -> FileResponse:
-        """Serve the main HTML page."""
+    if os.path.isdir(static_dir):
+        # Mount static files at root to serve _app/, favicon, etc.
+        # This must come after API routes so /api/* takes priority
+        app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+
+    # SPA fallback - serve index.html for any unmatched routes
+    # Note: With html=True on StaticFiles, this handles SPA routing automatically
+    # But we add explicit handler for better control
+    @app.exception_handler(404)
+    async def spa_fallback(request, exc):
+        """Serve index.html for client-side routing (SPA fallback)."""
+        # Don't fallback for API routes - let them 404 normally
+        if request.url.path.startswith("/api/"):
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=404,
+                content={"detail": "Not Found"}
+            )
+        # Serve index.html for all other 404s (SPA client-side routing)
         index_path = os.path.join(static_dir, "index.html")
         if os.path.isfile(index_path):
             return FileResponse(index_path)
-        # If no static frontend, return API info
+        # No frontend built yet
         from fastapi.responses import JSONResponse
-
         return JSONResponse({
             "name": "Homebox Companion API",
             "version": __version__,
             "docs": "/docs",
+            "note": "Frontend not built. Run: cd frontend && npm run build && cp -r build/* ../server/static/"
         })
 
     return app
