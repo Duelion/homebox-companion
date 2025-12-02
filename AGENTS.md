@@ -139,19 +139,51 @@ homebox-vision/
 │   ├── config.py            # Centralized configuration
 │   ├── llm.py               # OpenAI vision integration
 │   └── models.py            # Data models (DetectedItem)
-├── server/                   # FastAPI web app
+├── server/                   # FastAPI web app (modular)
 │   ├── __init__.py
-│   ├── main.py              # API routes
-│   └── static/              # Frontend files
-│       ├── index.html       # Main HTML page
-│       ├── app.js           # Frontend JavaScript
-│       └── styles.css       # Styling
+│   ├── main.py              # App factory, lifespan, middleware
+│   ├── dependencies.py      # Shared FastAPI dependencies
+│   ├── routers/             # Feature-based API routers
+│   │   ├── auth.py          # Login endpoint
+│   │   ├── locations.py     # Location endpoints
+│   │   ├── labels.py        # Labels endpoint
+│   │   ├── detection.py     # AI detection endpoints
+│   │   └── items.py         # Item CRUD endpoints
+│   ├── schemas/             # Pydantic request/response models
+│   │   ├── auth.py
+│   │   ├── items.py
+│   │   └── detection.py
+│   ├── services/            # Service layer for orchestration
+│   │   ├── ai_service.py    # OpenAI operations
+│   │   └── homebox_service.py  # Homebox API operations
+│   └── static/              # Legacy frontend (backwards compat)
+│       ├── index.html
+│       ├── app.js
+│       └── styles.css
+├── frontend/                 # React + TypeScript SPA (new)
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── main.tsx
+│       ├── App.tsx
+│       ├── api/             # API client with retry/backoff
+│       │   ├── client.ts
+│       │   └── types.ts     # TypeScript API types
+│       ├── store/           # Zustand state management
+│       │   └── index.ts
+│       ├── components/
+│       │   ├── ui/          # Reusable UI components
+│       │   ├── layout/      # Layout components
+│       │   └── features/    # Feature components
+│       ├── hooks/           # Custom React hooks
+│       └── styles/          # Global CSS
 ├── tests/                    # Test suite
-│   ├── assets/              # Test images
-│   │   └── test_detection.jpg
-│   ├── test_client.py       # Client unit tests
-│   ├── test_llm.py          # LLM unit tests
-│   └── test_integration.py  # Integration tests
+│   ├── assets/
+│   ├── test_client.py
+│   ├── test_llm.py
+│   └── test_integration.py
 ├── logs/                     # Application logs (auto-generated)
 ├── pyproject.toml           # Project configuration
 ├── uv.lock                  # Dependency lock file
@@ -223,19 +255,38 @@ from homebox_vision import (
 Keep versions synchronized across:
 - `pyproject.toml` - The source of truth
 - `server/main.py` - FastAPI app version (for API docs)
-- `server/static/app.js` - Version in file header comment and console.log
 - `homebox_vision/__init__.py` - Package `__version__`
-- `server/static/index.html` - Cache-busting query parameters on CSS and JS imports
+- `frontend/package.json` - Frontend package version
+- `server/static/app.js` - Version in file header (legacy)
+- `server/static/index.html` - Cache-busting query parameters (legacy)
 
-Increment all five locations when releasing a new version.
+Increment all locations when releasing a new version.
 
-### Cache-Busting for Mobile Browsers
+### Frontend Development
 
-Mobile browsers (especially iOS Safari) aggressively cache static files. To ensure users get the latest version, update the query parameters in `index.html`:
+The new React frontend is in the `frontend/` directory:
 
-```html
-<link rel="stylesheet" href="/static/styles.css?v=X.Y.Z">
-<script src="/static/app.js?v=X.Y.Z"></script>
+```bash
+# Install frontend dependencies
+cd frontend && npm install
+
+# Start Vite dev server (proxies API to backend)
+npm run dev
+
+# Build for production (outputs to server/static/)
+npm run build
 ```
 
-Replace `X.Y.Z` with the new version number. This forces browsers to re-download the files.
+The frontend uses:
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **Zustand** for state management
+- **Lucide React** for icons
+
+### Future Multi-App Support
+
+The architecture is designed to support multiple companion apps via a hamburger menu. When adding new apps:
+1. Add a new feature directory under `frontend/src/components/features/`
+2. Add new wizard steps to the store
+3. The layout/navigation can be extended for app switching

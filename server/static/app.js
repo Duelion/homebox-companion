@@ -1,11 +1,14 @@
 /**
  * Homebox Scanner - Mobile Web App
  * Main application logic
- * Version: 0.15.2 (2025-12-01)
+ * Version: 0.16.0 (2025-12-02)
+ * 
+ * Note: This legacy app.js is kept for backwards compatibility.
+ * The new React frontend is located in /frontend and builds to this directory.
  */
 
 // Debug: Log when script loads to verify cache is cleared
-console.log('=== Homebox Scanner v0.15.2 loaded ===');
+console.log('=== Homebox Scanner v0.16.0 loaded ===');
 
 // ========================================
 // State Management
