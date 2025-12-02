@@ -19042,3 +19042,138 @@ b.send(JSON.stringify(a));c.classList.add("feedback-hidden");d.classList.remove(
 2025-12-02 09:18:14 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
 2025-12-02 09:18:14 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
 2025-12-02 09:18:14 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:19:24 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:19:24 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:19:24 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:19:24 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:19:24 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:09 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:09 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:09 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:09 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:09 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:24 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:24 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:24 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:24 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:24 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:26 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:26 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:26 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:26 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:26 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:27 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:27 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:27 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:27 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:27 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:30 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:30 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:30 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:30 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:30 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:32 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:32 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:32 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:32 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:32 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:33 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:33 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:33 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:33 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:33 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:53 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:53 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:53 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:53 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:53 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:35:55 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:35:55 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:35:55 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:35:55 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:35:55 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:18 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:18 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:18 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:18 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:18 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:19 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:19 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:19 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:19 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:19 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:21 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:21 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:21 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:21 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:21 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:30 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:30 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:30 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:30 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:30 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:48 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:48 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:48 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:48 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:48 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:50 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:50 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:50 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:50 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:50 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:58 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:58 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:58 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:58 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:58 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:36:59 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:36:59 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:36:59 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:36:59 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:36:59 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:37:01 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:37:01 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:37:01 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:37:01 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:37:01 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:37:30 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:37:30 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:37:30 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:37:30 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:37:30 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:37:32 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:37:32 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:37:32 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:37:32 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:37:32 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:38:07 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:38:07 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:38:07 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:38:07 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:38:07 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:38:08 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:38:08 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:38:08 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:38:08 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:38:08 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:38:34 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:38:34 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:38:34 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:38:34 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:38:34 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:38:36 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:38:36 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:38:36 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:38:36 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:38:36 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:38:48 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:38:48 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:38:48 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:38:48 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:38:48 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.
+2025-12-02 09:38:49 | INFO     | server.main:<module>:50 - Starting Homebox Vision Companion API
+2025-12-02 09:38:49 | INFO     | server.main:<module>:51 - Homebox API URL: https://demo.homebox.software/api/v1
+2025-12-02 09:38:49 | INFO     | server.main:<module>:52 - OpenAI Model: gpt-5-mini
+2025-12-02 09:38:49 | WARNING  | server.main:<module>:54 - Using demo server - set HOMEBOX_VISION_API_URL for your own instance
+2025-12-02 09:38:49 | WARNING  | server.main:<module>:58 - HOMEBOX_VISION_OPENAI_API_KEY is not set. Vision detection will not work without an OpenAI API key.

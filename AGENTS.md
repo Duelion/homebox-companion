@@ -6,9 +6,9 @@ Instructions for AI/LLM agents working on this codebase.
 
 ## Environment & Tooling
 
-- Target any Homebox instance via the `HOMEBOX_VISION_API_URL` environment variable. For testing, use the **demo** API at `https://demo.homebox.software/api/v1` with demo credentials (`demo@example.com` / `demo`).
+- Target any Homebox instance via the `HBC_API_URL` environment variable. For testing, use the **demo** API at `https://demo.homebox.software/api/v1` with demo credentials (`demo@example.com` / `demo`).
 - Manage Python tooling with **uv**: create a virtual environment via `uv venv`, add dependencies with `uv add`, and run scripts with `uv run`. Keep dependencies tracked in `pyproject.toml` and `uv.lock`.
-- The OpenAI API key is provided via the `HOMEBOX_VISION_OPENAI_API_KEY` environment variable.
+- The OpenAI API key is provided via the `HBC_OPENAI_API_KEY` environment variable.
 - When testing functionality, hit the real demo API and the real OpenAI API rather than mocks or stubs.
 - Run `uv run ruff check .` before sending a commit to keep lint feedback consistent.
 - Increment the project version number in `pyproject.toml` for every pull request.
@@ -17,73 +17,16 @@ Instructions for AI/LLM agents working on this codebase.
 
 ## Environment Variables
 
-All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts with other applications:
+All environment variables use the `HBC_` prefix (short for Homebox Companion):
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `HOMEBOX_VISION_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
-| `HOMEBOX_VISION_API_URL` | Yes | Demo server | Your Homebox API URL |
-| `HOMEBOX_VISION_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision |
-| `HOMEBOX_VISION_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
-| `HOMEBOX_VISION_SERVER_PORT` | No | `8000` | Server port |
-| `HOMEBOX_VISION_LOG_LEVEL` | No | `INFO` | Logging level |
-
----
-
-## Application Flow
-
-### 1. Login & Token Management
-- User logs in to Homebox API via the mobile web app.
-- The app obtains a bearer token from the API response.
-- Store the bearer token securely on the client (sessionStorage) until it expires.
-- When expired, trigger a new login.
-- All subsequent API calls must include the bearer token in an `Authorization: Bearer <token>` header.
-
-### 2. Location Selection
-- After login, immediately fetch the list of available locations from Homebox via API.
-- Present the locations in a hierarchical dropdown menu for the user to select.
-- Store the selected location and use it for all subsequent item operations in this session.
-
-### 3. Image Upload / Capture & Item Detection
-- Prompt user to upload a photo or take one using the phone camera.
-- Send that image to the backend API endpoint.
-- Use the existing vision/LLM logic to call OpenAI (with the model and API key defined in environment variables) to detect and generate a list of items present in the image.
-
-### 4. Pre-fill Item Forms for User Review
-- For each detected item, render a form on the frontend with pre-filled values (as suggested by the LLM).
-- Allow the user to review and edit each item (e.g., name, quantity, description, location, labels).
-- Provide the ability to accept, edit, merge, correct, or skip any item.
-- Support item corrections via AI when users provide feedback (e.g., "these are actually screwdrivers").
-- Support merging multiple items into one when they represent the same thing.
-- After confirming one item, proceed to the next; repeat until all items are processed.
-
-### 5. Summary & Final Confirmation
-- Once all items have been reviewed (or skipped), present a summary view listing all items that will be submitted, along with their metadata and the chosen location.
-- Ask the user for final confirmation.
-- Upon confirmation, send a batch request to Homebox API to commit all items under the selected location.
-
----
-
-## Backend Best Practices (HTTPX)
-
-### HTTP Client Usage
-- Use HTTPX `Client` or `AsyncClient` rather than top-level API calls. This enables:
-  - Connection pooling
-  - Persistent sessions
-  - Persistent headers (e.g., auth headers)
-  - HTTP/2 support
-
-### Async Operations
-- For many asynchronous requests (parallel fetches, LLM calls, bulk API calls), prefer `AsyncClient` to avoid blocking and leverage concurrency.
-
-### Error Handling
-- Implement error handling, timeouts, and retries for HTTP requests.
-- Don't assume all calls will succeed; detect non-2xx responses or network failures and handle gracefully.
-
-### Token Security
-- Manage bearer tokens properly: use secure storage, avoid exposing tokens in unsafe contexts.
-- Handle token expiration and refresh (or re-login) when needed.
-- Bearer tokens must be treated as sensitive credentials.
+| `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
+| `HBC_API_URL` | Yes | Demo server | Your Homebox API URL |
+| `HBC_OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model for vision |
+| `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
+| `HBC_SERVER_PORT` | No | `8000` | Server port |
+| `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
 
 ---
 
@@ -91,8 +34,8 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Mobile Web Frontend                          │
-│  (HTML/CSS/JS - runs in browser)                                │
+│                     Svelte Frontend                              │
+│  (SvelteKit + Tailwind CSS - runs in browser)                   │
 ├─────────────────────────────────────────────────────────────────┤
 │  • Login form                                                    │
 │  • Hierarchical location picker                                  │
@@ -104,19 +47,19 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     FastAPI Backend                              │
-│  (Python - server/main.py)                                      │
+│  (Python - server/app.py)                                       │
 ├─────────────────────────────────────────────────────────────────┤
 │  POST /api/login              → Proxy to Homebox login          │
 │  GET  /api/locations          → Fetch locations (flat list)     │
 │  GET  /api/locations/tree     → Fetch locations (hierarchical)  │
 │  GET  /api/locations/{id}     → Fetch single location details   │
 │  GET  /api/labels             → Fetch labels (auth required)    │
-│  POST /api/detect             → Upload image, run LLM detection │
 │  POST /api/items              → Batch create items in Homebox   │
-│  POST /api/analyze-advanced   → Multi-image item analysis       │
-│  POST /api/merge-items        → Merge multiple items via AI     │
-│  POST /api/correct-item       → Correct item based on feedback  │
-│  POST /api/items/{id}/attachments → Upload item attachment      │
+│  POST /api/items/{id}/attach  → Upload item attachment          │
+│  POST /api/tools/vision/detect    → Upload image, run detection │
+│  POST /api/tools/vision/analyze   → Multi-image analysis        │
+│  POST /api/tools/vision/merge     → Merge multiple items        │
+│  POST /api/tools/vision/correct   → Correct item with feedback  │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┴───────────────┐
@@ -132,78 +75,177 @@ All environment variables use the `HOMEBOX_VISION_` prefix to avoid conflicts wi
 ## Project Structure
 
 ```
-homebox-vision/
-├── homebox_vision/          # Core library
-│   ├── __init__.py          # Public API exports
-│   ├── client.py            # Homebox API client (sync + async)
-│   ├── config.py            # Centralized configuration
-│   ├── llm.py               # OpenAI vision integration
-│   └── models.py            # Data models (DetectedItem)
-├── server/                   # FastAPI web app
-│   ├── __init__.py
-│   ├── main.py              # API routes
-│   └── static/              # Frontend files
-│       ├── index.html       # Main HTML page
-│       ├── app.js           # Frontend JavaScript
-│       └── styles.css       # Styling
-├── tests/                    # Test suite
-│   ├── assets/              # Test images
-│   │   └── test_detection.jpg
-│   ├── test_client.py       # Client unit tests
-│   ├── test_llm.py          # LLM unit tests
-│   └── test_integration.py  # Integration tests
-├── logs/                     # Application logs (auto-generated)
-├── pyproject.toml           # Project configuration
-├── uv.lock                  # Dependency lock file
-├── AGENTS.md                # This file (LLM instructions)
-└── README.md                # User documentation
+homebox-companion/
+├── src/
+│   └── homebox_companion/          # Python package
+│       ├── __init__.py             # Public API exports
+│       ├── core/                   # Core infrastructure
+│       │   ├── config.py           # Settings (HBC_* env vars)
+│       │   ├── exceptions.py       # Custom exceptions
+│       │   └── logging.py          # Loguru setup
+│       ├── homebox/                # Homebox API client
+│       │   ├── client.py           # Async client only
+│       │   └── models.py           # Location, Item, Label
+│       ├── ai/                     # AI/LLM abstraction
+│       │   ├── images.py           # Image encoding utilities
+│       │   ├── openai.py           # OpenAI client wrapper
+│       │   └── prompts.py          # Shared prompt templates
+│       └── tools/                  # Tool modules (expandable)
+│           ├── base.py             # BaseTool abstract class
+│           └── vision/             # Vision tool
+│               ├── detector.py     # detect_items_from_bytes
+│               ├── analyzer.py     # analyze_item_details
+│               ├── merger.py       # merge_items_with_openai
+│               ├── corrector.py    # correct_item_with_openai
+│               ├── models.py       # DetectedItem
+│               └── prompts.py      # Vision-specific prompts
+│
+├── server/                         # FastAPI web app
+│   ├── app.py                      # App factory + lifespan
+│   ├── dependencies.py             # DI: get_client, get_token
+│   ├── api/                        # API routers
+│   │   ├── __init__.py             # Router aggregation
+│   │   ├── auth.py                 # /api/login
+│   │   ├── locations.py            # /api/locations/*
+│   │   ├── labels.py               # /api/labels
+│   │   ├── items.py                # /api/items/*
+│   │   └── tools/
+│   │       └── vision.py           # /api/tools/vision/*
+│   └── schemas/                    # Pydantic models
+│       ├── auth.py
+│       ├── items.py
+│       └── vision.py
+│
+├── frontend/                       # Svelte frontend
+│   ├── package.json
+│   ├── svelte.config.js
+│   ├── tailwind.config.js
+│   ├── vite.config.ts
+│   └── src/
+│       ├── app.html                # HTML shell
+│       ├── app.css                 # Tailwind imports
+│       ├── lib/
+│       │   ├── api.ts              # API client
+│       │   ├── stores/             # Svelte stores
+│       │   │   ├── auth.ts
+│       │   │   ├── locations.ts
+│       │   │   ├── items.ts
+│       │   │   └── ui.ts
+│       │   └── components/         # Reusable components
+│       └── routes/                 # SvelteKit pages
+│           ├── +layout.svelte
+│           ├── +page.svelte        # Login
+│           ├── location/
+│           ├── capture/
+│           ├── review/
+│           ├── summary/
+│           └── success/
+│
+├── tests/                          # Test suite
+├── pyproject.toml                  # Python project config
+├── uv.lock                         # Dependency lock
+├── AGENTS.md                       # This file
+└── README.md                       # User documentation
 ```
 
 ---
 
 ## Running the Application
 
+### Backend (Python)
+
 ```bash
 # Install dependencies
 uv sync
 
 # Set required environment variables
-export HOMEBOX_VISION_OPENAI_API_KEY="sk-your-key"
-export HOMEBOX_VISION_API_URL="https://your-homebox.example.com/api/v1"
+export HBC_OPENAI_API_KEY="sk-your-key"
+export HBC_API_URL="https://your-homebox.example.com/api/v1"
 
-# Start the server (default port 8000)
-uv run python -m server.main
+# Start the server
+uv run python -m server.app
 
-# Or with the CLI command
-homebox-vision
-
-# Or with uvicorn directly (with hot reload for development)
-uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
+# Or with uvicorn directly (with hot reload)
+uv run uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Then open `http://localhost:8000` in a mobile browser or desktop browser with mobile emulation.
+### Frontend (Svelte)
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start dev server (proxies API to localhost:8000)
+npm run dev
+
+# Build for production
+npm run build
+```
+
+For production, build the frontend and serve static files from the backend:
+```bash
+cd frontend && npm run build
+# Copy build output to server/static/ (or configure backend to serve from frontend/build)
+```
+
+---
+
+## Adding New Tools
+
+To add a new AI-powered tool (e.g., location description generator):
+
+1. **Create tool module**: `src/homebox_companion/tools/location_describer/`
+   - `__init__.py` - exports
+   - `describer.py` - main logic
+   - `prompts.py` - tool-specific prompts
+
+2. **Add API router**: `server/api/tools/location_describer.py`
+   - Define endpoints
+   - Register in `server/api/tools/__init__.py`
+
+3. **Add frontend page/component** (if needed)
+
+4. **Inherit from `BaseTool`** for consistent interface:
+   ```python
+   from homebox_companion.tools.base import BaseTool
+
+   class LocationDescriber(BaseTool):
+       @property
+       def name(self) -> str:
+           return "location_describer"
+
+       @property
+       def description(self) -> str:
+           return "Generate descriptions for locations"
+
+       async def execute(self, *args, **kwargs):
+           # Implementation
+           pass
+   ```
 
 ---
 
 ## Key Library Exports
 
-The `homebox_vision` package exports these primary utilities:
-
 ```python
-from homebox_vision import (
+from homebox_companion import (
     # Configuration
     settings,
     
-    # Clients (sync and async)
+    # Client (async only)
     HomeboxClient,
-    AsyncHomeboxClient,
+    
+    # Exceptions
+    AuthenticationError,
     
     # Data models
     DetectedItem,
     
-    # Detection functions
-    detect_items,              # Sync - for scripts
-    detect_items_from_bytes,   # Async - for servers
+    # Detection functions (all async)
+    detect_items_from_bytes,
+    discriminatory_detect_items,
     
     # Advanced AI functions (async)
     analyze_item_details_from_images,
@@ -220,22 +262,12 @@ from homebox_vision import (
 
 ## Version Management
 
-Keep versions synchronized across:
-- `pyproject.toml` - The source of truth
-- `server/main.py` - FastAPI app version (for API docs)
-- `server/static/app.js` - Version in file header comment and console.log
-- `homebox_vision/__init__.py` - Package `__version__`
-- `server/static/index.html` - Cache-busting query parameters on CSS and JS imports
+Version is defined in a single place: `pyproject.toml`
 
-Increment all five locations when releasing a new version.
-
-### Cache-Busting for Mobile Browsers
-
-Mobile browsers (especially iOS Safari) aggressively cache static files. To ensure users get the latest version, update the query parameters in `index.html`:
-
-```html
-<link rel="stylesheet" href="/static/styles.css?v=X.Y.Z">
-<script src="/static/app.js?v=X.Y.Z"></script>
+The package reads it at runtime using `importlib.metadata`:
+```python
+from importlib.metadata import version
+__version__ = version("homebox-companion")
 ```
 
-Replace `X.Y.Z` with the new version number. This forces browsers to re-download the files.
+Increment version in `pyproject.toml` only.

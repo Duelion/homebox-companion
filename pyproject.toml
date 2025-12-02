@@ -3,8 +3,8 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "homebox-vision"
-version = "0.15.3"
+name = "homebox-companion"
+version = "1.0.0"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "MIT"}
@@ -31,15 +31,19 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/yourusername/homebox-vision"
-Documentation = "https://github.com/yourusername/homebox-vision#readme"
+Repository = "https://github.com/yourusername/homebox-companion"
+Documentation = "https://github.com/yourusername/homebox-companion#readme"
 
 [project.scripts]
-homebox-vision = "server.main:run"
+homebox-companion = "server.app:run"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["homebox_vision*", "server*"]
+where = ["src", "."]
+include = ["homebox_companion*", "server*"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+"server" = "server"
 
 [dependency-groups]
 dev = [
