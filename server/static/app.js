@@ -1,11 +1,11 @@
 /**
  * Homebox Scanner - Mobile Web App
  * Main application logic
- * Version: 0.15.2 (2025-12-01)
+ * Version: 0.15.3 (2025-12-02)
  */
 
 // Debug: Log when script loads to verify cache is cleared
-console.log('=== Homebox Scanner v0.15.2 loaded ===');
+console.log('=== Homebox Scanner v0.15.3 loaded ===');
 
 // ========================================
 // State Management
@@ -856,6 +856,10 @@ function renderMultiImageGrid() {
         const additionalImages = img.additionalImages || [];
         const additionalImagesHtml = renderCaptureAdditionalImages(additionalImages, index);
         
+        // Check if card has any expanded content (additional images, separate checked, or instructions)
+        const hasExpandedContent = additionalImages.length > 0 || img.separateItems || img.extraInstructions;
+        const isExpanded = img.isExpanded || false;
+        
         item.innerHTML = `
             <div class="image-row-header">
                 <div class="image-row-thumb">
@@ -866,47 +870,59 @@ function renderMultiImageGrid() {
                     <span class="image-row-name">${escapeHtml(img.file.name)}</span>
                     <span class="image-row-size">${formatFileSize(img.file.size)}${additionalImages.length > 0 ? ` • +${additionalImages.length} more` : ''}</span>
                 </div>
-                <button type="button" class="btn-icon image-row-remove" onclick="handleRemoveMultiImage(${index})" title="Remove photo">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            
-            <!-- Additional Images for this item -->
-            <div class="image-row-additional">
-                <div class="additional-images-capture-grid" id="captureAdditionalGrid${index}">
-                    ${additionalImagesHtml}
-                    <button type="button" class="add-capture-image-btn" onclick="handleAddCaptureImage(${index})" title="Add more photos for this item">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                <div class="image-row-actions">
+                    <button type="button" class="btn-icon image-row-toggle ${isExpanded ? 'expanded' : ''}" onclick="handleToggleImageOptions(${index})" title="${isExpanded ? 'Hide options' : 'Show options'}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-icon image-row-remove" onclick="handleRemoveMultiImage(${index})" title="Remove photo">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
                 </div>
-                <input type="file" id="captureAdditionalInput${index}" accept="image/*" multiple style="display: none;" onchange="handleCaptureAdditionalImageSelect(event, ${index})">
             </div>
             
-            <div class="image-row-options">
-                <label class="image-option-checkbox">
-                    <input type="checkbox" 
-                        ${img.separateItems ? 'checked' : ''} 
-                        onchange="handleImageOptionChange(${index}, 'separateItems', this.checked)">
-                    <span class="checkbox-visual">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </span>
-                    <span class="checkbox-label">Separate into multiple items</span>
-                </label>
-                <div class="image-option-hint">
-                    <input type="text" 
-                        class="hint-input"
-                        placeholder="Optional: describe what's in this photo..."
-                        value="${escapeHtml(img.extraInstructions || '')}"
-                        onchange="handleImageOptionChange(${index}, 'extraInstructions', this.value)"
-                        oninput="handleImageOptionChange(${index}, 'extraInstructions', this.value)">
+            <!-- Collapsible Options Section -->
+            <div class="image-row-collapsible ${isExpanded ? 'expanded' : ''}">
+                <div class="image-row-collapsible-inner">
+                    <!-- Additional Images for this item -->
+                    <div class="image-row-additional">
+                        <div class="additional-images-capture-grid" id="captureAdditionalGrid${index}">
+                            ${additionalImagesHtml}
+                            <button type="button" class="add-capture-image-btn" onclick="handleAddCaptureImage(${index})" title="Add more photos for this item">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <input type="file" id="captureAdditionalInput${index}" accept="image/*" multiple style="display: none;" onchange="handleCaptureAdditionalImageSelect(event, ${index})">
+                    </div>
+                    
+                    <div class="image-row-options">
+                        <label class="image-option-checkbox">
+                            <input type="checkbox" 
+                                ${img.separateItems ? 'checked' : ''} 
+                                onchange="handleImageOptionChange(${index}, 'separateItems', this.checked)">
+                            <span class="checkbox-visual">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                            <span class="checkbox-label">Separate into multiple items</span>
+                        </label>
+                        <div class="image-option-hint">
+                            <input type="text" 
+                                class="hint-input"
+                                placeholder="Optional: describe what's in this photo..."
+                                value="${escapeHtml(img.extraInstructions || '')}"
+                                onchange="handleImageOptionChange(${index}, 'extraInstructions', this.value)"
+                                oninput="handleImageOptionChange(${index}, 'extraInstructions', this.value)">
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -1024,6 +1040,26 @@ function formatFileSize(bytes) {
 function handleRemoveMultiImage(index) {
     state.capturedImages.splice(index, 1);
     updateMultiImageUI();
+}
+
+function handleToggleImageOptions(index) {
+    const img = state.capturedImages[index];
+    if (img) {
+        img.isExpanded = !img.isExpanded;
+        // Update UI without full re-render for smoother animation
+        const card = document.querySelector(`.image-row-card[data-index="${index}"]`);
+        if (card) {
+            const collapsible = card.querySelector('.image-row-collapsible');
+            const toggleBtn = card.querySelector('.image-row-toggle');
+            if (collapsible) {
+                collapsible.classList.toggle('expanded', img.isExpanded);
+            }
+            if (toggleBtn) {
+                toggleBtn.classList.toggle('expanded', img.isExpanded);
+                toggleBtn.title = img.isExpanded ? 'Hide options' : 'Show options';
+            }
+        }
+    }
 }
 
 function handleClearAllImages() {
