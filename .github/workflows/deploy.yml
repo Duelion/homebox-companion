@@ -32,8 +32,5 @@ jobs:
           cp -r build/* ../server/static/
           cd ..
           
-          # Fix ownership (runner may create files as different user)
-          sudo chown -R homebox:homebox /home/homebox/homebox-app
-          
           # Restart the app
           sudo systemctl restart homebox-vision.service
