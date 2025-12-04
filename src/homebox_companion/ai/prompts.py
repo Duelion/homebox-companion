@@ -3,12 +3,31 @@
 from __future__ import annotations
 
 # Shared naming rules for consistent LLM output across all functions
-NAMING_RULES = """NAMING RULES (IMPORTANT - follow strictly):
-- Use Title Case for all item names (e.g., "Claw Hammer", "Phillips Screwdriver")
-- Do NOT include quantity in the name (wrong: "3 Screws", correct: "Screw")
-- Do NOT include quantity in the description (wrong: "Pack of 10", correct: "Zinc-plated")
-- Be specific: include brand, model, size, or distinguishing features when visible
-- Keep names concise but descriptive (max 255 characters)"""
+NAMING_RULES = """NAMING GUIDELINES (follow for consistency):
+
+STRUCTURE (preferred order):
+[Item Type] [Brand/Series] [Model] [Variant/Specs]
+
+Examples:
+- "Ball Bearing 6900-2RS 10x22x6mm" (type + model + specs)
+- "Acrylic Paint Vallejo Game Color Bone White 72.034" (type + brand + series + color + code)
+- "E-Paper Module WeAct 2.9 Inch Black/White" (type + brand + size + variant)
+- "Safety Pin Silver 55mm" (type + material/color + size)
+- "LED Strip COB Green 5V 1M" (type + subtype + color + specs)
+
+RULES:
+- Use Title Case (e.g., "Claw Hammer", not "claw hammer")
+- Do NOT include quantity in name or description
+- Include brand ONLY when recognizable/valuable (Vallejo, DeWalt, Raspberry Pi)
+- Omit generic manufacturer names (e.g., "Shenzhen XYZ Technology Co.")
+- Use metric units, format dimensions as NxNxNmm (e.g., "10x22x6mm", not "10 x 22 x 6 mm")
+- Place color/variant at end when distinguishing similar items
+- Keep names concise (max 255 chars) - prioritize searchability
+- Omit container words (Bottle, Bag, Box) unless part of product identity
+
+ITEM TYPE FIRST - The most important word for search/sort should come first:
+- Good: "Ball Bearing 6900-2RS" (searchable by "Ball Bearing")
+- Avoid: "6900-2RS Ball Bearing" (harder to find in alphabetical lists)"""
 
 ITEM_SCHEMA = """Each item must include:
 - name: string (Title Case, no quantity, max 255 characters)
@@ -25,8 +44,9 @@ OPTIONAL EXTENDED FIELDS - Only include when clearly visible/determinable from t
 - serialNumber: string or null (ONLY if serial number is visible on sticker/label/engraving)
 - purchasePrice: number or null (ONLY if price tag or receipt is visible in image)
 - purchaseFrom: string or null (ONLY if store name/retailer is visible on packaging/receipt)
-- notes: string or null (ONLY for significant observations: condition issues, damage,
-  special features, or notable details not fitting in description)
+- notes: string or null (ONLY for defects, damage, or warnings - leave null for normal items)
+  GOOD notes: "Cracked lens", "Missing 2 screws", "Battery corroded", "Requires 12V adapter"
+  BAD notes: "Sealed in packaging", "Made in China", "Appears new", "Barcode visible"
 
 CRITERIA FOR EXTENDED FIELDS (IMPORTANT):
 - DO NOT guess or infer fields you cannot see clearly
@@ -35,7 +55,7 @@ CRITERIA FOR EXTENDED FIELDS (IMPORTANT):
 - serialNumber: Include ONLY when S/N text is VISIBLE (usually on sticker/label)
 - purchasePrice: Include ONLY if price tag/receipt is IN THE IMAGE
 - purchaseFrom: Include ONLY if retailer name is visible (e.g., "Home Depot" on packaging)
-- notes: Include ONLY for genuinely useful observations (damage, wear, modifications, etc.)
+- notes: Include ONLY for defects/damage/warnings - most items should have null notes
 
 If a field cannot be determined from what's visible, omit it or set to null."""
 
