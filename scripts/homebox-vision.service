@@ -25,3 +25,6 @@ ReadWritePaths=/home/homebox/homebox-app/logs
 [Install]
 WantedBy=multi-user.target
 
+
+
+

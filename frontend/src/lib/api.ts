@@ -161,6 +161,48 @@ export const vision = {
 		return response.json();
 	},
 
+	/**
+	 * Detect items from multiple images in parallel on the server.
+	 * This is more efficient than calling detect() multiple times.
+	 */
+	detectBatch: async (
+		images: File[],
+		options: {
+			configs?: Array<{ single_item?: boolean; extra_instructions?: string }>;
+			extractExtendedFields?: boolean;
+		} = {}
+	): Promise<BatchDetectionResponse> => {
+		const formData = new FormData();
+		
+		for (const img of images) {
+			formData.append('images', img);
+		}
+		
+		if (options.configs) {
+			formData.append('configs', JSON.stringify(options.configs));
+		}
+		if (options.extractExtendedFields !== undefined) {
+			formData.append('extract_extended_fields', String(options.extractExtendedFields));
+		}
+
+		const authToken = get(token);
+		const response = await fetch(`${BASE_URL}/tools/vision/detect-batch`, {
+			method: 'POST',
+			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+			body: formData,
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({}));
+			throw new ApiError(
+				response.status,
+				error.detail || 'Batch detection failed'
+			);
+		}
+
+		return response.json();
+	},
+
 	analyze: async (
 		images: File[],
 		itemName: string,
@@ -319,6 +361,21 @@ export interface AdvancedItemDetails {
 
 export interface CorrectionResponse {
 	items: DetectedItem[];
+	message: string;
+}
+
+export interface BatchDetectionResult {
+	image_index: number;
+	success: boolean;
+	items: DetectedItem[];
+	error?: string | null;
+}
+
+export interface BatchDetectionResponse {
+	results: BatchDetectionResult[];
+	total_items: number;
+	successful_images: number;
+	failed_images: number;
 	message: string;
 }
 

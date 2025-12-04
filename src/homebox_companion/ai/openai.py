@@ -10,6 +10,27 @@ from openai import AsyncOpenAI
 
 from ..core.config import settings
 
+# Cache for OpenAI client instances to enable connection reuse
+_client_cache: dict[str, AsyncOpenAI] = {}
+
+
+def _get_openai_client(api_key: str) -> AsyncOpenAI:
+    """Get or create a cached OpenAI client for the given API key.
+
+    This enables connection pooling and reuse across multiple requests,
+    improving performance for parallel API calls.
+
+    Args:
+        api_key: The OpenAI API key.
+
+    Returns:
+        A cached or newly created AsyncOpenAI client.
+    """
+    if api_key not in _client_cache:
+        logger.debug("Creating new OpenAI client instance")
+        _client_cache[api_key] = AsyncOpenAI(api_key=api_key)
+    return _client_cache[api_key]
+
 
 async def chat_completion(
     messages: list[dict[str, Any]],
@@ -34,7 +55,7 @@ async def chat_completion(
 
     logger.debug(f"Calling OpenAI API with model: {model}")
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = _get_openai_client(api_key)
 
     kwargs: dict[str, Any] = {
         "model": model,
@@ -91,4 +112,7 @@ async def vision_completion(
         model=model,
         response_format={"type": "json_object"},
     )
+
+
+
 

@@ -34,3 +34,6 @@ class DetectionError(HomeboxCompanionError):
 
     pass
 
+
+
+

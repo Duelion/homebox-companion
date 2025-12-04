@@ -4,6 +4,7 @@
 	import { vision, type DetectedItem } from '$lib/api';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { selectedLocation, selectedLocationPath } from '$lib/stores/locations';
+	import { fetchLabels } from '$lib/stores/labels';
 	import {
 		capturedImages,
 		detectedItems,
@@ -40,6 +41,12 @@
 			goto('/location');
 			return;
 		}
+		
+		// Pre-fetch labels in the background so they're cached for the API
+		// This saves time during analysis as the server won't need to fetch them
+		fetchLabels().catch(() => {
+			// Silently ignore - labels will be fetched by server if needed
+		});
 	});
 
 	function toggleImageExpanded(index: number) {
@@ -181,35 +188,83 @@
 		}
 
 		isAnalyzing = true;
-		analysisProgress = { current: 0, total: $capturedImages.length, status: 'Starting analysis...' };
-
-		const allDetectedItems: ReviewItem[] = [];
+		let completedCount = 0;
+		const totalImages = $capturedImages.length;
+		
+		analysisProgress = { 
+			current: 0, 
+			total: totalImages, 
+			status: `Analyzing ${totalImages} image${totalImages > 1 ? 's' : ''} in parallel...` 
+		};
 
 		try {
-			for (let i = 0; i < $capturedImages.length; i++) {
-				const image = $capturedImages[i];
-				analysisProgress = {
-					current: i,
-					total: $capturedImages.length,
-					status: `Analyzing item ${i + 1} of ${$capturedImages.length}...`,
-				};
-
-				const response = await vision.detect(image.file, {
+			// Create all detection promises at once for parallel processing
+			const detectionPromises = $capturedImages.map((image, index) =>
+				vision.detect(image.file, {
 					singleItem: !image.separateItems, // Note: separateItems=true means multiple items
 					extraInstructions: image.extraInstructions || undefined,
 					extractExtendedFields: true,
 					additionalImages: image.additionalFiles,
-				});
+				}).then(response => {
+					// Update progress as each completes
+					completedCount++;
+					analysisProgress = {
+						current: completedCount,
+						total: totalImages,
+						status: `Completed ${completedCount} of ${totalImages}...`,
+					};
+					return {
+						response,
+						imageIndex: index,
+						image,
+						success: true as const,
+					};
+				}).catch(error => {
+					completedCount++;
+					analysisProgress = {
+						current: completedCount,
+						total: totalImages,
+						status: `Completed ${completedCount} of ${totalImages}...`,
+					};
+					console.error(`Failed to analyze image ${index + 1}:`, error);
+					return {
+						error,
+						imageIndex: index,
+						image,
+						success: false as const,
+					};
+				})
+			);
 
-				// Add source image info to each detected item
-				for (const item of response.items) {
-					allDetectedItems.push({
-						...item,
-						sourceImageIndex: i,
-						originalFile: image.file,
-						additionalImages: image.additionalFiles || [],
-					});
+			// Wait for ALL to complete in parallel
+			const results = await Promise.all(detectionPromises);
+
+			// Process results and collect detected items
+			const allDetectedItems: ReviewItem[] = [];
+			const failedImages: number[] = [];
+
+			for (const result of results) {
+				if (result.success) {
+					for (const item of result.response.items) {
+						allDetectedItems.push({
+							...item,
+							sourceImageIndex: result.imageIndex,
+							originalFile: result.image.file,
+							additionalImages: result.image.additionalFiles || [],
+						});
+					}
+				} else {
+					failedImages.push(result.imageIndex + 1);
 				}
+			}
+
+			// Handle results
+			if (failedImages.length > 0 && failedImages.length < totalImages) {
+				showToast(`Some images failed to analyze: ${failedImages.join(', ')}`, 'warning');
+			} else if (failedImages.length === totalImages) {
+				showToast('All images failed to analyze. Please try again.', 'error');
+				isAnalyzing = false;
+				return;
 			}
 
 			if (allDetectedItems.length === 0) {

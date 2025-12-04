@@ -76,3 +76,29 @@ class CorrectionResponse(BaseModel):
     items: list[CorrectedItemResponse]
     message: str = "Correction complete"
 
+
+class BatchImageConfig(BaseModel):
+    """Configuration for a single image in batch detection."""
+
+    single_item: bool = False
+    extra_instructions: str | None = None
+
+
+class BatchDetectionResult(BaseModel):
+    """Detection result for a single image in batch."""
+
+    image_index: int
+    success: bool
+    items: list[DetectedItemResponse] = []
+    error: str | None = None
+
+
+class BatchDetectionResponse(BaseModel):
+    """Response from batch image detection."""
+
+    results: list[BatchDetectionResult]
+    total_items: int
+    successful_images: int
+    failed_images: int
+    message: str = "Batch detection complete"
+
