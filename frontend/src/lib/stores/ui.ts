@@ -12,11 +12,26 @@ export interface Toast {
 	id: number;
 	message: string;
 	type: 'info' | 'success' | 'warning' | 'error';
+	exiting?: boolean;
 }
+
+const MAX_VISIBLE_TOASTS = 2;
 
 export const toasts = writable<Toast[]>([]);
 
 let toastId = 0;
+
+function removeToast(id: number) {
+	// First mark as exiting for animation
+	toasts.update((t) => t.map((toast) => 
+		toast.id === id ? { ...toast, exiting: true } : toast
+	));
+	
+	// Then remove after animation completes
+	setTimeout(() => {
+		toasts.update((t) => t.filter((toast) => toast.id !== id));
+	}, 300);
+}
 
 export function showToast(
 	message: string,
@@ -24,19 +39,30 @@ export function showToast(
 	duration: number = 4000
 ) {
 	const id = ++toastId;
-	toasts.update((t) => [...t, { id, message, type }]);
+	
+	toasts.update((t) => {
+		const newToasts = [...t, { id, message, type }];
+		
+		// If we exceed max, mark oldest non-exiting toast for removal
+		const visibleToasts = newToasts.filter((toast) => !toast.exiting);
+		if (visibleToasts.length > MAX_VISIBLE_TOASTS) {
+			const oldestId = visibleToasts[0].id;
+			// Schedule removal of oldest toast
+			setTimeout(() => removeToast(oldestId), 50);
+		}
+		
+		return newToasts;
+	});
 
 	if (duration > 0) {
-		setTimeout(() => {
-			toasts.update((t) => t.filter((toast) => toast.id !== id));
-		}, duration);
+		setTimeout(() => removeToast(id), duration);
 	}
 
 	return id;
 }
 
 export function dismissToast(id: number) {
-	toasts.update((t) => t.filter((toast) => toast.id !== id));
+	removeToast(id);
 }
 
 // Online/offline status
