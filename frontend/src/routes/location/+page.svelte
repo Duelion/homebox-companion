@@ -17,10 +17,16 @@
 	import Button from '$lib/components/Button.svelte';
 	import Loader from '$lib/components/Loader.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
+	import LocationModal from '$lib/components/LocationModal.svelte';
 
 	let isLoadingLocations = $state(true);
 	let searchQuery = $state('');
 	let allLocationsFlat = $state<{ location: LocationData; path: string }[]>([]);
+
+	// Modal state
+	let showLocationModal = $state(false);
+	let locationModalMode = $state<'create' | 'edit'>('create');
+	let createParentLocation = $state<{ id: string; name: string } | null>(null);
 
 	// Derived: filtered locations based on search
 	let filteredLocations = $derived(
@@ -74,6 +80,18 @@
 			}
 		}
 		return result;
+	}
+
+	// Find a location by ID in the tree
+	function findLocationById(locations: LocationData[], id: string): LocationData | null {
+		for (const loc of locations) {
+			if (loc.id === id) return loc;
+			if (loc.children && loc.children.length > 0) {
+				const found = findLocationById(loc.children, id);
+				if (found) return found;
+			}
+		}
+		return null;
 	}
 
 	async function loadLabels() {
@@ -142,6 +160,102 @@
 		}
 		goto('/capture');
 	}
+
+	// Get the current parent for new locations (based on navigation path)
+	function getCurrentParent(): { id: string; name: string } | null {
+		if ($locationPath.length === 0) return null;
+		const last = $locationPath[$locationPath.length - 1];
+		return { id: last.id, name: last.name };
+	}
+
+	function openCreateModal(parent: { id: string; name: string } | null = null) {
+		locationModalMode = 'create';
+		createParentLocation = parent;
+		showLocationModal = true;
+	}
+
+	function openCreateSubLocationModal() {
+		if ($selectedLocation) {
+			openCreateModal({ id: $selectedLocation.id, name: $selectedLocation.name });
+		}
+	}
+
+	function openEditModal() {
+		locationModalMode = 'edit';
+		showLocationModal = true;
+	}
+
+	async function handleSaveLocation(data: { name: string; description: string; parentId: string | null }) {
+		if (locationModalMode === 'create') {
+			// Create new location
+			const newLocation = await locationsApi.create({
+				name: data.name,
+				description: data.description,
+				parent_id: data.parentId,
+			});
+
+			showToast(`Created "${newLocation.name}"`, 'success');
+
+			// Remember the current navigation path before refreshing
+			const savedPath = [...$locationPath];
+			
+			// Refresh the location tree to show the new location
+			await loadLocations();
+
+			// If we created from a selected location (Add sub-location button)
+			if ($selectedLocation) {
+				// Clear selection and navigate to show the parent's children
+				selectedLocation.set(null);
+				
+				// Set the path to the selected location so we can see the new sub-location
+				const parentId = data.parentId;
+				if (parentId) {
+					// Navigate into the parent to show the new location
+					const parentLoc = findLocationById($locationTree, parentId);
+					if (parentLoc) {
+						locationPath.set([{ id: parentLoc.id, name: parentLoc.name }]);
+						currentLevelLocations.set(parentLoc.children || []);
+					}
+				} else {
+					locationPath.set([]);
+					currentLevelLocations.set($locationTree);
+				}
+			} else if (savedPath.length > 0) {
+				// We were in browse mode inside a folder - restore that navigation
+				locationPath.set(savedPath);
+				
+				// Navigate to that path in the refreshed tree
+				let current: LocationData[] = $locationTree;
+				for (const pathItem of savedPath) {
+					const loc = current.find((l) => l.id === pathItem.id);
+					if (loc?.children) {
+						current = loc.children;
+					}
+				}
+				currentLevelLocations.set(current);
+			}
+		} else if (locationModalMode === 'edit' && $selectedLocation) {
+			// Update existing location
+			const updatedLocation = await locationsApi.update($selectedLocation.id, {
+				name: data.name,
+				description: data.description,
+			});
+
+			showToast(`Updated "${updatedLocation.name}"`, 'success');
+
+			// Refresh the location tree
+			await loadLocations();
+
+			// Update the selected location with new data
+			const locationData: LocationData = {
+				id: updatedLocation.id,
+				name: updatedLocation.name,
+				description: updatedLocation.description,
+				children: $selectedLocation.children || [],
+			};
+			selectedLocation.set(locationData);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -175,23 +289,54 @@
 						{#if $selectedLocationPath !== $selectedLocation.name}
 							<p class="text-sm text-text-dim">{$selectedLocationPath}</p>
 						{/if}
+						{#if $selectedLocation.description}
+							<p class="text-sm text-text-muted mt-1">{$selectedLocation.description}</p>
+						{/if}
 					</div>
+					<!-- Edit button -->
+					<button
+						type="button"
+						class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+						onclick={openEditModal}
+						title="Edit location"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+						</svg>
+					</button>
 				</div>
 			</div>
 
-			<button
-				type="button"
-				class="w-full p-3 text-center text-text-muted hover:text-text hover:bg-surface-elevated rounded-xl border border-dashed border-border transition-colors"
-				onclick={changeSelection}
-			>
-				<span class="flex items-center justify-center gap-2">
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-					</svg>
-					Change location
-				</span>
-			</button>
+			<div class="flex gap-2">
+				<button
+					type="button"
+					class="flex-1 p-3 text-center text-text-muted hover:text-text hover:bg-surface-elevated rounded-xl border border-dashed border-border transition-colors"
+					onclick={changeSelection}
+				>
+					<span class="flex items-center justify-center gap-2">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+							<circle cx="12" cy="10" r="3" />
+						</svg>
+						Change
+					</span>
+				</button>
+
+				<button
+					type="button"
+					class="flex-1 p-3 text-center text-primary hover:bg-primary/10 rounded-xl border border-dashed border-primary/40 transition-colors"
+					onclick={openCreateSubLocationModal}
+				>
+					<span class="flex items-center justify-center gap-2">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<line x1="12" y1="5" x2="12" y2="19" />
+							<line x1="5" y1="12" x2="19" y2="12" />
+						</svg>
+						Add sub-location
+					</span>
+				</button>
+			</div>
 
 			<Button variant="primary" full onclick={continueToCapture}>
 				<span>Continue to Capture</span>
@@ -371,7 +516,40 @@
 						</button>
 					{/each}
 				{/if}
+
+				<!-- Create new location button -->
+				<button
+					type="button"
+					class="w-full flex items-center gap-3 p-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all text-left group"
+					onclick={() => openCreateModal(getCurrentParent())}
+				>
+					<div class="p-2 bg-primary/20 rounded-lg">
+						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<line x1="12" y1="5" x2="12" y2="19" />
+							<line x1="5" y1="12" x2="19" y2="12" />
+						</svg>
+					</div>
+					<div class="flex-1">
+						<p class="font-medium text-primary">Create new location</p>
+						<p class="text-sm text-text-dim">
+							{#if $locationPath.length > 0}
+								Add inside {$locationPath[$locationPath.length - 1].name}
+							{:else}
+								Add at root level
+							{/if}
+						</p>
+					</div>
+				</button>
 			</div>
 		{/if}
 	{/if}
 </div>
+
+<!-- Location Modal for create/edit -->
+<LocationModal
+	bind:open={showLocationModal}
+	mode={locationModalMode}
+	location={locationModalMode === 'edit' ? $selectedLocation : null}
+	parentLocation={locationModalMode === 'create' ? createParentLocation : null}
+	onsave={handleSaveLocation}
+/>

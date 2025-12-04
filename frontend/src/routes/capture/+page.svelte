@@ -21,7 +21,7 @@
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import CaptureButtons from '$lib/components/CaptureButtons.svelte';
 
-	const MAX_IMAGES = 10;
+	const MAX_IMAGES = 30;
 	const MAX_FILE_SIZE_MB = 10;
 
 	let fileInput: HTMLInputElement;

@@ -147,6 +147,83 @@ class HomeboxClient:
         self._ensure_success(response, "Fetch location")
         return response.json()
 
+    async def create_location(
+        self,
+        token: str,
+        name: str,
+        description: str = "",
+        parent_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a new location.
+
+        Args:
+            token: The bearer token from login.
+            name: The name of the new location.
+            description: Optional description for the location.
+            parent_id: Optional parent location ID for nesting.
+
+        Returns:
+            The created location dictionary.
+        """
+        payload: dict[str, Any] = {
+            "name": name,
+            "description": description,
+        }
+        if parent_id:
+            payload["parentId"] = parent_id
+
+        response = await self.client.post(
+            f"{self.base_url}/locations",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        self._ensure_success(response, "Create location")
+        return response.json()
+
+    async def update_location(
+        self,
+        token: str,
+        location_id: str,
+        name: str,
+        description: str = "",
+        parent_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing location.
+
+        Args:
+            token: The bearer token from login.
+            location_id: The ID of the location to update.
+            name: The new name for the location.
+            description: The new description for the location.
+            parent_id: The new parent location ID (or None for top-level).
+
+        Returns:
+            The updated location dictionary.
+        """
+        payload: dict[str, Any] = {
+            "id": location_id,
+            "name": name,
+            "description": description,
+        }
+        if parent_id:
+            payload["parentId"] = parent_id
+
+        response = await self.client.put(
+            f"{self.base_url}/locations/{location_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        self._ensure_success(response, "Update location")
+        return response.json()
+
     async def list_labels(self, token: str) -> list[dict[str, Any]]:
         """Return all available labels for the authenticated user.
 
