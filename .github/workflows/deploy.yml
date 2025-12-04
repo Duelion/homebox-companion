@@ -14,23 +14,51 @@ jobs:
           set -e
           cd /home/homebox/homebox-app
           
-          # Pull latest main
+          echo "=== Pulling latest code ==="
           git fetch origin
           git reset --hard origin/main
+          echo "Current commit: $(git rev-parse --short HEAD)"
+          echo "Commit message: $(git log -1 --pretty=%B)"
           
-          # Update Python dependencies
+          echo "=== Updating Python dependencies ==="
           uv sync
           
-          # Build frontend
+          echo "=== Building frontend ==="
           cd frontend
           npm ci
           npm run build
           
-          # Copy built frontend to server/static
+          # Verify build output exists
+          if [ ! -d "build" ]; then
+            echo "ERROR: Frontend build directory not found!"
+            exit 1
+          fi
+          echo "Frontend build size: $(du -sh build | cut -f1)"
+          
+          echo "=== Copying frontend to server/static ==="
           mkdir -p ../server/static
           rm -rf ../server/static/*
           cp -r build/* ../server/static/
           cd ..
           
-          # Restart the app
+          # Verify static files exist
+          if [ ! -f "server/static/index.html" ]; then
+            echo "ERROR: server/static/index.html not found after copy!"
+            exit 1
+          fi
+          echo "Static files deployed: $(ls -la server/static/ | head -10)"
+          
+          echo "=== Restarting service ==="
           sudo systemctl restart homebox-vision.service
+          sleep 2
+          
+          # Verify service is running
+          if sudo systemctl is-active --quiet homebox-vision.service; then
+            echo "Service restarted successfully!"
+          else
+            echo "ERROR: Service failed to start!"
+            sudo systemctl status homebox-vision.service
+            exit 1
+          fi
+          
+          echo "=== Deployment complete ==="
