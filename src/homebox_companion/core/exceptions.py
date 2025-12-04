@@ -37,3 +37,4 @@ class DetectionError(HomeboxCompanionError):
 
 
 
+
