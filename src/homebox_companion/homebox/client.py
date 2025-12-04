@@ -280,3 +280,6 @@ class HomeboxClient:
             raise AuthenticationError(f"{context} failed: {detail}")
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
 
+
+
+

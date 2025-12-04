@@ -22,3 +22,6 @@ async def login(request: LoginRequest) -> LoginResponse:
         logger.warning(f"Login failed for user {request.username}: {e}")
         raise HTTPException(status_code=401, detail=str(e)) from e
 
+
+
+

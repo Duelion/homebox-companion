@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Annotated
 
@@ -20,6 +21,8 @@ from homebox_companion import (
 from ...dependencies import get_labels_for_context, get_token
 from ...schemas.vision import (
     AdvancedItemDetails,
+    BatchDetectionResponse,
+    BatchDetectionResult,
     CorrectedItemResponse,
     CorrectionResponse,
     DetectedItemResponse,
@@ -125,6 +128,149 @@ async def detect_items(
             )
             for item in detected
         ]
+    )
+
+
+@router.post("/detect-batch", response_model=BatchDetectionResponse)
+async def detect_items_batch(
+    images: Annotated[list[UploadFile], File(description="Multiple images to analyze in parallel")],
+    authorization: Annotated[str | None, Header()] = None,
+    configs: Annotated[str | None, Form()] = None,
+    extract_extended_fields: Annotated[bool, Form()] = True,
+) -> BatchDetectionResponse:
+    """Analyze multiple images in parallel using OpenAI vision.
+
+    This endpoint processes all images concurrently, significantly reducing
+    total processing time compared to sequential calls to /detect.
+
+    Args:
+        images: List of image files to analyze (each treated as separate item(s)).
+        authorization: Bearer token for authentication.
+        configs: Optional JSON string with per-image configs.
+            Format: [{"single_item": bool, "extra_instructions": str}, ...]
+        extract_extended_fields: If True, also extract extended fields for all images.
+    """
+    logger.info(f"Batch detection for {len(images)} images")
+
+    # Validate auth
+    token = get_token(authorization)
+
+    if not settings.openai_api_key:
+        logger.error("HBC_OPENAI_API_KEY not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="HBC_OPENAI_API_KEY not configured",
+        )
+
+    if not images:
+        raise HTTPException(status_code=400, detail="At least one image is required")
+
+    # Parse per-image configs if provided
+    image_configs: list[dict] = []
+    if configs:
+        try:
+            image_configs = json.loads(configs)
+        except json.JSONDecodeError:
+            logger.warning("Invalid configs JSON, using defaults")
+            image_configs = []
+
+    # Fetch labels once for all images (avoid redundant calls)
+    labels = await get_labels_for_context(token)
+    logger.debug(f"Loaded {len(labels)} labels for context (shared across all images)")
+
+    # Read all image bytes in parallel
+    async def read_image(img: UploadFile, index: int) -> tuple[int, bytes, str]:
+        img_bytes = await img.read()
+        return index, img_bytes, img.content_type or "image/jpeg"
+
+    image_read_tasks = [read_image(img, i) for i, img in enumerate(images)]
+    image_data = await asyncio.gather(*image_read_tasks)
+
+    # Create detection task for each image
+    async def detect_single(
+        index: int,
+        image_bytes: bytes,
+        mime_type: str,
+    ) -> BatchDetectionResult:
+        """Process a single image and return result."""
+        if not image_bytes:
+            return BatchDetectionResult(
+                image_index=index,
+                success=False,
+                error="Empty image file",
+            )
+
+        # Get config for this image
+        config = image_configs[index] if index < len(image_configs) else {}
+        single_item = config.get("single_item", False)
+        extra_instructions = config.get("extra_instructions")
+
+        try:
+            detected = await detect_items_from_bytes(
+                image_bytes=image_bytes,
+                api_key=settings.openai_api_key,
+                mime_type=mime_type,
+                model=settings.openai_model,
+                labels=labels,
+                single_item=single_item,
+                extra_instructions=extra_instructions,
+                extract_extended_fields=extract_extended_fields,
+            )
+
+            return BatchDetectionResult(
+                image_index=index,
+                success=True,
+                items=[
+                    DetectedItemResponse(
+                        name=item.name,
+                        quantity=item.quantity,
+                        description=item.description,
+                        label_ids=item.label_ids,
+                        manufacturer=item.manufacturer,
+                        model_number=item.model_number,
+                        serial_number=item.serial_number,
+                        purchase_price=item.purchase_price,
+                        purchase_from=item.purchase_from,
+                        notes=item.notes,
+                    )
+                    for item in detected
+                ],
+            )
+        except Exception as e:
+            logger.error(f"Detection failed for image {index}: {e}")
+            return BatchDetectionResult(
+                image_index=index,
+                success=False,
+                error=str(e),
+            )
+
+    # Process all images in parallel
+    logger.info(f"Starting parallel detection for {len(images)} images...")
+    detection_tasks = [
+        detect_single(index, img_bytes, mime_type)
+        for index, img_bytes, mime_type in image_data
+    ]
+    results = await asyncio.gather(*detection_tasks)
+
+    # Sort by image index to maintain order
+    results = sorted(results, key=lambda r: r.image_index)
+
+    # Calculate summary stats
+    successful = sum(1 for r in results if r.success)
+    failed = len(results) - successful
+    total_items = sum(len(r.items) for r in results)
+
+    logger.info(
+        f"Batch detection complete: {successful}/{len(results)} images successful, "
+        f"{total_items} total items detected"
+    )
+
+    return BatchDetectionResponse(
+        results=results,
+        total_items=total_items,
+        successful_images=successful,
+        failed_images=failed,
+        message=f"Processed {len(results)} images in parallel",
     )
 
 
