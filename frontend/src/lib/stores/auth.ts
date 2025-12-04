@@ -22,8 +22,29 @@ if (browser) {
 
 export const isAuthenticated = derived(token, ($token) => !!$token);
 
+// Session expiry state
+export const sessionExpired = writable<boolean>(false);
+
+// Queue of callbacks to retry after re-auth
+let pendingRequests: Array<() => void> = [];
+
+export function markSessionExpired(retryCallback?: () => void) {
+	if (retryCallback) pendingRequests.push(retryCallback);
+	sessionExpired.set(true);
+}
+
+export function onReauthSuccess(newToken: string) {
+	token.set(newToken);
+	sessionExpired.set(false);
+	// Retry all pending requests
+	pendingRequests.forEach((cb) => cb());
+	pendingRequests = [];
+}
+
 export function logout() {
 	token.set(null);
+	sessionExpired.set(false);
+	pendingRequests = [];
 }
 
 
