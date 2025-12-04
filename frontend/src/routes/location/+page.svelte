@@ -328,8 +328,8 @@
 					class="flex-1 p-3 text-center text-primary hover:bg-primary/10 rounded-xl border border-dashed border-primary/40 transition-colors"
 					onclick={openCreateSubLocationModal}
 				>
-					<span class="flex items-center justify-center gap-2">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<span class="flex items-center justify-center gap-2 whitespace-nowrap">
+						<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<line x1="12" y1="5" x2="12" y2="19" />
 							<line x1="5" y1="12" x2="19" y2="12" />
 						</svg>
