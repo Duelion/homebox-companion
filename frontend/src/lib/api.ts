@@ -82,6 +82,16 @@ export const locations = {
 	},
 	tree: () => request<LocationTreeNode[]>('/locations/tree'),
 	get: (id: string) => request<LocationData>(`/locations/${id}`),
+	create: (data: LocationCreateData) =>
+		request<LocationData>('/locations', {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	update: (id: string, data: LocationUpdateData) =>
+		request<LocationData>(`/locations/${id}`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+		}),
 };
 
 // Label endpoints
@@ -276,6 +286,18 @@ export interface LocationData {
 
 export interface LocationTreeNode extends LocationData {
 	children: LocationData[];
+}
+
+export interface LocationCreateData {
+	name: string;
+	description?: string;
+	parent_id?: string | null;
+}
+
+export interface LocationUpdateData {
+	name: string;
+	description?: string;
+	parent_id?: string | null;
 }
 
 export interface LabelData {
