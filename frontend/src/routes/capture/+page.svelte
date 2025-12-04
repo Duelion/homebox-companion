@@ -19,6 +19,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Loader from '$lib/components/Loader.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
+	import CaptureButtons from '$lib/components/CaptureButtons.svelte';
 
 	const MAX_IMAGES = 10;
 	const MAX_FILE_SIZE_MB = 10;
@@ -466,19 +467,12 @@
 				</div>
 			{/each}
 
-			<!-- Add more button -->
+			<!-- Capture buttons inside dashed border -->
 			{#if $capturedImages.length < MAX_IMAGES}
-				<button
-					type="button"
-					class="w-full p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center gap-2 text-text-muted hover:text-text transition-colors"
-					onclick={() => fileInput.click()}
-				>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<line x1="12" y1="5" x2="12" y2="19" />
-						<line x1="5" y1="12" x2="19" y2="12" />
-					</svg>
-					<span>Add more photos</span>
-				</button>
+				<CaptureButtons 
+					onCamera={() => cameraInput.click()} 
+					onUpload={() => fileInput.click()} 
+				/>
 			{/if}
 		</div>
 
@@ -493,19 +487,13 @@
 			</button>
 		</div>
 	{:else}
-		<!-- Empty state -->
-		<button
-			type="button"
-			class="w-full aspect-video rounded-2xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-3 text-text-muted hover:text-text transition-colors mb-6"
-			onclick={() => fileInput.click()}
-		>
-			<svg class="w-16 h-16 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-				<circle cx="12" cy="13" r="4" />
-			</svg>
-			<p>Tap to capture or upload photos</p>
-			<span class="text-xs text-text-dim">You can select multiple photos at once</span>
-		</button>
+		<!-- Empty state - same capture buttons -->
+		<div class="mb-6">
+			<CaptureButtons 
+				onCamera={() => cameraInput.click()} 
+				onUpload={() => fileInput.click()} 
+			/>
+		</div>
 	{/if}
 
 	<!-- Hidden file inputs -->
@@ -525,25 +513,6 @@
 		onchange={handleFileSelect}
 		class="hidden"
 	/>
-
-	<!-- Action buttons -->
-	<div class="flex gap-3 mb-6">
-		<Button variant="secondary" onclick={() => cameraInput.click()}>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-				<circle cx="12" cy="13" r="4" />
-			</svg>
-			<span>Camera</span>
-		</Button>
-		<Button variant="secondary" onclick={() => fileInput.click()}>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-				<polyline points="17 8 12 3 7 8" />
-				<line x1="12" y1="3" x2="12" y2="15" />
-			</svg>
-			<span>Upload</span>
-		</Button>
-	</div>
 
 	<!-- Analysis progress -->
 	{#if isAnalyzing}
