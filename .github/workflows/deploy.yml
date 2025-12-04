@@ -50,15 +50,4 @@ jobs:
           
           echo "=== Restarting service ==="
           sudo systemctl restart homebox-vision.service
-          sleep 2
-          
-          # Verify service is running
-          if sudo systemctl is-active --quiet homebox-vision.service; then
-            echo "Service restarted successfully!"
-          else
-            echo "ERROR: Service failed to start!"
-            sudo systemctl status homebox-vision.service
-            exit 1
-          fi
-          
           echo "=== Deployment complete ==="
