@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import Toast from '$lib/components/Toast.svelte';
+	import SessionExpiredModal from '$lib/components/SessionExpiredModal.svelte';
 	import { isAuthenticated, logout } from '$lib/stores/auth';
 	import { isOnline, appVersion } from '$lib/stores/ui';
 	import { getVersion } from '$lib/api';
@@ -98,4 +99,7 @@
 
 	<!-- Toast notifications -->
 	<Toast />
+
+	<!-- Session expired re-auth modal -->
+	<SessionExpiredModal />
 </div>

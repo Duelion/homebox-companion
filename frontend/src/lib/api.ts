@@ -3,9 +3,25 @@
  */
 
 import { get } from 'svelte/store';
-import { token } from './stores/auth';
+import { token, markSessionExpired } from './stores/auth';
 
 const BASE_URL = '/api';
+
+/**
+ * Check if response is a 401 and trigger session expired modal
+ * Returns true if session expired was triggered
+ */
+function handleUnauthorized(response: Response): boolean {
+	if (response.status === 401) {
+		// Only mark as expired if we had a token (avoid triggering on initial login failure)
+		const authToken = get(token);
+		if (authToken) {
+			markSessionExpired();
+			return true;
+		}
+	}
+	return false;
+}
 
 export class ApiError extends Error {
 	status: number;
@@ -45,6 +61,11 @@ async function request<T>(
 	});
 
 	if (!response.ok) {
+		// Check for session expiry first
+		if (handleUnauthorized(response)) {
+			throw new ApiError(401, 'Session expired');
+		}
+
 		let errorData: unknown;
 		try {
 			errorData = await response.json();
@@ -118,6 +139,9 @@ export const items = {
 		});
 		
 		if (!response.ok) {
+			if (handleUnauthorized(response)) {
+				throw new ApiError(401, 'Session expired');
+			}
 			throw new ApiError(response.status, 'Failed to upload attachment');
 		}
 		return response.json();
@@ -161,6 +185,9 @@ export const vision = {
 		});
 
 		if (!response.ok) {
+			if (handleUnauthorized(response)) {
+				throw new ApiError(401, 'Session expired');
+			}
 			const error = await response.json().catch(() => ({}));
 			throw new ApiError(
 				response.status,
@@ -203,6 +230,9 @@ export const vision = {
 		});
 
 		if (!response.ok) {
+			if (handleUnauthorized(response)) {
+				throw new ApiError(401, 'Session expired');
+			}
 			const error = await response.json().catch(() => ({}));
 			throw new ApiError(
 				response.status,
@@ -235,6 +265,9 @@ export const vision = {
 		});
 
 		if (!response.ok) {
+			if (handleUnauthorized(response)) {
+				throw new ApiError(401, 'Session expired');
+			}
 			throw new ApiError(response.status, 'Analysis failed');
 		}
 
@@ -265,6 +298,9 @@ export const vision = {
 		});
 
 		if (!response.ok) {
+			if (handleUnauthorized(response)) {
+				throw new ApiError(401, 'Session expired');
+			}
 			throw new ApiError(response.status, 'Correction failed');
 		}
 
