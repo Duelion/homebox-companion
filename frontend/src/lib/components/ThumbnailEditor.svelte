@@ -37,27 +37,26 @@
 	let lastTouchDistance = 0;
 	let lastTouchAngle = 0;
 
-	// Min/max values
-	// MIN_SCALE can't be zero (log(0) is undefined), but we set it tiny enough
-	// that slider-at-zero is effectively "fully zoomed out" for any image
-	const MIN_SCALE = 0.001; // 0.1% - handles images up to 280,000px
-	const MAX_SCALE = 5;     // 500%
+	// Scale limits
+	// minScale is dynamic - calculated per image so crop square touches image edges at slider=0
+	let minScale = $state(0.1);
+	const MAX_SCALE = 5; // 500% max zoom
 	const MIN_ROTATION = -180;
 	const MAX_ROTATION = 180;
 
 	// Logarithmic slider conversion functions
 	// This makes zoom feel linear to users (same slider distance = same perceived zoom change)
-	// Formula: scale = MIN_SCALE * (MAX_SCALE/MIN_SCALE)^sliderPosition
-	const LOG_BASE = MAX_SCALE / MIN_SCALE; // 5000 for 0.001 to 5
-	
+	// Formula: scale = minScale * (MAX_SCALE/minScale)^sliderPosition
 	function scaleToSlider(s: number): number {
 		// Convert actual scale to slider position (0-1)
-		return Math.log(s / MIN_SCALE) / Math.log(LOG_BASE);
+		const logBase = MAX_SCALE / minScale;
+		return Math.log(s / minScale) / Math.log(logBase);
 	}
 	
 	function sliderToScale(sliderValue: number): number {
 		// Convert slider position (0-1) to actual scale
-		return MIN_SCALE * Math.pow(LOG_BASE, sliderValue);
+		const logBase = MAX_SCALE / minScale;
+		return minScale * Math.pow(logBase, sliderValue);
 	}
 
 	// For slider display
@@ -87,14 +86,15 @@
 	function resetTransform() {
 		if (!loadedImage) return;
 		
-		// Calculate scale to fit image in crop area
-		const imgAspect = loadedImage.width / loadedImage.height;
-		if (imgAspect > 1) {
-			scale = CROP_SIZE / loadedImage.height;
-		} else {
-			scale = CROP_SIZE / loadedImage.width;
-		}
+		// Calculate minimum scale: crop square exactly touches image edges
+		// For landscape images: crop touches left/right edges
+		// For portrait images: crop touches top/bottom edges
+		const scaleToFitWidth = CROP_SIZE / loadedImage.width;
+		const scaleToFitHeight = CROP_SIZE / loadedImage.height;
+		minScale = Math.min(scaleToFitWidth, scaleToFitHeight);
 		
+		// Start at minimum scale (fully zoomed out, crop at image limits)
+		scale = minScale;
 		rotation = 0;
 		offsetX = 0;
 		offsetY = 0;
@@ -214,7 +214,7 @@
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
 		const delta = e.deltaY > 0 ? 0.95 : 1.05;
-		scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * delta));
+		scale = Math.max(minScale, Math.min(MAX_SCALE, scale * delta));
 		render();
 	}
 
@@ -254,7 +254,7 @@
 			// Pinch zoom
 			const newDistance = getTouchDistance(e.touches);
 			const scaleChange = newDistance / lastTouchDistance;
-			scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * scaleChange));
+			scale = Math.max(minScale, Math.min(MAX_SCALE, scale * scaleChange));
 			lastTouchDistance = newDistance;
 			
 			// Two-finger rotation
