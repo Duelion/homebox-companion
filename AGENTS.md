@@ -385,15 +385,44 @@ Before pushing changes, ensure:
 
 ## Deployment
 
-The application can be deployed via Docker or manually on a server.
+The application can be deployed via Docker or manually on a server. Pre-built images are available at `ghcr.io/duelion/homebox-companion`.
 
-### Docker Deployment
+### Docker Compose Deployment (Recommended)
+
+Create a `docker-compose.yml`:
+
+```yaml
+version: "3.4"
+
+services:
+  homebox-companion:
+    image: ghcr.io/duelion/homebox-companion:latest
+    container_name: homebox-companion
+    restart: always
+    environment:
+      - HBC_OPENAI_API_KEY=sk-your-api-key-here
+      - HBC_HOMEBOX_URL=https://your-homebox.example.com
+      - HBC_OPENAI_MODEL=gpt-5-mini
+      - HBC_LOG_LEVEL=INFO
+    ports:
+      - 8000:8000
+```
+
+Then run: `docker compose up -d`
+
+### Docker Run
 
 ```bash
-# Build the image
-docker build -t homebox-companion .
+docker run -d -p 8000:8000 \
+  -e HBC_OPENAI_API_KEY="sk-your-key" \
+  -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
+  ghcr.io/duelion/homebox-companion:latest
+```
 
-# Run with environment variables
+### Building Locally (Development)
+
+```bash
+docker build -t homebox-companion .
 docker run -d -p 8000:8000 \
   -e HBC_OPENAI_API_KEY="sk-your-key" \
   -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
