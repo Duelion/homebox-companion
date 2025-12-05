@@ -48,8 +48,8 @@ Set the required environment variables:
 # Required: Your OpenAI API key
 export HBC_OPENAI_API_KEY="sk-your-api-key-here"
 
-# Required: Your Homebox API URL
-export HBC_API_URL="https://your-homebox.example.com/api/v1"
+# Required: Your Homebox URL (we automatically append /api/v1)
+export HBC_HOMEBOX_URL="https://your-homebox.example.com"
 
 # Optional: OpenAI model (default: gpt-4o-mini)
 export HBC_OPENAI_MODEL="gpt-4o-mini"
@@ -65,7 +65,7 @@ export HBC_LOG_LEVEL="INFO"
 **Windows (PowerShell):**
 ```powershell
 $env:HBC_OPENAI_API_KEY = "sk-your-api-key-here"
-$env:HBC_API_URL = "https://your-homebox.example.com/api/v1"
+$env:HBC_HOMEBOX_URL = "https://your-homebox.example.com"
 ```
 
 ### Running the App
@@ -102,6 +102,38 @@ uv run python -m server.app
 
 Open `http://localhost:8000` (or your configured `HBC_SERVER_PORT`) in your browser.
 
+**Docker:**
+
+The easiest way to run in production is with Docker:
+
+```bash
+# Clone and navigate to the repository
+git clone https://github.com/yourusername/homebox-companion.git
+cd homebox-companion
+
+# Create a .env file with your settings
+echo "HBC_OPENAI_API_KEY=sk-your-api-key-here" > .env
+echo "HBC_HOMEBOX_URL=https://your-homebox.example.com" >> .env
+
+# Build and run with docker-compose
+docker-compose up -d
+```
+
+Or build and run manually:
+
+```bash
+# Build the image
+docker build -t homebox-companion .
+
+# Run the container
+docker run -d -p 8000:8000 \
+  -e HBC_OPENAI_API_KEY="sk-your-api-key-here" \
+  -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
+  homebox-companion
+```
+
+Open `http://localhost:8000` in your browser.
+
 ## Environment Variables Reference
 
 All environment variables use the `HBC_` prefix (short for Homebox Companion).
@@ -109,7 +141,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion).
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `HBC_OPENAI_API_KEY` | ✅ Yes | - | Your OpenAI API key |
-| `HBC_API_URL` | ✅ Yes | Demo server | Your Homebox API URL |
+| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL (we append `/api/v1` automatically) |
 | `HBC_OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model for vision |
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | No | `8000` | Server port (serves both API and frontend in production) |
@@ -126,10 +158,10 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion).
 
 ## Using with Demo Server
 
-For testing, you can use the Homebox demo server:
+For testing, you can use the Homebox demo server (this is the default if `HBC_HOMEBOX_URL` is not set):
 
 ```bash
-export HBC_API_URL="https://demo.homebox.software/api/v1"
+export HBC_HOMEBOX_URL="https://demo.homebox.software"
 ```
 
 Demo credentials: `demo@example.com` / `demo`
