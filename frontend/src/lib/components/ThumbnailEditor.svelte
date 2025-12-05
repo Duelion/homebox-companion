@@ -43,8 +43,24 @@
 	const MIN_ROTATION = -180;
 	const MAX_ROTATION = 180;
 
+	// Logarithmic slider conversion functions
+	// This makes zoom feel linear to users (same slider distance = same perceived zoom change)
+	// Formula: scale = MIN_SCALE * (MAX_SCALE/MIN_SCALE)^sliderPosition
+	const LOG_BASE = MAX_SCALE / MIN_SCALE; // 25 for 0.2 to 5
+	
+	function scaleToSlider(s: number): number {
+		// Convert actual scale to slider position (0-1)
+		return Math.log(s / MIN_SCALE) / Math.log(LOG_BASE);
+	}
+	
+	function sliderToScale(sliderValue: number): number {
+		// Convert slider position (0-1) to actual scale
+		return MIN_SCALE * Math.pow(LOG_BASE, sliderValue);
+	}
+
 	// For slider display
 	let zoomPercent = $derived(Math.round(scale * 100));
+	let zoomSliderValue = $derived(scaleToSlider(scale));
 
 	onMount(() => {
 		ctx = canvas.getContext('2d');
@@ -274,7 +290,8 @@
 	// Slider handlers
 	function handleZoomSlider(e: Event) {
 		const input = e.target as HTMLInputElement;
-		scale = parseFloat(input.value);
+		// Convert linear slider position to logarithmic scale
+		scale = sliderToScale(parseFloat(input.value));
 		render();
 	}
 
@@ -402,10 +419,10 @@
 				<input
 					id="zoomSlider"
 					type="range"
-					min={MIN_SCALE}
-					max={MAX_SCALE}
-					step="0.01"
-					value={scale}
+					min="0"
+					max="1"
+					step="0.005"
+					value={zoomSliderValue}
 					oninput={handleZoomSlider}
 					class="w-full h-2 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-primary"
 				/>
