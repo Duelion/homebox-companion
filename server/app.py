@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
         logger.warning("Using demo server - set HBC_API_URL for your own instance")
 
     # Validate settings on startup
-    for issue in settings.validate():
+    for issue in settings.validate_config():
         logger.warning(issue)
 
     # Create and set the shared client

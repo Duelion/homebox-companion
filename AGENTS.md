@@ -6,7 +6,7 @@ Instructions for AI/LLM agents working on this codebase.
 
 ## Environment & Tooling
 
-- Target any Homebox instance via the `HBC_API_URL` environment variable. For testing, use the **demo** API at `https://demo.homebox.software/api/v1` with demo credentials (`demo@example.com` / `demo`).
+- Target any Homebox instance via the `HBC_HOMEBOX_URL` environment variable (we automatically append `/api/v1`). For testing, use the **demo** server at `https://demo.homebox.software` with demo credentials (`demo@example.com` / `demo`).
 - Manage Python tooling with **uv**: create a virtual environment via `uv venv`, add dependencies with `uv add`, and run scripts with `uv run`. Keep dependencies tracked in `pyproject.toml` and `uv.lock`.
 - The OpenAI API key is provided via the `HBC_OPENAI_API_KEY` environment variable.
 - When testing functionality, hit the real demo API and the real OpenAI API rather than mocks or stubs.
@@ -23,7 +23,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion):
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
-| `HBC_API_URL` | Yes | Demo server | Your Homebox API URL |
+| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox instance URL (we append `/api/v1`) |
 | `HBC_OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model for vision |
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | No | `8000` | Server port (serves both API and frontend in production) |
@@ -161,7 +161,7 @@ uv sync
 
 # Set required environment variables
 export HBC_OPENAI_API_KEY="sk-your-key"
-export HBC_API_URL="https://your-homebox.example.com/api/v1"
+export HBC_HOMEBOX_URL="https://your-homebox.example.com"
 
 # Start the server
 uv run python -m server.app
