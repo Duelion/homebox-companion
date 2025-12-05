@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "1.7.1"
+version = "1.8.0"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "MIT"}
@@ -33,8 +33,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/yourusername/homebox-companion"
-Documentation = "https://github.com/yourusername/homebox-companion#readme"
+Repository = "https://github.com/sozolab/homebox-companion"
+Documentation = "https://github.com/sozolab/homebox-companion#readme"
 
 [project.scripts]
 homebox-companion = "server.app:run"
@@ -50,6 +50,7 @@ include = ["homebox_companion*", "server*"]
 [dependency-groups]
 dev = [
     "pytest>=9.0.1",
+    "pytest-asyncio>=0.24.0",
     "ruff>=0.14.7",
 ]
 

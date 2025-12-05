@@ -4,12 +4,13 @@ import json as jsonlib
 from typing import Any
 
 import httpx
+import pytest
 
-from homebox_vision import HomeboxClient
+from homebox_companion import HomeboxClient
 
 
-class MockTransport(httpx.BaseTransport):
-    """Mock transport for testing HTTPX client."""
+class MockAsyncTransport(httpx.AsyncBaseTransport):
+    """Mock async transport for testing HTTPX client."""
 
     def __init__(
         self,
@@ -23,14 +24,15 @@ class MockTransport(httpx.BaseTransport):
         self.put_status = put_status
         self.calls: list[dict[str, Any]] = []
 
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        body = await request.aread()
         self.calls.append(
             {
                 "method": request.method,
                 "url": str(request.url),
                 "headers": dict(request.headers),
                 "params": dict(request.url.params) if request.url.params else None,
-                "json": jsonlib.loads(request.content) if request.content else None,
+                "json": jsonlib.loads(body) if body else None,
             }
         )
 
@@ -48,8 +50,9 @@ class MockTransport(httpx.BaseTransport):
             return httpx.Response(status_code=200, json={})
 
 
-def test_list_locations_supports_filter_children_flag() -> None:
-    transport = MockTransport(
+@pytest.mark.asyncio
+async def test_list_locations_supports_filter_children_flag() -> None:
+    transport = MockAsyncTransport(
         get_json=[
             {
                 "id": "loc-1",
@@ -61,10 +64,10 @@ def test_list_locations_supports_filter_children_flag() -> None:
             }
         ]
     )
-    http_client = httpx.Client(transport=transport)
+    http_client = httpx.AsyncClient(transport=transport)
     client = HomeboxClient(client=http_client)
 
-    locations = client.list_locations("token", filter_children=True)
+    locations = await client.list_locations("token", filter_children=True)
 
     assert locations[0]["id"] == "loc-1"
     call = transport.calls[0]
@@ -74,24 +77,26 @@ def test_list_locations_supports_filter_children_flag() -> None:
     assert call["params"] == {"filterChildren": "true"}
 
 
-def test_list_locations_omits_filter_children_when_not_requested() -> None:
-    transport = MockTransport(get_json=[])
-    http_client = httpx.Client(transport=transport)
+@pytest.mark.asyncio
+async def test_list_locations_omits_filter_children_when_not_requested() -> None:
+    transport = MockAsyncTransport(get_json=[])
+    http_client = httpx.AsyncClient(transport=transport)
     client = HomeboxClient(client=http_client)
 
-    client.list_locations("token")
+    await client.list_locations("token")
 
     call = transport.calls[0]
     assert call["params"] is None or call["params"] == {}
 
 
-def test_update_item_sends_payload_and_returns_response() -> None:
-    transport = MockTransport(put_json={"id": "item-1", "name": "Updated"})
-    http_client = httpx.Client(transport=transport)
+@pytest.mark.asyncio
+async def test_update_item_sends_payload_and_returns_response() -> None:
+    transport = MockAsyncTransport(put_json={"id": "item-1", "name": "Updated"})
+    http_client = httpx.AsyncClient(transport=transport)
     client = HomeboxClient(client=http_client)
 
     payload = {"name": "Updated", "quantity": 2}
-    response = client.update_item("token", "item-1", payload)
+    response = await client.update_item("token", "item-1", payload)
 
     call = transport.calls[0]
     assert "/items/item-1" in call["url"]
