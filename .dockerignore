@@ -32,6 +32,7 @@ logs/
 # Environment files (secrets)
 .env
 .env.*
+!.env.example
 
 # Testing
 .pytest_cache

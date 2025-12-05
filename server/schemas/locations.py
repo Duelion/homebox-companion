@@ -19,3 +19,4 @@ class LocationUpdate(BaseModel):
     parent_id: str | None = None
 
 
+
