@@ -13,10 +13,13 @@
 		resetItemState,
 		type ConfirmedItem,
 	} from '$lib/stores/items';
-	import { showToast, setLoading } from '$lib/stores/ui';
+	import { showToast } from '$lib/stores/ui';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 
+	// Item creation status tracking
+	type ItemStatus = 'pending' | 'creating' | 'success' | 'failed';
+	let itemStatuses = $state<Record<number, ItemStatus>>({});
 	let isSubmitting = $state(false);
 
 	// Helper to get label name by ID
@@ -84,108 +87,218 @@
 		}
 
 		isSubmitting = true;
-		setLoading(true, 'Creating items...');
+		
+		// Initialize all items as pending
+		const initialStatuses: Record<number, ItemStatus> = {};
+		$confirmedItems.forEach((_, index) => {
+			initialStatuses[index] = 'pending';
+		});
+		itemStatuses = initialStatuses;
 
-		try {
-			const itemInputs: ItemInput[] = $confirmedItems.map((item) => ({
-				name: item.name,
-				quantity: item.quantity,
-				description: item.description,
-				label_ids: item.label_ids,
-				manufacturer: item.manufacturer,
-				model_number: item.model_number,
-				serial_number: item.serial_number,
-				purchase_price: item.purchase_price,
-				purchase_from: item.purchase_from,
-				notes: item.notes,
-			}));
+		let successCount = 0;
+		let failCount = 0;
 
-			const response = await itemsApi.create({
-				items: itemInputs,
-				location_id: $selectedLocation?.id,
-			});
+		// Create items one-by-one with visual feedback
+		for (let i = 0; i < $confirmedItems.length; i++) {
+			const confirmedItem = $confirmedItems[i];
+			
+			// Update status to creating
+			itemStatuses = { ...itemStatuses, [i]: 'creating' };
 
-			if (response.errors.length > 0) {
-				showToast(`Created ${response.created.length} items, ${response.errors.length} failed`, 'warning');
-			} else {
-				showToast(`Successfully created ${response.created.length} items!`, 'success');
-			}
+			try {
+				// Create single item
+				const itemInput: ItemInput = {
+					name: confirmedItem.name,
+					quantity: confirmedItem.quantity,
+					description: confirmedItem.description,
+					label_ids: confirmedItem.label_ids,
+					manufacturer: confirmedItem.manufacturer,
+					model_number: confirmedItem.model_number,
+					serial_number: confirmedItem.serial_number,
+					purchase_price: confirmedItem.purchase_price,
+					purchase_from: confirmedItem.purchase_from,
+					notes: confirmedItem.notes,
+				};
 
-			// Upload images for created items
-			if (response.created.length > 0) {
-				setLoading(true, 'Uploading images...');
-				let uploadedCount = 0;
-				let uploadErrors = 0;
+				const response = await itemsApi.create({
+					items: [itemInput],
+					location_id: $selectedLocation?.id,
+				});
 
-				for (let i = 0; i < response.created.length; i++) {
-					const createdItem = response.created[i] as { id?: string };
-					const confirmedItem = $confirmedItems[i];
+				if (response.created.length > 0) {
+					const createdItem = response.created[0] as { id?: string };
 					
-					if (!createdItem?.id || !confirmedItem) continue;
-
-					// Get the source image
-					const sourceImage = $capturedImages[confirmedItem.sourceImageIndex];
-					
-					// Upload custom thumbnail if it exists (replaces original image)
-					// OR upload original image if no custom thumbnail
-					if (confirmedItem.customThumbnail) {
-						// Custom thumbnail replaces the original - only upload the thumbnail
-						try {
-							const thumbnailFile = await dataUrlToFile(
-								confirmedItem.customThumbnail, 
-								`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
-							);
-							await itemsApi.uploadAttachment(createdItem.id, thumbnailFile);
-							uploadedCount++;
-						} catch (error) {
-							console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
-							uploadErrors++;
-						}
-					} else if (sourceImage?.file) {
-						// No custom thumbnail - upload original image
-						try {
-							await itemsApi.uploadAttachment(createdItem.id, sourceImage.file);
-							uploadedCount++;
-						} catch (error) {
-							console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
-							uploadErrors++;
-						}
-					}
-
-					// Upload additional images if any
-					if (confirmedItem.additionalImages) {
-						for (const addImage of confirmedItem.additionalImages) {
+					// Upload images for this item
+					if (createdItem?.id) {
+						const sourceImage = $capturedImages[confirmedItem.sourceImageIndex];
+						
+						// Upload custom thumbnail or original image
+						if (confirmedItem.customThumbnail) {
 							try {
-								await itemsApi.uploadAttachment(createdItem.id, addImage);
-								uploadedCount++;
+								const thumbnailFile = await dataUrlToFile(
+									confirmedItem.customThumbnail, 
+									`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
+								);
+								await itemsApi.uploadAttachment(createdItem.id, thumbnailFile);
 							} catch (error) {
-								console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
-								uploadErrors++;
+								console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
+							}
+						} else if (sourceImage?.file) {
+							try {
+								await itemsApi.uploadAttachment(createdItem.id, sourceImage.file);
+							} catch (error) {
+								console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
+							}
+						}
+
+						// Upload additional images if any
+						if (confirmedItem.additionalImages) {
+							for (const addImage of confirmedItem.additionalImages) {
+								try {
+									await itemsApi.uploadAttachment(createdItem.id, addImage);
+								} catch (error) {
+									console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
+								}
 							}
 						}
 					}
-				}
 
-				if (uploadErrors > 0) {
-					showToast(`Uploaded ${uploadedCount} images, ${uploadErrors} failed`, 'warning');
-				} else if (uploadedCount > 0) {
-					showToast(`Uploaded ${uploadedCount} images`, 'success');
+					// Mark as success
+					itemStatuses = { ...itemStatuses, [i]: 'success' };
+					successCount++;
+				} else {
+					// Item creation failed
+					itemStatuses = { ...itemStatuses, [i]: 'failed' };
+					failCount++;
 				}
+			} catch (error) {
+				console.error(`Failed to create item ${confirmedItem.name}:`, error);
+				itemStatuses = { ...itemStatuses, [i]: 'failed' };
+				failCount++;
 			}
+		}
 
-			// Reset state and go to success
+		// All items processed
+		isSubmitting = false;
+
+		// Handle results
+		if (failCount > 0) {
+			showToast(`Created ${successCount} items, ${failCount} failed`, 'warning');
+		} else {
+			// All items created successfully - navigate to success
 			resetItemState();
 			goto('/success');
-		} catch (error) {
-			console.error('Failed to create items:', error);
-			showToast(
-				error instanceof Error ? error.message : 'Failed to create items. Please try again.',
-				'error'
-			);
-		} finally {
-			isSubmitting = false;
-			setLoading(false);
 		}
+	}
+
+	// Retry failed items
+	async function retryFailed() {
+		const failedIndices = Object.entries(itemStatuses)
+			.filter(([_, status]) => status === 'failed')
+			.map(([index]) => parseInt(index));
+		
+		if (failedIndices.length === 0) return;
+
+		isSubmitting = true;
+		let successCount = 0;
+		let failCount = 0;
+
+		for (const i of failedIndices) {
+			const confirmedItem = $confirmedItems[i];
+			if (!confirmedItem) continue;
+			
+			itemStatuses = { ...itemStatuses, [i]: 'creating' };
+
+			try {
+				const itemInput: ItemInput = {
+					name: confirmedItem.name,
+					quantity: confirmedItem.quantity,
+					description: confirmedItem.description,
+					label_ids: confirmedItem.label_ids,
+					manufacturer: confirmedItem.manufacturer,
+					model_number: confirmedItem.model_number,
+					serial_number: confirmedItem.serial_number,
+					purchase_price: confirmedItem.purchase_price,
+					purchase_from: confirmedItem.purchase_from,
+					notes: confirmedItem.notes,
+				};
+
+				const response = await itemsApi.create({
+					items: [itemInput],
+					location_id: $selectedLocation?.id,
+				});
+
+				if (response.created.length > 0) {
+					const createdItem = response.created[0] as { id?: string };
+					
+					if (createdItem?.id) {
+						const sourceImage = $capturedImages[confirmedItem.sourceImageIndex];
+						
+						if (confirmedItem.customThumbnail) {
+							try {
+								const thumbnailFile = await dataUrlToFile(
+									confirmedItem.customThumbnail, 
+									`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
+								);
+								await itemsApi.uploadAttachment(createdItem.id, thumbnailFile);
+							} catch (error) {
+								console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
+							}
+						} else if (sourceImage?.file) {
+							try {
+								await itemsApi.uploadAttachment(createdItem.id, sourceImage.file);
+							} catch (error) {
+								console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
+							}
+						}
+
+						if (confirmedItem.additionalImages) {
+							for (const addImage of confirmedItem.additionalImages) {
+								try {
+									await itemsApi.uploadAttachment(createdItem.id, addImage);
+								} catch (error) {
+									console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
+								}
+							}
+						}
+					}
+
+					itemStatuses = { ...itemStatuses, [i]: 'success' };
+					successCount++;
+				} else {
+					itemStatuses = { ...itemStatuses, [i]: 'failed' };
+					failCount++;
+				}
+			} catch (error) {
+				console.error(`Failed to create item ${confirmedItem.name}:`, error);
+				itemStatuses = { ...itemStatuses, [i]: 'failed' };
+				failCount++;
+			}
+		}
+
+		isSubmitting = false;
+
+		if (failCount > 0) {
+			showToast(`Retried: ${successCount} succeeded, ${failCount} still failing`, 'warning');
+		} else {
+			// Check if all items are now successful
+			const allSuccess = Object.values(itemStatuses).every(s => s === 'success');
+			if (allSuccess) {
+				resetItemState();
+				goto('/success');
+			}
+		}
+	}
+
+	// Check if there are any failed items
+	function hasFailedItems(): boolean {
+		return Object.values(itemStatuses).some(s => s === 'failed');
+	}
+
+	// Check if all items are successful
+	function allItemsSuccessful(): boolean {
+		return Object.keys(itemStatuses).length > 0 && 
+			Object.values(itemStatuses).every(s => s === 'success');
 	}
 </script>
 
@@ -245,32 +358,57 @@
 					{/if}
 				</div>
 
-				<!-- Action buttons -->
-				<div class="flex flex-col gap-1">
-					<button
-						type="button"
-						class="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-						aria-label="Edit item"
-						title="Edit item"
-						onclick={() => editItem(index)}
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-						</svg>
-					</button>
-					<button
-						type="button"
-						class="p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-						aria-label="Remove item"
-						title="Remove item"
-						onclick={() => removeItem(index)}
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<polyline points="3 6 5 6 21 6" />
-							<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-						</svg>
-					</button>
+				<!-- Status indicator or action buttons -->
+				<div class="flex flex-col gap-1 items-center justify-center min-w-[40px]">
+					{#if itemStatuses[index] === 'creating'}
+						<!-- Spinner -->
+						<div class="w-8 h-8 flex items-center justify-center">
+							<div class="w-5 h-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin"></div>
+						</div>
+					{:else if itemStatuses[index] === 'success'}
+						<!-- Checkmark -->
+						<div class="w-8 h-8 flex items-center justify-center bg-green-500/20 rounded-full">
+							<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</div>
+					{:else if itemStatuses[index] === 'failed'}
+						<!-- Error icon -->
+						<div class="w-8 h-8 flex items-center justify-center bg-danger/20 rounded-full">
+							<svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+								<line x1="18" y1="6" x2="6" y2="18" />
+								<line x1="6" y1="6" x2="18" y2="18" />
+							</svg>
+						</div>
+					{:else}
+						<!-- Default: Edit/Remove buttons -->
+						<button
+							type="button"
+							class="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+							aria-label="Edit item"
+							title="Edit item"
+							disabled={isSubmitting}
+							onclick={() => editItem(index)}
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+							</svg>
+						</button>
+						<button
+							type="button"
+							class="p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+							aria-label="Remove item"
+							title="Remove item"
+							disabled={isSubmitting}
+							onclick={() => removeItem(index)}
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<polyline points="3 6 5 6 21 6" />
+								<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+							</svg>
+						</button>
+					{/if}
 				</div>
 			</div>
 		{/each}
@@ -284,25 +422,52 @@
 
 	<!-- Actions -->
 	<div class="space-y-3">
-		<Button variant="secondary" full onclick={addMoreItems}>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<line x1="12" y1="5" x2="12" y2="19" />
-				<line x1="5" y1="12" x2="19" y2="12" />
-			</svg>
-			<span>Scan More Items</span>
-		</Button>
+		{#if !hasFailedItems() && !allItemsSuccessful()}
+			<Button variant="secondary" full onclick={addMoreItems} disabled={isSubmitting}>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<line x1="12" y1="5" x2="12" y2="19" />
+					<line x1="5" y1="12" x2="19" y2="12" />
+				</svg>
+				<span>Scan More Items</span>
+			</Button>
 
-		<Button
-			variant="primary"
-			full
-			loading={isSubmitting}
-			onclick={submitAll}
-		>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<polyline points="20 6 9 17 4 12" />
-			</svg>
-			<span>Submit All Items ({$confirmedItems.length})</span>
-		</Button>
+			<Button
+				variant="primary"
+				full
+				loading={isSubmitting}
+				onclick={submitAll}
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<polyline points="20 6 9 17 4 12" />
+				</svg>
+				<span>Submit All Items ({$confirmedItems.length})</span>
+			</Button>
+		{:else if hasFailedItems()}
+			<Button
+				variant="primary"
+				full
+				loading={isSubmitting}
+				onclick={retryFailed}
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path d="M1 4v6h6" />
+					<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+				</svg>
+				<span>Retry Failed Items</span>
+			</Button>
+
+			<Button
+				variant="secondary"
+				full
+				disabled={isSubmitting}
+				onclick={() => { resetItemState(); goto('/success'); }}
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<polyline points="20 6 9 17 4 12" />
+				</svg>
+				<span>Continue with Successful Items</span>
+			</Button>
+		{/if}
 	</div>
 </div>
 
