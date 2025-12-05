@@ -109,7 +109,7 @@ def create_app() -> FastAPI:
             "name": "Homebox Companion API",
             "version": __version__,
             "docs": "/docs",
-            "note": "Frontend not built. Run: cd frontend && npm run build && cp -r build/* ../server/static/"
+            "note": "Frontend not built. Run: cd frontend && npm run build"
         })
 
     return app

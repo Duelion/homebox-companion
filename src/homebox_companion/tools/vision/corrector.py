@@ -5,7 +5,7 @@ from __future__ import annotations
 from loguru import logger
 
 from ...ai.openai import vision_completion
-from ...ai.prompts import EXTENDED_FIELDS_SCHEMA, ITEM_SCHEMA, NAMING_RULES, build_label_prompt
+from ...ai.prompts import ITEM_SCHEMA, NAMING_RULES, build_label_prompt
 from ...core.config import settings
 
 
@@ -74,7 +74,7 @@ async def correct_item_with_openai(
         "- manufacturer: string or null (brand name from user input or visible in image)\n"
         "- modelNumber: string or null (model/part number from user or visible on item)\n"
         "- serialNumber: string or null (serial number from user or visible on item)\n"
-        "- purchasePrice: number or null (price in USD - from user input like '$20' or '20 dollars')\n"
+        "- purchasePrice: number or null (price in USD from user input)\n"
         "- purchaseFrom: string or null (store/retailer name from user or visible on packaging)\n"
         "- notes: string or null (additional details from user or observations from image)\n\n"
         + label_prompt
@@ -88,26 +88,30 @@ async def correct_item_with_openai(
     ]
     if current_item.get('manufacturer'):
         current_details.append(f"- Manufacturer: {current_item.get('manufacturer')}")
-    if current_item.get('modelNumber') or current_item.get('model_number'):
-        current_details.append(f"- Model Number: {current_item.get('modelNumber') or current_item.get('model_number')}")
-    if current_item.get('serialNumber') or current_item.get('serial_number'):
-        current_details.append(f"- Serial Number: {current_item.get('serialNumber') or current_item.get('serial_number')}")
-    if current_item.get('purchasePrice') or current_item.get('purchase_price'):
-        current_details.append(f"- Purchase Price: {current_item.get('purchasePrice') or current_item.get('purchase_price')}")
-    if current_item.get('purchaseFrom') or current_item.get('purchase_from'):
-        current_details.append(f"- Purchase From: {current_item.get('purchaseFrom') or current_item.get('purchase_from')}")
+    model_num = current_item.get('modelNumber') or current_item.get('model_number')
+    if model_num:
+        current_details.append(f"- Model Number: {model_num}")
+    serial_num = current_item.get('serialNumber') or current_item.get('serial_number')
+    if serial_num:
+        current_details.append(f"- Serial Number: {serial_num}")
+    price = current_item.get('purchasePrice') or current_item.get('purchase_price')
+    if price:
+        current_details.append(f"- Purchase Price: {price}")
+    purchase_from = current_item.get('purchaseFrom') or current_item.get('purchase_from')
+    if purchase_from:
+        current_details.append(f"- Purchase From: {purchase_from}")
     if current_item.get('notes'):
         current_details.append(f"- Notes: {current_item.get('notes')}")
 
     user_prompt = (
-        f"I previously detected an item in this image as:\n"
+        "I previously detected an item in this image as:\n"
         + "\n".join(current_details) + "\n\n"
         f"The user has provided this correction/feedback:\n"
         f'"{correction_instructions}"\n\n'
         "IMPORTANT: Parse the user's feedback for:\n"
         "- Name corrections (e.g., 'this is actually a...')\n"
         "- Brand/manufacturer (e.g., 'it's a Bosch', 'made by DeWalt')\n"
-        "- Price information (e.g., 'costs $20', 'price is 20 usd', 'I paid 50 dollars') -> set purchasePrice\n"
+        "- Price information (e.g., 'costs $20', 'I paid 50') -> set purchasePrice\n"
         "- Store/retailer (e.g., 'bought from Amazon', 'from Home Depot') -> set purchaseFrom\n"
         "- Model numbers (e.g., 'model XYZ-123') -> set modelNumber\n"
         "- Any other specific details\n\n"

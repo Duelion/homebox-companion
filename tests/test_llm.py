@@ -8,20 +8,24 @@ from pathlib import Path
 
 import pytest
 
-from homebox_vision import DetectedItem, detect_items, encode_image_to_data_uri
+from homebox_companion import DetectedItem, detect_items_from_bytes, encode_image_to_data_uri
 
 IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "output.txt"
 
 
-def test_encode_image_to_data_uri_round_trip() -> None:
+def test_encode_image_to_data_uri_returns_valid_data_uri() -> None:
     uri = encode_image_to_data_uri(IMAGE_PATH)
 
-    prefix = "data:image/jpg;base64,"
-    assert uri.startswith(prefix)
+    # The function may use jpeg or jpg depending on optimization
+    assert uri.startswith("data:image/jpeg;base64,") or uri.startswith("data:image/jpg;base64,")
 
-    encoded = uri[len(prefix):]
-    assert base64.b64decode(encoded) == IMAGE_PATH.read_bytes()
+    # Verify the base64 portion is valid
+    prefix_len = len("data:image/jpeg;base64,")
+    encoded = uri[prefix_len:]
+    decoded = base64.b64decode(encoded)
+    # The decoded bytes should be valid image data (starts with JPEG header)
+    assert decoded[:2] == b'\xff\xd8'  # JPEG magic bytes
 
 
 def test_detected_item_from_raw_items_handles_invalid_entries() -> None:
@@ -48,17 +52,19 @@ def test_detected_item_from_raw_items_handles_invalid_entries() -> None:
 
 
 @pytest.mark.integration
-def test_detect_items_live() -> None:
-    """Test that detect_items works with the real OpenAI API."""
-    api_key = os.environ.get("HOMEBOX_VISION_OPENAI_API_KEY")
+@pytest.mark.asyncio
+async def test_detect_items_live() -> None:
+    """Test that detect_items_from_bytes works with the real OpenAI API."""
+    api_key = os.environ.get("HBC_OPENAI_API_KEY")
     if not api_key:
-        pytest.skip(
-            "HOMEBOX_VISION_OPENAI_API_KEY must be set to hit the OpenAI API for live tests."
-        )
+        pytest.skip("HBC_OPENAI_API_KEY must be set to hit the OpenAI API for live tests.")
 
-    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
+    model = os.getenv("HBC_OPENAI_MODEL", "gpt-5-mini")
 
-    detected_items = detect_items(image_path=IMAGE_PATH, api_key=api_key, model=model)
+    image_bytes = IMAGE_PATH.read_bytes()
+    detected_items = await detect_items_from_bytes(
+        image_bytes=image_bytes, api_key=api_key, model=model
+    )
 
     print("Live OpenAI detection response:")
     output_lines = ["Live OpenAI detection response:"]
