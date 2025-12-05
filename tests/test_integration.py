@@ -9,7 +9,6 @@ Run with: uv run pytest -m integration
 
 from __future__ import annotations
 
-import os
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,22 +22,16 @@ from homebox_companion import (
     detect_items_from_bytes,
 )
 
-IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
-
 
 @pytest.mark.integration
-@pytest.mark.skipif(
-    not os.environ.get("HBC_OPENAI_API_KEY"),
-    reason="HBC_OPENAI_API_KEY must be set for integration tests.",
-)
 @pytest.mark.asyncio
-async def test_detect_items_returns_items() -> None:
+async def test_detect_items_returns_items(
+    api_key: str,
+    model: str,
+    single_item_single_image_path: Path,
+) -> None:
     """Test that detect_items_from_bytes returns valid items from an image."""
-    api_key = os.environ["HBC_OPENAI_API_KEY"]
-    model = os.getenv("HBC_OPENAI_MODEL", "gpt-5-mini")
-
-    # Read image bytes
-    image_bytes = IMAGE_PATH.read_bytes()
+    image_bytes = single_item_single_image_path.read_bytes()
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
@@ -62,10 +55,11 @@ async def test_detect_items_returns_items() -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_item_in_demo_environment() -> None:
+async def test_create_item_in_demo_environment(
+    homebox_api_url: str,
+) -> None:
     """Test creating an item in the Homebox demo environment."""
-    # Use demo server for testing
-    async with HomeboxClient(base_url="https://demo.homebox.software/api/v1") as client:
+    async with HomeboxClient(base_url=homebox_api_url) as client:
         token = await client.login("demo@example.com", "demo")
         locations = await client.list_locations(token)
         assert locations, "The demo API should return at least one location."
@@ -84,18 +78,15 @@ async def test_create_item_in_demo_environment() -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(
-    not os.environ.get("HBC_OPENAI_API_KEY"),
-    reason="HBC_OPENAI_API_KEY must be set for integration tests.",
-)
 @pytest.mark.asyncio
-async def test_detect_and_create_items_from_image() -> None:
+async def test_detect_and_create_items_from_image(
+    api_key: str,
+    model: str,
+    homebox_api_url: str,
+    single_item_single_image_path: Path,
+) -> None:
     """Test the full flow: detect items from image and create them in Homebox."""
-    api_key = os.environ["HBC_OPENAI_API_KEY"]
-    model = os.getenv("HBC_OPENAI_MODEL", "gpt-5-mini")
-
-    # Read image bytes
-    image_bytes = IMAGE_PATH.read_bytes()
+    image_bytes = single_item_single_image_path.read_bytes()
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
@@ -104,8 +95,7 @@ async def test_detect_and_create_items_from_image() -> None:
     )
     assert detected_items, "Expected at least one detected item to create."
 
-    # Use demo server for testing
-    async with HomeboxClient(base_url="https://demo.homebox.software/api/v1") as client:
+    async with HomeboxClient(base_url=homebox_api_url) as client:
         token = await client.login("demo@example.com", "demo")
         locations = await client.list_locations(token)
         assert locations, "The demo API should return at least one location."
@@ -128,4 +118,5 @@ async def test_detect_and_create_items_from_image() -> None:
         assert len(created_items) == min(len(detected_items), 2)
         for created in created_items:
             assert created.get("id"), "Created item response should include an ID."
-            assert created.get("locationId") == location_id
+            # Location is returned as nested object, not locationId
+            assert created.get("location", {}).get("id") == location_id
