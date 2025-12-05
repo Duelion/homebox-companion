@@ -1,0 +1,12 @@
+services:
+  homebox-companion:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - HBC_OPENAI_API_KEY=${HBC_OPENAI_API_KEY}
+      - HBC_HOMEBOX_URL=${HBC_HOMEBOX_URL:-https://demo.homebox.software}
+      - HBC_OPENAI_MODEL=${HBC_OPENAI_MODEL:-gpt-4o-mini}
+      - HBC_LOG_LEVEL=${HBC_LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
