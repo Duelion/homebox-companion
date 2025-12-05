@@ -64,7 +64,7 @@ flowchart LR
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/homebox-companion.git
+git clone https://github.com/sozolab/homebox-companion.git
 cd homebox-companion
 
 # Install Python dependencies

@@ -121,7 +121,7 @@ async def upload_item_attachment(
     """Upload an attachment (image) to an existing item."""
     logger.info(f"Uploading attachment to item: {item_id}")
     logger.debug(f"File: {file.filename}, content_type: {file.content_type}")
-    
+
     token = get_token(authorization)
     client = get_client()
 
