@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { locations as locationsApi, labels as labelsApi, type LocationData, type LocationTreeNode } from '$lib/api';
-	import { isAuthenticated } from '$lib/stores/auth';
+	import { isAuthenticated, sessionExpired } from '$lib/stores/auth';
 	import {
 		locationTree,
 		locationPath,
@@ -23,6 +23,9 @@
 	let searchQuery = $state('');
 	let allLocationsFlat = $state<{ location: LocationData; path: string }[]>([]);
 
+	// Track previous session expired state to detect re-authentication
+	let wasSessionExpired = $state(false);
+
 	// Modal state
 	let showLocationModal = $state(false);
 	let locationModalMode = $state<'create' | 'edit'>('create');
@@ -41,6 +44,17 @@
 
 	// Are we in search mode?
 	let isSearching = $derived(searchQuery.trim().length > 0);
+
+	// Reload locations when session is restored after expiry
+	$effect(() => {
+		const currentExpired = $sessionExpired;
+		if (wasSessionExpired && !currentExpired) {
+			// Session was restored after expiry - reload data
+			loadLocations();
+			loadLabels();
+		}
+		wasSessionExpired = currentExpired;
+	});
 
 	// Redirect if not authenticated
 	onMount(async () => {
