@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "1.5.0"
+version = "1.6.0"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "MIT"}
@@ -29,6 +29,7 @@ dependencies = [
     "python-multipart>=0.0.17",
     "loguru>=0.7.3",
     "pillow>=10.0.0",
+    "pydantic-settings>=2.0.0",
 ]
 
 [project.urls]

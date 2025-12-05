@@ -4,7 +4,8 @@ All environment variables use the HBC_ prefix to avoid
 clashes with other applications on the same system.
 
 Environment Variables:
-    HBC_API_URL: Base URL of your Homebox API (default: demo server)
+    HBC_HOMEBOX_URL: Base URL of your Homebox instance (default: demo server).
+        We automatically append /api/v1 to this URL.
     HBC_OPENAI_API_KEY: Your OpenAI API key for vision detection
     HBC_OPENAI_MODEL: OpenAI model to use (default: gpt-4o-mini)
     HBC_SERVER_HOST: Host to bind the web server to (default: 0.0.0.0)
@@ -15,56 +16,60 @@ Environment Variables:
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass, field
+from functools import lru_cache
+
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Demo server for testing - users should replace with their own instance
-DEMO_API_URL = "https://demo.homebox.software/api/v1"
+DEMO_HOMEBOX_URL = "https://demo.homebox.software"
 
 
-@dataclass
-class Settings:
+class Settings(BaseSettings):
     """Application settings loaded from environment variables.
 
     All environment variables use the HBC_ prefix to ensure
     they don't conflict with other applications.
 
-    Note: Settings are read from environment at instantiation time.
-    The module-level `settings` instance acts as a singleton.
+    Uses pydantic-settings for automatic environment variable loading,
+    type coercion, and validation.
     """
 
-    # Homebox API configuration
-    api_url: str = field(
-        default_factory=lambda: os.environ.get("HBC_API_URL", DEMO_API_URL)
+    model_config = SettingsConfigDict(
+        env_prefix="HBC_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
+
+    # Homebox configuration - user provides base URL, we append /api/v1
+    homebox_url: str = DEMO_HOMEBOX_URL
 
     # OpenAI configuration
-    openai_api_key: str = field(
-        default_factory=lambda: os.environ.get("HBC_OPENAI_API_KEY", "")
-    )
-    openai_model: str = field(
-        default_factory=lambda: os.environ.get("HBC_OPENAI_MODEL", "gpt-4o-mini")
-    )
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
 
     # Web server configuration
-    server_host: str = field(
-        default_factory=lambda: os.environ.get("HBC_SERVER_HOST", "0.0.0.0")
-    )
-    server_port: int = field(
-        default_factory=lambda: int(os.environ.get("HBC_SERVER_PORT", "8000"))
-    )
+    server_host: str = "0.0.0.0"
+    server_port: int = 8000
 
     # Logging configuration
-    log_level: str = field(
-        default_factory=lambda: os.environ.get("HBC_LOG_LEVEL", "INFO")
-    )
+    log_level: str = "INFO"
 
+    @computed_field
+    @property
+    def api_url(self) -> str:
+        """Full Homebox API URL with /api/v1 path appended."""
+        base = self.homebox_url.rstrip("/")
+        return f"{base}/api/v1"
+
+    @computed_field
     @property
     def is_demo_mode(self) -> bool:
         """Check if using the demo server."""
-        return self.api_url == DEMO_API_URL
+        return self.homebox_url.rstrip("/") == DEMO_HOMEBOX_URL
 
-    def validate(self) -> list[str]:
+    def validate_config(self) -> list[str]:
         """Validate settings and return list of issues."""
         issues = []
         if not self.openai_api_key:
@@ -75,7 +80,17 @@ class Settings:
         return issues
 
 
+@lru_cache
+def get_settings() -> Settings:
+    """Get cached settings instance.
+
+    Using lru_cache ensures the settings are only loaded once,
+    making this effectively a singleton while allowing for
+    easier testing (cache can be cleared).
+    """
+    return Settings()
+
+
 # Module-level singleton instance for easy import
 # Settings are read from environment variables when this module is first imported
-settings = Settings()
-
+settings = get_settings()
