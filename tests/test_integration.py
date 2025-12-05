@@ -1,3 +1,12 @@
+"""Integration tests for Homebox Companion.
+
+These tests hit real APIs (Homebox demo server and OpenAI) and require:
+- HBC_OPENAI_API_KEY environment variable for vision detection tests
+- Network access to demo.homebox.software and api.openai.com
+
+Run with: uv run pytest -m integration
+"""
+
 from __future__ import annotations
 
 import os
@@ -8,22 +17,34 @@ from pprint import pformat
 
 import pytest
 
-from homebox_vision import DetectedItem, HomeboxClient, detect_items
+from homebox_companion import (
+    HomeboxClient,
+    ItemCreate,
+    detect_items_from_bytes,
+)
 
 IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "test_detection.jpg"
 
 
 @pytest.mark.integration
 @pytest.mark.skipif(
-    "HOMEBOX_VISION_OPENAI_API_KEY" not in os.environ,
-    reason="HOMEBOX_VISION_OPENAI_API_KEY must be set for integration tests.",
+    not os.environ.get("HBC_OPENAI_API_KEY"),
+    reason="HBC_OPENAI_API_KEY must be set for integration tests.",
 )
-def test_detect_items_returns_items() -> None:
-    """Test that detect_items returns valid items from an image."""
-    api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
-    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
+@pytest.mark.asyncio
+async def test_detect_items_returns_items() -> None:
+    """Test that detect_items_from_bytes returns valid items from an image."""
+    api_key = os.environ["HBC_OPENAI_API_KEY"]
+    model = os.getenv("HBC_OPENAI_MODEL", "gpt-5-mini")
 
-    detected_items = detect_items(image_path=IMAGE_PATH, api_key=api_key, model=model)
+    # Read image bytes
+    image_bytes = IMAGE_PATH.read_bytes()
+
+    detected_items = await detect_items_from_bytes(
+        image_bytes=image_bytes,
+        api_key=api_key,
+        model=model,
+    )
 
     print("Raw detected items from OpenAI:")
     for idx, item in enumerate(detected_items, start=1):
@@ -40,64 +61,71 @@ def test_detect_items_returns_items() -> None:
 
 
 @pytest.mark.integration
-def test_create_item_in_demo_environment() -> None:
+@pytest.mark.asyncio
+async def test_create_item_in_demo_environment() -> None:
+    """Test creating an item in the Homebox demo environment."""
     # Use demo server for testing
-    client = HomeboxClient(base_url="https://demo.homebox.software/api/v1")
+    async with HomeboxClient(base_url="https://demo.homebox.software/api/v1") as client:
+        token = await client.login("demo@example.com", "demo")
+        locations = await client.list_locations(token)
+        assert locations, "The demo API should return at least one location."
 
-    token = client.login("demo@example.com", "demo")
-    locations = client.list_locations(token)
-    assert locations, "The demo API should return at least one location."
+        location_id = locations[0]["id"]
+        item = ItemCreate(
+            name=f"Integration item {datetime.now(UTC).isoformat(timespec='seconds')}",
+            quantity=1,
+            description="Created via integration test for Homebox Companion.",
+            location_id=location_id,
+        )
 
-    location_id = locations[0]["id"]
-    item = DetectedItem(
-        name=f"Integration item {datetime.now(UTC).isoformat(timespec='seconds')}",
-        quantity=1,
-        description="Created via integration test for the Homebox Vision Companion.",
-        location_id=location_id,
-    )
-
-    created_items = client.create_items(token, [item])
-    assert len(created_items) == 1, "Exactly one item should be created."
-
-    created = created_items[0]
-    assert created.get("id"), "Created item response should include an ID."
-    assert created.get("name", "").startswith("Integration item")
+        created = await client.create_item(token, item)
+        assert created.get("id"), "Created item response should include an ID."
+        assert created.get("name", "").startswith("Integration item")
 
 
 @pytest.mark.integration
 @pytest.mark.skipif(
-    "HOMEBOX_VISION_OPENAI_API_KEY" not in os.environ,
-    reason="HOMEBOX_VISION_OPENAI_API_KEY must be set for integration tests.",
+    not os.environ.get("HBC_OPENAI_API_KEY"),
+    reason="HBC_OPENAI_API_KEY must be set for integration tests.",
 )
-def test_detect_and_create_items_from_image() -> None:
+@pytest.mark.asyncio
+async def test_detect_and_create_items_from_image() -> None:
     """Test the full flow: detect items from image and create them in Homebox."""
-    api_key = os.environ["HOMEBOX_VISION_OPENAI_API_KEY"]
-    model = os.getenv("HOMEBOX_VISION_OPENAI_MODEL", "gpt-5-mini")
+    api_key = os.environ["HBC_OPENAI_API_KEY"]
+    model = os.getenv("HBC_OPENAI_MODEL", "gpt-5-mini")
 
-    detected_items = detect_items(image_path=IMAGE_PATH, api_key=api_key, model=model)
+    # Read image bytes
+    image_bytes = IMAGE_PATH.read_bytes()
+
+    detected_items = await detect_items_from_bytes(
+        image_bytes=image_bytes,
+        api_key=api_key,
+        model=model,
+    )
     assert detected_items, "Expected at least one detected item to create."
 
     # Use demo server for testing
-    client = HomeboxClient(base_url="https://demo.homebox.software/api/v1")
-    token = client.login("demo@example.com", "demo")
-    locations = client.list_locations(token)
-    assert locations, "The demo API should return at least one location."
+    async with HomeboxClient(base_url="https://demo.homebox.software/api/v1") as client:
+        token = await client.login("demo@example.com", "demo")
+        locations = await client.list_locations(token)
+        assert locations, "The demo API should return at least one location."
 
-    location_id = locations[0]["id"]
-    items_to_create = [
-        DetectedItem(
-            name=item.name,
-            quantity=item.quantity,
-            description=item.description,
-            location_id=location_id,
-            label_ids=item.label_ids,
-        )
-        for item in detected_items[:2]
-    ]
+        location_id = locations[0]["id"]
+        created_items = []
 
-    created_items = client.create_items(token, items_to_create)
+        # Create up to 2 items
+        for item in detected_items[:2]:
+            item_create = ItemCreate(
+                name=item.name,
+                quantity=item.quantity,
+                description=item.description,
+                location_id=location_id,
+                label_ids=item.label_ids,
+            )
+            created = await client.create_item(token, item_create)
+            created_items.append(created)
 
-    assert len(created_items) == len(items_to_create)
-    for created in created_items:
-        assert created.get("id"), "Created item response should include an ID."
-        assert created.get("locationId") == location_id
+        assert len(created_items) == min(len(detected_items), 2)
+        for created in created_items:
+            assert created.get("id"), "Created item response should include an ID."
+            assert created.get("locationId") == location_id
