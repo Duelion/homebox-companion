@@ -6,7 +6,7 @@
 
 	let { currentStep, totalSteps = 4 }: Props = $props();
 
-	const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
+	const steps = $derived(Array.from({ length: totalSteps }, (_, i) => i + 1));
 </script>
 
 <div class="flex items-center justify-center gap-2 mb-6">

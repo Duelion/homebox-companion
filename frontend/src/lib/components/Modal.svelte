@@ -42,11 +42,12 @@
 			{#if title}
 				<div class="flex items-center justify-between px-6 py-4 border-b border-border">
 					<h3 class="text-lg font-semibold text-text">{title}</h3>
-					<button
-						type="button"
-						class="p-2 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated transition-colors"
-						onclick={handleClose}
-					>
+				<button
+					type="button"
+					class="p-2 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated transition-colors"
+					onclick={handleClose}
+					aria-label="Close"
+				>
 						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 						</svg>
