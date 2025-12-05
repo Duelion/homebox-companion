@@ -76,7 +76,24 @@ cd frontend && npm install && cd ..
 
 ### Configuration
 
-Set the required environment variables:
+Copy the example environment file and fill in your values:
+
+```bash
+cp .env.example .env
+# Edit .env with your OpenAI API key and Homebox URL
+```
+
+Or create a `.env` file manually:
+
+```bash
+# .env file contents
+HBC_OPENAI_API_KEY=sk-your-api-key-here
+HBC_HOMEBOX_URL=https://your-homebox.example.com
+HBC_OPENAI_MODEL=gpt-5-mini
+HBC_LOG_LEVEL=INFO
+```
+
+You can also set the environment variables directly:
 
 **Linux/macOS:**
 ```bash
@@ -136,11 +153,15 @@ uv run python -m server.app
 
 ```bash
 # Create a .env file with your settings
-echo "HBC_OPENAI_API_KEY=sk-your-api-key-here" > .env
-echo "HBC_HOMEBOX_URL=https://your-homebox.example.com" >> .env
+cat > .env << EOF
+HBC_OPENAI_API_KEY=sk-your-api-key-here
+HBC_HOMEBOX_URL=https://your-homebox.example.com
+HBC_OPENAI_MODEL=gpt-5-mini
+HBC_LOG_LEVEL=INFO
+EOF
 
-# Build and run with docker-compose
-docker-compose up -d
+# Build and run with docker compose
+docker compose up -d
 ```
 
 Or build and run manually:
@@ -152,6 +173,12 @@ docker run -d -p 8000:8000 \
   -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
   homebox-companion
 ```
+
+> **Note for Docker networking:** If your Homebox instance runs on the same machine (but outside Docker), use `http://host.docker.internal:PORT` as the URL. For example, if Homebox runs on port 7745:
+> ```
+> HBC_HOMEBOX_URL=http://host.docker.internal:7745
+> ```
+> On Linux, you may need to add `--add-host=host.docker.internal:host-gateway` to the docker run command.
 
 ## Environment Variables Reference
 
