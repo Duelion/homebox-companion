@@ -195,7 +195,9 @@
 		analysisProgress = { 
 			current: 0, 
 			total: totalImages, 
-			status: `Analyzing ${totalImages} image${totalImages > 1 ? 's' : ''} in parallel...` 
+			status: totalImages === 1 
+				? 'Analyzing item...' 
+				: `Analyzing ${totalImages} items in parallel...`
 		};
 
 		try {
