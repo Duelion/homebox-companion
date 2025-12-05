@@ -7,6 +7,14 @@
 	import { getVersion } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { afterNavigate } from '$app/navigation';
+
+	// Scroll to top after each navigation
+	afterNavigate(() => {
+		if (browser) {
+			window.scrollTo({ top: 0, behavior: 'instant' });
+		}
+	});
 
 	// Fetch version on mount
 	onMount(async () => {
