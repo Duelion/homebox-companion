@@ -38,7 +38,7 @@ flowchart LR
 - **Mobile-First UI** – Designed for phones (works great on desktop too)
 
 ### AI Capabilities
-- **Multi-Image Analysis** – Add multiple photos of the same item from different angles for better detection
+- **Multi-Image Analysis** – Upload multiple photos of the same item taken from different angles or distances to improve detection accuracy. You can also include close-ups of labels, serial numbers, receipts, and other identifying details to enhance recognition.
 - **Extended Fields Detection** – Automatically extracts manufacturer, model number, serial number, purchase price when visible
 - **Single-Item Mode** – Force AI to treat everything in a photo as one item (useful for sets/kits)
 - **AI Corrections** – Tell the AI what it got wrong and it will re-analyze with your feedback
