@@ -38,15 +38,17 @@
 	let lastTouchAngle = 0;
 
 	// Min/max values
-	const MIN_SCALE = 0.2;
-	const MAX_SCALE = 5;
+	// MIN_SCALE can't be zero (log(0) is undefined), but we set it tiny enough
+	// that slider-at-zero is effectively "fully zoomed out" for any image
+	const MIN_SCALE = 0.001; // 0.1% - handles images up to 280,000px
+	const MAX_SCALE = 5;     // 500%
 	const MIN_ROTATION = -180;
 	const MAX_ROTATION = 180;
 
 	// Logarithmic slider conversion functions
 	// This makes zoom feel linear to users (same slider distance = same perceived zoom change)
 	// Formula: scale = MIN_SCALE * (MAX_SCALE/MIN_SCALE)^sliderPosition
-	const LOG_BASE = MAX_SCALE / MIN_SCALE; // 25 for 0.2 to 5
+	const LOG_BASE = MAX_SCALE / MIN_SCALE; // 5000 for 0.001 to 5
 	
 	function scaleToSlider(s: number): number {
 		// Convert actual scale to slider position (0-1)
