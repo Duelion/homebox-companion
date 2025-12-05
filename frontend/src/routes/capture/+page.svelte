@@ -479,7 +479,7 @@
 		</div>
 
 		<div class="flex items-center justify-between mb-6 text-sm">
-			<span class="text-text-muted">{$capturedImages.length} photo{$capturedImages.length !== 1 ? 's' : ''} selected</span>
+			<span class="text-text-muted">{$capturedImages.length} item{$capturedImages.length !== 1 ? 's' : ''} selected</span>
 			<button
 				type="button"
 				class="text-danger hover:underline"
@@ -520,7 +520,7 @@
 	{#if isAnalyzing}
 		<div class="bg-surface rounded-xl border border-border p-4 mb-6">
 			<div class="flex items-center justify-between mb-2">
-				<span class="text-sm font-medium text-text">Analyzing photos...</span>
+				<span class="text-sm font-medium text-text">Analyzing items...</span>
 				<span class="text-sm text-text-muted">{analysisProgress.current} / {analysisProgress.total}</span>
 			</div>
 			<div class="h-2 bg-surface-elevated rounded-full overflow-hidden">
