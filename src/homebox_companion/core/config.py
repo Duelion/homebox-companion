@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from functools import lru_cache
 
 # Demo server for testing - users should replace with their own instance
 DEMO_API_URL = "https://demo.homebox.software/api/v1"
@@ -29,6 +28,9 @@ class Settings:
 
     All environment variables use the HBC_ prefix to ensure
     they don't conflict with other applications.
+
+    Note: Settings are read from environment at instantiation time.
+    The module-level `settings` instance acts as a singleton.
     """
 
     # Homebox API configuration
@@ -73,12 +75,7 @@ class Settings:
         return issues
 
 
-@lru_cache(maxsize=1)
-def get_settings() -> Settings:
-    """Get cached application settings."""
-    return Settings()
-
-
-# Default settings instance for easy import
-settings = get_settings()
+# Module-level singleton instance for easy import
+# Settings are read from environment variables when this module is first imported
+settings = Settings()
 

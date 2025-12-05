@@ -17,11 +17,16 @@
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
+	import ExtendedFieldsPanel from '$lib/components/ExtendedFieldsPanel.svelte';
+	import AdditionalImagesPanel from '$lib/components/AdditionalImagesPanel.svelte';
+	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 
 	let editedItem = $state<ReviewItem | null>(null);
 	let showExtendedFields = $state(false);
 	let showAiCorrection = $state(false);
 	let showThumbnailEditor = $state(false);
+	let isProcessing = $state(false);
+	let additionalImages = $state<File[]>([]);
 
 	// Check if item has any extended field data
 	function hasExtendedFieldData(item: ReviewItem | null): boolean {
@@ -35,10 +40,6 @@
 			item.notes
 		);
 	}
-	let correctionPrompt = $state('');
-	let isCorrectingWithAi = $state(false);
-	let additionalImages = $state<File[]>([]);
-	let additionalImageInput: HTMLInputElement;
 
 	// Initialize edited item from current item
 	$effect(() => {
@@ -46,7 +47,6 @@
 			editedItem = { ...$currentItem };
 			// Reset states when item changes
 			showAiCorrection = false;
-			correctionPrompt = '';
 			// Initialize with existing additional images from the item
 			additionalImages = $currentItem.additionalImages ? [...$currentItem.additionalImages] : [];
 			// Auto-expand extended fields if there's data
@@ -120,7 +120,7 @@
 
 	function toggleLabel(labelId: string) {
 		if (!editedItem) return;
-		
+
 		const currentLabels = editedItem.label_ids || [];
 		if (currentLabels.includes(labelId)) {
 			editedItem.label_ids = currentLabels.filter((id) => id !== labelId);
@@ -129,29 +129,8 @@
 		}
 	}
 
-	function handleAdditionalImages(e: Event) {
-		const input = e.target as HTMLInputElement;
-		if (!input.files) return;
-		
-		for (const file of Array.from(input.files)) {
-			if (file.size > 10 * 1024 * 1024) {
-				showToast(`${file.name} is too large (max 10MB)`, 'warning');
-				continue;
-			}
-			additionalImages = [...additionalImages, file];
-		}
-		input.value = '';
-	}
-
-	function removeAdditionalImage(index: number) {
-		additionalImages = additionalImages.filter((_, i) => i !== index);
-	}
-
-	async function correctWithAi() {
-		if (!editedItem || !correctionPrompt.trim()) {
-			showToast('Please enter correction instructions', 'warning');
-			return;
-		}
+	async function handleAiCorrection(correctionPrompt: string) {
+		if (!editedItem) return;
 
 		// Get the original image file
 		const sourceImage = $capturedImages[editedItem.sourceImageIndex];
@@ -160,7 +139,7 @@
 			return;
 		}
 
-		isCorrectingWithAi = true;
+		isProcessing = true;
 
 		try {
 			const response = await vision.correct(
@@ -197,34 +176,28 @@
 				};
 
 				showToast('Item corrected by AI', 'success');
-				correctionPrompt = '';
 				showAiCorrection = false;
 			}
 		} catch (error) {
 			console.error('AI correction failed:', error);
-			showToast(
-				error instanceof Error ? error.message : 'Correction failed',
-				'error'
-			);
+			showToast(error instanceof Error ? error.message : 'Correction failed', 'error');
 		} finally {
-			isCorrectingWithAi = false;
+			isProcessing = false;
 		}
 	}
 
-	async function analyzeWithMoreImages() {
+	async function handleAnalyzeWithImages() {
 		if (!editedItem || additionalImages.length === 0) {
 			showToast('Please add additional images first', 'warning');
 			return;
 		}
 
-		isCorrectingWithAi = true;
+		isProcessing = true;
 
 		try {
 			// Combine original image with additional images
 			const sourceImage = $capturedImages[editedItem.sourceImageIndex];
-			const allImages = sourceImage 
-				? [sourceImage.file, ...additionalImages]
-				: additionalImages;
+			const allImages = sourceImage ? [sourceImage.file, ...additionalImages] : additionalImages;
 
 			const response = await vision.analyze(
 				allImages,
@@ -248,26 +221,19 @@
 			showToast('Item details updated from images', 'success');
 		} catch (error) {
 			console.error('Analysis failed:', error);
-			showToast(
-				error instanceof Error ? error.message : 'Analysis failed',
-				'error'
-			);
+			showToast(error instanceof Error ? error.message : 'Analysis failed', 'error');
 		} finally {
-			isCorrectingWithAi = false;
+			isProcessing = false;
 		}
-	}
-
-	function getThumbnailUrl(file: File): string {
-		return URL.createObjectURL(file);
 	}
 
 	// Get all available images for this item (primary + additional) - no duplicates
 	function getAvailableImages(): { file: File; dataUrl: string }[] {
 		if (!editedItem) return [];
-		
+
 		const images: { file: File; dataUrl: string }[] = [];
 		const seenFiles = new Set<string>();
-		
+
 		// Helper to add image if not already added (use file name + size as key)
 		function addImage(file: File, dataUrl: string) {
 			const key = `${file.name}-${file.size}-${file.lastModified}`;
@@ -276,18 +242,18 @@
 				images.push({ file, dataUrl });
 			}
 		}
-		
+
 		// Add primary image from captured images
 		const sourceImage = $capturedImages[editedItem.sourceImageIndex];
 		if (sourceImage) {
 			addImage(sourceImage.file, sourceImage.dataUrl);
 		}
-		
+
 		// Add additional images from local state (these are the current additional images)
 		for (const file of additionalImages) {
 			addImage(file, URL.createObjectURL(file));
 		}
-		
+
 		return images;
 	}
 
@@ -345,7 +311,7 @@
 					<button
 						type="button"
 						class="absolute bottom-3 right-3 px-3 py-2 bg-black/60 hover:bg-black/80 rounded-lg text-white text-sm flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
-						onclick={() => showThumbnailEditor = true}
+						onclick={() => (showThumbnailEditor = true)}
 					>
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -365,12 +331,7 @@
 				<!-- Name -->
 				<div>
 					<label for="itemName" class="label">Name</label>
-					<input
-						type="text"
-						id="itemName"
-						bind:value={editedItem.name}
-						class="input"
-					/>
+					<input type="text" id="itemName" bind:value={editedItem.name} class="input" />
 				</div>
 
 				<!-- Quantity -->
@@ -420,208 +381,27 @@
 					</div>
 				{/if}
 
-				<!-- Extended Fields Section -->
-				<div class="border-t border-border pt-4">
-					<button
-						type="button"
-						class="flex items-center gap-2 text-sm text-text-muted hover:text-text w-full"
-						onclick={() => showExtendedFields = !showExtendedFields}
-					>
-						<svg 
-							class="w-4 h-4 transition-transform {showExtendedFields ? 'rotate-180' : ''}" 
-							fill="none" 
-							stroke="currentColor" 
-							viewBox="0 0 24 24"
-						>
-							<polyline points="6 9 12 15 18 9" />
-						</svg>
-						<span>Extended Fields</span>
-						{#if editedItem.manufacturer || editedItem.model_number || editedItem.serial_number || editedItem.purchase_price || editedItem.notes}
-							<span class="px-1.5 py-0.5 bg-primary/20 text-primary-light rounded text-xs">Has data</span>
-						{/if}
-					</button>
+				<!-- Extended Fields Panel -->
+				<ExtendedFieldsPanel
+					bind:item={editedItem}
+					expanded={showExtendedFields}
+					onToggle={() => (showExtendedFields = !showExtendedFields)}
+				/>
 
-					{#if showExtendedFields}
-						<div class="mt-4 space-y-4">
-							<div class="grid grid-cols-2 gap-3">
-								<div>
-									<label for="manufacturer" class="label">Manufacturer</label>
-									<input
-										type="text"
-										id="manufacturer"
-										bind:value={editedItem.manufacturer}
-										placeholder="e.g. DeWalt"
-										class="input"
-									/>
-								</div>
-								<div>
-									<label for="modelNumber" class="label">Model Number</label>
-									<input
-										type="text"
-										id="modelNumber"
-										bind:value={editedItem.model_number}
-										placeholder="e.g. DCD771C2"
-										class="input"
-									/>
-								</div>
-							</div>
+				<!-- Additional Images Panel -->
+				<AdditionalImagesPanel
+					bind:images={additionalImages}
+					loading={isProcessing}
+					onAnalyze={handleAnalyzeWithImages}
+				/>
 
-							<div>
-								<label for="serialNumber" class="label">Serial Number</label>
-								<input
-									type="text"
-									id="serialNumber"
-									bind:value={editedItem.serial_number}
-									placeholder="If visible on item"
-									class="input"
-								/>
-							</div>
-
-							<div class="grid grid-cols-2 gap-3">
-								<div>
-									<label for="purchasePrice" class="label">Purchase Price</label>
-									<input
-										type="number"
-										id="purchasePrice"
-										step="0.01"
-										min="0"
-										bind:value={editedItem.purchase_price}
-										placeholder="0.00"
-										class="input"
-									/>
-								</div>
-								<div>
-									<label for="purchaseFrom" class="label">Purchased From</label>
-									<input
-										type="text"
-										id="purchaseFrom"
-										bind:value={editedItem.purchase_from}
-										placeholder="e.g. Amazon"
-										class="input"
-									/>
-								</div>
-							</div>
-
-							<div>
-								<label for="notes" class="label">Notes</label>
-								<textarea
-									id="notes"
-									bind:value={editedItem.notes}
-									rows="2"
-									placeholder="Additional notes about the item..."
-									class="input resize-none"
-								></textarea>
-							</div>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Additional Images Section -->
-				<div class="border-t border-border pt-4">
-					<div class="flex items-center justify-between mb-3">
-						<span class="text-sm text-text-muted">Additional Images</span>
-						<button
-							type="button"
-							class="text-xs text-primary hover:underline"
-							onclick={() => additionalImageInput.click()}
-						>
-							+ Add Images
-						</button>
-					</div>
-					
-					<input
-						type="file"
-						accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
-						multiple
-						bind:this={additionalImageInput}
-						onchange={handleAdditionalImages}
-						class="hidden"
-					/>
-
-					{#if additionalImages.length > 0}
-						<div class="flex flex-wrap gap-2 mb-3">
-							{#each additionalImages as img, index}
-								<div class="relative w-16 h-16 rounded-lg overflow-hidden bg-surface-elevated group">
-									<img
-										src={getThumbnailUrl(img)}
-										alt="Additional {index + 1}"
-										class="w-full h-full object-cover"
-									/>
-									<button
-										type="button"
-										class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-										aria-label="Remove image"
-										onclick={() => removeAdditionalImage(index)}
-									>
-										<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<line x1="18" y1="6" x2="6" y2="18" />
-											<line x1="6" y1="6" x2="18" y2="18" />
-										</svg>
-									</button>
-								</div>
-							{/each}
-						</div>
-						<Button 
-							variant="secondary" 
-							onclick={analyzeWithMoreImages}
-							loading={isCorrectingWithAi}
-							disabled={isCorrectingWithAi}
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<circle cx="11" cy="11" r="8" />
-								<path d="m21 21-4.35-4.35" />
-							</svg>
-							<span>Re-analyze with Images</span>
-						</Button>
-					{:else}
-						<p class="text-xs text-text-dim">Add more photos to help AI extract details like serial numbers</p>
-					{/if}
-				</div>
-
-				<!-- AI Correction Section -->
-				<div class="border-t border-border pt-4">
-					<button
-						type="button"
-						class="flex items-center gap-2 text-sm text-text-muted hover:text-text w-full"
-						onclick={() => showAiCorrection = !showAiCorrection}
-					>
-						<svg 
-							class="w-4 h-4 transition-transform {showAiCorrection ? 'rotate-180' : ''}" 
-							fill="none" 
-							stroke="currentColor" 
-							viewBox="0 0 24 24"
-						>
-							<polyline points="6 9 12 15 18 9" />
-						</svg>
-						<span>AI Correction</span>
-					</button>
-
-					{#if showAiCorrection}
-						<div class="mt-3 space-y-3">
-							<p class="text-xs text-text-dim">
-								Tell the AI what's wrong and it will re-analyze the image
-							</p>
-							<textarea
-								bind:value={correctionPrompt}
-								placeholder="e.g., 'This is actually 3 separate items' or 'The brand is Sony, not Samsung'"
-								rows="2"
-								class="input resize-none"
-							></textarea>
-							<Button 
-								variant="secondary" 
-								onclick={correctWithAi}
-								loading={isCorrectingWithAi}
-								disabled={isCorrectingWithAi || !correctionPrompt.trim()}
-							>
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path d="M12 2a10 10 0 1 0 10 10H12V2z" />
-									<path d="M12 2a10 10 0 0 1 10 10" />
-								</svg>
-								<span>Correct with AI</span>
-							</Button>
-						</div>
-					{/if}
-				</div>
+				<!-- AI Correction Panel -->
+				<AiCorrectionPanel
+					expanded={showAiCorrection}
+					loading={isProcessing}
+					onToggle={() => (showAiCorrection = !showAiCorrection)}
+					onCorrect={handleAiCorrection}
+				/>
 			</div>
 		</div>
 
@@ -684,7 +464,7 @@
 				images={availableImages}
 				currentThumbnail={editedItem.customThumbnail}
 				onSave={handleThumbnailSave}
-				onClose={() => showThumbnailEditor = false}
+				onClose={() => (showThumbnailEditor = false)}
 			/>
 		{/if}
 	{/if}

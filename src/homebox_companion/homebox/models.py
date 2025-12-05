@@ -177,3 +177,20 @@ class ItemUpdate:
             self.notes,
         ])
 
+
+@dataclass
+class Attachment:
+    """An attachment (image) for an item in Homebox."""
+
+    id: str
+    type: str
+    document_id: str | None = None
+
+    @classmethod
+    def from_api(cls, data: dict) -> Attachment:
+        """Create an Attachment from API response data."""
+        return cls(
+            id=data.get("id", ""),
+            type=data.get("type", ""),
+            document_id=data.get("document", {}).get("id") if data.get("document") else None,
+        )

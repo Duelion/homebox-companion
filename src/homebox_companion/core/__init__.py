@@ -1,6 +1,6 @@
 """Core infrastructure for Homebox Companion."""
 
-from .config import Settings, get_settings, settings
+from .config import Settings, settings
 from .exceptions import (
     APIError,
     AuthenticationError,
@@ -13,7 +13,6 @@ from .logging import logger, setup_logging
 __all__ = [
     # Configuration
     "Settings",
-    "get_settings",
     "settings",
     # Exceptions
     "HomeboxCompanionError",

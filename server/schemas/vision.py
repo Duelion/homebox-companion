@@ -3,20 +3,31 @@
 from pydantic import BaseModel
 
 
-class DetectedItemResponse(BaseModel):
-    """Detected item from image analysis."""
+# Base mixin for item extended fields to reduce duplication
+class ItemExtendedFieldsMixin(BaseModel):
+    """Mixin containing extended fields shared across item schemas."""
 
-    name: str
-    quantity: int
-    description: str | None = None
-    label_ids: list[str] | None = None
-    # Extended fields (extracted when visible in image)
     manufacturer: str | None = None
     model_number: str | None = None
     serial_number: str | None = None
     purchase_price: float | None = None
     purchase_from: str | None = None
     notes: str | None = None
+
+
+class ItemBaseMixin(BaseModel):
+    """Mixin containing core fields shared across item schemas."""
+
+    name: str
+    quantity: int
+    description: str | None = None
+    label_ids: list[str] | None = None
+
+
+class DetectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
+    """Detected item from image analysis."""
+
+    pass
 
 
 class DetectionResponse(BaseModel):
@@ -26,48 +37,47 @@ class DetectionResponse(BaseModel):
     message: str = "Detection complete"
 
 
-class AdvancedItemDetails(BaseModel):
-    """Detailed item information from AI analysis."""
+class AdvancedItemDetails(ItemExtendedFieldsMixin):
+    """Detailed item information from AI analysis.
+
+    All fields are optional since they may not be extractable from images.
+    """
 
     name: str | None = None
     description: str | None = None
-    serial_number: str | None = None
-    model_number: str | None = None
-    manufacturer: str | None = None
-    purchase_price: float | None = None
-    notes: str | None = None
     label_ids: list[str] | None = None
 
 
-class MergeItemsRequest(BaseModel):
-    """Request to merge multiple items into one."""
-
-    items: list[dict]
-
-
-class MergedItemResponse(BaseModel):
-    """Response with merged item data."""
+class MergeItemInput(BaseModel):
+    """Input item for merge request with typed fields."""
 
     name: str
-    quantity: int
+    quantity: int = 1
     description: str | None = None
-    label_ids: list[str] | None = None
-
-
-class CorrectedItemResponse(BaseModel):
-    """A corrected item from AI analysis."""
-
-    name: str
-    quantity: int
-    description: str | None = None
-    label_ids: list[str] | None = None
-    # Extended fields
     manufacturer: str | None = None
     model_number: str | None = None
     serial_number: str | None = None
     purchase_price: float | None = None
     purchase_from: str | None = None
     notes: str | None = None
+
+
+class MergeItemsRequest(BaseModel):
+    """Request to merge multiple items into one."""
+
+    items: list[MergeItemInput]
+
+
+class MergedItemResponse(ItemBaseMixin):
+    """Response with merged item data."""
+
+    pass
+
+
+class CorrectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
+    """A corrected item from AI analysis."""
+
+    pass
 
 
 class CorrectionResponse(BaseModel):

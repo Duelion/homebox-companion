@@ -1,7 +1,7 @@
 """Homebox API client module."""
 
 from .client import HomeboxClient
-from .models import Item, ItemCreate, ItemUpdate, Label, Location
+from .models import Attachment, Item, ItemCreate, ItemUpdate, Label, Location
 
 __all__ = [
     "HomeboxClient",
@@ -10,6 +10,7 @@ __all__ = [
     "Item",
     "ItemCreate",
     "ItemUpdate",
+    "Attachment",
 ]
 
 
