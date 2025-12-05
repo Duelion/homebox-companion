@@ -8,16 +8,16 @@ Take a photo of your stuff, and let AI identify and catalog items directly into 
 
 Homebox Companion streamlines the process of adding items to your home inventory:
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Login     │───▶│  Select     │───▶│  Capture    │───▶│  Review &   │───▶│  Submit to  │
-│  (Homebox)  │    │  Location   │    │  Photos     │    │  Edit Items │    │  Homebox    │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-                         │                  │                  │
-                         ▼                  ▼                  ▼
-                   Hierarchical       AI analyzes        Edit names,
-                   location tree      images using       quantities,
-                   navigation         OpenAI GPT-5      labels, etc.
+```mermaid
+flowchart LR
+    A[🔐 Login<br/>Homebox] --> B[📍 Select<br/>Location]
+    B --> C[📸 Capture<br/>Photos]
+    C --> D[✏️ Review &<br/>Edit Items]
+    D --> E[✅ Submit to<br/>Homebox]
+    
+    B -.-> B1[/Hierarchical<br/>location tree/]
+    C -.-> C1[/AI analyzes with<br/>OpenAI GPT-5/]
+    D -.-> D1[/Edit names,<br/>quantities, labels/]
 ```
 
 1. **Login** – Authenticate with your existing Homebox credentials
