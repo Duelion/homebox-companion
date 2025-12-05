@@ -64,7 +64,7 @@ flowchart LR
 
 ```bash
 # Clone the repository
-git clone https://github.com/sozolab/homebox-companion.git
+git clone https://github.com/Duelion/homebox-companion.git
 cd homebox-companion
 
 # Install Python dependencies
@@ -76,14 +76,7 @@ cd frontend && npm install && cd ..
 
 ### Configuration
 
-Copy the example environment file and fill in your values:
-
-```bash
-cp .env.example .env
-# Edit .env with your OpenAI API key and Homebox URL
-```
-
-Or create a `.env` file manually:
+For local development, create a `.env` file:
 
 ```bash
 # .env file contents
@@ -149,36 +142,47 @@ cd ..
 uv run python -m server.app
 ```
 
-**Docker:**
+**Docker Compose (Recommended):**
+
+Create a `docker-compose.yml` file:
+
+```yaml
+version: "3.4"
+
+services:
+  homebox-companion:
+    image: ghcr.io/duelion/homebox-companion:latest
+    container_name: homebox-companion
+    restart: always
+    environment:
+      - HBC_OPENAI_API_KEY=sk-your-api-key-here
+      - HBC_HOMEBOX_URL=https://your-homebox.example.com
+      - HBC_OPENAI_MODEL=gpt-5-mini
+      - HBC_LOG_LEVEL=INFO
+    ports:
+      - 8000:8000
+```
+
+Then run:
 
 ```bash
-# Create a .env file with your settings
-cat > .env << EOF
-HBC_OPENAI_API_KEY=sk-your-api-key-here
-HBC_HOMEBOX_URL=https://your-homebox.example.com
-HBC_OPENAI_MODEL=gpt-5-mini
-HBC_LOG_LEVEL=INFO
-EOF
-
-# Build and run with docker compose
 docker compose up -d
 ```
 
-Or build and run manually:
+**Docker Run:**
 
 ```bash
-docker build -t homebox-companion .
 docker run -d -p 8000:8000 \
   -e HBC_OPENAI_API_KEY="sk-your-api-key-here" \
   -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
-  homebox-companion
+  ghcr.io/duelion/homebox-companion:latest
 ```
 
 > **Note for Docker networking:** If your Homebox instance runs on the same machine (but outside Docker), use `http://host.docker.internal:PORT` as the URL. For example, if Homebox runs on port 7745:
+> ```yaml
+> - HBC_HOMEBOX_URL=http://host.docker.internal:7745
 > ```
-> HBC_HOMEBOX_URL=http://host.docker.internal:7745
-> ```
-> On Linux, you may need to add `--add-host=host.docker.internal:host-gateway` to the docker run command.
+> On Linux, you may need to add `--add-host=host.docker.internal:host-gateway` to the docker run command, or use `network_mode: host` in your compose file.
 
 ## Environment Variables Reference
 
