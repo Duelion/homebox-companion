@@ -1,53 +1,51 @@
+# Git
+.git
+.gitignore
+
 # Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
+__pycache__
+*.pyc
+*.pyo
+*.pyd
 .Python
-.venv/
-venv/
-ENV/
-env/
-*.egg-info/
-.eggs/
-dist/
-build/
+.venv
+venv
+*.egg-info
+.eggs
+dist
+build
 
 # Node
-node_modules/
-frontend/node_modules/
-frontend/build/
+node_modules
+frontend/node_modules
 
 # IDE
-.idea/
-.vscode/
+.idea
+.vscode
 *.swp
 *.swo
-
-# Git
-.git/
-.gitignore
 
 # Logs
 logs/
 *.log
 
-# Tests
-tests/
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# Misc
+# Environment files (secrets)
 .env
 .env.*
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts (we rebuild in Docker)
+frontend/build
+server/static
+
+# Documentation
 *.md
 !README.md
-scripts/
-
-

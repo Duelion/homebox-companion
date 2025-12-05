@@ -1,1 +1,15 @@
+version: '3.8'
 
+services:
+  homebox-companion:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - HBC_OPENAI_API_KEY=${HBC_OPENAI_API_KEY}
+      - HBC_HOMEBOX_URL=${HBC_HOMEBOX_URL:-}
+      - HBC_OPENAI_MODEL=${HBC_OPENAI_MODEL:-gpt-5-mini}
+      - HBC_LOG_LEVEL=${HBC_LOG_LEVEL:-INFO}
+    env_file:
+      - .env
+    restart: unless-stopped
