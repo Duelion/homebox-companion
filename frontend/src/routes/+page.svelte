@@ -6,8 +6,8 @@
 	import Button from '$lib/components/Button.svelte';
 	import { onMount } from 'svelte';
 
-	let email = $state('demo@example.com');
-	let password = $state('demo');
+	let email = $state('');
+	let password = $state('');
 	let isSubmitting = $state(false);
 
 	// Redirect if already authenticated
