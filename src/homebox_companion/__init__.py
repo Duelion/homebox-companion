@@ -21,7 +21,7 @@ Quick Start:
 Environment Variables:
     HBC_API_URL: Your Homebox API URL
     HBC_OPENAI_API_KEY: Your OpenAI API key
-    HBC_OPENAI_MODEL: OpenAI model (default: gpt-4o-mini)
+    HBC_OPENAI_MODEL: OpenAI model (default: gpt-5-mini)
     HBC_SERVER_HOST: Server host (default: 0.0.0.0)
     HBC_SERVER_PORT: Server port (default: 8000)
     HBC_LOG_LEVEL: Logging level (default: INFO)
