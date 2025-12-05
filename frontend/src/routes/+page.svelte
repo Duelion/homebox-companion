@@ -58,8 +58,8 @@
 		<div class="absolute inset-8 bg-primary/40 rounded-xl animate-float" style="animation-delay: 1s;"></div>
 	</div>
 
-	<h1 class="text-3xl font-bold text-text mb-2">Welcome to Homebox Companion</h1>
-	<p class="text-text-muted mb-8 text-center">
+	<h1 class="text-2xl sm:text-3xl font-bold text-text mb-2 text-center px-2">Welcome to Homebox Companion</h1>
+	<p class="text-text-muted mb-8 text-center px-2 text-sm sm:text-base">
 		Scan and organize your inventory with AI-powered detection
 	</p>
 
