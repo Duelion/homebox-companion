@@ -34,3 +34,4 @@ ENV HBC_SERVER_PORT=8000
 # Run the server
 CMD ["uv", "run", "python", "-m", "server.app"]
 
+
