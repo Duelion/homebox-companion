@@ -359,10 +359,13 @@ async def merge_items(
     # Fetch labels for context
     labels = await get_labels_for_context(token)
 
+    # Convert typed items to dicts for the OpenAI function
+    items_as_dicts = [item.model_dump(exclude_none=True) for item in request.items]
+
     try:
         logger.info("Calling OpenAI for item merge...")
         merged = await merge_items_with_openai(
-            items=request.items,
+            items=items_as_dicts,
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             labels=labels,
@@ -374,7 +377,7 @@ async def merge_items(
 
     return MergedItemResponse(
         name=merged.get("name", "Merged Item"),
-        quantity=merged.get("quantity", sum(item.get("quantity", 1) for item in request.items)),
+        quantity=merged.get("quantity", sum(item.quantity for item in request.items)),
         description=merged.get("description"),
         label_ids=merged.get("labelIds"),
     )

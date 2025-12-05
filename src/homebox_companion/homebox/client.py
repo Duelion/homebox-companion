@@ -12,7 +12,7 @@ import httpx
 
 from ..core.config import settings
 from ..core.exceptions import AuthenticationError
-from .models import ItemCreate
+from .models import Attachment, Item, ItemCreate, Label, Location
 
 # Default timeout configuration
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
@@ -110,7 +110,7 @@ class HomeboxClient:
             filter_children: If True, returns only top-level locations.
 
         Returns:
-            List of location dictionaries.
+            List of location dictionaries (raw API response).
         """
         params = {}
         if filter_children is not None:
@@ -127,6 +127,21 @@ class HomeboxClient:
         self._ensure_success(response, "Fetch locations")
         return response.json()
 
+    async def list_locations_typed(
+        self, token: str, *, filter_children: bool | None = None
+    ) -> list[Location]:
+        """Return all available locations as typed Location objects.
+
+        Args:
+            token: The bearer token from login.
+            filter_children: If True, returns only top-level locations.
+
+        Returns:
+            List of Location objects.
+        """
+        raw = await self.list_locations(token, filter_children=filter_children)
+        return [Location.from_api(loc) for loc in raw]
+
     async def get_location(self, token: str, location_id: str) -> dict[str, Any]:
         """Return a specific location by ID with its children.
 
@@ -135,7 +150,7 @@ class HomeboxClient:
             location_id: The ID of the location to fetch.
 
         Returns:
-            Location dictionary including children.
+            Location dictionary including children (raw API response).
         """
         response = await self.client.get(
             f"{self.base_url}/locations/{location_id}",
@@ -146,6 +161,19 @@ class HomeboxClient:
         )
         self._ensure_success(response, "Fetch location")
         return response.json()
+
+    async def get_location_typed(self, token: str, location_id: str) -> Location:
+        """Return a specific location by ID as a typed Location object.
+
+        Args:
+            token: The bearer token from login.
+            location_id: The ID of the location to fetch.
+
+        Returns:
+            Location object including children.
+        """
+        raw = await self.get_location(token, location_id)
+        return Location.from_api(raw)
 
     async def create_location(
         self,
@@ -231,7 +259,7 @@ class HomeboxClient:
             token: The bearer token from login.
 
         Returns:
-            List of label dictionaries.
+            List of label dictionaries (raw API response).
         """
         response = await self.client.get(
             f"{self.base_url}/labels",
@@ -243,6 +271,18 @@ class HomeboxClient:
         self._ensure_success(response, "Fetch labels")
         return response.json()
 
+    async def list_labels_typed(self, token: str) -> list[Label]:
+        """Return all available labels as typed Label objects.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            List of Label objects.
+        """
+        raw = await self.list_labels(token)
+        return [Label.from_api(label) for label in raw]
+
     async def create_item(self, token: str, item: ItemCreate) -> dict[str, Any]:
         """Create a single item in Homebox.
 
@@ -251,7 +291,7 @@ class HomeboxClient:
             item: The item data to create.
 
         Returns:
-            The created item dictionary from the API.
+            The created item dictionary from the API (raw response).
         """
         response = await self.client.post(
             f"{self.base_url}/items",
@@ -265,6 +305,19 @@ class HomeboxClient:
         self._ensure_success(response, "Create item")
         return response.json()
 
+    async def create_item_typed(self, token: str, item: ItemCreate) -> Item:
+        """Create a single item in Homebox and return as typed Item object.
+
+        Args:
+            token: The bearer token from login.
+            item: The item data to create.
+
+        Returns:
+            The created Item object.
+        """
+        raw = await self.create_item(token, item)
+        return Item.from_api(raw)
+
     async def update_item(
         self, token: str, item_id: str, item_data: dict[str, Any]
     ) -> dict[str, Any]:
@@ -276,7 +329,7 @@ class HomeboxClient:
             item_data: Dictionary of fields to update.
 
         Returns:
-            The updated item dictionary.
+            The updated item dictionary (raw API response).
         """
         response = await self.client.put(
             f"{self.base_url}/items/{item_id}",
@@ -290,6 +343,22 @@ class HomeboxClient:
         self._ensure_success(response, "Update item")
         return response.json()
 
+    async def update_item_typed(
+        self, token: str, item_id: str, item_data: dict[str, Any]
+    ) -> Item:
+        """Update a single item by ID and return as typed Item object.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to update.
+            item_data: Dictionary of fields to update.
+
+        Returns:
+            The updated Item object.
+        """
+        raw = await self.update_item(token, item_id, item_data)
+        return Item.from_api(raw)
+
     async def get_item(self, token: str, item_id: str) -> dict[str, Any]:
         """Get full item details by ID.
 
@@ -298,7 +367,7 @@ class HomeboxClient:
             item_id: The ID of the item to fetch.
 
         Returns:
-            The item dictionary with all details.
+            The item dictionary with all details (raw API response).
         """
         response = await self.client.get(
             f"{self.base_url}/items/{item_id}",
@@ -309,6 +378,19 @@ class HomeboxClient:
         )
         self._ensure_success(response, "Get item")
         return response.json()
+
+    async def get_item_typed(self, token: str, item_id: str) -> Item:
+        """Get full item details by ID as typed Item object.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to fetch.
+
+        Returns:
+            The Item object with all details.
+        """
+        raw = await self.get_item(token, item_id)
+        return Item.from_api(raw)
 
     async def upload_attachment(
         self,
@@ -330,7 +412,7 @@ class HomeboxClient:
             attachment_type: Type of attachment (default: "photo").
 
         Returns:
-            The attachment response dictionary.
+            The attachment response dictionary (raw API response).
         """
         files = {"file": (filename, file_bytes, mime_type)}
         data = {"type": attachment_type, "name": filename}
@@ -342,6 +424,33 @@ class HomeboxClient:
         )
         self._ensure_success(response, "Upload attachment")
         return response.json()
+
+    async def upload_attachment_typed(
+        self,
+        token: str,
+        item_id: str,
+        file_bytes: bytes,
+        filename: str,
+        mime_type: str = "image/jpeg",
+        attachment_type: str = "photo",
+    ) -> Attachment:
+        """Upload an attachment (image) to an item and return typed Attachment.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to attach to.
+            file_bytes: The file content as bytes.
+            filename: Name for the uploaded file.
+            mime_type: MIME type of the file.
+            attachment_type: Type of attachment (default: "photo").
+
+        Returns:
+            The Attachment object.
+        """
+        raw = await self.upload_attachment(
+            token, item_id, file_bytes, filename, mime_type, attachment_type
+        )
+        return Attachment.from_api(raw)
 
     @staticmethod
     def _ensure_success(response: httpx.Response, context: str) -> None:

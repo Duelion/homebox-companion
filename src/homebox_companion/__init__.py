@@ -51,6 +51,7 @@ from .core import (
 
 # Homebox client
 from .homebox import (
+    Attachment,
     HomeboxClient,
     Item,
     ItemCreate,
@@ -85,6 +86,7 @@ __all__ = [
     "Item",
     "ItemCreate",
     "ItemUpdate",
+    "Attachment",
     # Vision tool
     "DetectedItem",
     "detect_items_from_bytes",

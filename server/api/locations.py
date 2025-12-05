@@ -3,29 +3,13 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
 
 from homebox_companion import AuthenticationError
 
 from ..dependencies import get_client, get_token
+from ..schemas.locations import LocationCreate, LocationUpdate
 
 router = APIRouter()
-
-
-class LocationCreate(BaseModel):
-    """Request body for creating a location."""
-
-    name: str
-    description: str = ""
-    parent_id: str | None = None
-
-
-class LocationUpdate(BaseModel):
-    """Request body for updating a location."""
-
-    name: str
-    description: str = ""
-    parent_id: str | None = None
 
 
 @router.get("/locations")
