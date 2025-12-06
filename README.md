@@ -142,9 +142,15 @@ cd ..
 uv run python -m server.app
 ```
 
-**Docker Compose (Recommended):**
+**Docker (Recommended):**
 
-Create a `docker-compose.yml` file:
+Pull the latest image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/duelion/homebox-companion:latest
+```
+
+Then create a `docker-compose.yml` file:
 
 ```yaml
 version: "3.4"
