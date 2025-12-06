@@ -44,7 +44,7 @@
 			</p>
 			<textarea
 				bind:value={correctionPrompt}
-				placeholder="e.g., 'This is actually 3 separate items' or 'The brand is Sony, not Samsung'"
+				placeholder="e.g., 'The brand is Sony, not Samsung' or 'This is a multimeter, not a voltmeter'"
 				rows="2"
 				class="input resize-none"
 			></textarea>
@@ -63,6 +63,7 @@
 		</div>
 	{/if}
 </div>
+
 
 
 

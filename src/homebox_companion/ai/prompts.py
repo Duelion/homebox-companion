@@ -37,27 +37,28 @@ ITEM_SCHEMA = """Each item must include:
 
 # Extended fields that can be extracted when visible/applicable
 EXTENDED_FIELDS_SCHEMA = """
-OPTIONAL EXTENDED FIELDS - Only include when clearly visible/determinable from the image:
+OPTIONAL EXTENDED FIELDS - Include when visible in the image OR provided by the user:
 
-- manufacturer: string or null (brand name ONLY if clearly visible via logo, label, or packaging)
-- modelNumber: string or null (ONLY if product code/model number is visible on label or item)
-- serialNumber: string or null (ONLY if serial number is visible on sticker/label/engraving)
-- purchasePrice: number or null (ONLY if price tag or receipt is visible in image)
-- purchaseFrom: string or null (ONLY if store name/retailer is visible on packaging/receipt)
+- manufacturer: string or null (brand name from logo, label, packaging, or user context)
+- modelNumber: string or null (product code/model number from label, item, or user context)
+- serialNumber: string or null (serial number from sticker/label/engraving or user context)
+- purchasePrice: number or null (price from tag, receipt, or user context - just the number)
+- purchaseFrom: string or null (store name/retailer from packaging, receipt, or user context)
 - notes: string or null (ONLY for defects, damage, or warnings - leave null for normal items)
   GOOD notes: "Cracked lens", "Missing 2 screws", "Battery corroded", "Requires 12V adapter"
   BAD notes: "Sealed in packaging", "Made in China", "Appears new", "Barcode visible"
 
 CRITERIA FOR EXTENDED FIELDS (IMPORTANT):
-- DO NOT guess or infer fields you cannot see clearly
-- manufacturer: Include ONLY when brand/logo is VISIBLE (e.g., "DeWalt" visible on tool)
-- modelNumber: Include ONLY when model/part number TEXT is VISIBLE (e.g., "DCD771C2" on label)
-- serialNumber: Include ONLY when S/N text is VISIBLE (usually on sticker/label)
-- purchasePrice: Include ONLY if price tag/receipt is IN THE IMAGE
-- purchaseFrom: Include ONLY if retailer name is visible (e.g., "Home Depot" on packaging)
+- Extract from image when clearly visible OR from user-provided context
+- manufacturer: Include when brand/logo is VISIBLE or user specifies it
+- modelNumber: Include when model/part number TEXT is VISIBLE or user specifies it
+- serialNumber: Include when S/N text is VISIBLE or user specifies it (e.g., "serial ABC123")
+- purchasePrice: Include if price tag/receipt is IN THE IMAGE or user specifies it (e.g., "$50")
+- purchaseFrom: Include if retailer name is visible or user specifies it (e.g., "from Amazon")
 - notes: Include ONLY for defects/damage/warnings - most items should have null notes
 
-If a field cannot be determined from what's visible, omit it or set to null."""
+DO NOT guess or infer fields - only use what's visible in the image or
+explicitly stated by the user."""
 
 
 def build_label_prompt(labels: list[dict[str, str]] | None) -> str:

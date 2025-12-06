@@ -75,9 +75,17 @@ def build_detection_user_prompt(
     user_hint = ""
     if extra_instructions and extra_instructions.strip():
         user_hint = (
-            f"\n\nUSER CONTEXT: The user has provided this hint about the image contents: "
-            f'"{extra_instructions.strip()}". Use this information to better understand '
-            "and identify the items in the image."
+            f"\n\nUSER CONTEXT: The user has provided this additional information: "
+            f'"{extra_instructions.strip()}"\n\n'
+            "IMPORTANT: If the user has provided specific data like:\n"
+            "- Price (e.g., '$50', '29.99') → use as purchasePrice\n"
+            "- Serial number (e.g., 'SN: ABC123') → use as serialNumber\n"
+            "- Model number (e.g., 'model DCD771') → use as modelNumber\n"
+            "- Store/retailer (e.g., 'from Home Depot') → use as purchaseFrom\n"
+            "- Brand/manufacturer → use as manufacturer\n"
+            "- Item name or description hints → use to improve name/description\n\n"
+            "Extract and populate the corresponding fields from the user's text, "
+            "even if this information is not visible in the image."
         )
 
     if multi_image:
@@ -223,6 +231,7 @@ def build_discriminatory_user_prompt(previous_merged_item: dict | None = None) -
         + context
         + "\n\nReturn only JSON."
     )
+
 
 
 
