@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from loguru import logger
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, omit
 
 from ..core.config import settings
 
@@ -15,6 +15,21 @@ _UNSET = object()
 
 # Cache for OpenAI client instances to enable connection reuse
 _client_cache: dict[str, AsyncOpenAI] = {}
+
+# Default headers to strip SDK telemetry that some proxies/WAFs block
+_DEFAULT_HEADERS = {
+    "X-Stainless-Lang": omit,
+    "X-Stainless-Package-Version": omit,
+    "X-Stainless-OS": omit,
+    "X-Stainless-Arch": omit,
+    "X-Stainless-Runtime": omit,
+    "X-Stainless-Runtime-Version": omit,
+    "x-stainless-async": omit,
+    "x-stainless-retry-count": omit,
+    "x-stainless-read-timeout": omit,
+    # keep UA simple to avoid proxy blocks
+    "User-Agent": "homebox-companion",
+}
 
 
 def _get_openai_client(api_key: str, base_url: str | None = None) -> AsyncOpenAI:
@@ -38,6 +53,7 @@ def _get_openai_client(api_key: str, base_url: str | None = None) -> AsyncOpenAI
         kwargs = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
+        kwargs["default_headers"] = _DEFAULT_HEADERS
         _client_cache[cache_key] = AsyncOpenAI(**kwargs)
     return _client_cache[cache_key]
 
@@ -149,7 +165,6 @@ async def vision_completion(
         base_url=base_url,
         response_format={"type": "json_object"},
     )
-
 
 
 
