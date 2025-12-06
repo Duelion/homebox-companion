@@ -8,6 +8,9 @@ Environment Variables:
         We automatically append /api/v1 to this URL.
     HBC_OPENAI_API_KEY: Your OpenAI API key for vision detection
     HBC_OPENAI_MODEL: OpenAI model to use (default: gpt-5-mini)
+    HBC_OPENAI_BASE_URL: Custom base URL for OpenAI-compatible API endpoints
+        (optional). Use this for local models, Azure OpenAI, or other compatible
+        providers. If not set, uses the official OpenAI API.
     HBC_SERVER_HOST: Host to bind the web server to (default: 0.0.0.0)
     HBC_SERVER_PORT: Port for the web server (default: 8000). In production,
         this single port serves both the API and the static frontend.
@@ -48,6 +51,7 @@ class Settings(BaseSettings):
     # OpenAI configuration
     openai_api_key: str = ""
     openai_model: str = "gpt-5-mini"
+    openai_base_url: str | None = None
 
     # Web server configuration
     server_host: str = "0.0.0.0"

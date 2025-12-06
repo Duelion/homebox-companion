@@ -10,26 +10,36 @@ from openai import AsyncOpenAI
 
 from ..core.config import settings
 
+# Sentinel value for distinguishing "not provided" from "explicitly None"
+_UNSET = object()
+
 # Cache for OpenAI client instances to enable connection reuse
 _client_cache: dict[str, AsyncOpenAI] = {}
 
 
-def _get_openai_client(api_key: str) -> AsyncOpenAI:
-    """Get or create a cached OpenAI client for the given API key.
+def _get_openai_client(api_key: str, base_url: str | None = None) -> AsyncOpenAI:
+    """Get or create a cached OpenAI client for the given API key and base URL.
 
     This enables connection pooling and reuse across multiple requests,
     improving performance for parallel API calls.
 
     Args:
         api_key: The OpenAI API key.
+        base_url: Optional custom base URL for OpenAI-compatible endpoints.
 
     Returns:
         A cached or newly created AsyncOpenAI client.
     """
-    if api_key not in _client_cache:
-        logger.debug("Creating new OpenAI client instance")
-        _client_cache[api_key] = AsyncOpenAI(api_key=api_key)
-    return _client_cache[api_key]
+    # Create cache key from both api_key and base_url
+    cache_key = f"{api_key}:{base_url or 'default'}"
+
+    if cache_key not in _client_cache:
+        logger.debug(f"Creating new OpenAI client instance (base_url: {base_url or 'default'})")
+        kwargs = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        _client_cache[cache_key] = AsyncOpenAI(**kwargs)
+    return _client_cache[cache_key]
 
 
 async def chat_completion(
@@ -37,6 +47,7 @@ async def chat_completion(
     *,
     api_key: str | None = None,
     model: str | None = None,
+    base_url: str | None | object = _UNSET,
     response_format: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Send a chat completion request to OpenAI.
@@ -45,6 +56,8 @@ async def chat_completion(
         messages: List of message dicts for the conversation.
         api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
         model: Model name. Defaults to HBC_OPENAI_MODEL.
+        base_url: Custom base URL for OpenAI-compatible endpoints. Defaults to HBC_OPENAI_BASE_URL.
+            Pass None to explicitly use the official OpenAI endpoint.
         response_format: Optional response format (e.g., {"type": "json_object"}).
 
     Returns:
@@ -52,10 +65,14 @@ async def chat_completion(
     """
     api_key = api_key or settings.openai_api_key
     model = model or settings.openai_model
+    # Use sentinel to distinguish "not provided" from "explicitly None"
+    if base_url is _UNSET:
+        base_url = settings.openai_base_url
+    # else: use the provided value (including None)
 
-    logger.debug(f"Calling OpenAI API with model: {model}")
+    logger.debug(f"Calling OpenAI API with model: {model}, base_url: {base_url or 'default'}")
 
-    client = _get_openai_client(api_key)
+    client = _get_openai_client(api_key, base_url)
 
     kwargs: dict[str, Any] = {
         "model": model,
@@ -82,6 +99,7 @@ async def vision_completion(
     *,
     api_key: str | None = None,
     model: str | None = None,
+    base_url: str | None | object = _UNSET,
 ) -> dict[str, Any]:
     """Send a vision completion request with images to OpenAI.
 
@@ -91,6 +109,8 @@ async def vision_completion(
         image_data_uris: List of base64-encoded image data URIs.
         api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
         model: Model name. Defaults to HBC_OPENAI_MODEL.
+        base_url: Custom base URL for OpenAI-compatible endpoints. Defaults to HBC_OPENAI_BASE_URL.
+            Pass None to explicitly use the official OpenAI endpoint.
 
     Returns:
         Parsed response content as a dictionary.
@@ -110,6 +130,7 @@ async def vision_completion(
         messages,
         api_key=api_key,
         model=model,
+        base_url=base_url,
         response_format={"type": "json_object"},
     )
 
