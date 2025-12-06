@@ -389,6 +389,12 @@ The application can be deployed via Docker or manually on a server. Pre-built im
 
 ### Docker Compose Deployment (Recommended)
 
+Pull the latest image:
+
+```bash
+docker pull ghcr.io/duelion/homebox-companion:latest
+```
+
 Create a `docker-compose.yml`:
 
 ```yaml
