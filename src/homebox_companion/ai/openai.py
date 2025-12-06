@@ -56,12 +56,20 @@ async def chat_completion(
         messages: List of message dicts for the conversation.
         api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
         model: Model name. Defaults to HBC_OPENAI_MODEL.
-        base_url: Custom base URL for OpenAI-compatible endpoints. Defaults to HBC_OPENAI_BASE_URL.
-            Pass None to explicitly use the official OpenAI endpoint.
+        base_url: Custom base URL for OpenAI-compatible endpoints.
+            - If not provided (default), uses HBC_OPENAI_BASE_URL from settings
+            - If None, explicitly uses the official OpenAI API endpoint
+            - If a string URL, uses that custom endpoint
         response_format: Optional response format (e.g., {"type": "json_object"}).
 
     Returns:
         Parsed response content as a dictionary.
+
+    Note:
+        The base_url parameter uses a sentinel value internally to distinguish
+        between "not provided" and "explicitly None". For typical usage, just
+        omit the parameter to use settings, or pass a string URL for a custom
+        endpoint.
     """
     api_key = api_key or settings.openai_api_key
     model = model or settings.openai_model
@@ -109,11 +117,19 @@ async def vision_completion(
         image_data_uris: List of base64-encoded image data URIs.
         api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
         model: Model name. Defaults to HBC_OPENAI_MODEL.
-        base_url: Custom base URL for OpenAI-compatible endpoints. Defaults to HBC_OPENAI_BASE_URL.
-            Pass None to explicitly use the official OpenAI endpoint.
+        base_url: Custom base URL for OpenAI-compatible endpoints.
+            - If not provided (default), uses HBC_OPENAI_BASE_URL from settings
+            - If None, explicitly uses the official OpenAI API endpoint
+            - If a string URL, uses that custom endpoint
 
     Returns:
         Parsed response content as a dictionary.
+
+    Note:
+        The base_url parameter uses a sentinel value internally to distinguish
+        between "not provided" and "explicitly None". For typical usage, just
+        omit the parameter to use settings, or pass a string URL for a custom
+        endpoint.
     """
     # Build content list with text and images
     content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]

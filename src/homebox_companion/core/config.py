@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     # OpenAI configuration
     openai_api_key: str = ""
     openai_model: str = "gpt-5-mini"
+    # Custom base URL for OpenAI-compatible endpoints (e.g., local LLMs, Azure OpenAI)
+    # If None, uses the official OpenAI API endpoint
     openai_base_url: str | None = None
 
     # Web server configuration
