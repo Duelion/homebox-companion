@@ -20,3 +20,4 @@ class LocationUpdate(BaseModel):
 
 
 
+
