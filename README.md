@@ -81,7 +81,7 @@ For local development, create a `.env` file:
 ```bash
 # .env file contents
 HBC_OPENAI_API_KEY=sk-your-api-key-here
-HBC_HOMEBOX_URL=https://your-homebox.example.com
+HBC_HOMEBOX_URL=http://localhost:7745  # or https://your-homebox.example.com
 HBC_OPENAI_MODEL=gpt-5-mini
 HBC_LOG_LEVEL=INFO
 ```
@@ -95,7 +95,8 @@ export HBC_OPENAI_API_KEY="sk-your-api-key-here"
 
 # Optional: Your Homebox URL (default: demo server)
 # We automatically append /api/v1 to this URL
-export HBC_HOMEBOX_URL="https://your-homebox.example.com"
+# Include port if your Homebox isn't behind a reverse proxy
+export HBC_HOMEBOX_URL="http://192.168.1.100:7745"  # or https://your-homebox.example.com
 
 # Optional: OpenAI model (default: gpt-5-mini)
 export HBC_OPENAI_MODEL="gpt-5-mini"
@@ -111,7 +112,7 @@ export HBC_LOG_LEVEL="INFO"
 **Windows (PowerShell):**
 ```powershell
 $env:HBC_OPENAI_API_KEY = "sk-your-api-key-here"
-$env:HBC_HOMEBOX_URL = "https://your-homebox.example.com"
+$env:HBC_HOMEBOX_URL = "http://192.168.1.100:7745"  # Include port if no reverse proxy
 ```
 
 ### Running the App
@@ -162,7 +163,9 @@ services:
     restart: always
     environment:
       - HBC_OPENAI_API_KEY=sk-your-api-key-here
-      - HBC_HOMEBOX_URL=https://your-homebox.example.com
+      # Use your Homebox URL with port (e.g., http://192.168.1.100:7745)
+      # Or domain if behind reverse proxy (e.g., https://homebox.example.com)
+      - HBC_HOMEBOX_URL=http://192.168.1.100:7745
       - HBC_OPENAI_MODEL=gpt-5-mini
       - HBC_LOG_LEVEL=INFO
     ports:
@@ -180,7 +183,7 @@ docker compose up -d
 ```bash
 docker run -d -p 8000:8000 \
   -e HBC_OPENAI_API_KEY="sk-your-api-key-here" \
-  -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
+  -e HBC_HOMEBOX_URL="http://192.168.1.100:7745" \
   ghcr.io/duelion/homebox-companion:latest
 ```
 
@@ -197,7 +200,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion).
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
-| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL (we append `/api/v1` automatically) |
+| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL with port if needed, e.g., `http://192.168.1.100:7745` (we append `/api/v1` automatically) |
 | `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision (`gpt-5-nano` for fastest/cheapest) |
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | No | `8000` | Server port |

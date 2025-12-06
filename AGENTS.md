@@ -30,7 +30,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion):
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
-| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox instance URL (we append `/api/v1`) |
+| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL with port if needed, e.g., `http://192.168.1.100:7745` (we append `/api/v1`) |
 | `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision |
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | No | `8000` | Server port (serves both API and frontend in production) |
@@ -195,7 +195,7 @@ uv sync
 
 # Set required environment variables
 export HBC_OPENAI_API_KEY="sk-your-key"
-export HBC_HOMEBOX_URL="https://your-homebox.example.com"
+export HBC_HOMEBOX_URL="http://192.168.1.100:7745"  # Include port if not behind reverse proxy
 
 # Start the server
 uv run python -m server.app
@@ -407,7 +407,8 @@ services:
     restart: always
     environment:
       - HBC_OPENAI_API_KEY=sk-your-api-key-here
-      - HBC_HOMEBOX_URL=https://your-homebox.example.com
+      # Use your Homebox URL with port (e.g., http://192.168.1.100:7745)
+      - HBC_HOMEBOX_URL=http://192.168.1.100:7745
       - HBC_OPENAI_MODEL=gpt-5-mini
       - HBC_LOG_LEVEL=INFO
     ports:
@@ -421,7 +422,7 @@ Then run: `docker compose up -d`
 ```bash
 docker run -d -p 8000:8000 \
   -e HBC_OPENAI_API_KEY="sk-your-key" \
-  -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
+  -e HBC_HOMEBOX_URL="http://192.168.1.100:7745" \
   ghcr.io/duelion/homebox-companion:latest
 ```
 
@@ -431,7 +432,7 @@ docker run -d -p 8000:8000 \
 docker build -t homebox-companion .
 docker run -d -p 8000:8000 \
   -e HBC_OPENAI_API_KEY="sk-your-key" \
-  -e HBC_HOMEBOX_URL="https://your-homebox.example.com" \
+  -e HBC_HOMEBOX_URL="http://192.168.1.100:7745" \
   homebox-companion
 ```
 
