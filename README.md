@@ -83,6 +83,7 @@ For local development, create a `.env` file:
 HBC_OPENAI_API_KEY=sk-your-api-key-here
 HBC_HOMEBOX_URL=http://localhost:7745  # or https://your-homebox.example.com
 HBC_OPENAI_MODEL=gpt-5-mini
+# HBC_OPENAI_BASE_URL=http://localhost:1234/v1  # For custom OpenAI-compatible endpoints
 HBC_LOG_LEVEL=INFO
 ```
 
@@ -100,6 +101,9 @@ export HBC_HOMEBOX_URL="http://192.168.1.100:7745"  # or https://your-homebox.ex
 
 # Optional: OpenAI model (default: gpt-5-mini)
 export HBC_OPENAI_MODEL="gpt-5-mini"
+
+# Optional: Custom OpenAI-compatible API endpoint (for local models, Azure OpenAI, etc.)
+# export HBC_OPENAI_BASE_URL="http://localhost:1234/v1"
 
 # Optional: Server configuration
 export HBC_SERVER_HOST="0.0.0.0"
@@ -202,6 +206,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion).
 | `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
 | `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL with port if needed, e.g., `http://192.168.1.100:7745` (we append `/api/v1` automatically) |
 | `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision (`gpt-5-nano` for fastest/cheapest) |
+| `HBC_OPENAI_BASE_URL` | No | - | Custom base URL for OpenAI-compatible endpoints (e.g., `http://localhost:1234/v1` for local models, or Azure OpenAI endpoint) |
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | No | `8000` | Server port |
 | `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
@@ -215,6 +220,52 @@ export HBC_HOMEBOX_URL="https://demo.homebox.software"
 ```
 
 Demo credentials: `demo@example.com` / `demo`
+
+## Using Custom OpenAI-Compatible Endpoints
+
+Homebox Companion supports any OpenAI-compatible API endpoint, including:
+
+- **Local LLMs** (via [LM Studio](https://lmstudio.ai/), [Ollama](https://ollama.ai/), [LocalAI](https://localai.io/), etc.)
+- **Azure OpenAI Service**
+- **Other OpenAI-compatible providers**
+
+### Local LLM Example (LM Studio)
+
+```bash
+# Start LM Studio with a vision-capable model (e.g., LLaVA, BakLLaVA)
+# Configure LM Studio to run on port 1234 with OpenAI-compatible endpoint
+
+export HBC_OPENAI_API_KEY="not-needed"  # Some tools require a key even if not used
+export HBC_OPENAI_BASE_URL="http://localhost:1234/v1"
+export HBC_OPENAI_MODEL="llava-v1.5-7b"  # Use the exact model name from LM Studio
+```
+
+### Azure OpenAI Example
+
+```bash
+export HBC_OPENAI_API_KEY="your-azure-api-key"
+export HBC_OPENAI_BASE_URL="https://your-resource.openai.azure.com/openai/deployments/your-deployment"
+export HBC_OPENAI_MODEL="gpt-4-vision"
+```
+
+### Docker with Custom Endpoint
+
+```yaml
+version: "3.4"
+
+services:
+  homebox-companion:
+    image: ghcr.io/duelion/homebox-companion:latest
+    environment:
+      - HBC_OPENAI_API_KEY=not-needed
+      - HBC_OPENAI_BASE_URL=http://host.docker.internal:1234/v1
+      - HBC_OPENAI_MODEL=llava-v1.5-7b
+      - HBC_HOMEBOX_URL=http://192.168.1.100:7745
+    ports:
+      - 8000:8000
+```
+
+**Note:** Custom endpoints must support vision capabilities (multimodal models) for image analysis to work.
 
 ## Project Structure
 

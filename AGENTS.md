@@ -32,6 +32,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion):
 | `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
 | `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL with port if needed, e.g., `http://192.168.1.100:7745` (we append `/api/v1`) |
 | `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision |
+| `HBC_OPENAI_BASE_URL` | No | - | Custom base URL for OpenAI-compatible endpoints (e.g., local models, Azure OpenAI) |
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | No | `8000` | Server port (serves both API and frontend in production) |
 | `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
