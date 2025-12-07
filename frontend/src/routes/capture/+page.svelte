@@ -520,7 +520,7 @@
 	{#if isAnalyzing}
 		<div class="bg-surface rounded-xl border border-border p-4 mb-6">
 			<div class="flex items-center justify-between mb-2">
-				<span class="text-sm font-medium text-text">Analyzing items...</span>
+				<span class="text-sm font-medium text-text">{analysisProgress.status}</span>
 				<span class="text-sm text-text-muted">{analysisProgress.current} / {analysisProgress.total}</span>
 			</div>
 			<div class="h-2 bg-surface-elevated rounded-full overflow-hidden">
@@ -529,7 +529,6 @@
 					style="width: {(analysisProgress.current / analysisProgress.total) * 100}%"
 				></div>
 			</div>
-			<p class="text-sm text-text-muted mt-2">{analysisProgress.status}</p>
 		</div>
 	{/if}
 
