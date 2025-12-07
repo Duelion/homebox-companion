@@ -89,6 +89,11 @@
 	.glass {
 		@apply bg-surface/80 backdrop-blur-lg;
 	}
+
+	/* iOS safe area padding for bottom navigation */
+	.pb-safe {
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+	}
 }
 
 

@@ -136,12 +136,17 @@ def create_app() -> FastAPI:
 
     # Version endpoint
     @app.get("/api/version")
-    async def get_version() -> dict[str, str | bool | None]:
-        """Return the application version and update availability."""
+    async def get_version(force_check: bool = False) -> dict[str, str | bool | None]:
+        """Return the application version and update availability.
+
+        Args:
+            force_check: If True, check for updates even if HBC_DISABLE_UPDATE_CHECK is set.
+                        Useful for Settings page where user explicitly wants to see updates.
+        """
         result: dict[str, str | bool | None] = {"version": __version__}
 
-        # Check for updates if enabled
-        if not settings.disable_update_check:
+        # Check for updates if enabled OR if force_check is requested
+        if not settings.disable_update_check or force_check:
             latest_version = await _get_latest_github_version()
             result["latest_version"] = latest_version
             result["update_available"] = (
