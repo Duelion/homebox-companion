@@ -16,6 +16,7 @@
 	import { showToast } from '$lib/stores/ui';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 
 	// Item creation status tracking
 	type ItemStatus = 'pending' | 'creating' | 'success' | 'failed';
@@ -307,6 +308,8 @@
 </svelte:head>
 
 <div class="animate-in">
+	<BackLink href="/review" label="Back to Review" onclick={() => goto('/review')} />
+
 	<StepIndicator currentStep={4} />
 
 	<h2 class="text-2xl font-bold text-text mb-2">Review & Submit</h2>
