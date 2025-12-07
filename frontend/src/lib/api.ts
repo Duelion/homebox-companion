@@ -324,4 +324,25 @@ export interface VersionResponse {
 	update_available: boolean;
 }
 
-export const getVersion = () => request<VersionResponse>('/version');
+export const getVersion = (forceCheck: boolean = false) =>
+	request<VersionResponse>(`/version${forceCheck ? '?force_check=true' : ''}`);
+
+// Config endpoint
+export interface ConfigResponse {
+	is_demo_mode: boolean;
+	openai_model: string;
+	update_check_enabled: boolean;
+}
+
+export const getConfig = () => request<ConfigResponse>('/config');
+
+// Logs endpoint
+export interface LogsResponse {
+	logs: string;
+	filename: string | null;
+	total_lines: number;
+	truncated: boolean;
+}
+
+export const getLogs = (lines: number = 200) =>
+	request<LogsResponse>(`/logs?lines=${lines}`);
