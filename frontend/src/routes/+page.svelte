@@ -51,11 +51,14 @@
 </svelte:head>
 
 <div class="flex flex-col items-center justify-center min-h-[70vh] animate-in">
-	<!-- Welcome illustration -->
-	<div class="relative w-32 h-32 mb-8">
-		<div class="absolute inset-0 bg-primary/20 rounded-3xl animate-float" style="animation-delay: 0s;"></div>
-		<div class="absolute inset-4 bg-primary/30 rounded-2xl animate-float" style="animation-delay: 0.5s;"></div>
-		<div class="absolute inset-8 bg-primary/40 rounded-xl animate-float" style="animation-delay: 1s;"></div>
+	<!-- Welcome logo -->
+	<div class="relative w-32 h-32 mb-8 flex items-center justify-center">
+		<div class="absolute inset-0 bg-primary/10 rounded-3xl animate-float blur-xl" style="animation-delay: 0s;"></div>
+		<svg class="w-20 h-20 text-primary animate-float relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" style="animation-delay: 0.2s;">
+			<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+			<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+			<line x1="12" y1="22.08" x2="12" y2="12" />
+		</svg>
 	</div>
 
 	<h1 class="text-2xl sm:text-3xl font-bold text-text mb-2 text-center px-2">Welcome to Homebox Companion</h1>
