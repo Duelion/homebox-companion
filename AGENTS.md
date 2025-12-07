@@ -18,7 +18,6 @@ Instructions for AI/LLM agents working on this codebase.
 - **OpenAI Model**: Use GPT-5 models only (`gpt-5-mini` as default, `gpt-5-nano` for faster/cheaper). Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are deprecated for this project.
 - When testing functionality, hit the real demo API and the real OpenAI API rather than mocks or stubs.
 - Run `uv run ruff check .` before sending a commit to keep lint feedback consistent.
-- Increment the project version number in `pyproject.toml` for every pull request.
 - **Frontend dependencies**: When modifying `frontend/package.json`, always run `npm install` in the `frontend/` directory to update `package-lock.json`, then commit both files together. The CI uses `npm ci` which requires the lock file to be in sync.
 
 ---
