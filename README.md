@@ -43,12 +43,24 @@ flowchart LR
 - **Single-Item Mode** – Force AI to treat everything in a photo as one item (useful for sets/kits)
 - **AI Corrections** – Tell the AI what it got wrong and it will re-analyze with your feedback
 - **Label Matching** – AI suggests appropriate labels from your existing Homebox label library
+- **Customizable Field Instructions** – Configure how the AI formats each field (name, description, notes, etc.)
+- **Multi-Language Output** – Configure AI to respond in your preferred language
 
 ### Review Features
 - **Edit Detected Items** – Modify names, quantities, descriptions before saving
 - **Custom Thumbnails** – Crop and select the best thumbnail for each item
 - **Skip or Confirm** – Review each detected item individually
 - **Add More Photos** – Attach additional images during review for better AI analysis
+
+### Settings & Customization
+- **Default AI Tag** – Set a default label that's automatically applied to all detected items (great for tagging items as "Added via Companion")
+- **Output Language** – Configure AI to respond in your preferred language
+- **Field Customization** – Customize how AI formats each field:
+  - Name format (e.g., "Title Case, include brand")
+  - Description style (e.g., "Focus on condition and materials")
+  - Notes guidelines (e.g., "Only mention defects")
+  - And more (manufacturer, model, serial, price, etc.)
+- **Navigation Persistence** – Tab switching preserves your position in the scan flow
 
 ## Quick Start
 
@@ -261,6 +273,8 @@ homebox-companion/
 | POST | `/api/tools/vision/analyze` | Multi-image analysis for extended details |
 | POST | `/api/tools/vision/merge` | Merge multiple items using AI |
 | POST | `/api/tools/vision/correct` | Correct item with user feedback |
+| GET | `/api/settings/field-preferences` | Get AI field customization settings |
+| PUT | `/api/settings/field-preferences` | Update AI field customization settings |
 | GET | `/api/version` | Get application version |
 
 ## Library Usage
