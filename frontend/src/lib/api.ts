@@ -318,4 +318,10 @@ export const vision = {
 };
 
 // Version endpoint
-export const getVersion = () => request<{ version: string }>('/version');
+export interface VersionResponse {
+	version: string;
+	latest_version: string | null;
+	update_available: boolean;
+}
+
+export const getVersion = () => request<VersionResponse>('/version');

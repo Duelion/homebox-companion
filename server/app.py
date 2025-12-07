@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
+import time
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -17,11 +19,71 @@ from homebox_companion.core.logging import logger
 from .api import api_router
 from .dependencies import set_client
 
+# GitHub version check cache
+_version_cache: dict[str, str | float | None] = {
+    "latest_version": None,
+    "last_check": 0.0,
+}
+VERSION_CACHE_TTL = 3600  # 1 hour in seconds
+
 # Get version
 try:
     __version__ = version("homebox-companion")
 except PackageNotFoundError:
     __version__ = "0.0.0.dev"
+
+
+def _parse_version(version_str: str) -> tuple[int, ...]:
+    """Parse a version string into a tuple of integers for comparison."""
+    # Strip leading 'v' if present
+    version_str = version_str.lstrip("v")
+    # Handle dev versions
+    if ".dev" in version_str:
+        version_str = version_str.split(".dev")[0]
+    # Parse major.minor.patch
+    parts = version_str.split(".")
+    return tuple(int(p) for p in parts if p.isdigit())
+
+
+def _is_newer_version(latest: str, current: str) -> bool:
+    """Check if latest version is newer than current version."""
+    try:
+        latest_parts = _parse_version(latest)
+        current_parts = _parse_version(current)
+        return latest_parts > current_parts
+    except (ValueError, AttributeError):
+        return False
+
+
+async def _get_latest_github_version() -> str | None:
+    """Fetch the latest release version from GitHub with caching."""
+    global _version_cache
+
+    # Check if cache is still valid
+    now = time.time()
+    if (
+        _version_cache["latest_version"] is not None
+        and now - float(_version_cache["last_check"]) < VERSION_CACHE_TTL
+    ):
+        return str(_version_cache["latest_version"])
+
+    # Fetch from GitHub
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"https://api.github.com/repos/{settings.github_repo}/releases/latest",
+                headers={"Accept": "application/vnd.github.v3+json"},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                latest_version = data.get("tag_name", "").lstrip("v")
+                _version_cache["latest_version"] = latest_version
+                _version_cache["last_check"] = now
+                return latest_version
+    except Exception as e:
+        logger.debug(f"Failed to fetch latest version from GitHub: {e}")
+
+    return None
 
 
 @asynccontextmanager
@@ -74,9 +136,24 @@ def create_app() -> FastAPI:
 
     # Version endpoint
     @app.get("/api/version")
-    async def get_version() -> dict[str, str]:
-        """Return the application version."""
-        return {"version": __version__}
+    async def get_version() -> dict[str, str | bool | None]:
+        """Return the application version and update availability."""
+        result: dict[str, str | bool | None] = {"version": __version__}
+
+        # Check for updates if enabled
+        if not settings.disable_update_check:
+            latest_version = await _get_latest_github_version()
+            result["latest_version"] = latest_version
+            result["update_available"] = (
+                _is_newer_version(latest_version, __version__)
+                if latest_version
+                else False
+            )
+        else:
+            result["latest_version"] = None
+            result["update_available"] = False
+
+        return result
 
     # Serve static frontend files (SvelteKit SPA)
     static_dir = os.path.join(os.path.dirname(__file__), "static")

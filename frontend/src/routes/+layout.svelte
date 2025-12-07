@@ -3,11 +3,15 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import SessionExpiredModal from '$lib/components/SessionExpiredModal.svelte';
 	import { isAuthenticated, logout } from '$lib/stores/auth';
-	import { isOnline, appVersion } from '$lib/stores/ui';
+	import { isOnline, appVersion, latestVersion, updateDismissed } from '$lib/stores/ui';
 	import { getVersion } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
+
+	function dismissUpdate() {
+		updateDismissed.set(true);
+	}
 
 	// Scroll to top after each navigation
 	afterNavigate(() => {
@@ -24,10 +28,13 @@
 			window.addEventListener('online', () => isOnline.set(true));
 			window.addEventListener('offline', () => isOnline.set(false));
 
-			// Fetch app version
+			// Fetch app version and check for updates
 			try {
-				const { version } = await getVersion();
-				appVersion.set(version);
+				const versionInfo = await getVersion();
+				appVersion.set(versionInfo.version);
+				if (versionInfo.update_available && versionInfo.latest_version) {
+					latestVersion.set(versionInfo.latest_version);
+				}
 			} catch {
 				appVersion.set('unknown');
 			}
@@ -82,9 +89,42 @@
 		<slot />
 	</main>
 
+	<!-- Update available banner -->
+	{#if $latestVersion && !$updateDismissed}
+		<div class="fixed bottom-0 left-0 right-0 bg-primary/20 border-t border-primary/30 px-4 py-3 flex items-center justify-center gap-3 text-primary text-sm z-50">
+			<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+				<polyline points="7 10 12 15 17 10" />
+				<line x1="12" y1="15" x2="12" y2="3" />
+			</svg>
+			<span>
+				Update available: <strong>v{$latestVersion}</strong>
+			</span>
+			<a
+				href="https://github.com/Duelion/homebox-companion/releases/latest"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="underline hover:text-text transition-colors"
+			>
+				View release
+			</a>
+			<button
+				type="button"
+				class="ml-2 p-1 hover:bg-primary/20 rounded transition-colors"
+				title="Dismiss"
+				onclick={dismissUpdate}
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<line x1="18" y1="6" x2="6" y2="18" />
+					<line x1="6" y1="6" x2="18" y2="18" />
+				</svg>
+			</button>
+		</div>
+	{/if}
+
 	<!-- Offline banner -->
 	{#if !$isOnline}
-		<div class="fixed bottom-0 left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm">
+		<div class="fixed bottom-0 left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-50">
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<line x1="1" y1="1" x2="23" y2="23" />
 				<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />

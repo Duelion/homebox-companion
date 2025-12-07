@@ -71,6 +71,10 @@ export const isOnline = writable<boolean>(true);
 // App version
 export const appVersion = writable<string>('');
 
+// Update notification
+export const latestVersion = writable<string | null>(null);
+export const updateDismissed = writable<boolean>(false);
+
 // Set loading state with message
 export function setLoading(loading: boolean, message: string = '') {
 	isLoading.set(loading);

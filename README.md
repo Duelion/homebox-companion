@@ -205,6 +205,7 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion).
 | `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | No | `8000` | Server port |
 | `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
+| `HBC_DISABLE_UPDATE_CHECK` | No | `false` | Set to `true` to disable update notifications |
 
 ## Using with Demo Server
 

@@ -12,6 +12,7 @@ Environment Variables:
     HBC_SERVER_PORT: Port for the web server (default: 8000). In production,
         this single port serves both the API and the static frontend.
     HBC_LOG_LEVEL: Logging level (default: INFO)
+    HBC_DISABLE_UPDATE_CHECK: Set to true to disable GitHub update checks (default: false)
 """
 
 from __future__ import annotations
@@ -55,6 +56,10 @@ class Settings(BaseSettings):
 
     # Logging configuration
     log_level: str = "INFO"
+
+    # Update check configuration
+    disable_update_check: bool = False
+    github_repo: str = "Duelion/homebox-companion"
 
     @computed_field
     @property
