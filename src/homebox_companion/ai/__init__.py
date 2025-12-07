@@ -3,10 +3,13 @@
 from .images import encode_image_bytes_to_data_uri, encode_image_to_data_uri
 from .openai import chat_completion, vision_completion
 from .prompts import (
-    EXTENDED_FIELDS_SCHEMA,
-    ITEM_SCHEMA,
+    FIELD_DEFAULTS,
     NAMING_RULES,
+    build_critical_constraints,
+    build_extended_fields_schema,
+    build_item_schema,
     build_label_prompt,
+    build_naming_rules,
 )
 
 __all__ = [
@@ -18,16 +21,10 @@ __all__ = [
     "vision_completion",
     # Prompts
     "NAMING_RULES",
-    "ITEM_SCHEMA",
-    "EXTENDED_FIELDS_SCHEMA",
+    "FIELD_DEFAULTS",
     "build_label_prompt",
+    "build_item_schema",
+    "build_extended_fields_schema",
+    "build_naming_rules",
+    "build_critical_constraints",
 ]
-
-
-
-
-
-
-
-
-

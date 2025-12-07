@@ -3,11 +3,13 @@
 	import { onMount } from 'svelte';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { resetLocationState } from '$lib/stores/locations';
-	import { resetItemState } from '$lib/stores/items';
+	import { resetItemState, setCurrentScanRoute } from '$lib/stores/items';
 	import Button from '$lib/components/Button.svelte';
 
 	// Redirect if not authenticated
 	onMount(() => {
+		setCurrentScanRoute('/success');
+		
 		if (!$isAuthenticated) {
 			goto('/');
 		}
@@ -16,6 +18,7 @@
 	function scanMore() {
 		// Keep location selected, just reset items
 		resetItemState();
+		setCurrentScanRoute('/capture');
 		goto('/capture');
 	}
 
@@ -23,6 +26,7 @@
 		// Reset everything
 		resetLocationState();
 		resetItemState();
+		setCurrentScanRoute('/location');
 		goto('/location');
 	}
 </script>

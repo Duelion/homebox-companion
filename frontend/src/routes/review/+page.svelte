@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { vision, type DetectedItem } from '$lib/api';
+	import { vision, fieldPreferences, type DetectedItem } from '$lib/api';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { selectedLocation } from '$lib/stores/locations';
 	import { labels, capturedImages } from '$lib/stores/items';
@@ -11,6 +11,7 @@
 		currentItem,
 		confirmedItems,
 		confirmCurrentItem,
+		setCurrentScanRoute,
 		type ReviewItem,
 	} from '$lib/stores/items';
 	import { showToast } from '$lib/stores/ui';
@@ -28,6 +29,7 @@
 	let showThumbnailEditor = $state(false);
 	let isProcessing = $state(false);
 	let additionalImages = $state<File[]>([]);
+	let defaultLabelId = $state<string | null>(null);
 
 	// Check if item has any extended field data
 	function hasExtendedFieldData(item: ReviewItem | null): boolean {
@@ -56,7 +58,9 @@
 	});
 
 	// Redirect if not authenticated or no items
-	onMount(() => {
+	onMount(async () => {
+		setCurrentScanRoute('/review');
+		
 		if (!$isAuthenticated) {
 			goto('/');
 			return;
@@ -68,6 +72,14 @@
 		if ($detectedItems.length === 0) {
 			goto('/capture');
 			return;
+		}
+		
+		// Load default label preference
+		try {
+			const prefs = await fieldPreferences.get();
+			defaultLabelId = prefs.default_label_id;
+		} catch (error) {
+			console.error('Failed to load field preferences:', error);
 		}
 	});
 
@@ -356,17 +368,23 @@
 						<div class="flex flex-wrap gap-2" role="group" aria-label="Select labels">
 							{#each $labels as label}
 								{@const isSelected = editedItem.label_ids?.includes(label.id)}
+								{@const isDefault = label.id === defaultLabelId}
 								<button
 									type="button"
-									class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-									class:bg-primary={isSelected}
-									class:text-white={isSelected}
-									class:bg-surface-elevated={!isSelected}
-									class:text-text-muted={!isSelected}
-									class:hover:bg-surface-hover={!isSelected}
+									class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {isSelected ? (isDefault ? 'bg-amber-500 text-white' : 'bg-primary text-white') : 'bg-surface-elevated text-text-muted hover:bg-surface-hover'}"
 									onclick={() => toggleLabel(label.id)}
+									title={isDefault ? 'Default label for items created via Homebox Companion' : ''}
 								>
-									{label.name}
+									{#if isDefault && isSelected}
+										<span class="flex items-center gap-1">
+											<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+												<path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+											</svg>
+											{label.name}
+										</span>
+									{:else}
+										{label.name}
+									{/if}
 								</button>
 							{/each}
 						</div>
@@ -397,33 +415,11 @@
 			</div>
 		</div>
 
-		<!-- Navigation -->
-		<div class="flex items-center justify-center gap-4 mb-4">
-			<button
-				type="button"
-				class="btn-icon"
-				disabled={$currentItemIndex === 0}
-				aria-label="Previous item"
-				onclick={previousItem}
-			>
-				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<polyline points="15 18 9 12 15 6" />
-				</svg>
-			</button>
+		<!-- Item counter -->
+		<div class="flex items-center justify-center mb-4">
 			<span class="text-text-muted">
 				{$currentItemIndex + 1} / {$detectedItems.length}
 			</span>
-			<button
-				type="button"
-				class="btn-icon"
-				disabled={$currentItemIndex === $detectedItems.length - 1}
-				aria-label="Next item"
-				onclick={nextItem}
-			>
-				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<polyline points="9 18 15 12 9 6" />
-				</svg>
-			</button>
 		</div>
 
 		<!-- Actions -->

@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { isAuthenticated, logout } from '$lib/stores/auth';
 	import { appVersion } from '$lib/stores/ui';
-	import { getConfig, getLogs, getVersion, type ConfigResponse, type LogsResponse } from '$lib/api';
+	import { getConfig, getLogs, getVersion, labels as labelsApi, fieldPreferences, type ConfigResponse, type LogsResponse, type FieldPreferences, type LabelData } from '$lib/api';
 	import Button from '$lib/components/Button.svelte';
 
 	let config = $state<ConfigResponse | null>(null);
@@ -16,6 +16,85 @@
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
 	let latestVersionNumber = $state<string | null>(null);
+
+	// Field preferences state
+	let showFieldPrefs = $state(false);
+	let isLoadingFieldPrefs = $state(false);
+	let isSavingFieldPrefs = $state(false);
+	let fieldPrefsError = $state<string | null>(null);
+	let fieldPrefsSaved = $state(false);
+	let availableLabels = $state<LabelData[]>([]);
+	let prefs = $state<FieldPreferences>({
+		output_language: null,
+		default_label_id: null,
+		name: null,
+		description: null,
+		quantity: null,
+		manufacturer: null,
+		model_number: null,
+		serial_number: null,
+		purchase_price: null,
+		purchase_from: null,
+		notes: null,
+	});
+
+	// Field metadata for display - defaults shown as visible text, not hidden in placeholder
+	const fieldMeta: Array<{ key: keyof FieldPreferences; label: string; defaultText: string; example: string }> = [
+		{
+			key: 'name',
+			label: 'Name',
+			defaultText: '[Type] [Brand] [Model] [Specs], Title Case, item type first for searchability',
+			example: '"Ball Bearing 6900-2RS 10x22x6mm", "LED Strip COB Green 5V 1M"'
+		},
+		{
+			key: 'description',
+			label: 'Description',
+			defaultText: 'Condition/attributes only, max 1000 chars, NEVER mention quantity',
+			example: '"Minor scratches on casing", "New in packaging"'
+		},
+		{
+			key: 'quantity',
+			label: 'Quantity',
+			defaultText: 'Count identical items together, separate different variants',
+			example: '5 identical screws = qty 5, but 2 sizes = 2 separate items'
+		},
+		{
+			key: 'manufacturer',
+			label: 'Manufacturer',
+			defaultText: 'Only when brand/logo is VISIBLE. Include recognizable brands only.',
+			example: 'DeWalt, Vallejo (NOT "Shenzhen XYZ Technology Co.")'
+		},
+		{
+			key: 'model_number',
+			label: 'Model Number',
+			defaultText: 'Only when model/part number TEXT is clearly visible on label',
+			example: '"DCD771C2", "72.034"'
+		},
+		{
+			key: 'serial_number',
+			label: 'Serial Number',
+			defaultText: 'Only when S/N text is visible on sticker/label/engraving',
+			example: 'Look for "S/N:", "Serial:" markings'
+		},
+		{
+			key: 'purchase_price',
+			label: 'Purchase Price',
+			defaultText: 'Only from visible price tag/receipt. Just the number.',
+			example: '29.99 (not "$29.99")'
+		},
+		{
+			key: 'purchase_from',
+			label: 'Purchase From',
+			defaultText: 'Only from visible packaging/receipt or user-specified',
+			example: '"Amazon", "Home Depot"'
+		},
+		{
+			key: 'notes',
+			label: 'Notes',
+			defaultText: 'ONLY for defects/damage/warnings. Most items = no notes.',
+			example: 'GOOD: "Cracked lens" | BAD: "Appears new"'
+		},
+	];
 
 	// Redirect if not authenticated
 	onMount(async () => {
@@ -82,6 +161,71 @@
 	function handleLogout() {
 		logout();
 		goto('/');
+	}
+
+	async function loadFieldPrefs() {
+		if (prefs.name !== null || isLoadingFieldPrefs) {
+			showFieldPrefs = !showFieldPrefs;
+			return;
+		}
+
+		isLoadingFieldPrefs = true;
+		fieldPrefsError = null;
+
+		try {
+			// Load preferences and labels in parallel
+			const [prefsResult, labelsResult] = await Promise.all([
+				fieldPreferences.get(),
+				labelsApi.list(),
+			]);
+			prefs = prefsResult;
+			availableLabels = labelsResult;
+			showFieldPrefs = true;
+		} catch (error) {
+			console.error('Failed to load field preferences:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to load preferences';
+		} finally {
+			isLoadingFieldPrefs = false;
+		}
+	}
+
+	async function saveFieldPrefs() {
+		isSavingFieldPrefs = true;
+		fieldPrefsError = null;
+		fieldPrefsSaved = false;
+
+		try {
+			const result = await fieldPreferences.update(prefs);
+			prefs = result;
+			fieldPrefsSaved = true;
+			setTimeout(() => { fieldPrefsSaved = false; }, 2000);
+		} catch (error) {
+			console.error('Failed to save field preferences:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to save preferences';
+		} finally {
+			isSavingFieldPrefs = false;
+		}
+	}
+
+	async function resetFieldPrefs() {
+		isSavingFieldPrefs = true;
+		fieldPrefsError = null;
+
+		try {
+			const result = await fieldPreferences.reset();
+			prefs = result;
+			fieldPrefsSaved = true;
+			setTimeout(() => { fieldPrefsSaved = false; }, 2000);
+		} catch (error) {
+			console.error('Failed to reset field preferences:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to reset preferences';
+		} finally {
+			isSavingFieldPrefs = false;
+		}
+	}
+
+	function handleFieldInput(key: keyof FieldPreferences, value: string) {
+		prefs[key] = value.trim() || null;
 	}
 </script>
 
@@ -253,6 +397,172 @@
 					Hide Logs
 				</button>
 			{/if}
+		{/if}
+	</section>
+
+	<!-- AI Output Configuration Section -->
+	<section class="card space-y-4">
+		<div class="flex items-center justify-between">
+			<h2 class="text-lg font-semibold text-text flex items-center gap-2">
+				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4" />
+				</svg>
+				Configure AI Output
+			</h2>
+			{#if showFieldPrefs && fieldPrefsSaved}
+				<span class="text-sm text-success flex items-center gap-1">
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+					</svg>
+					Saved
+				</span>
+			{/if}
+		</div>
+
+		<p class="text-sm text-text-muted">
+			Customize how the AI generates item data. Leave fields empty to use default behavior.
+		</p>
+
+		{#if !showFieldPrefs}
+			<button
+				type="button"
+				class="w-full py-3 px-4 bg-surface-elevated hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
+				onclick={loadFieldPrefs}
+				disabled={isLoadingFieldPrefs}
+			>
+				{#if isLoadingFieldPrefs}
+					<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+					<span>Loading...</span>
+				{:else}
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<polyline points="6 9 12 15 18 9" />
+					</svg>
+					<span>Configure Fields</span>
+				{/if}
+			</button>
+		{:else}
+		{#if fieldPrefsError}
+			<div class="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm">
+				{fieldPrefsError}
+			</div>
+		{/if}
+
+		<!-- Output Language Setting -->
+		<div class="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
+			<div class="flex items-center gap-2">
+				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+				</svg>
+				<label for="output_language" class="font-semibold text-text">Output Language</label>
+			</div>
+			<p class="text-xs text-text-muted">
+				Choose what language the AI should use for item names, descriptions, and notes.
+			</p>
+			<input
+				type="text"
+				id="output_language"
+				value={prefs.output_language || ''}
+				oninput={(e) => handleFieldInput('output_language', e.currentTarget.value)}
+				placeholder="English (default)"
+				class="w-full px-3 py-2 bg-background border border-border rounded-lg text-text placeholder-text-dim text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+			/>
+			<div class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+				<p class="text-xs text-amber-200 flex items-start gap-2">
+					<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+					</svg>
+					<span><strong>Note:</strong> Field customization instructions below should still be written in English. Only the AI output will be in the configured language.</span>
+				</p>
+			</div>
+		</div>
+
+		<!-- Default Label Setting -->
+		<div class="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
+			<div class="flex items-center gap-2">
+				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+				</svg>
+				<label for="default_label" class="font-semibold text-text">Default Label</label>
+			</div>
+			<p class="text-xs text-text-muted">
+				Automatically tag all items created via Homebox Companion with this label.
+			</p>
+			<select
+				id="default_label"
+				value={prefs.default_label_id || ''}
+				onchange={(e) => { prefs.default_label_id = e.currentTarget.value || null; }}
+				class="w-full px-3 py-2 bg-background border border-border rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+			>
+				<option value="">No default label</option>
+				{#each availableLabels as label}
+					<option value={label.id}>{label.name}</option>
+				{/each}
+			</select>
+			<p class="text-xs text-text-dim">
+				Useful for identifying items added through this app in your Homebox inventory.
+			</p>
+		</div>
+
+		<!-- Field Customizations -->
+		<div class="space-y-4">
+			{#each fieldMeta as field}
+					<div class="p-3 bg-surface-elevated/50 rounded-lg border border-border/50 space-y-2">
+						<label for={field.key} class="block text-sm font-semibold text-text">
+							{field.label}
+						</label>
+						<div class="text-xs text-text-muted bg-background/50 px-2 py-1.5 rounded border border-border/30">
+							<span class="text-text-dim">Default:</span> {field.defaultText}
+						</div>
+						<input
+							type="text"
+							id={field.key}
+							value={prefs[field.key] || ''}
+							oninput={(e) => handleFieldInput(field.key, e.currentTarget.value)}
+							placeholder="Leave empty to use default, or type custom instruction..."
+							class="w-full px-3 py-2 bg-background border border-border rounded-lg text-text placeholder-text-dim text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+						/>
+						<p class="text-xs text-text-dim">Example: {field.example}</p>
+					</div>
+				{/each}
+			</div>
+
+			<div class="flex gap-3 pt-2">
+				<Button
+					variant="primary"
+					onclick={saveFieldPrefs}
+					disabled={isSavingFieldPrefs}
+				>
+					{#if isSavingFieldPrefs}
+						<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+					{:else}
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+						</svg>
+					{/if}
+					<span>Save</span>
+				</Button>
+				<Button
+					variant="secondary"
+					onclick={resetFieldPrefs}
+					disabled={isSavingFieldPrefs}
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+					</svg>
+					<span>Reset to Defaults</span>
+				</Button>
+			</div>
+
+			<button
+				type="button"
+				class="w-full py-2 text-sm text-text-muted hover:text-text transition-colors flex items-center justify-center gap-1"
+				onclick={() => (showFieldPrefs = false)}
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<polyline points="18 15 12 9 6 15" />
+				</svg>
+				Hide Configuration
+			</button>
 		{/if}
 	</section>
 

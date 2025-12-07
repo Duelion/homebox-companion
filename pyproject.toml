@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "1.10.11"
+version = "1.11.0"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "MIT"}
@@ -69,6 +69,9 @@ select = [
 ]
 
 [tool.pytest.ini_options]
+# Skip integration tests by default - they hit real APIs (demo.homebox.software, OpenAI)
+# Run them explicitly with: uv run pytest -m integration
+addopts = "-m 'not integration'"
 markers = [
     "integration: tests that hit the real Homebox demo API and OpenAI API.",
 ]

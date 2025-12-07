@@ -27,6 +27,8 @@ async def detect_items_from_bytes(
     extra_instructions: str | None = None,
     extract_extended_fields: bool = False,
     additional_images: list[tuple[bytes, str]] | None = None,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> list[DetectedItem]:
     """Use OpenAI vision model to detect items from raw image bytes.
 
@@ -41,6 +43,8 @@ async def detect_items_from_bytes(
         extract_extended_fields: If True, also attempt to extract extended fields.
         additional_images: Optional list of (bytes, mime_type) tuples for
             additional images showing the same item(s) from different angles.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for AI output (default: English).
 
     Returns:
         List of detected items with quantities, descriptions, and optionally
@@ -61,6 +65,8 @@ async def detect_items_from_bytes(
         single_item=single_item,
         extra_instructions=extra_instructions,
         extract_extended_fields=extract_extended_fields,
+        field_preferences=field_preferences,
+        output_language=output_language,
     )
 
 
@@ -72,6 +78,8 @@ async def _detect_items_from_data_uris(
     single_item: bool = False,
     extra_instructions: str | None = None,
     extract_extended_fields: bool = False,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> list[DetectedItem]:
     """Core detection logic supporting multiple images.
 
@@ -83,6 +91,8 @@ async def _detect_items_from_data_uris(
         single_item: If True, treat everything as a single item.
         extra_instructions: User-provided hint about image contents.
         extract_extended_fields: If True, also extract manufacturer, etc.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for AI output (default: English).
     """
     if not image_data_uris:
         return []
@@ -93,15 +103,17 @@ async def _detect_items_from_data_uris(
     logger.debug(f"Model: {model}, Single item: {single_item}")
     logger.debug(f"Extract extended fields: {extract_extended_fields}")
     logger.debug(f"Labels provided: {len(labels) if labels else 0}")
+    logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
+    logger.debug(f"Output language: {output_language or 'English (default)'}")
 
     # Build prompts
     if multi_image:
         system_prompt = build_multi_image_system_prompt(
-            labels, single_item, extract_extended_fields
+            labels, single_item, extract_extended_fields, field_preferences, output_language
         )
     else:
         system_prompt = build_detection_system_prompt(
-            labels, single_item, extract_extended_fields
+            labels, single_item, extract_extended_fields, field_preferences, output_language
         )
 
     user_prompt = build_detection_user_prompt(
@@ -138,6 +150,8 @@ async def discriminatory_detect_items(
     model: str | None = None,
     labels: list[dict[str, str]] | None = None,
     extract_extended_fields: bool = True,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> list[DetectedItem]:
     """Re-detect items from images with more discriminatory instructions.
 
@@ -152,6 +166,8 @@ async def discriminatory_detect_items(
         model: Model name. Defaults to HBC_OPENAI_MODEL.
         labels: Optional list of Homebox labels to suggest for items.
         extract_extended_fields: If True, also extract extended fields.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for AI output (default: English).
 
     Returns:
         List of detected items, ideally more specific/separated than before.
@@ -161,8 +177,12 @@ async def discriminatory_detect_items(
 
     logger.info(f"Discriminatory detection with {len(image_data_uris)} images")
     logger.debug(f"Extract extended fields: {extract_extended_fields}")
+    logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
+    logger.debug(f"Output language: {output_language or 'English (default)'}")
 
-    system_prompt = build_discriminatory_system_prompt(labels, extract_extended_fields)
+    system_prompt = build_discriminatory_system_prompt(
+        labels, extract_extended_fields, field_preferences, output_language
+    )
     user_prompt = build_discriminatory_user_prompt(previous_merged_item)
 
     parsed_content = await vision_completion(
@@ -180,12 +200,3 @@ async def discriminatory_detect_items(
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
 
     return items
-
-
-
-
-
-
-
-
-

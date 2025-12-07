@@ -5,7 +5,7 @@ from __future__ import annotations
 from loguru import logger
 
 from ...ai.openai import vision_completion
-from ...ai.prompts import NAMING_RULES, build_label_prompt
+from ...ai.prompts import build_label_prompt, build_language_instruction, build_naming_rules
 from ...core.config import settings
 
 
@@ -15,12 +15,10 @@ async def merge_items_with_openai(
     api_key: str | None = None,
     model: str | None = None,
     labels: list[dict[str, str]] | None = None,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> dict:
     """Merge multiple similar items into a single consolidated item using AI.
-
-    This function takes multiple items (e.g., different grit sandpapers) and
-    uses AI to create a single merged item with an appropriate name, combined
-    quantity, and merged description.
 
     Args:
         items: List of item dictionaries with name, quantity, description fields.
@@ -28,6 +26,8 @@ async def merge_items_with_openai(
         api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
         model: Model name. Defaults to HBC_OPENAI_MODEL.
         labels: Optional list of Homebox labels to suggest.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for AI output (default: English).
 
     Returns:
         Dictionary with merged item fields: name, quantity, description, labelIds.
@@ -36,39 +36,54 @@ async def merge_items_with_openai(
     model = model or settings.openai_model
 
     logger.info(f"Merging {len(items)} items with AI")
+    logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
+    logger.debug(f"Output language: {output_language or 'English (default)'}")
 
-    # Format items for the prompt
-    items_text = "\n".join(
-        f"- {item.get('name', 'Unknown')} (qty: {item.get('quantity', 1)}): "
-        f"{item.get('description', 'No description')}"
+    # Format items compactly
+    items_text = ", ".join(
+        f"{item.get('name', '?')} (x{item.get('quantity', 1)})"
         for item in items
     )
 
+    language_instr = build_language_instruction(output_language)
     label_prompt = build_label_prompt(labels)
+    naming_rules = build_naming_rules(
+        field_preferences.get("name") if field_preferences else None
+    )
+
+    # Get field customizations or defaults
+    name_instr = (
+        field_preferences.get("name")
+        if field_preferences and field_preferences.get("name")
+        else "Title Case, consolidated name"
+    )
+    desc_instr = (
+        field_preferences.get("description")
+        if field_preferences and field_preferences.get("description")
+        else "list variants included, no quantities"
+    )
 
     system_prompt = (
-        "You are an inventory assistant helping to merge multiple similar items "
-        "into a single consolidated inventory entry. Create a sensible merged item "
-        "that represents all the input items.\n\n"
-        f"{NAMING_RULES}\n\n"
-        "Return a single JSON object with:\n"
-        "- name: string (Title Case, consolidated name, max 255 chars, e.g., "
-        "'Sandpaper Assortment' or 'Mixed Screwdriver Set')\n"
-        "- quantity: integer (total combined quantity)\n"
-        "- description: string (list the variants/types included, but do NOT include "
-        "counts or quantities, max 1000 chars, e.g., 'Includes 80, 120, 220 grit')\n"
-        "- labelIds: array of label IDs that apply to the merged item\n\n"
-        + label_prompt
+        # 1. Role + task
+        "You are an inventory assistant. Merge similar items into ONE consolidated entry.\n"
+        # 2. Language instruction (if not English)
+        f"{language_instr}\n"
+        # 3. Output schema
+        "Return a JSON object with:\n"
+        f"- name: string ({name_instr})\n"
+        "- quantity: integer (total combined)\n"
+        f"- description: string ({desc_instr})\n"
+        "- labelIds: array of applicable label IDs\n\n"
+        # 4. Naming
+        f"{naming_rules}\n\n"
+        # 5. Labels
+        f"{label_prompt}"
     )
 
     user_prompt = (
-        f"Merge these {len(items)} items into a single consolidated inventory item:\n\n"
-        f"{items_text}\n\n"
-        "Create a single item that represents all of these. Use Title Case for the name. "
-        "For example, if merging '80 Grit Sandpaper', '120 Grit Sandpaper', '220 Grit "
-        "Sandpaper', create 'Sandpaper Assortment' with combined quantity and a "
-        "description listing the variants (e.g., 'Includes 80, 120, and 220 grit').\n\n"
-        "Return only JSON with the merged item."
+        f"Merge into one item: {items_text}\n"
+        "Example: '80 Grit' + '120 Grit' → 'Sandpaper Assortment', "
+        "description: 'Includes 80, 120 grit'.\nReturn only JSON."
     )
 
     if image_data_uris:
@@ -97,12 +112,3 @@ async def merge_items_with_openai(
     logger.info(f"Merge complete: {parsed_content.get('name', 'Unknown')}")
 
     return parsed_content
-
-
-
-
-
-
-
-
-

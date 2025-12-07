@@ -11,6 +11,7 @@
 		removeConfirmedItem,
 		editConfirmedItem,
 		resetItemState,
+		setCurrentScanRoute,
 		type ConfirmedItem,
 	} from '$lib/stores/items';
 	import { showToast } from '$lib/stores/ui';
@@ -38,6 +39,8 @@
 
 	// Redirect if not authenticated or no items
 	onMount(() => {
+		setCurrentScanRoute('/summary');
+		
 		if (!$isAuthenticated) {
 			goto('/');
 			return;

@@ -5,7 +5,12 @@ from __future__ import annotations
 from loguru import logger
 
 from ...ai.openai import vision_completion
-from ...ai.prompts import NAMING_RULES, build_label_prompt
+from ...ai.prompts import (
+    FIELD_DEFAULTS,
+    build_label_prompt,
+    build_language_instruction,
+    build_naming_rules,
+)
 from ...core.config import settings
 
 
@@ -16,12 +21,10 @@ async def analyze_item_details_from_images(
     api_key: str | None = None,
     model: str | None = None,
     labels: list[dict[str, str]] | None = None,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> dict:
     """Analyze multiple images of an item to extract detailed information.
-
-    This function takes multiple images of the same item and uses AI to
-    extract as much detail as possible, including serial numbers, model
-    numbers, manufacturer, etc.
 
     Args:
         image_data_uris: List of data URI strings for each image.
@@ -30,52 +33,59 @@ async def analyze_item_details_from_images(
         api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
         model: Model name. Defaults to HBC_OPENAI_MODEL.
         labels: Optional list of Homebox labels to suggest.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for AI output (default: English).
 
     Returns:
-        Dictionary with extracted fields: name, description, serialNumber,
-        modelNumber, manufacturer, purchasePrice, notes, labelIds.
+        Dictionary with extracted fields.
     """
     api_key = api_key or settings.openai_api_key
     model = model or settings.openai_model
 
     logger.info(f"Analyzing {len(image_data_uris)} images for item: {item_name}")
-    logger.debug(f"Item description: {item_description}")
+    logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
+    logger.debug(f"Output language: {output_language or 'English (default)'}")
 
+    language_instr = build_language_instruction(output_language)
     label_prompt = build_label_prompt(labels)
+    naming_rules = build_naming_rules(
+        field_preferences.get("name") if field_preferences else None
+    )
+
+    # Merge field preferences with defaults
+    instr = {**FIELD_DEFAULTS, **(field_preferences or {})}
+
+    item_context = f"Item: '{item_name}'"
+    if item_description:
+        item_context += f" - {item_description}"
 
     system_prompt = (
-        "You are an inventory assistant analyzing images of an item to extract "
-        "detailed information for the Homebox inventory system. The user has "
-        f"identified this item as: '{item_name}'"
-        + (f" with description: '{item_description}'" if item_description else "")
-        + ".\n\n"
-        f"{NAMING_RULES}\n\n"
-        "Analyze ALL provided images carefully. Look for:\n"
-        "- Serial numbers (on labels, stickers, engravings)\n"
-        "- Model numbers (on product labels, packaging)\n"
-        "- Manufacturer/brand name\n"
-        "- Any visible price tags or receipts\n"
-        "- Warranty information (stickers, cards)\n"
-        "- Condition notes (scratches, wear, damage)\n"
-        "- Any other relevant details\n\n"
-        "Return a single JSON object with these fields (omit fields you cannot "
-        "determine, use null for truly unknown values):\n"
-        "- name: string (Title Case, improved name if you can determine a more "
-        "specific one, max 255 characters)\n"
-        "- description: string (detailed description, no quantity, max 1000 chars)\n"
-        "- serialNumber: string or null\n"
-        "- modelNumber: string or null\n"
-        "- manufacturer: string or null\n"
-        "- purchasePrice: number or null (in local currency, just the number)\n"
-        "- notes: string (any additional observations)\n"
-        "- labelIds: array of label IDs that apply\n\n"
-        + label_prompt
+        # 1. Role + task
+        f"You are an inventory assistant analyzing images. {item_context}\n"
+        # 2. Language instruction (if not English)
+        f"{language_instr}\n"
+        # 3. Critical instruction
+        "Extract ALL visible details: serial numbers, model numbers, brand, "
+        "price tags, condition issues. Only use what's visible.\n\n"
+        # 4. Output schema
+        "Return JSON with:\n"
+        f"- name: string ({instr['name']})\n"
+        f"- description: string ({instr['description']})\n"
+        f"- serialNumber: string or null ({instr['serial_number']})\n"
+        f"- modelNumber: string or null ({instr['model_number']})\n"
+        f"- manufacturer: string or null ({instr['manufacturer']})\n"
+        f"- purchasePrice: number or null ({instr['purchase_price']})\n"
+        f"- notes: string or null ({instr['notes']})\n"
+        "- labelIds: array of applicable label IDs\n\n"
+        # 5. Naming
+        f"{naming_rules}\n\n"
+        # 6. Labels
+        f"{label_prompt}"
     )
 
     user_prompt = (
-        "Analyze these images of the item and extract as much detail as "
-        "possible. Look carefully at all angles, labels, and markings. "
-        "Return only JSON with the fields described."
+        "Analyze all images. Look at labels, stickers, engravings for details. "
+        "Return only JSON."
     )
 
     parsed_content = await vision_completion(
@@ -86,16 +96,6 @@ async def analyze_item_details_from_images(
         model=model,
     )
 
-    logger.info(f"Advanced analysis complete. Fields found: {list(parsed_content.keys())}")
-    logger.debug(f"Full result: {parsed_content}")
+    logger.info(f"Analysis complete. Fields: {list(parsed_content.keys())}")
 
     return parsed_content
-
-
-
-
-
-
-
-
-

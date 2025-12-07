@@ -12,7 +12,7 @@
 		resetLocationState,
 		type PathItem,
 	} from '$lib/stores/locations';
-	import { labels } from '$lib/stores/items';
+	import { labels, setCurrentScanRoute } from '$lib/stores/items';
 	import { showToast, setLoading } from '$lib/stores/ui';
 	import Button from '$lib/components/Button.svelte';
 	import Loader from '$lib/components/Loader.svelte';
@@ -59,6 +59,8 @@
 
 	// Redirect if not authenticated
 	onMount(async () => {
+		setCurrentScanRoute('/location');
+		
 		if (!$isAuthenticated) {
 			goto('/');
 			return;

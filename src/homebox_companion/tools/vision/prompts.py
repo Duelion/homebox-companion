@@ -2,50 +2,72 @@
 
 from __future__ import annotations
 
-from ...ai.prompts import EXTENDED_FIELDS_SCHEMA, ITEM_SCHEMA, NAMING_RULES, build_label_prompt
+from ...ai.prompts import (
+    build_critical_constraints,
+    build_extended_fields_schema,
+    build_item_schema,
+    build_label_prompt,
+    build_language_instruction,
+    build_naming_rules,
+)
 
 
 def build_detection_system_prompt(
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extract_extended_fields: bool = False,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> str:
     """Build the system prompt for item detection.
+
+    Prompt order optimized for LLM attention:
+    1. Role + output format
+    2. Language instruction (if not English)
+    3. Critical constraints (front-loaded)
+    4. Schema (what to output)
+    5. Naming guidelines (how to format)
+    6. Labels (reference data)
 
     Args:
         labels: Optional list of label dicts for assignment.
         single_item: If True, treat all items as one grouped item.
         extract_extended_fields: If True, include extended fields schema.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for output (default: English).
 
     Returns:
         Complete system prompt string.
     """
-    if single_item:
-        grouping_instructions = (
-            "IMPORTANT: Treat EVERYTHING visible in this image as a SINGLE item. "
-            "Do NOT separate objects into multiple items. Even if you see multiple pieces "
-            "or components, group them all as ONE item with an appropriate collective name "
-            "and set quantity to 1."
-        )
-    else:
-        grouping_instructions = (
-            "Combine identical objects into a single entry with the correct quantity. "
-            "Separate distinctly different items into separate entries."
-        )
-
-    extended_prompt = f"\n\n{EXTENDED_FIELDS_SCHEMA}" if extract_extended_fields else ""
+    # Build components with customizations
+    language_instr = build_language_instruction(output_language)
+    critical = build_critical_constraints(single_item)
+    item_schema = build_item_schema(field_preferences)
+    extended_schema = (
+        build_extended_fields_schema(field_preferences)
+        if extract_extended_fields
+        else ""
+    )
+    naming_rules = build_naming_rules(
+        field_preferences.get("name") if field_preferences else None
+    )
     label_prompt = build_label_prompt(labels)
 
     return (
+        # 1. Role + output format
         "You are an inventory assistant for the Homebox API. "
-        "Return a single JSON object with an `items` array.\n\n"
-        f"{NAMING_RULES}\n\n"
-        f"{ITEM_SCHEMA}"
-        f"{extended_prompt}\n\n"
-        f"{grouping_instructions} "
-        "Do not add extra commentary. Ignore background elements (floors, walls, "
-        "benches, shelves, packaging, shadows) and only count objects that are "
-        "the clear focus of the image.\n\n" + label_prompt
+        "Return a JSON object with an `items` array.\n"
+        # 2. Language instruction (if not English)
+        f"{language_instr}\n"
+        # 3. Critical constraints FIRST
+        f"{critical}\n\n"
+        # 4. Schema
+        f"{item_schema}"
+        f"{extended_schema}\n\n"
+        # 5. Naming guidelines
+        f"{naming_rules}\n\n"
+        # 6. Labels
+        f"{label_prompt}"
     )
 
 
@@ -68,49 +90,34 @@ def build_detection_user_prompt(
     """
     extended_example = ""
     if extract_extended_fields:
-        extended_example = (
-            ',"manufacturer":"DeWalt","modelNumber":"DCD771C2","notes":"Minor wear on handle"'
-        )
+        extended_example = ',"manufacturer":"DeWalt","modelNumber":"DCD771C2"'
 
     user_hint = ""
     if extra_instructions and extra_instructions.strip():
         user_hint = (
-            f"\n\nUSER CONTEXT: The user has provided this additional information: "
-            f'"{extra_instructions.strip()}"\n\n'
-            "IMPORTANT: If the user has provided specific data like:\n"
-            "- Price (e.g., '$50', '29.99') → use as purchasePrice\n"
-            "- Serial number (e.g., 'SN: ABC123') → use as serialNumber\n"
-            "- Model number (e.g., 'model DCD771') → use as modelNumber\n"
-            "- Store/retailer (e.g., 'from Home Depot') → use as purchaseFrom\n"
-            "- Brand/manufacturer → use as manufacturer\n"
-            "- Item name or description hints → use to improve name/description\n\n"
-            "Extract and populate the corresponding fields from the user's text, "
-            "even if this information is not visible in the image."
+            f'\n\nUSER CONTEXT: "{extra_instructions.strip()}"\n'
+            "Extract any price→purchasePrice, serial→serialNumber, "
+            "model→modelNumber, store→purchaseFrom, brand→manufacturer from this text."
         )
 
     if multi_image:
         if single_item:
             multi_image_hint = (
-                "You are being shown multiple images of the SAME item from different angles "
-                "or with different details visible. Use all images together to identify and "
-                "describe this single item. "
+                "Multiple images of the SAME item. Combine all details into one entry. "
             )
         else:
             multi_image_hint = (
-                "You are being shown multiple images that may contain the same or related items. "
-                "Analyze all images together to identify all distinct items, avoiding duplicates. "
+                "Multiple images - identify all distinct items, avoiding duplicates. "
             )
     else:
         multi_image_hint = ""
 
     return (
         f"{multi_image_hint}"
-        "List all distinct items that are the logical focus of this image "
-        "and ignore background objects or incidental surfaces. "
-        "For each item, include labelIds with matching label IDs. "
-        "Return only JSON. Example: "
-        '{"items":[{"name":"Claw Hammer","quantity":2,"description":'
-        f'"Steel claw hammer","labelIds":["id1"]{extended_example}'
+        "List items that are the focus of this image. Return only JSON. "
+        "Example: "
+        '{"items":[{"name":"Claw Hammer","quantity":2,'
+        f'"description":"Steel claw hammer","labelIds":["id1"]{extended_example}'
         "}]}."
         + user_hint
     )
@@ -120,6 +127,8 @@ def build_multi_image_system_prompt(
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extract_extended_fields: bool = False,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> str:
     """Build system prompt for multi-image detection.
 
@@ -127,42 +136,55 @@ def build_multi_image_system_prompt(
         labels: Optional list of label dicts for assignment.
         single_item: If True, treat all images as showing one item.
         extract_extended_fields: If True, include extended fields schema.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for output (default: English).
 
     Returns:
         Complete system prompt string.
     """
-    if single_item:
-        grouping_instructions = (
-            "IMPORTANT: Treat EVERYTHING visible across ALL images as a SINGLE item. "
-            "Do NOT separate objects into multiple items. These images show the same item "
-            "from different angles or with additional details. Group everything as ONE item "
-            "with an appropriate name and set quantity to 1."
-        )
-    else:
-        grouping_instructions = (
-            "Combine identical objects into a single entry with the correct quantity. "
-            "Separate distinctly different items into separate entries."
-        )
-
-    extended_prompt = f"\n\n{EXTENDED_FIELDS_SCHEMA}" if extract_extended_fields else ""
+    # Build components with customizations
+    language_instr = build_language_instruction(output_language)
+    critical = build_critical_constraints(single_item)
+    item_schema = build_item_schema(field_preferences)
+    extended_schema = (
+        build_extended_fields_schema(field_preferences)
+        if extract_extended_fields
+        else ""
+    )
+    naming_rules = build_naming_rules(
+        field_preferences.get("name") if field_preferences else None
+    )
     label_prompt = build_label_prompt(labels)
 
+    multi_note = (
+        "Analyzing multiple images of the same item."
+        if single_item
+        else "Analyzing multiple images - combine duplicates."
+    )
+
     return (
-        "You are an inventory assistant for the Homebox API. "
-        "Return a single JSON object with an `items` array.\n\n"
-        f"{NAMING_RULES}\n\n"
-        f"{ITEM_SCHEMA}"
-        f"{extended_prompt}\n\n"
-        f"{grouping_instructions} "
-        "Do not add extra commentary. Ignore background elements (floors, walls, "
-        "benches, shelves, packaging, shadows) and only count objects that are "
-        "the clear focus of the images.\n\n" + label_prompt
+        # 1. Role + output format
+        f"You are an inventory assistant for the Homebox API. {multi_note} "
+        "Return a JSON object with an `items` array.\n"
+        # 2. Language instruction (if not English)
+        f"{language_instr}\n"
+        # 3. Critical constraints FIRST
+        f"{critical}\n\n"
+        # 4. Schema
+        f"{item_schema}"
+        f"{extended_schema}\n\n"
+        # 5. Naming guidelines
+        f"{naming_rules}\n\n"
+        # 6. Labels
+        f"{label_prompt}"
     )
 
 
 def build_discriminatory_system_prompt(
     labels: list[dict[str, str]] | None = None,
     extract_extended_fields: bool = True,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
 ) -> str:
     """Build system prompt for discriminatory (detailed) detection.
 
@@ -171,28 +193,43 @@ def build_discriminatory_system_prompt(
     Args:
         labels: Optional list of label dicts for assignment.
         extract_extended_fields: If True, include extended fields schema.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for output (default: English).
 
     Returns:
         Complete system prompt string.
     """
-    extended_prompt = f"\n\n{EXTENDED_FIELDS_SCHEMA}" if extract_extended_fields else ""
+    # Build components with customizations
+    language_instr = build_language_instruction(output_language)
+    item_schema = build_item_schema(field_preferences)
+    extended_schema = (
+        build_extended_fields_schema(field_preferences)
+        if extract_extended_fields
+        else ""
+    )
+    naming_rules = build_naming_rules(
+        field_preferences.get("name") if field_preferences else None
+    )
     label_prompt = build_label_prompt(labels)
 
     return (
-        "You are an inventory assistant for the Homebox API. Your task is to "
-        "identify items with MAXIMUM SPECIFICITY. Do NOT group similar items "
-        "together - instead, list each distinct variant separately.\n\n"
-        f"{NAMING_RULES}\n\n"
-        "Return a JSON object with an `items` array.\n"
-        f"{ITEM_SCHEMA}"
-        f"{extended_prompt}\n\n"
+        # 1. Role + critical constraint
+        "You are an inventory assistant. Identify items with MAXIMUM SPECIFICITY. "
+        "Do NOT group similar items - list each distinct variant separately.\n"
+        # 2. Language instruction (if not English)
+        f"{language_instr}\n"
+        # 3. Specificity rules (critical for this mode)
         "SPECIFICITY RULES:\n"
-        "- Be specific: include size, color, brand, model in the name when visible\n"
-        "- Each distinct variant gets its own entry (e.g., '80 Grit Sandpaper' and "
-        "'120 Grit Sandpaper' are separate items)\n"
-        "- If you see 3 sandpapers of different grits, that's 3 separate items\n"
-        "- If you see 5 screws of 2 sizes, that's 2 separate items with quantities\n\n"
-        + label_prompt
+        "- Each distinct variant = separate entry (80 Grit vs 120 Grit = 2 items)\n"
+        "- Include size, color, brand, model in names when visible\n"
+        "- Only use what's visible - do NOT guess\n\n"
+        # 4. Schema
+        f"{item_schema}"
+        f"{extended_schema}\n\n"
+        # 5. Naming guidelines
+        f"{naming_rules}\n\n"
+        # 6. Labels
+        f"{label_prompt}"
     )
 
 
@@ -208,35 +245,16 @@ def build_discriminatory_user_prompt(previous_merged_item: dict | None = None) -
     context = ""
     if previous_merged_item:
         context = (
-            f"\n\nPreviously, these items were grouped as: "
-            f"'{previous_merged_item.get('name', 'unknown')}' "
+            f"\n\nPreviously grouped as: '{previous_merged_item.get('name', 'unknown')}' "
             f"(qty: {previous_merged_item.get('quantity', 1)}). "
-            f"Description: {previous_merged_item.get('description', 'N/A')}.\n"
-            "The user believes these should be SEPARATE items. "
-            "Please look more carefully and identify distinct items."
+            "User wants these as SEPARATE items."
         )
 
     return (
-        "Please carefully examine these images and identify ALL DISTINCT items. "
-        "Be MORE DISCRIMINATORY than usual - if items look similar but have "
-        "differences (like different sizes, colors, brands, models, grits, etc.), "
-        "list them as SEPARATE items.\n\n"
-        "For example (using Title Case):\n"
-        "- Different grit sandpapers → '80 Grit Sandpaper', '120 Grit Sandpaper'\n"
-        "- Different sized screws → 'M3 Phillips Screw', 'M5 Phillips Screw'\n"
-        "- Different colored items → 'Red Marker', 'Blue Marker'\n"
-        "- Different brands → 'DeWalt Drill Bit', 'Bosch Drill Bit'\n\n"
-        "Be specific in names and descriptions. Include distinguishing "
-        "characteristics like size, color, brand, model number, etc."
+        "Identify ALL DISTINCT items. Be MORE DISCRIMINATORY - "
+        "different sizes/colors/brands/grits = separate items.\n"
+        "Examples: '80 Grit Sandpaper' + '120 Grit Sandpaper', "
+        "'M3 Phillips Screw' + 'M5 Phillips Screw'."
         + context
-        + "\n\nReturn only JSON."
+        + "\nReturn only JSON."
     )
-
-
-
-
-
-
-
-
-

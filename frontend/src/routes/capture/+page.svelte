@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { vision, type DetectedItem } from '$lib/api';
+	import { vision, fieldPreferences, type DetectedItem } from '$lib/api';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { selectedLocation, selectedLocationPath } from '$lib/stores/locations';
 	import { fetchLabels } from '$lib/stores/labels';
@@ -12,6 +12,7 @@
 		addCapturedImage,
 		removeCapturedImage,
 		clearCapturedImages,
+		setCurrentScanRoute,
 		type CapturedImage,
 		type ReviewItem,
 	} from '$lib/stores/items';
@@ -29,12 +30,15 @@
 	let cameraInput: HTMLInputElement;
 	let isAnalyzing = $state(false);
 	let analysisProgress = $state({ current: 0, total: 0, status: '' });
+	let defaultLabelId = $state<string | null>(null);
 	
 	// Track which images are expanded (collapsed by default after adding)
 	let expandedImages = $state<Set<number>>(new Set());
 
 	// Redirect if not authenticated or no location selected
-	onMount(() => {
+	onMount(async () => {
+		setCurrentScanRoute('/capture');
+		
 		if (!$isAuthenticated) {
 			goto('/');
 			return;
@@ -44,11 +48,17 @@
 			return;
 		}
 		
-		// Pre-fetch labels in the background so they're cached for the API
-		// This saves time during analysis as the server won't need to fetch them
-		fetchLabels().catch(() => {
-			// Silently ignore - labels will be fetched by server if needed
-		});
+		// Pre-fetch labels and field preferences in parallel
+		try {
+			const [_, prefs] = await Promise.all([
+				fetchLabels().catch(() => {}), // Silently ignore - labels will be fetched by server if needed
+				fieldPreferences.get(),
+			]);
+			defaultLabelId = prefs.default_label_id;
+		} catch (error) {
+			// Silently ignore - default label is optional
+			console.error('Failed to load field preferences:', error);
+		}
 	});
 
 	function toggleImageExpanded(index: number) {
@@ -250,8 +260,15 @@
 			for (const result of results) {
 				if (result.success) {
 					for (const item of result.response.items) {
+						// Add default label if configured and not already present
+						let itemLabelIds = item.label_ids ?? [];
+						if (defaultLabelId && !itemLabelIds.includes(defaultLabelId)) {
+							itemLabelIds = [...itemLabelIds, defaultLabelId];
+						}
+						
 						allDetectedItems.push({
 							...item,
+							label_ids: itemLabelIds,
 							sourceImageIndex: result.imageIndex,
 							originalFile: result.image.file,
 							additionalImages: result.image.additionalFiles || [],

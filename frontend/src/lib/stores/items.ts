@@ -1,8 +1,31 @@
 /**
  * Items store for detection and review flow
  */
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import type { DetectedItem, LabelData } from '$lib/api';
+
+// Track the last visited scan route for navigation persistence
+const SCAN_ROUTES = ['/location', '/capture', '/review', '/summary', '/success'] as const;
+export type ScanRoute = (typeof SCAN_ROUTES)[number];
+
+// Store the last scan route visited (defaults to /location)
+export const lastScanRoute = writable<ScanRoute>('/location');
+
+/**
+ * Update the last scan route when navigating within the scan flow.
+ * Called by scan pages on mount.
+ */
+export function setCurrentScanRoute(route: ScanRoute): void {
+	lastScanRoute.set(route);
+}
+
+/**
+ * Get the appropriate scan route to navigate to.
+ * Returns the last visited route, or validates based on current state.
+ */
+export function getScanRouteHref(): string {
+	return get(lastScanRoute);
+}
 
 // Captured images
 export interface CapturedImage {

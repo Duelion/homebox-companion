@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { lastScanRoute } from '$lib/stores/items';
 
 	/**
 	 * Bottom navigation item configuration.
@@ -14,12 +15,18 @@
 		activeRoutes: string[];
 	}
 
+	// Get current path reactively
+	let currentPath = $derived($page.url.pathname);
+
+	// Scan tab href - use last visited scan route for navigation persistence
+	let scanHref = $derived($lastScanRoute);
+
 	// Navigation items - easily extendable for future tabs (max 5 recommended)
-	const navItems: NavItem[] = [
+	let navItems = $derived<NavItem[]>([
 		{
 			id: 'scan',
 			label: 'Scan',
-			href: '/location',
+			href: scanHref,
 			icon: 'scan',
 			activeRoutes: ['/location', '/capture', '/review', '/summary', '/success'],
 		},
@@ -30,15 +37,12 @@
 			icon: 'settings',
 			activeRoutes: ['/settings'],
 		},
-	];
+	]);
 
 	// Check if a nav item should be highlighted as active
 	function isActive(item: NavItem, currentPath: string): boolean {
 		return item.activeRoutes.some((route) => currentPath.startsWith(route));
 	}
-
-	// Get current path reactively
-	let currentPath = $derived($page.url.pathname);
 </script>
 
 <nav

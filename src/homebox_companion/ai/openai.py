@@ -32,6 +32,40 @@ def _get_openai_client(api_key: str) -> AsyncOpenAI:
     return _client_cache[api_key]
 
 
+def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
+    """Format messages for readable logging output.
+
+    Args:
+        messages: List of message dicts for the conversation.
+
+    Returns:
+        Formatted string representation of messages.
+    """
+    output_lines = []
+    for msg in messages:
+        role = msg.get("role", "unknown").upper()
+        content = msg.get("content", "")
+
+        if isinstance(content, str):
+            output_lines.append(f"\n{'='*60}\n[{role}]\n{'='*60}\n{content}")
+        elif isinstance(content, list):
+            # Handle vision messages with mixed content
+            text_parts = []
+            image_count = 0
+            for item in content:
+                if item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+                elif item.get("type") == "image_url":
+                    image_count += 1
+            text_content = "\n".join(text_parts)
+            image_note = f"\n[+ {image_count} image(s) attached]" if image_count else ""
+            output_lines.append(
+                f"\n{'='*60}\n[{role}]{image_note}\n{'='*60}\n{text_content}"
+            )
+
+    return "".join(output_lines)
+
+
 async def chat_completion(
     messages: list[dict[str, Any]],
     *,
@@ -55,6 +89,13 @@ async def chat_completion(
 
     logger.debug(f"Calling OpenAI API with model: {model}")
 
+    # TRACE level: Log full prompt being sent to LLM
+    logger.trace(
+        f">>> PROMPT SENT TO LLM ({model}) >>>"
+        f"{_format_messages_for_logging(messages)}"
+        f"\n{'='*60}"
+    )
+
     client = _get_openai_client(api_key)
 
     kwargs: dict[str, Any] = {
@@ -68,7 +109,16 @@ async def chat_completion(
 
     message = completion.choices[0].message
     raw_content = message.content or "{}"
-    logger.debug(f"OpenAI response: {raw_content[:500]}...")
+
+    # TRACE level: Log full response from LLM
+    logger.trace(
+        f"<<< RESPONSE FROM LLM ({model}) <<<"
+        f"\n{'='*60}\n"
+        f"{raw_content}"
+        f"\n{'='*60}"
+    )
+
+    logger.debug(f"OpenAI response received ({len(raw_content)} chars)")
 
     # Try to get parsed content, fall back to JSON parsing
     parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
@@ -112,7 +162,3 @@ async def vision_completion(
         model=model,
         response_format={"type": "json_object"},
     )
-
-
-
-

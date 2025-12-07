@@ -17,6 +17,7 @@ from homebox_companion import (
     merge_items_with_openai,
     settings,
 )
+from homebox_companion.core.field_preferences import load_field_preferences
 
 from ...dependencies import get_labels_for_context, get_token
 from ...schemas.vision import (
@@ -32,6 +33,63 @@ from ...schemas.vision import (
 )
 
 router = APIRouter()
+
+
+def get_field_preferences_dict() -> dict[str, str] | None:
+    """Load field preferences and return as dict for prompt integration.
+
+    Returns dict with keys matching FIELD_DEFAULTS (snake_case) for inline
+    integration into prompt schemas. Returns None if no preferences are set.
+    """
+    prefs = load_field_preferences()
+    if not prefs.has_any_preferences():
+        return None
+    return prefs.to_customizations_dict()
+
+
+def get_output_language() -> str | None:
+    """Get the configured output language.
+
+    Returns the output language if set, or None for default (English).
+    """
+    prefs = load_field_preferences()
+    lang = prefs.get_output_language()
+    # Return None if English (default) to skip language instruction
+    if lang.lower() == "english":
+        return None
+    return lang
+
+
+def get_default_label_id() -> str | None:
+    """Get the configured default label ID.
+
+    This label is auto-added by the frontend, so we filter it from AI responses
+    to avoid duplication (frontend will add it anyway).
+
+    Returns the default label ID if set, or None.
+    """
+    prefs = load_field_preferences()
+    return prefs.default_label_id
+
+
+def filter_default_label(label_ids: list[str] | None, default_label_id: str | None) -> list[str]:
+    """Filter out the default label from AI-suggested labels.
+
+    The frontend auto-adds the default label, so we remove it from AI suggestions
+    to avoid the AI duplicating what the frontend will add anyway.
+
+    Args:
+        label_ids: List of label IDs suggested by the AI.
+        default_label_id: The default label ID to filter out.
+
+    Returns:
+        Filtered list of label IDs.
+    """
+    if not label_ids:
+        return []
+    if not default_label_id:
+        return label_ids
+    return [lid for lid in label_ids if lid != default_label_id]
 
 
 @router.post("/detect", response_model=DetectionResponse)
@@ -89,9 +147,14 @@ async def detect_items(
                 additional_image_data.append((add_bytes, add_mime))
                 logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
 
-    # Fetch labels for context
+    # Fetch labels for context (all labels - we filter from response, not prompt)
     labels = await get_labels_for_context(token)
     logger.debug(f"Loaded {len(labels)} labels for context")
+
+    # Load field preferences and output language
+    field_preferences = get_field_preferences_dict()
+    output_language = get_output_language()
+    default_label_id = get_default_label_id()
 
     # Detect items
     try:
@@ -106,19 +169,22 @@ async def detect_items(
             extra_instructions=extra_instructions,
             extract_extended_fields=extract_extended_fields,
             additional_images=additional_image_data,
+            field_preferences=field_preferences,
+            output_language=output_language,
         )
         logger.info(f"Detected {len(detected)} items")
     except Exception as e:
         logger.error(f"Detection failed: {e}")
         raise HTTPException(status_code=500, detail=f"Detection failed: {e}") from e
 
+    # Filter out default label from AI suggestions (frontend will auto-add it)
     return DetectionResponse(
         items=[
             DetectedItemResponse(
                 name=item.name,
                 quantity=item.quantity,
                 description=item.description,
-                label_ids=item.label_ids,
+                label_ids=filter_default_label(item.label_ids, default_label_id),
                 manufacturer=item.manufacturer,
                 model_number=item.model_number,
                 serial_number=item.serial_number,
@@ -178,6 +244,11 @@ async def detect_items_batch(
     labels = await get_labels_for_context(token)
     logger.debug(f"Loaded {len(labels)} labels for context (shared across all images)")
 
+    # Load field preferences and output language once for all images
+    field_preferences = get_field_preferences_dict()
+    output_language = get_output_language()
+    default_label_id = get_default_label_id()
+
     # Read all image bytes in parallel
     async def read_image(img: UploadFile, index: int) -> tuple[int, bytes, str]:
         img_bytes = await img.read()
@@ -215,8 +286,11 @@ async def detect_items_batch(
                 single_item=single_item,
                 extra_instructions=extra_instructions,
                 extract_extended_fields=extract_extended_fields,
+                field_preferences=field_preferences,
+                output_language=output_language,
             )
 
+            # Filter out default label from AI suggestions (frontend will auto-add it)
             return BatchDetectionResult(
                 image_index=index,
                 success=True,
@@ -225,7 +299,7 @@ async def detect_items_batch(
                         name=item.name,
                         quantity=item.quantity,
                         description=item.description,
-                        label_ids=item.label_ids,
+                        label_ids=filter_default_label(item.label_ids, default_label_id),
                         manufacturer=item.manufacturer,
                         model_number=item.model_number,
                         serial_number=item.serial_number,
@@ -311,6 +385,11 @@ async def analyze_item_advanced(
     # Fetch labels for context
     labels = await get_labels_for_context(token)
 
+    # Load field preferences and output language
+    field_preferences = get_field_preferences_dict()
+    output_language = get_output_language()
+    default_label_id = get_default_label_id()
+
     # Analyze images
     try:
         logger.info(f"Analyzing {len(image_data_uris)} images with OpenAI...")
@@ -321,12 +400,15 @@ async def analyze_item_advanced(
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             labels=labels,
+            field_preferences=field_preferences,
+            output_language=output_language,
         )
         logger.info("Analysis complete")
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {e}") from e
 
+    # Filter out default label from AI suggestions (frontend will auto-add it)
     return AdvancedItemDetails(
         name=details.get("name"),
         description=details.get("description"),
@@ -335,7 +417,7 @@ async def analyze_item_advanced(
         manufacturer=details.get("manufacturer"),
         purchase_price=details.get("purchasePrice"),
         notes=details.get("notes"),
-        label_ids=details.get("labelIds"),
+        label_ids=filter_default_label(details.get("labelIds"), default_label_id),
     )
 
 
@@ -359,6 +441,11 @@ async def merge_items(
     # Fetch labels for context
     labels = await get_labels_for_context(token)
 
+    # Load field preferences and output language
+    field_preferences = get_field_preferences_dict()
+    output_language = get_output_language()
+    default_label_id = get_default_label_id()
+
     # Convert typed items to dicts for the OpenAI function
     items_as_dicts = [item.model_dump(exclude_none=True) for item in request.items]
 
@@ -369,17 +456,20 @@ async def merge_items(
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             labels=labels,
+            field_preferences=field_preferences,
+            output_language=output_language,
         )
         logger.info(f"Merge complete: {merged.get('name')}")
     except Exception as e:
         logger.error(f"Merge failed: {e}")
         raise HTTPException(status_code=500, detail=f"Merge failed: {e}") from e
 
+    # Filter out default label from AI suggestions (frontend will auto-add it)
     return MergedItemResponse(
         name=merged.get("name", "Merged Item"),
         quantity=merged.get("quantity", sum(item.quantity for item in request.items)),
         description=merged.get("description"),
-        label_ids=merged.get("labelIds"),
+        label_ids=filter_default_label(merged.get("labelIds"), default_label_id),
     )
 
 
@@ -429,6 +519,11 @@ async def correct_item(
     labels = await get_labels_for_context(token)
     logger.debug(f"Loaded {len(labels)} labels for context")
 
+    # Load field preferences and output language
+    field_preferences = get_field_preferences_dict()
+    output_language = get_output_language()
+    default_label_id = get_default_label_id()
+
     # Call the correction function
     try:
         logger.info("Starting OpenAI item correction...")
@@ -439,19 +534,22 @@ async def correct_item(
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             labels=labels,
+            field_preferences=field_preferences,
+            output_language=output_language,
         )
         logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
     except Exception as e:
         logger.error(f"Item correction failed: {e}")
         raise HTTPException(status_code=500, detail=f"Correction failed: {e}") from e
 
+    # Filter out default label from AI suggestions (frontend will auto-add it)
     return CorrectionResponse(
         items=[
             CorrectedItemResponse(
                 name=item.get("name", "Unknown"),
                 quantity=item.get("quantity", 1),
                 description=item.get("description"),
-                label_ids=item.get("labelIds"),
+                label_ids=filter_default_label(item.get("labelIds"), default_label_id),
                 manufacturer=item.get("manufacturer"),
                 model_number=item.get("modelNumber") or item.get("model_number"),
                 serial_number=item.get("serialNumber") or item.get("serial_number"),

@@ -346,3 +346,31 @@ export interface LogsResponse {
 
 export const getLogs = (lines: number = 200) =>
 	request<LogsResponse>(`/logs?lines=${lines}`);
+
+// Field preferences endpoint
+export interface FieldPreferences {
+	output_language: string | null;
+	default_label_id: string | null;
+	name: string | null;
+	description: string | null;
+	quantity: string | null;
+	manufacturer: string | null;
+	model_number: string | null;
+	serial_number: string | null;
+	purchase_price: string | null;
+	purchase_from: string | null;
+	notes: string | null;
+}
+
+export const fieldPreferences = {
+	get: () => request<FieldPreferences>('/settings/field-preferences'),
+	update: (prefs: Partial<FieldPreferences>) =>
+		request<FieldPreferences>('/settings/field-preferences', {
+			method: 'PUT',
+			body: JSON.stringify(prefs),
+		}),
+	reset: () =>
+		request<FieldPreferences>('/settings/field-preferences', {
+			method: 'DELETE',
+		}),
+};

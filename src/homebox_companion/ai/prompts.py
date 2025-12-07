@@ -2,63 +2,130 @@
 
 from __future__ import annotations
 
-# Shared naming rules for consistent LLM output across all functions
-NAMING_RULES = """NAMING GUIDELINES (follow for consistency):
+# Default instructions per field (single source of truth)
+# User customizations will REPLACE these when provided
+FIELD_DEFAULTS = {
+    "name": "Title Case, no quantity, max 255 characters",
+    "description": "max 1000 chars, condition/attributes only, NEVER mention quantity",
+    "quantity": ">= 1, count of identical items",
+    "manufacturer": "brand name from logo/label when clearly visible",
+    "model_number": "product code from label when clearly visible",
+    "serial_number": "S/N from sticker/label when clearly visible",
+    "purchase_price": "price from visible tag/receipt, just the number",
+    "purchase_from": "store name from visible packaging/receipt",
+    "notes": "ONLY for defects/damage/warnings - leave null for normal items",
+}
 
-STRUCTURE (preferred order):
-[Item Type] [Brand/Series] [Model] [Variant/Specs]
+# Condensed naming rules (~12 lines instead of ~25)
+NAMING_RULES = """NAMING FORMAT:
+Structure: [Item Type] [Brand] [Model] [Specs] - Item type FIRST for searchability.
 
 Examples:
-- "Ball Bearing 6900-2RS 10x22x6mm" (type + model + specs)
-- "Acrylic Paint Vallejo Game Color Bone White 72.034" (type + brand + series + color + code)
-- "E-Paper Module WeAct 2.9 Inch Black/White" (type + brand + size + variant)
-- "Safety Pin Silver 55mm" (type + material/color + size)
-- "LED Strip COB Green 5V 1M" (type + subtype + color + specs)
+- "Ball Bearing 6900-2RS 10x22x6mm"
+- "Acrylic Paint Vallejo Game Color Bone White"
+- "LED Strip COB Green 5V 1M"
 
-RULES:
-- Use Title Case (e.g., "Claw Hammer", not "claw hammer")
-- Do NOT include quantity in name or description
-- Include brand ONLY when recognizable/valuable (Vallejo, DeWalt, Raspberry Pi)
-- Omit generic manufacturer names (e.g., "Shenzhen XYZ Technology Co.")
-- Use metric units, format dimensions as NxNxNmm (e.g., "10x22x6mm", not "10 x 22 x 6 mm")
-- Place color/variant at end when distinguishing similar items
-- Keep names concise (max 255 chars) - prioritize searchability
-- Omit container words (Bottle, Bag, Box) unless part of product identity
+Rules: Title Case, no quantity in name/description, metric units (NxNxNmm),
+include brand only when recognizable (DeWalt, Vallejo), omit generic manufacturers."""
 
-ITEM TYPE FIRST - The most important word for search/sort should come first:
-- Good: "Ball Bearing 6900-2RS" (searchable by "Ball Bearing")
-- Avoid: "6900-2RS Ball Bearing" (harder to find in alphabetical lists)"""
 
-ITEM_SCHEMA = """Each item must include:
-- name: string (Title Case, no quantity, max 255 characters)
-- quantity: integer (>= 1, count of identical items)
-- description: string (max 1000 chars, condition/attributes only, NEVER mention quantity)
-- labelIds: array of matching label IDs from the available labels"""
+def build_critical_constraints(single_item: bool = False) -> str:
+    """Build critical constraints that MUST appear early in prompt.
 
-# Extended fields that can be extracted when visible/applicable
-EXTENDED_FIELDS_SCHEMA = """
-OPTIONAL EXTENDED FIELDS - Include when visible in the image OR provided by the user:
+    These are the most important rules that should be front-loaded
+    to ensure the LLM prioritizes them.
 
-- manufacturer: string or null (brand name from logo, label, packaging, or user context)
-- modelNumber: string or null (product code/model number from label, item, or user context)
-- serialNumber: string or null (serial number from sticker/label/engraving or user context)
-- purchasePrice: number or null (price from tag, receipt, or user context - just the number)
-- purchaseFrom: string or null (store name/retailer from packaging, receipt, or user context)
-- notes: string or null (ONLY for defects, damage, or warnings - leave null for normal items)
-  GOOD notes: "Cracked lens", "Missing 2 screws", "Battery corroded", "Requires 12V adapter"
-  BAD notes: "Sealed in packaging", "Made in China", "Appears new", "Barcode visible"
+    Args:
+        single_item: If True, enforce single-item grouping mode.
 
-CRITERIA FOR EXTENDED FIELDS (IMPORTANT):
-- Extract from image when clearly visible OR from user-provided context
-- manufacturer: Include when brand/logo is VISIBLE or user specifies it
-- modelNumber: Include when model/part number TEXT is VISIBLE or user specifies it
-- serialNumber: Include when S/N text is VISIBLE or user specifies it (e.g., "serial ABC123")
-- purchasePrice: Include if price tag/receipt is IN THE IMAGE or user specifies it (e.g., "$50")
-- purchaseFrom: Include if retailer name is visible or user specifies it (e.g., "from Amazon")
-- notes: Include ONLY for defects/damage/warnings - most items should have null notes
+    Returns:
+        Critical constraints string.
+    """
+    if single_item:
+        return (
+            "CRITICAL: Treat EVERYTHING in this image as ONE item. "
+            "Do NOT separate into multiple items. Set quantity to 1.\n"
+            "Do NOT guess or infer - only use what's visible or user-stated."
+        )
+    return (
+        "RULES:\n"
+        "- Combine identical objects into one entry with correct quantity\n"
+        "- Separate distinctly different items into separate entries\n"
+        "- Do NOT guess or infer - only use what's visible or user-stated\n"
+        "- Ignore background elements (floors, walls, shelves, packaging)"
+    )
 
-DO NOT guess or infer fields - only use what's visible in the image or
-explicitly stated by the user."""
+
+def build_naming_rules(name_customization: str | None = None) -> str:
+    """Build naming rules with optional user override note.
+
+    Args:
+        name_customization: Optional user preference for naming that takes
+            priority over the default structure rules.
+
+    Returns:
+        Naming rules string, with override note if customization provided.
+    """
+    if name_customization and name_customization.strip():
+        return NAMING_RULES + f"""
+
+USER NAMING PREFERENCE (takes priority):
+{name_customization.strip()}"""
+    return NAMING_RULES
+
+
+def build_item_schema(customizations: dict[str, str] | None = None) -> str:
+    """Build item schema with customizations integrated inline.
+
+    User customizations REPLACE the default instruction for each field,
+    ensuring the LLM sees only one instruction per field.
+
+    Args:
+        customizations: Dict mapping field names to custom instructions.
+            Keys should match FIELD_DEFAULTS keys.
+
+    Returns:
+        Item schema string with customizations integrated.
+    """
+    instr = {**FIELD_DEFAULTS, **(customizations or {})}
+    return f"""OUTPUT SCHEMA - Each item must include:
+- name: string ({instr['name']})
+- quantity: integer ({instr['quantity']})
+- description: string ({instr['description']})
+- labelIds: array of matching label IDs"""
+
+
+def build_extended_fields_schema(customizations: dict[str, str] | None = None) -> str:
+    """Build extended fields schema with customizations integrated inline.
+
+    User customizations REPLACE the default instruction for each field,
+    ensuring the LLM sees only one instruction per field.
+
+    Args:
+        customizations: Dict mapping field names to custom instructions.
+            Keys should match FIELD_DEFAULTS keys.
+
+    Returns:
+        Extended fields schema string with customizations integrated.
+    """
+    instr = {**FIELD_DEFAULTS, **(customizations or {})}
+
+    # Build notes examples only if using default notes instruction
+    notes_examples = ""
+    if customizations is None or "notes" not in customizations:
+        notes_examples = (
+            '\n  GOOD: "Cracked lens", "Missing screws" | '
+            'BAD: "Appears new", "Made in China"'
+        )
+
+    return f"""
+OPTIONAL FIELDS (include only when visible or user-provided):
+- manufacturer: string or null ({instr['manufacturer']})
+- modelNumber: string or null ({instr['model_number']})
+- serialNumber: string or null ({instr['serial_number']})
+- purchasePrice: number or null ({instr['purchase_price']})
+- purchaseFrom: string or null ({instr['purchase_from']})
+- notes: string or null ({instr['notes']}){notes_examples}"""
 
 
 def build_label_prompt(labels: list[dict[str, str]] | None) -> str:
@@ -71,7 +138,7 @@ def build_label_prompt(labels: list[dict[str, str]] | None) -> str:
         Prompt text instructing the AI how to handle labels.
     """
     if not labels:
-        return "No labels are available; omit labelIds."
+        return "No labels available; omit labelIds."
 
     label_lines = [
         f"- {label['name']} (id: {label['id']})"
@@ -80,15 +147,29 @@ def build_label_prompt(labels: list[dict[str, str]] | None) -> str:
     ]
 
     if not label_lines:
-        return "No labels are available; omit labelIds."
+        return "No labels available; omit labelIds."
 
     return (
-        "IMPORTANT: You MUST assign appropriate labelIds from this list to each item. "
-        "Select all labels that apply to each item. Available labels:\n"
+        "LABELS - Assign matching IDs to each item:\n"
         + "\n".join(label_lines)
     )
 
 
+def build_language_instruction(output_language: str | None) -> str:
+    """Build language output instruction.
 
+    Args:
+        output_language: Target language for output. If None or "English",
+            returns empty string (English is default).
 
+    Returns:
+        Language instruction string, or empty string if English/default.
+    """
+    if not output_language or output_language.strip().lower() == "english":
+        return ""
 
+    return (
+        f"\nOUTPUT LANGUAGE: Write all item names, descriptions, and notes "
+        f"in {output_language.strip()}. Keep field names (name, description, etc.) "
+        f"in English for JSON compatibility.\n"
+    )
