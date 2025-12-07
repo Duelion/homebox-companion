@@ -20,6 +20,7 @@
 	import Loader from '$lib/components/Loader.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import CaptureButtons from '$lib/components/CaptureButtons.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 
 	const MAX_IMAGES = 30;
 	const MAX_FILE_SIZE_MB = 10;
@@ -302,16 +303,7 @@
 </svelte:head>
 
 <div class="animate-in">
-	<button
-		type="button"
-		class="flex items-center gap-1 text-sm text-text-muted hover:text-text mb-4 transition-colors"
-		onclick={goBack}
-	>
-		<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<polyline points="15 18 9 12 15 6" />
-		</svg>
-		<span>Change Location</span>
-	</button>
+	<BackLink href="/location" label="Change Location" onclick={goBack} />
 
 	<StepIndicator currentStep={2} />
 

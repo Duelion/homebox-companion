@@ -20,6 +20,7 @@
 	import ExtendedFieldsPanel from '$lib/components/ExtendedFieldsPanel.svelte';
 	import AdditionalImagesPanel from '$lib/components/AdditionalImagesPanel.svelte';
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 
 	let editedItem = $state<ReviewItem | null>(null);
 	let showExtendedFields = $state(false);
@@ -279,16 +280,7 @@
 </svelte:head>
 
 <div class="animate-in">
-	<button
-		type="button"
-		class="flex items-center gap-1 text-sm text-text-muted hover:text-text mb-4 transition-colors"
-		onclick={goBack}
-	>
-		<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<polyline points="15 18 9 12 15 6" />
-		</svg>
-		<span>Back to Capture</span>
-	</button>
+	<BackLink href="/capture" label="Back to Capture" onclick={goBack} />
 
 	<StepIndicator currentStep={3} />
 

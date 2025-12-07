@@ -18,6 +18,7 @@
 	import Loader from '$lib/components/Loader.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import LocationModal from '$lib/components/LocationModal.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 
 	let isLoadingLocations = $state(true);
 	let searchQuery = $state('');
@@ -277,6 +278,10 @@
 </svelte:head>
 
 <div class="animate-in">
+	{#if $selectedLocation}
+		<BackLink href="/location" label="Choose a different location" onclick={changeSelection} />
+	{/if}
+
 	<StepIndicator currentStep={1} />
 
 	<h2 class="text-2xl font-bold text-text mb-2">Select Location</h2>
@@ -322,35 +327,20 @@
 				</div>
 			</div>
 
-			<div class="flex gap-2">
-				<button
-					type="button"
-					class="flex-1 p-3 text-center text-text-muted hover:text-text hover:bg-surface-elevated rounded-xl border border-dashed border-border transition-colors"
-					onclick={changeSelection}
-				>
-					<span class="flex items-center justify-center gap-2">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-							<circle cx="12" cy="10" r="3" />
-						</svg>
-						Change
-					</span>
-				</button>
-
-				<button
-					type="button"
-					class="flex-1 p-3 text-center text-primary hover:bg-primary/10 rounded-xl border border-dashed border-primary/40 transition-colors"
-					onclick={openCreateSubLocationModal}
-				>
-					<span class="flex items-center justify-center gap-2 whitespace-nowrap">
-						<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<line x1="12" y1="5" x2="12" y2="19" />
-							<line x1="5" y1="12" x2="19" y2="12" />
-						</svg>
-						Add sub-location
-					</span>
-				</button>
-			</div>
+			<!-- Add sub-location button -->
+			<button
+				type="button"
+				class="w-full p-3 text-center text-primary hover:bg-primary/10 rounded-xl border border-dashed border-primary/40 transition-colors"
+				onclick={openCreateSubLocationModal}
+			>
+				<span class="flex items-center justify-center gap-2 whitespace-nowrap">
+					<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<line x1="12" y1="5" x2="12" y2="19" />
+						<line x1="5" y1="12" x2="19" y2="12" />
+					</svg>
+					Add sub-location
+				</span>
+			</button>
 
 			<Button variant="primary" full onclick={continueToCapture}>
 				<span>Continue to Capture</span>
