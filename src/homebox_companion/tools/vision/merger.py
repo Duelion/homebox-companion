@@ -47,9 +47,7 @@ async def merge_items_with_openai(
 
     language_instr = build_language_instruction(output_language)
     label_prompt = build_label_prompt(labels)
-    naming_rules = build_naming_rules(
-        field_preferences.get("name") if field_preferences else None
-    )
+    naming_rules = build_naming_rules(field_preferences)
 
     # Get field customizations or defaults
     name_instr = (
