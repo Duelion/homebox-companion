@@ -62,8 +62,27 @@ export interface FieldPreferences {
 	naming_examples: string | null;
 }
 
+/** Effective defaults (env var if set, otherwise hardcoded fallback) */
+export interface EffectiveDefaults {
+	output_language: string;
+	default_label_id: string | null;
+	name: string;
+	description: string;
+	quantity: string;
+	manufacturer: string;
+	model_number: string;
+	serial_number: string;
+	purchase_price: string;
+	purchase_from: string;
+	notes: string;
+	naming_examples: string;
+}
+
 export const fieldPreferences = {
 	get: () => request<FieldPreferences>('/settings/field-preferences'),
+
+	/** Get effective defaults (env var if set, otherwise hardcoded fallback) */
+	getEffectiveDefaults: () => request<EffectiveDefaults>('/settings/effective-defaults'),
 
 	update: (prefs: Partial<FieldPreferences>) =>
 		request<FieldPreferences>('/settings/field-preferences', {

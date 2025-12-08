@@ -159,7 +159,9 @@ async def get_vision_context(
     return VisionContext(
         token=token,
         labels=await get_labels_for_context(token),
-        field_preferences=prefs.to_customizations_dict() if prefs.has_any_preferences() else None,
+        # Always pass effective customizations (user values merged with defaults)
+        # This ensures prompt builders don't need their own fallback defaults
+        field_preferences=prefs.get_effective_customizations(),
         output_language=output_language,
         default_label_id=prefs.default_label_id,
     )

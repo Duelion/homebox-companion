@@ -30,6 +30,7 @@ export {
 	type ConfigResponse,
 	type LogsResponse,
 	type FieldPreferences,
+	type EffectiveDefaults,
 } from './settings';
 
 // Re-export types from vision for convenience

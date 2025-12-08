@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { isAuthenticated, logout } from '$lib/stores/auth';
 	import { appVersion } from '$lib/stores/ui';
-	import { getConfig, getLogs, getVersion, labels as labelsApi, fieldPreferences, type ConfigResponse, type LogsResponse, type FieldPreferences, type LabelData } from '$lib/api';
+	import { getConfig, getLogs, getVersion, labels as labelsApi, fieldPreferences, type ConfigResponse, type LogsResponse, type FieldPreferences, type EffectiveDefaults, type LabelData } from '$lib/api';
 	import Button from '$lib/components/Button.svelte';
 
 	let config = $state<ConfigResponse | null>(null);
@@ -50,66 +50,59 @@
 	let isLoadingExport = $state(false);
 	let exportPrefs = $state<FieldPreferences | null>(null);
 
-	// Field metadata for display - defaults shown as visible text, not hidden in placeholder
-	const fieldMeta: Array<{ key: keyof FieldPreferences; label: string; defaultText: string; example: string }> = [
+	// Effective defaults from backend (env var if set, otherwise hardcoded fallback)
+	let effectiveDefaults = $state<EffectiveDefaults | null>(null);
+
+	// Field metadata for display
+	const fieldMeta: Array<{ key: keyof FieldPreferences; label: string; example: string }> = [
 		{
 			key: 'name',
 			label: 'Name',
-			defaultText: '[Type] [Brand] [Model] [Specs], Title Case, item type first for searchability',
 			example: '"Ball Bearing 6900-2RS 10x22x6mm", "LED Strip COB Green 5V 1M"'
 		},
 		{
 			key: 'naming_examples',
 			label: 'Naming Examples',
-			defaultText: '"Ball Bearing 6900-2RS 10x22x6mm", "Acrylic Paint Vallejo Game Color Bone White", "LED Strip COB Green 5V 1M"',
 			example: 'Comma-separated examples that show the AI how to format names'
 		},
 		{
 			key: 'description',
 			label: 'Description',
-			defaultText: 'Condition/attributes only, max 1000 chars, NEVER mention quantity',
 			example: '"Minor scratches on casing", "New in packaging"'
 		},
 		{
 			key: 'quantity',
 			label: 'Quantity',
-			defaultText: 'Count identical items together, separate different variants',
 			example: '5 identical screws = qty 5, but 2 sizes = 2 separate items'
 		},
 		{
 			key: 'manufacturer',
 			label: 'Manufacturer',
-			defaultText: 'Only when brand/logo is VISIBLE. Include recognizable brands only.',
 			example: 'DeWalt, Vallejo (NOT "Shenzhen XYZ Technology Co.")'
 		},
 		{
 			key: 'model_number',
 			label: 'Model Number',
-			defaultText: 'Only when model/part number TEXT is clearly visible on label',
 			example: '"DCD771C2", "72.034"'
 		},
 		{
 			key: 'serial_number',
 			label: 'Serial Number',
-			defaultText: 'Only when S/N text is visible on sticker/label/engraving',
 			example: 'Look for "S/N:", "Serial:" markings'
 		},
 		{
 			key: 'purchase_price',
 			label: 'Purchase Price',
-			defaultText: 'Only from visible price tag/receipt. Just the number.',
 			example: '29.99 (not "$29.99")'
 		},
 		{
 			key: 'purchase_from',
 			label: 'Purchase From',
-			defaultText: 'Only from visible packaging/receipt or user-specified',
 			example: '"Amazon", "Home Depot"'
 		},
 		{
 			key: 'notes',
 			label: 'Notes',
-			defaultText: 'ONLY for defects/damage/warnings. Most items = no notes.',
 			example: 'GOOD: "Cracked lens" | BAD: "Appears new"'
 		},
 	];
@@ -186,7 +179,7 @@
 	}
 
 	async function loadFieldPrefs() {
-		if (prefs.name !== null || isLoadingFieldPrefs) {
+		if (effectiveDefaults !== null || isLoadingFieldPrefs) {
 			showFieldPrefs = !showFieldPrefs;
 			return;
 		}
@@ -195,9 +188,13 @@
 		fieldPrefsError = null;
 
 		try {
-			// Load preferences (labels already loaded in onMount)
-			const prefsResult = await fieldPreferences.get();
+			// Load preferences and effective defaults in parallel (labels already loaded in onMount)
+			const [prefsResult, defaultsResult] = await Promise.all([
+				fieldPreferences.get(),
+				fieldPreferences.getEffectiveDefaults(),
+			]);
 			prefs = prefsResult;
+			effectiveDefaults = defaultsResult;
 			showFieldPrefs = true;
 		} catch (error) {
 			console.error('Failed to load field preferences:', error);
@@ -564,7 +561,7 @@
 				id="output_language"
 				value={prefs.output_language || ''}
 				oninput={(e) => handleFieldInput('output_language', e.currentTarget.value)}
-				placeholder="English (default)"
+				placeholder={effectiveDefaults ? effectiveDefaults.output_language : 'Loading...'}
 				class="w-full px-3 py-2 bg-background border border-border rounded-lg text-text placeholder-text-dim text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
 			/>
 			<div class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
@@ -596,7 +593,7 @@
 			>
 				<option value="">No default label</option>
 				{#each availableLabels as label}
-					<option value={label.id}>{label.name}</option>
+					<option value={label.id}>{label.name}{effectiveDefaults?.default_label_id === label.id ? ' (env default)' : ''}</option>
 				{/each}
 			</select>
 			<p class="text-xs text-text-dim">
@@ -612,7 +609,7 @@
 							{field.label}
 						</label>
 						<div class="text-xs text-text-muted bg-background/50 px-2 py-1.5 rounded border border-border/30">
-							<span class="text-text-dim">Default:</span> {field.defaultText}
+							<span class="text-text-dim">Default:</span> {effectiveDefaults?.[field.key] ?? 'Loading...'}
 						</div>
 						<input
 							type="text"

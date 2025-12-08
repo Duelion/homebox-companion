@@ -6,7 +6,7 @@ that modify how the AI generates item data.
 Preferences are loaded with the following priority (highest first):
 1. File-based preferences (config/field_preferences.json) - set via UI
 2. Environment variables (HBC_AI_*) - set via docker-compose or .env
-3. Default values (None/empty)
+3. Hardcoded defaults (defined in FieldPreferencesDefaults)
 
 This allows Docker users to set persistent defaults via env vars while
 still being able to override them temporarily via the UI.
@@ -19,39 +19,86 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
-
-from .config import settings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Default storage location
 CONFIG_DIR = Path("config")
 PREFERENCES_FILE = CONFIG_DIR / "field_preferences.json"
 
 
+class FieldPreferencesDefaults(BaseSettings):
+    """Default values for AI field preferences, loaded from env vars.
+
+    Uses pydantic_settings to automatically load from HBC_AI_* environment
+    variables. Each field has a hardcoded default that is used when no
+    env var is set.
+
+    This is the single source of truth for all default values.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="HBC_AI_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Language for AI output - env var: HBC_AI_OUTPUT_LANGUAGE
+    output_language: str = "English"
+
+    # Label ID to auto-apply - env var: HBC_AI_DEFAULT_LABEL_ID
+    default_label_id: str | None = None
+
+    # Item naming instructions - env var: HBC_AI_NAME
+    name: str = (
+        "[Type] [Brand] [Model] [Specs], Title Case, "
+        "item type first for searchability"
+    )
+
+    # Naming examples - env var: HBC_AI_NAMING_EXAMPLES
+    naming_examples: str = (
+        '"Ball Bearing 6900-2RS 10x22x6mm", '
+        '"Acrylic Paint Vallejo Game Color Bone White", '
+        '"LED Strip COB Green 5V 1M"'
+    )
+
+    # Description instructions - env var: HBC_AI_DESCRIPTION
+    description: str = "Condition/attributes only, max 1000 chars, NEVER mention quantity"
+
+    # Quantity counting instructions - env var: HBC_AI_QUANTITY
+    quantity: str = "Count identical items together, separate different variants"
+
+    # Manufacturer extraction - env var: HBC_AI_MANUFACTURER
+    manufacturer: str = "Only when brand/logo is VISIBLE. Include recognizable brands only."
+
+    # Model number extraction - env var: HBC_AI_MODEL_NUMBER
+    model_number: str = "Only when model/part number TEXT is clearly visible on label"
+
+    # Serial number extraction - env var: HBC_AI_SERIAL_NUMBER
+    serial_number: str = "Only when S/N text is visible on sticker/label/engraving"
+
+    # Purchase price extraction - env var: HBC_AI_PURCHASE_PRICE
+    purchase_price: str = "Only from visible price tag/receipt. Just the number."
+
+    # Purchase from extraction - env var: HBC_AI_PURCHASE_FROM
+    purchase_from: str = "Only from visible packaging/receipt or user-specified"
+
+    # Notes instructions - env var: HBC_AI_NOTES
+    notes: str = "ONLY for defects/damage/warnings. Most items = no notes."
+
+
 class FieldPreferences(BaseModel):
     """User-defined instructions for each AI output field.
 
     Each field accepts an optional string with custom instructions that
-    will be injected into AI prompts. Empty/None values use default behavior.
+    will be injected into AI prompts. None values mean "use default".
 
-    Attributes:
-        output_language: Language for AI output (default: English). Note that
-            custom field instructions should still be written in English.
-        default_label_id: ID of a label to automatically add to all items
-            created via Homebox Companion. This is applied on the frontend,
-            not sent to the LLM.
-        name: Instructions for item naming (e.g., "Always put brand first")
-        description: Instructions for descriptions (e.g., "Focus on condition")
-        quantity: Instructions for counting (e.g., "Count each variant separately")
-        manufacturer: Instructions for manufacturer extraction
-        model_number: Instructions for model number extraction
-        serial_number: Instructions for serial number extraction
-        purchase_price: Instructions for price extraction
-        purchase_from: Instructions for retailer extraction
-        notes: Instructions for notes (e.g., "Include storage recommendations")
+    This model is used for file-based storage (config/field_preferences.json)
+    where users can override the defaults via the UI.
     """
 
-    output_language: str | None = None  # Default is English (handled in prompts)
-    default_label_id: str | None = None  # Auto-tag items with this label
+    output_language: str | None = None
+    default_label_id: str | None = None
     name: str | None = None
     description: str | None = None
     quantity: str | None = None
@@ -61,7 +108,7 @@ class FieldPreferences(BaseModel):
     purchase_price: str | None = None
     purchase_from: str | None = None
     notes: str | None = None
-    naming_examples: str | None = None  # Custom examples for item naming
+    naming_examples: str | None = None
 
     def has_any_preferences(self) -> bool:
         """Check if any field has a non-empty preference set."""
@@ -91,55 +138,78 @@ class FieldPreferences(BaseModel):
                 continue
             value = getattr(self, field)
             if value and value.strip():
-                # Keep snake_case to match FIELD_DEFAULTS keys
                 result[field] = value.strip()
         return result
 
     def get_output_language(self) -> str:
-        """Get the configured output language, defaulting to English.
+        """Get the configured output language.
+
+        Returns user's custom language if set, otherwise the effective default
+        (from env var or hardcoded "English").
 
         Returns:
             The output language string.
         """
         if self.output_language and self.output_language.strip():
             return self.output_language.strip()
-        return "English"
+        # Use effective default (env var or hardcoded)
+        return get_defaults().output_language
 
-    # Keep old method for backwards compatibility but mark it as the new one
     def to_prompt_dict(self) -> dict[str, str]:
         """Alias for to_customizations_dict() for backwards compatibility."""
         return self.to_customizations_dict()
 
+    def get_effective_customizations(self) -> dict[str, str]:
+        """Get customizations merged with effective defaults.
 
-def _get_env_defaults() -> dict[str, Any]:
-    """Get field preferences from environment variables.
+        Returns a dict where each field has a value - either the user's
+        custom value if set, or the effective default (from env var or
+        hardcoded fallback).
+
+        This ensures prompt builders always receive values and don't need
+        their own fallback defaults.
+
+        Returns:
+            Dict mapping field names to their effective instructions.
+        """
+        defaults = get_defaults()
+        result = {}
+
+        # Fields that are prompt customizations (not metadata like output_language)
+        prompt_fields = [
+            "name",
+            "description",
+            "quantity",
+            "manufacturer",
+            "model_number",
+            "serial_number",
+            "purchase_price",
+            "purchase_from",
+            "notes",
+            "naming_examples",
+        ]
+
+        for field in prompt_fields:
+            user_value = getattr(self, field)
+            if user_value and user_value.strip():
+                # User has set a custom value
+                result[field] = user_value.strip()
+            else:
+                # Use effective default (env var or hardcoded)
+                result[field] = getattr(defaults, field)
+
+        return result
+
+
+def get_defaults() -> FieldPreferencesDefaults:
+    """Get the effective defaults (env vars with hardcoded fallbacks).
+
+    Returns a fresh instance each time to pick up any env var changes.
 
     Returns:
-        Dict of non-None env var values for field preferences.
+        FieldPreferencesDefaults with env vars applied over hardcoded defaults.
     """
-    env_prefs = {}
-    # Map env var settings to field preference keys
-    env_mapping = {
-        "ai_output_language": "output_language",
-        "ai_default_label_id": "default_label_id",
-        "ai_name": "name",
-        "ai_description": "description",
-        "ai_quantity": "quantity",
-        "ai_manufacturer": "manufacturer",
-        "ai_model_number": "model_number",
-        "ai_serial_number": "serial_number",
-        "ai_purchase_price": "purchase_price",
-        "ai_purchase_from": "purchase_from",
-        "ai_notes": "notes",
-        "ai_naming_examples": "naming_examples",
-    }
-
-    for env_key, pref_key in env_mapping.items():
-        value = getattr(settings, env_key, None)
-        if value is not None:
-            env_prefs[pref_key] = value
-
-    return env_prefs
+    return FieldPreferencesDefaults()
 
 
 def load_field_preferences() -> FieldPreferences:
@@ -148,13 +218,13 @@ def load_field_preferences() -> FieldPreferences:
     Priority (highest first):
     1. File-based preferences (config/field_preferences.json)
     2. Environment variables (HBC_AI_*)
-    3. Default values (None)
+    3. Hardcoded defaults
 
     Returns:
         FieldPreferences instance with merged values.
     """
-    # Start with env var defaults
-    env_defaults = _get_env_defaults()
+    # Get defaults (env vars override hardcoded)
+    defaults = get_defaults()
 
     # Load file preferences if they exist
     file_prefs: dict[str, Any] = {}
@@ -166,11 +236,23 @@ def load_field_preferences() -> FieldPreferences:
             # Invalid file - ignore
             pass
 
-    # Merge: env defaults first, then file overrides (file wins)
-    # Only override with file values that are not None/empty
-    merged = {**env_defaults}
+    # Start with defaults, then overlay file preferences
+    merged: dict[str, Any] = {}
+    for field in FieldPreferences.model_fields:
+        # File value takes precedence if it's not None
+        file_value = file_prefs.get(field)
+        if file_value is not None:
+            merged[field] = file_value
+        else:
+            # Use env/default value
+            default_value = getattr(defaults, field)
+            # For FieldPreferences, we store None if it matches the hardcoded default
+            # This allows "reset" to properly restore env var defaults
+            merged[field] = default_value if field == "default_label_id" else None
+
+    # If file has values, use them (they override defaults)
     for key, value in file_prefs.items():
-        if value is not None:
+        if value is not None and key in FieldPreferences.model_fields:
             merged[key] = value
 
     return FieldPreferences.model_validate(merged)
@@ -182,7 +264,6 @@ def save_field_preferences(preferences: FieldPreferences) -> None:
     Args:
         preferences: The preferences to save.
     """
-    # Ensure config directory exists
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     with open(PREFERENCES_FILE, "w", encoding="utf-8") as f:
@@ -190,20 +271,32 @@ def save_field_preferences(preferences: FieldPreferences) -> None:
 
 
 def reset_field_preferences() -> FieldPreferences:
-    """Reset field preferences to env var defaults (or empty if no env vars).
+    """Reset field preferences to env var defaults (or hardcoded if no env vars).
 
     This removes the config file, allowing env var defaults to take effect.
 
     Returns:
         FieldPreferences instance with env var defaults.
     """
-    # Remove the config file to reset to env var defaults
     if PREFERENCES_FILE.exists():
         PREFERENCES_FILE.unlink()
 
-    # Return preferences with env var defaults
-    env_defaults = _get_env_defaults()
-    return FieldPreferences.model_validate(env_defaults)
+    # Return empty preferences - defaults come from FieldPreferencesDefaults
+    defaults = get_defaults()
+    return FieldPreferences(
+        output_language=defaults.output_language,
+        default_label_id=defaults.default_label_id,
+        name=None,  # None means "use default"
+        description=None,
+        quantity=None,
+        manufacturer=None,
+        model_number=None,
+        serial_number=None,
+        purchase_price=None,
+        purchase_from=None,
+        notes=None,
+        naming_examples=None,
+    )
 
 
 def get_preferences_as_dict() -> dict[str, Any]:

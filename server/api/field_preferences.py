@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from homebox_companion.core.field_preferences import (
     FieldPreferences,
+    get_defaults,
     load_field_preferences,
     reset_field_preferences,
     save_field_preferences,
@@ -151,6 +152,56 @@ async def delete_field_preferences(
     )
 
 
+class EffectiveDefaultsResponse(BaseModel):
+    """Response model for effective defaults (env var or hardcoded fallback)."""
+
+    output_language: str
+    default_label_id: str | None = None
+    name: str
+    description: str
+    quantity: str
+    manufacturer: str
+    model_number: str
+    serial_number: str
+    purchase_price: str
+    purchase_from: str
+    notes: str
+    naming_examples: str
+
+
+@router.get("/settings/effective-defaults", response_model=EffectiveDefaultsResponse)
+async def get_effective_defaults(
+    authorization: Annotated[str | None, Header()] = None,
+) -> EffectiveDefaultsResponse:
+    """Get effective defaults for field preferences.
+
+    Returns env var values (HBC_AI_*) if set, otherwise falls back to
+    hardcoded defaults. Used by the UI to display what defaults will
+    actually be used when a field is left empty.
+    Requires authentication.
+    """
+    get_token(authorization)  # Validate auth
+
+    # get_defaults() returns a FieldPreferencesDefaults instance with
+    # env vars applied over hardcoded defaults - all handled by pydantic_settings
+    defaults = get_defaults()
+
+    return EffectiveDefaultsResponse(
+        output_language=defaults.output_language,
+        default_label_id=defaults.default_label_id,
+        name=defaults.name,
+        description=defaults.description,
+        quantity=defaults.quantity,
+        manufacturer=defaults.manufacturer,
+        model_number=defaults.model_number,
+        serial_number=defaults.serial_number,
+        purchase_price=defaults.purchase_price,
+        purchase_from=defaults.purchase_from,
+        notes=defaults.notes,
+        naming_examples=defaults.naming_examples,
+    )
+
+
 class PromptPreviewRequest(BaseModel):
     """Request model for prompt preview."""
 
@@ -182,31 +233,36 @@ async def get_prompt_preview(
 
     Shows what the LLM will see based on the provided field preferences.
     Uses example labels for illustration purposes.
+
+    When a field is empty/null in the request, uses the effective default
+    (from env var or hardcoded fallback) so the preview accurately reflects
+    what the AI will actually see.
     """
     get_token(authorization)  # Validate auth
 
-    # Build field preferences dict from request (only non-null values)
-    field_prefs = {}
-    if request.name:
-        field_prefs["name"] = request.name
-    if request.description:
-        field_prefs["description"] = request.description
-    if request.quantity:
-        field_prefs["quantity"] = request.quantity
-    if request.manufacturer:
-        field_prefs["manufacturer"] = request.manufacturer
-    if request.model_number:
-        field_prefs["model_number"] = request.model_number
-    if request.serial_number:
-        field_prefs["serial_number"] = request.serial_number
-    if request.purchase_price:
-        field_prefs["purchase_price"] = request.purchase_price
-    if request.purchase_from:
-        field_prefs["purchase_from"] = request.purchase_from
-    if request.notes:
-        field_prefs["notes"] = request.notes
-    if request.naming_examples:
-        field_prefs["naming_examples"] = request.naming_examples
+    # Get effective defaults (env vars with hardcoded fallbacks)
+    defaults = get_defaults()
+
+    # Merge request values with effective defaults
+    # Request value takes priority if set, otherwise use default
+    field_prefs = {
+        "name": request.name or defaults.name,
+        "description": request.description or defaults.description,
+        "quantity": request.quantity or defaults.quantity,
+        "manufacturer": request.manufacturer or defaults.manufacturer,
+        "model_number": request.model_number or defaults.model_number,
+        "serial_number": request.serial_number or defaults.serial_number,
+        "purchase_price": request.purchase_price or defaults.purchase_price,
+        "purchase_from": request.purchase_from or defaults.purchase_from,
+        "notes": request.notes or defaults.notes,
+        "naming_examples": request.naming_examples or defaults.naming_examples,
+    }
+
+    # Output language: request value or default
+    output_language = request.output_language or defaults.output_language
+    # None means "use default English" for the prompt builder
+    if output_language.lower() == "english":
+        output_language = None
 
     # Example labels for preview
     example_labels = [
@@ -220,9 +276,8 @@ async def get_prompt_preview(
         labels=example_labels,
         single_item=False,
         extract_extended_fields=True,
-        field_preferences=field_prefs if field_prefs else None,
-        output_language=request.output_language,
+        field_preferences=field_prefs,
+        output_language=output_language,
     )
 
     return PromptPreviewResponse(prompt=prompt)
-
