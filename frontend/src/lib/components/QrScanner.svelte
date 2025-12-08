@@ -15,6 +15,7 @@
 	let error = $state<string | null>(null);
 	let isStarting = $state(true);
 	let hasScanned = $state(false);
+	let scanBoxSize = $state(250); // Will be calculated dynamically
 
 	onMount(async () => {
 		try {
@@ -32,12 +33,22 @@
 
 			const config = {
 				fps: 10,
-				qrbox: { width: 250, height: 250 },
+				qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+					// Make a square that's 70% of the smaller dimension
+					const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+					scanBoxSize = size; // Update for visual overlay
+					return { width: size, height: size };
+				},
 				aspectRatio: 1.0,
+				disableFlip: false,
 			};
 
 			await html5QrCode.start(
-				{ facingMode: 'environment' }, // Prefer back camera
+				{ 
+					facingMode: 'environment',
+					// @ts-ignore - advanced constraints supported by browser for autofocus
+					advanced: [{ focusMode: 'continuous' }]
+				},
 				config,
 				qrCodeSuccessCallback,
 				() => {} // Ignore QR not found errors
@@ -145,18 +156,18 @@
 					</div>
 				{/if}
 
-				<!-- Scanning frame corners (visual aid) -->
+				<!-- Scanning frame corners (visual aid) - dynamically sized -->
 				{#if !isStarting}
 					<div class="absolute inset-0 pointer-events-none flex items-center justify-center">
-						<div class="relative" style="width: 250px; height: 250px;">
+						<div class="relative" style="width: {scanBoxSize}px; height: {scanBoxSize}px;">
 							<!-- Top left corner -->
-							<div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
+							<div class="absolute top-0 left-0 w-8 h-8 border-t-3 border-l-3 border-primary rounded-tl-lg"></div>
 							<!-- Top right corner -->
-							<div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
+							<div class="absolute top-0 right-0 w-8 h-8 border-t-3 border-r-3 border-primary rounded-tr-lg"></div>
 							<!-- Bottom left corner -->
-							<div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
+							<div class="absolute bottom-0 left-0 w-8 h-8 border-b-3 border-l-3 border-primary rounded-bl-lg"></div>
 							<!-- Bottom right corner -->
-							<div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
+							<div class="absolute bottom-0 right-0 w-8 h-8 border-b-3 border-r-3 border-primary rounded-br-lg"></div>
 						</div>
 					</div>
 				{/if}
@@ -176,10 +187,16 @@
 	/* Override html5-qrcode default styles */
 	:global(#qr-reader video) {
 		border-radius: 0.75rem;
+		object-fit: cover;
 	}
 	
 	:global(#qr-reader__scan_region) {
 		min-height: auto !important;
+	}
+	
+	/* Hide the library's internal scan region border/image */
+	:global(#qr-reader__scan_region > img) {
+		display: none !important;
 	}
 	
 	:global(#qr-reader__dashboard) {
@@ -193,5 +210,18 @@
 	:global(#qr-reader__dashboard_section_swaplink) {
 		display: none !important;
 	}
-</style>
 
+	/* Custom border widths for the corners */
+	.border-t-3 {
+		border-top-width: 3px;
+	}
+	.border-b-3 {
+		border-bottom-width: 3px;
+	}
+	.border-l-3 {
+		border-left-width: 3px;
+	}
+	.border-r-3 {
+		border-right-width: 3px;
+	}
+</style>
