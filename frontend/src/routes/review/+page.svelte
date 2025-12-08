@@ -1,20 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { vision, fieldPreferences, type DetectedItem } from '$lib/api';
+	import { vision } from '$lib/api';
 	import { isAuthenticated } from '$lib/stores/auth';
-	import { selectedLocation } from '$lib/stores/locations';
-	import { labels, capturedImages } from '$lib/stores/items';
-	import {
-		detectedItems,
-		currentItemIndex,
-		currentItem,
-		confirmedItems,
-		confirmCurrentItem,
-		setCurrentScanRoute,
-		type ReviewItem,
-	} from '$lib/stores/items';
+	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import type { ReviewItem, CapturedImage } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
@@ -23,13 +15,23 @@
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 
+	// Get workflow reference
+	const workflow = scanWorkflow;
+
+	// Derived state from workflow
+	const detectedItems = $derived(workflow.state.detectedItems);
+	const currentIndex = $derived(workflow.state.currentReviewIndex);
+	const currentItem = $derived(workflow.currentItem);
+	const confirmedItems = $derived(workflow.state.confirmedItems);
+	const images = $derived(workflow.state.images);
+
+	// Local UI state
 	let editedItem = $state<ReviewItem | null>(null);
 	let showExtendedFields = $state(false);
 	let showAiCorrection = $state(false);
 	let showThumbnailEditor = $state(false);
 	let isProcessing = $state(false);
 	let additionalImages = $state<File[]>([]);
-	let defaultLabelId = $state<string | null>(null);
 
 	// Check if item has any extended field data
 	function hasExtendedFieldData(item: ReviewItem | null): boolean {
@@ -44,42 +46,41 @@
 		);
 	}
 
-	// Initialize edited item from current item
+	// Sync editedItem when currentItem changes
 	$effect(() => {
-		if ($currentItem) {
-			editedItem = { ...$currentItem };
-			// Reset states when item changes
+		if (currentItem) {
+			editedItem = { ...currentItem };
 			showAiCorrection = false;
-			// Initialize with existing additional images from the item
-			additionalImages = $currentItem.additionalImages ? [...$currentItem.additionalImages] : [];
-			// Auto-expand extended fields if there's data
-			showExtendedFields = hasExtendedFieldData($currentItem);
+			additionalImages = currentItem.additionalImages ? [...currentItem.additionalImages] : [];
+			showExtendedFields = hasExtendedFieldData(currentItem);
 		}
 	});
 
 	// Redirect if not authenticated or no items
-	onMount(async () => {
-		setCurrentScanRoute('/review');
-		
+	onMount(() => {
 		if (!$isAuthenticated) {
 			goto('/');
 			return;
 		}
-		if (!$selectedLocation) {
+		if (!workflow.state.locationId) {
 			goto('/location');
 			return;
 		}
-		if ($detectedItems.length === 0) {
-			goto('/capture');
+		if (workflow.state.status !== 'reviewing') {
+			// Not in review state, redirect appropriately
+			if (workflow.state.status === 'idle' || workflow.state.status === 'capturing') {
+				goto('/capture');
+			} else if (workflow.state.status === 'confirming') {
+				goto('/summary');
+			}
 			return;
 		}
-		
-		// Load default label preference
-		try {
-			const prefs = await fieldPreferences.get();
-			defaultLabelId = prefs.default_label_id;
-		} catch (error) {
-			console.error('Failed to load field preferences:', error);
+	});
+
+	// Watch for status changes
+	$effect(() => {
+		if (workflow.state.status === 'confirming') {
+			goto('/summary');
 		}
 	});
 
@@ -88,47 +89,23 @@
 	}
 
 	function previousItem() {
-		if ($currentItemIndex > 0) {
-			currentItemIndex.update((i) => i - 1);
-		}
+		workflow.previousItem();
 	}
 
 	function nextItem() {
-		if ($currentItemIndex < $detectedItems.length - 1) {
-			currentItemIndex.update((i) => i + 1);
-		}
+		workflow.nextItem();
 	}
 
 	function skipItem() {
-		if ($currentItemIndex < $detectedItems.length - 1) {
-			nextItem();
-		} else {
-			finishReview();
-		}
+		workflow.skipItem();
 	}
 
 	function confirmItem() {
 		if (!editedItem) return;
 
-		// Set all additional images (combines original + newly added)
 		editedItem.additionalImages = additionalImages;
-
-		confirmCurrentItem(editedItem);
+		workflow.confirmItem(editedItem);
 		showToast(`"${editedItem.name}" confirmed`, 'success');
-
-		if ($currentItemIndex < $detectedItems.length - 1) {
-			nextItem();
-		} else {
-			finishReview();
-		}
-	}
-
-	function finishReview() {
-		if ($confirmedItems.length === 0) {
-			showToast('No items confirmed. Please confirm at least one item.', 'warning');
-			return;
-		}
-		goto('/summary');
 	}
 
 	function toggleLabel(labelId: string) {
@@ -145,8 +122,7 @@
 	async function handleAiCorrection(correctionPrompt: string) {
 		if (!editedItem) return;
 
-		// Get the original image file
-		const sourceImage = $capturedImages[editedItem.sourceImageIndex];
+		const sourceImage = images[editedItem.sourceImageIndex];
 		if (!sourceImage) {
 			showToast('Original image not found', 'error');
 			return;
@@ -172,7 +148,6 @@
 			);
 
 			if (response.items.length > 0) {
-				// Apply ALL corrected data to the edited item (replace, don't merge)
 				const corrected = response.items[0];
 				editedItem = {
 					...editedItem,
@@ -208,8 +183,7 @@
 		isProcessing = true;
 
 		try {
-			// Combine original image with additional images
-			const sourceImage = $capturedImages[editedItem.sourceImageIndex];
+			const sourceImage = images[editedItem.sourceImageIndex];
 			const allImages = sourceImage ? [sourceImage.file, ...additionalImages] : additionalImages;
 
 			const response = await vision.analyze(
@@ -218,7 +192,6 @@
 				editedItem.description || undefined
 			);
 
-			// Apply ALL analyzed data (replace with new values, keep existing if not detected)
 			editedItem = {
 				...editedItem,
 				name: response.name ?? editedItem.name,
@@ -240,34 +213,30 @@
 		}
 	}
 
-	// Get all available images for this item (primary + additional) - no duplicates
 	function getAvailableImages(): { file: File; dataUrl: string }[] {
 		if (!editedItem) return [];
 
-		const images: { file: File; dataUrl: string }[] = [];
+		const result: { file: File; dataUrl: string }[] = [];
 		const seenFiles = new Set<string>();
 
-		// Helper to add image if not already added (use file name + size as key)
 		function addImage(file: File, dataUrl: string) {
 			const key = `${file.name}-${file.size}-${file.lastModified}`;
 			if (!seenFiles.has(key)) {
 				seenFiles.add(key);
-				images.push({ file, dataUrl });
+				result.push({ file, dataUrl });
 			}
 		}
 
-		// Add primary image from captured images
-		const sourceImage = $capturedImages[editedItem.sourceImageIndex];
+		const sourceImage = images[editedItem.sourceImageIndex];
 		if (sourceImage) {
 			addImage(sourceImage.file, sourceImage.dataUrl);
 		}
 
-		// Add additional images from local state (these are the current additional images)
 		for (const file of additionalImages) {
 			addImage(file, URL.createObjectURL(file));
 		}
 
-		return images;
+		return result;
 	}
 
 	function handleThumbnailSave(dataUrl: string) {
@@ -278,7 +247,6 @@
 		showThumbnailEditor = false;
 	}
 
-	// Get display thumbnail (custom or original)
 	function getDisplayThumbnail(): string | null {
 		if (!editedItem) return null;
 		if (editedItem.customThumbnail) return editedItem.customThumbnail;
@@ -300,10 +268,8 @@
 	<p class="text-text-muted mb-6">Edit or skip detected items</p>
 
 	{#if editedItem}
-		<!-- Item card -->
 		{@const displayThumbnail = getDisplayThumbnail()}
 		<div class="bg-surface rounded-2xl border border-border overflow-hidden mb-4">
-			<!-- Image preview with edit button -->
 			{#if displayThumbnail}
 				<div class="aspect-video bg-surface-elevated relative group">
 					<img
@@ -311,7 +277,6 @@
 						alt={editedItem.name}
 						class="w-full h-full object-contain"
 					/>
-					<!-- Edit thumbnail button -->
 					<button
 						type="button"
 						class="absolute bottom-3 right-3 px-3 py-2 bg-black/60 hover:bg-black/80 rounded-lg text-white text-sm flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -332,13 +297,11 @@
 			{/if}
 
 			<div class="p-4 space-y-4">
-				<!-- Name -->
 				<div>
 					<label for="itemName" class="label">Name</label>
 					<input type="text" id="itemName" bind:value={editedItem.name} class="input" />
 				</div>
 
-				<!-- Quantity -->
 				<div>
 					<label for="itemQuantity" class="label">Quantity</label>
 					<input
@@ -350,7 +313,6 @@
 					/>
 				</div>
 
-				<!-- Description -->
 				<div>
 					<label for="itemDescription" class="label">Description</label>
 					<textarea
@@ -361,51 +323,36 @@
 					></textarea>
 				</div>
 
-				<!-- Labels -->
 				{#if $labels.length > 0}
 					<div>
 						<span class="label">Labels</span>
 						<div class="flex flex-wrap gap-2" role="group" aria-label="Select labels">
 							{#each $labels as label}
 								{@const isSelected = editedItem.label_ids?.includes(label.id)}
-								{@const isDefault = label.id === defaultLabelId}
 								<button
 									type="button"
-									class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {isSelected ? (isDefault ? 'bg-amber-500 text-white' : 'bg-primary text-white') : 'bg-surface-elevated text-text-muted hover:bg-surface-hover'}"
+									class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {isSelected ? 'bg-primary text-white' : 'bg-surface-elevated text-text-muted hover:bg-surface-hover'}"
 									onclick={() => toggleLabel(label.id)}
-									title={isDefault ? 'Default label for items created via Homebox Companion' : ''}
 								>
-									{#if isDefault && isSelected}
-										<span class="flex items-center gap-1">
-											<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-												<path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-											</svg>
-											{label.name}
-										</span>
-									{:else}
-										{label.name}
-									{/if}
+									{label.name}
 								</button>
 							{/each}
 						</div>
 					</div>
 				{/if}
 
-				<!-- Extended Fields Panel -->
 				<ExtendedFieldsPanel
 					bind:item={editedItem}
 					expanded={showExtendedFields}
 					onToggle={() => (showExtendedFields = !showExtendedFields)}
 				/>
 
-				<!-- Additional Images Panel -->
 				<AdditionalImagesPanel
 					bind:images={additionalImages}
 					loading={isProcessing}
 					onAnalyze={handleAnalyzeWithImages}
 				/>
 
-				<!-- AI Correction Panel -->
 				<AiCorrectionPanel
 					expanded={showAiCorrection}
 					loading={isProcessing}
@@ -415,14 +362,12 @@
 			</div>
 		</div>
 
-		<!-- Item counter -->
 		<div class="flex items-center justify-center mb-4">
 			<span class="text-text-muted">
-				{$currentItemIndex + 1} / {$detectedItems.length}
+				{currentIndex + 1} / {detectedItems.length}
 			</span>
 		</div>
 
-		<!-- Actions -->
 		<div class="flex gap-3">
 			<Button variant="secondary" onclick={skipItem}>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -444,7 +389,6 @@
 		</div>
 	{/if}
 
-	<!-- Thumbnail Editor Modal -->
 	{#if showThumbnailEditor && editedItem}
 		{@const availableImages = getAvailableImages()}
 		{#if availableImages.length > 0}
