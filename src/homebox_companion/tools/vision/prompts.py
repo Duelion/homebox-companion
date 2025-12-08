@@ -48,9 +48,7 @@ def build_detection_system_prompt(
         if extract_extended_fields
         else ""
     )
-    naming_rules = build_naming_rules(
-        field_preferences.get("name") if field_preferences else None
-    )
+    naming_rules = build_naming_rules(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     return (
@@ -151,9 +149,7 @@ def build_multi_image_system_prompt(
         if extract_extended_fields
         else ""
     )
-    naming_rules = build_naming_rules(
-        field_preferences.get("name") if field_preferences else None
-    )
+    naming_rules = build_naming_rules(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     multi_note = (
@@ -207,9 +203,7 @@ def build_discriminatory_system_prompt(
         if extract_extended_fields
         else ""
     )
-    naming_rules = build_naming_rules(
-        field_preferences.get("name") if field_preferences else None
-    )
+    naming_rules = build_naming_rules(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     return (

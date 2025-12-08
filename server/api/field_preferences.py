@@ -32,6 +32,7 @@ class FieldPreferencesResponse(BaseModel):
     purchase_price: str | None = None
     purchase_from: str | None = None
     notes: str | None = None
+    naming_examples: str | None = None
 
 
 class FieldPreferencesUpdate(BaseModel):
@@ -48,6 +49,7 @@ class FieldPreferencesUpdate(BaseModel):
     purchase_price: str | None = None
     purchase_from: str | None = None
     notes: str | None = None
+    naming_examples: str | None = None
 
 
 @router.get("/settings/field-preferences", response_model=FieldPreferencesResponse)
@@ -74,6 +76,7 @@ async def get_field_preferences(
         purchase_price=prefs.purchase_price,
         purchase_from=prefs.purchase_from,
         notes=prefs.notes,
+        naming_examples=prefs.naming_examples,
     )
 
 
@@ -101,6 +104,7 @@ async def update_field_preferences(
         purchase_price=update.purchase_price,
         purchase_from=update.purchase_from,
         notes=update.notes,
+        naming_examples=update.naming_examples,
     )
     save_field_preferences(prefs)
 
@@ -116,6 +120,7 @@ async def update_field_preferences(
         purchase_price=prefs.purchase_price,
         purchase_from=prefs.purchase_from,
         notes=prefs.notes,
+        naming_examples=prefs.naming_examples,
     )
 
 
@@ -142,6 +147,7 @@ async def delete_field_preferences(
         purchase_price=prefs.purchase_price,
         purchase_from=prefs.purchase_from,
         notes=prefs.notes,
+        naming_examples=prefs.naming_examples,
     )
 
 
@@ -158,6 +164,7 @@ class PromptPreviewRequest(BaseModel):
     purchase_price: str | None = None
     purchase_from: str | None = None
     notes: str | None = None
+    naming_examples: str | None = None
 
 
 class PromptPreviewResponse(BaseModel):
@@ -198,6 +205,8 @@ async def get_prompt_preview(
         field_prefs["purchase_from"] = request.purchase_from
     if request.notes:
         field_prefs["notes"] = request.notes
+    if request.naming_examples:
+        field_prefs["naming_examples"] = request.naming_examples
 
     # Example labels for preview
     example_labels = [

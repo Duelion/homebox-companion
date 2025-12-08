@@ -36,6 +36,7 @@
 		purchase_price: null,
 		purchase_from: null,
 		notes: null,
+		naming_examples: null,
 	});
 
 	// Prompt preview state
@@ -50,6 +51,12 @@
 			label: 'Name',
 			defaultText: '[Type] [Brand] [Model] [Specs], Title Case, item type first for searchability',
 			example: '"Ball Bearing 6900-2RS 10x22x6mm", "LED Strip COB Green 5V 1M"'
+		},
+		{
+			key: 'naming_examples',
+			label: 'Naming Examples',
+			defaultText: '"Ball Bearing 6900-2RS 10x22x6mm", "Acrylic Paint Vallejo Game Color Bone White", "LED Strip COB Green 5V 1M"',
+			example: 'Comma-separated examples that show the AI how to format names'
 		},
 		{
 			key: 'description',

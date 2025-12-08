@@ -51,6 +51,7 @@ class FieldPreferences(BaseModel):
     purchase_price: str | None = None
     purchase_from: str | None = None
     notes: str | None = None
+    naming_examples: str | None = None  # Custom examples for item naming
 
     def has_any_preferences(self) -> bool:
         """Check if any field has a non-empty preference set."""

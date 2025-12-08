@@ -14,19 +14,16 @@ FIELD_DEFAULTS = {
     "purchase_price": "price from visible tag/receipt, just the number",
     "purchase_from": "store name from visible packaging/receipt",
     "notes": "ONLY for defects/damage/warnings - leave null for normal items",
+    "naming_examples": (
+        '"Ball Bearing 6900-2RS 10x22x6mm", '
+        '"Acrylic Paint Vallejo Game Color Bone White", '
+        '"LED Strip COB Green 5V 1M"'
+    ),
 }
 
-# Condensed naming rules (~12 lines instead of ~25)
-NAMING_RULES = """NAMING FORMAT:
-Structure: [Item Type] [Brand] [Model] [Specs] - Item type FIRST for searchability.
-
-Examples:
-- "Ball Bearing 6900-2RS 10x22x6mm"
-- "Acrylic Paint Vallejo Game Color Bone White"
-- "LED Strip COB Green 5V 1M"
-
-Rules: Title Case, no quantity in name/description, metric units (NxNxNmm),
-include brand only when recognizable (DeWalt, Vallejo), omit generic manufacturers."""
+# Naming format structure (examples are configurable via naming_examples field)
+NAMING_FORMAT = """NAMING FORMAT:
+Structure: [Item Type] [Brand] [Model] [Specs] - Item type FIRST for searchability."""
 
 
 def build_critical_constraints(single_item: bool = False) -> str:
@@ -56,22 +53,34 @@ def build_critical_constraints(single_item: bool = False) -> str:
     )
 
 
-def build_naming_rules(name_customization: str | None = None) -> str:
-    """Build naming rules with optional user override note.
+def build_naming_rules(customizations: dict[str, str] | None = None) -> str:
+    """Build naming rules with configurable examples and optional user override.
 
     Args:
-        name_customization: Optional user preference for naming that takes
-            priority over the default structure rules.
+        customizations: Optional dict with 'name' for custom naming instructions
+            and 'naming_examples' for custom example names.
 
     Returns:
-        Naming rules string, with override note if customization provided.
+        Naming rules string with examples and optional user preference.
     """
-    if name_customization and name_customization.strip():
-        return NAMING_RULES + f"""
+    # Get examples (use custom or default)
+    examples = FIELD_DEFAULTS["naming_examples"]
+    if customizations and customizations.get("naming_examples"):
+        examples = customizations["naming_examples"].strip()
+
+    # Build base rules with examples
+    result = f"""{NAMING_FORMAT}
+
+Examples: {examples}"""
+
+    # Add user naming preference if provided
+    if customizations and customizations.get("name") and customizations["name"].strip():
+        result += f"""
 
 USER NAMING PREFERENCE (takes priority):
-{name_customization.strip()}"""
-    return NAMING_RULES
+{customizations["name"].strip()}"""
+
+    return result
 
 
 def build_item_schema(customizations: dict[str, str] | None = None) -> str:

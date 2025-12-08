@@ -59,6 +59,7 @@ export interface FieldPreferences {
 	purchase_price: string | null;
 	purchase_from: string | null;
 	notes: string | null;
+	naming_examples: string | null;
 }
 
 export const fieldPreferences = {
