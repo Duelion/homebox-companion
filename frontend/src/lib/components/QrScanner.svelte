@@ -32,19 +32,21 @@
 			};
 
 		const config = {
-			fps: 10,
+			fps: 15, // Increased for better detection
 			qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-				// Make a square that's 70% of the smaller dimension
-				const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+				// Make a square that's 50% of the smaller dimension (tighter focus for small QR codes)
+				const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.5);
 				scanBoxSize = size; // Update for visual overlay
 				return { width: size, height: size };
 			},
 			aspectRatio: 1.0,
 			disableFlip: false,
-			// Video constraints for back camera with autofocus
+			// Video constraints for back camera with autofocus and high resolution
 			videoConstraints: {
 				facingMode: { exact: 'environment' },
-				focusMode: 'continuous'
+				focusMode: 'continuous',
+				width: { ideal: 1920 },
+				height: { ideal: 1080 }
 			}
 		};
 
@@ -55,7 +57,21 @@
 			() => {} // Ignore QR not found errors
 		);
 
-			isStarting = false;
+		// Apply 2x zoom for better small QR code detection
+		try {
+			const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
+			const zoomFeature = capabilities.zoomFeature();
+			if (zoomFeature.isSupported()) {
+				const maxZoom = zoomFeature.max();
+				const targetZoom = Math.min(maxZoom, 2.0); // 2x zoom or max available
+				await zoomFeature.apply(targetZoom);
+				console.log(`Applied ${targetZoom}x zoom for QR scanning`);
+			}
+		} catch (zoomErr) {
+			console.warn('Zoom not supported on this device:', zoomErr);
+		}
+
+		isStarting = false;
 		} catch (err) {
 			console.error('QR Scanner error:', err);
 			isStarting = false;
