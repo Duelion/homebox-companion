@@ -10,6 +10,8 @@
  */
 
 import { vision, items as itemsApi, fieldPreferences } from '$lib/api/index';
+import { labels as labelsStore } from '$lib/stores/labels';
+import { get } from 'svelte/store';
 import type {
 	ScanState,
 	ScanStatus,
@@ -221,13 +223,20 @@ class ScanWorkflow {
 			}
 
 			// Process results
+			// Validate default label exists in current Homebox instance
+			const currentLabels = get(labelsStore);
+			const validDefaultLabelId = this.defaultLabelId && 
+				currentLabels.some(l => l.id === this.defaultLabelId) 
+				? this.defaultLabelId 
+				: null;
+
 			for (const result of results) {
 				if (result.success) {
 					for (const item of result.items) {
-						// Add default label if configured
+						// Add default label if configured and valid
 						let labelIds = item.label_ids ?? [];
-						if (this.defaultLabelId && !labelIds.includes(this.defaultLabelId)) {
-							labelIds = [...labelIds, this.defaultLabelId];
+						if (validDefaultLabelId && !labelIds.includes(validDefaultLabelId)) {
+							labelIds = [...labelIds, validDefaultLabelId];
 						}
 
 						allDetectedItems.push({
