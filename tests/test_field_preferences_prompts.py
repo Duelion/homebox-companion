@@ -4,7 +4,7 @@ The new approach integrates customizations directly into field definitions rathe
 than appending a separate "FIELD CUSTOMIZATIONS" section at the end. This ensures:
 1. Custom instructions REPLACE defaults (no conflicts)
 2. Instructions appear WHERE they belong (in field definitions)
-3. Name customizations add an override note to NAMING_RULES
+3. Name customizations add an override note to NAMING_FORMAT
 4. Critical constraints are front-loaded in prompts
 
 These tests monkeypatch the OpenAI completion functions to capture the actual
@@ -21,7 +21,7 @@ import pytest
 from homebox_companion.ai import prompts as prompts_module
 from homebox_companion.ai.prompts import (
     FIELD_DEFAULTS,
-    NAMING_RULES,
+    NAMING_FORMAT,
     build_critical_constraints,
     build_extended_fields_schema,
     build_item_schema,
@@ -483,12 +483,13 @@ class TestSchemaBuilders:
         print("=" * 80)
         print(result)
 
-        assert result == NAMING_RULES
+        assert NAMING_FORMAT in result
+        assert "Examples:" in result
         assert "USER NAMING PREFERENCE" not in result
 
     def test_build_naming_rules_with_customization(self):
         """Test build_naming_rules adds override note with customization."""
-        result = build_naming_rules("Always put brand name first")
+        result = build_naming_rules({"name": "Always put brand name first"})
         print("\n" + "=" * 80)
         print("BUILD_NAMING_RULES - WITH CUSTOMIZATION:")
         print("=" * 80)
@@ -498,6 +499,18 @@ class TestSchemaBuilders:
         assert "USER NAMING PREFERENCE" in result
         assert "takes priority" in result
         assert "Always put brand name first" in result
+
+    def test_build_naming_rules_with_custom_examples(self):
+        """Test build_naming_rules uses custom examples when provided."""
+        custom_examples = '"My Custom Example 1", "My Custom Example 2"'
+        result = build_naming_rules({"naming_examples": custom_examples})
+        print("\n" + "=" * 80)
+        print("BUILD_NAMING_RULES - WITH CUSTOM EXAMPLES:")
+        print("=" * 80)
+        print(result)
+
+        assert "My Custom Example 1" in result
+        assert "My Custom Example 2" in result
 
 
 class TestPromptStructureOptimization:

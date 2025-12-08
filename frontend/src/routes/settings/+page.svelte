@@ -47,6 +47,8 @@
 	// Export env vars state
 	let showEnvExport = $state(false);
 	let envCopied = $state(false);
+	let isLoadingExport = $state(false);
+	let exportPrefs = $state<FieldPreferences | null>(null);
 
 	// Field metadata for display - defaults shown as visible text, not hidden in placeholder
 	const fieldMeta: Array<{ key: keyof FieldPreferences; label: string; defaultText: string; example: string }> = [
@@ -267,7 +269,7 @@
 	}
 
 	// Generate env vars string from current preferences
-	function generateEnvVars(): string {
+	function generateEnvVars(prefsToExport: FieldPreferences): string {
 		const envMapping: Record<keyof FieldPreferences, string> = {
 			output_language: 'HBC_AI_OUTPUT_LANGUAGE',
 			default_label_id: 'HBC_AI_DEFAULT_LABEL_ID',
@@ -285,7 +287,7 @@
 
 		const lines: string[] = [];
 		for (const [key, envName] of Object.entries(envMapping)) {
-			const value = prefs[key as keyof FieldPreferences];
+			const value = prefsToExport[key as keyof FieldPreferences];
 			if (value) {
 				// Escape quotes and wrap in quotes if contains special chars
 				const escaped = value.replace(/"/g, '\\"');
@@ -296,8 +298,28 @@
 		return lines.length > 0 ? lines.join('\n') : '# No customizations configured';
 	}
 
+	async function toggleEnvExport() {
+		if (showEnvExport) {
+			showEnvExport = false;
+			return;
+		}
+
+		// Fetch fresh prefs for export
+		isLoadingExport = true;
+		try {
+			exportPrefs = await fieldPreferences.get();
+			showEnvExport = true;
+		} catch (error) {
+			console.error('Failed to load preferences for export:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to load preferences';
+		} finally {
+			isLoadingExport = false;
+		}
+	}
+
 	async function copyEnvVars() {
-		const envVars = generateEnvVars();
+		if (!exportPrefs) return;
+		const envVars = generateEnvVars(exportPrefs);
 		try {
 			await navigator.clipboard.writeText(envVars);
 			envCopied = true;
@@ -688,32 +710,28 @@
 
 	<!-- Docker Persistence Warning & Export -->
 	<div class="pt-4 border-t border-border/50 space-y-3">
-		<!-- Warning -->
-		<div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-			<p class="text-xs text-amber-200 flex items-start gap-2">
-				<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-					<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-				</svg>
-				<span><strong>Docker users:</strong> Customizations are stored in a config file that may be lost when updating your container. Export below to persist settings via environment variables.</span>
-			</p>
-		</div>
-
 		<!-- Export Button -->
 		<button
 			type="button"
 			class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
-			onclick={() => (showEnvExport = !showEnvExport)}
+			onclick={toggleEnvExport}
+			disabled={isLoadingExport}
 		>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-				<path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-			</svg>
-			<span>Export as Environment Variables</span>
-			<svg class="w-4 h-4 ml-auto transition-transform {showEnvExport ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<polyline points="6 9 12 15 18 9" />
-			</svg>
+			{#if isLoadingExport}
+				<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+				<span>Loading...</span>
+			{:else}
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+				</svg>
+				<span>Export as Environment Variables</span>
+				<svg class="w-4 h-4 ml-auto transition-transform {showEnvExport ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<polyline points="6 9 12 15 18 9" />
+				</svg>
+			{/if}
 		</button>
 
-		{#if showEnvExport}
+		{#if showEnvExport && exportPrefs}
 			<div class="space-y-2">
 				<div class="flex items-center justify-between">
 					<span class="text-xs text-text-muted font-medium">Add these to your docker-compose.yml or .env file</span>
@@ -737,13 +755,20 @@
 					</button>
 				</div>
 				<div class="bg-background rounded-xl border border-border overflow-hidden">
-					<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto whitespace-pre-wrap break-words">{generateEnvVars()}</pre>
+					<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto whitespace-pre-wrap break-words">{generateEnvVars(exportPrefs)}</pre>
 				</div>
-				<p class="text-xs text-text-dim">
-					Settings configured via environment variables will persist across Docker updates. UI customizations override environment variables.
-				</p>
 			</div>
 		{/if}
+
+		<!-- Warning -->
+		<div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+			<p class="text-xs text-amber-200 flex items-start gap-2">
+				<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
+				<span><strong>Docker users:</strong> Customizations are stored in a config file that may be lost when updating your container. Use the export above to persist settings via environment variables.</span>
+			</p>
+		</div>
 	</div>
 </section>
 

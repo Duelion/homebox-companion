@@ -4,7 +4,7 @@ from .images import encode_image_bytes_to_data_uri, encode_image_to_data_uri
 from .openai import chat_completion, vision_completion
 from .prompts import (
     FIELD_DEFAULTS,
-    NAMING_RULES,
+    NAMING_FORMAT,
     build_critical_constraints,
     build_extended_fields_schema,
     build_item_schema,
@@ -20,7 +20,7 @@ __all__ = [
     "chat_completion",
     "vision_completion",
     # Prompts
-    "NAMING_RULES",
+    "NAMING_FORMAT",
     "FIELD_DEFAULTS",
     "build_label_prompt",
     "build_item_schema",
