@@ -118,7 +118,11 @@
 			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
 			currentLevelLocations.set(location.children);
 		} else {
-			selectLocation(location, location.name);
+			// Build full path from breadcrumbs + current location
+			const pathParts = $locationPath.map(p => p.name);
+			pathParts.push(location.name);
+			const fullPath = pathParts.join(' / ');
+			selectLocation(location, fullPath);
 		}
 	}
 
