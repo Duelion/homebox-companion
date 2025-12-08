@@ -57,9 +57,7 @@ async def correct_item_with_openai(
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences)
-    naming_rules = build_naming_rules(
-        field_preferences.get("name") if field_preferences else None
-    )
+    naming_rules = build_naming_rules(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     system_prompt = (

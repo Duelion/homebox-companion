@@ -48,9 +48,7 @@ async def analyze_item_details_from_images(
 
     language_instr = build_language_instruction(output_language)
     label_prompt = build_label_prompt(labels)
-    naming_rules = build_naming_rules(
-        field_preferences.get("name") if field_preferences else None
-    )
+    naming_rules = build_naming_rules(field_preferences)
 
     # Merge field preferences with defaults
     instr = {**FIELD_DEFAULTS, **(field_preferences or {})}
