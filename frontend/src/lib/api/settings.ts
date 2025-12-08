@@ -74,5 +74,11 @@ export const fieldPreferences = {
 		request<FieldPreferences>('/settings/field-preferences', {
 			method: 'DELETE',
 		}),
+
+	getPromptPreview: (prefs: Partial<FieldPreferences>) =>
+		request<{ prompt: string }>('/settings/prompt-preview', {
+			method: 'POST',
+			body: JSON.stringify(prefs),
+		}),
 };
 

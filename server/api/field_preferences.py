@@ -11,6 +11,7 @@ from homebox_companion.core.field_preferences import (
     reset_field_preferences,
     save_field_preferences,
 )
+from homebox_companion.tools.vision.prompts import build_detection_system_prompt
 
 from ..dependencies import get_token
 
@@ -142,4 +143,77 @@ async def delete_field_preferences(
         purchase_from=prefs.purchase_from,
         notes=prefs.notes,
     )
+
+
+class PromptPreviewRequest(BaseModel):
+    """Request model for prompt preview."""
+
+    output_language: str | None = None
+    name: str | None = None
+    description: str | None = None
+    quantity: str | None = None
+    manufacturer: str | None = None
+    model_number: str | None = None
+    serial_number: str | None = None
+    purchase_price: str | None = None
+    purchase_from: str | None = None
+    notes: str | None = None
+
+
+class PromptPreviewResponse(BaseModel):
+    """Response model for prompt preview."""
+
+    prompt: str
+
+
+@router.post("/settings/prompt-preview", response_model=PromptPreviewResponse)
+async def get_prompt_preview(
+    request: PromptPreviewRequest,
+    authorization: Annotated[str | None, Header()] = None,
+) -> PromptPreviewResponse:
+    """Generate a preview of the AI system prompt.
+
+    Shows what the LLM will see based on the provided field preferences.
+    Uses example labels for illustration purposes.
+    """
+    get_token(authorization)  # Validate auth
+
+    # Build field preferences dict from request (only non-null values)
+    field_prefs = {}
+    if request.name:
+        field_prefs["name"] = request.name
+    if request.description:
+        field_prefs["description"] = request.description
+    if request.quantity:
+        field_prefs["quantity"] = request.quantity
+    if request.manufacturer:
+        field_prefs["manufacturer"] = request.manufacturer
+    if request.model_number:
+        field_prefs["model_number"] = request.model_number
+    if request.serial_number:
+        field_prefs["serial_number"] = request.serial_number
+    if request.purchase_price:
+        field_prefs["purchase_price"] = request.purchase_price
+    if request.purchase_from:
+        field_prefs["purchase_from"] = request.purchase_from
+    if request.notes:
+        field_prefs["notes"] = request.notes
+
+    # Example labels for preview
+    example_labels = [
+        {"id": "abc123", "name": "Electronics"},
+        {"id": "def456", "name": "Tools"},
+        {"id": "ghi789", "name": "Supplies"},
+    ]
+
+    # Generate the system prompt
+    prompt = build_detection_system_prompt(
+        labels=example_labels,
+        single_item=False,
+        extract_extended_fields=True,
+        field_preferences=field_prefs if field_prefs else None,
+        output_language=request.output_language,
+    )
+
+    return PromptPreviewResponse(prompt=prompt)
 

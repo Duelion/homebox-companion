@@ -38,6 +38,11 @@
 		notes: null,
 	});
 
+	// Prompt preview state
+	let showPromptPreview = $state(false);
+	let isLoadingPreview = $state(false);
+	let promptPreview = $state<string | null>(null);
+
 	// Field metadata for display - defaults shown as visible text, not hidden in placeholder
 	const fieldMeta: Array<{ key: keyof FieldPreferences; label: string; defaultText: string; example: string }> = [
 		{
@@ -215,6 +220,7 @@
 			const result = await fieldPreferences.reset();
 			prefs = result;
 			fieldPrefsSaved = true;
+			promptPreview = null; // Clear preview when resetting
 			setTimeout(() => { fieldPrefsSaved = false; }, 2000);
 		} catch (error) {
 			console.error('Failed to reset field preferences:', error);
@@ -226,6 +232,27 @@
 
 	function handleFieldInput(key: keyof FieldPreferences, value: string) {
 		prefs[key] = value.trim() || null;
+		promptPreview = null; // Clear preview when editing
+	}
+
+	async function loadPromptPreview() {
+		if (showPromptPreview && promptPreview) {
+			showPromptPreview = !showPromptPreview;
+			return;
+		}
+
+		isLoadingPreview = true;
+
+		try {
+			const result = await fieldPreferences.getPromptPreview(prefs);
+			promptPreview = result.prompt;
+			showPromptPreview = true;
+		} catch (error) {
+			console.error('Failed to load prompt preview:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to load preview';
+		} finally {
+			isLoadingPreview = false;
+		}
 	}
 </script>
 
@@ -551,6 +578,48 @@
 					</svg>
 					<span>Reset to Defaults</span>
 				</Button>
+			</div>
+
+			<!-- Prompt Preview Section -->
+			<div class="pt-4 border-t border-border/50">
+				<button
+					type="button"
+					class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
+					onclick={loadPromptPreview}
+					disabled={isLoadingPreview}
+				>
+					{#if isLoadingPreview}
+						<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+						<span>Generating preview...</span>
+					{:else}
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+							<path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+							<path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
+						</svg>
+						<span>{showPromptPreview ? 'Refresh' : 'Preview'} AI Prompt</span>
+					{/if}
+				</button>
+
+				{#if showPromptPreview && promptPreview}
+					<div class="mt-3 space-y-2">
+						<div class="flex items-center justify-between">
+							<span class="text-xs text-text-muted font-medium">System Prompt Preview</span>
+							<button
+								type="button"
+								class="text-xs text-text-dim hover:text-text-muted transition-colors"
+								onclick={() => (showPromptPreview = false)}
+							>
+								Hide
+							</button>
+						</div>
+						<div class="bg-background rounded-xl border border-border overflow-hidden">
+							<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-words">{promptPreview}</pre>
+						</div>
+						<p class="text-xs text-text-dim">
+							This is what the AI will see when analyzing your images. Labels shown are examples; actual labels from your Homebox instance will be used.
+						</p>
+					</div>
+				{/if}
 			</div>
 
 			<button
