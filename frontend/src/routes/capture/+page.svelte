@@ -1,24 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { vision, fieldPreferences, type DetectedItem } from '$lib/api';
 	import { isAuthenticated } from '$lib/stores/auth';
-	import { selectedLocation, selectedLocationPath } from '$lib/stores/locations';
-	import { fetchLabels } from '$lib/stores/labels';
-	import {
-		capturedImages,
-		detectedItems,
-		currentItemIndex,
-		addCapturedImage,
-		removeCapturedImage,
-		clearCapturedImages,
-		setCurrentScanRoute,
-		type CapturedImage,
-		type ReviewItem,
-	} from '$lib/stores/items';
-	import { showToast, setLoading } from '$lib/stores/ui';
+	import { showToast } from '$lib/stores/ui';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import type { CapturedImage } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
-	import Loader from '$lib/components/Loader.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import CaptureButtons from '$lib/components/CaptureButtons.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -28,56 +15,66 @@
 
 	let fileInput: HTMLInputElement;
 	let cameraInput: HTMLInputElement;
-	let isAnalyzing = $state(false);
-	let analysisProgress = $state({ current: 0, total: 0, status: '' });
-	let defaultLabelId = $state<string | null>(null);
 	
-	// Track which images are expanded (collapsed by default after adding)
+	// Local UI state (not workflow state)
 	let expandedImages = $state<Set<number>>(new Set());
+	let additionalImageInputs: { [key: number]: HTMLInputElement } = {};
 
-	// Redirect if not authenticated or no location selected
-	onMount(async () => {
-		setCurrentScanRoute('/capture');
-		
+	// Get workflow state for reading
+	const workflow = scanWorkflow;
+
+	// Derived values from workflow state
+	const images = $derived(workflow.state.images);
+	const isAnalyzing = $derived(workflow.state.status === 'analyzing');
+	const progress = $derived(workflow.state.analysisProgress);
+	const locationName = $derived(workflow.state.locationName);
+
+	// Redirect if not authenticated or no location
+	onMount(() => {
 		if (!$isAuthenticated) {
 			goto('/');
 			return;
 		}
-		if (!$selectedLocation) {
+		
+		// If no location selected, redirect to location page
+		if (!workflow.state.locationId) {
 			goto('/location');
 			return;
 		}
-		
-		// Pre-fetch labels and field preferences in parallel
-		try {
-			const [_, prefs] = await Promise.all([
-				fetchLabels().catch(() => {}), // Silently ignore - labels will be fetched by server if needed
-				fieldPreferences.get(),
-			]);
-			defaultLabelId = prefs.default_label_id;
-		} catch (error) {
-			// Silently ignore - default label is optional
-			console.error('Failed to load field preferences:', error);
+
+		// If we're in reviewing state (analysis finished while away), redirect to review
+		if (workflow.state.status === 'reviewing') {
+			goto('/review');
+			return;
 		}
 	});
 
-	function toggleImageExpanded(index: number) {
-		expandedImages = new Set(expandedImages);
-		if (expandedImages.has(index)) {
-			expandedImages.delete(index);
-		} else {
-			expandedImages.add(index);
+	// Watch for workflow errors
+	$effect(() => {
+		if (workflow.state.error) {
+			showToast(workflow.state.error, 'error');
+			workflow.clearError();
 		}
-	}
+	});
+
+	// Watch for status changes to navigate
+	$effect(() => {
+		if (workflow.state.status === 'reviewing') {
+			showToast(`Detected ${workflow.state.detectedItems.length} item(s)`, 'success');
+			goto('/review');
+		}
+	});
+
+	// ==========================================================================
+	// FILE HANDLING
+	// ==========================================================================
 
 	function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (!input.files) return;
 
-		const startIndex = $capturedImages.length;
-
 		for (const file of Array.from(input.files)) {
-			if ($capturedImages.length >= MAX_IMAGES) {
+			if (images.length >= MAX_IMAGES) {
 				showToast(`Maximum ${MAX_IMAGES} images allowed`, 'warning');
 				break;
 			}
@@ -90,46 +87,18 @@
 			const reader = new FileReader();
 			reader.onload = (e) => {
 				const dataUrl = e.target?.result as string;
-				addCapturedImage({
+				workflow.addImage({
 					file,
 					dataUrl,
 					separateItems: false,
 					extraInstructions: '',
 				});
-				// Images are collapsed by default (not added to expandedImages)
 			};
 			reader.readAsDataURL(file);
 		}
 
-		// Reset input
 		input.value = '';
 	}
-
-	function removeImage(index: number) {
-		removeCapturedImage(index);
-		// Adjust expanded indices
-		expandedImages = new Set(
-			[...expandedImages]
-				.filter(i => i !== index)
-				.map(i => i > index ? i - 1 : i)
-		);
-	}
-
-	function clearAll() {
-		clearCapturedImages();
-		expandedImages = new Set();
-	}
-
-	function updateImageOption(index: number, field: 'separateItems' | 'extraInstructions', value: boolean | string) {
-		capturedImages.update(images => {
-			const updated = [...images];
-			updated[index] = { ...updated[index], [field]: value };
-			return updated;
-		});
-	}
-
-	// Track which image is receiving additional files
-	let additionalImageInputs: { [key: number]: HTMLInputElement } = {};
 
 	function handleAdditionalImageSelect(imageIndex: number, e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -154,18 +123,8 @@
 				newDataUrls.push(dataUrl);
 				processedCount++;
 
-				// When all files are processed, update the store
-				if (processedCount === totalFiles) {
-					capturedImages.update(images => {
-						const updated = [...images];
-						const current = updated[imageIndex];
-						updated[imageIndex] = {
-							...current,
-							additionalFiles: [...(current.additionalFiles || []), ...newFiles],
-							additionalDataUrls: [...(current.additionalDataUrls || []), ...newDataUrls],
-						};
-						return updated;
-					});
+				if (processedCount === totalFiles && newFiles.length > 0) {
+					workflow.addAdditionalImages(imageIndex, newFiles, newDataUrls);
 				}
 			};
 			reader.readAsDataURL(file);
@@ -174,18 +133,44 @@
 		input.value = '';
 	}
 
-	function removeAdditionalImage(imageIndex: number, additionalIndex: number) {
-		capturedImages.update(images => {
-			const updated = [...images];
-			const current = updated[imageIndex];
-			updated[imageIndex] = {
-				...current,
-				additionalFiles: current.additionalFiles?.filter((_, i) => i !== additionalIndex),
-				additionalDataUrls: current.additionalDataUrls?.filter((_, i) => i !== additionalIndex),
-			};
-			return updated;
-		});
+	// ==========================================================================
+	// IMAGE ACTIONS
+	// ==========================================================================
+
+	function toggleImageExpanded(index: number) {
+		expandedImages = new Set(expandedImages);
+		if (expandedImages.has(index)) {
+			expandedImages.delete(index);
+		} else {
+			expandedImages.add(index);
+		}
 	}
+
+	function removeImage(index: number) {
+		workflow.removeImage(index);
+		expandedImages = new Set(
+			[...expandedImages]
+				.filter(i => i !== index)
+				.map(i => i > index ? i - 1 : i)
+		);
+	}
+
+	function clearAll() {
+		workflow.clearImages();
+		expandedImages = new Set();
+	}
+
+	function updateImageOption(index: number, field: 'separateItems' | 'extraInstructions', value: boolean | string) {
+		workflow.updateImageOptions(index, { [field]: value });
+	}
+
+	function removeAdditionalImage(imageIndex: number, additionalIndex: number) {
+		workflow.removeAdditionalImage(imageIndex, additionalIndex);
+	}
+
+	// ==========================================================================
+	// HELPERS
+	// ==========================================================================
 
 	function formatFileSize(bytes: number): string {
 		if (bytes < 1024) return bytes + ' B';
@@ -193,125 +178,20 @@
 		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 	}
 
-	async function analyzeImages() {
-		if ($capturedImages.length === 0) {
-			showToast('Please add at least one image', 'warning');
-			return;
-		}
-
-		isAnalyzing = true;
-		let completedCount = 0;
-		const totalImages = $capturedImages.length;
-		
-		analysisProgress = { 
-			current: 0, 
-			total: totalImages, 
-			status: totalImages === 1 
-				? 'Analyzing item...' 
-				: `Analyzing ${totalImages} items in parallel...`
-		};
-
-		try {
-			// Create all detection promises at once for parallel processing
-			const detectionPromises = $capturedImages.map((image, index) =>
-				vision.detect(image.file, {
-					singleItem: !image.separateItems, // Note: separateItems=true means multiple items
-					extraInstructions: image.extraInstructions || undefined,
-					extractExtendedFields: true,
-					additionalImages: image.additionalFiles,
-				}).then(response => {
-					// Update progress as each completes
-					completedCount++;
-					analysisProgress = {
-						current: completedCount,
-						total: totalImages,
-						status: `Completed ${completedCount} of ${totalImages}...`,
-					};
-					return {
-						response,
-						imageIndex: index,
-						image,
-						success: true as const,
-					};
-				}).catch(error => {
-					completedCount++;
-					analysisProgress = {
-						current: completedCount,
-						total: totalImages,
-						status: `Completed ${completedCount} of ${totalImages}...`,
-					};
-					console.error(`Failed to analyze image ${index + 1}:`, error);
-					return {
-						error,
-						imageIndex: index,
-						image,
-						success: false as const,
-					};
-				})
-			);
-
-			// Wait for ALL to complete in parallel
-			const results = await Promise.all(detectionPromises);
-
-			// Process results and collect detected items
-			const allDetectedItems: ReviewItem[] = [];
-			const failedImages: number[] = [];
-
-			for (const result of results) {
-				if (result.success) {
-					for (const item of result.response.items) {
-						// Add default label if configured and not already present
-						let itemLabelIds = item.label_ids ?? [];
-						if (defaultLabelId && !itemLabelIds.includes(defaultLabelId)) {
-							itemLabelIds = [...itemLabelIds, defaultLabelId];
-						}
-						
-						allDetectedItems.push({
-							...item,
-							label_ids: itemLabelIds,
-							sourceImageIndex: result.imageIndex,
-							originalFile: result.image.file,
-							additionalImages: result.image.additionalFiles || [],
-						});
-					}
-				} else {
-					failedImages.push(result.imageIndex + 1);
-				}
-			}
-
-			// Handle results
-			if (failedImages.length > 0 && failedImages.length < totalImages) {
-				showToast(`Some images failed to analyze: ${failedImages.join(', ')}`, 'warning');
-			} else if (failedImages.length === totalImages) {
-				showToast('All images failed to analyze. Please try again.', 'error');
-				isAnalyzing = false;
-				return;
-			}
-
-			if (allDetectedItems.length === 0) {
-				showToast('No items detected in the images', 'warning');
-				isAnalyzing = false;
-				return;
-			}
-
-			// Store detected items and navigate to review
-			detectedItems.set(allDetectedItems);
-			currentItemIndex.set(0);
-			showToast(`Detected ${allDetectedItems.length} item(s)`, 'success');
-			goto('/review');
-		} catch (error) {
-			console.error('Analysis failed:', error);
-			showToast(
-				error instanceof Error ? error.message : 'Analysis failed. Please try again.',
-				'error'
-			);
-		} finally {
-			isAnalyzing = false;
-		}
-	}
-
 	function goBack() {
 		goto('/location');
+	}
+
+	// ==========================================================================
+	// ANALYSIS - delegate to workflow
+	// ==========================================================================
+
+	function startAnalysis() {
+		workflow.startAnalysis();
+	}
+
+	function cancelAnalysis() {
+		workflow.cancelAnalysis();
 	}
 </script>
 
@@ -328,9 +208,9 @@
 	<p class="text-text-muted mb-6">Add photos and configure detection options for each</p>
 
 	<!-- Image list with collapsible cards -->
-	{#if $capturedImages.length > 0}
+	{#if images.length > 0}
 		<div class="space-y-3 mb-4">
-			{#each $capturedImages as image, index}
+			{#each images as image, index}
 				<div class="bg-surface rounded-xl border border-border overflow-hidden">
 					<!-- Header (always visible) -->
 					<div class="flex items-center gap-3 p-3">
@@ -366,14 +246,15 @@
 								class="p-2 text-text-muted hover:text-text transition-colors"
 								aria-label={expandedImages.has(index) ? 'Collapse options' : 'Expand options'}
 								onclick={() => toggleImageExpanded(index)}
+								disabled={isAnalyzing}
 							>
-							<svg 
-								class="w-5 h-5 transition-transform {expandedImages.has(index) ? 'rotate-180' : ''}" 
-								fill="none" 
-								stroke="currentColor" 
-								viewBox="0 0 24 24"
-							>
-								<polyline points="18 15 12 9 6 15" />
+								<svg 
+									class="w-5 h-5 transition-transform {expandedImages.has(index) ? 'rotate-180' : ''}" 
+									fill="none" 
+									stroke="currentColor" 
+									viewBox="0 0 24 24"
+								>
+									<polyline points="18 15 12 9 6 15" />
 								</svg>
 							</button>
 							<button
@@ -381,6 +262,7 @@
 								class="p-2 text-text-muted hover:text-danger transition-colors"
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
+								disabled={isAnalyzing}
 							>
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<line x1="18" y1="6" x2="6" y2="18" />
@@ -401,6 +283,7 @@
 										checked={image.separateItems}
 										onchange={(e) => updateImageOption(index, 'separateItems', (e.target as HTMLInputElement).checked)}
 										class="sr-only peer"
+										disabled={isAnalyzing}
 									/>
 									<div class="w-10 h-6 bg-surface-elevated rounded-full peer-checked:bg-primary transition-colors"></div>
 									<div class="absolute left-1 top-1 w-4 h-4 bg-text-muted rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-all"></div>
@@ -416,6 +299,7 @@
 									value={image.extraInstructions}
 									oninput={(e) => updateImageOption(index, 'extraInstructions', (e.target as HTMLInputElement).value)}
 									class="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+									disabled={isAnalyzing}
 								/>
 							</div>
 
@@ -432,6 +316,7 @@
 										type="button"
 										class="text-xs text-primary hover:underline"
 										onclick={() => additionalImageInputs[index]?.click()}
+										disabled={isAnalyzing}
 									>
 										+ Add photos
 									</button>
@@ -460,6 +345,7 @@
 													class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
 													aria-label="Remove additional image"
 													onclick={() => removeAdditionalImage(index, additionalIndex)}
+													disabled={isAnalyzing}
 												>
 													<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 														<line x1="18" y1="6" x2="6" y2="18" />
@@ -479,7 +365,7 @@
 			{/each}
 
 			<!-- Capture buttons inside dashed border -->
-			{#if $capturedImages.length < MAX_IMAGES}
+			{#if images.length < MAX_IMAGES && !isAnalyzing}
 				<CaptureButtons 
 					onCamera={() => cameraInput.click()} 
 					onUpload={() => fileInput.click()} 
@@ -488,14 +374,16 @@
 		</div>
 
 		<div class="flex items-center justify-between mb-6 text-sm">
-			<span class="text-text-muted">{$capturedImages.length} item{$capturedImages.length !== 1 ? 's' : ''} selected</span>
-			<button
-				type="button"
-				class="text-danger hover:underline"
-				onclick={clearAll}
-			>
-				Clear all
-			</button>
+			<span class="text-text-muted">{images.length} item{images.length !== 1 ? 's' : ''} selected</span>
+			{#if !isAnalyzing}
+				<button
+					type="button"
+					class="text-danger hover:underline"
+					onclick={clearAll}
+				>
+					Clear all
+				</button>
+			{/if}
 		</div>
 	{:else}
 		<!-- Empty state - same capture buttons -->
@@ -526,32 +414,40 @@
 	/>
 
 	<!-- Analysis progress -->
-	{#if isAnalyzing}
+	{#if isAnalyzing && progress}
 		<div class="bg-surface rounded-xl border border-border p-4 mb-6">
 			<div class="flex items-center justify-between mb-2">
-				<span class="text-sm font-medium text-text">{analysisProgress.status}</span>
-				<span class="text-sm text-text-muted">{analysisProgress.current} / {analysisProgress.total}</span>
+				<span class="text-sm font-medium text-text">{progress.message || 'Analyzing...'}</span>
+				<span class="text-sm text-text-muted">{progress.current} / {progress.total}</span>
 			</div>
 			<div class="h-2 bg-surface-elevated rounded-full overflow-hidden">
 				<div
 					class="h-full bg-primary transition-all duration-300"
-					style="width: {(analysisProgress.current / analysisProgress.total) * 100}%"
+					style="width: {progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%"
 				></div>
 			</div>
+			<button
+				type="button"
+				class="mt-3 w-full py-2 text-sm text-text-muted hover:text-danger transition-colors"
+				onclick={cancelAnalysis}
+			>
+				Cancel
+			</button>
 		</div>
 	{/if}
 
-	<Button
-		variant="primary"
-		full
-		disabled={$capturedImages.length === 0 || isAnalyzing}
-		loading={isAnalyzing}
-		onclick={analyzeImages}
-	>
-		<span>Analyze with AI</span>
-		<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<circle cx="11" cy="11" r="8" />
-			<path d="m21 21-4.35-4.35" />
-		</svg>
-	</Button>
+	{#if !isAnalyzing}
+		<Button
+			variant="primary"
+			full
+			disabled={images.length === 0}
+			onclick={startAnalysis}
+		>
+			<span>Analyze with AI</span>
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<circle cx="11" cy="11" r="8" />
+				<path d="m21 21-4.35-4.35" />
+			</svg>
+		</Button>
+	{/if}
 </div>
