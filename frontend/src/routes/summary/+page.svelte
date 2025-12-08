@@ -1,36 +1,35 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { items as itemsApi, type ItemInput } from '$lib/api';
+	import { items as itemsApi } from '$lib/api';
 	import { isAuthenticated } from '$lib/stores/auth';
-	import { selectedLocation, selectedLocationPath } from '$lib/stores/locations';
-	import {
-		confirmedItems,
-		capturedImages,
-		labels,
-		removeConfirmedItem,
-		editConfirmedItem,
-		resetItemState,
-		setCurrentScanRoute,
-		type ConfirmedItem,
-	} from '$lib/stores/items';
+	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import type { ConfirmedItem, ItemInput } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
+
+	// Get workflow reference
+	const workflow = scanWorkflow;
+
+	// Derived state from workflow
+	const confirmedItems = $derived(workflow.state.confirmedItems);
+	const images = $derived(workflow.state.images);
+	const locationPath = $derived(workflow.state.locationPath);
+	const locationId = $derived(workflow.state.locationId);
 
 	// Item creation status tracking
 	type ItemStatus = 'pending' | 'creating' | 'success' | 'failed';
 	let itemStatuses = $state<Record<number, ItemStatus>>({});
 	let isSubmitting = $state(false);
 
-	// Helper to get label name by ID
 	function getLabelName(labelId: string): string {
 		const label = $labels.find((l) => l.id === labelId);
 		return label?.name ?? labelId;
 	}
 
-	// Helper to convert data URL to File
 	async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
 		const response = await fetch(dataUrl);
 		const blob = await response.blob();
@@ -39,53 +38,52 @@
 
 	// Redirect if not authenticated or no items
 	onMount(() => {
-		setCurrentScanRoute('/summary');
-		
 		if (!$isAuthenticated) {
 			goto('/');
 			return;
 		}
-		if (!$selectedLocation) {
+		if (!locationId) {
 			goto('/location');
 			return;
 		}
-		if ($confirmedItems.length === 0) {
-			goto('/capture');
+		if (workflow.state.status !== 'confirming') {
+			if (workflow.state.status === 'reviewing') {
+				goto('/review');
+			} else {
+				goto('/capture');
+			}
 			return;
 		}
 	});
 
 	function addMoreItems() {
+		workflow.addMoreImages();
 		goto('/capture');
 	}
 
 	function removeItem(index: number) {
-		const item = $confirmedItems[index];
-		removeConfirmedItem(index);
+		const item = confirmedItems[index];
+		workflow.removeConfirmedItem(index);
 		showToast(`"${item.name}" removed`, 'info');
 
-		if ($confirmedItems.length === 0) {
+		if (confirmedItems.length === 0) {
 			goto('/capture');
 		}
 	}
 
 	function editItem(index: number) {
-		const item = editConfirmedItem(index);
-		if (item) {
-			goto('/review');
-		}
+		workflow.editConfirmedItem(index);
+		goto('/review');
 	}
 
 	function getThumbnail(item: ConfirmedItem): string | null {
-		// Use custom thumbnail if available
 		if (item.customThumbnail) return item.customThumbnail;
-		// Otherwise get from captured images using sourceImageIndex
-		const sourceImage = $capturedImages[item.sourceImageIndex];
+		const sourceImage = images[item.sourceImageIndex];
 		return sourceImage?.dataUrl ?? null;
 	}
 
 	async function submitAll() {
-		if ($confirmedItems.length === 0) {
+		if (confirmedItems.length === 0) {
 			showToast('No items to submit', 'warning');
 			return;
 		}
@@ -94,7 +92,7 @@
 		
 		// Initialize all items as pending
 		const initialStatuses: Record<number, ItemStatus> = {};
-		$confirmedItems.forEach((_, index) => {
+		confirmedItems.forEach((_, index) => {
 			initialStatuses[index] = 'pending';
 		});
 		itemStatuses = initialStatuses;
@@ -102,15 +100,12 @@
 		let successCount = 0;
 		let failCount = 0;
 
-		// Create items one-by-one with visual feedback
-		for (let i = 0; i < $confirmedItems.length; i++) {
-			const confirmedItem = $confirmedItems[i];
+		for (let i = 0; i < confirmedItems.length; i++) {
+			const confirmedItem = confirmedItems[i];
 			
-			// Update status to creating
 			itemStatuses = { ...itemStatuses, [i]: 'creating' };
 
 			try {
-				// Create single item
 				const itemInput: ItemInput = {
 					name: confirmedItem.name,
 					quantity: confirmedItem.quantity,
@@ -126,17 +121,15 @@
 
 				const response = await itemsApi.create({
 					items: [itemInput],
-					location_id: $selectedLocation?.id,
+					location_id: locationId,
 				});
 
 				if (response.created.length > 0) {
 					const createdItem = response.created[0] as { id?: string };
 					
-					// Upload images for this item
 					if (createdItem?.id) {
-						const sourceImage = $capturedImages[confirmedItem.sourceImageIndex];
+						const sourceImage = images[confirmedItem.sourceImageIndex];
 						
-						// Upload custom thumbnail or original image
 						if (confirmedItem.customThumbnail) {
 							try {
 								const thumbnailFile = await dataUrlToFile(
@@ -155,7 +148,6 @@
 							}
 						}
 
-						// Upload additional images if any
 						if (confirmedItem.additionalImages) {
 							for (const addImage of confirmedItem.additionalImages) {
 								try {
@@ -167,11 +159,9 @@
 						}
 					}
 
-					// Mark as success
 					itemStatuses = { ...itemStatuses, [i]: 'success' };
 					successCount++;
 				} else {
-					// Item creation failed
 					itemStatuses = { ...itemStatuses, [i]: 'failed' };
 					failCount++;
 				}
@@ -182,20 +172,16 @@
 			}
 		}
 
-		// All items processed
 		isSubmitting = false;
 
-		// Handle results
 		if (failCount > 0) {
 			showToast(`Created ${successCount} items, ${failCount} failed`, 'warning');
 		} else {
-			// All items created successfully - navigate to success
-			resetItemState();
+			workflow.reset();
 			goto('/success');
 		}
 	}
 
-	// Retry failed items
 	async function retryFailed() {
 		const failedIndices = Object.entries(itemStatuses)
 			.filter(([_, status]) => status === 'failed')
@@ -208,7 +194,7 @@
 		let failCount = 0;
 
 		for (const i of failedIndices) {
-			const confirmedItem = $confirmedItems[i];
+			const confirmedItem = confirmedItems[i];
 			if (!confirmedItem) continue;
 			
 			itemStatuses = { ...itemStatuses, [i]: 'creating' };
@@ -229,14 +215,14 @@
 
 				const response = await itemsApi.create({
 					items: [itemInput],
-					location_id: $selectedLocation?.id,
+					location_id: locationId,
 				});
 
 				if (response.created.length > 0) {
 					const createdItem = response.created[0] as { id?: string };
 					
 					if (createdItem?.id) {
-						const sourceImage = $capturedImages[confirmedItem.sourceImageIndex];
+						const sourceImage = images[confirmedItem.sourceImageIndex];
 						
 						if (confirmedItem.customThumbnail) {
 							try {
@@ -285,24 +271,26 @@
 		if (failCount > 0) {
 			showToast(`Retried: ${successCount} succeeded, ${failCount} still failing`, 'warning');
 		} else {
-			// Check if all items are now successful
 			const allSuccess = Object.values(itemStatuses).every(s => s === 'success');
 			if (allSuccess) {
-				resetItemState();
+				workflow.reset();
 				goto('/success');
 			}
 		}
 	}
 
-	// Check if there are any failed items
 	function hasFailedItems(): boolean {
 		return Object.values(itemStatuses).some(s => s === 'failed');
 	}
 
-	// Check if all items are successful
 	function allItemsSuccessful(): boolean {
 		return Object.keys(itemStatuses).length > 0 && 
 			Object.values(itemStatuses).every(s => s === 'success');
+	}
+
+	function continueWithSuccessful() {
+		workflow.reset();
+		goto('/success');
 	}
 </script>
 
@@ -320,10 +308,9 @@
 
 	<!-- Items list -->
 	<div class="space-y-3 mb-6">
-		{#each $confirmedItems as item, index}
+		{#each confirmedItems as item, index}
 			{@const thumbnail = getThumbnail(item)}
 			<div class="bg-surface rounded-xl border border-border p-4 flex items-start gap-3">
-				<!-- Thumbnail -->
 				{#if thumbnail}
 					<div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-surface-elevated">
 						<img
@@ -342,7 +329,6 @@
 					</div>
 				{/if}
 
-				<!-- Item details -->
 				<div class="flex-1 min-w-0">
 					<div class="flex items-center gap-2 mb-1">
 						<h3 class="font-medium text-text truncate">{item.name}</h3>
@@ -364,22 +350,18 @@
 					{/if}
 				</div>
 
-				<!-- Status indicator or action buttons -->
 				<div class="flex flex-col gap-1 items-center justify-center min-w-[40px]">
 					{#if itemStatuses[index] === 'creating'}
-						<!-- Spinner -->
 						<div class="w-8 h-8 flex items-center justify-center">
 							<div class="w-5 h-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin"></div>
 						</div>
 					{:else if itemStatuses[index] === 'success'}
-						<!-- Checkmark -->
 						<div class="w-8 h-8 flex items-center justify-center bg-green-500/20 rounded-full">
 							<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
 						</div>
 					{:else if itemStatuses[index] === 'failed'}
-						<!-- Error icon -->
 						<div class="w-8 h-8 flex items-center justify-center bg-danger/20 rounded-full">
 							<svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
 								<line x1="18" y1="6" x2="6" y2="18" />
@@ -387,7 +369,6 @@
 							</svg>
 						</div>
 					{:else}
-						<!-- Default: Edit/Remove buttons -->
 						<button
 							type="button"
 							class="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -421,10 +402,12 @@
 	</div>
 
 	<!-- Location info -->
-	<div class="flex items-center gap-2 p-3 bg-surface-elevated rounded-xl mb-6">
-		<span class="text-text-muted text-sm">Location:</span>
-		<span class="text-text font-medium">{$selectedLocationPath}</span>
-	</div>
+	{#if locationPath}
+		<div class="flex items-center gap-2 p-3 bg-surface-elevated rounded-xl mb-6">
+			<span class="text-text-muted text-sm">Location:</span>
+			<span class="text-text font-medium">{locationPath}</span>
+		</div>
+	{/if}
 
 	<!-- Actions -->
 	<div class="space-y-3">
@@ -446,7 +429,7 @@
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<polyline points="20 6 9 17 4 12" />
 				</svg>
-				<span>Submit All Items ({$confirmedItems.length})</span>
+				<span>Submit All Items ({confirmedItems.length})</span>
 			</Button>
 		{:else if hasFailedItems()}
 			<Button
@@ -466,7 +449,7 @@
 				variant="secondary"
 				full
 				disabled={isSubmitting}
-				onclick={() => { resetItemState(); goto('/success'); }}
+				onclick={continueWithSuccessful}
 			>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<polyline points="20 6 9 17 4 12" />
@@ -476,4 +459,3 @@
 		{/if}
 	</div>
 </div>
-
