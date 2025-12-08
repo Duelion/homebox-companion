@@ -97,7 +97,7 @@ wheels = [
 
 [[package]]
 name = "homebox-companion"
-version = "1.7.1"
+version = "1.12.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
