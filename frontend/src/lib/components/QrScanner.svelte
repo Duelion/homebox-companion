@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
+	import QrScanner from 'qr-scanner';
 
 	interface Props {
 		onScan: (decodedText: string) => void;
@@ -10,68 +10,44 @@
 
 	let { onScan, onClose, onError }: Props = $props();
 
-	let scannerRef: HTMLDivElement;
-	let html5QrCode: Html5Qrcode | null = null;
+	let videoElement: HTMLVideoElement;
+	let qrScanner: QrScanner | null = null;
 	let error = $state<string | null>(null);
 	let isStarting = $state(true);
 	let hasScanned = $state(false);
-	let scanBoxSize = $state(250); // Will be calculated dynamically
 
 	onMount(async () => {
 		try {
-			html5QrCode = new Html5Qrcode('qr-reader');
-
-			const qrCodeSuccessCallback = (decodedText: string) => {
-				if (hasScanned) return; // Prevent multiple scans
-				hasScanned = true;
-				
-				// Stop scanning before calling callback
-				stopScanner().then(() => {
-					onScan(decodedText);
-				});
-			};
-
-		const config = {
-			fps: 15, // Increased for better detection
-			qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-				// 70% of smaller dimension - large enough for zoomed QR codes
-				const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
-				scanBoxSize = size; // Update for visual overlay
-				return { width: size, height: size };
-			},
-			aspectRatio: 1.0,
-			disableFlip: false,
-			// Video constraints for back camera with autofocus and high resolution
-			videoConstraints: {
-				facingMode: { exact: 'environment' },
-				focusMode: 'continuous',
-				width: { ideal: 1920 },
-				height: { ideal: 1080 }
+			// Check if camera is available
+			const hasCamera = await QrScanner.hasCamera();
+			if (!hasCamera) {
+				error = 'No camera found on this device.';
+				isStarting = false;
+				onError?.(error);
+				return;
 			}
-		};
 
-		await html5QrCode.start(
-			{ facingMode: 'environment' },
-			config,
-			qrCodeSuccessCallback,
-			() => {} // Ignore QR not found errors
-		);
+			qrScanner = new QrScanner(
+				videoElement,
+				(result) => {
+					if (hasScanned) return; // Prevent multiple scans
+					hasScanned = true;
+					
+					// Stop scanning before calling callback
+					stopScanner().then(() => {
+						onScan(result.data);
+					});
+				},
+				{
+					preferredCamera: 'environment',
+					highlightScanRegion: true,
+					highlightCodeOutline: true,
+					returnDetailedScanResult: true,
+				}
+			);
 
-		// Apply 2x zoom for better small QR code detection
-		try {
-			const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
-			const zoomFeature = capabilities.zoomFeature();
-			if (zoomFeature.isSupported()) {
-				const maxZoom = zoomFeature.max();
-				const targetZoom = Math.min(maxZoom, 2.0); // 2x zoom or max available
-				await zoomFeature.apply(targetZoom);
-				console.log(`Applied ${targetZoom}x zoom for QR scanning`);
-			}
-		} catch (zoomErr) {
-			console.warn('Zoom not supported on this device:', zoomErr);
-		}
-
-		isStarting = false;
+			await qrScanner.start();
+			isStarting = false;
 		} catch (err) {
 			console.error('QR Scanner error:', err);
 			isStarting = false;
@@ -95,12 +71,11 @@
 	});
 
 	async function stopScanner() {
-		if (html5QrCode) {
+		if (qrScanner) {
 			try {
-				const state = html5QrCode.getState();
-				if (state === Html5QrcodeScannerState.SCANNING || state === Html5QrcodeScannerState.PAUSED) {
-					await html5QrCode.stop();
-				}
+				qrScanner.stop();
+				qrScanner.destroy();
+				qrScanner = null;
 			} catch (err) {
 				console.warn('Error stopping scanner:', err);
 			}
@@ -155,13 +130,12 @@
 			</div>
 		{:else}
 			<div class="relative">
-				<!-- QR Reader container -->
-				<div 
-					id="qr-reader" 
-					bind:this={scannerRef}
-					class="rounded-xl overflow-hidden bg-black"
-					style="width: min(90vw, 400px); height: min(90vw, 400px);"
-				></div>
+				<!-- Video element for QR scanner -->
+				<video
+					bind:this={videoElement}
+					class="rounded-xl bg-black"
+					style="width: min(90vw, 400px); height: min(90vw, 400px); object-fit: cover;"
+				></video>
 
 				<!-- Scanning overlay -->
 				{#if isStarting}
@@ -169,22 +143,6 @@
 						<div class="text-center">
 							<div class="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
 							<p class="text-white/80 text-sm">Starting camera...</p>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Scanning frame corners (visual aid) - dynamically sized -->
-				{#if !isStarting}
-					<div class="absolute inset-0 pointer-events-none flex items-center justify-center">
-						<div class="relative" style="width: {scanBoxSize}px; height: {scanBoxSize}px;">
-							<!-- Top left corner -->
-							<div class="absolute top-0 left-0 w-8 h-8 border-t-3 border-l-3 border-primary rounded-tl-lg"></div>
-							<!-- Top right corner -->
-							<div class="absolute top-0 right-0 w-8 h-8 border-t-3 border-r-3 border-primary rounded-tr-lg"></div>
-							<!-- Bottom left corner -->
-							<div class="absolute bottom-0 left-0 w-8 h-8 border-b-3 border-l-3 border-primary rounded-bl-lg"></div>
-							<!-- Bottom right corner -->
-							<div class="absolute bottom-0 right-0 w-8 h-8 border-b-3 border-r-3 border-primary rounded-br-lg"></div>
 						</div>
 					</div>
 				{/if}
@@ -201,62 +159,18 @@
 </div>
 
 <style>
-	/* Override html5-qrcode default styles */
-	:global(#qr-reader video) {
-		border-radius: 0.75rem;
-		object-fit: cover;
+	/* Style the qr-scanner overlay */
+	:global(.scan-region-highlight) {
+		border: 2px solid hsl(var(--primary)) !important;
+		border-radius: 0.5rem;
 	}
 	
-	:global(#qr-reader__scan_region) {
-		min-height: auto !important;
+	:global(.scan-region-highlight-svg) {
+		stroke: hsl(var(--primary)) !important;
 	}
 	
-	/* Hide the library's internal scan region border/image */
-	:global(#qr-reader__scan_region > img) {
-		display: none !important;
-	}
-	
-	/* Hide the library's internal scan region border elements */
-	:global(#qr-reader__scan_region > div) {
-		border: none !important;
-		outline: none !important;
-		box-shadow: none !important;
-	}
-	
-	/* Hide any SVG borders the library might create */
-	:global(#qr-reader__scan_region svg) {
-		display: none !important;
-	}
-	
-	/* Ensure video fills container properly */
-	:global(#qr-reader video) {
-		width: 100% !important;
-		height: 100% !important;
-	}
-	
-	:global(#qr-reader__dashboard) {
-		display: none !important;
-	}
-	
-	:global(#qr-reader__dashboard_section) {
-		display: none !important;
-	}
-	
-	:global(#qr-reader__dashboard_section_swaplink) {
-		display: none !important;
-	}
-
-	/* Custom border widths for the corners */
-	.border-t-3 {
-		border-top-width: 3px;
-	}
-	.border-b-3 {
-		border-bottom-width: 3px;
-	}
-	.border-l-3 {
-		border-left-width: 3px;
-	}
-	.border-r-3 {
-		border-right-width: 3px;
+	:global(.code-outline-highlight) {
+		stroke: hsl(var(--primary)) !important;
+		stroke-width: 3px;
 	}
 </style>
