@@ -44,11 +44,7 @@
 			};
 
 			await html5QrCode.start(
-				{ 
-					facingMode: 'environment',
-					// @ts-ignore - advanced constraints supported by browser for autofocus
-					advanced: [{ focusMode: 'continuous' }]
-				},
+				{ facingMode: 'environment' },
 				config,
 				qrCodeSuccessCallback,
 				() => {} // Ignore QR not found errors

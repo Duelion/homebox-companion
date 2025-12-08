@@ -181,6 +181,7 @@
 	}
 
 	function goBack() {
+		workflow.clearLocation();
 		goto('/location');
 	}
 
