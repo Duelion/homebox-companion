@@ -20,6 +20,7 @@
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import LocationModal from '$lib/components/LocationModal.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
+	import QrScanner from '$lib/components/QrScanner.svelte';
 
 	// Local UI state
 	let isLoadingLocations = $state(true);
@@ -31,6 +32,10 @@
 	let showLocationModal = $state(false);
 	let locationModalMode = $state<'create' | 'edit'>('create');
 	let createParentLocation = $state<{ id: string; name: string } | null>(null);
+
+	// QR Scanner state
+	let showQrScanner = $state(false);
+	let isProcessingQr = $state(false);
 
 	// Derived: filtered locations based on search
 	let filteredLocations = $derived(
@@ -256,6 +261,75 @@
 			scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
 		}
 	}
+
+	// QR Scanner handlers
+	function openQrScanner() {
+		showQrScanner = true;
+	}
+
+	function closeQrScanner() {
+		showQrScanner = false;
+	}
+
+	async function handleQrScan(decodedText: string) {
+		showQrScanner = false;
+		isProcessingQr = true;
+
+		try {
+			// Parse the QR code URL to extract location ID
+			// Expected format: https://homebox.example.com/location/{uuid}
+			const locationIdMatch = decodedText.match(/\/location\/([a-f0-9-]+)(?:\/|$)/i);
+			
+			if (!locationIdMatch) {
+				showToast('Invalid QR code. Not a Homebox location.', 'error');
+				isProcessingQr = false;
+				return;
+			}
+
+			const locationId = locationIdMatch[1];
+
+			// Fetch location details from API
+			const location = await locationsApi.get(locationId);
+
+			if (!location) {
+				showToast('Location not found in your Homebox.', 'error');
+				isProcessingQr = false;
+				return;
+			}
+
+			// Build location path - for QR scans, we just use the location name
+			// since we don't have the parent hierarchy from a single API call
+			const locationPath = location.name;
+
+			// Set the location
+			const locationData: Location = {
+				id: location.id,
+				name: location.name,
+				description: location.description || '',
+				children: location.children || [],
+			};
+
+			selectedLocation.set(locationData);
+			scanWorkflow.setLocation(locationData.id, locationData.name, locationPath);
+			
+			showToast(`Selected: ${location.name}`, 'success');
+		} catch (error) {
+			console.error('QR scan error:', error);
+			if (error instanceof Error && error.message.includes('401')) {
+				showToast('Session expired. Please log in again.', 'error');
+			} else if (error instanceof Error && error.message.includes('404')) {
+				showToast('Location not found in your Homebox.', 'error');
+			} else {
+				showToast('Failed to load location. Please try again.', 'error');
+			}
+		} finally {
+			isProcessingQr = false;
+		}
+	}
+
+	function handleQrError(error: string) {
+		console.warn('QR Scanner error:', error);
+	}
 </script>
 
 <svelte:head>
@@ -336,33 +410,59 @@
 	{:else}
 		<!-- SELECTION STATE -->
 		
-		<!-- Search box -->
-		<div class="relative mb-4">
-			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-				<svg class="w-5 h-5 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<circle cx="11" cy="11" r="8" />
-					<path d="m21 21-4.35-4.35" />
-				</svg>
-			</div>
-			<input
-				type="text"
-				placeholder="Search all locations..."
-				bind:value={searchQuery}
-				class="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-xl text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
-			/>
-			{#if searchQuery}
-				<button
-					type="button"
-					class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text"
-					aria-label="Clear search"
-					onclick={() => searchQuery = ''}
-				>
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<line x1="18" y1="6" x2="6" y2="18" />
-						<line x1="6" y1="6" x2="18" y2="18" />
+		<!-- Search box with QR scan button -->
+		<div class="flex gap-2 mb-4">
+			<div class="relative flex-1">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<svg class="w-5 h-5 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<circle cx="11" cy="11" r="8" />
+						<path d="m21 21-4.35-4.35" />
 					</svg>
-				</button>
-			{/if}
+				</div>
+				<input
+					type="text"
+					placeholder="Search all locations..."
+					bind:value={searchQuery}
+					class="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-xl text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+				/>
+				{#if searchQuery}
+					<button
+						type="button"
+						class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text"
+						aria-label="Clear search"
+						onclick={() => searchQuery = ''}
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
+					</button>
+				{/if}
+			</div>
+			
+			<!-- QR Scan Button -->
+			<button
+				type="button"
+				onclick={openQrScanner}
+				disabled={isProcessingQr}
+				class="px-4 py-3 bg-surface border border-border rounded-xl text-text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
+				title="Scan QR Code"
+			>
+				{#if isProcessingQr}
+					<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+				{:else}
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<!-- QR Code icon -->
+						<rect x="3" y="3" width="7" height="7" rx="1" />
+						<rect x="14" y="3" width="7" height="7" rx="1" />
+						<rect x="3" y="14" width="7" height="7" rx="1" />
+						<rect x="14" y="14" width="3" height="3" />
+						<rect x="18" y="14" width="3" height="3" />
+						<rect x="14" y="18" width="3" height="3" />
+						<rect x="18" y="18" width="3" height="3" />
+					</svg>
+				{/if}
+			</button>
 		</div>
 
 		{#if isSearching}
@@ -539,3 +639,12 @@
 	parentLocation={locationModalMode === 'create' ? createParentLocation : null}
 	onsave={handleSaveLocation}
 />
+
+<!-- QR Scanner Modal -->
+{#if showQrScanner}
+	<QrScanner
+		onScan={handleQrScan}
+		onClose={closeQrScanner}
+		onError={handleQrError}
+	/>
+{/if}
