@@ -1,9 +1,22 @@
-"""Shared prompt templates and constants for AI interactions."""
+"""Shared prompt templates and constants for AI interactions.
+
+Note on customizations:
+    The `customizations` parameter in prompt builder functions should contain
+    the effective values for all fields (user overrides merged with defaults).
+
+    The main source of truth for defaults is FieldPreferencesDefaults in
+    field_preferences.py, which handles env var overrides.
+
+    FIELD_DEFAULTS below is a legacy fallback only used when customizations
+    is None. In normal operation, get_vision_context() and prompt preview
+    always pass effective customizations, so FIELD_DEFAULTS is not used.
+"""
 
 from __future__ import annotations
 
-# Default instructions per field (single source of truth)
-# User customizations will REPLACE these when provided
+# Legacy fallback defaults - only used when customizations is None
+# The real defaults come from FieldPreferencesDefaults in field_preferences.py
+# which supports env var overrides via HBC_AI_* variables
 FIELD_DEFAULTS = {
     "name": "Title Case, no quantity, max 255 characters",
     "description": "max 1000 chars, condition/attributes only, NEVER mention quantity",
@@ -57,13 +70,15 @@ def build_naming_rules(customizations: dict[str, str] | None = None) -> str:
     """Build naming rules with configurable examples and optional user override.
 
     Args:
-        customizations: Optional dict with 'name' for custom naming instructions
-            and 'naming_examples' for custom example names.
+        customizations: Dict with effective values for all fields. Should contain
+            'naming_examples' for examples. If 'name' is present and differs from
+            the default naming format, adds a user preference note.
+            Pass None only for legacy compatibility (will use FIELD_DEFAULTS).
 
     Returns:
         Naming rules string with examples and optional user preference.
     """
-    # Get examples (use custom or default)
+    # Get examples - use passed value or legacy fallback
     examples = FIELD_DEFAULTS["naming_examples"]
     if customizations and customizations.get("naming_examples"):
         examples = customizations["naming_examples"].strip()
@@ -73,28 +88,30 @@ def build_naming_rules(customizations: dict[str, str] | None = None) -> str:
 
 Examples: {examples}"""
 
-    # Add user naming preference if provided
-    if customizations and customizations.get("name") and customizations["name"].strip():
-        result += f"""
+    # Add user naming preference if it differs from the base format
+    # (indicates a custom instruction was set)
+    if customizations and customizations.get("name"):
+        name_instruction = customizations["name"].strip()
+        # Check if this looks like a custom user instruction (not the default format)
+        if not name_instruction.startswith("[Type]"):
+            result += f"""
 
 USER NAMING PREFERENCE (takes priority):
-{customizations["name"].strip()}"""
+{name_instruction}"""
 
     return result
 
 
 def build_item_schema(customizations: dict[str, str] | None = None) -> str:
-    """Build item schema with customizations integrated inline.
-
-    User customizations REPLACE the default instruction for each field,
-    ensuring the LLM sees only one instruction per field.
+    """Build item schema with field instructions integrated inline.
 
     Args:
-        customizations: Dict mapping field names to custom instructions.
-            Keys should match FIELD_DEFAULTS keys.
+        customizations: Dict with effective values for fields (name, quantity,
+            description). Should contain values for all fields - user overrides
+            merged with defaults. Pass None only for legacy compatibility.
 
     Returns:
-        Item schema string with customizations integrated.
+        Item schema string with field instructions.
     """
     instr = {**FIELD_DEFAULTS, **(customizations or {})}
     return f"""OUTPUT SCHEMA - Each item must include:
@@ -105,23 +122,24 @@ def build_item_schema(customizations: dict[str, str] | None = None) -> str:
 
 
 def build_extended_fields_schema(customizations: dict[str, str] | None = None) -> str:
-    """Build extended fields schema with customizations integrated inline.
-
-    User customizations REPLACE the default instruction for each field,
-    ensuring the LLM sees only one instruction per field.
+    """Build extended fields schema with field instructions integrated inline.
 
     Args:
-        customizations: Dict mapping field names to custom instructions.
-            Keys should match FIELD_DEFAULTS keys.
+        customizations: Dict with effective values for extended fields
+            (manufacturer, model_number, serial_number, purchase_price,
+            purchase_from, notes). Should contain values for all fields.
+            Pass None only for legacy compatibility.
 
     Returns:
-        Extended fields schema string with customizations integrated.
+        Extended fields schema string with field instructions.
     """
     instr = {**FIELD_DEFAULTS, **(customizations or {})}
 
-    # Build notes examples only if using default notes instruction
+    # Build notes examples only if using a default-like notes instruction
+    # (not a custom user instruction)
     notes_examples = ""
-    if customizations is None or "notes" not in customizations:
+    notes_val = instr.get("notes", "")
+    if "defects" in notes_val.lower() or "damage" in notes_val.lower():
         notes_examples = (
             '\n  GOOD: "Cracked lens", "Missing screws" | '
             'BAD: "Appears new", "Made in China"'
