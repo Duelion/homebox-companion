@@ -180,6 +180,9 @@ services:
       - HBC_HOMEBOX_URL=http://192.168.1.100:7745
       - HBC_OPENAI_MODEL=gpt-5-mini
       - HBC_LOG_LEVEL=INFO
+      # Optional: AI output customization (persists across container updates)
+      # - HBC_AI_OUTPUT_LANGUAGE=Spanish
+      # - HBC_AI_NAME=Always include brand first, then model
     ports:
       - 8000:8000
 ```
@@ -209,6 +212,8 @@ docker run -d -p 8000:8000 \
 
 All environment variables use the `HBC_` prefix (short for Homebox Companion).
 
+### Core Settings
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
@@ -218,6 +223,27 @@ All environment variables use the `HBC_` prefix (short for Homebox Companion).
 | `HBC_SERVER_PORT` | No | `8000` | Server port |
 | `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
 | `HBC_DISABLE_UPDATE_CHECK` | No | `false` | Set to `true` to disable update notifications |
+
+### AI Output Customization
+
+These settings configure how the AI generates item data. They can also be set via the Settings page UI, which takes priority over environment variables. Use these to persist customizations across Docker container updates.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_AI_OUTPUT_LANGUAGE` | English | Language for AI-generated text (names, descriptions, notes) |
+| `HBC_AI_DEFAULT_LABEL_ID` | - | Label ID to auto-apply to all created items |
+| `HBC_AI_NAME` | - | Custom instructions for item naming |
+| `HBC_AI_DESCRIPTION` | - | Custom instructions for descriptions |
+| `HBC_AI_QUANTITY` | - | Custom instructions for quantity counting |
+| `HBC_AI_MANUFACTURER` | - | Custom instructions for manufacturer extraction |
+| `HBC_AI_MODEL_NUMBER` | - | Custom instructions for model number extraction |
+| `HBC_AI_SERIAL_NUMBER` | - | Custom instructions for serial number extraction |
+| `HBC_AI_PURCHASE_PRICE` | - | Custom instructions for price extraction |
+| `HBC_AI_PURCHASE_FROM` | - | Custom instructions for retailer extraction |
+| `HBC_AI_NOTES` | - | Custom instructions for notes |
+| `HBC_AI_NAMING_EXAMPLES` | - | Custom naming examples for the AI |
+
+**Tip:** The Settings page includes an "Export as Environment Variables" button that generates these variables from your current customizations, ready to paste into your `docker-compose.yml`.
 
 ## Using with Demo Server
 

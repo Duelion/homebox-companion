@@ -44,6 +44,10 @@
 	let isLoadingPreview = $state(false);
 	let promptPreview = $state<string | null>(null);
 
+	// Export env vars state
+	let showEnvExport = $state(false);
+	let envCopied = $state(false);
+
 	// Field metadata for display - defaults shown as visible text, not hidden in placeholder
 	const fieldMeta: Array<{ key: keyof FieldPreferences; label: string; defaultText: string; example: string }> = [
 		{
@@ -259,6 +263,47 @@
 			fieldPrefsError = error instanceof Error ? error.message : 'Failed to load preview';
 		} finally {
 			isLoadingPreview = false;
+		}
+	}
+
+	// Generate env vars string from current preferences
+	function generateEnvVars(): string {
+		const envMapping: Record<keyof FieldPreferences, string> = {
+			output_language: 'HBC_AI_OUTPUT_LANGUAGE',
+			default_label_id: 'HBC_AI_DEFAULT_LABEL_ID',
+			name: 'HBC_AI_NAME',
+			description: 'HBC_AI_DESCRIPTION',
+			quantity: 'HBC_AI_QUANTITY',
+			manufacturer: 'HBC_AI_MANUFACTURER',
+			model_number: 'HBC_AI_MODEL_NUMBER',
+			serial_number: 'HBC_AI_SERIAL_NUMBER',
+			purchase_price: 'HBC_AI_PURCHASE_PRICE',
+			purchase_from: 'HBC_AI_PURCHASE_FROM',
+			notes: 'HBC_AI_NOTES',
+			naming_examples: 'HBC_AI_NAMING_EXAMPLES',
+		};
+
+		const lines: string[] = [];
+		for (const [key, envName] of Object.entries(envMapping)) {
+			const value = prefs[key as keyof FieldPreferences];
+			if (value) {
+				// Escape quotes and wrap in quotes if contains special chars
+				const escaped = value.replace(/"/g, '\\"');
+				lines.push(`${envName}="${escaped}"`);
+			}
+		}
+
+		return lines.length > 0 ? lines.join('\n') : '# No customizations configured';
+	}
+
+	async function copyEnvVars() {
+		const envVars = generateEnvVars();
+		try {
+			await navigator.clipboard.writeText(envVars);
+			envCopied = true;
+			setTimeout(() => { envCopied = false; }, 2000);
+		} catch (error) {
+			console.error('Failed to copy to clipboard:', error);
 		}
 	}
 </script>
@@ -619,28 +664,88 @@
 				{/if}
 			</button>
 
-			{#if showPromptPreview && promptPreview}
-				<div class="mt-3 space-y-2">
-					<div class="flex items-center justify-between">
-						<span class="text-xs text-text-muted font-medium">System Prompt Preview</span>
-						<button
-							type="button"
-							class="text-xs text-text-dim hover:text-text-muted transition-colors"
-							onclick={() => (showPromptPreview = false)}
-						>
-							Hide
-						</button>
-					</div>
-					<div class="bg-background rounded-xl border border-border overflow-hidden">
-						<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-words">{promptPreview}</pre>
-					</div>
-					<p class="text-xs text-text-dim">
-						This is what the AI will see when analyzing your images. Labels shown are examples; actual labels from your Homebox instance will be used.
-					</p>
+		{#if showPromptPreview && promptPreview}
+			<div class="mt-3 space-y-2">
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-text-muted font-medium">System Prompt Preview</span>
+					<button
+						type="button"
+						class="text-xs text-text-dim hover:text-text-muted transition-colors"
+						onclick={() => (showPromptPreview = false)}
+					>
+						Hide
+					</button>
 				</div>
-			{/if}
+				<div class="bg-background rounded-xl border border-border overflow-hidden">
+					<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-words">{promptPreview}</pre>
+				</div>
+				<p class="text-xs text-text-dim">
+					This is what the AI will see when analyzing your images. Labels shown are examples; actual labels from your Homebox instance will be used.
+				</p>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Docker Persistence Warning & Export -->
+	<div class="pt-4 border-t border-border/50 space-y-3">
+		<!-- Warning -->
+		<div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+			<p class="text-xs text-amber-200 flex items-start gap-2">
+				<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
+				<span><strong>Docker users:</strong> Customizations are stored in a config file that may be lost when updating your container. Export below to persist settings via environment variables.</span>
+			</p>
 		</div>
-	</section>
+
+		<!-- Export Button -->
+		<button
+			type="button"
+			class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
+			onclick={() => (showEnvExport = !showEnvExport)}
+		>
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+			</svg>
+			<span>Export as Environment Variables</span>
+			<svg class="w-4 h-4 ml-auto transition-transform {showEnvExport ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<polyline points="6 9 12 15 18 9" />
+			</svg>
+		</button>
+
+		{#if showEnvExport}
+			<div class="space-y-2">
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-text-muted font-medium">Add these to your docker-compose.yml or .env file</span>
+					<button
+						type="button"
+						class="flex items-center gap-1 text-xs px-2 py-1 bg-primary/20 hover:bg-primary/30 text-primary rounded transition-colors"
+						onclick={copyEnvVars}
+					>
+						{#if envCopied}
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+							<span>Copied!</span>
+						{:else}
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+								<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+							</svg>
+							<span>Copy</span>
+						{/if}
+					</button>
+				</div>
+				<div class="bg-background rounded-xl border border-border overflow-hidden">
+					<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto whitespace-pre-wrap break-words">{generateEnvVars()}</pre>
+				</div>
+				<p class="text-xs text-text-dim">
+					Settings configured via environment variables will persist across Docker updates. UI customizations override environment variables.
+				</p>
+			</div>
+		{/if}
+	</div>
+</section>
 
 	<!-- Account Section -->
 	<section class="card space-y-4">
