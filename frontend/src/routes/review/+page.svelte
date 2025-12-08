@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { vision } from '$lib/api';
+	import { vision } from '$lib/api/vision';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
@@ -85,6 +85,7 @@
 	});
 
 	function goBack() {
+		workflow.backToCapture();
 		goto('/capture');
 	}
 
@@ -169,45 +170,6 @@
 		} catch (error) {
 			console.error('AI correction failed:', error);
 			showToast(error instanceof Error ? error.message : 'Correction failed', 'error');
-		} finally {
-			isProcessing = false;
-		}
-	}
-
-	async function handleAnalyzeWithImages() {
-		if (!editedItem || additionalImages.length === 0) {
-			showToast('Please add additional images first', 'warning');
-			return;
-		}
-
-		isProcessing = true;
-
-		try {
-			const sourceImage = images[editedItem.sourceImageIndex];
-			const allImages = sourceImage ? [sourceImage.file, ...additionalImages] : additionalImages;
-
-			const response = await vision.analyze(
-				allImages,
-				editedItem.name,
-				editedItem.description || undefined
-			);
-
-			editedItem = {
-				...editedItem,
-				name: response.name ?? editedItem.name,
-				description: response.description ?? editedItem.description,
-				label_ids: response.label_ids ?? editedItem.label_ids,
-				manufacturer: response.manufacturer ?? editedItem.manufacturer,
-				model_number: response.model_number ?? editedItem.model_number,
-				serial_number: response.serial_number ?? editedItem.serial_number,
-				purchase_price: response.purchase_price ?? editedItem.purchase_price,
-				notes: response.notes ?? editedItem.notes,
-			};
-
-			showToast('Item details updated from images', 'success');
-		} catch (error) {
-			console.error('Analysis failed:', error);
-			showToast(error instanceof Error ? error.message : 'Analysis failed', 'error');
 		} finally {
 			isProcessing = false;
 		}
@@ -347,11 +309,7 @@
 					onToggle={() => (showExtendedFields = !showExtendedFields)}
 				/>
 
-				<AdditionalImagesPanel
-					bind:images={additionalImages}
-					loading={isProcessing}
-					onAnalyze={handleAnalyzeWithImages}
-				/>
+				<AdditionalImagesPanel bind:images={additionalImages} />
 
 				<AiCorrectionPanel
 					expanded={showAiCorrection}

@@ -349,7 +349,12 @@ class ScanWorkflow {
 		if (this.state.currentReviewIndex < this.state.detectedItems.length - 1) {
 			this.nextItem();
 		} else {
-			this.finishReview();
+			// Last item - if nothing confirmed, go back to capture
+			if (this.state.confirmedItems.length === 0) {
+				this.backToCapture();
+			} else {
+				this.finishReview();
+			}
 		}
 	}
 
@@ -372,6 +377,15 @@ class ScanWorkflow {
 			return;
 		}
 		this.state.status = 'confirming';
+	}
+
+	/** Return to capture mode from review */
+	backToCapture(): void {
+		this.state.status = 'capturing';
+		this.state.detectedItems = [];
+		this.state.currentReviewIndex = 0;
+		this.state.confirmedItems = [];
+		this.state.error = null;
 	}
 
 	// =========================================================================
