@@ -9,7 +9,7 @@
  * Pages become thin views that read state and call actions.
  */
 
-import { vision, items as itemsApi, fieldPreferences } from '$lib/api';
+import { vision, items as itemsApi, fieldPreferences } from '$lib/api/index';
 import type {
 	ScanState,
 	ScanStatus,
