@@ -31,11 +31,6 @@
 				});
 			};
 
-		const videoConstraints = {
-			facingMode: 'environment',
-			focusMode: 'continuous'
-		};
-
 		const config = {
 			fps: 10,
 			qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -46,10 +41,14 @@
 			},
 			aspectRatio: 1.0,
 			disableFlip: false,
+			// Request continuous autofocus for better QR scanning
+			videoConstraints: {
+				focusMode: 'continuous'
+			}
 		};
 
 		await html5QrCode.start(
-			videoConstraints,
+			{ facingMode: 'environment' },
 			config,
 			qrCodeSuccessCallback,
 			() => {} // Ignore QR not found errors
