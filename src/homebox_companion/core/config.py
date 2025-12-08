@@ -16,19 +16,8 @@ Environment Variables:
     HBC_MAX_UPLOAD_SIZE_MB: Maximum file upload size in MB (default: 20)
     HBC_CORS_ORIGINS: Allowed CORS origins, comma-separated or "*" for all (default: "*")
 
-    AI Output Customization (can be overridden via UI settings page):
-    HBC_AI_OUTPUT_LANGUAGE: Language for AI-generated text (default: English)
-    HBC_AI_DEFAULT_LABEL_ID: Label ID to auto-apply to all items
-    HBC_AI_NAME: Custom instructions for item naming
-    HBC_AI_DESCRIPTION: Custom instructions for descriptions
-    HBC_AI_QUANTITY: Custom instructions for quantity counting
-    HBC_AI_MANUFACTURER: Custom instructions for manufacturer extraction
-    HBC_AI_MODEL_NUMBER: Custom instructions for model number extraction
-    HBC_AI_SERIAL_NUMBER: Custom instructions for serial number extraction
-    HBC_AI_PURCHASE_PRICE: Custom instructions for price extraction
-    HBC_AI_PURCHASE_FROM: Custom instructions for retailer extraction
-    HBC_AI_NOTES: Custom instructions for notes
-    HBC_AI_NAMING_EXAMPLES: Custom naming examples for the AI
+AI Output Customization env vars (HBC_AI_*) are handled separately in
+field_preferences.py via FieldPreferencesDefaults.
 """
 
 from __future__ import annotations
@@ -80,21 +69,6 @@ class Settings(BaseSettings):
     # Security configuration
     max_upload_size_mb: int = 20  # Maximum file upload size in MB
     cors_origins: str = "*"  # Comma-separated origins or "*" for all
-
-    # AI Output customization (can be overridden via UI settings page)
-    # These provide defaults that persist across Docker updates
-    ai_output_language: str | None = None
-    ai_default_label_id: str | None = None
-    ai_name: str | None = None
-    ai_description: str | None = None
-    ai_quantity: str | None = None
-    ai_manufacturer: str | None = None
-    ai_model_number: str | None = None
-    ai_serial_number: str | None = None
-    ai_purchase_price: str | None = None
-    ai_purchase_from: str | None = None
-    ai_notes: str | None = None
-    ai_naming_examples: str | None = None
 
     @computed_field
     @property
