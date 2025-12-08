@@ -9,7 +9,7 @@
 	import type { ConfirmedItem, ItemInput } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
+	import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -24,6 +24,14 @@
 	type ItemStatus = 'pending' | 'creating' | 'success' | 'failed';
 	let itemStatuses = $state<Record<number, ItemStatus>>({});
 	let isSubmitting = $state(false);
+	let showLocationPicker = $state(false);
+
+	function handleLocationChange(id: string, name: string, path: string) {
+		workflow.setLocation(id, name, path);
+		// Keep status as confirming since we're still on summary page
+		workflow.state.status = 'confirming';
+		showToast(`Location changed to "${name}"`, 'success');
+	}
 
 	function getLabelName(labelId: string): string {
 		const label = $labels.find((l) => l.id === labelId);
@@ -177,7 +185,7 @@
 		if (failCount > 0) {
 			showToast(`Created ${successCount} items, ${failCount} failed`, 'warning');
 		} else {
-			workflow.reset();
+			// Don't reset here - let success page handle it so location is preserved for "Scan More"
 			goto('/success');
 		}
 	}
@@ -273,7 +281,7 @@
 		} else {
 			const allSuccess = Object.values(itemStatuses).every(s => s === 'success');
 			if (allSuccess) {
-				workflow.reset();
+				// Don't reset here - let success page handle it so location is preserved for "Scan More"
 				goto('/success');
 			}
 		}
@@ -289,7 +297,7 @@
 	}
 
 	function continueWithSuccessful() {
-		workflow.reset();
+		// Don't reset here - let success page handle it so location is preserved for "Scan More"
 		goto('/success');
 	}
 </script>
@@ -299,8 +307,6 @@
 </svelte:head>
 
 <div class="animate-in">
-	<BackLink href="/review" label="Back to Review" onclick={() => goto('/review')} />
-
 	<StepIndicator currentStep={4} />
 
 	<h2 class="text-2xl font-bold text-text mb-2">Review & Submit</h2>
@@ -401,12 +407,32 @@
 		{/each}
 	</div>
 
-	<!-- Location info -->
+	<!-- Location info (clickable to change) -->
 	{#if locationPath}
-		<div class="flex items-center gap-2 p-3 bg-surface-elevated rounded-xl mb-6">
-			<span class="text-text-muted text-sm">Location:</span>
-			<span class="text-text font-medium">{locationPath}</span>
-		</div>
+		<button
+			type="button"
+			class="w-full flex items-center justify-between p-3 bg-surface-elevated hover:bg-surface-hover rounded-xl mb-6 transition-colors group"
+			onclick={() => (showLocationPicker = true)}
+			disabled={isSubmitting}
+		>
+			<div class="flex items-center gap-2">
+				<svg class="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+					<circle cx="12" cy="10" r="3" />
+				</svg>
+				<span class="text-text-muted text-sm">Location:</span>
+				<span class="text-text font-medium">{locationPath}</span>
+			</div>
+			<svg
+				class="w-4 h-4 text-text-muted group-hover:text-primary transition-colors"
+				fill="none"
+				stroke="currentColor"
+				viewBox="0 0 24 24"
+			>
+				<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+				<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+			</svg>
+		</button>
 	{/if}
 
 	<!-- Actions -->
@@ -459,3 +485,11 @@
 		{/if}
 	</div>
 </div>
+
+{#if showLocationPicker}
+	<LocationPickerModal
+		currentLocationId={locationId}
+		onSelect={handleLocationChange}
+		onClose={() => (showLocationPicker = false)}
+	/>
+{/if}
