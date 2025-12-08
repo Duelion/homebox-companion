@@ -10,10 +10,10 @@ from importlib.metadata import PackageNotFoundError, version
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from homebox_companion import HomeboxClient, settings, setup_logging
+from homebox_companion import AuthenticationError, HomeboxClient, settings, setup_logging
 from homebox_companion.core.logging import logger
 
 from .api import api_router
@@ -134,6 +134,16 @@ def create_app() -> FastAPI:
     # Include API routes
     app.include_router(api_router)
 
+    # Exception handler for AuthenticationError
+    # Routes can raise AuthenticationError directly without wrapping in HTTPException
+    @app.exception_handler(AuthenticationError)
+    async def auth_error_handler(request, exc: AuthenticationError):
+        """Convert AuthenticationError to 401 response."""
+        return JSONResponse(
+            status_code=401,
+            content={"detail": str(exc)},
+        )
+
     # Version endpoint
     @app.get("/api/version")
     async def get_version(force_check: bool = False) -> dict[str, str | bool | None]:
@@ -176,7 +186,6 @@ def create_app() -> FastAPI:
         """Serve index.html for client-side routing (SPA fallback)."""
         # Don't fallback for API routes - let them 404 normally
         if request.url.path.startswith("/api/"):
-            from fastapi.responses import JSONResponse
             return JSONResponse(
                 status_code=404,
                 content={"detail": "Not Found"}
@@ -186,7 +195,6 @@ def create_app() -> FastAPI:
         if os.path.isfile(index_path):
             return FileResponse(index_path)
         # No frontend built yet
-        from fastapi.responses import JSONResponse
         return JSONResponse({
             "name": "Homebox Companion API",
             "version": __version__,

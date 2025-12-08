@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import (
@@ -17,9 +17,8 @@ from homebox_companion import (
     merge_items_with_openai,
     settings,
 )
-from homebox_companion.core.field_preferences import load_field_preferences
 
-from ...dependencies import get_labels_for_context, get_token
+from ...dependencies import VisionContext, get_vision_context
 from ...schemas.vision import (
     AdvancedItemDetails,
     BatchDetectionResponse,
@@ -33,43 +32,6 @@ from ...schemas.vision import (
 )
 
 router = APIRouter()
-
-
-def get_field_preferences_dict() -> dict[str, str] | None:
-    """Load field preferences and return as dict for prompt integration.
-
-    Returns dict with keys matching FIELD_DEFAULTS (snake_case) for inline
-    integration into prompt schemas. Returns None if no preferences are set.
-    """
-    prefs = load_field_preferences()
-    if not prefs.has_any_preferences():
-        return None
-    return prefs.to_customizations_dict()
-
-
-def get_output_language() -> str | None:
-    """Get the configured output language.
-
-    Returns the output language if set, or None for default (English).
-    """
-    prefs = load_field_preferences()
-    lang = prefs.get_output_language()
-    # Return None if English (default) to skip language instruction
-    if lang.lower() == "english":
-        return None
-    return lang
-
-
-def get_default_label_id() -> str | None:
-    """Get the configured default label ID.
-
-    This label is auto-added by the frontend, so we filter it from AI responses
-    to avoid duplication (frontend will add it anyway).
-
-    Returns the default label ID if set, or None.
-    """
-    prefs = load_field_preferences()
-    return prefs.default_label_id
 
 
 def filter_default_label(label_ids: list[str] | None, default_label_id: str | None) -> list[str]:
@@ -95,7 +57,7 @@ def filter_default_label(label_ids: list[str] | None, default_label_id: str | No
 @router.post("/detect", response_model=DetectionResponse)
 async def detect_items(
     image: Annotated[UploadFile, File(description="Primary image file to analyze")],
-    authorization: Annotated[str | None, Header()] = None,
+    ctx: Annotated[VisionContext, Depends(get_vision_context)],
     single_item: Annotated[bool, Form()] = False,
     extra_instructions: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
@@ -107,7 +69,7 @@ async def detect_items(
 
     Args:
         image: The primary image file to analyze.
-        authorization: Bearer token for authentication.
+        ctx: Vision context with auth token, labels, and preferences.
         single_item: If True, treat everything as a single item.
         extra_instructions: Optional user hint about what's in the image.
         extract_extended_fields: If True, also extract extended fields.
@@ -117,9 +79,6 @@ async def detect_items(
     logger.info(f"Detecting items from image: {image.filename} (+ {additional_count} additional)")
     logger.info(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
     logger.info(f"Extract extended fields: {extract_extended_fields}")
-
-    # Validate auth
-    token = get_token(authorization)
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
@@ -147,14 +106,7 @@ async def detect_items(
                 additional_image_data.append((add_bytes, add_mime))
                 logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
 
-    # Fetch labels for context (all labels - we filter from response, not prompt)
-    labels = await get_labels_for_context(token)
-    logger.debug(f"Loaded {len(labels)} labels for context")
-
-    # Load field preferences and output language
-    field_preferences = get_field_preferences_dict()
-    output_language = get_output_language()
-    default_label_id = get_default_label_id()
+    logger.debug(f"Loaded {len(ctx.labels)} labels for context")
 
     # Detect items
     try:
@@ -164,13 +116,13 @@ async def detect_items(
             api_key=settings.openai_api_key,
             mime_type=content_type,
             model=settings.openai_model,
-            labels=labels,
+            labels=ctx.labels,
             single_item=single_item,
             extra_instructions=extra_instructions,
             extract_extended_fields=extract_extended_fields,
             additional_images=additional_image_data,
-            field_preferences=field_preferences,
-            output_language=output_language,
+            field_preferences=ctx.field_preferences,
+            output_language=ctx.output_language,
         )
         logger.info(f"Detected {len(detected)} items")
     except Exception as e:
@@ -184,7 +136,7 @@ async def detect_items(
                 name=item.name,
                 quantity=item.quantity,
                 description=item.description,
-                label_ids=filter_default_label(item.label_ids, default_label_id),
+                label_ids=filter_default_label(item.label_ids, ctx.default_label_id),
                 manufacturer=item.manufacturer,
                 model_number=item.model_number,
                 serial_number=item.serial_number,
@@ -200,7 +152,7 @@ async def detect_items(
 @router.post("/detect-batch", response_model=BatchDetectionResponse)
 async def detect_items_batch(
     images: Annotated[list[UploadFile], File(description="Multiple images to analyze in parallel")],
-    authorization: Annotated[str | None, Header()] = None,
+    ctx: Annotated[VisionContext, Depends(get_vision_context)],
     configs: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
 ) -> BatchDetectionResponse:
@@ -211,15 +163,12 @@ async def detect_items_batch(
 
     Args:
         images: List of image files to analyze (each treated as separate item(s)).
-        authorization: Bearer token for authentication.
+        ctx: Vision context with auth token, labels, and preferences.
         configs: Optional JSON string with per-image configs.
             Format: [{"single_item": bool, "extra_instructions": str}, ...]
         extract_extended_fields: If True, also extract extended fields for all images.
     """
     logger.info(f"Batch detection for {len(images)} images")
-
-    # Validate auth
-    token = get_token(authorization)
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
@@ -240,14 +189,7 @@ async def detect_items_batch(
             logger.warning("Invalid configs JSON, using defaults")
             image_configs = []
 
-    # Fetch labels once for all images (avoid redundant calls)
-    labels = await get_labels_for_context(token)
-    logger.debug(f"Loaded {len(labels)} labels for context (shared across all images)")
-
-    # Load field preferences and output language once for all images
-    field_preferences = get_field_preferences_dict()
-    output_language = get_output_language()
-    default_label_id = get_default_label_id()
+    logger.debug(f"Loaded {len(ctx.labels)} labels for context (shared across all images)")
 
     # Read all image bytes in parallel
     async def read_image(img: UploadFile, index: int) -> tuple[int, bytes, str]:
@@ -282,12 +224,12 @@ async def detect_items_batch(
                 api_key=settings.openai_api_key,
                 mime_type=mime_type,
                 model=settings.openai_model,
-                labels=labels,
+                labels=ctx.labels,
                 single_item=single_item,
                 extra_instructions=extra_instructions,
                 extract_extended_fields=extract_extended_fields,
-                field_preferences=field_preferences,
-                output_language=output_language,
+                field_preferences=ctx.field_preferences,
+                output_language=ctx.output_language,
             )
 
             # Filter out default label from AI suggestions (frontend will auto-add it)
@@ -299,7 +241,7 @@ async def detect_items_batch(
                         name=item.name,
                         quantity=item.quantity,
                         description=item.description,
-                        label_ids=filter_default_label(item.label_ids, default_label_id),
+                        label_ids=filter_default_label(item.label_ids, ctx.default_label_id),
                         manufacturer=item.manufacturer,
                         model_number=item.model_number,
                         serial_number=item.serial_number,
@@ -352,15 +294,13 @@ async def detect_items_batch(
 async def analyze_item_advanced(
     images: Annotated[list[UploadFile], File(description="Images to analyze")],
     item_name: Annotated[str, Form()],
+    ctx: Annotated[VisionContext, Depends(get_vision_context)],
     item_description: Annotated[str | None, Form()] = None,
-    authorization: Annotated[str | None, Header()] = None,
 ) -> AdvancedItemDetails:
     """Analyze multiple images to extract detailed item information."""
     logger.info(f"Advanced analysis for item: {item_name}")
     logger.debug(f"Description: {item_description}")
     logger.debug(f"Number of images: {len(images) if images else 0}")
-
-    token = get_token(authorization)
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
@@ -382,14 +322,6 @@ async def analyze_item_advanced(
     if not image_data_uris:
         raise HTTPException(status_code=400, detail="No valid images provided")
 
-    # Fetch labels for context
-    labels = await get_labels_for_context(token)
-
-    # Load field preferences and output language
-    field_preferences = get_field_preferences_dict()
-    output_language = get_output_language()
-    default_label_id = get_default_label_id()
-
     # Analyze images
     try:
         logger.info(f"Analyzing {len(image_data_uris)} images with OpenAI...")
@@ -399,9 +331,9 @@ async def analyze_item_advanced(
             item_description=item_description,
             api_key=settings.openai_api_key,
             model=settings.openai_model,
-            labels=labels,
-            field_preferences=field_preferences,
-            output_language=output_language,
+            labels=ctx.labels,
+            field_preferences=ctx.field_preferences,
+            output_language=ctx.output_language,
         )
         logger.info("Analysis complete")
     except Exception as e:
@@ -417,19 +349,17 @@ async def analyze_item_advanced(
         manufacturer=details.get("manufacturer"),
         purchase_price=details.get("purchasePrice"),
         notes=details.get("notes"),
-        label_ids=filter_default_label(details.get("labelIds"), default_label_id),
+        label_ids=filter_default_label(details.get("labelIds"), ctx.default_label_id),
     )
 
 
 @router.post("/merge", response_model=MergedItemResponse)
 async def merge_items(
     request: MergeItemsRequest,
-    authorization: Annotated[str | None, Header()] = None,
+    ctx: Annotated[VisionContext, Depends(get_vision_context)],
 ) -> MergedItemResponse:
     """Merge multiple items into a single consolidated item using AI."""
     logger.info(f"Merging {len(request.items)} items")
-
-    token = get_token(authorization)
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
@@ -437,14 +367,6 @@ async def merge_items(
 
     if len(request.items) < 2:
         raise HTTPException(status_code=400, detail="At least 2 items are required to merge")
-
-    # Fetch labels for context
-    labels = await get_labels_for_context(token)
-
-    # Load field preferences and output language
-    field_preferences = get_field_preferences_dict()
-    output_language = get_output_language()
-    default_label_id = get_default_label_id()
 
     # Convert typed items to dicts for the OpenAI function
     items_as_dicts = [item.model_dump(exclude_none=True) for item in request.items]
@@ -455,9 +377,9 @@ async def merge_items(
             items=items_as_dicts,
             api_key=settings.openai_api_key,
             model=settings.openai_model,
-            labels=labels,
-            field_preferences=field_preferences,
-            output_language=output_language,
+            labels=ctx.labels,
+            field_preferences=ctx.field_preferences,
+            output_language=ctx.output_language,
         )
         logger.info(f"Merge complete: {merged.get('name')}")
     except Exception as e:
@@ -469,7 +391,7 @@ async def merge_items(
         name=merged.get("name", "Merged Item"),
         quantity=merged.get("quantity", sum(item.quantity for item in request.items)),
         description=merged.get("description"),
-        label_ids=filter_default_label(merged.get("labelIds"), default_label_id),
+        label_ids=filter_default_label(merged.get("labelIds"), ctx.default_label_id),
     )
 
 
@@ -478,7 +400,7 @@ async def correct_item(
     image: Annotated[UploadFile, File(description="Original image of the item")],
     current_item: Annotated[str, Form(description="JSON string of current item")],
     correction_instructions: Annotated[str, Form(description="User's correction feedback")],
-    authorization: Annotated[str | None, Header()] = None,
+    ctx: Annotated[VisionContext, Depends(get_vision_context)],
 ) -> CorrectionResponse:
     """Correct an item based on user feedback.
 
@@ -487,8 +409,6 @@ async def correct_item(
     """
     logger.info("Item correction request received")
     logger.debug(f"Correction instructions: {correction_instructions}")
-
-    token = get_token(authorization)
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
@@ -515,14 +435,7 @@ async def correct_item(
     content_type = image.content_type or "image/jpeg"
     image_data_uri = encode_image_bytes_to_data_uri(image_bytes, content_type)
 
-    # Fetch labels for context
-    labels = await get_labels_for_context(token)
-    logger.debug(f"Loaded {len(labels)} labels for context")
-
-    # Load field preferences and output language
-    field_preferences = get_field_preferences_dict()
-    output_language = get_output_language()
-    default_label_id = get_default_label_id()
+    logger.debug(f"Loaded {len(ctx.labels)} labels for context")
 
     # Call the correction function
     try:
@@ -533,9 +446,9 @@ async def correct_item(
             correction_instructions=correction_instructions,
             api_key=settings.openai_api_key,
             model=settings.openai_model,
-            labels=labels,
-            field_preferences=field_preferences,
-            output_language=output_language,
+            labels=ctx.labels,
+            field_preferences=ctx.field_preferences,
+            output_language=ctx.output_language,
         )
         logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
     except Exception as e:
@@ -549,7 +462,7 @@ async def correct_item(
                 name=item.get("name", "Unknown"),
                 quantity=item.get("quantity", 1),
                 description=item.get("description"),
-                label_ids=filter_default_label(item.get("labelIds"), default_label_id),
+                label_ids=filter_default_label(item.get("labelIds"), ctx.default_label_id),
                 manufacturer=item.get("manufacturer"),
                 model_number=item.get("modelNumber") or item.get("model_number"),
                 serial_number=item.get("serialNumber") or item.get("serial_number"),
@@ -561,4 +474,3 @@ async def correct_item(
         ],
         message=f"Corrected to {len(corrected_items)} item(s)",
     )
-

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Header, HTTPException
 
 from homebox_companion import HomeboxClient
+from homebox_companion.core.field_preferences import load_field_preferences
 
 # Global client instance (set during app lifespan)
 _homebox_client: HomeboxClient | None = None
@@ -53,3 +55,63 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
         ]
     except Exception:
         return []
+
+
+# =============================================================================
+# VISION CONTEXT - Bundles all context needed for vision endpoints
+# =============================================================================
+
+
+@dataclass
+class VisionContext:
+    """Context bundle for vision AI endpoints.
+
+    This dataclass consolidates all the common context needed by vision
+    endpoints, reducing boilerplate and ensuring field preferences are
+    only loaded once per request.
+
+    Attributes:
+        token: Bearer token for Homebox API authentication.
+        labels: List of available labels for AI context.
+        field_preferences: Custom field instructions dict, or None if no customizations.
+        output_language: Configured output language, or None for default (English).
+        default_label_id: ID of label to auto-add, or None.
+    """
+
+    token: str
+    labels: list[dict[str, str]]
+    field_preferences: dict[str, str] | None
+    output_language: str | None
+    default_label_id: str | None
+
+
+async def get_vision_context(
+    authorization: Annotated[str | None, Header()] = None,
+) -> VisionContext:
+    """FastAPI dependency that loads all vision endpoint context.
+
+    This dependency:
+    1. Extracts and validates the auth token
+    2. Fetches labels for AI context
+    3. Loads field preferences once (instead of 3 separate reads)
+
+    Args:
+        authorization: The Authorization header value.
+
+    Returns:
+        VisionContext with all required data for vision endpoints.
+    """
+    token = get_token(authorization)
+    prefs = load_field_preferences()
+
+    # Determine output language (None means use default English)
+    lang = prefs.get_output_language()
+    output_language = None if lang.lower() == "english" else lang
+
+    return VisionContext(
+        token=token,
+        labels=await get_labels_for_context(token),
+        field_preferences=prefs.to_customizations_dict() if prefs.has_any_preferences() else None,
+        output_language=output_language,
+        default_label_id=prefs.default_label_id,
+    )
