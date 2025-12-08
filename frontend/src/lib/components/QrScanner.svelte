@@ -34,8 +34,8 @@
 		const config = {
 			fps: 15, // Increased for better detection
 			qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-				// Make a square that's 50% of the smaller dimension (tighter focus for small QR codes)
-				const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.5);
+				// 70% of smaller dimension - large enough for zoomed QR codes
+				const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
 				scanBoxSize = size; // Update for visual overlay
 				return { width: size, height: size };
 			},
