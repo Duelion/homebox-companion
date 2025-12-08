@@ -2,69 +2,39 @@
 
 Instructions for AI/LLM agents working on this codebase.
 
+> **For user documentation** (installation, Docker deployment, features): See [README.md](README.md)
+
 ---
 
 ## Overview
 
-**Homebox Companion** is an AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) home inventory management. Users take photos of items, and OpenAI's vision capabilities (GPT-5) automatically identify and catalog them into their Homebox instance.
+**Homebox Companion** is an AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management. Users take photos of items, and OpenAI GPT-5 vision automatically identifies and catalogs them.
 
 ---
 
-## Environment & Tooling
+## Development Setup
 
-- Target any Homebox instance via the `HBC_HOMEBOX_URL` environment variable (we automatically append `/api/v1`). For testing, use the **demo** server at `https://demo.homebox.software` with demo credentials (`demo@example.com` / `demo`).
-- Manage Python tooling with **uv**: create a virtual environment via `uv venv`, add dependencies with `uv add`, and run scripts with `uv run`. Keep dependencies tracked in `pyproject.toml` and `uv.lock`.
-- The OpenAI API key is provided via the `HBC_OPENAI_API_KEY` environment variable.
-- **OpenAI Model**: Use GPT-5 models only (`gpt-5-mini` as default, `gpt-5-nano` for faster/cheaper). Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are deprecated for this project.
-- When testing functionality, hit the real demo API and the real OpenAI API rather than mocks or stubs.
-- Run `uv run ruff check .` before sending a commit to keep lint feedback consistent.
-- **Frontend dependencies**: When modifying `frontend/package.json`, always run `npm install` in the `frontend/` directory to update `package-lock.json`, then commit both files together. The CI uses `npm ci` which requires the lock file to be in sync.
+### Environment & Tooling
 
----
+- **Python**: Use `uv` for package management (`uv sync`, `uv add`, `uv run`)
+- **Frontend**: Use `npm` in the `frontend/` directory
+- **Linting**: Run `uv run ruff check .` before commits
+- **Testing**: Use real APIs (demo Homebox + OpenAI), not mocks
 
-## Environment Variables
+### Required Environment Variables
 
-All environment variables use the `HBC_` prefix (short for Homebox Companion):
-
-### Core Settings
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
-| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL with port if needed, e.g., `http://192.168.1.100:7745` (we append `/api/v1`) |
-| `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model for vision |
-| `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
-| `HBC_SERVER_PORT` | No | `8000` | Server port (serves both API and frontend in production) |
-| `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
-| `HBC_DISABLE_UPDATE_CHECK` | No | `false` | Disable GitHub update notifications |
-
-### AI Output Customization
-
-These settings configure how the AI generates item data. They can also be set via the Settings page UI, which takes priority over environment variables. Use these to persist customizations across Docker container updates.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HBC_AI_OUTPUT_LANGUAGE` | English | Language for AI-generated text (names, descriptions, notes) |
-| `HBC_AI_DEFAULT_LABEL_ID` | - | Label ID to auto-apply to all created items |
-| `HBC_AI_NAME` | - | Custom instructions for item naming |
-| `HBC_AI_DESCRIPTION` | - | Custom instructions for descriptions |
-| `HBC_AI_QUANTITY` | - | Custom instructions for quantity counting |
-| `HBC_AI_MANUFACTURER` | - | Custom instructions for manufacturer extraction |
-| `HBC_AI_MODEL_NUMBER` | - | Custom instructions for model number extraction |
-| `HBC_AI_SERIAL_NUMBER` | - | Custom instructions for serial number extraction |
-| `HBC_AI_PURCHASE_PRICE` | - | Custom instructions for price extraction |
-| `HBC_AI_PURCHASE_FROM` | - | Custom instructions for retailer extraction |
-| `HBC_AI_NOTES` | - | Custom instructions for notes |
-| `HBC_AI_NAMING_EXAMPLES` | - | Custom naming examples for the AI |
-
-**Example docker-compose.yml:**
-```yaml
-environment:
-  - HBC_OPENAI_API_KEY=sk-your-key
-  - HBC_HOMEBOX_URL=http://192.168.1.100:7745
-  - HBC_AI_OUTPUT_LANGUAGE=Spanish
-  - HBC_AI_NAME=Always include brand first, then model
+```bash
+HBC_OPENAI_API_KEY=sk-your-key          # Required
+HBC_HOMEBOX_URL=https://demo.homebox.software  # Optional, defaults to demo
 ```
+
+Demo credentials: `demo@example.com` / `demo`
+
+### OpenAI Model Policy
+
+**Use GPT-5 models only**: `gpt-5-mini` (default) or `gpt-5-nano` (faster/cheaper).
+
+Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are deprecated for this project.
 
 ---
 
@@ -73,13 +43,11 @@ environment:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Svelte Frontend                              │
-│  (SvelteKit + Tailwind CSS - runs in browser)                   │
+│  (SvelteKit + Tailwind CSS + Svelte 5 runes)                    │
 ├─────────────────────────────────────────────────────────────────┤
-│  • Login form                                                    │
-│  • Hierarchical location picker                                  │
-│  • Camera/file upload                                            │
-│  • Item review forms with merge/correct                          │
-│  • Summary & confirmation                                        │
+│  • ScanWorkflow class manages entire scan-to-submit flow        │
+│  • Thin view pattern: pages delegate to workflow                │
+│  • Components: QrScanner, LocationModal, ThumbnailEditor, etc.  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -87,28 +55,17 @@ environment:
 │                     FastAPI Backend                              │
 │  (Python - server/app.py)                                       │
 ├─────────────────────────────────────────────────────────────────┤
-│  POST /api/login              → Proxy to Homebox login          │
-│  GET  /api/locations          → Fetch locations (flat list)     │
-│  GET  /api/locations/tree     → Fetch locations (hierarchical)  │
-│  GET  /api/locations/{id}     → Fetch single location details   │
-│  POST /api/locations          → Create new location             │
-│  PUT  /api/locations/{id}     → Update location                 │
-│  GET  /api/labels             → Fetch labels (auth required)    │
-│  POST /api/items              → Batch create items in Homebox   │
-│  POST /api/items/{id}/attach  → Upload item attachment          │
-│  POST /api/tools/vision/detect      → Single image detection    │
-│  POST /api/tools/vision/detect-batch → Parallel multi-image     │
-│  POST /api/tools/vision/analyze     → Multi-image analysis      │
-│  POST /api/tools/vision/merge       → Merge multiple items      │
-│  POST /api/tools/vision/correct     → Correct item with feedback│
+│  /api/login, /api/locations/*, /api/labels, /api/items/*        │
+│  /api/tools/vision/* (detect, analyze, merge, correct)          │
+│  /api/settings/* (field-preferences, prompt-preview)            │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┴───────────────┐
               ▼                               ▼
-┌─────────────────────────────┐     ┌─────────────────────────┐
-│   Homebox Instance          │     │     OpenAI API          │
-│   (Self-hosted or demo)     │     │     (Vision/LLM)        │
-└─────────────────────────────┘     └─────────────────────────┘
+┌─────────────────────────────┐     ┌─────────────────────────────┐
+│   Homebox Instance          │     │     OpenAI API              │
+│   (Self-hosted or demo)     │     │     (GPT-5 Vision)          │
+└─────────────────────────────┘     └─────────────────────────────┘
 ```
 
 ---
@@ -117,367 +74,244 @@ environment:
 
 ```
 homebox-companion/
-├── src/
-│   └── homebox_companion/          # Python package
-│       ├── __init__.py             # Public API exports
-│       ├── core/                   # Core infrastructure
-│       │   ├── config.py           # Settings (HBC_* env vars)
-│       │   ├── exceptions.py       # Custom exceptions
-│       │   └── logging.py          # Loguru setup
-│       ├── homebox/                # Homebox API client
-│       │   ├── client.py           # Async HTTP client
-│       │   └── models.py           # Location, Item, Label, Attachment
-│       ├── ai/                     # AI/LLM abstraction
-│       │   ├── images.py           # Image encoding utilities
-│       │   ├── openai.py           # OpenAI client wrapper
-│       │   └── prompts.py          # Shared prompt templates
-│       └── tools/                  # Tool modules (expandable)
-│           ├── base.py             # BaseTool abstract class
-│           └── vision/             # Vision tool
-│               ├── detector.py     # detect_items_from_bytes
-│               ├── analyzer.py     # analyze_item_details
-│               ├── merger.py       # merge_items_with_openai
-│               ├── corrector.py    # correct_item_with_openai
-│               ├── models.py       # DetectedItem dataclass
-│               └── prompts.py      # Vision-specific prompts
+├── src/homebox_companion/           # Python package
+│   ├── __init__.py                  # Public API exports
+│   ├── core/
+│   │   ├── config.py                # Settings (HBC_* env vars)
+│   │   ├── field_preferences.py     # AI customization storage
+│   │   ├── exceptions.py            # Custom exceptions
+│   │   └── logging.py               # Loguru setup
+│   ├── homebox/
+│   │   ├── client.py                # Async HTTP client
+│   │   └── models.py                # Location, Item, Label
+│   ├── ai/
+│   │   ├── images.py                # Image encoding utilities
+│   │   ├── openai.py                # OpenAI client wrapper
+│   │   ├── prompts.py               # Shared prompt templates
+│   │   └── vision_prompts.py        # Vision-specific prompts
+│   └── tools/vision/
+│       ├── detector.py              # detect_items_from_bytes
+│       ├── analyzer.py              # analyze_item_details
+│       ├── merger.py                # merge_items_with_openai
+│       ├── corrector.py             # correct_item_with_openai
+│       ├── models.py                # DetectedItem dataclass
+│       └── prompts.py               # Detection prompts
 │
-├── server/                         # FastAPI web app
-│   ├── app.py                      # App factory + lifespan
-│   ├── dependencies.py             # DI: get_client, get_token
-│   ├── api/                        # API routers
-│   │   ├── __init__.py             # Router aggregation
-│   │   ├── auth.py                 # /api/login
-│   │   ├── locations.py            # /api/locations/*
-│   │   ├── labels.py               # /api/labels
-│   │   ├── items.py                # /api/items/*
-│   │   └── tools/
-│   │       └── vision.py           # /api/tools/vision/*
-│   └── schemas/                    # Pydantic request/response models
-│       ├── auth.py                 # Login schemas
-│       ├── items.py                # Item create/response schemas
-│       ├── locations.py            # Location schemas
-│       └── vision.py               # Vision detection schemas
+├── server/                          # FastAPI backend
+│   ├── app.py                       # App factory + lifespan
+│   ├── dependencies.py              # DI: get_client, get_token, VisionContext
+│   ├── api/
+│   │   ├── auth.py                  # /api/login
+│   │   ├── locations.py             # /api/locations/*
+│   │   ├── labels.py                # /api/labels
+│   │   ├── items.py                 # /api/items/*
+│   │   ├── field_preferences.py     # /api/settings/*
+│   │   └── tools/vision.py          # /api/tools/vision/*
+│   └── schemas/                     # Pydantic request/response models
 │
-├── frontend/                       # Svelte frontend
-│   ├── package.json
-│   ├── svelte.config.js
-│   ├── tailwind.config.js
-│   ├── vite.config.ts
+├── frontend/                        # Svelte frontend
 │   └── src/
-│       ├── app.html                # HTML shell
-│       ├── app.css                 # Tailwind imports
 │       ├── lib/
-│       │   ├── api.ts              # API client
-│       │   ├── types.ts            # TypeScript types
-│       │   ├── stores/             # Svelte stores
-│       │   │   ├── auth.ts         # Authentication state
-│       │   │   ├── locations.ts    # Location selection
-│       │   │   ├── labels.ts       # Labels cache
-│       │   │   ├── items.ts        # Detected/confirmed items
-│       │   │   └── ui.ts           # Loading states, toasts
-│       │   └── components/         # Reusable components
-│       │       ├── Button.svelte
-│       │       ├── Modal.svelte
-│       │       ├── Loader.svelte
-│       │       ├── Toast.svelte
-│       │       ├── StepIndicator.svelte
-│       │       ├── CaptureButtons.svelte
+│       │   ├── api/                 # Split API modules
+│       │   │   ├── client.ts        # Base fetch wrapper
+│       │   │   ├── auth.ts, locations.ts, labels.ts, items.ts
+│       │   │   ├── vision.ts        # AI detection endpoints
+│       │   │   └── settings.ts      # Field preferences
+│       │   ├── types/index.ts       # Consolidated TypeScript types
+│       │   ├── workflows/
+│       │   │   └── scan.svelte.ts   # ScanWorkflow class (Svelte 5)
+│       │   ├── stores/              # Svelte stores
+│       │   │   ├── auth.ts, locations.ts, labels.ts, ui.ts
+│       │   └── components/          # Reusable components
+│       │       ├── QrScanner.svelte
 │       │       ├── LocationModal.svelte
 │       │       ├── ThumbnailEditor.svelte
-│       │       ├── ExtendedFieldsPanel.svelte
-│       │       ├── AdditionalImagesPanel.svelte
-│       │       ├── AiCorrectionPanel.svelte
-│       │       └── SessionExpiredModal.svelte
-│       └── routes/                 # SvelteKit pages
-│           ├── +layout.svelte      # App layout
-│           ├── +layout.ts          # SPA config (ssr=false)
-│           ├── +page.svelte        # Login page
-│           ├── location/+page.svelte
-│           ├── capture/+page.svelte
-│           ├── review/+page.svelte
-│           ├── summary/+page.svelte
-│           └── success/+page.svelte
+│       │       └── ...
+│       └── routes/                  # SvelteKit pages
+│           ├── +page.svelte         # Login
+│           ├── location/            # Location selection
+│           ├── capture/             # Photo capture
+│           ├── review/              # Item review
+│           ├── summary/             # Submission summary
+│           ├── success/             # Success page
+│           └── settings/            # Settings page
 │
-├── tests/                          # Test suite
-│   ├── test_client.py              # Homebox client tests
-│   ├── test_integration.py         # End-to-end tests
-│   ├── test_llm.py                 # Vision detection tests
-│   └── assets/
-│       └── test_detection.jpg      # Test image
-│
-├── Dockerfile                      # Multi-stage Docker build
-├── docker-compose.yml              # Docker Compose config
-├── pyproject.toml                  # Python project config
-├── uv.lock                         # Dependency lock
-├── AGENTS.md                       # This file
-└── README.md                       # User documentation
+├── tests/                           # Test suite
+├── pyproject.toml                   # Python config + version
+└── Dockerfile                       # Multi-stage Docker build
 ```
 
 ---
 
-## Running the Application
+## Frontend Architecture
 
-### Backend (Python)
+### ScanWorkflow Pattern (Svelte 5)
 
-```bash
-# Install dependencies
-uv sync
+The frontend uses a class-based workflow pattern with Svelte 5 runes:
 
-# Set required environment variables
-export HBC_OPENAI_API_KEY="sk-your-key"
-export HBC_HOMEBOX_URL="http://192.168.1.100:7745"  # Include port if not behind reverse proxy
+```typescript
+// lib/workflows/scan.svelte.ts
+class ScanWorkflow {
+    state = $state<ScanState>({...});  // Reactive state
+    
+    // Actions
+    setLocation(id, name, path) {...}
+    addImage(file, options) {...}
+    async startAnalysis() {...}
+    confirmCurrentItem() {...}
+    async submitConfirmedItems() {...}
+}
 
-# Start the server
-uv run python -m server.app
-
-# Or with uvicorn directly (with hot reload)
-uv run uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
+export const scanWorkflow = new ScanWorkflow();
 ```
 
-### Frontend (Svelte)
+**Key concepts:**
+- Single source of truth for the entire scan flow
+- State persists across tab navigation
+- Pages are "thin views" that render workflow state
+- Analysis continues in background even when navigating away
 
-```bash
-cd frontend
+### API Client Structure
 
-# Install dependencies
-npm install
-
-# Start dev server (proxies API to localhost:8000)
-npm run dev
-
-# Build for production
-npm run build
+```typescript
+// lib/api/client.ts - Base request wrapper with auth handling
+// lib/api/vision.ts - AI detection endpoints
+// lib/api/settings.ts - Field preferences + prompt preview
 ```
 
-For production, build the frontend and serve static files from the backend:
-```bash
-cd frontend && npm run build
-cp -r build/* ../server/static/
-```
+### Component Patterns
+
+- Use Svelte 5 `$props()` for component inputs
+- Use `$state()` for local reactive state
+- Emit events via callback props (e.g., `onScan`, `onClose`)
 
 ---
 
-## Testing
+## Backend Patterns
 
-Tests require real API keys for integration testing:
+### VisionContext Dependency
 
-```bash
-# Run all tests (unit tests only by default)
-uv run pytest
+Shared context for vision endpoints:
 
-# Run integration tests (requires HBC_OPENAI_API_KEY)
-uv run pytest -m integration
+```python
+@dataclass
+class VisionContext:
+    token: str
+    labels: list[dict]
+    field_preferences: FieldPreferences
+    output_language: str | None
+    default_label_id: str | None
+
+async def get_vision_context(...) -> VisionContext:
+    # Loads labels, preferences in one place
 ```
 
-Integration tests hit the real Homebox demo server and OpenAI API. Set these environment variables:
-- `HBC_OPENAI_API_KEY` - Required for vision detection tests
-- `HBC_HOMEBOX_URL` - Defaults to demo server
+### Field Preferences
+
+AI customization is stored in `config/field_preferences.json` with env var fallbacks:
+
+```python
+def load_field_preferences() -> FieldPreferences:
+    # 1. Load env var defaults (HBC_AI_*)
+    # 2. Overlay with file-based preferences (UI settings win)
+```
 
 ---
 
 ## AI Tool Development
 
-### Vision Prompts Architecture
+### Prompt Architecture
 
-The vision tool uses a layered prompt system in `src/homebox_companion/tools/vision/prompts.py`:
+Prompts are built modularly in `src/homebox_companion/ai/prompts.py`:
 
-1. **System Prompts** - Define AI behavior and output schema
-   - `build_detection_system_prompt()` - Single image detection
-   - `build_multi_image_system_prompt()` - Multiple images of same item
-   - `build_discriminatory_system_prompt()` - Detailed item separation
+```python
+FIELD_DEFAULTS = {
+    "name": "Title Case, no quantity, max 255 characters",
+    "description": "max 1000 chars, condition/attributes only",
+    # ...
+}
 
-2. **User Prompts** - Provide context and examples
-   - `build_detection_user_prompt()` - Standard detection request
-   - `build_discriminatory_user_prompt()` - Unmerge/re-detect request
+def build_naming_rules(customizations) -> str: ...
+def build_item_schema(customizations) -> str: ...
+def build_extended_fields_schema(customizations) -> str: ...
+def build_label_prompt(labels) -> str: ...
+```
 
-3. **Label Integration** - Available labels are injected into prompts for smart labeling
+User customizations **replace** defaults (not append).
 
-### Extended Fields Schema
+### Adding New AI Tools
 
-The AI can extract these additional fields when visible:
+1. Create module: `src/homebox_companion/tools/new_tool/`
+2. Add API router: `server/api/tools/new_tool.py`
+3. Register in `server/api/__init__.py`
+4. Add frontend integration as needed
+
+### Extended Fields
+
+These fields require a PUT after item creation (Homebox API limitation):
 
 | Field | Description |
 |-------|-------------|
-| `manufacturer` | Brand name (e.g., "DeWalt", "Sony") |
-| `model_number` | Model/part number from labels |
-| `serial_number` | Serial number from stickers/engravings |
-| `purchase_price` | Price from tags/receipts |
+| `manufacturer` | Brand name |
+| `model_number` | Model/part number |
+| `serial_number` | Serial number |
+| `purchase_price` | Price (number only) |
 | `purchase_from` | Retailer name |
-| `notes` | Condition observations, special features |
-
-Note: Extended fields require a PUT request after item creation (Homebox API limitation).
-
-### Adding New Tools
-
-To add a new AI-powered tool (e.g., location description generator):
-
-1. **Create tool module**: `src/homebox_companion/tools/location_describer/`
-   - `__init__.py` - exports
-   - `describer.py` - main logic
-   - `prompts.py` - tool-specific prompts
-
-2. **Add API router**: `server/api/tools/location_describer.py`
-   - Define endpoints
-   - Register in `server/api/tools/__init__.py`
-
-3. **Add frontend page/component** (if needed)
-
-4. **Inherit from `BaseTool`** for consistent interface:
-   ```python
-   from homebox_companion.tools.base import BaseTool
-
-   class LocationDescriber(BaseTool):
-       @property
-       def name(self) -> str:
-           return "location_describer"
-
-       @property
-       def description(self) -> str:
-           return "Generate descriptions for locations"
-
-       async def execute(self, *args, **kwargs):
-           # Implementation
-           pass
-   ```
+| `notes` | Condition/defects only |
 
 ---
 
-## Key Library Exports
+## Testing
 
-```python
-from homebox_companion import (
-    # Configuration
-    settings,
-    Settings,
-    
-    # Logging
-    logger,
-    setup_logging,
-    
-    # Client (async only)
-    HomeboxClient,
-    Location,
-    Label,
-    Item,
-    ItemCreate,
-    ItemUpdate,
-    Attachment,
-    
-    # Exceptions
-    AuthenticationError,
-    
-    # Vision detection
-    DetectedItem,
-    detect_items_from_bytes,
-    discriminatory_detect_items,
-    
-    # Advanced AI functions (async)
-    analyze_item_details_from_images,
-    correct_item_with_openai,
-    merge_items_with_openai,
-    
-    # Image encoding
-    encode_image_to_data_uri,
-    encode_image_bytes_to_data_uri,
-)
+```bash
+# Unit tests
+uv run pytest
+
+# Integration tests (requires HBC_OPENAI_API_KEY)
+uv run pytest -m integration
 ```
 
----
-
-## Version Management
-
-Version is defined in a single place: `pyproject.toml`
-
-The package reads it at runtime using `importlib.metadata`:
-```python
-from importlib.metadata import version
-__version__ = version("homebox-companion")
-```
-
-Increment version in `pyproject.toml` only.
+Integration tests hit the real Homebox demo server and OpenAI API.
 
 ---
 
 ## Pre-Commit Checklist
 
-Before pushing changes, ensure:
-
-1. **Python changes**: Run `uv run ruff check .` to verify linting
-2. **Frontend dependency changes**: If you modified `frontend/package.json`:
-   ```bash
-   cd frontend
-   npm install
-   ```
-   Then commit both `package.json` and `package-lock.json` together.
-3. **Version bump**: Increment version in `pyproject.toml` for PRs
+1. **Lint**: `uv run ruff check .`
+2. **Frontend deps**: If `package.json` changed, run `npm install` and commit both files
+3. **Version**: Increment in `pyproject.toml` for releases
 
 ---
 
-## Deployment
+## Version Management
 
-The application can be deployed via Docker or manually on a server. Pre-built images are available at `ghcr.io/duelion/homebox-companion`.
+Version is defined in `pyproject.toml` only. Read at runtime:
 
-### Docker Compose Deployment (Recommended)
-
-Pull the latest image:
-
-```bash
-docker pull ghcr.io/duelion/homebox-companion:latest
+```python
+from importlib.metadata import version
+__version__ = version("homebox-companion")
 ```
 
-Create a `docker-compose.yml`:
+---
 
-```yaml
-version: "3.4"
+## Key Exports
 
-services:
-  homebox-companion:
-    image: ghcr.io/duelion/homebox-companion:latest
-    container_name: homebox-companion
-    restart: always
-    environment:
-      - HBC_OPENAI_API_KEY=sk-your-api-key-here
-      # Use your Homebox URL with port (e.g., http://192.168.1.100:7745)
-      - HBC_HOMEBOX_URL=http://192.168.1.100:7745
-      - HBC_OPENAI_MODEL=gpt-5-mini
-      - HBC_LOG_LEVEL=INFO
-    ports:
-      - 8000:8000
+```python
+from homebox_companion import (
+    # Config
+    settings, Settings,
+    
+    # Client
+    HomeboxClient, ItemCreate, ItemUpdate,
+    
+    # Exceptions
+    AuthenticationError,
+    
+    # Vision
+    DetectedItem, detect_items_from_bytes, discriminatory_detect_items,
+    analyze_item_details_from_images, correct_item_with_openai, merge_items_with_openai,
+    
+    # Utilities
+    encode_image_to_data_uri, encode_image_bytes_to_data_uri,
+)
 ```
-
-Then run: `docker compose up -d`
-
-### Docker Run
-
-```bash
-docker run -d -p 8000:8000 \
-  -e HBC_OPENAI_API_KEY="sk-your-key" \
-  -e HBC_HOMEBOX_URL="http://192.168.1.100:7745" \
-  ghcr.io/duelion/homebox-companion:latest
-```
-
-### Building Locally (Development)
-
-```bash
-docker build -t homebox-companion .
-docker run -d -p 8000:8000 \
-  -e HBC_OPENAI_API_KEY="sk-your-key" \
-  -e HBC_HOMEBOX_URL="http://192.168.1.100:7745" \
-  homebox-companion
-```
-
-### Manual Deployment
-
-The frontend uses `@sveltejs/adapter-static` to build as a static SPA. The FastAPI backend serves these static files from `server/static/`.
-
-1. Build the frontend: `cd frontend && npm run build`
-2. Copy to static: `cp -r build/* ../server/static/`
-3. Run the server: `uv run python -m server.app`
-
-### Common Deployment Issues
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `npm ci` fails with "Missing package from lock file" | `package-lock.json` out of sync | Run `npm install` locally and commit the updated lock file |
-| Frontend not updating | Build output not copied | Check `server/static/` contains the build files |
-| 404 on frontend routes | SPA fallback not working | Ensure `+layout.ts` has `export const ssr = false` |
