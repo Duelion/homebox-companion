@@ -104,13 +104,16 @@
 		}
 
 		// Fetch config and version info in parallel
+		// Include labels fetch to verify auth is still valid (triggers session expired modal if not)
 		try {
-			const [configResult, versionResult] = await Promise.all([
+			const [configResult, versionResult, labelsResult] = await Promise.all([
 				getConfig(),
 				getVersion(true), // Force check for updates regardless of env setting
+				labelsApi.list(), // Auth-required call to detect expired sessions early
 			]);
 
 			config = configResult;
+			availableLabels = labelsResult; // Cache for later use
 
 			// Set update info
 			if (versionResult.update_available && versionResult.latest_version) {
@@ -118,6 +121,7 @@
 				latestVersionNumber = versionResult.latest_version;
 			}
 		} catch (error) {
+			// If it's a 401, the session expired modal will already be shown
 			console.error('Failed to load settings data:', error);
 		} finally {
 			isLoadingConfig = false;
@@ -173,13 +177,9 @@
 		fieldPrefsError = null;
 
 		try {
-			// Load preferences and labels in parallel
-			const [prefsResult, labelsResult] = await Promise.all([
-				fieldPreferences.get(),
-				labelsApi.list(),
-			]);
+			// Load preferences (labels already loaded in onMount)
+			const prefsResult = await fieldPreferences.get();
 			prefs = prefsResult;
-			availableLabels = labelsResult;
 			showFieldPrefs = true;
 		} catch (error) {
 			console.error('Failed to load field preferences:', error);
