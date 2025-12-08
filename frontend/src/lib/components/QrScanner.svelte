@@ -31,24 +31,29 @@
 				});
 			};
 
-			const config = {
-				fps: 10,
-				qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-					// Make a square that's 70% of the smaller dimension
-					const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
-					scanBoxSize = size; // Update for visual overlay
-					return { width: size, height: size };
-				},
-				aspectRatio: 1.0,
-				disableFlip: false,
-			};
+		const videoConstraints = {
+			facingMode: 'environment',
+			focusMode: 'continuous'
+		};
 
-			await html5QrCode.start(
-				{ facingMode: 'environment' },
-				config,
-				qrCodeSuccessCallback,
-				() => {} // Ignore QR not found errors
-			);
+		const config = {
+			fps: 10,
+			qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+				// Make a square that's 70% of the smaller dimension
+				const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+				scanBoxSize = size; // Update for visual overlay
+				return { width: size, height: size };
+			},
+			aspectRatio: 1.0,
+			disableFlip: false,
+		};
+
+		await html5QrCode.start(
+			videoConstraints,
+			config,
+			qrCodeSuccessCallback,
+			() => {} // Ignore QR not found errors
+		);
 
 			isStarting = false;
 		} catch (err) {
@@ -193,6 +198,24 @@
 	/* Hide the library's internal scan region border/image */
 	:global(#qr-reader__scan_region > img) {
 		display: none !important;
+	}
+	
+	/* Hide the library's internal scan region border elements */
+	:global(#qr-reader__scan_region > div) {
+		border: none !important;
+		outline: none !important;
+		box-shadow: none !important;
+	}
+	
+	/* Hide any SVG borders the library might create */
+	:global(#qr-reader__scan_region svg) {
+		display: none !important;
+	}
+	
+	/* Ensure video fills container properly */
+	:global(#qr-reader video) {
+		width: 100% !important;
+		height: 100% !important;
 	}
 	
 	:global(#qr-reader__dashboard) {
