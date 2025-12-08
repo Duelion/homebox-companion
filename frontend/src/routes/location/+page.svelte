@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { locations as locationsApi, labels as labelsApi, type LocationData, type LocationTreeNode } from '$lib/api';
+	import { locations as locationsApi, labels as labelsApi } from '$lib/api';
 	import { isAuthenticated, sessionExpired } from '$lib/stores/auth';
 	import {
 		locationTree,
@@ -9,22 +9,22 @@
 		currentLevelLocations,
 		selectedLocation,
 		selectedLocationPath,
-		resetLocationState,
 		type PathItem,
 	} from '$lib/stores/locations';
-	import { labels, setCurrentScanRoute } from '$lib/stores/items';
-	import { showToast, setLoading } from '$lib/stores/ui';
+	import { fetchLabels } from '$lib/stores/labels';
+	import { showToast } from '$lib/stores/ui';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import type { Location } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import Loader from '$lib/components/Loader.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import LocationModal from '$lib/components/LocationModal.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 
+	// Local UI state
 	let isLoadingLocations = $state(true);
 	let searchQuery = $state('');
-	let allLocationsFlat = $state<{ location: LocationData; path: string }[]>([]);
-
-	// Track previous session expired state to detect re-authentication
+	let allLocationsFlat = $state<{ location: Location; path: string }[]>([]);
 	let wasSessionExpired = $state(false);
 
 	// Modal state
@@ -43,31 +43,36 @@
 				)
 	);
 
-	// Are we in search mode?
 	let isSearching = $derived(searchQuery.trim().length > 0);
 
 	// Reload locations when session is restored after expiry
 	$effect(() => {
 		const currentExpired = $sessionExpired;
 		if (wasSessionExpired && !currentExpired) {
-			// Session was restored after expiry - reload data
 			loadLocations();
-			loadLabels();
+			fetchLabels();
 		}
 		wasSessionExpired = currentExpired;
 	});
 
 	// Redirect if not authenticated
 	onMount(async () => {
-		setCurrentScanRoute('/location');
-		
 		if (!$isAuthenticated) {
 			goto('/');
 			return;
 		}
 
+		// If workflow already has a location, sync it to the store
+		if (scanWorkflow.state.locationId) {
+			// Workflow has location, could redirect to capture if in capturing state
+			if (scanWorkflow.state.status === 'capturing' || scanWorkflow.state.status === 'analyzing') {
+				goto('/capture');
+				return;
+			}
+		}
+
 		await loadLocations();
-		await loadLabels();
+		await fetchLabels();
 	});
 
 	async function loadLocations() {
@@ -76,7 +81,6 @@
 			const tree = await locationsApi.tree();
 			locationTree.set(tree);
 			currentLevelLocations.set(tree);
-			// Build flat list with paths for search
 			allLocationsFlat = flattenLocations(tree, '');
 		} catch (error) {
 			console.error('Failed to load locations:', error);
@@ -86,9 +90,8 @@
 		}
 	}
 
-	// Recursively flatten all locations with their full paths
-	function flattenLocations(locations: LocationData[], parentPath: string): { location: LocationData; path: string }[] {
-		const result: { location: LocationData; path: string }[] = [];
+	function flattenLocations(locations: Location[], parentPath: string): { location: Location; path: string }[] {
+		const result: { location: Location; path: string }[] = [];
 		for (const loc of locations) {
 			const currentPath = parentPath ? `${parentPath} › ${loc.name}` : loc.name;
 			result.push({ location: loc, path: currentPath });
@@ -99,8 +102,7 @@
 		return result;
 	}
 
-	// Find a location by ID in the tree
-	function findLocationById(locations: LocationData[], id: string): LocationData | null {
+	function findLocationById(locations: Location[], id: string): Location | null {
 		for (const loc of locations) {
 			if (loc.id === id) return loc;
 			if (loc.children && loc.children.length > 0) {
@@ -111,48 +113,35 @@
 		return null;
 	}
 
-	async function loadLabels() {
-		try {
-			const labelList = await labelsApi.list();
-			labels.set(labelList);
-		} catch (error) {
-			console.error('Failed to load labels:', error);
-		}
-	}
-
-	function navigateInto(location: LocationData) {
-		// If this location has children, navigate into it
+	function navigateInto(location: Location) {
 		if (location.children && location.children.length > 0) {
 			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
 			currentLevelLocations.set(location.children);
 		} else {
-			// No children, select this location directly
-			selectLocation(location);
+			selectLocation(location, location.name);
 		}
 	}
 
-	function selectLocation(location: LocationData) {
+	function selectLocation(location: Location, path: string) {
+		// Update both the location store (for UI) and the workflow (for scan flow)
 		selectedLocation.set(location);
-		searchQuery = ''; // Clear search when selecting
+		scanWorkflow.setLocation(location.id, location.name, path);
+		searchQuery = '';
 	}
 
-	function selectFromSearch(item: { location: LocationData; path: string }) {
-		selectedLocation.set(item.location);
-		searchQuery = ''; // Clear search
+	function selectFromSearch(item: { location: Location; path: string }) {
+		selectLocation(item.location, item.path);
 	}
 
 	function navigateToPath(index: number) {
 		if (index === -1) {
-			// Go to root
 			locationPath.set([]);
 			currentLevelLocations.set($locationTree);
 		} else {
-			// Navigate to specific path item
 			const newPath = $locationPath.slice(0, index + 1);
 			locationPath.set(newPath);
 			
-			// Find the location at this path
-			let current: LocationData[] = $locationTree;
+			let current: Location[] = $locationTree;
 			for (const pathItem of newPath) {
 				const loc = current.find((l) => l.id === pathItem.id);
 				if (loc?.children) {
@@ -165,7 +154,7 @@
 
 	function changeSelection() {
 		selectedLocation.set(null);
-		// Reset to root for fresh selection
+		scanWorkflow.clearLocation();
 		locationPath.set([]);
 		currentLevelLocations.set($locationTree);
 	}
@@ -178,7 +167,6 @@
 		goto('/capture');
 	}
 
-	// Get the current parent for new locations (based on navigation path)
 	function getCurrentParent(): { id: string; name: string } | null {
 		if ($locationPath.length === 0) return null;
 		const last = $locationPath[$locationPath.length - 1];
@@ -204,7 +192,6 @@
 
 	async function handleSaveLocation(data: { name: string; description: string; parentId: string | null }) {
 		if (locationModalMode === 'create') {
-			// Create new location
 			const newLocation = await locationsApi.create({
 				name: data.name,
 				description: data.description,
@@ -213,21 +200,15 @@
 
 			showToast(`Created "${newLocation.name}"`, 'success');
 
-			// Remember the current navigation path before refreshing
 			const savedPath = [...$locationPath];
-			
-			// Refresh the location tree to show the new location
 			await loadLocations();
 
-			// If we created from a selected location (Add sub-location button)
 			if ($selectedLocation) {
-				// Clear selection and navigate to show the parent's children
 				selectedLocation.set(null);
+				scanWorkflow.clearLocation();
 				
-				// Set the path to the selected location so we can see the new sub-location
 				const parentId = data.parentId;
 				if (parentId) {
-					// Navigate into the parent to show the new location
 					const parentLoc = findLocationById($locationTree, parentId);
 					if (parentLoc) {
 						locationPath.set([{ id: parentLoc.id, name: parentLoc.name }]);
@@ -238,11 +219,9 @@
 					currentLevelLocations.set($locationTree);
 				}
 			} else if (savedPath.length > 0) {
-				// We were in browse mode inside a folder - restore that navigation
 				locationPath.set(savedPath);
 				
-				// Navigate to that path in the refreshed tree
-				let current: LocationData[] = $locationTree;
+				let current: Location[] = $locationTree;
 				for (const pathItem of savedPath) {
 					const loc = current.find((l) => l.id === pathItem.id);
 					if (loc?.children) {
@@ -252,7 +231,6 @@
 				currentLevelLocations.set(current);
 			}
 		} else if (locationModalMode === 'edit' && $selectedLocation) {
-			// Update existing location
 			const updatedLocation = await locationsApi.update($selectedLocation.id, {
 				name: data.name,
 				description: data.description,
@@ -260,17 +238,18 @@
 
 			showToast(`Updated "${updatedLocation.name}"`, 'success');
 
-			// Refresh the location tree
 			await loadLocations();
 
-			// Update the selected location with new data
-			const locationData: LocationData = {
+			const locationData: Location = {
 				id: updatedLocation.id,
 				name: updatedLocation.name,
 				description: updatedLocation.description,
 				children: $selectedLocation.children || [],
 			};
 			selectedLocation.set(locationData);
+			
+			// Update workflow with new name
+			scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
 		}
 	}
 </script>
@@ -294,7 +273,7 @@
 			<Loader message="Loading locations..." />
 		</div>
 	{:else if $selectedLocation}
-		<!-- SELECTED STATE: Show only the selected location with confirm -->
+		<!-- SELECTED STATE -->
 		<div class="space-y-4">
 			<div class="bg-surface rounded-xl border border-primary p-4">
 				<div class="flex items-center gap-3">
@@ -314,7 +293,6 @@
 							<p class="text-sm text-text-muted mt-1">{$selectedLocation.description}</p>
 						{/if}
 					</div>
-					<!-- Edit button -->
 					<button
 						type="button"
 						class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
@@ -329,7 +307,6 @@
 				</div>
 			</div>
 
-			<!-- Add sub-location button -->
 			<button
 				type="button"
 				class="w-full p-3 text-center text-primary hover:bg-primary/10 rounded-xl border border-dashed border-primary/40 transition-colors"
@@ -353,7 +330,7 @@
 			</Button>
 		</div>
 	{:else}
-		<!-- SELECTION STATE: Show search and location list -->
+		<!-- SELECTION STATE -->
 		
 		<!-- Search box -->
 		<div class="relative mb-4">
@@ -385,7 +362,7 @@
 		</div>
 
 		{#if isSearching}
-			<!-- SEARCH RESULTS: Flat list with full paths -->
+			<!-- SEARCH RESULTS -->
 			<div class="space-y-2">
 				{#if filteredLocations.length === 0}
 					<div class="py-8 text-center text-text-muted">
@@ -421,9 +398,8 @@
 				{/if}
 			</div>
 		{:else}
-			<!-- BROWSE MODE: Hierarchical navigation -->
+			<!-- BROWSE MODE -->
 			
-			<!-- Breadcrumb -->
 			{#if $locationPath.length > 0}
 				<div class="flex items-center gap-1 overflow-x-auto pb-2 mb-4 text-sm">
 					<button
@@ -458,18 +434,18 @@
 					class="w-full flex items-center gap-3 p-3 mb-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-left"
 					aria-label="Select current location"
 					onclick={() => {
-						const lastPath = $locationPath[$locationPath.length - 1];
-						// Find the location in the tree
-						let current: LocationData[] = $locationTree;
-						let found: LocationData | null = null;
+						let current: Location[] = $locationTree;
+						let found: Location | null = null;
+						let path = '';
 						for (const pathItem of $locationPath) {
 							const loc = current.find((l) => l.id === pathItem.id);
 							if (loc) {
 								found = loc;
+								path = path ? `${path} / ${loc.name}` : loc.name;
 								if (loc.children) current = loc.children;
 							}
 						}
-						if (found) selectLocation(found);
+						if (found) selectLocation(found, path);
 					}}
 				>
 					<div class="p-2 bg-primary/20 rounded-lg">
@@ -551,7 +527,7 @@
 	{/if}
 </div>
 
-<!-- Location Modal for create/edit -->
+<!-- Location Modal -->
 <LocationModal
 	bind:open={showLocationModal}
 	mode={locationModalMode}
