@@ -13,6 +13,8 @@ Environment Variables:
         this single port serves both the API and the static frontend.
     HBC_LOG_LEVEL: Logging level (default: INFO)
     HBC_DISABLE_UPDATE_CHECK: Set to true to disable GitHub update checks (default: false)
+    HBC_MAX_UPLOAD_SIZE_MB: Maximum file upload size in MB (default: 20)
+    HBC_CORS_ORIGINS: Allowed CORS origins, comma-separated or "*" for all (default: "*")
 """
 
 from __future__ import annotations
@@ -61,6 +63,10 @@ class Settings(BaseSettings):
     disable_update_check: bool = False
     github_repo: str = "Duelion/homebox-companion"
 
+    # Security configuration
+    max_upload_size_mb: int = 20  # Maximum file upload size in MB
+    cors_origins: str = "*"  # Comma-separated origins or "*" for all
+
     @computed_field
     @property
     def api_url(self) -> str:
@@ -73,6 +79,20 @@ class Settings(BaseSettings):
     def is_demo_mode(self) -> bool:
         """Check if using the demo server."""
         return self.homebox_url.rstrip("/") == DEMO_HOMEBOX_URL
+
+    @computed_field
+    @property
+    def max_upload_size_bytes(self) -> int:
+        """Maximum upload size in bytes."""
+        return self.max_upload_size_mb * 1024 * 1024
+
+    @computed_field
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse CORS origins into a list."""
+        if self.cors_origins == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     def validate_config(self) -> list[str]:
         """Validate settings and return list of issues."""

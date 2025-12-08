@@ -8,7 +8,7 @@ from loguru import logger
 
 from homebox_companion import AuthenticationError, DetectedItem
 
-from ..dependencies import get_client, get_token
+from ..dependencies import get_client, get_token, validate_file_size
 from ..schemas.items import BatchCreateRequest
 
 router = APIRouter()
@@ -94,9 +94,9 @@ async def create_items(
 
             created.append(result)
         except Exception as e:
-            error_msg = f"Failed to create '{item_input.name}': {e}"
-            logger.error(error_msg)
-            errors.append(error_msg)
+            # Log full error details but return generic message to client
+            logger.error(f"Failed to create '{item_input.name}': {e}")
+            errors.append(f"Failed to create '{item_input.name}'")
 
     logger.info(f"Item creation complete: {len(created)} created, {len(errors)} failed")
 
@@ -125,10 +125,8 @@ async def upload_item_attachment(
     token = get_token(authorization)
     client = get_client()
 
-    file_bytes = await file.read()
-    if not file_bytes:
-        logger.warning("Empty file received")
-        raise HTTPException(status_code=400, detail="Empty file")
+    # Validate file size (raises HTTPException if too large)
+    file_bytes = await validate_file_size(file)
 
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
@@ -146,8 +144,9 @@ async def upload_item_attachment(
         return result
     except AuthenticationError as e:
         logger.error(f"Auth error uploading attachment: {e}")
-        raise HTTPException(status_code=401, detail=str(e)) from e
+        raise HTTPException(status_code=401, detail="Authentication failed") from e
     except Exception as e:
+        # Log full error but return generic message
         logger.error(f"Error uploading attachment to item {item_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to upload attachment") from e
 

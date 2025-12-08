@@ -18,7 +18,12 @@ from homebox_companion import (
     settings,
 )
 
-from ...dependencies import VisionContext, get_vision_context
+from ...dependencies import (
+    VisionContext,
+    get_vision_context,
+    validate_file_size,
+    validate_files_size,
+)
 from ...schemas.vision import (
     AdvancedItemDetails,
     BatchDetectionResponse,
@@ -84,27 +89,22 @@ async def detect_items(
         logger.error("HBC_OPENAI_API_KEY not configured")
         raise HTTPException(
             status_code=500,
-            detail="HBC_OPENAI_API_KEY not configured",
+            detail="OpenAI API key not configured",
         )
 
-    # Read primary image bytes
-    image_bytes = await image.read()
-    if not image_bytes:
-        logger.warning("Empty image file received")
-        raise HTTPException(status_code=400, detail="Empty image file")
-
+    # Read and validate primary image
+    image_bytes = await validate_file_size(image)
     logger.debug(f"Primary image size: {len(image_bytes)} bytes")
     content_type = image.content_type or "image/jpeg"
 
-    # Read additional images if provided
+    # Read additional images if provided (with size validation)
     additional_image_data: list[tuple[bytes, str]] = []
     if additional_images:
         for add_img in additional_images:
-            add_bytes = await add_img.read()
-            if add_bytes:
-                add_mime = add_img.content_type or "image/jpeg"
-                additional_image_data.append((add_bytes, add_mime))
-                logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
+            add_bytes = await validate_file_size(add_img)
+            add_mime = add_img.content_type or "image/jpeg"
+            additional_image_data.append((add_bytes, add_mime))
+            logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
 
     logger.debug(f"Loaded {len(ctx.labels)} labels for context")
 
@@ -127,7 +127,7 @@ async def detect_items(
         logger.info(f"Detected {len(detected)} items")
     except Exception as e:
         logger.error(f"Detection failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Detection failed: {e}") from e
+        raise HTTPException(status_code=500, detail="Detection failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return DetectionResponse(
@@ -174,7 +174,7 @@ async def detect_items_batch(
         logger.error("HBC_OPENAI_API_KEY not configured")
         raise HTTPException(
             status_code=500,
-            detail="HBC_OPENAI_API_KEY not configured",
+            detail="OpenAI API key not configured",
         )
 
     if not images:
@@ -191,13 +191,9 @@ async def detect_items_batch(
 
     logger.debug(f"Loaded {len(ctx.labels)} labels for context (shared across all images)")
 
-    # Read all image bytes in parallel
-    async def read_image(img: UploadFile, index: int) -> tuple[int, bytes, str]:
-        img_bytes = await img.read()
-        return index, img_bytes, img.content_type or "image/jpeg"
-
-    image_read_tasks = [read_image(img, i) for i, img in enumerate(images)]
-    image_data = await asyncio.gather(*image_read_tasks)
+    # Read and validate all images
+    validated_images = await validate_files_size(images)
+    image_data = [(i, img_bytes, mime) for i, (img_bytes, mime) in enumerate(validated_images)]
 
     # Create detection task for each image
     async def detect_single(
@@ -257,7 +253,7 @@ async def detect_items_batch(
             return BatchDetectionResult(
                 image_index=index,
                 success=False,
-                error=str(e),
+                error="Detection failed",
             )
 
     # Process all images in parallel
@@ -304,23 +300,18 @@ async def analyze_item_advanced(
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
-        raise HTTPException(status_code=500, detail="HBC_OPENAI_API_KEY not configured")
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
 
     if not images:
         logger.warning("No images provided for analysis")
         raise HTTPException(status_code=400, detail="At least one image is required")
 
-    # Convert images to data URIs
-    image_data_uris = []
-    for img in images:
-        img_bytes = await img.read()
-        if img_bytes:
-            mime_type = img.content_type or "image/jpeg"
-            data_uri = encode_image_bytes_to_data_uri(img_bytes, mime_type)
-            image_data_uris.append(data_uri)
-
-    if not image_data_uris:
-        raise HTTPException(status_code=400, detail="No valid images provided")
+    # Validate and convert images to data URIs
+    validated_images = await validate_files_size(images)
+    image_data_uris = [
+        encode_image_bytes_to_data_uri(img_bytes, mime_type)
+        for img_bytes, mime_type in validated_images
+    ]
 
     # Analyze images
     try:
@@ -338,7 +329,7 @@ async def analyze_item_advanced(
         logger.info("Analysis complete")
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {e}") from e
+        raise HTTPException(status_code=500, detail="Analysis failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return AdvancedItemDetails(
@@ -363,7 +354,7 @@ async def merge_items(
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
-        raise HTTPException(status_code=500, detail="HBC_OPENAI_API_KEY not configured")
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
 
     if len(request.items) < 2:
         raise HTTPException(status_code=400, detail="At least 2 items are required to merge")
@@ -384,7 +375,7 @@ async def merge_items(
         logger.info(f"Merge complete: {merged.get('name')}")
     except Exception as e:
         logger.error(f"Merge failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Merge failed: {e}") from e
+        raise HTTPException(status_code=500, detail="Merge failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return MergedItemResponse(
@@ -414,7 +405,7 @@ async def correct_item(
         logger.error("HBC_OPENAI_API_KEY not configured")
         raise HTTPException(
             status_code=500,
-            detail="HBC_OPENAI_API_KEY not configured",
+            detail="OpenAI API key not configured",
         )
 
     # Parse current item from JSON string
@@ -426,12 +417,8 @@ async def correct_item(
 
     logger.debug(f"Current item: {current_item_dict}")
 
-    # Read and encode image
-    image_bytes = await image.read()
-    if not image_bytes:
-        logger.warning("Empty image file received")
-        raise HTTPException(status_code=400, detail="Empty image file")
-
+    # Read and validate image size
+    image_bytes = await validate_file_size(image)
     content_type = image.content_type or "image/jpeg"
     image_data_uri = encode_image_bytes_to_data_uri(image_bytes, content_type)
 
@@ -453,7 +440,7 @@ async def correct_item(
         logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
     except Exception as e:
         logger.error(f"Item correction failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Correction failed: {e}") from e
+        raise HTTPException(status_code=500, detail="Correction failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return CorrectionResponse(

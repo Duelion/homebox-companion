@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, UploadFile
 
-from homebox_companion import HomeboxClient
+from homebox_companion import HomeboxClient, settings
 from homebox_companion.core.field_preferences import load_field_preferences
 
 # Global client instance (set during app lifespan)
@@ -34,6 +34,54 @@ def get_token(authorization: Annotated[str | None, Header()] = None) -> str:
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization format")
     return authorization[7:]
+
+
+async def validate_file_size(file: UploadFile) -> bytes:
+    """Read and validate file size against configured limit.
+
+    Args:
+        file: The uploaded file to validate.
+
+    Returns:
+        The file contents as bytes.
+
+    Raises:
+        HTTPException: If file exceeds size limit or is empty.
+    """
+    contents = await file.read()
+
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    max_size = settings.max_upload_size_bytes
+    if len(contents) > max_size:
+        max_mb = settings.max_upload_size_mb
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {max_mb}MB",
+        )
+
+    return contents
+
+
+async def validate_files_size(files: list[UploadFile]) -> list[tuple[bytes, str]]:
+    """Read and validate multiple files against configured limit.
+
+    Args:
+        files: List of uploaded files to validate.
+
+    Returns:
+        List of tuples containing (file_bytes, content_type).
+
+    Raises:
+        HTTPException: If any file exceeds size limit or is empty.
+    """
+    results = []
+    for file in files:
+        contents = await validate_file_size(file)
+        content_type = file.content_type or "application/octet-stream"
+        results.append((contents, content_type))
+    return results
 
 
 async def get_labels_for_context(token: str) -> list[dict[str, str]]:

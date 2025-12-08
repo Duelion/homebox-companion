@@ -123,13 +123,20 @@ def create_app() -> FastAPI:
     )
 
     # CORS middleware for browser access
+    # Use HBC_CORS_ORIGINS to restrict origins in production
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Log security settings
+    if settings.cors_origins == "*":
+        logger.debug("CORS: Allowing all origins (set HBC_CORS_ORIGINS to restrict)")
+    else:
+        logger.info(f"CORS: Restricted to origins: {settings.cors_origins_list}")
 
     # Include API routes
     app.include_router(api_router)
