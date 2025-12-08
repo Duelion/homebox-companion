@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { lastScanRoute } from '$lib/stores/items';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 
 	/**
 	 * Bottom navigation item configuration.
@@ -18,8 +18,21 @@
 	// Get current path reactively
 	let currentPath = $derived($page.url.pathname);
 
-	// Scan tab href - use last visited scan route for navigation persistence
-	let scanHref = $derived($lastScanRoute);
+	// Scan tab href - use workflow status to determine the best route
+	let scanHref = $derived.by(() => {
+		const status = scanWorkflow.state.status;
+		switch (status) {
+			case 'reviewing':
+				return '/review';
+			case 'confirming':
+				return '/summary';
+			case 'capturing':
+			case 'analyzing':
+				return '/capture';
+			default:
+				return '/location';
+		}
+	});
 
 	// Navigation items - easily extendable for future tabs (max 5 recommended)
 	let navItems = $derived<NavItem[]>([
