@@ -149,21 +149,32 @@ class ScanWorkflow {
 
 	/** Start image analysis - THIS IS THE KEY ASYNC OPERATION */
 	async startAnalysis(): Promise<void> {
+		// Prevent starting a new analysis if one is already in progress
+		// CRITICAL: Set status IMMEDIATELY to prevent race conditions
+		if (this.state.status === 'analyzing') {
+			console.warn('Analysis already in progress, ignoring duplicate request');
+			return;
+		}
+
 		if (this.state.images.length === 0) {
 			this.state.error = 'Please add at least one image';
 			return;
 		}
 
-		// Cancel any existing analysis
-		this.cancelAnalysis();
-
-		// Load default label
-		await this.loadDefaultLabel();
-
-		// Setup
+		// Set status BEFORE any async operations to prevent duplicate triggers
 		this.analysisAbortController = new AbortController();
 		this.state.status = 'analyzing';
 		this.state.error = null;
+		this.state.analysisProgress = {
+			current: 0,
+			total: this.state.images.length,
+			message: 'Loading preferences...',
+		};
+
+		// Load default label (now happens AFTER status is set)
+		await this.loadDefaultLabel();
+
+		// Update progress message
 		this.state.analysisProgress = {
 			current: 0,
 			total: this.state.images.length,

@@ -24,10 +24,12 @@
 	const workflow = scanWorkflow;
 
 	// Derived values from workflow state
-	const images = $derived(workflow.state.images);
-	const isAnalyzing = $derived(workflow.state.status === 'analyzing');
-	const progress = $derived(workflow.state.analysisProgress);
-	const locationName = $derived(workflow.state.locationName);
+	// Using getter pattern to ensure reactivity with class-based $state
+	let images = $derived(workflow.state.images);
+	let status = $derived(workflow.state.status);
+	let isAnalyzing = $derived(status === 'analyzing');
+	let progress = $derived(workflow.state.analysisProgress);
+	let locationName = $derived(workflow.state.locationName);
 
 	// Redirect if not authenticated or no location
 	onMount(() => {
