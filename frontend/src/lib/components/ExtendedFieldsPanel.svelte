@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ReviewItem } from '$lib/stores/items';
+	import type { ReviewItem } from '$lib/types';
 
 	interface Props {
 		item: ReviewItem;
