@@ -3,30 +3,28 @@
 	import { onMount } from 'svelte';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { resetLocationState } from '$lib/stores/locations';
-	import { resetItemState, setCurrentScanRoute } from '$lib/stores/items';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import Button from '$lib/components/Button.svelte';
+
+	const workflow = scanWorkflow;
 
 	// Redirect if not authenticated
 	onMount(() => {
-		setCurrentScanRoute('/success');
-		
 		if (!$isAuthenticated) {
 			goto('/');
 		}
 	});
 
 	function scanMore() {
-		// Keep location selected, just reset items
-		resetItemState();
-		setCurrentScanRoute('/capture');
+		// Keep location, start new scan
+		workflow.startNew();
 		goto('/capture');
 	}
 
 	function startOver() {
-		// Reset everything
+		// Reset everything including location selection UI
+		workflow.reset();
 		resetLocationState();
-		resetItemState();
-		setCurrentScanRoute('/location');
 		goto('/location');
 	}
 </script>
@@ -68,12 +66,3 @@
 		</Button>
 	</div>
 </div>
-
-
-
-
-
-
-
-
-
