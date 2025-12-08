@@ -41,8 +41,9 @@
 			},
 			aspectRatio: 1.0,
 			disableFlip: false,
-			// Request continuous autofocus for better QR scanning
+			// Video constraints for back camera with autofocus
 			videoConstraints: {
+				facingMode: { exact: 'environment' },
 				focusMode: 'continuous'
 			}
 		};
