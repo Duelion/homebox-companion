@@ -12,9 +12,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from loguru import logger
 
 from homebox_companion import AuthenticationError, HomeboxClient, settings, setup_logging
-from homebox_companion.core.logging import logger
 
 from .api import api_router
 from .dependencies import set_client
@@ -110,7 +110,9 @@ async def lifespan(app: FastAPI):
     yield
 
     # Cleanup
+    logger.info("Shutting down Homebox Companion API")
     await client.aclose()
+    logger.info("Shutdown complete")
 
 
 def create_app() -> FastAPI:
