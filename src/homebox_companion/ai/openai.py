@@ -118,7 +118,15 @@ async def chat_completion(
         f"\n{'='*60}"
     )
 
-    logger.debug(f"OpenAI response received ({len(raw_content)} chars)")
+    # Log token usage for cost monitoring
+    if completion.usage:
+        logger.debug(
+            f"OpenAI response received ({len(raw_content)} chars) | "
+            f"Tokens: {completion.usage.total_tokens} total "
+            f"({completion.usage.input_tokens} input, {completion.usage.output_tokens} output)"
+        )
+    else:
+        logger.debug(f"OpenAI response received ({len(raw_content)} chars)")
 
     # Try to get parsed content, fall back to JSON parsing
     parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
