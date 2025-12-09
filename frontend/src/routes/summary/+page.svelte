@@ -16,7 +16,6 @@
 
 	// Derived state from workflow
 	const confirmedItems = $derived(workflow.state.confirmedItems);
-	const images = $derived(workflow.state.images);
 	const locationPath = $derived(workflow.state.locationPath);
 	const locationId = $derived(workflow.state.locationId);
 
@@ -86,8 +85,8 @@
 
 	function getThumbnail(item: ConfirmedItem): string | null {
 		if (item.customThumbnail) return item.customThumbnail;
-		const sourceImage = images[item.sourceImageIndex];
-		return sourceImage?.dataUrl ?? null;
+		if (item.originalFile) return URL.createObjectURL(item.originalFile);
+		return null;
 	}
 
 	async function submitAll() {
@@ -136,8 +135,6 @@
 					const createdItem = response.created[0] as { id?: string };
 					
 					if (createdItem?.id) {
-						const sourceImage = images[confirmedItem.sourceImageIndex];
-						
 						if (confirmedItem.customThumbnail) {
 							try {
 								const thumbnailFile = await dataUrlToFile(
@@ -148,9 +145,9 @@
 							} catch (error) {
 								console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
 							}
-						} else if (sourceImage?.file) {
+						} else if (confirmedItem.originalFile) {
 							try {
-								await itemsApi.uploadAttachment(createdItem.id, sourceImage.file);
+								await itemsApi.uploadAttachment(createdItem.id, confirmedItem.originalFile);
 							} catch (error) {
 								console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
 							}
@@ -230,8 +227,6 @@
 					const createdItem = response.created[0] as { id?: string };
 					
 					if (createdItem?.id) {
-						const sourceImage = images[confirmedItem.sourceImageIndex];
-						
 						if (confirmedItem.customThumbnail) {
 							try {
 								const thumbnailFile = await dataUrlToFile(
@@ -242,9 +237,9 @@
 							} catch (error) {
 								console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
 							}
-						} else if (sourceImage?.file) {
+						} else if (confirmedItem.originalFile) {
 							try {
-								await itemsApi.uploadAttachment(createdItem.id, sourceImage.file);
+								await itemsApi.uploadAttachment(createdItem.id, confirmedItem.originalFile);
 							} catch (error) {
 								console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
 							}
