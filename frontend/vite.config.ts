@@ -11,4 +11,15 @@ export default defineConfig({
 			},
 		},
 	},
+	build: {
+		// Ensure assets are properly hashed for cache busting
+		rollupOptions: {
+			output: {
+				// Add hash to filenames for cache busting
+				entryFileNames: '_app/immutable/entry/[name]-[hash].js',
+				chunkFileNames: '_app/immutable/chunks/[name]-[hash].js',
+				assetFileNames: '_app/immutable/assets/[name]-[hash].[ext]'
+			}
+		}
+	}
 });

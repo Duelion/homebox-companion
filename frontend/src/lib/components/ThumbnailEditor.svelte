@@ -443,7 +443,7 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="p-2 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors"
+						class="p-2 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors relative z-10 flex-shrink-0"
 						onclick={rotateLeft90}
 						aria-label="Rotate 90° left"
 						title="-90°"
@@ -461,11 +461,11 @@
 						step="1"
 						value={rotation}
 						oninput={handleRotationSlider}
-						class="flex-1 h-2 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-primary"
+						class="flex-1 h-2 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-primary relative z-0"
 					/>
 					<button
 						type="button"
-						class="p-2 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors"
+						class="p-2 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors relative z-10 flex-shrink-0"
 						onclick={rotateRight90}
 						aria-label="Rotate 90° right"
 						title="+90°"

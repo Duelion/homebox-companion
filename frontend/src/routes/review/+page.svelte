@@ -114,8 +114,10 @@
 			editedItem.originalFile = allImages[0];
 			editedItem.additionalImages = allImages.slice(1);
 		} else {
+			// No images left - clear everything including custom thumbnail
 			editedItem.originalFile = undefined;
 			editedItem.additionalImages = [];
+			editedItem.customThumbnail = undefined;
 		}
 
 		workflow.confirmItem(editedItem);
@@ -314,7 +316,15 @@
 					onToggle={() => (showExtendedFields = !showExtendedFields)}
 				/>
 
-				<ImagesPanel bind:images={allImages} />
+				<ImagesPanel 
+					bind:images={allImages} 
+					customThumbnail={editedItem.customThumbnail}
+					onCustomThumbnailClear={() => {
+						if (editedItem) {
+							editedItem.customThumbnail = undefined;
+						}
+					}}
+				/>
 
 				<AiCorrectionPanel
 					expanded={showAiCorrection}
