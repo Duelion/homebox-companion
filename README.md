@@ -1,6 +1,6 @@
 # Homebox Companion
 
-AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.
+> **Unofficial** AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.
 
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
 
