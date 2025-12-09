@@ -126,7 +126,7 @@ async def detect_items(
         )
         logger.info(f"Detected {len(detected)} items")
     except Exception as e:
-        logger.error(f"Detection failed: {e}")
+        logger.exception("Detection failed")
         raise HTTPException(status_code=500, detail="Detection failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
@@ -249,7 +249,7 @@ async def detect_items_batch(
                 ],
             )
         except Exception as e:
-            logger.error(f"Detection failed for image {index}: {e}")
+            logger.exception(f"Detection failed for image {index}")
             return BatchDetectionResult(
                 image_index=index,
                 success=False,
@@ -328,7 +328,7 @@ async def analyze_item_advanced(
         )
         logger.info("Analysis complete")
     except Exception as e:
-        logger.error(f"Analysis failed: {e}")
+        logger.exception("Analysis failed")
         raise HTTPException(status_code=500, detail="Analysis failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
@@ -374,7 +374,7 @@ async def merge_items(
         )
         logger.info(f"Merge complete: {merged.get('name')}")
     except Exception as e:
-        logger.error(f"Merge failed: {e}")
+        logger.exception("Merge failed")
         raise HTTPException(status_code=500, detail="Merge failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
@@ -412,7 +412,7 @@ async def correct_item(
     try:
         current_item_dict = json.loads(current_item)
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON for current_item: {e}")
+        logger.exception("Invalid JSON for current_item")
         raise HTTPException(status_code=400, detail="Invalid current_item JSON") from e
 
     logger.debug(f"Current item: {current_item_dict}")
@@ -439,7 +439,7 @@ async def correct_item(
         )
         logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
     except Exception as e:
-        logger.error(f"Item correction failed: {e}")
+        logger.exception("Item correction failed")
         raise HTTPException(status_code=500, detail="Correction failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
