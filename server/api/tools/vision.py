@@ -248,7 +248,7 @@ async def detect_items_batch(
                     for item in detected
                 ],
             )
-        except Exception as e:
+        except Exception:
             logger.exception(f"Detection failed for image {index}")
             return BatchDetectionResult(
                 image_index=index,

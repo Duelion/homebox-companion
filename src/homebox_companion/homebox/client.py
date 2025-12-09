@@ -475,25 +475,27 @@ class HomeboxClient:
     @staticmethod
     def _ensure_success(response: httpx.Response, context: str) -> None:
         """Raise an error if the response indicates failure."""
+        # Safely get request info (may not be present in test mocks)
+        request_info = ""
+        if hasattr(response, "_request") and response._request is not None:
+            try:
+                request_info = f"{response.request.method} {response.request.url.path} "
+            except (AttributeError, RuntimeError):
+                pass
+
         if response.is_success:
-            logger.debug(
-                f"{context}: {response.request.method} {response.request.url.path} "
-                f"-> {response.status_code}"
-            )
+            logger.debug(f"{context}: {request_info}-> {response.status_code}")
             return
-        
+
         # Log failed request
         try:
             detail = response.json()
         except ValueError:
             detail = response.text
-        
-        logger.error(
-            f"{context} failed: {response.request.method} {response.request.url.path} "
-            f"-> {response.status_code}"
-        )
+
+        logger.error(f"{context} failed: {request_info}-> {response.status_code}")
         logger.debug(f"Response detail: {detail}")
-        
+
         # Raise AuthenticationError for 401 so callers can handle session expiry
         if response.status_code == 401:
             raise AuthenticationError(f"{context} failed: {detail}")

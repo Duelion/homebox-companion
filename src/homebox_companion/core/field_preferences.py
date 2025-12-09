@@ -84,7 +84,10 @@ class FieldPreferencesDefaults(BaseSettings):
     purchase_from: str = "Only from visible packaging/receipt or user-specified"
 
     # Notes instructions - env var: HBC_AI_NOTES
-    notes: str = 'ONLY for defects/damage/warnings - leave null for normal items. GOOD: "Cracked lens", "Missing screws" | BAD: "Appears new", "Made in China"'
+    notes: str = (
+        'ONLY for defects/damage/warnings - leave null for normal items. '
+        'GOOD: "Cracked lens", "Missing screws" | BAD: "Appears new", "Made in China"'
+    )
 
 
 class FieldPreferences(BaseModel):

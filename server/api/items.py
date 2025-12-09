@@ -93,7 +93,7 @@ async def create_items(
                     logger.info("  Updated item with extended fields")
 
             created.append(result)
-        except Exception as e:
+        except Exception:
             # Log full error details but return generic message to client
             logger.exception(f"Failed to create '{item_input.name}'")
             errors.append(f"Failed to create '{item_input.name}'")

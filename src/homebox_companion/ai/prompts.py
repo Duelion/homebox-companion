@@ -26,7 +26,10 @@ FIELD_DEFAULTS = {
     "serial_number": "S/N from sticker/label when clearly visible",
     "purchase_price": "price from visible tag/receipt, just the number",
     "purchase_from": "store name from visible packaging/receipt",
-    "notes": 'ONLY for defects/damage/warnings - leave null for normal items. GOOD: "Cracked lens", "Missing screws" | BAD: "Appears new", "Made in China"',
+    "notes": (
+        'ONLY for defects/damage/warnings - leave null for normal items. '
+        'GOOD: "Cracked lens", "Missing screws" | BAD: "Appears new", "Made in China"'
+    ),
     "naming_examples": (
         '"Ball Bearing 6900-2RS 10x22x6mm", '
         '"Acrylic Paint Vallejo Game Color Bone White", '
