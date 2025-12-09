@@ -26,7 +26,7 @@ FIELD_DEFAULTS = {
     "serial_number": "S/N from sticker/label when clearly visible",
     "purchase_price": "price from visible tag/receipt, just the number",
     "purchase_from": "store name from visible packaging/receipt",
-    "notes": "ONLY for defects/damage/warnings - leave null for normal items",
+    "notes": 'ONLY for defects/damage/warnings - leave null for normal items. GOOD: "Cracked lens", "Missing screws" | BAD: "Appears new", "Made in China"',
     "naming_examples": (
         '"Ball Bearing 6900-2RS 10x22x6mm", '
         '"Acrylic Paint Vallejo Game Color Bone White", '
@@ -135,16 +135,6 @@ def build_extended_fields_schema(customizations: dict[str, str] | None = None) -
     """
     instr = {**FIELD_DEFAULTS, **(customizations or {})}
 
-    # Build notes examples only if using a default-like notes instruction
-    # (not a custom user instruction)
-    notes_examples = ""
-    notes_val = instr.get("notes", "")
-    if "defects" in notes_val.lower() or "damage" in notes_val.lower():
-        notes_examples = (
-            '\n  GOOD: "Cracked lens", "Missing screws" | '
-            'BAD: "Appears new", "Made in China"'
-        )
-
     return f"""
 OPTIONAL FIELDS (include only when visible or user-provided):
 - manufacturer: string or null ({instr['manufacturer']})
@@ -152,7 +142,7 @@ OPTIONAL FIELDS (include only when visible or user-provided):
 - serialNumber: string or null ({instr['serial_number']})
 - purchasePrice: number or null ({instr['purchase_price']})
 - purchaseFrom: string or null ({instr['purchase_from']})
-- notes: string or null ({instr['notes']}){notes_examples}"""
+- notes: string or null ({instr['notes']})"""
 
 
 def build_label_prompt(labels: list[dict[str, str]] | None) -> str:

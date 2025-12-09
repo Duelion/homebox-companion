@@ -159,16 +159,18 @@ class TestBuildExtendedFieldsSchema:
         assert FIELD_DEFAULTS["notes"] not in result
 
     def test_notes_examples_only_for_default_instruction(self) -> None:
-        """Notes examples should appear only with default-like instructions."""
-        # With default (mentions defects/damage)
+        """Notes examples appear with default instruction, not with custom ones."""
+        # With default - examples are part of the default instruction
         result_default = build_extended_fields_schema()
-        assert "GOOD:" in result_default or "BAD:" in result_default
+        assert "GOOD:" in result_default and "BAD:" in result_default
+        assert "Cracked lens" in result_default
 
-        # With custom instruction (no defects/damage mention)
+        # With custom instruction - examples should NOT appear
         customizations = {"notes": "Always include warranty info"}
         result_custom = build_extended_fields_schema(customizations)
-        # Should not have examples for custom instruction
-        # (this behavior might vary, but we test the current implementation)
+        assert "GOOD:" not in result_custom
+        assert "Cracked lens" not in result_custom
+        assert "Always include warranty info" in result_custom
 
 
 class TestBuildCriticalConstraints:
