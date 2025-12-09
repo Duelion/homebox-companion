@@ -20,6 +20,7 @@ flowchart LR
     B -.-> B1[/Browse, search,<br/>or scan QR/]
     C -.-> C1[/AI analyzes with<br/>OpenAI GPT-5/]
     D -.-> D1[/Edit names,<br/>quantities, labels/]
+    
 ```
 
 1. **Login** – Authenticate with your existing Homebox credentials
@@ -28,6 +29,8 @@ flowchart LR
 4. **AI Detection** – OpenAI vision identifies items, quantities, and metadata
 5. **Review & Edit** – Adjust AI suggestions, merge items, or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
+
+https://github.com/user-attachments/assets/3d1e9107-9a9e-47e7-88e5-f4934a4a79e8
 
 ## Requirements
 
