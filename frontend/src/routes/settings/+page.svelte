@@ -205,33 +205,35 @@
 				const [, timestamp, level, location, message] = match;
 				const levelTrimmed = level.trim();
 				
-				// Get color class based on log level (matching Loguru's color scheme)
-				let levelClass = 'text-text-muted';
+				// Get color class based on log level (matching Loguru's default color scheme)
+				// https://github.com/Delgan/loguru/blob/master/loguru/_defaults.py
+				let levelClass = 'text-text font-semibold'; // Default: bold white (INFO)
 				switch (levelTrimmed) {
 					case 'TRACE':
-						levelClass = 'text-blue-400';
+						levelClass = 'text-cyan-400 font-semibold';
 						break;
 					case 'DEBUG':
-						levelClass = 'text-blue-400';
+						levelClass = 'text-blue-400 font-semibold';
 						break;
 					case 'INFO':
-						levelClass = 'text-text-muted';
+						levelClass = 'text-text font-semibold';
 						break;
 					case 'SUCCESS':
-						levelClass = 'text-green-400';
+						levelClass = 'text-green-400 font-semibold';
 						break;
 					case 'WARNING':
-						levelClass = 'text-yellow-400';
+						levelClass = 'text-yellow-400 font-semibold';
 						break;
 					case 'ERROR':
-						levelClass = 'text-red-400';
+						levelClass = 'text-red-400 font-semibold';
 						break;
 					case 'CRITICAL':
 						levelClass = 'text-red-500 font-bold';
 						break;
 				}
 				
-				// Build colorized line
+				// Build colorized line matching Loguru's format:
+				// <green>timestamp</green> | <level>LEVEL</level> | <cyan>location</cyan> - <level>message</level>
 				return `<span class="text-green-400">${escapeHtml(timestamp)}</span> | ` +
 					`<span class="${levelClass}">${escapeHtml(level)}</span>| ` +
 					`<span class="text-cyan-400">${escapeHtml(location)}</span>- ` +
@@ -556,7 +558,7 @@
 						</div>
 					{/if}
 					<div class="bg-background rounded-xl border border-border overflow-hidden">
-						<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{logs.logs}</pre>
+						<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedLogs()}</pre>
 					</div>
 				</div>
 
