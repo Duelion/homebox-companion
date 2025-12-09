@@ -448,9 +448,9 @@
 						aria-label="Rotate 90° left"
 						title="-90°"
 					>
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path d="M2.5 2v6h6" />
-							<path d="M2.5 8a10 10 0 1 1 3 7" />
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+							<path d="M21.5 2v6h-6" />
+							<path d="M21.5 8a10 10 0 1 1-3-7" />
 						</svg>
 					</button>
 					<input
@@ -470,9 +470,9 @@
 						aria-label="Rotate 90° right"
 						title="+90°"
 					>
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path d="M21.5 2v6h-6" />
-							<path d="M21.5 8a10 10 0 1 0-3 7" />
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+							<path d="M2.5 22v-6h6" />
+							<path d="M2.5 16a10 10 0 1 0 3 7" />
 						</svg>
 					</button>
 				</div>
