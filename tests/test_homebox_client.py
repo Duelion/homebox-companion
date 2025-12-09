@@ -167,8 +167,8 @@ async def test_update_item_returns_updated_values(
         cleanup_items.append(item_id)  # Track for cleanup
 
         # Fetch the item to get its full structure
-        fetched = await client.get_item(token, item_id)
-        
+        await client.get_item(token, item_id)
+
         # Update the item with complete payload
         updated_name = f"Updated Name {timestamp}"
         update_data = {

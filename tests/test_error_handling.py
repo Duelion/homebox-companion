@@ -8,7 +8,6 @@ and invalid input data.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import httpx
 import pytest
@@ -198,8 +197,9 @@ class TestFieldPreferencesFileCorruption:
 
     def test_invalid_data_types_raises_validation_error(self, monkeypatch, tmp_path) -> None:
         """Invalid data types in JSON should raise Pydantic ValidationError."""
-        from homebox_companion.core import field_preferences
         from pydantic import ValidationError
+
+        from homebox_companion.core import field_preferences
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()

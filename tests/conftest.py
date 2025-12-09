@@ -158,7 +158,7 @@ async def cleanup_locations(homebox_api_url: str, homebox_credentials: tuple[str
                 for location_id in created_ids:
                     try:
                         # Homebox API typically uses DELETE /locations/{id}
-                        response = await client.client.delete(
+                        await client.client.delete(
                             f"{client.base_url}/locations/{location_id}",
                             headers={"Authorization": f"Bearer {token}"},
                         )
