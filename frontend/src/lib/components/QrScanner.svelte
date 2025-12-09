@@ -138,24 +138,65 @@
 		return file;
 	}
 
-	// Normalize image through canvas to apply EXIF orientation
-	// Fresh iOS photos have EXIF rotation that browsers don't auto-apply when scanning
+	// Normalize image through canvas with manual EXIF orientation correction
+	// Firefox iOS doesn't auto-apply EXIF rotation, so we must do it manually
 	async function normalizeImageOrientation(blob: Blob): Promise<Blob> {
+		// Read EXIF orientation first
+		const orientation = await readExifOrientation(blob);
+		console.log('   EXIF orientation detected:', orientation);
+		
 		return new Promise((resolve, reject) => {
 			const img = new Image();
 			const url = URL.createObjectURL(blob);
 			
 			img.onload = () => {
-				// Create canvas and draw image (this applies EXIF orientation in modern browsers)
+				let width = img.naturalWidth;
+				let height = img.naturalHeight;
+				
+				// Swap dimensions for 90° rotations (orientation 5, 6, 7, 8)
+				const needsSwap = orientation && orientation >= 5 && orientation <= 8;
+				if (needsSwap) {
+					[width, height] = [height, width];
+				}
+				
 				const canvas = document.createElement('canvas');
-				canvas.width = img.naturalWidth;
-				canvas.height = img.naturalHeight;
+				canvas.width = width;
+				canvas.height = height;
 				const ctx = canvas.getContext('2d');
 				if (!ctx) {
 					URL.revokeObjectURL(url);
 					reject(new Error('Canvas context not available'));
 					return;
 				}
+				
+				// Apply transformation based on EXIF orientation
+				// https://sirv.com/help/articles/rotate-photos-to-be-upright/
+				switch (orientation) {
+					case 2: // Flip horizontal
+						ctx.transform(-1, 0, 0, 1, width, 0);
+						break;
+					case 3: // Rotate 180°
+						ctx.transform(-1, 0, 0, -1, width, height);
+						break;
+					case 4: // Flip vertical
+						ctx.transform(1, 0, 0, -1, 0, height);
+						break;
+					case 5: // Transpose (flip horizontal + rotate 90° CCW)
+						ctx.transform(0, 1, 1, 0, 0, 0);
+						break;
+					case 6: // Rotate 90° CW
+						ctx.transform(0, 1, -1, 0, width, 0);
+						break;
+					case 7: // Transverse (flip horizontal + rotate 90° CW)
+						ctx.transform(0, -1, -1, 0, width, height);
+						break;
+					case 8: // Rotate 90° CCW
+						ctx.transform(0, -1, 1, 0, 0, height);
+						break;
+					default: // 1 or null - no transformation needed
+						break;
+				}
+				
 				ctx.drawImage(img, 0, 0);
 				canvas.toBlob(
 					(resultBlob) => {
