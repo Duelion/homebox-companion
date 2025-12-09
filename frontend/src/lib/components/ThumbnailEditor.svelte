@@ -86,14 +86,12 @@
 	function resetTransform() {
 		if (!loadedImage) return;
 		
-		// Calculate minimum scale: crop square exactly touches image edges
-		// For landscape images: crop touches left/right edges
-		// For portrait images: crop touches top/bottom edges
-		const scaleToFitWidth = CROP_SIZE / loadedImage.width;
-		const scaleToFitHeight = CROP_SIZE / loadedImage.height;
-		minScale = Math.min(scaleToFitWidth, scaleToFitHeight);
+		// Calculate minimum scale based on width only
+		// This ensures the image fills the crop area horizontally
+		// For portrait images, the top/bottom will extend beyond the crop area
+		minScale = CROP_SIZE / loadedImage.width;
 		
-		// Start at minimum scale (fully zoomed out, crop at image limits)
+		// Start at minimum scale (image width matches crop width)
 		scale = minScale;
 		rotation = 0;
 		offsetX = 0;
