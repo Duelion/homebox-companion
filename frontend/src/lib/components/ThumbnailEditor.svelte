@@ -26,7 +26,7 @@
 	let offsetY = $state(0);
 
 	// Crop area (square, centered)
-	const CROP_SIZE = 280;
+	const CROP_SIZE = 240;
 	let cropCenterX = 0;
 	let cropCenterY = 0;
 
@@ -86,9 +86,9 @@
 	function resetTransform() {
 		if (!loadedImage) return;
 		
-		// Calculate minimum scale based on width only
-		// This ensures the image fills the crop area horizontally
-		// For portrait images, the top/bottom will extend beyond the crop area
+		// Calculate minimum scale so image width fits the crop area
+		// For portrait images, height extends beyond crop - user can pan vertically
+		// For landscape images, this naturally fills the crop area
 		minScale = CROP_SIZE / loadedImage.width;
 		
 		// Start at minimum scale (image width matches crop width)
@@ -348,8 +348,8 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-	<div class="bg-surface rounded-2xl border border-border max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 sm:p-8">
+	<div class="bg-surface rounded-2xl border border-border max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
 		<!-- Header -->
 		<div class="flex items-center justify-between p-4 border-b border-border">
 			<h3 class="text-lg font-semibold text-text">Edit Thumbnail</h3>
@@ -385,11 +385,11 @@
 		{/if}
 
 		<!-- Canvas area -->
-		<div class="flex-1 flex items-center justify-center p-4 overflow-hidden touch-none">
+		<div class="flex-1 flex items-center justify-center p-3 overflow-hidden touch-none">
 			<canvas
 				bind:this={canvas}
-				width="360"
-				height="360"
+				width="300"
+				height="300"
 				class="rounded-lg cursor-move"
 				onmousedown={handleMouseDown}
 				onmousemove={handleMouseMove}
