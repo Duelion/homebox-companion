@@ -138,8 +138,10 @@
 		return file;
 	}
 
-	// Normalize image through canvas with manual EXIF orientation correction
-	// Firefox iOS doesn't auto-apply EXIF rotation, so we must do it manually
+	// Normalize image: apply EXIF rotation + scale down large images
+	// Firefox iOS doesn't auto-apply EXIF rotation, and large images cause timeout
+	const MAX_IMAGE_DIMENSION = 1500; // Max width or height for QR scanning
+	
 	async function normalizeImageOrientation(blob: Blob): Promise<Blob> {
 		// Read EXIF orientation first
 		const orientation = await readExifOrientation(blob);
@@ -159,6 +161,15 @@
 					[width, height] = [height, width];
 				}
 				
+				// Scale down if image is too large (prevents timeout)
+				let scale = 1;
+				if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+					scale = MAX_IMAGE_DIMENSION / Math.max(width, height);
+					width = Math.round(width * scale);
+					height = Math.round(height * scale);
+					console.log(`   Scaling down by ${(scale * 100).toFixed(0)}% to ${width}x${height}`);
+				}
+				
 				const canvas = document.createElement('canvas');
 				canvas.width = width;
 				canvas.height = height;
@@ -173,27 +184,30 @@
 				// https://sirv.com/help/articles/rotate-photos-to-be-upright/
 				switch (orientation) {
 					case 2: // Flip horizontal
-						ctx.transform(-1, 0, 0, 1, width, 0);
+						ctx.transform(-scale, 0, 0, scale, width, 0);
 						break;
 					case 3: // Rotate 180°
-						ctx.transform(-1, 0, 0, -1, width, height);
+						ctx.transform(-scale, 0, 0, -scale, width, height);
 						break;
 					case 4: // Flip vertical
-						ctx.transform(1, 0, 0, -1, 0, height);
+						ctx.transform(scale, 0, 0, -scale, 0, height);
 						break;
 					case 5: // Transpose (flip horizontal + rotate 90° CCW)
-						ctx.transform(0, 1, 1, 0, 0, 0);
+						ctx.transform(0, scale, scale, 0, 0, 0);
 						break;
 					case 6: // Rotate 90° CW
-						ctx.transform(0, 1, -1, 0, width, 0);
+						ctx.transform(0, scale, -scale, 0, width, 0);
 						break;
 					case 7: // Transverse (flip horizontal + rotate 90° CW)
-						ctx.transform(0, -1, -1, 0, width, height);
+						ctx.transform(0, -scale, -scale, 0, width, height);
 						break;
 					case 8: // Rotate 90° CCW
-						ctx.transform(0, -1, 1, 0, 0, height);
+						ctx.transform(0, -scale, scale, 0, 0, height);
 						break;
 					default: // 1 or null - no transformation needed
+						if (scale !== 1) {
+							ctx.scale(scale, scale);
+						}
 						break;
 				}
 				
