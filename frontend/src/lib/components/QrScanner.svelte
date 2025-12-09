@@ -138,27 +138,22 @@
 		return file;
 	}
 
-	// Normalize image: apply EXIF rotation + scale down large images
-	// Firefox iOS doesn't auto-apply EXIF rotation, and large images cause timeout
+	// Normalize image: just scale down large images (skip EXIF rotation)
+	// Browser/canvas may already handle EXIF when loading the image
 	const MAX_IMAGE_DIMENSION = 1280; // Match working image size (~960x1280)
 	
 	async function normalizeImageOrientation(blob: Blob): Promise<Blob> {
-		// Read EXIF orientation first
+		// Read EXIF orientation for logging only
 		const orientation = await readExifOrientation(blob);
-		console.log('   EXIF orientation detected:', orientation);
+		console.log('   EXIF orientation detected:', orientation, '(not applying manual rotation)');
 		
 		return new Promise((resolve, reject) => {
 			const img = new Image();
 			const url = URL.createObjectURL(blob);
 			
 			img.onload = () => {
-				const srcWidth = img.naturalWidth;
-				const srcHeight = img.naturalHeight;
-				
-				// Determine output dimensions (swap for 90° rotations)
-				const needsSwap = orientation && orientation >= 5 && orientation <= 8;
-				let outWidth = needsSwap ? srcHeight : srcWidth;
-				let outHeight = needsSwap ? srcWidth : srcHeight;
+				let outWidth = img.naturalWidth;
+				let outHeight = img.naturalHeight;
 				
 				// Scale down if image is too large (prevents timeout)
 				let scale = 1;
@@ -179,48 +174,8 @@
 					return;
 				}
 				
-				// Apply transformation based on EXIF orientation
-				// Using translate + rotate/scale approach for clarity
-				ctx.save();
-				
-				switch (orientation) {
-					case 2: // Flip horizontal
-						ctx.translate(outWidth, 0);
-						ctx.scale(-scale, scale);
-						break;
-					case 3: // Rotate 180°
-						ctx.translate(outWidth, outHeight);
-						ctx.scale(-scale, -scale);
-						break;
-					case 4: // Flip vertical
-						ctx.translate(0, outHeight);
-						ctx.scale(scale, -scale);
-						break;
-					case 5: // Transpose
-						ctx.translate(0, 0);
-						ctx.transform(0, scale, scale, 0, 0, 0);
-						break;
-					case 6: // Rotate 90° CW
-						ctx.translate(outWidth, 0);
-						ctx.rotate(Math.PI / 2);
-						ctx.scale(scale, scale);
-						break;
-					case 7: // Transverse
-						ctx.translate(outWidth, outHeight);
-						ctx.transform(0, -scale, -scale, 0, 0, 0);
-						break;
-					case 8: // Rotate 90° CCW
-						ctx.translate(0, outHeight);
-						ctx.rotate(-Math.PI / 2);
-						ctx.scale(scale, scale);
-						break;
-					default: // 1 or null - no rotation needed
-						ctx.scale(scale, scale);
-						break;
-				}
-				
-				ctx.drawImage(img, 0, 0);
-				ctx.restore();
+				// Just scale, no rotation - let browser handle EXIF via Image element
+				ctx.drawImage(img, 0, 0, outWidth, outHeight);
 				
 				canvas.toBlob(
 					(resultBlob) => {
