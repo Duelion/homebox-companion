@@ -35,6 +35,7 @@ flowchart LR
 - **Smart Labeling** – Automatically suggests labels from your existing Homebox labels
 - **Hierarchical Locations** – Navigate and select from your full location tree
 - **QR Code Scanner** – Scan Homebox location QR codes to instantly select a location
+  - *Note: HTTPS enables native hardware QR detection for real-time scanning (faster and more reliable). On HTTP, a "Take Photo" fallback is available.*
 - **Batch Processing** – Analyze multiple photos in parallel for faster processing
 - **Mobile-First UI** – Designed for phones (works great on desktop too)
 
