@@ -8,12 +8,33 @@ Take a photo of your stuff, and let AI identify and catalog items directly into 
 
 <!-- TODO: Add screenshot/GIF here -->
 
+## How It Works
+
+```mermaid
+flowchart LR
+    A[🔐 Login<br/>Homebox] --> B[📍 Select<br/>Location]
+    B --> C[📸 Capture<br/>Photos]
+    C --> D[✏️ Review &<br/>Edit Items]
+    D --> E[✅ Submit to<br/>Homebox]
+    
+    B -.-> B1[/Browse, search,<br/>or scan QR/]
+    C -.-> C1[/AI analyzes with<br/>OpenAI GPT-5/]
+    D -.-> D1[/Edit names,<br/>quantities, labels/]
+```
+
+1. **Login** – Authenticate with your existing Homebox credentials
+2. **Select Location** – Browse the location tree, search, or scan a Homebox QR code
+3. **Capture Photos** – Take or upload photos of items (supports multiple photos per item)
+4. **AI Detection** – OpenAI vision identifies items, quantities, and metadata
+5. **Review & Edit** – Adjust AI suggestions, merge items, or ask AI to correct mistakes
+6. **Submit** – Items are created in your Homebox inventory with photos attached
+
 ## Requirements
 
 Before you start, you'll need:
 
-- **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys). Vision API calls cost ~$0.01-0.03 per image.
-- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test.
+- **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
+- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test
 
 ## Quick Start
 
@@ -81,22 +102,6 @@ uv run python -m server.app
 ```
 
 Open `http://localhost:8000` in your browser.
-
-## How It Works
-
-```mermaid
-flowchart LR
-    A[🔐 Login] --> B[📍 Select Location]
-    B --> C[📸 Capture Photos]
-    C --> D[✏️ Review Items]
-    D --> E[✅ Submit]
-```
-
-1. **Login** – Use your existing Homebox credentials
-2. **Select Location** – Browse, search, or scan a QR code
-3. **Capture Photos** – Take or upload photos of items
-4. **Review Items** – AI detects items; edit names, quantities, labels as needed
-5. **Submit** – Items are created in Homebox with photos attached
 
 ## Features
 
