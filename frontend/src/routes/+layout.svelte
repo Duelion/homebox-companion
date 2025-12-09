@@ -59,6 +59,39 @@
 		</div>
 	</header>
 
+	<!-- Update available banner - sticky at top, only on login page -->
+	{#if !$isAuthenticated && $latestVersion && !$updateDismissed}
+		<div class="sticky top-14 z-30 bg-amber-500/20 border-b border-amber-500/40 px-4 py-2.5 flex items-center justify-center gap-3 text-amber-300 text-sm">
+			<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+				<polyline points="7 10 12 15 17 10" />
+				<line x1="12" y1="15" x2="12" y2="3" />
+			</svg>
+			<span>
+				Update available: <strong class="text-amber-200">v{$latestVersion}</strong>
+			</span>
+			<a
+				href="https://github.com/Duelion/homebox-companion/releases/latest"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="underline hover:text-amber-100 transition-colors"
+			>
+				View release
+			</a>
+			<button
+				type="button"
+				class="ml-1 p-1 hover:bg-amber-500/30 rounded transition-colors"
+				title="Dismiss"
+				onclick={dismissUpdate}
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<line x1="18" y1="6" x2="6" y2="18" />
+					<line x1="6" y1="6" x2="18" y2="18" />
+				</svg>
+			</button>
+		</div>
+	{/if}
+
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main class="flex-1 max-w-lg mx-auto w-full px-4 py-6 {$isAuthenticated ? 'pb-24' : ''}">
 		<slot />
@@ -86,7 +119,7 @@
 			{#if $appVersion}
 				<span>v{$appVersion}</span>
 			{/if}
-			{#if $latestVersion && !$updateDismissed}
+			{#if $latestVersion}
 				<a
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
@@ -118,39 +151,6 @@
 				</svg>
 			</a>
 		</footer>
-
-		<!-- Update available banner - only on login page -->
-		{#if $latestVersion && !$updateDismissed}
-			<div class="bg-amber-500/20 border-t border-amber-500/40 px-4 py-2.5 flex items-center justify-center gap-3 text-amber-300 text-sm">
-				<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-					<polyline points="7 10 12 15 17 10" />
-					<line x1="12" y1="15" x2="12" y2="3" />
-				</svg>
-				<span>
-					Update available: <strong class="text-amber-200">v{$latestVersion}</strong>
-				</span>
-				<a
-					href="https://github.com/Duelion/homebox-companion/releases/latest"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="underline hover:text-amber-100 transition-colors"
-				>
-					View release
-				</a>
-				<button
-					type="button"
-					class="ml-1 p-1 hover:bg-amber-500/30 rounded transition-colors"
-					title="Dismiss"
-					onclick={dismissUpdate}
-				>
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-						<line x1="18" y1="6" x2="6" y2="18" />
-						<line x1="6" y1="6" x2="18" y2="18" />
-					</svg>
-				</button>
-			</div>
-		{/if}
 	{/if}
 
 	<!-- Bottom Navigation - only when authenticated -->
