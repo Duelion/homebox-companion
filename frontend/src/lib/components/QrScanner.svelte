@@ -174,6 +174,23 @@
 		});
 	}
 
+	// Helper to get image dimensions
+	async function getImageDimensions(blob: Blob): Promise<{width: number, height: number}> {
+		return new Promise((resolve) => {
+			const img = new Image();
+			const url = URL.createObjectURL(blob);
+			img.onload = () => {
+				URL.revokeObjectURL(url);
+				resolve({ width: img.naturalWidth, height: img.naturalHeight });
+			};
+			img.onerror = () => {
+				URL.revokeObjectURL(url);
+				resolve({ width: 0, height: 0 });
+			};
+			img.src = url;
+		});
+	}
+
 	async function handleFileSelect(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -183,28 +200,50 @@
 		error = null;
 
 		try {
+			// Log original file
+			console.log('=== QR SCAN DEBUG ===');
+			console.log('1. Original file:', {
+				name: file.name,
+				type: file.type,
+				size: file.size,
+				lastModified: new Date(file.lastModified).toISOString()
+			});
+
 			// Convert HEIC to JPEG if needed (iOS camera photos)
 			const heicConverted = await convertHeicIfNeeded(file);
+			const heicDims = await getImageDimensions(heicConverted);
+			console.log('2. After HEIC check:', {
+				type: heicConverted.type || 'blob',
+				size: heicConverted.size,
+				width: heicDims.width,
+				height: heicDims.height,
+				wasConverted: heicConverted !== file
+			});
+
 			// Normalize through canvas to apply EXIF orientation
 			const imageBlob = await normalizeImageOrientation(heicConverted);
-			
-			console.log('Processed image:', imageBlob.type, imageBlob.size);
+			const finalDims = await getImageDimensions(imageBlob);
+			console.log('3. After canvas normalization:', {
+				type: imageBlob.type,
+				size: imageBlob.size,
+				width: finalDims.width,
+				height: finalDims.height
+			});
 			
 			const result = await QrScanner.scanImage(imageBlob, {
 				returnDetailedScanResult: true,
 			});
+			
+			console.log('4. SUCCESS! QR detected:', result.data);
+			console.log('=== END DEBUG ===');
 			
 			hasScanned = true;
 			await stopScanner();
 			onScan(result.data);
 		} catch (err) {
 			// Log full error details for debugging
-			console.error('QR scan from image failed:');
-			console.error('Error:', err);
-			console.error('Type:', err?.constructor?.name);
-			console.error('Message:', err instanceof Error ? err.message : String(err));
-			console.error('Stack:', err instanceof Error ? err.stack : 'N/A');
-			console.error('File info:', file.name, file.type, file.size);
+			console.error('4. FAILED:', err instanceof Error ? err.message : String(err));
+			console.error('=== END DEBUG ===');
 			
 			if (err instanceof Error && err.message.includes('No QR code found')) {
 				error = 'No QR code found in image. Try a clearer photo.';
