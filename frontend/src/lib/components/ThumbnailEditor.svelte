@@ -349,7 +349,7 @@
 </script>
 
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 sm:p-8">
-	<div class="bg-surface rounded-2xl border border-border max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
+	<div class="bg-surface rounded-2xl border border-border max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col">
 		<!-- Header -->
 		<div class="flex items-center justify-between p-4 border-b border-border">
 			<h3 class="text-lg font-semibold text-text">Edit Thumbnail</h3>
@@ -388,8 +388,8 @@
 		<div class="flex-1 flex items-center justify-center p-3 overflow-hidden touch-none">
 			<canvas
 				bind:this={canvas}
-				width="300"
-				height="300"
+				width="340"
+				height="340"
 				class="rounded-lg cursor-move"
 				onmousedown={handleMouseDown}
 				onmousemove={handleMouseMove}
@@ -403,7 +403,7 @@
 		</div>
 
 		<!-- Slider Controls -->
-		<div class="px-4 py-3 border-t border-border/50 space-y-4">
+		<div class="px-4 py-4 border-t border-border/50 space-y-5">
 			<!-- Zoom slider -->
 			<div>
 				<div class="flex items-center justify-between mb-1">
@@ -443,12 +443,12 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="p-1.5 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors"
+						class="p-2 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors"
 						onclick={rotateLeft90}
 						aria-label="Rotate 90° left"
 						title="-90°"
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path d="M2.5 2v6h6" />
 							<path d="M2.5 8a10 10 0 1 1 3 7" />
 						</svg>
@@ -465,12 +465,12 @@
 					/>
 					<button
 						type="button"
-						class="p-1.5 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors"
+						class="p-2 rounded bg-surface-elevated text-text-muted hover:text-text transition-colors"
 						onclick={rotateRight90}
 						aria-label="Rotate 90° right"
 						title="+90°"
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path d="M21.5 2v6h-6" />
 							<path d="M21.5 8a10 10 0 1 0-3 7" />
 						</svg>
