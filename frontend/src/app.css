@@ -94,6 +94,11 @@
 	.pb-safe {
 		padding-bottom: env(safe-area-inset-bottom, 0px);
 	}
+	
+	/* iOS safe area padding for top status bar */
+	.pt-safe {
+		padding-top: env(safe-area-inset-top, 0px);
+	}
 }
 
 

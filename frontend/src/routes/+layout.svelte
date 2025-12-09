@@ -45,7 +45,7 @@
 
 <div class="min-h-screen min-h-dvh flex flex-col bg-background">
 	<!-- Header -->
-	<header class="sticky top-0 z-40 glass border-b border-border">
+	<header class="sticky top-0 z-40 glass border-b border-border pt-safe">
 		<div class="max-w-lg mx-auto px-4 h-14 flex items-center justify-center">
 			<!-- Center: Logo and title -->
 			<a href={$isAuthenticated ? '/location' : '/'} class="flex items-center justify-center gap-2 text-text font-semibold overflow-visible">
