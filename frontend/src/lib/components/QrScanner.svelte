@@ -138,14 +138,13 @@
 		return file;
 	}
 
-	// Normalize image: just scale down large images (skip EXIF rotation)
-	// Browser/canvas may already handle EXIF when loading the image
+	// Scale down large images to prevent timeout
 	const MAX_IMAGE_DIMENSION = 1280; // Match working image size (~960x1280)
 	
-	async function normalizeImageOrientation(blob: Blob): Promise<Blob> {
+	async function scaleDownImage(blob: Blob): Promise<Blob> {
 		// Read EXIF orientation for logging only
 		const orientation = await readExifOrientation(blob);
-		console.log('   EXIF orientation detected:', orientation, '(not applying manual rotation)');
+		console.log('   EXIF orientation detected:', orientation);
 		
 		return new Promise((resolve, reject) => {
 			const img = new Image();
@@ -174,8 +173,54 @@
 					return;
 				}
 				
-				// Just scale, no rotation - let browser handle EXIF via Image element
 				ctx.drawImage(img, 0, 0, outWidth, outHeight);
+				
+				canvas.toBlob(
+					(resultBlob) => {
+						URL.revokeObjectURL(url);
+						resultBlob ? resolve(resultBlob) : reject(new Error('Canvas conversion failed'));
+					},
+					'image/jpeg',
+					0.92
+				);
+			};
+			img.onerror = () => {
+				URL.revokeObjectURL(url);
+				reject(new Error('Failed to load image'));
+			};
+			img.src = url;
+		});
+	}
+	
+	// Rotate image by specified degrees (90, 180, 270)
+	async function rotateImage(blob: Blob, degrees: number): Promise<Blob> {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			const url = URL.createObjectURL(blob);
+			
+			img.onload = () => {
+				const srcWidth = img.naturalWidth;
+				const srcHeight = img.naturalHeight;
+				
+				// Swap dimensions for 90° or 270°
+				const swap = degrees === 90 || degrees === 270;
+				const outWidth = swap ? srcHeight : srcWidth;
+				const outHeight = swap ? srcWidth : srcHeight;
+				
+				const canvas = document.createElement('canvas');
+				canvas.width = outWidth;
+				canvas.height = outHeight;
+				const ctx = canvas.getContext('2d');
+				if (!ctx) {
+					URL.revokeObjectURL(url);
+					reject(new Error('Canvas context not available'));
+					return;
+				}
+				
+				// Move to center, rotate, draw
+				ctx.translate(outWidth / 2, outHeight / 2);
+				ctx.rotate((degrees * Math.PI) / 180);
+				ctx.drawImage(img, -srcWidth / 2, -srcHeight / 2);
 				
 				canvas.toBlob(
 					(resultBlob) => {
@@ -328,16 +373,45 @@
 				await getFullMetadata(heicConverted, '2b. AFTER HEIC CONVERSION');
 			}
 
-			// Normalize through canvas to apply EXIF orientation
-			const imageBlob = await normalizeImageOrientation(heicConverted);
-			await getFullMetadata(imageBlob, '3. AFTER CANVAS NORMALIZATION');
+			// Scale down image
+			const scaledBlob = await scaleDownImage(heicConverted);
+			await getFullMetadata(scaledBlob, '3. AFTER SCALING');
 			
-			const result = await QrScanner.scanImage(imageBlob, {
-				returnDetailedScanResult: true,
-			});
+			// Try scanning with rotation retry (0°, 90°, 180°, 270°)
+			let result = null;
+			let successRotation = 0;
 			
-			console.log('4. RESULT: SUCCESS!');
+			for (let rotation = 0; rotation < 4; rotation++) {
+				const degrees = rotation * 90;
+				console.log(`4. TRYING ROTATION: ${degrees}°`);
+				
+				const rotatedBlob = rotation === 0 
+					? scaledBlob 
+					: await rotateImage(scaledBlob, degrees);
+				
+				if (rotation > 0) {
+					await getFullMetadata(rotatedBlob, `   After ${degrees}° rotation`);
+				}
+				
+				try {
+					result = await QrScanner.scanImage(rotatedBlob, {
+						returnDetailedScanResult: true,
+					});
+					successRotation = degrees;
+					console.log(`   SUCCESS at ${degrees}°!`);
+					break;
+				} catch (scanErr) {
+					console.log(`   Failed at ${degrees}°:`, scanErr instanceof Error ? scanErr.message : String(scanErr));
+				}
+			}
+			
+			if (!result) {
+				throw new Error('No QR code found after trying all rotations');
+			}
+			
+			console.log('5. RESULT: SUCCESS!');
 			console.log('   QR Data:', result.data);
+			console.log('   Successful rotation:', successRotation + '°');
 			console.log('   Corner Points:', result.cornerPoints);
 			console.log('========== QR SCAN DEBUG END ============');
 			
