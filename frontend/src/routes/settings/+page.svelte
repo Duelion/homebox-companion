@@ -5,7 +5,7 @@
 	import { resetLocationState } from '$lib/stores/locations';
 	import { appVersion } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
-	import { getConfig, getLogs, getVersion, labels as labelsApi, fieldPreferences, type ConfigResponse, type LogsResponse, type FieldPreferences, type EffectiveDefaults, type LabelData } from '$lib/api';
+	import { getConfig, getLogs, downloadLogs, getVersion, labels as labelsApi, fieldPreferences, type ConfigResponse, type LogsResponse, type FieldPreferences, type EffectiveDefaults, type LabelData } from '$lib/api';
 	import Button from '$lib/components/Button.svelte';
 
 	let config = $state<ConfigResponse | null>(null);
@@ -55,6 +55,10 @@
 
 	// Effective defaults from backend (env var if set, otherwise hardcoded fallback)
 	let effectiveDefaults = $state<EffectiveDefaults | null>(null);
+
+	// Fullscreen modal states
+	let logsFullscreen = $state(false);
+	let promptFullscreen = $state(false);
 
 	// Field metadata for display
 	const fieldMeta: Array<{ key: keyof FieldPreferences; label: string; example: string }> = [
@@ -173,6 +177,17 @@
 			logsError = error instanceof Error ? error.message : 'Failed to load logs';
 		} finally {
 			isLoadingLogs = false;
+		}
+	}
+
+	async function handleDownloadLogs() {
+		if (!logs?.filename) return;
+		
+		try {
+			await downloadLogs(logs.filename);
+		} catch (error) {
+			console.error('Failed to download logs:', error);
+			logsError = error instanceof Error ? error.message : 'Failed to download logs';
 		}
 	}
 
@@ -328,11 +343,19 @@
 	}
 
 	async function loadPromptPreview() {
-		if (showPromptPreview && promptPreview) {
-			showPromptPreview = !showPromptPreview;
+		// If already showing, just toggle off
+		if (showPromptPreview) {
+			showPromptPreview = false;
 			return;
 		}
 
+		// If we have cached preview, just show it
+		if (promptPreview) {
+			showPromptPreview = true;
+			return;
+		}
+
+		// Otherwise fetch the preview
 		isLoadingPreview = true;
 
 		try {
@@ -457,7 +480,7 @@
 
 			<!-- AI Model -->
 			{#if config}
-				<div class="flex items-center justify-between py-2 border-t border-border/50">
+				<div class="flex items-center justify-between py-2 border-t border-border/20">
 					<span class="text-text-muted">AI Model</span>
 					<span class="text-text font-mono text-sm">{config.openai_model}</span>
 				</div>
@@ -468,7 +491,7 @@
 			{/if}
 
 			<!-- GitHub Link -->
-			<div class="pt-2 border-t border-border/50">
+			<div class="pt-2 border-t border-border/20">
 				<a
 					href="https://github.com/Duelion/homebox-companion"
 					target="_blank"
@@ -505,79 +528,101 @@
 				Application Logs
 			</h2>
 			{#if showLogs && logs}
-				<button
-					type="button"
-					class="text-sm text-primary hover:text-primary-hover transition-colors flex items-center gap-1"
-					onclick={refreshLogs}
-					disabled={isLoadingLogs}
-				>
-					<svg
-						class="w-4 h-4 {isLoadingLogs ? 'animate-spin' : ''}"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						onclick={refreshLogs}
+						disabled={isLoadingLogs}
+						title="Refresh logs"
 					>
-						<path d="M23 4v6h-6M1 20v-6h6" />
-						<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-					</svg>
-					Refresh
-				</button>
+						<svg
+							class="w-4 h-4 {isLoadingLogs ? 'animate-spin' : ''}"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+						>
+							<path d="M23 4v6h-6M1 20v-6h6" />
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						onclick={handleDownloadLogs}
+						disabled={!logs.filename}
+						title="Download full log file"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="7 10 12 15 17 10" />
+							<line x1="12" y1="15" x2="12" y2="3" />
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						onclick={() => (logsFullscreen = true)}
+						title="Expand fullscreen"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+						</svg>
+					</button>
+				</div>
 			{/if}
 		</div>
 
-		<p class="text-sm text-text-muted">
-			View recent application logs for debugging and reference.
-		</p>
+	<p class="text-sm text-text-muted">
+		View recent application logs for debugging and reference.
+	</p>
 
-		{#if !showLogs}
-			<button
-				type="button"
-				class="w-full py-3 px-4 bg-surface-elevated hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
-				onclick={loadLogs}
-				disabled={isLoadingLogs}
-			>
-				{#if isLoadingLogs}
-					<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-					<span>Loading logs...</span>
-				{:else}
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<polyline points="6 9 12 15 18 9" />
-					</svg>
-					<span>Show Logs</span>
-				{/if}
-			</button>
+	<button
+		type="button"
+		class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center gap-2"
+		onclick={loadLogs}
+		disabled={isLoadingLogs}
+	>
+		{#if isLoadingLogs}
+			<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+			<span>Loading logs...</span>
 		{:else}
-			{#if logsError}
-				<div class="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm">
-					{logsError}
-				</div>
-			{:else if logs}
-				<div class="space-y-2">
-					{#if logs.filename}
-						<div class="flex items-center justify-between text-xs text-text-dim">
-							<span>{logs.filename}</span>
-							<span>
-								{logs.truncated ? `Last ${logs.total_lines > 300 ? 300 : logs.total_lines} of ${logs.total_lines}` : `${logs.total_lines}`} lines
-							</span>
-						</div>
-					{/if}
-					<div class="bg-background rounded-xl border border-border overflow-hidden">
-						<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedLogs()}</pre>
-					</div>
-				</div>
-
-				<button
-					type="button"
-					class="w-full py-2 text-sm text-text-muted hover:text-text transition-colors flex items-center justify-center gap-1"
-					onclick={() => (showLogs = false)}
-				>
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<polyline points="18 15 12 9 6 15" />
-					</svg>
-					Hide Logs
-				</button>
-			{/if}
+			<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+				<polyline points="14 2 14 8 20 8" />
+				<line x1="16" y1="13" x2="8" y2="13" />
+				<line x1="16" y1="17" x2="8" y2="17" />
+				<polyline points="10 9 9 9 8 9" />
+			</svg>
+			<span>Show Logs</span>
+			<svg class="w-4 h-4 ml-auto transition-transform {showLogs ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<polyline points="6 9 12 15 18 9" />
+			</svg>
 		{/if}
+	</button>
+
+	{#if showLogs}
+		{#if logsError}
+			<div class="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm">
+				{logsError}
+			</div>
+		{:else if logs}
+			<div class="mt-3 space-y-2">
+				{#if logs.filename}
+					<div class="flex items-center justify-between text-xs text-text-dim">
+						<span>{logs.filename}</span>
+						<span>
+							{logs.truncated ? `Last ${logs.total_lines > 300 ? 300 : logs.total_lines} of ${logs.total_lines}` : `${logs.total_lines}`} lines
+						</span>
+					</div>
+				{/if}
+				<div class="bg-background rounded-xl border border-border overflow-hidden">
+					<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedLogs()}</pre>
+				</div>
+			</div>
+		{/if}
+	{/if}
 	</section>
 
 	<!-- AI Output Configuration Section -->
@@ -599,28 +644,31 @@
 			{/if}
 		</div>
 
-		<p class="text-sm text-text-muted">
-			Customize how the AI generates item data. Leave fields empty to use default behavior.
-		</p>
+	<p class="text-sm text-text-muted">
+		Customize how the AI generates item data. Leave fields empty to use default behavior.
+	</p>
 
-		{#if !showFieldPrefs}
-			<button
-				type="button"
-				class="w-full py-3 px-4 bg-surface-elevated hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
-				onclick={loadFieldPrefs}
-				disabled={isLoadingFieldPrefs}
-			>
-				{#if isLoadingFieldPrefs}
-					<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-					<span>Loading...</span>
-				{:else}
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<polyline points="6 9 12 15 18 9" />
-					</svg>
-					<span>Configure Fields</span>
-				{/if}
-			</button>
+	<button
+		type="button"
+		class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center gap-2"
+		onclick={loadFieldPrefs}
+		disabled={isLoadingFieldPrefs}
+	>
+		{#if isLoadingFieldPrefs}
+			<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+			<span>Loading...</span>
 		{:else}
+			<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<path d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4" />
+			</svg>
+			<span>Configure Fields</span>
+			<svg class="w-4 h-4 ml-auto transition-transform {showFieldPrefs ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<polyline points="6 9 12 15 18 9" />
+			</svg>
+		{/if}
+	</button>
+
+	{#if showFieldPrefs}
 		{#if fieldPrefsError}
 			<div class="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm">
 				{fieldPrefsError}
@@ -732,36 +780,28 @@
 					<span>Reset to Defaults</span>
 				</Button>
 			</div>
-
-			<button
-				type="button"
-				class="w-full py-2 text-sm text-text-muted hover:text-text transition-colors flex items-center justify-center gap-1"
-				onclick={() => (showFieldPrefs = false)}
-			>
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<polyline points="18 15 12 9 6 15" />
-				</svg>
-				Hide Configuration
-			</button>
 		{/if}
 
 		<!-- Prompt Preview Section - Always visible at section level -->
-		<div class="pt-4 border-t border-border/50">
+		<div class="pt-4 border-t border-border/20">
 			<button
 				type="button"
-				class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
+				class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center gap-2"
 				onclick={loadPromptPreview}
 				disabled={isLoadingPreview}
 			>
 				{#if isLoadingPreview}
-					<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+					<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
 					<span>Generating preview...</span>
 				{:else}
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 						<path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
 						<path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
 					</svg>
-					<span>{showPromptPreview ? 'Refresh' : 'Preview'} AI Prompt</span>
+					<span>Preview AI Prompt</span>
+					<svg class="w-4 h-4 ml-auto transition-transform {showPromptPreview ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<polyline points="6 9 12 15 18 9" />
+					</svg>
 				{/if}
 			</button>
 
@@ -771,10 +811,13 @@
 					<span class="text-xs text-text-muted font-medium">System Prompt Preview</span>
 					<button
 						type="button"
-						class="text-xs text-text-dim hover:text-text-muted transition-colors"
-						onclick={() => (showPromptPreview = false)}
+						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						onclick={() => (promptFullscreen = true)}
+						title="Expand fullscreen"
 					>
-						Hide
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+						</svg>
 					</button>
 				</div>
 				<div class="bg-background rounded-xl border border-border overflow-hidden">
@@ -788,7 +831,7 @@
 	</div>
 
 	<!-- Docker Persistence Warning & Export -->
-	<div class="pt-4 border-t border-border/50 space-y-3">
+	<div class="pt-4 border-t border-border/20 space-y-3">
 		<!-- Export Button -->
 		<button
 			type="button"
@@ -874,4 +917,112 @@
 	<!-- Bottom spacing for nav -->
 	<div class="h-4"></div>
 </div>
+
+<!-- Fullscreen Logs Modal -->
+{#if logsFullscreen && logs}
+	<div class="fixed inset-0 z-50 flex flex-col bg-background">
+		<!-- Header -->
+		<div class="flex items-center justify-between p-4 border-b border-border bg-surface">
+			<div class="flex items-center gap-3">
+				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+					<line x1="16" y1="13" x2="8" y2="13" />
+					<line x1="16" y1="17" x2="8" y2="17" />
+					<polyline points="10 9 9 9 8 9" />
+				</svg>
+				<div>
+					<h2 class="text-lg font-semibold text-text">Application Logs</h2>
+					{#if logs.filename}
+						<p class="text-xs text-text-dim">
+							{logs.filename} • {logs.truncated ? `Last ${logs.total_lines > 300 ? 300 : logs.total_lines} of ${logs.total_lines}` : logs.total_lines} lines
+						</p>
+					{/if}
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<button
+					type="button"
+					class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+					onclick={refreshLogs}
+					disabled={isLoadingLogs}
+					title="Refresh logs"
+				>
+					<svg
+						class="w-5 h-5 {isLoadingLogs ? 'animate-spin' : ''}"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="2"
+					>
+						<path d="M23 4v6h-6M1 20v-6h6" />
+						<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+					</svg>
+				</button>
+				<button
+					type="button"
+					class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+					onclick={handleDownloadLogs}
+					disabled={!logs.filename}
+					title="Download full log file"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="7 10 12 15 17 10" />
+						<line x1="12" y1="15" x2="12" y2="3" />
+					</svg>
+				</button>
+				<button
+					type="button"
+					class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+					onclick={() => (logsFullscreen = false)}
+					title="Close fullscreen"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<path d="M18 6L6 18M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+		</div>
+		<!-- Content -->
+		<div class="flex-1 overflow-auto p-4">
+			<pre class="text-xs font-mono text-text-muted whitespace-pre-wrap break-all leading-relaxed">{@html colorizedLogs()}</pre>
+		</div>
+	</div>
+{/if}
+
+<!-- Fullscreen Prompt Preview Modal -->
+{#if promptFullscreen && promptPreview}
+	<div class="fixed inset-0 z-50 flex flex-col bg-background">
+		<!-- Header -->
+		<div class="flex items-center justify-between p-4 border-b border-border bg-surface">
+			<div class="flex items-center gap-3">
+				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+					<path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
+				</svg>
+				<div>
+					<h2 class="text-lg font-semibold text-text">AI System Prompt</h2>
+					<p class="text-xs text-text-dim">
+						This is what the AI sees when analyzing your images
+					</p>
+				</div>
+			</div>
+			<button
+				type="button"
+				class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+				onclick={() => (promptFullscreen = false)}
+				title="Close fullscreen"
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d="M18 6L6 18M6 6l12 12" />
+				</svg>
+			</button>
+		</div>
+		<!-- Content -->
+		<div class="flex-1 overflow-auto p-4">
+			<pre class="text-sm font-mono text-text-muted whitespace-pre-wrap break-words leading-relaxed">{promptPreview}</pre>
+		</div>
+	</div>
+{/if}
 

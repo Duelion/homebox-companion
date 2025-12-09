@@ -3,7 +3,8 @@
 import os
 from glob import glob
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -74,4 +75,38 @@ async def get_logs(
             total_lines=0,
             truncated=False,
         )
+
+
+@router.get("/logs/download")
+async def download_logs(
+    date: str | None = Query(default=None, description="Log date in YYYY-MM-DD format"),
+) -> FileResponse:
+    """Download the full log file.
+
+    Returns the complete log file for the most recent date (or a specific date if provided).
+    """
+    logs_dir = "logs"
+
+    # Find log files
+    if date:
+        log_pattern = os.path.join(logs_dir, f"homebox_companion_{date}.log")
+        log_files = glob(log_pattern)
+    else:
+        log_pattern = os.path.join(logs_dir, "homebox_companion_*.log")
+        log_files = sorted(glob(log_pattern), reverse=True)
+
+    if not log_files:
+        raise HTTPException(status_code=404, detail="No log files found")
+
+    log_file = log_files[0]
+    filename = os.path.basename(log_file)
+
+    if not os.path.exists(log_file):
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    return FileResponse(
+        path=log_file,
+        filename=filename,
+        media_type="text/plain",
+    )
 

@@ -37,7 +37,7 @@ def setup_logging() -> None:
         rotation="1 day",
         retention="7 days",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="DEBUG",
+        level=settings.log_level,
     )
 
 
