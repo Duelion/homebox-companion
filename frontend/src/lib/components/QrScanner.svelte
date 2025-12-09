@@ -138,34 +138,28 @@
 		return file;
 	}
 
-	// Scale down large images to prevent timeout
-	const MAX_IMAGE_DIMENSION = 1280; // Match working image size (~960x1280)
+	// Scale down large images - qr-scanner fails on images > ~2MP
+	const MAX_IMAGE_DIMENSION = 1280;
 	
 	async function scaleDownImage(blob: Blob): Promise<Blob> {
-		// Read EXIF orientation for logging only
-		const orientation = await readExifOrientation(blob);
-		console.log('   EXIF orientation detected:', orientation);
-		
 		return new Promise((resolve, reject) => {
 			const img = new Image();
 			const url = URL.createObjectURL(blob);
 			
 			img.onload = () => {
-				let outWidth = img.naturalWidth;
-				let outHeight = img.naturalHeight;
+				let width = img.naturalWidth;
+				let height = img.naturalHeight;
 				
-				// Scale down if image is too large (prevents timeout)
-				let scale = 1;
-				if (outWidth > MAX_IMAGE_DIMENSION || outHeight > MAX_IMAGE_DIMENSION) {
-					scale = MAX_IMAGE_DIMENSION / Math.max(outWidth, outHeight);
-					outWidth = Math.round(outWidth * scale);
-					outHeight = Math.round(outHeight * scale);
-					console.log(`   Scaling down by ${(scale * 100).toFixed(0)}% to ${outWidth}x${outHeight}`);
+				// Scale down if image is too large
+				if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+					const scale = MAX_IMAGE_DIMENSION / Math.max(width, height);
+					width = Math.round(width * scale);
+					height = Math.round(height * scale);
 				}
 				
 				const canvas = document.createElement('canvas');
-				canvas.width = outWidth;
-				canvas.height = outHeight;
+				canvas.width = width;
+				canvas.height = height;
 				const ctx = canvas.getContext('2d');
 				if (!ctx) {
 					URL.revokeObjectURL(url);
@@ -173,7 +167,7 @@
 					return;
 				}
 				
-				ctx.drawImage(img, 0, 0, outWidth, outHeight);
+				ctx.drawImage(img, 0, 0, width, height);
 				
 				canvas.toBlob(
 					(resultBlob) => {
@@ -190,165 +184,6 @@
 			};
 			img.src = url;
 		});
-	}
-	
-	// Rotate image by specified degrees (90, 180, 270)
-	async function rotateImage(blob: Blob, degrees: number): Promise<Blob> {
-		return new Promise((resolve, reject) => {
-			const img = new Image();
-			const url = URL.createObjectURL(blob);
-			
-			img.onload = () => {
-				const srcWidth = img.naturalWidth;
-				const srcHeight = img.naturalHeight;
-				
-				// Swap dimensions for 90° or 270°
-				const swap = degrees === 90 || degrees === 270;
-				const outWidth = swap ? srcHeight : srcWidth;
-				const outHeight = swap ? srcWidth : srcHeight;
-				
-				const canvas = document.createElement('canvas');
-				canvas.width = outWidth;
-				canvas.height = outHeight;
-				const ctx = canvas.getContext('2d');
-				if (!ctx) {
-					URL.revokeObjectURL(url);
-					reject(new Error('Canvas context not available'));
-					return;
-				}
-				
-				// Move to center, rotate, draw
-				ctx.translate(outWidth / 2, outHeight / 2);
-				ctx.rotate((degrees * Math.PI) / 180);
-				ctx.drawImage(img, -srcWidth / 2, -srcHeight / 2);
-				
-				canvas.toBlob(
-					(resultBlob) => {
-						URL.revokeObjectURL(url);
-						resultBlob ? resolve(resultBlob) : reject(new Error('Canvas conversion failed'));
-					},
-					'image/jpeg',
-					0.92
-				);
-			};
-			img.onerror = () => {
-				URL.revokeObjectURL(url);
-				reject(new Error('Failed to load image'));
-			};
-			img.src = url;
-		});
-	}
-
-	// Helper to get full image metadata
-	async function getImageMetadata(blob: Blob): Promise<Record<string, unknown>> {
-		return new Promise((resolve) => {
-			const img = new Image();
-			const url = URL.createObjectURL(blob);
-			img.onload = () => {
-				URL.revokeObjectURL(url);
-				resolve({
-					naturalWidth: img.naturalWidth,
-					naturalHeight: img.naturalHeight,
-					width: img.width,
-					height: img.height,
-					complete: img.complete,
-					currentSrc: img.currentSrc ? 'blob:...' : 'none',
-				});
-			};
-			img.onerror = () => {
-				URL.revokeObjectURL(url);
-				resolve({ error: 'Failed to load image' });
-			};
-			img.src = url;
-		});
-	}
-
-	// Read EXIF orientation from JPEG blob (returns 1-8, or null if not found)
-	async function readExifOrientation(blob: Blob): Promise<number | null> {
-		try {
-			const buffer = await blob.slice(0, 65536).arrayBuffer(); // Read first 64KB
-			const view = new DataView(buffer);
-			
-			// Check for JPEG magic bytes
-			if (view.getUint16(0) !== 0xFFD8) return null;
-			
-			let offset = 2;
-			while (offset < view.byteLength - 2) {
-				const marker = view.getUint16(offset);
-				offset += 2;
-				
-				// APP1 marker (EXIF)
-				if (marker === 0xFFE1) {
-					const length = view.getUint16(offset);
-					offset += 2;
-					
-					// Check for "Exif\0\0"
-					const exifHeader = view.getUint32(offset);
-					if (exifHeader !== 0x45786966) return null;
-					offset += 6;
-					
-					const tiffOffset = offset;
-					const littleEndian = view.getUint16(offset) === 0x4949;
-					offset += 8;
-					
-					const numEntries = view.getUint16(offset, littleEndian);
-					offset += 2;
-					
-					for (let i = 0; i < numEntries; i++) {
-						const tag = view.getUint16(offset, littleEndian);
-						if (tag === 0x0112) { // Orientation tag
-							return view.getUint16(offset + 8, littleEndian);
-						}
-						offset += 12;
-					}
-					return null;
-				} else if ((marker & 0xFF00) === 0xFF00) {
-					offset += view.getUint16(offset);
-				} else {
-					break;
-				}
-			}
-			return null;
-		} catch {
-			return null;
-		}
-	}
-
-	// Get full blob/file metadata
-	async function getFullMetadata(blobOrFile: Blob | File, label: string): Promise<void> {
-		const isFile = blobOrFile instanceof File;
-		const imgMeta = await getImageMetadata(blobOrFile);
-		const exifOrientation = await readExifOrientation(blobOrFile);
-		
-		const metadata: Record<string, unknown> = {
-			// Blob properties
-			size: blobOrFile.size,
-			type: blobOrFile.type,
-			// File-specific properties
-			...(isFile && {
-				name: (blobOrFile as File).name,
-				lastModified: (blobOrFile as File).lastModified,
-				lastModifiedDate: new Date((blobOrFile as File).lastModified).toISOString(),
-				webkitRelativePath: (blobOrFile as File).webkitRelativePath || 'N/A',
-			}),
-			// Image properties
-			...imgMeta,
-			// EXIF
-			exifOrientation: exifOrientation,
-			exifOrientationMeaning: exifOrientation ? [
-				'Unknown',
-				'Normal (1)',
-				'Flip horizontal (2)',
-				'Rotate 180° (3)',
-				'Flip vertical (4)',
-				'Transpose (5)',
-				'Rotate 90° CW (6)',
-				'Transverse (7)',
-				'Rotate 90° CCW (8)'
-			][exifOrientation] || `Unknown (${exifOrientation})` : 'Not found',
-		};
-		
-		console.log(`${label}:`, metadata);
 	}
 
 	async function handleFileSelect(event: Event) {
@@ -360,73 +195,21 @@
 		error = null;
 
 		try {
-			console.log('========== QR SCAN DEBUG START ==========');
-			
-			// Log original file with full metadata
-			await getFullMetadata(file, '1. ORIGINAL FILE');
-
 			// Convert HEIC to JPEG if needed (iOS camera photos)
-			const heicConverted = await convertHeicIfNeeded(file);
-			const wasHeicConverted = heicConverted !== file;
-			console.log('2. HEIC conversion:', wasHeicConverted ? 'YES - converted from HEIC' : 'NO - not HEIC');
-			if (wasHeicConverted) {
-				await getFullMetadata(heicConverted, '2b. AFTER HEIC CONVERSION');
-			}
+			const converted = await convertHeicIfNeeded(file);
 
-			// Scale down image
-			const scaledBlob = await scaleDownImage(heicConverted);
-			await getFullMetadata(scaledBlob, '3. AFTER SCALING');
+			// Scale down image (qr-scanner fails on large images)
+			const scaled = await scaleDownImage(converted);
 			
-			// Try scanning with rotation retry (0°, 90°, 180°, 270°)
-			let result = null;
-			let successRotation = 0;
-			
-			for (let rotation = 0; rotation < 4; rotation++) {
-				const degrees = rotation * 90;
-				console.log(`4. TRYING ROTATION: ${degrees}°`);
-				
-				const rotatedBlob = rotation === 0 
-					? scaledBlob 
-					: await rotateImage(scaledBlob, degrees);
-				
-				if (rotation > 0) {
-					await getFullMetadata(rotatedBlob, `   After ${degrees}° rotation`);
-				}
-				
-				try {
-					result = await QrScanner.scanImage(rotatedBlob, {
-						returnDetailedScanResult: true,
-					});
-					successRotation = degrees;
-					console.log(`   SUCCESS at ${degrees}°!`);
-					break;
-				} catch (scanErr) {
-					console.log(`   Failed at ${degrees}°:`, scanErr instanceof Error ? scanErr.message : String(scanErr));
-				}
-			}
-			
-			if (!result) {
-				throw new Error('No QR code found after trying all rotations');
-			}
-			
-			console.log('5. RESULT: SUCCESS!');
-			console.log('   QR Data:', result.data);
-			console.log('   Successful rotation:', successRotation + '°');
-			console.log('   Corner Points:', result.cornerPoints);
-			console.log('========== QR SCAN DEBUG END ============');
+			// Scan for QR code
+			const result = await QrScanner.scanImage(scaled, {
+				returnDetailedScanResult: true,
+			});
 			
 			hasScanned = true;
 			await stopScanner();
 			onScan(result.data);
 		} catch (err) {
-			console.error('4. RESULT: FAILED');
-			console.error('   Error:', err instanceof Error ? err.message : String(err));
-			console.error('   Error type:', err?.constructor?.name);
-			if (err instanceof Error && err.stack) {
-				console.error('   Stack:', err.stack);
-			}
-			console.log('========== QR SCAN DEBUG END ============');
-			
 			if (err instanceof Error && err.message.includes('No QR code found')) {
 				error = 'No QR code found in image. Try a clearer photo.';
 			} else {
