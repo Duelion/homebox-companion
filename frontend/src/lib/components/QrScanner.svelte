@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import QrScanner from 'qr-scanner';
+	import heic2any from 'heic2any';
 
 	interface Props {
 		onScan: (decodedText: string) => void;
@@ -123,35 +124,18 @@
 		fileInput?.click();
 	}
 
-	// Normalize image through canvas to handle EXIF orientation (iOS photos)
-	async function normalizeImage(file: File): Promise<Blob> {
-		return new Promise((resolve, reject) => {
-			const img = new Image();
-			img.onload = () => {
-				const canvas = document.createElement('canvas');
-				canvas.width = img.naturalWidth;
-				canvas.height = img.naturalHeight;
-				const ctx = canvas.getContext('2d');
-				if (!ctx) {
-					reject(new Error('Canvas context not available'));
-					return;
-				}
-				ctx.drawImage(img, 0, 0);
-				canvas.toBlob(
-					(blob) => {
-						URL.revokeObjectURL(img.src);
-						blob ? resolve(blob) : reject(new Error('Canvas conversion failed'));
-					},
-					'image/jpeg',
-					0.92
-				);
-			};
-			img.onerror = () => {
-				URL.revokeObjectURL(img.src);
-				reject(new Error('Failed to load image'));
-			};
-			img.src = URL.createObjectURL(file);
-		});
+	// Convert HEIC images to JPEG (iOS sends HEIC format when taking photos)
+	async function convertHeicIfNeeded(file: File): Promise<Blob> {
+		const isHeic = file.type === 'image/heic' || 
+		               file.type === 'image/heif' ||
+		               file.name.toLowerCase().endsWith('.heic') ||
+		               file.name.toLowerCase().endsWith('.heif');
+		
+		if (isHeic) {
+			const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+			return Array.isArray(blob) ? blob[0] : blob;
+		}
+		return file;
 	}
 
 	async function handleFileSelect(event: Event) {
@@ -163,10 +147,10 @@
 		error = null;
 
 		try {
-			// Normalize image through canvas to handle EXIF orientation
-			const normalizedBlob = await normalizeImage(file);
+			// Convert HEIC to JPEG if needed (iOS camera photos)
+			const imageBlob = await convertHeicIfNeeded(file);
 			
-			const result = await QrScanner.scanImage(normalizedBlob, {
+			const result = await QrScanner.scanImage(imageBlob, {
 				returnDetailedScanResult: true,
 			});
 			
