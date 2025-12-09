@@ -15,6 +15,7 @@
 	let showLogs = $state(false);
 	let logsError = $state<string | null>(null);
 	let logsContainer = $state<HTMLPreElement | null>(null);
+	let logsFullscreenContainer = $state<HTMLDivElement | null>(null);
 
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
@@ -198,6 +199,18 @@
 			requestAnimationFrame(() => {
 				if (logsContainer) {
 					logsContainer.scrollTop = logsContainer.scrollHeight;
+				}
+			});
+		}
+	});
+
+	// Auto-scroll fullscreen logs to bottom when opened or refreshed
+	$effect(() => {
+		if (logsFullscreenContainer && logs && logsFullscreen) {
+			// Use requestAnimationFrame to ensure DOM is updated
+			requestAnimationFrame(() => {
+				if (logsFullscreenContainer) {
+					logsFullscreenContainer.scrollTop = logsFullscreenContainer.scrollHeight;
 				}
 			});
 		}
@@ -985,7 +998,7 @@
 			</div>
 		</div>
 		<!-- Content -->
-		<div class="flex-1 overflow-auto p-4">
+		<div bind:this={logsFullscreenContainer} class="flex-1 overflow-auto p-4">
 			<pre class="text-xs font-mono text-text-muted whitespace-pre-wrap break-all leading-relaxed">{@html colorizedLogs()}</pre>
 		</div>
 	</div>
