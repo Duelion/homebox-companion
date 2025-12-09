@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from loguru import logger
 
 from ..core.config import settings
 from ..core.exceptions import AuthenticationError
@@ -475,11 +476,24 @@ class HomeboxClient:
     def _ensure_success(response: httpx.Response, context: str) -> None:
         """Raise an error if the response indicates failure."""
         if response.is_success:
+            logger.debug(
+                f"{context}: {response.request.method} {response.request.url.path} "
+                f"-> {response.status_code}"
+            )
             return
+        
+        # Log failed request
         try:
             detail = response.json()
         except ValueError:
             detail = response.text
+        
+        logger.error(
+            f"{context} failed: {response.request.method} {response.request.url.path} "
+            f"-> {response.status_code}"
+        )
+        logger.debug(f"Response detail: {detail}")
+        
         # Raise AuthenticationError for 401 so callers can handle session expiry
         if response.status_code == 401:
             raise AuthenticationError(f"{context} failed: {detail}")

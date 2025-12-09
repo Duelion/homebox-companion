@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Header
+from loguru import logger
 from pydantic import BaseModel
 
 from homebox_companion.core.field_preferences import (
@@ -93,6 +94,9 @@ async def update_field_preferences(
     Requires authentication.
     """
     get_token(authorization)  # Validate auth
+    
+    logger.info("Updating field preferences")
+    
     prefs = FieldPreferences(
         output_language=update.output_language,
         default_label_id=update.default_label_id,
@@ -108,6 +112,20 @@ async def update_field_preferences(
         naming_examples=update.naming_examples,
     )
     save_field_preferences(prefs)
+    
+    # Log which fields were customized
+    customized_fields = []
+    if update.output_language:
+        customized_fields.append(f"output_language={update.output_language}")
+    if update.default_label_id:
+        customized_fields.append("default_label_id")
+    for field in ["name", "description", "quantity", "manufacturer", "model_number", 
+                  "serial_number", "purchase_price", "purchase_from", "notes", "naming_examples"]:
+        if getattr(update, field):
+            customized_fields.append(field)
+    
+    logger.info(f"Field preferences saved: {len(customized_fields)} fields customized")
+    logger.debug(f"Customized fields: {', '.join(customized_fields) if customized_fields else 'none'}")
 
     return FieldPreferencesResponse(
         output_language=prefs.output_language,
@@ -135,7 +153,11 @@ async def delete_field_preferences(
     Requires authentication.
     """
     get_token(authorization)  # Validate auth
+    
+    logger.info("Resetting field preferences to defaults")
     prefs = reset_field_preferences()
+    logger.info("Field preferences reset complete")
+    
     return FieldPreferencesResponse(
         output_language=prefs.output_language,
         default_label_id=prefs.default_label_id,

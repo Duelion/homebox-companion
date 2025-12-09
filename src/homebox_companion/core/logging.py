@@ -31,10 +31,10 @@ def setup_logging() -> None:
         colorize=True,
     )
 
-    # File handler with rotation
+    # File handler with rotation by size OR time (whichever comes first)
     logger.add(
         "logs/homebox_companion_{time:YYYY-MM-DD}.log",
-        rotation="1 day",
+        rotation="50 MB",  # Rotate if file exceeds 50MB OR at midnight
         retention="7 days",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
         level=settings.log_level,

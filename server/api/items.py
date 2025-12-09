@@ -95,7 +95,7 @@ async def create_items(
             created.append(result)
         except Exception as e:
             # Log full error details but return generic message to client
-            logger.error(f"Failed to create '{item_input.name}': {e}")
+            logger.exception(f"Failed to create '{item_input.name}'")
             errors.append(f"Failed to create '{item_input.name}'")
 
     logger.info(f"Item creation complete: {len(created)} created, {len(errors)} failed")
@@ -143,10 +143,10 @@ async def upload_item_attachment(
         logger.info(f"Successfully uploaded attachment to item {item_id}")
         return result
     except AuthenticationError as e:
-        logger.error(f"Auth error uploading attachment: {e}")
+        logger.exception("Auth error uploading attachment")
         raise HTTPException(status_code=401, detail="Authentication failed") from e
     except Exception as e:
         # Log full error but return generic message
-        logger.error(f"Error uploading attachment to item {item_id}: {e}")
+        logger.exception(f"Error uploading attachment to item {item_id}")
         raise HTTPException(status_code=500, detail="Failed to upload attachment") from e
 
