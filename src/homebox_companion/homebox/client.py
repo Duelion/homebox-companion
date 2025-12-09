@@ -392,6 +392,25 @@ class HomeboxClient:
         raw = await self.get_item(token, item_id)
         return Item.from_api(raw)
 
+    async def delete_item(self, token: str, item_id: str) -> None:
+        """Delete an item by ID.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item to delete.
+
+        Returns:
+            None
+        """
+        response = await self.client.delete(
+            f"{self.base_url}/items/{item_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Delete item")
+
     async def upload_attachment(
         self,
         token: str,
