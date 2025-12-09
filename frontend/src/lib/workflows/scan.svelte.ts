@@ -298,7 +298,8 @@ class ScanWorkflow {
 	cancelAnalysis(): void {
 		if (this.analysisAbortController) {
 			this.analysisAbortController.abort();
-			this.analysisAbortController = null;
+			// Don't null the controller here - let the finally block do it
+			// This ensures the abort signal check in startAnalysis() still works
 		}
 		if (this.state.status === 'analyzing') {
 			this.state.status = 'capturing';
