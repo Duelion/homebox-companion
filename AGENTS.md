@@ -294,7 +294,65 @@ __version__ = version("homebox-companion")
 
 ---
 
-## Key Exports
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/login` | Authenticate with Homebox |
+| GET | `/api/locations` | List all locations |
+| GET | `/api/locations/tree` | Get hierarchical location tree |
+| GET | `/api/locations/{id}` | Get single location with children |
+| POST | `/api/locations` | Create a new location |
+| PUT | `/api/locations/{id}` | Update a location |
+| GET | `/api/labels` | List all labels |
+| POST | `/api/items` | Batch create items |
+| POST | `/api/items/{id}/attachments` | Upload item attachment |
+| POST | `/api/tools/vision/detect` | Detect items in a single image |
+| POST | `/api/tools/vision/detect-batch` | Detect items in multiple images |
+| POST | `/api/tools/vision/analyze` | Multi-image analysis |
+| POST | `/api/tools/vision/merge` | Merge multiple items using AI |
+| POST | `/api/tools/vision/correct` | Correct item with user feedback |
+| GET | `/api/settings/field-preferences` | Get AI customization settings |
+| PUT | `/api/settings/field-preferences` | Update AI customization settings |
+| POST | `/api/settings/prompt-preview` | Preview AI prompt with current settings |
+| GET | `/api/version` | Get application version |
+
+---
+
+## Library Usage
+
+The `homebox_companion` package can be used as a Python library:
+
+```python
+import asyncio
+from homebox_companion import detect_items_from_bytes, HomeboxClient, ItemCreate
+
+async def main():
+    # Detect items in an image
+    with open("items.jpg", "rb") as f:
+        items = await detect_items_from_bytes(f.read())
+    
+    for item in items:
+        print(f"{item.name}: {item.quantity}")
+
+    # Create items in Homebox
+    async with HomeboxClient() as client:
+        token = await client.login("user@example.com", "password")
+        locations = await client.list_locations(token)
+        
+        for item in items:
+            created = await client.create_item(token, ItemCreate(
+                name=item.name,
+                quantity=item.quantity,
+                description=item.description,
+                location_id=locations[0]["id"],
+            ))
+            print(f"Created: {created['name']}")
+
+asyncio.run(main())
+```
+
+### Key Exports
 
 ```python
 from homebox_companion import (
