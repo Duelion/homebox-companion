@@ -12,6 +12,7 @@
 	let isLoadingLogs = $state(false);
 	let showLogs = $state(false);
 	let logsError = $state<string | null>(null);
+	let logsContainer = $state<HTMLPreElement | null>(null);
 
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
@@ -172,6 +173,18 @@
 			isLoadingLogs = false;
 		}
 	}
+
+	// Auto-scroll logs to bottom when loaded or refreshed
+	$effect(() => {
+		if (logsContainer && logs && showLogs) {
+			// Use requestAnimationFrame to ensure DOM is updated
+			requestAnimationFrame(() => {
+				if (logsContainer) {
+					logsContainer.scrollTop = logsContainer.scrollHeight;
+				}
+			});
+		}
+	});
 
 	function handleLogout() {
 		logout();
@@ -480,7 +493,7 @@
 						</div>
 					{/if}
 					<div class="bg-background rounded-xl border border-border overflow-hidden">
-						<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{logs.logs}</pre>
+						<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{logs.logs}</pre>
 					</div>
 				</div>
 
