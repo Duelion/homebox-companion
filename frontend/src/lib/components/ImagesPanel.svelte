@@ -3,9 +3,11 @@
 
 	interface Props {
 		images: File[];
+		customThumbnail?: string;
+		onCustomThumbnailClear?: () => void;
 	}
 
-	let { images = $bindable() }: Props = $props();
+	let { images = $bindable(), customThumbnail, onCustomThumbnailClear }: Props = $props();
 
 	let fileInput: HTMLInputElement;
 
@@ -25,9 +27,17 @@
 
 	function removeImage(index: number) {
 		images = images.filter((_, i) => i !== index);
+		// If removing the primary image (index 0) and there's a custom thumbnail, clear it
+		if (index === 0 && customThumbnail && onCustomThumbnailClear) {
+			onCustomThumbnailClear();
+		}
 	}
 
-	function getThumbnailUrl(file: File): string {
+	function getThumbnailUrl(file: File, index: number): string {
+		// Show custom thumbnail for the first image if it exists
+		if (index === 0 && customThumbnail) {
+			return customThumbnail;
+		}
 		return URL.createObjectURL(file);
 	}
 </script>
@@ -59,7 +69,7 @@
 			{#each images as img, index}
 				<div class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-surface-elevated group ring-1 ring-border/50">
 					<img
-						src={getThumbnailUrl(img)}
+						src={getThumbnailUrl(img, index)}
 						alt="Photo {index + 1}"
 						class="w-full h-full object-cover"
 					/>
@@ -76,7 +86,17 @@
 					</button>
 					<div class="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
 						{#if index === 0}
-							Primary
+							{#if customThumbnail}
+								<span class="flex items-center gap-0.5">
+									<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+									</svg>
+									Edited
+								</span>
+							{:else}
+								Primary
+							{/if}
 						{:else}
 							{index + 1}
 						{/if}
