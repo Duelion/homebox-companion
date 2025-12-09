@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { isAuthenticated } from '$lib/stores/auth';
+	import { resetLocationState } from '$lib/stores/locations';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import type { CapturedImage } from '$lib/types';
@@ -181,6 +182,7 @@
 	}
 
 	function goBack() {
+		resetLocationState();
 		workflow.clearLocation();
 		goto('/location');
 	}
