@@ -183,7 +183,6 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 - **HTTPS recommended for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
 - **Multiple photos = better results** – Include close-ups of labels, serial numbers, or receipts for more accurate detection.
-- **Use Single-Item Mode for sets** – When photographing a kit or collection that should be one item, enable single-item mode.
 
 ## License
 
