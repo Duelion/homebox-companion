@@ -115,7 +115,9 @@ Open `http://localhost:8000` in your browser.
 
 > **Docker networking tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
 
-### Local Development
+### Run from Source
+
+An alternative to Docker if you prefer running directly on your system.
 
 **Prerequisites:**
 - Python 3.12+
@@ -123,37 +125,29 @@ Open `http://localhost:8000` in your browser.
 - [uv](https://docs.astral.sh/uv/) package manager
 - An OpenAI API key
 
-**Setup:**
-
 ```bash
 # Clone and install dependencies
 git clone https://github.com/Duelion/homebox-companion.git
 cd homebox-companion
 uv sync
-cd frontend && npm install && cd ..
 
-# Configure environment (create .env in project root)
+# Build the frontend
+cd frontend && npm install && npm run build && cd ..
+
+# Copy built frontend to server directory
+mkdir -p server/static && cp -r frontend/build/* server/static/
+
+# Configure environment
 cat > .env << 'EOF'
 HBC_OPENAI_API_KEY=sk-your-key
 HBC_HOMEBOX_URL=http://localhost:7745
 EOF
+
+# Run the server
+uv run python -m server.app
 ```
 
-**Run the development servers:**
-
-You need two terminals - one for the backend API, one for the frontend dev server:
-
-```bash
-# Terminal 1: Start the backend API server (from project root)
-uv run uvicorn server.app:app --reload
-```
-
-```bash
-# Terminal 2: Start the frontend dev server (from project root)
-cd frontend && npm run dev
-```
-
-Open `http://localhost:5173` in your browser. The frontend dev server proxies API requests to the backend on port 8000.
+Open `http://localhost:8000` in your browser.
 
 ## Environment Variables
 
