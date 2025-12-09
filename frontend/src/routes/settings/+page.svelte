@@ -12,6 +12,7 @@
 	let isLoadingLogs = $state(false);
 	let showLogs = $state(false);
 	let logsError = $state<string | null>(null);
+	let logsContainer = $state<HTMLPreElement | null>(null);
 
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
@@ -171,6 +172,83 @@
 		} finally {
 			isLoadingLogs = false;
 		}
+	}
+
+	// Auto-scroll logs to bottom when loaded or refreshed
+	$effect(() => {
+		if (logsContainer && logs && showLogs) {
+			// Use requestAnimationFrame to ensure DOM is updated
+			requestAnimationFrame(() => {
+				if (logsContainer) {
+					logsContainer.scrollTop = logsContainer.scrollHeight;
+				}
+			});
+		}
+	});
+
+	// Colorize log output like Loguru does in terminal
+	// Log format: "YYYY-MM-DD HH:mm:ss | LEVEL    | module:function:line - message"
+	function colorizedLogs(): string {
+		if (!logs?.logs) return '';
+		
+		return logs.logs
+			.split('\n')
+			.map(line => {
+				// Match the log format: timestamp | level | location - message
+				const match = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (\w+)\s*\| ([^-]+)- (.*)$/);
+				
+				if (!match) {
+					// Line doesn't match format, return escaped
+					return escapeHtml(line);
+				}
+				
+				const [, timestamp, level, location, message] = match;
+				const levelTrimmed = level.trim();
+				
+				// Get color class based on log level (matching Loguru's default color scheme)
+				// https://github.com/Delgan/loguru/blob/master/loguru/_defaults.py
+				let levelClass = 'text-text font-semibold'; // Default: bold white (INFO)
+				switch (levelTrimmed) {
+					case 'TRACE':
+						levelClass = 'text-cyan-400 font-semibold';
+						break;
+					case 'DEBUG':
+						levelClass = 'text-blue-400 font-semibold';
+						break;
+					case 'INFO':
+						levelClass = 'text-text font-semibold';
+						break;
+					case 'SUCCESS':
+						levelClass = 'text-green-400 font-semibold';
+						break;
+					case 'WARNING':
+						levelClass = 'text-yellow-400 font-semibold';
+						break;
+					case 'ERROR':
+						levelClass = 'text-red-400 font-semibold';
+						break;
+					case 'CRITICAL':
+						levelClass = 'text-red-500 font-bold';
+						break;
+				}
+				
+				// Build colorized line matching Loguru's format:
+				// <green>timestamp</green> | <level>LEVEL</level> | <cyan>location</cyan> - <level>message</level>
+				return `<span class="text-green-400">${escapeHtml(timestamp)}</span> | ` +
+					`<span class="${levelClass}">${escapeHtml(level)}</span>| ` +
+					`<span class="text-cyan-400">${escapeHtml(location)}</span>- ` +
+					`<span class="${levelClass}">${escapeHtml(message)}</span>`;
+			})
+			.join('\n');
+	}
+	
+	function escapeHtml(text: string): string {
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
 	}
 
 	function handleLogout() {
@@ -480,7 +558,7 @@
 						</div>
 					{/if}
 					<div class="bg-background rounded-xl border border-border overflow-hidden">
-						<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{logs.logs}</pre>
+						<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedLogs()}</pre>
 					</div>
 				</div>
 
