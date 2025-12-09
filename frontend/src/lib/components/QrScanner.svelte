@@ -11,18 +11,28 @@
 	let { onScan, onClose, onError }: Props = $props();
 
 	let videoElement: HTMLVideoElement;
+	let fileInput: HTMLInputElement;
 	let qrScanner: QrScanner | null = null;
 	let error = $state<string | null>(null);
 	let isStarting = $state(true);
 	let hasScanned = $state(false);
+	let cameraFailed = $state(false);
+	let isInsecureContext = $state(false);
+	let isProcessingFile = $state(false);
 
-	onMount(async () => {
+	async function startCamera() {
+		error = null;
+		isStarting = true;
+		cameraFailed = false;
+		hasScanned = false;
+
 		try {
-			// Check if camera is available
-			const hasCamera = await QrScanner.hasCamera();
-			if (!hasCamera) {
-				error = 'No camera found on this device.';
+			// Check for secure context - camera APIs require HTTPS
+			if (!window.isSecureContext) {
+				isInsecureContext = true;
+				error = 'Camera requires HTTPS. Use the upload option below.';
 				isStarting = false;
+				cameraFailed = true;
 				onError?.(error);
 				return;
 			}
@@ -51,23 +61,35 @@
 		} catch (err) {
 			console.error('QR Scanner error:', err);
 			isStarting = false;
+			cameraFailed = true;
 			
 			if (err instanceof Error) {
-				if (err.message.includes('Permission') || err.message.includes('NotAllowed')) {
-					error = 'Camera permission denied. Please allow camera access and try again.';
-				} else if (err.message.includes('NotFound') || err.message.includes('DevicesNotFound')) {
-					error = 'No camera found on this device.';
-				} else if (err.message.includes('NotSupported') || err.message.includes('NotReadable')) {
-					error = 'Camera not supported or in use by another app.';
+				const msg = err.message || '';
+				const name = err.name || '';
+				
+				if (name === 'NotAllowedError' || msg.includes('Permission') || msg.includes('NotAllowed')) {
+					error = 'Camera permission denied. Check your browser settings, or use the upload option below.';
+				} else if (name === 'NotFoundError' || msg.includes('NotFound') || msg.includes('DevicesNotFound')) {
+					error = 'No camera detected. Use the upload option below.';
+				} else if (name === 'NotReadableError' || msg.includes('NotReadable')) {
+					error = 'Camera is in use by another app. Close other apps or use the upload option below.';
+				} else if (name === 'OverconstrainedError' || msg.includes('Overconstrained')) {
+					error = 'Camera settings not supported. Use the upload option below.';
+				} else if (name === 'NotSupportedError' || msg.includes('NotSupported')) {
+					error = 'Camera not supported in this browser. Use the upload option below.';
 				} else {
-					error = `Camera error: ${err.message}`;
+					error = `Camera error: ${msg || 'Unknown error'}. Use the upload option below.`;
 				}
 			} else {
-				error = 'Failed to start camera. Please try again.';
+				error = 'Failed to start camera. Use the upload option below.';
 			}
 			
 			onError?.(error);
 		}
+	}
+
+	onMount(() => {
+		startCamera();
 	});
 
 	async function stopScanner() {
@@ -91,7 +113,57 @@
 			onClose();
 		});
 	}
+
+	async function handleRetryCamera() {
+		await stopScanner();
+		startCamera();
+	}
+
+	function triggerFileUpload() {
+		fileInput?.click();
+	}
+
+	async function handleFileSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		isProcessingFile = true;
+		error = null;
+
+		try {
+			const result = await QrScanner.scanImage(file, {
+				returnDetailedScanResult: true,
+			});
+			
+			hasScanned = true;
+			await stopScanner();
+			onScan(result.data);
+		} catch (err) {
+			console.error('QR scan from image failed:', err);
+			if (err instanceof Error && err.message.includes('No QR code found')) {
+				error = 'No QR code found in image. Try a clearer photo.';
+			} else {
+				error = 'Could not read QR code from image. Try again.';
+			}
+			onError?.(error);
+		} finally {
+			isProcessingFile = false;
+			// Reset file input so the same file can be selected again
+			input.value = '';
+		}
+	}
 </script>
+
+<!-- Hidden file input for fallback -->
+<input
+	bind:this={fileInput}
+	type="file"
+	accept="image/*"
+	capture="environment"
+	onchange={handleFileSelect}
+	class="hidden"
+/>
 
 <!-- Full-screen modal overlay -->
 <div class="fixed inset-0 z-[100] bg-black flex flex-col">
@@ -112,21 +184,54 @@
 
 	<!-- Scanner area -->
 	<div class="flex-1 flex items-center justify-center p-4">
-		{#if error}
+		{#if cameraFailed}
 			<div class="text-center p-6 max-w-sm">
-				<div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
-					<svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<div class="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
+					<svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 						<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
 					</svg>
 				</div>
-				<p class="text-white/80 mb-4">{error}</p>
-				<button
-					type="button"
-					onclick={handleClose}
-					class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
-				>
-					Close
-				</button>
+				<p class="text-white/80 mb-6">{error}</p>
+				
+				<!-- Action buttons -->
+				<div class="flex flex-col gap-3">
+					<!-- File upload button (always available as fallback) -->
+					<button
+						type="button"
+						onclick={triggerFileUpload}
+						disabled={isProcessingFile}
+						class="px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+					>
+						{#if isProcessingFile}
+							<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+							<span>Processing...</span>
+						{:else}
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							<span>Upload QR Image</span>
+						{/if}
+					</button>
+
+					<!-- Retry camera button (not shown for HTTPS issues) -->
+					{#if !isInsecureContext}
+						<button
+							type="button"
+							onclick={handleRetryCamera}
+							class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+						>
+							Try Camera Again
+						</button>
+					{/if}
+
+					<button
+						type="button"
+						onclick={handleClose}
+						class="px-4 py-2 text-white/60 hover:text-white transition-colors"
+					>
+						Cancel
+					</button>
+				</div>
 			</div>
 		{:else}
 			<div class="relative">
@@ -152,9 +257,15 @@
 
 	<!-- Footer with instructions -->
 	<div class="p-4 bg-black/80 text-center">
-		<p class="text-white/60 text-sm">
-			Point your camera at a Homebox location QR code
-		</p>
+		{#if cameraFailed}
+			<p class="text-white/60 text-sm">
+				Take a photo of the QR code or select an existing image
+			</p>
+		{:else}
+			<p class="text-white/60 text-sm">
+				Point your camera at a Homebox location QR code
+			</p>
+		{/if}
 	</div>
 </div>
 
