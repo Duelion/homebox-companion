@@ -124,7 +124,7 @@
 		fileInput?.click();
 	}
 
-	// Convert HEIC images to JPEG (iOS sends HEIC format when taking photos)
+	// Convert HEIC images to JPEG (iOS may send HEIC format)
 	async function convertHeicIfNeeded(file: File): Promise<Blob> {
 		const isHeic = file.type === 'image/heic' || 
 		               file.type === 'image/heif' ||
@@ -138,6 +138,42 @@
 		return file;
 	}
 
+	// Normalize image through canvas to apply EXIF orientation
+	// Fresh iOS photos have EXIF rotation that browsers don't auto-apply when scanning
+	async function normalizeImageOrientation(blob: Blob): Promise<Blob> {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			const url = URL.createObjectURL(blob);
+			
+			img.onload = () => {
+				// Create canvas and draw image (this applies EXIF orientation in modern browsers)
+				const canvas = document.createElement('canvas');
+				canvas.width = img.naturalWidth;
+				canvas.height = img.naturalHeight;
+				const ctx = canvas.getContext('2d');
+				if (!ctx) {
+					URL.revokeObjectURL(url);
+					reject(new Error('Canvas context not available'));
+					return;
+				}
+				ctx.drawImage(img, 0, 0);
+				canvas.toBlob(
+					(resultBlob) => {
+						URL.revokeObjectURL(url);
+						resultBlob ? resolve(resultBlob) : reject(new Error('Canvas conversion failed'));
+					},
+					'image/jpeg',
+					0.92
+				);
+			};
+			img.onerror = () => {
+				URL.revokeObjectURL(url);
+				reject(new Error('Failed to load image'));
+			};
+			img.src = url;
+		});
+	}
+
 	async function handleFileSelect(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -148,7 +184,11 @@
 
 		try {
 			// Convert HEIC to JPEG if needed (iOS camera photos)
-			const imageBlob = await convertHeicIfNeeded(file);
+			const heicConverted = await convertHeicIfNeeded(file);
+			// Normalize through canvas to apply EXIF orientation
+			const imageBlob = await normalizeImageOrientation(heicConverted);
+			
+			console.log('Processed image:', imageBlob.type, imageBlob.size);
 			
 			const result = await QrScanner.scanImage(imageBlob, {
 				returnDetailedScanResult: true,
