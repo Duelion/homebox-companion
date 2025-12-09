@@ -110,7 +110,7 @@
 		{
 			key: 'notes',
 			label: 'Notes',
-			example: 'GOOD: "Cracked lens" | BAD: "Appears new"'
+			example: 'For defects/warnings only. Include GOOD/BAD examples for clarity.'
 		},
 	];
 
