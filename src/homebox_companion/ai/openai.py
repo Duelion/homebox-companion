@@ -123,7 +123,7 @@ async def chat_completion(
         logger.debug(
             f"OpenAI response received ({len(raw_content)} chars) | "
             f"Tokens: {completion.usage.total_tokens} total "
-            f"({completion.usage.input_tokens} input, {completion.usage.output_tokens} output)"
+            f"({completion.usage.prompt_tokens} input, {completion.usage.completion_tokens} output)"
         )
     else:
         logger.debug(f"OpenAI response received ({len(raw_content)} chars)")
