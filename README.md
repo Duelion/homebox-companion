@@ -126,22 +126,34 @@ Open `http://localhost:8000` in your browser.
 **Setup:**
 
 ```bash
-# Clone and install
+# Clone and install dependencies
 git clone https://github.com/Duelion/homebox-companion.git
 cd homebox-companion
 uv sync
 cd frontend && npm install && cd ..
 
-# Configure (create .env file)
-echo 'HBC_OPENAI_API_KEY=sk-your-key' > .env
-echo 'HBC_HOMEBOX_URL=http://localhost:7745' >> .env
-
-# Run (two terminals)
-uv run uvicorn server.app:app --reload  # Terminal 1: Backend
-cd frontend && npm run dev               # Terminal 2: Frontend
+# Configure environment (create .env in project root)
+cat > .env << 'EOF'
+HBC_OPENAI_API_KEY=sk-your-key
+HBC_HOMEBOX_URL=http://localhost:7745
+EOF
 ```
 
-Open `http://localhost:5173` in your browser.
+**Run the development servers:**
+
+You need two terminals - one for the backend API, one for the frontend dev server:
+
+```bash
+# Terminal 1: Start the backend API server (from project root)
+uv run uvicorn server.app:app --reload
+```
+
+```bash
+# Terminal 2: Start the frontend dev server (from project root)
+cd frontend && npm run dev
+```
+
+Open `http://localhost:5173` in your browser. The frontend dev server proxies API requests to the backend on port 8000.
 
 ## Environment Variables
 
