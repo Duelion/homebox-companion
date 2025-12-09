@@ -252,17 +252,6 @@ async def main():
 asyncio.run(main())
 ```
 
-## Contributing
-
-Contributions are welcome! Please ensure:
-
-1. Code passes `uv run ruff check .`
-2. Tests pass with `uv run pytest`
-3. Increment version in `pyproject.toml`
-4. Update `package-lock.json` if modifying frontend dependencies
-
-See [AGENTS.md](AGENTS.md) for detailed development guidelines.
-
 ## License
 
 MIT License - see LICENSE file for details.
