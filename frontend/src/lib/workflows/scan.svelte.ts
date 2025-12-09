@@ -494,7 +494,7 @@ class ScanWorkflow {
 
 						// Upload attachments if item was created
 						if (createdItem?.id) {
-							// Upload thumbnail or original image
+							// Upload thumbnail or original image (if available)
 							if (confirmedItem.customThumbnail) {
 								const thumbnailFile = await this.dataUrlToFile(
 									confirmedItem.customThumbnail,
@@ -504,9 +504,10 @@ class ScanWorkflow {
 							} else if (confirmedItem.originalFile) {
 								await itemsApi.uploadAttachment(createdItem.id, confirmedItem.originalFile);
 							}
+							// Note: If both customThumbnail and originalFile are undefined, no primary image is uploaded
 
-							// Upload additional images
-							if (confirmedItem.additionalImages) {
+							// Upload additional images (if any)
+							if (confirmedItem.additionalImages && confirmedItem.additionalImages.length > 0) {
 								for (const addImage of confirmedItem.additionalImages) {
 									await itemsApi.uploadAttachment(createdItem.id, addImage);
 								}
