@@ -11,7 +11,7 @@
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
 	import ExtendedFieldsPanel from '$lib/components/ExtendedFieldsPanel.svelte';
-	import AdditionalImagesPanel from '$lib/components/AdditionalImagesPanel.svelte';
+	import ImagesPanel from '$lib/components/ImagesPanel.svelte';
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 
@@ -31,7 +31,7 @@
 	let showAiCorrection = $state(false);
 	let showThumbnailEditor = $state(false);
 	let isProcessing = $state(false);
-	let additionalImages = $state<File[]>([]);
+	let allImages = $state<File[]>([]);
 
 	// Check if item has any extended field data
 	function hasExtendedFieldData(item: ReviewItem | null): boolean {
@@ -51,7 +51,11 @@
 		if (currentItem) {
 			editedItem = { ...currentItem };
 			showAiCorrection = false;
-			additionalImages = currentItem.additionalImages ? [...currentItem.additionalImages] : [];
+			// Build unified images array: original first, then additional
+			allImages = [
+				...(currentItem.originalFile ? [currentItem.originalFile] : []),
+				...(currentItem.additionalImages || [])
+			];
 			showExtendedFields = hasExtendedFieldData(currentItem);
 		}
 	});
@@ -104,7 +108,16 @@
 	function confirmItem() {
 		if (!editedItem) return;
 
-		editedItem.additionalImages = additionalImages;
+		// Sync unified allImages back to item structure
+		// First image becomes "original", rest become "additional"
+		if (allImages.length > 0) {
+			editedItem.originalFile = allImages[0];
+			editedItem.additionalImages = allImages.slice(1);
+		} else {
+			editedItem.originalFile = undefined;
+			editedItem.additionalImages = [];
+		}
+
 		workflow.confirmItem(editedItem);
 		showToast(`"${editedItem.name}" confirmed`, 'success');
 	}
@@ -176,29 +189,10 @@
 	}
 
 	function getAvailableImages(): { file: File; dataUrl: string }[] {
-		if (!editedItem) return [];
-
-		const result: { file: File; dataUrl: string }[] = [];
-		const seenFiles = new Set<string>();
-
-		function addImage(file: File, dataUrl: string) {
-			const key = `${file.name}-${file.size}-${file.lastModified}`;
-			if (!seenFiles.has(key)) {
-				seenFiles.add(key);
-				result.push({ file, dataUrl });
-			}
-		}
-
-		const sourceImage = images[editedItem.sourceImageIndex];
-		if (sourceImage) {
-			addImage(sourceImage.file, sourceImage.dataUrl);
-		}
-
-		for (const file of additionalImages) {
-			addImage(file, URL.createObjectURL(file));
-		}
-
-		return result;
+		return allImages.map(file => ({
+			file,
+			dataUrl: URL.createObjectURL(file)
+		}));
 	}
 
 	function handleThumbnailSave(dataUrl: string) {
@@ -212,7 +206,7 @@
 	function getDisplayThumbnail(): string | null {
 		if (!editedItem) return null;
 		if (editedItem.customThumbnail) return editedItem.customThumbnail;
-		if (editedItem.originalFile) return URL.createObjectURL(editedItem.originalFile);
+		if (allImages.length > 0) return URL.createObjectURL(allImages[0]);
 		return null;
 	}
 </script>
@@ -255,6 +249,17 @@
 							Custom
 						</span>
 					{/if}
+				</div>
+			{:else}
+				<!-- No image placeholder -->
+				<div class="aspect-video bg-surface-elevated flex flex-col items-center justify-center text-text-muted">
+					<svg class="w-16 h-16 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+						<circle cx="8.5" cy="8.5" r="1.5"/>
+						<polyline points="21 15 16 10 5 21"/>
+					</svg>
+					<p class="text-sm">No image available</p>
+					<p class="text-xs mt-1">Add photos below</p>
 				</div>
 			{/if}
 
@@ -309,7 +314,7 @@
 					onToggle={() => (showExtendedFields = !showExtendedFields)}
 				/>
 
-				<AdditionalImagesPanel bind:images={additionalImages} />
+				<ImagesPanel bind:images={allImages} />
 
 				<AiCorrectionPanel
 					expanded={showAiCorrection}
@@ -347,15 +352,13 @@
 		</div>
 	{/if}
 
-	{#if showThumbnailEditor && editedItem}
+	{#if showThumbnailEditor && editedItem && allImages.length > 0}
 		{@const availableImages = getAvailableImages()}
-		{#if availableImages.length > 0}
-			<ThumbnailEditor
-				images={availableImages}
-				currentThumbnail={editedItem.customThumbnail}
-				onSave={handleThumbnailSave}
-				onClose={() => (showThumbnailEditor = false)}
-			/>
-		{/if}
+		<ThumbnailEditor
+			images={availableImages}
+			currentThumbnail={editedItem.customThumbnail}
+			onSave={handleThumbnailSave}
+			onClose={() => (showThumbnailEditor = false)}
+		/>
 	{/if}
 </div>

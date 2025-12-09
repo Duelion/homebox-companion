@@ -51,7 +51,7 @@
 				<polyline points="21 15 16 10 5 21"/>
 			</svg>
 			<span class="text-sm font-medium text-text">
-				{images.length} additional photo{images.length !== 1 ? 's' : ''}
+				{images.length} photo{images.length !== 1 ? 's' : ''}
 			</span>
 		</div>
 		
@@ -60,7 +60,7 @@
 				<div class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-surface-elevated group ring-1 ring-border/50">
 					<img
 						src={getThumbnailUrl(img)}
-						alt="Additional {index + 1}"
+						alt="Photo {index + 1}"
 						class="w-full h-full object-cover"
 					/>
 					<button
@@ -75,7 +75,11 @@
 						</svg>
 					</button>
 					<div class="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
-						{index + 1}
+						{#if index === 0}
+							Primary
+						{:else}
+							{index + 1}
+						{/if}
 					</div>
 				</div>
 			{/each}
@@ -111,7 +115,7 @@
 					</svg>
 				</div>
 				<div class="flex-1 text-left">
-					<p class="text-sm font-medium text-text group-hover:text-primary transition-colors">Add more photos</p>
+					<p class="text-sm font-medium text-text group-hover:text-primary transition-colors">Add photos</p>
 					<p class="text-xs text-text-dim">Labels, serial numbers, different angles</p>
 				</div>
 				<svg class="w-5 h-5 text-text-muted group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,3 +125,4 @@
 		</button>
 	{/if}
 </div>
+
