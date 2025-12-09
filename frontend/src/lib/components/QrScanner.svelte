@@ -140,7 +140,7 @@
 
 	// Normalize image: apply EXIF rotation + scale down large images
 	// Firefox iOS doesn't auto-apply EXIF rotation, and large images cause timeout
-	const MAX_IMAGE_DIMENSION = 1500; // Max width or height for QR scanning
+	const MAX_IMAGE_DIMENSION = 1280; // Match working image size (~960x1280)
 	
 	async function normalizeImageOrientation(blob: Blob): Promise<Blob> {
 		// Read EXIF orientation first
@@ -152,27 +152,26 @@
 			const url = URL.createObjectURL(blob);
 			
 			img.onload = () => {
-				let width = img.naturalWidth;
-				let height = img.naturalHeight;
+				const srcWidth = img.naturalWidth;
+				const srcHeight = img.naturalHeight;
 				
-				// Swap dimensions for 90° rotations (orientation 5, 6, 7, 8)
+				// Determine output dimensions (swap for 90° rotations)
 				const needsSwap = orientation && orientation >= 5 && orientation <= 8;
-				if (needsSwap) {
-					[width, height] = [height, width];
-				}
+				let outWidth = needsSwap ? srcHeight : srcWidth;
+				let outHeight = needsSwap ? srcWidth : srcHeight;
 				
 				// Scale down if image is too large (prevents timeout)
 				let scale = 1;
-				if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
-					scale = MAX_IMAGE_DIMENSION / Math.max(width, height);
-					width = Math.round(width * scale);
-					height = Math.round(height * scale);
-					console.log(`   Scaling down by ${(scale * 100).toFixed(0)}% to ${width}x${height}`);
+				if (outWidth > MAX_IMAGE_DIMENSION || outHeight > MAX_IMAGE_DIMENSION) {
+					scale = MAX_IMAGE_DIMENSION / Math.max(outWidth, outHeight);
+					outWidth = Math.round(outWidth * scale);
+					outHeight = Math.round(outHeight * scale);
+					console.log(`   Scaling down by ${(scale * 100).toFixed(0)}% to ${outWidth}x${outHeight}`);
 				}
 				
 				const canvas = document.createElement('canvas');
-				canvas.width = width;
-				canvas.height = height;
+				canvas.width = outWidth;
+				canvas.height = outHeight;
 				const ctx = canvas.getContext('2d');
 				if (!ctx) {
 					URL.revokeObjectURL(url);
@@ -181,37 +180,48 @@
 				}
 				
 				// Apply transformation based on EXIF orientation
-				// https://sirv.com/help/articles/rotate-photos-to-be-upright/
+				// Using translate + rotate/scale approach for clarity
+				ctx.save();
+				
 				switch (orientation) {
 					case 2: // Flip horizontal
-						ctx.transform(-scale, 0, 0, scale, width, 0);
+						ctx.translate(outWidth, 0);
+						ctx.scale(-scale, scale);
 						break;
 					case 3: // Rotate 180°
-						ctx.transform(-scale, 0, 0, -scale, width, height);
+						ctx.translate(outWidth, outHeight);
+						ctx.scale(-scale, -scale);
 						break;
 					case 4: // Flip vertical
-						ctx.transform(scale, 0, 0, -scale, 0, height);
+						ctx.translate(0, outHeight);
+						ctx.scale(scale, -scale);
 						break;
-					case 5: // Transpose (flip horizontal + rotate 90° CCW)
+					case 5: // Transpose
+						ctx.translate(0, 0);
 						ctx.transform(0, scale, scale, 0, 0, 0);
 						break;
 					case 6: // Rotate 90° CW
-						ctx.transform(0, scale, -scale, 0, width, 0);
+						ctx.translate(outWidth, 0);
+						ctx.rotate(Math.PI / 2);
+						ctx.scale(scale, scale);
 						break;
-					case 7: // Transverse (flip horizontal + rotate 90° CW)
-						ctx.transform(0, -scale, -scale, 0, width, height);
+					case 7: // Transverse
+						ctx.translate(outWidth, outHeight);
+						ctx.transform(0, -scale, -scale, 0, 0, 0);
 						break;
 					case 8: // Rotate 90° CCW
-						ctx.transform(0, -scale, scale, 0, 0, height);
+						ctx.translate(0, outHeight);
+						ctx.rotate(-Math.PI / 2);
+						ctx.scale(scale, scale);
 						break;
-					default: // 1 or null - no transformation needed
-						if (scale !== 1) {
-							ctx.scale(scale, scale);
-						}
+					default: // 1 or null - no rotation needed
+						ctx.scale(scale, scale);
 						break;
 				}
 				
 				ctx.drawImage(img, 0, 0);
+				ctx.restore();
+				
 				canvas.toBlob(
 					(resultBlob) => {
 						URL.revokeObjectURL(url);
