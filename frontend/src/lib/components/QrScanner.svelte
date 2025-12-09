@@ -158,7 +158,14 @@
 			await stopScanner();
 			onScan(result.data);
 		} catch (err) {
-			console.error('QR scan from image failed:', err);
+			// Log full error details for debugging
+			console.error('QR scan from image failed:');
+			console.error('Error:', err);
+			console.error('Type:', err?.constructor?.name);
+			console.error('Message:', err instanceof Error ? err.message : String(err));
+			console.error('Stack:', err instanceof Error ? err.stack : 'N/A');
+			console.error('File info:', file.name, file.type, file.size);
+			
 			if (err instanceof Error && err.message.includes('No QR code found')) {
 				error = 'No QR code found in image. Try a clearer photo.';
 			} else {
