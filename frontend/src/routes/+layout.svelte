@@ -44,9 +44,10 @@
 </script>
 
 <div class="min-h-screen min-h-dvh flex flex-col bg-background">
-	<!-- Header -->
-	<header class="sticky top-0 z-40 glass border-b border-border pt-safe">
-		<div class="max-w-lg mx-auto px-4 h-14 flex items-center justify-center">
+	<!-- Header with safe area background -->
+	<div class="sticky top-0 z-40 glass border-b border-border">
+		<div class="pt-safe">
+			<div class="max-w-lg mx-auto px-4 h-14 flex items-center justify-center">
 			<!-- Center: Logo and title -->
 			<a href={$isAuthenticated ? '/location' : '/'} class="flex items-center justify-center gap-2 text-text font-semibold overflow-visible">
 				<svg class="w-7 h-7 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -56,8 +57,9 @@
 				</svg>
 				<span class="whitespace-nowrap">Homebox Companion</span>
 			</a>
+			</div>
 		</div>
-	</header>
+	</div>
 
 	<!-- Update available banner - sticky at top, only on login page -->
 	{#if !$isAuthenticated && $latestVersion && !$updateDismissed}
