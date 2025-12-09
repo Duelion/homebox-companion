@@ -24,7 +24,8 @@ export { vision } from './vision';
 export { 
 	getVersion, 
 	getConfig, 
-	getLogs, 
+	getLogs,
+	downloadLogs,
 	fieldPreferences,
 	type VersionResponse,
 	type ConfigResponse,

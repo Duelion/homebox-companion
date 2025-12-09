@@ -43,6 +43,36 @@ export interface LogsResponse {
 export const getLogs = (lines: number = 200) =>
 	request<LogsResponse>(`/logs?lines=${lines}`);
 
+export const downloadLogs = async (filename: string) => {
+	const response = await fetch(`/api/logs/download`, {
+		method: 'GET',
+		headers: {
+			Authorization: `Bearer ${localStorage.getItem('token')}`,
+		},
+	});
+
+	if (!response.ok) {
+		throw new Error('Failed to download log file');
+	}
+
+	// Create a blob from the response
+	const blob = await response.blob();
+	
+	// Create a temporary URL for the blob
+	const url = window.URL.createObjectURL(blob);
+	
+	// Create a temporary link and trigger download
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	
+	// Cleanup
+	window.URL.revokeObjectURL(url);
+	document.body.removeChild(a);
+};
+
 // =============================================================================
 // FIELD PREFERENCES
 // =============================================================================
