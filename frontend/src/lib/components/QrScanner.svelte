@@ -174,21 +174,116 @@
 		});
 	}
 
-	// Helper to get image dimensions
-	async function getImageDimensions(blob: Blob): Promise<{width: number, height: number}> {
+	// Helper to get full image metadata
+	async function getImageMetadata(blob: Blob): Promise<Record<string, unknown>> {
 		return new Promise((resolve) => {
 			const img = new Image();
 			const url = URL.createObjectURL(blob);
 			img.onload = () => {
 				URL.revokeObjectURL(url);
-				resolve({ width: img.naturalWidth, height: img.naturalHeight });
+				resolve({
+					naturalWidth: img.naturalWidth,
+					naturalHeight: img.naturalHeight,
+					width: img.width,
+					height: img.height,
+					complete: img.complete,
+					currentSrc: img.currentSrc ? 'blob:...' : 'none',
+				});
 			};
 			img.onerror = () => {
 				URL.revokeObjectURL(url);
-				resolve({ width: 0, height: 0 });
+				resolve({ error: 'Failed to load image' });
 			};
 			img.src = url;
 		});
+	}
+
+	// Read EXIF orientation from JPEG blob (returns 1-8, or null if not found)
+	async function readExifOrientation(blob: Blob): Promise<number | null> {
+		try {
+			const buffer = await blob.slice(0, 65536).arrayBuffer(); // Read first 64KB
+			const view = new DataView(buffer);
+			
+			// Check for JPEG magic bytes
+			if (view.getUint16(0) !== 0xFFD8) return null;
+			
+			let offset = 2;
+			while (offset < view.byteLength - 2) {
+				const marker = view.getUint16(offset);
+				offset += 2;
+				
+				// APP1 marker (EXIF)
+				if (marker === 0xFFE1) {
+					const length = view.getUint16(offset);
+					offset += 2;
+					
+					// Check for "Exif\0\0"
+					const exifHeader = view.getUint32(offset);
+					if (exifHeader !== 0x45786966) return null;
+					offset += 6;
+					
+					const tiffOffset = offset;
+					const littleEndian = view.getUint16(offset) === 0x4949;
+					offset += 8;
+					
+					const numEntries = view.getUint16(offset, littleEndian);
+					offset += 2;
+					
+					for (let i = 0; i < numEntries; i++) {
+						const tag = view.getUint16(offset, littleEndian);
+						if (tag === 0x0112) { // Orientation tag
+							return view.getUint16(offset + 8, littleEndian);
+						}
+						offset += 12;
+					}
+					return null;
+				} else if ((marker & 0xFF00) === 0xFF00) {
+					offset += view.getUint16(offset);
+				} else {
+					break;
+				}
+			}
+			return null;
+		} catch {
+			return null;
+		}
+	}
+
+	// Get full blob/file metadata
+	async function getFullMetadata(blobOrFile: Blob | File, label: string): Promise<void> {
+		const isFile = blobOrFile instanceof File;
+		const imgMeta = await getImageMetadata(blobOrFile);
+		const exifOrientation = await readExifOrientation(blobOrFile);
+		
+		const metadata: Record<string, unknown> = {
+			// Blob properties
+			size: blobOrFile.size,
+			type: blobOrFile.type,
+			// File-specific properties
+			...(isFile && {
+				name: (blobOrFile as File).name,
+				lastModified: (blobOrFile as File).lastModified,
+				lastModifiedDate: new Date((blobOrFile as File).lastModified).toISOString(),
+				webkitRelativePath: (blobOrFile as File).webkitRelativePath || 'N/A',
+			}),
+			// Image properties
+			...imgMeta,
+			// EXIF
+			exifOrientation: exifOrientation,
+			exifOrientationMeaning: exifOrientation ? [
+				'Unknown',
+				'Normal (1)',
+				'Flip horizontal (2)',
+				'Rotate 180° (3)',
+				'Flip vertical (4)',
+				'Transpose (5)',
+				'Rotate 90° CW (6)',
+				'Transverse (7)',
+				'Rotate 90° CCW (8)'
+			][exifOrientation] || `Unknown (${exifOrientation})` : 'Not found',
+		};
+		
+		console.log(`${label}:`, metadata);
 	}
 
 	async function handleFileSelect(event: Event) {
@@ -200,50 +295,43 @@
 		error = null;
 
 		try {
-			// Log original file
-			console.log('=== QR SCAN DEBUG ===');
-			console.log('1. Original file:', {
-				name: file.name,
-				type: file.type,
-				size: file.size,
-				lastModified: new Date(file.lastModified).toISOString()
-			});
+			console.log('========== QR SCAN DEBUG START ==========');
+			
+			// Log original file with full metadata
+			await getFullMetadata(file, '1. ORIGINAL FILE');
 
 			// Convert HEIC to JPEG if needed (iOS camera photos)
 			const heicConverted = await convertHeicIfNeeded(file);
-			const heicDims = await getImageDimensions(heicConverted);
-			console.log('2. After HEIC check:', {
-				type: heicConverted.type || 'blob',
-				size: heicConverted.size,
-				width: heicDims.width,
-				height: heicDims.height,
-				wasConverted: heicConverted !== file
-			});
+			const wasHeicConverted = heicConverted !== file;
+			console.log('2. HEIC conversion:', wasHeicConverted ? 'YES - converted from HEIC' : 'NO - not HEIC');
+			if (wasHeicConverted) {
+				await getFullMetadata(heicConverted, '2b. AFTER HEIC CONVERSION');
+			}
 
 			// Normalize through canvas to apply EXIF orientation
 			const imageBlob = await normalizeImageOrientation(heicConverted);
-			const finalDims = await getImageDimensions(imageBlob);
-			console.log('3. After canvas normalization:', {
-				type: imageBlob.type,
-				size: imageBlob.size,
-				width: finalDims.width,
-				height: finalDims.height
-			});
+			await getFullMetadata(imageBlob, '3. AFTER CANVAS NORMALIZATION');
 			
 			const result = await QrScanner.scanImage(imageBlob, {
 				returnDetailedScanResult: true,
 			});
 			
-			console.log('4. SUCCESS! QR detected:', result.data);
-			console.log('=== END DEBUG ===');
+			console.log('4. RESULT: SUCCESS!');
+			console.log('   QR Data:', result.data);
+			console.log('   Corner Points:', result.cornerPoints);
+			console.log('========== QR SCAN DEBUG END ============');
 			
 			hasScanned = true;
 			await stopScanner();
 			onScan(result.data);
 		} catch (err) {
-			// Log full error details for debugging
-			console.error('4. FAILED:', err instanceof Error ? err.message : String(err));
-			console.error('=== END DEBUG ===');
+			console.error('4. RESULT: FAILED');
+			console.error('   Error:', err instanceof Error ? err.message : String(err));
+			console.error('   Error type:', err?.constructor?.name);
+			if (err instanceof Error && err.stack) {
+				console.error('   Stack:', err.stack);
+			}
+			console.log('========== QR SCAN DEBUG END ============');
 			
 			if (err instanceof Error && err.message.includes('No QR code found')) {
 				error = 'No QR code found in image. Try a clearer photo.';
