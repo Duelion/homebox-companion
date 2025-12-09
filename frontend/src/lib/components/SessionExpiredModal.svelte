@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { auth } from '$lib/api';
 	import { sessionExpired, onReauthSuccess, logout } from '$lib/stores/auth';
+	import { resetLocationState } from '$lib/stores/locations';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import Button from './Button.svelte';
 
 	let email = $state('');
@@ -35,6 +37,8 @@
 	}
 
 	function handleLogout() {
+		scanWorkflow.reset();
+		resetLocationState();
 		logout();
 		window.location.href = '/';
 	}
