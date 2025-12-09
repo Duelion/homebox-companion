@@ -1,12 +1,14 @@
 # Homebox Companion
 
-AI-powered companion app (unofficial) for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.
+> **Not affiliated with the Homebox project.** This is an unofficial third-party companion app.
+
+AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.
 
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
 
-## What It Does
+<!-- TODO: Add screenshot/GIF here -->
 
-Homebox Companion streamlines the process of adding items to your home inventory:
+## How It Works
 
 ```mermaid
 flowchart LR
@@ -27,68 +29,32 @@ flowchart LR
 5. **Review & Edit** – Adjust AI suggestions, merge items, or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
-## Features
+## Requirements
 
-### Core Features
-- **Photo-based Detection** – Upload or capture photos of items from your device
-- **AI Vision Analysis** – Uses OpenAI GPT-5 to identify items in images
-- **Smart Labeling** – Automatically suggests labels from your existing Homebox labels
-- **Hierarchical Locations** – Navigate and select from your full location tree
-- **QR Code Scanner** – Scan Homebox location QR codes to instantly select a location
-  - *Note: HTTPS enables native hardware QR detection for real-time scanning (faster and more reliable). On HTTP, a "Take Photo" fallback is available.*
-- **Batch Processing** – Analyze multiple photos in parallel for faster processing
-- **Mobile-First UI** – Designed for phones (works great on desktop too)
+Before you start, you'll need:
 
-### AI Capabilities
-- **Multi-Image Analysis** – Upload multiple photos of the same item from different angles to improve detection accuracy. Include close-ups of labels, serial numbers, or receipts.
-- **Extended Fields Detection** – Automatically extracts manufacturer, model number, serial number, purchase price when visible
-- **Single-Item Mode** – Force AI to treat everything in a photo as one item (useful for sets/kits)
-- **AI Corrections** – Tell the AI what it got wrong and it will re-analyze with your feedback
-- **Label Matching** – AI suggests appropriate labels from your existing Homebox label library
-- **Customizable Field Instructions** – Configure how the AI formats each field (name, description, notes, etc.)
-- **Multi-Language Output** – Configure AI to respond in your preferred language
-
-### Review Features
-- **Edit Detected Items** – Modify names, quantities, descriptions before saving
-- **Custom Thumbnails** – Crop and select the best thumbnail for each item
-- **Skip or Confirm** – Review each detected item individually
-- **Add More Photos** – Attach additional images during review for better AI analysis
-
-### Location Management
-- **Browse Locations** – Navigate your hierarchical location tree
-- **Search Locations** – Quickly find any location by name
-- **QR Code Scanning** – Scan a Homebox location QR code to select it instantly
-- **Create Locations** – Add new locations directly from the app
-- **Edit Locations** – Update location names and descriptions
-
-### Settings & Customization
-- **Default AI Tag** – Set a default label that's automatically applied to all detected items
-- **Output Language** – Configure AI to respond in your preferred language
-- **Field Customization** – Customize how AI formats each field:
-  - Name format (e.g., "Title Case, include brand")
-  - Description style (e.g., "Focus on condition and materials")
-  - Notes guidelines (e.g., "Only mention defects")
-  - Custom naming examples
-  - And more (manufacturer, model, serial, price, etc.)
-- **Export Environment Variables** – Export your customizations as environment variables for Docker persistence
-- **AI Prompt Preview** – See exactly what the AI will receive based on your settings
-- **Session Persistence** – Tab switching preserves your position in the scan flow
+- **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
+- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test
 
 ## Quick Start
 
-### Docker (Recommended)
+### Try with Demo Server
 
-Pull the latest image from GitHub Container Registry:
+Want to try it out without setting up Homebox? Use the public demo server:
 
 ```bash
-docker pull ghcr.io/duelion/homebox-companion:latest
+docker run -p 8000:8000 \
+  -e HBC_OPENAI_API_KEY=sk-your-key \
+  -e HBC_HOMEBOX_URL=https://demo.homebox.software \
+  ghcr.io/duelion/homebox-companion:latest
 ```
 
-Create a `docker-compose.yml`:
+Open `http://localhost:8000` and login with `demo@example.com` / `demo`
+
+### Docker (Recommended)
 
 ```yaml
-version: "3.4"
-
+# docker-compose.yml
 services:
   homebox-companion:
     image: ghcr.io/duelion/homebox-companion:latest
@@ -96,16 +62,10 @@ services:
     restart: always
     environment:
       - HBC_OPENAI_API_KEY=sk-your-api-key-here
-      - HBC_HOMEBOX_URL=http://192.168.1.100:7745
-      - HBC_OPENAI_MODEL=gpt-5-mini
-      # Optional: AI customizations (persist across container updates)
-      # - HBC_AI_OUTPUT_LANGUAGE=Spanish
-      # - HBC_AI_NAME=Always include brand first, then model
+      - HBC_HOMEBOX_URL=http://your-homebox-ip:7745
     ports:
       - 8000:8000
 ```
-
-Run:
 
 ```bash
 docker compose up -d
@@ -113,158 +73,121 @@ docker compose up -d
 
 Open `http://localhost:8000` in your browser.
 
-> **Docker networking tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
+> **Tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
 
-### Local Development
+### Run from Source
 
-**Prerequisites:**
-- Python 3.12+
-- Node.js 18+
-- [uv](https://docs.astral.sh/uv/) package manager
-- An OpenAI API key
+Alternative to Docker if you prefer running directly on your system.
 
-**Setup:**
+**Prerequisites:** Python 3.12+, Node.js 18+, [uv](https://docs.astral.sh/uv/)
 
 ```bash
 # Clone and install
 git clone https://github.com/Duelion/homebox-companion.git
 cd homebox-companion
 uv sync
-cd frontend && npm install && cd ..
 
-# Configure (create .env file)
-echo 'HBC_OPENAI_API_KEY=sk-your-key' > .env
-echo 'HBC_HOMEBOX_URL=http://localhost:7745' >> .env
+# Build frontend
+cd frontend && npm install && npm run build && cd ..
+mkdir -p server/static && cp -r frontend/build/* server/static/
 
-# Run (two terminals)
-uv run uvicorn server.app:app --reload  # Terminal 1: Backend
-cd frontend && npm run dev               # Terminal 2: Frontend
+# Configure
+cat > .env << 'EOF'
+HBC_OPENAI_API_KEY=sk-your-key
+HBC_HOMEBOX_URL=http://localhost:7745
+EOF
+
+# Run
+uv run python -m server.app
 ```
 
-Open `http://localhost:5173` in your browser.
+Open `http://localhost:8000` in your browser.
 
-## Environment Variables
+## Features
 
-All environment variables use the `HBC_` prefix.
+### AI-Powered Detection
+- Identifies multiple items in a single photo
+- Extracts manufacturer, model, serial number, price when visible
+- Suggests labels from your existing Homebox labels
+- Multi-language support
 
-### Core Settings
+### Smart Workflow
+- **Multi-image analysis** – Take photos from multiple angles for better accuracy
+- **Single-item mode** – Force AI to treat a photo as one item (for sets/kits)
+- **AI corrections** – Tell the AI what it got wrong and it re-analyzes
+- **Custom thumbnails** – Crop and select the best image for each item
+
+### Location Management
+- Browse hierarchical location tree
+- Search locations by name
+- Scan Homebox QR codes
+- Create new locations on the fly
+
+### Customization
+- Configure how AI formats each field (name style, description format, etc.)
+- Set a default label for all detected items
+- Export settings as environment variables for Docker persistence
+
+## Configuration
+
+### Essential Settings
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `HBC_OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
-| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL (we append `/api/v1`) |
-| `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model (`gpt-5-nano` for faster/cheaper) |
-| `HBC_SERVER_HOST` | No | `0.0.0.0` | Server bind address |
-| `HBC_SERVER_PORT` | No | `8000` | Server port |
-| `HBC_LOG_LEVEL` | No | `INFO` | Logging level |
-| `HBC_DISABLE_UPDATE_CHECK` | No | `false` | Disable update notifications |
+| `HBC_OPENAI_API_KEY` | **Yes** | – | Your OpenAI API key |
+| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL |
+| `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | Model to use (`gpt-5-nano` for cheaper) |
 
-### AI Output Customization
+### Advanced Settings
 
-These persist customizations across Docker container updates. The Settings page UI takes priority over environment variables.
+<details>
+<summary>Server & Logging</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_SERVER_HOST` | `0.0.0.0` | Server bind address |
+| `HBC_SERVER_PORT` | `8000` | Server port |
+| `HBC_LOG_LEVEL` | `INFO` | Logging level |
+| `HBC_DISABLE_UPDATE_CHECK` | `false` | Disable update notifications |
+
+</details>
+
+<details>
+<summary>AI Output Customization</summary>
+
+Customize how AI formats detected item fields. Set via environment variables or the Settings page (UI takes priority).
 
 | Variable | Description |
 |----------|-------------|
-| `HBC_AI_OUTPUT_LANGUAGE` | Language for AI-generated text (default: English) |
+| `HBC_AI_OUTPUT_LANGUAGE` | Language for AI output (default: English) |
 | `HBC_AI_DEFAULT_LABEL_ID` | Label ID to auto-apply to all items |
 | `HBC_AI_NAME` | Custom instructions for item naming |
 | `HBC_AI_DESCRIPTION` | Custom instructions for descriptions |
 | `HBC_AI_QUANTITY` | Custom instructions for quantity counting |
-| `HBC_AI_MANUFACTURER` | Custom instructions for manufacturer extraction |
-| `HBC_AI_MODEL_NUMBER` | Custom instructions for model number extraction |
-| `HBC_AI_SERIAL_NUMBER` | Custom instructions for serial number extraction |
-| `HBC_AI_PURCHASE_PRICE` | Custom instructions for price extraction |
-| `HBC_AI_PURCHASE_FROM` | Custom instructions for retailer extraction |
+| `HBC_AI_MANUFACTURER` | Instructions for manufacturer extraction |
+| `HBC_AI_MODEL_NUMBER` | Instructions for model number extraction |
+| `HBC_AI_SERIAL_NUMBER` | Instructions for serial number extraction |
+| `HBC_AI_PURCHASE_PRICE` | Instructions for price extraction |
+| `HBC_AI_PURCHASE_FROM` | Instructions for retailer extraction |
 | `HBC_AI_NOTES` | Custom instructions for notes |
-| `HBC_AI_NAMING_EXAMPLES` | Custom naming examples for the AI |
+| `HBC_AI_NAMING_EXAMPLES` | Example names to guide the AI |
 
-**Tip:** The Settings page includes an "Export as Environment Variables" button that generates these from your current customizations.
+**Tip:** The Settings page has an "Export as Environment Variables" button.
 
-## Demo Server
+</details>
 
-For testing without your own Homebox instance:
+## Tips
 
-```bash
-export HBC_HOMEBOX_URL="https://demo.homebox.software"
-```
-
-Demo credentials: `demo@example.com` / `demo`
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/login` | Authenticate with Homebox |
-| GET | `/api/locations` | List all locations |
-| GET | `/api/locations/tree` | Get hierarchical location tree |
-| GET | `/api/locations/{id}` | Get single location with children |
-| POST | `/api/locations` | Create a new location |
-| PUT | `/api/locations/{id}` | Update a location |
-| GET | `/api/labels` | List all labels |
-| POST | `/api/items` | Batch create items |
-| POST | `/api/items/{id}/attachments` | Upload item attachment |
-| POST | `/api/tools/vision/detect` | Detect items in a single image |
-| POST | `/api/tools/vision/detect-batch` | Detect items in multiple images |
-| POST | `/api/tools/vision/analyze` | Multi-image analysis |
-| POST | `/api/tools/vision/merge` | Merge multiple items using AI |
-| POST | `/api/tools/vision/correct` | Correct item with user feedback |
-| GET | `/api/settings/field-preferences` | Get AI customization settings |
-| PUT | `/api/settings/field-preferences` | Update AI customization settings |
-| POST | `/api/settings/prompt-preview` | Preview AI prompt with current settings |
-| GET | `/api/version` | Get application version |
-
-## Library Usage
-
-The `homebox_companion` package can be used as a Python library:
-
-```python
-import asyncio
-from homebox_companion import detect_items_from_bytes, HomeboxClient, ItemCreate
-
-async def main():
-    # Detect items in an image
-    with open("items.jpg", "rb") as f:
-        items = await detect_items_from_bytes(f.read())
-    
-    for item in items:
-        print(f"{item.name}: {item.quantity}")
-
-    # Create items in Homebox
-    async with HomeboxClient() as client:
-        token = await client.login("user@example.com", "password")
-        locations = await client.list_locations(token)
-        
-        for item in items:
-            created = await client.create_item(token, ItemCreate(
-                name=item.name,
-                quantity=item.quantity,
-                description=item.description,
-                location_id=locations[0]["id"],
-            ))
-            print(f"Created: {created['name']}")
-
-asyncio.run(main())
-```
-
-## Contributing
-
-Contributions are welcome! Please ensure:
-
-1. Code passes `uv run ruff check .`
-2. Tests pass with `uv run pytest`
-3. Increment version in `pyproject.toml`
-4. Update `package-lock.json` if modifying frontend dependencies
-
-See [AGENTS.md](AGENTS.md) for detailed development guidelines.
+- **HTTPS recommended for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
+- **Multiple photos = better results** – Include close-ups of labels, serial numbers, or receipts for more accurate detection.
+- **Use Single-Item Mode for sets** – When photographing a kit or collection that should be one item, enable single-item mode.
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License
 
 ## Acknowledgments
 
-- [Homebox](https://github.com/sysadminsmedia/homebox) - The excellent home inventory system
-- [OpenAI](https://openai.com) - Vision AI capabilities
-- [FastAPI](https://fastapi.tiangolo.com) - Python web framework
-- [SvelteKit](https://kit.svelte.dev) - Frontend framework
-- [Tailwind CSS](https://tailwindcss.com) - CSS framework
+- [Homebox](https://github.com/sysadminsmedia/homebox) – The inventory system this app extends
+- [OpenAI](https://openai.com) – Vision AI capabilities
+- [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) – Backend & frontend frameworks
