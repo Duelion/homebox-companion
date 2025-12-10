@@ -6,6 +6,7 @@
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { withRetry } from '$lib/utils/retry';
 	import type { ConfirmedItem, ItemInput } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -20,7 +21,7 @@
 	const locationId = $derived(workflow.state.locationId);
 
 	// Item creation status tracking
-	type ItemStatus = 'pending' | 'creating' | 'success' | 'failed';
+	type ItemStatus = 'pending' | 'creating' | 'success' | 'partial_success' | 'failed';
 	let itemStatuses = $state<Record<number, ItemStatus>>({});
 	let isSubmitting = $state(false);
 	let showLocationPicker = $state(false);
@@ -105,7 +106,9 @@
 		itemStatuses = initialStatuses;
 
 		let successCount = 0;
+		let partialSuccessCount = 0;
 		let failCount = 0;
+		const itemsWithFailedAttachments: string[] = [];
 
 		for (let i = 0; i < confirmedItems.length; i++) {
 			const confirmedItem = confirmedItems[i];
@@ -133,39 +136,69 @@
 
 				if (response.created.length > 0) {
 					const createdItem = response.created[0] as { id?: string };
+					let attachmentsFailed = false;
 					
 					if (createdItem?.id) {
+						// Upload primary image/thumbnail with retry
 						if (confirmedItem.customThumbnail) {
 							try {
 								const thumbnailFile = await dataUrlToFile(
 									confirmedItem.customThumbnail, 
 									`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
 								);
-								await itemsApi.uploadAttachment(createdItem.id, thumbnailFile);
+								await withRetry(
+									() => itemsApi.uploadAttachment(createdItem.id!, thumbnailFile),
+									{ 
+										maxAttempts: 3, 
+										onRetry: (attempt) => console.log(`Retrying thumbnail upload (attempt ${attempt})`)
+									}
+								);
 							} catch (error) {
 								console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
+								attachmentsFailed = true;
 							}
 						} else if (confirmedItem.originalFile) {
 							try {
-								await itemsApi.uploadAttachment(createdItem.id, confirmedItem.originalFile);
+								await withRetry(
+									() => itemsApi.uploadAttachment(createdItem.id!, confirmedItem.originalFile!),
+									{ 
+										maxAttempts: 3, 
+										onRetry: (attempt) => console.log(`Retrying image upload (attempt ${attempt})`)
+									}
+								);
 							} catch (error) {
 								console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
+								attachmentsFailed = true;
 							}
 						}
 
+						// Upload additional images with retry
 						if (confirmedItem.additionalImages) {
 							for (const addImage of confirmedItem.additionalImages) {
 								try {
-									await itemsApi.uploadAttachment(createdItem.id, addImage);
+									await withRetry(
+										() => itemsApi.uploadAttachment(createdItem.id!, addImage),
+										{ 
+											maxAttempts: 3, 
+											onRetry: (attempt) => console.log(`Retrying additional image upload (attempt ${attempt})`)
+										}
+									);
 								} catch (error) {
 									console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
+									attachmentsFailed = true;
 								}
 							}
 						}
 					}
 
-					itemStatuses = { ...itemStatuses, [i]: 'success' };
-					successCount++;
+					if (attachmentsFailed) {
+						itemStatuses = { ...itemStatuses, [i]: 'partial_success' };
+						itemsWithFailedAttachments.push(confirmedItem.name);
+						partialSuccessCount++;
+					} else {
+						itemStatuses = { ...itemStatuses, [i]: 'success' };
+						successCount++;
+					}
 				} else {
 					itemStatuses = { ...itemStatuses, [i]: 'failed' };
 					failCount++;
@@ -179,10 +212,13 @@
 
 		isSubmitting = false;
 
+		// Show appropriate toast based on results
 		if (failCount > 0) {
-			showToast(`Created ${successCount} items, ${failCount} failed`, 'warning');
+			showToast(`Created ${successCount + partialSuccessCount} items, ${failCount} failed`, 'warning');
+		} else if (partialSuccessCount > 0) {
+			showToast(`${partialSuccessCount} item(s) created with missing attachments`, 'warning');
 		} else {
-			// Don't reset here - let success page handle it so location is preserved for "Scan More"
+			// All successful - navigate to success page
 			goto('/success');
 		}
 	}
@@ -196,6 +232,7 @@
 
 		isSubmitting = true;
 		let successCount = 0;
+		let partialSuccessCount = 0;
 		let failCount = 0;
 
 		for (const i of failedIndices) {
@@ -225,39 +262,68 @@
 
 				if (response.created.length > 0) {
 					const createdItem = response.created[0] as { id?: string };
+					let attachmentsFailed = false;
 					
 					if (createdItem?.id) {
+						// Upload primary image/thumbnail with retry
 						if (confirmedItem.customThumbnail) {
 							try {
 								const thumbnailFile = await dataUrlToFile(
 									confirmedItem.customThumbnail, 
 									`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
 								);
-								await itemsApi.uploadAttachment(createdItem.id, thumbnailFile);
+								await withRetry(
+									() => itemsApi.uploadAttachment(createdItem.id!, thumbnailFile),
+									{ 
+										maxAttempts: 3, 
+										onRetry: (attempt) => console.log(`Retrying thumbnail upload (attempt ${attempt})`)
+									}
+								);
 							} catch (error) {
 								console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
+								attachmentsFailed = true;
 							}
 						} else if (confirmedItem.originalFile) {
 							try {
-								await itemsApi.uploadAttachment(createdItem.id, confirmedItem.originalFile);
+								await withRetry(
+									() => itemsApi.uploadAttachment(createdItem.id!, confirmedItem.originalFile!),
+									{ 
+										maxAttempts: 3, 
+										onRetry: (attempt) => console.log(`Retrying image upload (attempt ${attempt})`)
+									}
+								);
 							} catch (error) {
 								console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
+								attachmentsFailed = true;
 							}
 						}
 
+						// Upload additional images with retry
 						if (confirmedItem.additionalImages) {
 							for (const addImage of confirmedItem.additionalImages) {
 								try {
-									await itemsApi.uploadAttachment(createdItem.id, addImage);
+									await withRetry(
+										() => itemsApi.uploadAttachment(createdItem.id!, addImage),
+										{ 
+											maxAttempts: 3, 
+											onRetry: (attempt) => console.log(`Retrying additional image upload (attempt ${attempt})`)
+										}
+									);
 								} catch (error) {
 									console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
+									attachmentsFailed = true;
 								}
 							}
 						}
 					}
 
-					itemStatuses = { ...itemStatuses, [i]: 'success' };
-					successCount++;
+					if (attachmentsFailed) {
+						itemStatuses = { ...itemStatuses, [i]: 'partial_success' };
+						partialSuccessCount++;
+					} else {
+						itemStatuses = { ...itemStatuses, [i]: 'success' };
+						successCount++;
+					}
 				} else {
 					itemStatuses = { ...itemStatuses, [i]: 'failed' };
 					failCount++;
@@ -272,9 +338,11 @@
 		isSubmitting = false;
 
 		if (failCount > 0) {
-			showToast(`Retried: ${successCount} succeeded, ${failCount} still failing`, 'warning');
+			showToast(`Retried: ${successCount + partialSuccessCount} succeeded, ${failCount} still failing`, 'warning');
+		} else if (partialSuccessCount > 0) {
+			showToast(`Retry complete: ${partialSuccessCount} item(s) with missing attachments`, 'warning');
 		} else {
-			const allSuccess = Object.values(itemStatuses).every(s => s === 'success');
+			const allSuccess = Object.values(itemStatuses).every(s => s === 'success' || s === 'partial_success');
 			if (allSuccess) {
 				// Don't reset here - let success page handle it so location is preserved for "Scan More"
 				goto('/success');
@@ -288,7 +356,7 @@
 
 	function allItemsSuccessful(): boolean {
 		return Object.keys(itemStatuses).length > 0 && 
-			Object.values(itemStatuses).every(s => s === 'success');
+			Object.values(itemStatuses).every(s => s === 'success' || s === 'partial_success');
 	}
 
 	function continueWithSuccessful() {
@@ -360,6 +428,14 @@
 						<div class="w-8 h-8 flex items-center justify-center bg-green-500/20 rounded-full">
 							<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
 								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</div>
+					{:else if itemStatuses[index] === 'partial_success'}
+						<div class="w-8 h-8 flex items-center justify-center bg-yellow-500/20 rounded-full" title="Item created but some attachments failed">
+							<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+								<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+								<line x1="12" y1="9" x2="12" y2="13" />
+								<line x1="12" y1="17" x2="12.01" y2="17" />
 							</svg>
 						</div>
 					{:else if itemStatuses[index] === 'failed'}
