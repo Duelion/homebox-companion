@@ -33,6 +33,16 @@
 	let isAnalyzing = $derived(status === 'analyzing');
 	let progress = $derived(workflow.state.analysisProgress);
 	let locationName = $derived(workflow.state.locationName);
+	
+	// Track last known progress for completion animation
+	let lastProgress = $state<{ current: number; total: number; message?: string } | null>(null);
+	
+	// Update lastProgress when we have real progress data
+	$effect(() => {
+		if (progress) {
+			lastProgress = { ...progress };
+		}
+	});
 
 	// Redirect if not authenticated or no location
 	onMount(() => {
@@ -464,22 +474,28 @@
 	/>
 
 	<!-- Analysis progress -->
-	{#if (isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete)) && progress}
+	{#if isAnalyzing && progress}
 		<AnalysisProgressBar
 			current={progress.current}
 			total={progress.total}
 			message={progress.message || 'Analyzing...'}
 			onComplete={handleAnalysisComplete}
 		/>
-		{#if isAnalyzing}
-			<button
-				type="button"
-				class="w-full py-2 text-sm text-text-muted hover:text-danger transition-colors mb-6"
-				onclick={cancelAnalysis}
-			>
-				Cancel
-			</button>
-		{/if}
+		<button
+			type="button"
+			class="w-full py-2 text-sm text-text-muted hover:text-danger transition-colors mb-6"
+			onclick={cancelAnalysis}
+		>
+			Cancel
+		</button>
+	{:else if status === 'reviewing' && !analysisAnimationComplete && lastProgress}
+		<!-- Keep showing progress bar during completion animation -->
+		<AnalysisProgressBar
+			current={lastProgress.total}
+			total={lastProgress.total}
+			message="Analysis complete!"
+			onComplete={handleAnalysisComplete}
+		/>
 	{/if}
 
 	{#if !isAnalyzing}
