@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { isAuthenticated } from '$lib/stores/auth';
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
+	import { routeGuards } from '$lib/utils/routeGuard';
 	import type { ConfirmedItem } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -39,24 +39,9 @@
 		return label?.name ?? labelId;
 	}
 
-	// Redirect if not authenticated or no items
+	// Apply route guard: requires auth, location, and confirming/submitting status
 	onMount(() => {
-		if (!$isAuthenticated) {
-			goto('/');
-			return;
-		}
-		if (!locationId) {
-			goto('/location');
-			return;
-		}
-		if (workflow.state.status !== 'confirming') {
-			if (workflow.state.status === 'reviewing') {
-				goto('/review');
-			} else {
-				goto('/capture');
-			}
-			return;
-		}
+		if (!routeGuards.summary()) return;
 	});
 
 	function addMoreItems() {

@@ -1,18 +1,16 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { isAuthenticated } from '$lib/stores/auth';
 	import { resetLocationState } from '$lib/stores/locations';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { routeGuards } from '$lib/utils/routeGuard';
 	import Button from '$lib/components/Button.svelte';
 
 	const workflow = scanWorkflow;
 
-	// Redirect if not authenticated
+	// Apply route guard: requires authentication only
 	onMount(() => {
-		if (!$isAuthenticated) {
-			goto('/');
-		}
+		if (!routeGuards.success()) return;
 	});
 
 	function scanMore() {
