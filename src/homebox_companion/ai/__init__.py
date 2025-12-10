@@ -1,7 +1,7 @@
 """AI/LLM integration module."""
 
 from .images import encode_image_bytes_to_data_uri, encode_image_to_data_uri
-from .openai import chat_completion, vision_completion
+from .openai import chat_completion, cleanup_openai_clients, vision_completion
 from .prompts import (
     FIELD_DEFAULTS,
     NAMING_FORMAT,
@@ -19,6 +19,7 @@ __all__ = [
     # OpenAI helpers
     "chat_completion",
     "vision_completion",
+    "cleanup_openai_clients",
     # Prompts
     "NAMING_FORMAT",
     "FIELD_DEFAULTS",
