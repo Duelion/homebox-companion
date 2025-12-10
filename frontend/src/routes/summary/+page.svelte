@@ -5,6 +5,7 @@
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import type { ConfirmedItem } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -12,6 +13,9 @@
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
+
+	// Object URL manager for cleanup
+	const urlManager = createObjectUrlManager();
 
 	// Derived state from workflow
 	const confirmedItems = $derived(workflow.state.confirmedItems);
@@ -77,9 +81,21 @@
 
 	function getThumbnail(item: ConfirmedItem): string | null {
 		if (item.customThumbnail) return item.customThumbnail;
-		if (item.originalFile) return URL.createObjectURL(item.originalFile);
+		if (item.originalFile) return urlManager.getUrl(item.originalFile);
 		return null;
 	}
+
+	// Cleanup object URLs when component is destroyed or items change
+	$effect(() => {
+		// Track current files for cleanup
+		const currentFiles = confirmedItems
+			.map((item) => item.originalFile)
+			.filter((f): f is File => f !== undefined);
+		urlManager.sync(currentFiles);
+
+		// Cleanup on destroy
+		return () => urlManager.cleanup();
+	});
 
 	async function submitAll() {
 		if (confirmedItems.length === 0) {
