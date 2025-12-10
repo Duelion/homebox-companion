@@ -1,6 +1,5 @@
 """Logs API routes for debugging and reference."""
 
-import asyncio
 import os
 from collections import deque
 from glob import glob
@@ -70,7 +69,7 @@ async def get_logs(
 
     try:
         # Read last N lines efficiently without loading entire file into memory
-        recent_lines, total_lines = await asyncio.to_thread(_read_last_lines, log_file, lines)
+        recent_lines, total_lines = _read_last_lines(log_file, lines)
         truncated = total_lines > lines
         logs_content = "".join(recent_lines)
 
