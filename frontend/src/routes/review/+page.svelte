@@ -6,6 +6,7 @@
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import type { ReviewItem, CapturedImage } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -17,6 +18,9 @@
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
+
+	// Object URL manager for cleanup
+	const urlManager = createObjectUrlManager();
 
 	// Derived state from workflow
 	const detectedItems = $derived(workflow.state.detectedItems);
@@ -193,7 +197,7 @@
 	function getAvailableImages(): { file: File; dataUrl: string }[] {
 		return allImages.map(file => ({
 			file,
-			dataUrl: URL.createObjectURL(file)
+			dataUrl: urlManager.getUrl(file)
 		}));
 	}
 
@@ -208,9 +212,15 @@
 	function getDisplayThumbnail(): string | null {
 		if (!editedItem) return null;
 		if (editedItem.customThumbnail) return editedItem.customThumbnail;
-		if (allImages.length > 0) return URL.createObjectURL(allImages[0]);
+		if (allImages.length > 0) return urlManager.getUrl(allImages[0]);
 		return null;
 	}
+
+	// Cleanup object URLs when component is destroyed or images change
+	$effect(() => {
+		urlManager.sync(allImages);
+		return () => urlManager.cleanup();
+	});
 </script>
 
 <svelte:head>
