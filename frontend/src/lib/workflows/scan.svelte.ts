@@ -9,9 +9,10 @@
  * Pages become thin views that read state and call actions.
  */
 
-import { vision, items as itemsApi, fieldPreferences } from '$lib/api/index';
+import { vision, items as itemsApi, fieldPreferences, ApiError } from '$lib/api/index';
 import { labels as labelsStore } from '$lib/stores/labels';
 import { withRetry } from '$lib/utils/retry';
+import { checkAuth } from '$lib/utils/token';
 import { get } from 'svelte/store';
 import type {
 	ScanState,
@@ -22,6 +23,7 @@ import type {
 	DetectedItem,
 	Progress,
 	ItemInput,
+	ItemSubmissionStatus,
 } from '$lib/types';
 
 // =============================================================================
@@ -39,6 +41,7 @@ const initialState: ScanState = {
 	currentReviewIndex: 0,
 	confirmedItems: [],
 	submissionProgress: null,
+	itemStatuses: {},
 	error: null,
 };
 
@@ -450,186 +453,338 @@ class ScanWorkflow {
 	// SUBMISSION (ASYNC)
 	// =========================================================================
 
-	/** Submit all confirmed items to Homebox */
-	async submitAll(): Promise<void> {
+	/** Convert data URL to File */
+	private async dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
+		const response = await fetch(dataUrl);
+		const blob = await response.blob();
+		return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+	}
+
+	/** Upload attachments for a created item. Returns true if all succeeded. */
+	private async uploadAttachments(
+		itemId: string,
+		confirmedItem: ConfirmedItem,
+		signal?: AbortSignal
+	): Promise<boolean> {
+		let allSucceeded = true;
+
+		// Upload thumbnail or original image (if available)
+		if (confirmedItem.customThumbnail) {
+			try {
+				const thumbnailFile = await this.dataUrlToFile(
+					confirmedItem.customThumbnail,
+					`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
+				);
+				await withRetry(
+					() => itemsApi.uploadAttachment(itemId, thumbnailFile, { signal }),
+					{
+						maxAttempts: 3,
+						onRetry: (attempt) => console.log(`Retrying thumbnail upload (attempt ${attempt})`)
+					}
+				);
+			} catch (error) {
+				if (error instanceof Error && error.name === 'AbortError') {
+					throw error;
+				}
+				console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
+				allSucceeded = false;
+			}
+		} else if (confirmedItem.originalFile) {
+			try {
+				await withRetry(
+					() => itemsApi.uploadAttachment(itemId, confirmedItem.originalFile!, { signal }),
+					{
+						maxAttempts: 3,
+						onRetry: (attempt) => console.log(`Retrying image upload (attempt ${attempt})`)
+					}
+				);
+			} catch (error) {
+				if (error instanceof Error && error.name === 'AbortError') {
+					throw error;
+				}
+				console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
+				allSucceeded = false;
+			}
+		}
+
+		// Upload additional images (if any)
+		if (confirmedItem.additionalImages && confirmedItem.additionalImages.length > 0) {
+			for (const addImage of confirmedItem.additionalImages) {
+				try {
+					await withRetry(
+						() => itemsApi.uploadAttachment(itemId, addImage, { signal }),
+						{
+							maxAttempts: 3,
+							onRetry: (attempt) => console.log(`Retrying additional image upload (attempt ${attempt})`)
+						}
+					);
+				} catch (error) {
+					if (error instanceof Error && error.name === 'AbortError') {
+						throw error;
+					}
+					console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
+					allSucceeded = false;
+				}
+			}
+		}
+
+		return allSucceeded;
+	}
+
+	/** Submit a single item at the given index. Updates itemStatuses. Returns status. */
+	private async submitItem(
+		index: number,
+		signal?: AbortSignal
+	): Promise<ItemSubmissionStatus> {
+		const confirmedItem = this.state.confirmedItems[index];
+		if (!confirmedItem) return 'failed';
+
+		this.state.itemStatuses = { ...this.state.itemStatuses, [index]: 'creating' };
+
+		try {
+			const itemInput: ItemInput = {
+				name: confirmedItem.name,
+				quantity: confirmedItem.quantity,
+				description: confirmedItem.description,
+				label_ids: confirmedItem.label_ids,
+				manufacturer: confirmedItem.manufacturer,
+				model_number: confirmedItem.model_number,
+				serial_number: confirmedItem.serial_number,
+				purchase_price: confirmedItem.purchase_price,
+				purchase_from: confirmedItem.purchase_from,
+				notes: confirmedItem.notes,
+			};
+
+			const response = await itemsApi.create({
+				items: [itemInput],
+				location_id: this.state.locationId,
+			}, { signal });
+
+			if (response.created.length > 0) {
+				const createdItem = response.created[0] as { id?: string };
+
+				if (createdItem?.id) {
+					const attachmentsOk = await this.uploadAttachments(createdItem.id, confirmedItem, signal);
+					const status: ItemSubmissionStatus = attachmentsOk ? 'success' : 'partial_success';
+					this.state.itemStatuses = { ...this.state.itemStatuses, [index]: status };
+					return status;
+				}
+				// Item created but no ID returned - treat as success
+				this.state.itemStatuses = { ...this.state.itemStatuses, [index]: 'success' };
+				return 'success';
+			} else {
+				this.state.itemStatuses = { ...this.state.itemStatuses, [index]: 'failed' };
+				return 'failed';
+			}
+		} catch (error) {
+			if (error instanceof Error && error.name === 'AbortError') {
+				throw error;
+			}
+			// Check for 401 authentication error
+			if (error instanceof ApiError && error.status === 401) {
+				// Session expired - mark and re-throw
+				throw error;
+			}
+			console.error(`Failed to create item ${confirmedItem.name}:`, error);
+			this.state.itemStatuses = { ...this.state.itemStatuses, [index]: 'failed' };
+			return 'failed';
+		}
+	}
+
+	/**
+	 * Submit all confirmed items to Homebox.
+	 * @param options.validateAuth - If true, validate auth token before submitting (default: true)
+	 * @returns Object with success, counts, and sessionExpired flag
+	 */
+	async submitAll(options?: { validateAuth?: boolean }): Promise<{
+		success: boolean;
+		successCount: number;
+		partialSuccessCount: number;
+		failCount: number;
+		sessionExpired: boolean;
+	}> {
+		const result = { success: false, successCount: 0, partialSuccessCount: 0, failCount: 0, sessionExpired: false };
+
 		if (this.state.confirmedItems.length === 0) {
 			this.state.error = 'No items to submit';
-			return;
+			return result;
+		}
+
+		// Validate auth token if requested (default: true)
+		if (options?.validateAuth !== false) {
+			const isValid = await checkAuth();
+			if (!isValid) {
+				result.sessionExpired = true;
+				return result;
+			}
 		}
 
 		this.submissionAbortController = new AbortController();
 		this.state.status = 'submitting';
 		this.state.error = null;
+		
+		// Initialize all items as pending
+		const initialStatuses: Record<number, ItemSubmissionStatus> = {};
+		this.state.confirmedItems.forEach((_, index) => {
+			initialStatuses[index] = 'pending';
+		});
+		this.state.itemStatuses = initialStatuses;
+		
 		this.state.submissionProgress = {
 			current: 0,
 			total: this.state.confirmedItems.length,
 			message: 'Creating items...',
 		};
 
-		let successCount = 0;
-		let partialSuccessCount = 0;
-		let failCount = 0;
-
 		const signal = this.submissionAbortController?.signal;
-		
+
 		try {
 			for (let i = 0; i < this.state.confirmedItems.length; i++) {
-				// Check if cancelled
 				if (signal?.aborted) {
-					return;
+					return result;
 				}
 
-				const confirmedItem = this.state.confirmedItems[i];
-
-				try {
-					// Create item
-					const itemInput: ItemInput = {
-						name: confirmedItem.name,
-						quantity: confirmedItem.quantity,
-						description: confirmedItem.description,
-						label_ids: confirmedItem.label_ids,
-						manufacturer: confirmedItem.manufacturer,
-						model_number: confirmedItem.model_number,
-						serial_number: confirmedItem.serial_number,
-						purchase_price: confirmedItem.purchase_price,
-						purchase_from: confirmedItem.purchase_from,
-						notes: confirmedItem.notes,
-					};
-
-					const response = await itemsApi.create({
-						items: [itemInput],
-						location_id: this.state.locationId,
-					}, { signal });
-
-					if (response.created.length > 0) {
-						const createdItem = response.created[0] as { id?: string };
-						let attachmentsFailed = false;
-
-						// Upload attachments if item was created
-						if (createdItem?.id) {
-							// Upload thumbnail or original image (if available)
-							if (confirmedItem.customThumbnail) {
-								try {
-									const thumbnailFile = await this.dataUrlToFile(
-										confirmedItem.customThumbnail,
-										`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
-									);
-									await withRetry(
-										() => itemsApi.uploadAttachment(createdItem.id!, thumbnailFile, { signal }),
-										{ 
-											maxAttempts: 3, 
-											onRetry: (attempt) => console.log(`Retrying thumbnail upload (attempt ${attempt})`)
-										}
-									);
-								} catch (error) {
-									// Don't log abort errors as failures
-									if (error instanceof Error && error.name === 'AbortError') {
-										throw error;
-									}
-									console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
-									attachmentsFailed = true;
-								}
-							} else if (confirmedItem.originalFile) {
-								try {
-									await withRetry(
-										() => itemsApi.uploadAttachment(createdItem.id!, confirmedItem.originalFile!, { signal }),
-										{ 
-											maxAttempts: 3, 
-											onRetry: (attempt) => console.log(`Retrying image upload (attempt ${attempt})`)
-										}
-									);
-								} catch (error) {
-									// Don't log abort errors as failures
-									if (error instanceof Error && error.name === 'AbortError') {
-										throw error;
-									}
-									console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
-									attachmentsFailed = true;
-								}
-							}
-							// Note: If both customThumbnail and originalFile are undefined, no primary image is uploaded
-
-							// Upload additional images (if any)
-							if (confirmedItem.additionalImages && confirmedItem.additionalImages.length > 0) {
-								for (const addImage of confirmedItem.additionalImages) {
-									try {
-										await withRetry(
-											() => itemsApi.uploadAttachment(createdItem.id!, addImage, { signal }),
-											{ 
-												maxAttempts: 3, 
-												onRetry: (attempt) => console.log(`Retrying additional image upload (attempt ${attempt})`)
-											}
-										);
-									} catch (error) {
-										// Don't log abort errors as failures
-										if (error instanceof Error && error.name === 'AbortError') {
-											throw error;
-										}
-										console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
-										attachmentsFailed = true;
-									}
-								}
-							}
-						}
-
-						if (attachmentsFailed) {
-							partialSuccessCount++;
-						} else {
-							successCount++;
-						}
-					} else {
-						failCount++;
-					}
-				} catch (error) {
-					// Re-throw abort errors to be handled at the top level
-					if (error instanceof Error && error.name === 'AbortError') {
-						throw error;
-					}
-					console.error(`Failed to create item ${confirmedItem.name}:`, error);
-					failCount++;
+				const status = await this.submitItem(i, signal);
+				
+				if (status === 'success') {
+					result.successCount++;
+				} else if (status === 'partial_success') {
+					result.partialSuccessCount++;
+				} else {
+					result.failCount++;
 				}
 
 				this.state.submissionProgress = {
 					current: i + 1,
 					total: this.state.confirmedItems.length,
-					message: `Created ${successCount + partialSuccessCount} of ${this.state.confirmedItems.length}...`,
+					message: `Created ${result.successCount + result.partialSuccessCount} of ${this.state.confirmedItems.length}...`,
 				};
 			}
 
 			// Handle results
-			if (failCount > 0 && successCount === 0 && partialSuccessCount === 0) {
+			if (result.failCount > 0 && result.successCount === 0 && result.partialSuccessCount === 0) {
 				this.state.error = 'All items failed to create';
 				this.state.status = 'confirming';
-			} else if (failCount > 0) {
-				this.state.error = `Created ${successCount + partialSuccessCount} items, ${failCount} failed`;
-				// Stay in submitting state so user can see status
-			} else if (partialSuccessCount > 0) {
-				this.state.error = `${partialSuccessCount} item(s) created with missing attachments`;
+			} else if (result.failCount > 0) {
+				this.state.error = `Created ${result.successCount + result.partialSuccessCount} items, ${result.failCount} failed`;
+				// Keep status as 'submitting' to show per-item status UI
+			} else if (result.partialSuccessCount > 0) {
+				this.state.error = `${result.partialSuccessCount} item(s) created with missing attachments`;
 				this.state.status = 'complete';
+				result.success = true;
 			} else {
-				// Complete success
 				this.state.status = 'complete';
+				result.success = true;
 			}
 		} catch (error) {
-			// Don't set error if cancelled (check both signal and error type)
 			if (this.submissionAbortController?.signal.aborted ||
 				(error instanceof Error && error.name === 'AbortError')) {
-				return;
+				return result;
 			}
-
+			// Check for 401 authentication error
+			if (error instanceof ApiError && error.status === 401) {
+				result.sessionExpired = true;
+				return result;
+			}
 			console.error('Submission failed:', error);
 			this.state.error = error instanceof Error ? error.message : 'Submission failed';
 			this.state.status = 'confirming';
 		} finally {
 			this.submissionAbortController = null;
 		}
+
+		return result;
 	}
 
-	/** Helper to convert data URL to File */
-	private async dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
-		const response = await fetch(dataUrl);
-		const blob = await response.blob();
-		return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+	/**
+	 * Retry only failed items.
+	 * @returns Object with success flag, counts, and sessionExpired flag
+	 */
+	async retryFailed(): Promise<{
+		success: boolean;
+		successCount: number;
+		partialSuccessCount: number;
+		failCount: number;
+		sessionExpired: boolean;
+	}> {
+		const result = { success: false, successCount: 0, partialSuccessCount: 0, failCount: 0, sessionExpired: false };
+
+		const failedIndices = Object.entries(this.state.itemStatuses)
+			.filter(([_, status]) => status === 'failed')
+			.map(([index]) => parseInt(index));
+
+		if (failedIndices.length === 0) {
+			result.success = true;
+			return result;
+		}
+
+		// Validate auth token before retrying
+		const isValid = await checkAuth();
+		if (!isValid) {
+			result.sessionExpired = true;
+			return result;
+		}
+
+		this.submissionAbortController = new AbortController();
+		this.state.error = null;
+
+		const signal = this.submissionAbortController?.signal;
+
+		try {
+			for (const i of failedIndices) {
+				if (signal?.aborted) {
+					return result;
+				}
+
+				const status = await this.submitItem(i, signal);
+
+				if (status === 'success') {
+					result.successCount++;
+				} else if (status === 'partial_success') {
+					result.partialSuccessCount++;
+				} else {
+					result.failCount++;
+				}
+			}
+
+			// Check if all items are now successful
+			const allSuccess = Object.values(this.state.itemStatuses).every(
+				s => s === 'success' || s === 'partial_success'
+			);
+
+			if (allSuccess) {
+				this.state.status = 'complete';
+				result.success = true;
+			} else if (result.failCount > 0) {
+				this.state.error = `Retried: ${result.successCount + result.partialSuccessCount} succeeded, ${result.failCount} still failing`;
+			}
+		} catch (error) {
+			if (this.submissionAbortController?.signal.aborted ||
+				(error instanceof Error && error.name === 'AbortError')) {
+				return result;
+			}
+			if (error instanceof ApiError && error.status === 401) {
+				result.sessionExpired = true;
+				return result;
+			}
+			console.error('Retry failed:', error);
+			this.state.error = error instanceof Error ? error.message : 'Retry failed';
+		} finally {
+			this.submissionAbortController = null;
+		}
+
+		return result;
+	}
+
+	/** Check if there are any failed items */
+	hasFailedItems(): boolean {
+		return Object.values(this.state.itemStatuses).some(s => s === 'failed');
+	}
+
+	/** Check if all items were successfully submitted */
+	allItemsSuccessful(): boolean {
+		return Object.keys(this.state.itemStatuses).length > 0 &&
+			Object.values(this.state.itemStatuses).every(s => s === 'success' || s === 'partial_success');
 	}
 
 	// =========================================================================
