@@ -106,9 +106,11 @@
 <div
 	class="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4"
 	onclick={(e) => e.target === e.currentTarget && onClose()}
+	onkeydown={(e) => e.key === 'Enter' && e.target === e.currentTarget && onClose()}
 	role="dialog"
 	aria-modal="true"
 	aria-label="Change location"
+	tabindex="0"
 >
 	<!-- Modal content -->
 	<div class="bg-background w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">

@@ -11,7 +11,7 @@
 
 	let { onScan, onClose, onError }: Props = $props();
 
-	let videoElement: HTMLVideoElement;
+	let videoElement = $state<HTMLVideoElement>();
 	let fileInput: HTMLInputElement;
 	let qrScanner: QrScanner | null = null;
 	let error = $state<string | null>(null);
@@ -310,7 +310,9 @@
 					bind:this={videoElement}
 					class="rounded-xl bg-black"
 					style="width: min(90vw, 400px); height: min(90vw, 400px); object-fit: cover;"
-				></video>
+				>
+					<track kind="captions" label="No captions available" />
+				</video>
 
 				<!-- Scanning overlay -->
 				{#if isStarting}

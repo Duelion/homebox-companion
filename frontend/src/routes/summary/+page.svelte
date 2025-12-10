@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { items as itemsApi } from '$lib/api';
+	import { items as itemsApi, ApiError } from '$lib/api';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { withRetry } from '$lib/utils/retry';
+	import { checkAuth } from '$lib/utils/token';
 	import type { ConfirmedItem, ItemInput } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -93,6 +94,12 @@
 	async function submitAll() {
 		if (confirmedItems.length === 0) {
 			showToast('No items to submit', 'warning');
+			return;
+		}
+
+		// Check token validity before submitting
+		if (!checkAuth()) {
+			showToast('Session expired. Please log in again.', 'warning');
 			return;
 		}
 
@@ -205,6 +212,16 @@
 				}
 			} catch (error) {
 				console.error(`Failed to create item ${confirmedItem.name}:`, error);
+				
+				// Check if this is a 401 authentication error
+				if (error instanceof ApiError && error.status === 401) {
+					// Session expired - stop processing immediately
+					// The markSessionExpired() was already called by the API client
+					isSubmitting = false;
+					showToast('Session expired. Please log in to continue.', 'error');
+					return;
+				}
+				
 				itemStatuses = { ...itemStatuses, [i]: 'failed' };
 				failCount++;
 			}
@@ -229,6 +246,12 @@
 			.map(([index]) => parseInt(index));
 		
 		if (failedIndices.length === 0) return;
+
+		// Check token validity before retrying
+		if (!checkAuth()) {
+			showToast('Session expired. Please log in again.', 'warning');
+			return;
+		}
 
 		isSubmitting = true;
 		let successCount = 0;
@@ -330,6 +353,16 @@
 				}
 			} catch (error) {
 				console.error(`Failed to create item ${confirmedItem.name}:`, error);
+				
+				// Check if this is a 401 authentication error
+				if (error instanceof ApiError && error.status === 401) {
+					// Session expired - stop processing immediately
+					// The markSessionExpired() was already called by the API client
+					isSubmitting = false;
+					showToast('Session expired. Please log in to continue.', 'error');
+					return;
+				}
+				
 				itemStatuses = { ...itemStatuses, [i]: 'failed' };
 				failCount++;
 			}

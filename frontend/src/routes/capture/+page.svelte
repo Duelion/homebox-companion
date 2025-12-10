@@ -5,6 +5,7 @@
 	import { resetLocationState } from '$lib/stores/locations';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { checkAuth } from '$lib/utils/token';
 	import type { CapturedImage } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -209,6 +210,12 @@
 	// ==========================================================================
 
 	function startAnalysis() {
+		// Check token validity before starting analysis
+		if (!checkAuth()) {
+			showToast('Session expired. Please log in again.', 'warning');
+			return;
+		}
+		
 		analysisAnimationComplete = false;
 		workflow.startAnalysis();
 	}
@@ -481,13 +488,19 @@
 			message={progress.message || 'Analyzing...'}
 			onComplete={handleAnalysisComplete}
 		/>
-		<button
-			type="button"
-			class="w-full py-2 text-sm text-text-muted hover:text-danger transition-colors mb-6"
-			onclick={cancelAnalysis}
-		>
-			Cancel
-		</button>
+		<div class="mb-6">
+			<Button
+				variant="ghost"
+				full
+				onclick={cancelAnalysis}
+			>
+				<span>Cancel Analysis</span>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<line x1="18" y1="6" x2="6" y2="18" />
+					<line x1="6" y1="6" x2="18" y2="18" />
+				</svg>
+			</Button>
+		</div>
 	{:else if status === 'reviewing' && !analysisAnimationComplete && lastProgress}
 		<!-- Keep showing progress bar during completion animation -->
 		<AnalysisProgressBar

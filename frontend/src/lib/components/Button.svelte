@@ -41,7 +41,7 @@
 	{type}
 	{onclick}
 	disabled={disabled || loading}
-	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed {variantClasses[variant]} {sizeClasses[size]}"
+	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:grayscale disabled:hover:shadow-none {variantClasses[variant]} {sizeClasses[size]}"
 	class:w-full={full}
 >
 	{#if loading}
