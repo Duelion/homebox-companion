@@ -336,3 +336,23 @@
 		onClose={() => (showLocationPicker = false)}
 	/>
 {/if}
+
+<!-- Submission overlay -->
+{#if isSubmitting}
+	{@const progress = workflow.state.submissionProgress}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+		<div class="flex flex-col items-center gap-6">
+			<!-- Spinning loader -->
+			<div class="w-16 h-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin"></div>
+
+			<!-- Message -->
+			<p class="text-lg font-medium text-text text-center">
+				{#if progress}
+					Creating item {progress.current + 1} of {progress.total}...
+				{:else}
+					Submitting items...
+				{/if}
+			</p>
+		</div>
+	</div>
+{/if}
