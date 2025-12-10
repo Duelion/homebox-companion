@@ -21,6 +21,7 @@
 	// Local UI state (not workflow state)
 	let expandedImages = $state<Set<number>>(new Set());
 	let additionalImageInputs: { [key: number]: HTMLInputElement } = {};
+	let analysisAnimationComplete = $state(false);
 
 	// Get workflow state for reading
 	const workflow = scanWorkflow;
@@ -63,11 +64,16 @@
 
 	// Watch for status changes to navigate
 	$effect(() => {
-		if (workflow.state.status === 'reviewing') {
+		if (workflow.state.status === 'reviewing' && analysisAnimationComplete) {
 			showToast(`Detected ${workflow.state.detectedItems.length} item(s)`, 'success');
 			goto('/review');
 		}
 	});
+
+	// Handle analysis animation completion
+	function handleAnalysisComplete() {
+		analysisAnimationComplete = true;
+	}
 
 	// ==========================================================================
 	// FILE HANDLING
@@ -193,6 +199,7 @@
 	// ==========================================================================
 
 	function startAnalysis() {
+		analysisAnimationComplete = false;
 		workflow.startAnalysis();
 	}
 
@@ -457,19 +464,22 @@
 	/>
 
 	<!-- Analysis progress -->
-	{#if isAnalyzing && progress}
+	{#if (isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete)) && progress}
 		<AnalysisProgressBar
 			current={progress.current}
 			total={progress.total}
 			message={progress.message || 'Analyzing...'}
+			onComplete={handleAnalysisComplete}
 		/>
-		<button
-			type="button"
-			class="w-full py-2 text-sm text-text-muted hover:text-danger transition-colors mb-6"
-			onclick={cancelAnalysis}
-		>
-			Cancel
-		</button>
+		{#if isAnalyzing}
+			<button
+				type="button"
+				class="w-full py-2 text-sm text-text-muted hover:text-danger transition-colors mb-6"
+				onclick={cancelAnalysis}
+			>
+				Cancel
+			</button>
+		{/if}
 	{/if}
 
 	{#if !isAnalyzing}
