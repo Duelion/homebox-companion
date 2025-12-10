@@ -36,10 +36,14 @@ function handleUnauthorized(response: Response): boolean {
 	return false;
 }
 
+export interface RequestOptions extends RequestInit {
+	signal?: AbortSignal;
+}
+
 /**
  * Make a JSON API request with automatic auth header and error handling
  */
-export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
 	const authToken = get(token);
 
 	const headers: HeadersInit = {
@@ -57,6 +61,7 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
 	const response = await fetch(`${BASE_URL}${endpoint}`, {
 		...options,
 		headers,
+		signal: options.signal,
 	});
 
 	if (!response.ok) {
@@ -82,6 +87,11 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
 	return response.json();
 }
 
+export interface FormDataRequestOptions {
+	signal?: AbortSignal;
+	errorMessage?: string;
+}
+
 /**
  * Make a FormData API request with automatic auth header and error handling.
  * Use this for file uploads and multipart form submissions.
@@ -89,14 +99,21 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
 export async function requestFormData<T>(
 	endpoint: string,
 	formData: FormData,
-	errorMessage: string = 'Request failed'
+	options: FormDataRequestOptions | string = {}
 ): Promise<T> {
+	// Support legacy string errorMessage parameter for backwards compatibility
+	const opts: FormDataRequestOptions = typeof options === 'string' 
+		? { errorMessage: options } 
+		: options;
+	const errorMessage = opts.errorMessage ?? 'Request failed';
+	
 	const authToken = get(token);
 
 	const response = await fetch(`${BASE_URL}${endpoint}`, {
 		method: 'POST',
 		headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
 		body: formData,
+		signal: opts.signal,
 	});
 
 	if (!response.ok) {
