@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Header, HTTPException, UploadFile
+from loguru import logger
 
-from homebox_companion import HomeboxClient, settings
+from homebox_companion import AuthenticationError, HomeboxClient, settings
 from homebox_companion.core.field_preferences import load_field_preferences
 
 # Global client instance (set during app lifespan)
@@ -92,6 +93,9 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
 
     Returns:
         List of label dicts with 'id' and 'name' keys.
+
+    Raises:
+        AuthenticationError: If authentication fails (re-raised to caller).
     """
     client = get_client()
     try:
@@ -101,7 +105,16 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
             for label in raw_labels
             if label.get("id") and label.get("name")
         ]
+    except AuthenticationError:
+        # Re-raise auth errors - session is invalid and caller needs to know
+        logger.warning("Authentication failed while fetching labels for AI context")
+        raise
     except Exception:
+        # Log other errors but gracefully degrade - AI can work without labels
+        logger.warning(
+            "Failed to fetch labels for AI context, continuing without label suggestions",
+            exc_info=True,
+        )
         return []
 
 
