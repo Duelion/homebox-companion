@@ -1,4 +1,4 @@
-# Homebox Companion
+# 📦 Homebox Companion
 
 > **Not affiliated with the Homebox project.** This is an unofficial third-party companion app.
 
@@ -7,7 +7,7 @@ AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) in
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
 
 
-## How It Works
+## 🔄 How It Works
 
 ```mermaid
 flowchart LR
@@ -31,7 +31,7 @@ flowchart LR
 
 https://github.com/user-attachments/assets/3d1e9107-9a9e-47e7-88e5-f4934a4a79e8
 
-## OpenAI Cost Estimates
+## 💰 OpenAI Cost Estimates
 
 Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.   
 
@@ -70,14 +70,14 @@ All estimates below are based on measured token usage from this app’s producti
 | 5 | **$0.0013** | **$0.1264** | **$0.6320** | **$1.2639** |
 
 
-## Requirements
+## 📋 Requirements
 
 Before you start, you'll need:
 
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
 - **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Try with Demo Server
 
@@ -144,7 +144,7 @@ uv run python -m server.app
 
 Open `http://localhost:8000` in your browser.
 
-## Features
+## ✨ Features
 
 ### AI-Powered Detection
 - Identifies multiple items in a single photo
@@ -169,7 +169,7 @@ Open `http://localhost:8000` in your browser.
 - Set a default label for all detected items
 - Export settings as environment variables for Docker persistence
 
-## Configuration
+## ⚙️ Configuration
 
 ### Essential Settings
 
@@ -217,16 +217,16 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 </details>
 
-## Tips
+## 💡 Tips
 
 - **HTTPS recommended for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
 - **Multiple photos = better results** – Include close-ups of labels, serial numbers, or receipts for more accurate detection.
 
-## License
+## 📄 License
 
 MIT License
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 - [Homebox](https://github.com/sysadminsmedia/homebox) – The inventory system this app extends
 - [OpenAI](https://openai.com) – Vision AI capabilities
