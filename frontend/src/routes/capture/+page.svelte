@@ -34,16 +34,6 @@
 	let isAnalyzing = $derived(status === 'analyzing');
 	let progress = $derived(workflow.state.analysisProgress);
 	let locationName = $derived(workflow.state.locationName);
-	
-	// Track last known progress for completion animation
-	let lastProgress = $state<{ current: number; total: number; message?: string } | null>(null);
-	
-	// Update lastProgress when we have real progress data
-	$effect(() => {
-		if (progress) {
-			lastProgress = { ...progress };
-		}
-	});
 
 	// Redirect if not authenticated or no location
 	onMount(() => {
@@ -84,6 +74,8 @@
 	// Handle analysis animation completion
 	function handleAnalysisComplete() {
 		analysisAnimationComplete = true;
+		// Clear progress after animation finishes
+		workflow.state.analysisProgress = null;
 	}
 
 	// ==========================================================================
@@ -482,34 +474,28 @@
 	/>
 
 	<!-- Analysis progress -->
-	{#if isAnalyzing && progress}
+	{#if progress && (isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete))}
 		<AnalysisProgressBar
 			current={progress.current}
 			total={progress.total}
-			message={progress.message || 'Analyzing...'}
+			message={status === 'reviewing' ? 'Analysis complete!' : (progress.message || 'Analyzing...')}
 			onComplete={handleAnalysisComplete}
 		/>
-		<div class="mb-6">
-			<Button
-				variant="ghost"
-				full
-				onclick={cancelAnalysis}
-			>
-				<span>Cancel Analysis</span>
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<line x1="18" y1="6" x2="6" y2="18" />
-					<line x1="6" y1="6" x2="18" y2="18" />
-				</svg>
-			</Button>
-		</div>
-	{:else if status === 'reviewing' && !analysisAnimationComplete && lastProgress}
-		<!-- Keep showing progress bar during completion animation -->
-		<AnalysisProgressBar
-			current={lastProgress.total}
-			total={lastProgress.total}
-			message="Analysis complete!"
-			onComplete={handleAnalysisComplete}
-		/>
+		{#if isAnalyzing}
+			<div class="mb-6">
+				<Button
+					variant="warning"
+					full
+					onclick={cancelAnalysis}
+				>
+					<span>Cancel Analysis</span>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<line x1="18" y1="6" x2="6" y2="18" />
+						<line x1="6" y1="6" x2="18" y2="18" />
+					</svg>
+				</Button>
+			</div>
+		{/if}
 	{/if}
 
 	{#if !isAnalyzing}

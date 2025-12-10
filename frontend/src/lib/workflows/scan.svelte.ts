@@ -276,11 +276,11 @@ class ScanWorkflow {
 				return;
 			}
 
-			// Success! Move to review
-			this.state.detectedItems = allDetectedItems;
-			this.state.currentReviewIndex = 0;
-			this.state.analysisProgress = null;
-			this.state.status = 'reviewing';
+		// Success! Move to review
+		this.state.detectedItems = allDetectedItems;
+		this.state.currentReviewIndex = 0;
+		// Keep analysisProgress for success animation - will be cleared by UI after animation
+		this.state.status = 'reviewing';
 		} catch (error) {
 			// Don't set error if cancelled
 			if (this.analysisAbortController?.signal.aborted) {

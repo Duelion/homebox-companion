@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+		variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning';
 		size?: 'sm' | 'md' | 'lg';
 		disabled?: boolean;
 		loading?: boolean;
@@ -28,6 +28,7 @@
 		secondary: 'bg-surface-elevated text-text hover:bg-surface-hover border border-border',
 		ghost: 'bg-transparent text-text-muted hover:text-text hover:bg-surface-elevated',
 		danger: 'bg-danger text-white hover:bg-red-600',
+		warning: 'bg-amber-500 text-white hover:bg-amber-600 hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]',
 	};
 
 	const sizeClasses = {
