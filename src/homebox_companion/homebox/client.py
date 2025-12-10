@@ -475,13 +475,13 @@ class HomeboxClient:
     @staticmethod
     def _ensure_success(response: httpx.Response, context: str) -> None:
         """Raise an error if the response indicates failure."""
-        # Safely get request info (may not be present in test mocks)
+        # Safely get request info using public API
         request_info = ""
-        if hasattr(response, "_request") and response._request is not None:
-            try:
+        try:
+            if hasattr(response, "request") and response.request is not None:
                 request_info = f"{response.request.method} {response.request.url.path} "
-            except (AttributeError, RuntimeError):
-                pass
+        except (AttributeError, RuntimeError):
+            pass
 
         if response.is_success:
             logger.debug(f"{context}: {request_info}-> {response.status_code}")

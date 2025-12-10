@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from contextlib import asynccontextmanager
@@ -14,16 +15,23 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
-from homebox_companion import AuthenticationError, HomeboxClient, settings, setup_logging
+from homebox_companion import (
+    AuthenticationError,
+    HomeboxClient,
+    cleanup_openai_clients,
+    settings,
+    setup_logging,
+)
 
 from .api import api_router
 from .dependencies import set_client
 
-# GitHub version check cache
+# GitHub version check cache with thread safety
 _version_cache: dict[str, str | float | None] = {
     "latest_version": None,
     "last_check": 0.0,
 }
+_version_cache_lock = asyncio.Lock()
 VERSION_CACHE_TTL = 3600  # 1 hour in seconds
 
 # Get version
@@ -56,34 +64,58 @@ def _is_newer_version(latest: str, current: str) -> bool:
 
 
 async def _get_latest_github_version() -> str | None:
-    """Fetch the latest release version from GitHub with caching."""
+    """Fetch the latest release version from GitHub with caching and proper error handling."""
     global _version_cache
 
-    # Check if cache is still valid
-    now = time.time()
-    if (
-        _version_cache["latest_version"] is not None
-        and now - float(_version_cache["last_check"]) < VERSION_CACHE_TTL
-    ):
-        return str(_version_cache["latest_version"])
+    # Use lock to prevent race conditions in multi-worker setups
+    async with _version_cache_lock:
+        # Check if cache is still valid
+        now = time.time()
+        if (
+            _version_cache["latest_version"] is not None
+            and now - float(_version_cache["last_check"]) < VERSION_CACHE_TTL
+        ):
+            return str(_version_cache["latest_version"])
 
-    # Fetch from GitHub
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"https://api.github.com/repos/{settings.github_repo}/releases/latest",
-                headers={"Accept": "application/vnd.github.v3+json"},
-            )
-            if response.status_code == 200:
-                data = response.json()
-                latest_version = data.get("tag_name", "").lstrip("v")
-                _version_cache["latest_version"] = latest_version
-                _version_cache["last_check"] = now
-                return latest_version
-    except Exception as e:
-        logger.debug(f"Failed to fetch latest version from GitHub: {e}")
+        # Fetch from GitHub with specific error handling
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"https://api.github.com/repos/{settings.github_repo}/releases/latest",
+                    headers={"Accept": "application/vnd.github.v3+json"},
+                )
 
-    return None
+                if response.status_code == 200:
+                    data = response.json()
+                    latest_version = data.get("tag_name", "").lstrip("v")
+                    _version_cache["latest_version"] = latest_version
+                    _version_cache["last_check"] = now
+                    logger.debug(f"Fetched latest version from GitHub: {latest_version}")
+                    return latest_version
+                elif response.status_code == 404:
+                    logger.warning(
+                        f"GitHub repository {settings.github_repo} not found "
+                        "or no releases available"
+                    )
+                elif response.status_code == 403:
+                    logger.warning(
+                        "GitHub API rate limit exceeded. Update check will retry later."
+                    )
+                else:
+                    logger.warning(
+                        f"GitHub API returned unexpected status {response.status_code}"
+                    )
+        except httpx.TimeoutException:
+            logger.warning("GitHub version check timed out. Update check will retry later.")
+        except httpx.NetworkError as e:
+            logger.warning(f"Network error checking for updates: {e}")
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Invalid response from GitHub API: {e}")
+        except Exception as e:
+            # Catch-all for unexpected errors, but still log prominently
+            logger.error(f"Unexpected error checking for updates: {e}", exc_info=True)
+
+        return None
 
 
 @asynccontextmanager
@@ -112,6 +144,7 @@ async def lifespan(app: FastAPI):
     # Cleanup
     logger.info("Shutting down Homebox Companion API")
     await client.aclose()
+    await cleanup_openai_clients()
     logger.info("Shutdown complete")
 
 
