@@ -179,10 +179,11 @@ class ScanWorkflow {
 		await this.loadDefaultLabel();
 
 		// Update progress message
+		const imageCount = this.state.images.length;
 		this.state.analysisProgress = {
 			current: 0,
-			total: this.state.images.length,
-			message: 'Starting analysis...',
+			total: imageCount,
+			message: imageCount === 1 ? 'Analyzing image...' : `Analyzing ${imageCount} images...`,
 		};
 
 		try {
