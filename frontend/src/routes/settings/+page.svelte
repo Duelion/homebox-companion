@@ -933,7 +933,7 @@
 
 <!-- Fullscreen Logs Modal -->
 {#if logsFullscreen && logs}
-	<div class="fixed inset-0 z-50 flex flex-col bg-background">
+	<div class="fixed inset-0 z-[60] flex flex-col bg-background">
 		<!-- Header -->
 		<div class="flex items-center justify-between p-4 border-b border-border bg-surface">
 			<div class="flex items-center gap-3">
@@ -998,7 +998,7 @@
 			</div>
 		</div>
 		<!-- Content -->
-		<div bind:this={logsFullscreenContainer} class="flex-1 overflow-auto p-4">
+		<div bind:this={logsFullscreenContainer} class="flex-1 overflow-auto p-4 pb-24">
 			<pre class="text-xs font-mono text-text-muted whitespace-pre-wrap break-all leading-relaxed">{@html colorizedLogs()}</pre>
 		</div>
 	</div>
@@ -1006,7 +1006,7 @@
 
 <!-- Fullscreen Prompt Preview Modal -->
 {#if promptFullscreen && promptPreview}
-	<div class="fixed inset-0 z-50 flex flex-col bg-background">
+	<div class="fixed inset-0 z-[60] flex flex-col bg-background">
 		<!-- Header -->
 		<div class="flex items-center justify-between p-4 border-b border-border bg-surface">
 			<div class="flex items-center gap-3">
@@ -1033,7 +1033,7 @@
 			</button>
 		</div>
 		<!-- Content -->
-		<div class="flex-1 overflow-auto p-4">
+		<div class="flex-1 overflow-auto p-4 pb-24">
 			<pre class="text-sm font-mono text-text-muted whitespace-pre-wrap break-words leading-relaxed">{promptPreview}</pre>
 		</div>
 	</div>
