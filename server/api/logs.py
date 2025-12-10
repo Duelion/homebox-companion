@@ -1,6 +1,8 @@
 """Logs API routes for debugging and reference."""
 
+import asyncio
 import os
+from collections import deque
 from glob import glob
 
 from fastapi import APIRouter, HTTPException, Query
@@ -8,6 +10,21 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 router = APIRouter()
+
+
+def _read_last_lines(filepath: str, n: int) -> tuple[list[str], int]:
+    """Read last n lines of a file efficiently using deque.
+
+    Uses deque with maxlen to keep only the last n lines in memory
+    while iterating through the file once.
+    """
+    total = 0
+    last_lines: deque[str] = deque(maxlen=n)
+    with open(filepath, encoding="utf-8") as f:
+        for line in f:
+            total += 1
+            last_lines.append(line)
+    return list(last_lines), total
 
 
 class LogsResponse(BaseModel):
@@ -52,14 +69,9 @@ async def get_logs(
     filename = os.path.basename(log_file)
 
     try:
-        with open(log_file, encoding="utf-8") as f:
-            all_lines = f.readlines()
-
-        total_lines = len(all_lines)
+        # Read last N lines efficiently without loading entire file into memory
+        recent_lines, total_lines = await asyncio.to_thread(_read_last_lines, log_file, lines)
         truncated = total_lines > lines
-
-        # Get last N lines
-        recent_lines = all_lines[-lines:] if truncated else all_lines
         logs_content = "".join(recent_lines)
 
         return LogsResponse(
