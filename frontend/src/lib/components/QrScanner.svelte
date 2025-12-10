@@ -38,24 +38,32 @@
 				return;
 			}
 
-			qrScanner = new QrScanner(
-				videoElement,
-				(result) => {
-					if (hasScanned) return; // Prevent multiple scans
-					hasScanned = true;
-					
-					// Stop scanning before calling callback
-					stopScanner().then(() => {
-						onScan(result.data);
-					});
-				},
-				{
-					preferredCamera: 'environment',
-					highlightScanRegion: true,
-					highlightCodeOutline: true,
-					returnDetailedScanResult: true,
-				}
-			);
+		if (!videoElement) {
+			error = 'Video element not ready. Please try again.';
+			isStarting = false;
+			cameraFailed = true;
+			onError?.(error);
+			return;
+		}
+
+		qrScanner = new QrScanner(
+			videoElement,
+			(result: QrScanner.ScanResult) => {
+				if (hasScanned) return; // Prevent multiple scans
+				hasScanned = true;
+				
+				// Stop scanning before calling callback
+				stopScanner().then(() => {
+					onScan(result.data);
+				});
+			},
+			{
+				preferredCamera: 'environment',
+				highlightScanRegion: true,
+				highlightCodeOutline: true,
+				returnDetailedScanResult: true,
+			}
+		);
 
 			await qrScanner.start();
 			isStarting = false;

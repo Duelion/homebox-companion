@@ -278,8 +278,9 @@ Integration tests hit the real Homebox demo server and OpenAI API.
 ## Pre-Commit Checklist
 
 1. **Lint**: `uv run ruff check .`
-2. **Frontend deps**: If `package.json` changed, run `npm install` and commit both files
-3. **Version**: Increment in `pyproject.toml` for releases
+2. **Frontend types**: `cd frontend && npm run check` (runs svelte-check for TypeScript errors)
+3. **Frontend deps**: If `package.json` changed, run `npm install` and commit both files
+4. **Version**: Increment in `pyproject.toml` for releases
 
 ---
 
