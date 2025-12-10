@@ -102,6 +102,9 @@ export type ScanStatus =
 	| 'submitting'  // Creating items in Homebox
 	| 'complete';   // Success
 
+/** Status of individual item submission */
+export type ItemSubmissionStatus = 'pending' | 'creating' | 'success' | 'partial_success' | 'failed';
+
 /** Progress for async operations */
 export interface Progress {
 	current: number;
@@ -127,6 +130,8 @@ export interface ScanState {
 	confirmedItems: ConfirmedItem[];
 	// Submission
 	submissionProgress: Progress | null;
+	/** Per-item submission status for UI feedback */
+	itemStatuses: Record<number, ItemSubmissionStatus>;
 	// Error handling
 	error: string | null;
 }
