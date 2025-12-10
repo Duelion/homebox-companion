@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from homebox_companion import AuthenticationError, DetectedItem
+from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_client, get_token, validate_file_size
 from ..schemas.items import BatchCreateRequest
@@ -58,8 +59,6 @@ async def create_items(
 
         try:
             # Step 1: Create item with basic fields
-            from homebox_companion.homebox import ItemCreate
-
             item_create = ItemCreate(
                 name=detected_item.name,
                 quantity=detected_item.quantity,
@@ -93,10 +92,24 @@ async def create_items(
                     logger.info("  Updated item with extended fields")
 
             created.append(result)
-        except Exception:
-            # Log full error details but return generic message to client
+        except AuthenticationError:
+            # Auth failure means all subsequent items will also fail - abort early
+            logger.error(f"Authentication failed while creating '{item_input.name}'")
+            errors.append(f"Authentication failed for '{item_input.name}'")
+            # Add remaining items as not attempted
+            remaining = len(request.items) - len(created) - len(errors)
+            if remaining > 0:
+                errors.append(f"{remaining} more item(s) not attempted due to auth failure")
+            break
+        except Exception as e:
+            # Log full error details and include error type in response
             logger.exception(f"Failed to create '{item_input.name}'")
-            errors.append(f"Failed to create '{item_input.name}'")
+            error_type = type(e).__name__
+            error_msg = str(e) if str(e) else "Unknown error"
+            # Truncate long error messages for the response
+            if len(error_msg) > 200:
+                error_msg = error_msg[:200] + "..."
+            errors.append(f"Failed to create '{item_input.name}': [{error_type}] {error_msg}")
 
     logger.info(f"Item creation complete: {len(created)} created, {len(errors)} failed")
 
