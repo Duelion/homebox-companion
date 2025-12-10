@@ -10,6 +10,7 @@
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import CaptureButtons from '$lib/components/CaptureButtons.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
+	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 
 	const MAX_IMAGES = 30;
 	const MAX_FILE_SIZE_MB = 10;
@@ -457,25 +458,18 @@
 
 	<!-- Analysis progress -->
 	{#if isAnalyzing && progress}
-		<div class="bg-surface rounded-xl border border-border p-4 mb-6">
-			<div class="flex items-center justify-between mb-2">
-				<span class="text-sm font-medium text-text">{progress.message || 'Analyzing...'}</span>
-				<span class="text-sm text-text-muted">{progress.current} / {progress.total}</span>
-			</div>
-			<div class="h-2 bg-surface-elevated rounded-full overflow-hidden">
-				<div
-					class="h-full bg-primary transition-all duration-300"
-					style="width: {progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%"
-				></div>
-			</div>
-			<button
-				type="button"
-				class="mt-3 w-full py-2 text-sm text-text-muted hover:text-danger transition-colors"
-				onclick={cancelAnalysis}
-			>
-				Cancel
-			</button>
-		</div>
+		<AnalysisProgressBar
+			current={progress.current}
+			total={progress.total}
+			message={progress.message || 'Analyzing...'}
+		/>
+		<button
+			type="button"
+			class="w-full py-2 text-sm text-text-muted hover:text-danger transition-colors mb-6"
+			onclick={cancelAnalysis}
+		>
+			Cancel
+		</button>
 	{/if}
 
 	{#if !isAnalyzing}
