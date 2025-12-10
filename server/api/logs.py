@@ -1,6 +1,7 @@
 """Logs API routes for debugging and reference."""
 
 import os
+from collections import deque
 from glob import glob
 
 from fastapi import APIRouter, HTTPException, Query
@@ -53,13 +54,14 @@ async def get_logs(
 
     try:
         with open(log_file, encoding="utf-8") as f:
-            all_lines = f.readlines()
+            # Use deque to keep only the last N lines in memory
+            recent_lines: deque[str] = deque(maxlen=lines)
+            total_lines = 0
+            for line in f:
+                recent_lines.append(line)
+                total_lines += 1
 
-        total_lines = len(all_lines)
         truncated = total_lines > lines
-
-        # Get last N lines
-        recent_lines = all_lines[-lines:] if truncated else all_lines
         logs_content = "".join(recent_lines)
 
         return LogsResponse(
