@@ -17,11 +17,25 @@ export interface DetectOptions {
 	extraInstructions?: string;
 	extractExtendedFields?: boolean;
 	additionalImages?: File[];
+	signal?: AbortSignal;
 }
 
 export interface BatchDetectOptions {
 	configs?: Array<{ single_item?: boolean; extra_instructions?: string }>;
 	extractExtendedFields?: boolean;
+	signal?: AbortSignal;
+}
+
+export interface AnalyzeOptions {
+	signal?: AbortSignal;
+}
+
+export interface MergeOptions {
+	signal?: AbortSignal;
+}
+
+export interface CorrectOptions {
+	signal?: AbortSignal;
 }
 
 export const vision = {
@@ -50,7 +64,7 @@ export const vision = {
 		return requestFormData<DetectionResponse>(
 			'/tools/vision/detect',
 			formData,
-			'Detection failed'
+			{ errorMessage: 'Detection failed', signal: options.signal }
 		);
 	},
 
@@ -75,7 +89,7 @@ export const vision = {
 		return requestFormData<BatchDetectionResponse>(
 			'/tools/vision/detect-batch',
 			formData,
-			'Batch detection failed'
+			{ errorMessage: 'Batch detection failed', signal: options.signal }
 		);
 	},
 
@@ -85,7 +99,8 @@ export const vision = {
 	analyze: (
 		images: File[],
 		itemName: string,
-		itemDescription?: string
+		itemDescription?: string,
+		options: AnalyzeOptions = {}
 	): Promise<AdvancedItemDetails> => {
 		const formData = new FormData();
 		for (const img of images) {
@@ -99,17 +114,18 @@ export const vision = {
 		return requestFormData<AdvancedItemDetails>(
 			'/tools/vision/analyze',
 			formData,
-			'Analysis failed'
+			{ errorMessage: 'Analysis failed', signal: options.signal }
 		);
 	},
 
 	/**
 	 * Merge multiple items into a single consolidated item using AI
 	 */
-	merge: (itemsToMerge: MergeItem[]) =>
+	merge: (itemsToMerge: MergeItem[], options: MergeOptions = {}) =>
 		request<MergedItemResponse>('/tools/vision/merge', {
 			method: 'POST',
 			body: JSON.stringify({ items: itemsToMerge }),
+			signal: options.signal,
 		}),
 
 	/**
@@ -118,7 +134,8 @@ export const vision = {
 	correct: (
 		image: File,
 		currentItem: MergeItem,
-		correctionInstructions: string
+		correctionInstructions: string,
+		options: CorrectOptions = {}
 	): Promise<CorrectionResponse> => {
 		const formData = new FormData();
 		formData.append('image', image);
@@ -128,7 +145,7 @@ export const vision = {
 		return requestFormData<CorrectionResponse>(
 			'/tools/vision/correct',
 			formData,
-			'Correction failed'
+			{ errorMessage: 'Correction failed', signal: options.signal }
 		);
 	},
 };

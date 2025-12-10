@@ -187,6 +187,7 @@ class ScanWorkflow {
 			let completedCount = 0;
 
 			// Process images in parallel
+			const signal = this.analysisAbortController?.signal;
 			const detectionPromises = this.state.images.map(async (image, index) => {
 				try {
 					const response = await vision.detect(image.file, {
@@ -194,6 +195,7 @@ class ScanWorkflow {
 						extraInstructions: image.extraInstructions || undefined,
 						extractExtendedFields: true,
 						additionalImages: image.additionalFiles,
+						signal,
 					});
 
 					completedCount++;
@@ -210,6 +212,11 @@ class ScanWorkflow {
 						items: response.items,
 					};
 				} catch (error) {
+					// Re-throw abort errors to be handled at the top level
+					if (error instanceof Error && error.name === 'AbortError') {
+						throw error;
+					}
+					
 					completedCount++;
 					this.state.analysisProgress = {
 						current: completedCount,
@@ -282,8 +289,9 @@ class ScanWorkflow {
 		// Keep analysisProgress for success animation - will be cleared by UI after animation
 		this.state.status = 'reviewing';
 		} catch (error) {
-			// Don't set error if cancelled
-			if (this.analysisAbortController?.signal.aborted) {
+			// Don't set error if cancelled (check both signal and error type)
+			if (this.analysisAbortController?.signal.aborted || 
+				(error instanceof Error && error.name === 'AbortError')) {
 				return;
 			}
 
@@ -462,10 +470,12 @@ class ScanWorkflow {
 		let partialSuccessCount = 0;
 		let failCount = 0;
 
+		const signal = this.submissionAbortController?.signal;
+		
 		try {
 			for (let i = 0; i < this.state.confirmedItems.length; i++) {
 				// Check if cancelled
-				if (this.submissionAbortController?.signal.aborted) {
+				if (signal?.aborted) {
 					return;
 				}
 
@@ -489,7 +499,7 @@ class ScanWorkflow {
 					const response = await itemsApi.create({
 						items: [itemInput],
 						location_id: this.state.locationId,
-					});
+					}, { signal });
 
 					if (response.created.length > 0) {
 						const createdItem = response.created[0] as { id?: string };
@@ -505,26 +515,34 @@ class ScanWorkflow {
 										`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
 									);
 									await withRetry(
-										() => itemsApi.uploadAttachment(createdItem.id!, thumbnailFile),
+										() => itemsApi.uploadAttachment(createdItem.id!, thumbnailFile, { signal }),
 										{ 
 											maxAttempts: 3, 
 											onRetry: (attempt) => console.log(`Retrying thumbnail upload (attempt ${attempt})`)
 										}
 									);
 								} catch (error) {
+									// Don't log abort errors as failures
+									if (error instanceof Error && error.name === 'AbortError') {
+										throw error;
+									}
 									console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
 									attachmentsFailed = true;
 								}
 							} else if (confirmedItem.originalFile) {
 								try {
 									await withRetry(
-										() => itemsApi.uploadAttachment(createdItem.id!, confirmedItem.originalFile!),
+										() => itemsApi.uploadAttachment(createdItem.id!, confirmedItem.originalFile!, { signal }),
 										{ 
 											maxAttempts: 3, 
 											onRetry: (attempt) => console.log(`Retrying image upload (attempt ${attempt})`)
 										}
 									);
 								} catch (error) {
+									// Don't log abort errors as failures
+									if (error instanceof Error && error.name === 'AbortError') {
+										throw error;
+									}
 									console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
 									attachmentsFailed = true;
 								}
@@ -536,13 +554,17 @@ class ScanWorkflow {
 								for (const addImage of confirmedItem.additionalImages) {
 									try {
 										await withRetry(
-											() => itemsApi.uploadAttachment(createdItem.id!, addImage),
+											() => itemsApi.uploadAttachment(createdItem.id!, addImage, { signal }),
 											{ 
 												maxAttempts: 3, 
 												onRetry: (attempt) => console.log(`Retrying additional image upload (attempt ${attempt})`)
 											}
 										);
 									} catch (error) {
+										// Don't log abort errors as failures
+										if (error instanceof Error && error.name === 'AbortError') {
+											throw error;
+										}
 										console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
 										attachmentsFailed = true;
 									}
@@ -559,6 +581,10 @@ class ScanWorkflow {
 						failCount++;
 					}
 				} catch (error) {
+					// Re-throw abort errors to be handled at the top level
+					if (error instanceof Error && error.name === 'AbortError') {
+						throw error;
+					}
 					console.error(`Failed to create item ${confirmedItem.name}:`, error);
 					failCount++;
 				}
@@ -585,7 +611,9 @@ class ScanWorkflow {
 				this.state.status = 'complete';
 			}
 		} catch (error) {
-			if (this.submissionAbortController?.signal.aborted) {
+			// Don't set error if cancelled (check both signal and error type)
+			if (this.submissionAbortController?.signal.aborted ||
+				(error instanceof Error && error.name === 'AbortError')) {
 				return;
 			}
 
