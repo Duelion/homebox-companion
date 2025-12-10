@@ -120,7 +120,9 @@ Open `http://localhost:8000` in your browser.
 
 Alternative to Docker if you prefer running directly on your system.
 
-**Prerequisites:** Python 3.12+, Node.js 18+, [uv](https://docs.astral.sh/uv/)
+**Prerequisites:** Python 3.12+, Node.js 20+, [uv](https://docs.astral.sh/uv/)
+
+#### Linux / macOS
 
 ```bash
 # Clone and install
@@ -132,17 +134,43 @@ uv sync
 cd frontend && npm install && npm run build && cd ..
 mkdir -p server/static && cp -r frontend/build/* server/static/
 
-# Configure
-cat > .env << 'EOF'
-HBC_OPENAI_API_KEY=sk-your-key
-HBC_HOMEBOX_URL=http://localhost:7745
-EOF
+# Configure - copy example and edit
+cp .env.example .env
+# Edit .env and set your HBC_OPENAI_API_KEY
+
+# Run
+uv run python -m server.app
+```
+
+#### Windows (PowerShell)
+
+```powershell
+# Clone and install
+git clone https://github.com/Duelion/homebox-companion.git
+cd homebox-companion
+uv sync
+
+# Build frontend
+cd frontend
+npm install
+npm run build
+cd ..
+
+# Copy frontend build to server static
+New-Item -ItemType Directory -Force -Path server\static
+Copy-Item -Path frontend\build\* -Destination server\static\ -Recurse -Force
+
+# Configure - copy example and edit
+Copy-Item .env.example .env
+# Edit .env and set your HBC_OPENAI_API_KEY
 
 # Run
 uv run python -m server.app
 ```
 
 Open `http://localhost:8000` in your browser.
+
+> **Note:** See `.env.example` for all available configuration options including AI customization settings.
 
 ## ✨ Features
 
@@ -171,6 +199,8 @@ Open `http://localhost:8000` in your browser.
 
 ## ⚙️ Configuration
 
+> **📝 Full reference:** See [`.env.example`](.env.example) for all available environment variables with detailed explanations and examples.
+
 ### Essential Settings
 
 | Variable | Required | Default | Description |
@@ -190,6 +220,8 @@ Open `http://localhost:8000` in your browser.
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
 | `HBC_DISABLE_UPDATE_CHECK` | `false` | Disable update notifications |
+| `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MB |
+| `HBC_CORS_ORIGINS` | `*` | Allowed CORS origins (comma-separated or `*`) |
 
 </details>
 
