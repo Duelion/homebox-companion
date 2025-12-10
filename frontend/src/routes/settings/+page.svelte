@@ -491,8 +491,35 @@
 				</div>
 			</div>
 
-			<!-- AI Model -->
+			<!-- Configuration Info -->
 			{#if config}
+				<!-- Homebox URL -->
+				<div class="flex items-center justify-between py-2 border-t border-border/20">
+					<span class="text-text-muted">Homebox URL</span>
+					<div class="flex items-center gap-2">
+						<a
+							href={config.homebox_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="text-text hover:text-primary font-mono text-sm transition-colors flex items-center gap-1"
+							title="Open Homebox instance"
+						>
+							{config.homebox_url}
+							<svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+								<polyline points="15 3 21 3 21 9" />
+								<line x1="10" y1="14" x2="21" y2="3" />
+							</svg>
+						</a>
+						{#if config.is_demo_mode}
+							<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-xs">
+								Demo
+							</span>
+						{/if}
+					</div>
+				</div>
+
+				<!-- AI Model -->
 				<div class="flex items-center justify-between py-2 border-t border-border/20">
 					<span class="text-text-muted">AI Model</span>
 					<span class="text-text font-mono text-sm">{config.openai_model}</span>

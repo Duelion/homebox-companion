@@ -12,6 +12,7 @@ class ConfigResponse(BaseModel):
     """Safe configuration information for the frontend."""
 
     is_demo_mode: bool
+    homebox_url: str
     openai_model: str
     update_check_enabled: bool
 
@@ -25,6 +26,7 @@ async def get_config() -> ConfigResponse:
     """
     return ConfigResponse(
         is_demo_mode=settings.is_demo_mode,
+        homebox_url=settings.homebox_url,
         openai_model=settings.openai_model,
         update_check_enabled=not settings.disable_update_check,
     )
