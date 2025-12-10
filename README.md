@@ -6,7 +6,6 @@ AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) in
 
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
 
-<!-- TODO: Add screenshot/GIF here -->
 
 ## How It Works
 
@@ -31,6 +30,45 @@ flowchart LR
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
 https://github.com/user-attachments/assets/3d1e9107-9a9e-47e7-88e5-f4934a4a79e8
+
+## OpenAI Cost Estimates
+
+Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.   
+
+**Per-token pricing (per 1M tokens):**
+
+- **GPT-5 nano**
+  - Input: **$0.0500 / 1M tokens**
+  - Output: **$0.4000 / 1M tokens**
+
+- **GPT-5 mini**
+  - Input: **$0.2500 / 1M tokens**
+  - Output: **$2.0000 / 1M tokens**
+
+All estimates below are based on measured token usage from this app’s production prompt with 1–5 images per call.
+
+### Estimated API cost for Homebox Companion
+
+#### GPT-5 mini
+
+| Images per call | Cost / 1 call | Cost / 100 calls | Cost / 500 calls | Cost / 1,000 calls |
+|----------------:|--------------:|-----------------:|-----------------:|-------------------:|
+| 1 | **$0.0026** | **$0.2580** | **$1.2900** | **$2.5800** |
+| 2 | **$0.0032** | **$0.3236** | **$1.6180** | **$3.2360** |
+| 3 | **$0.0031** | **$0.3130** | **$1.5650** | **$3.1300** |
+| 4 | **$0.0037** | **$0.3672** | **$1.8360** | **$3.6720** |
+| 5 | **$0.0041** | **$0.4108** | **$2.0540** | **$4.1080** |
+
+#### GPT-5 nano
+
+| Images per call | Cost / 1 call | Cost / 100 calls | Cost / 500 calls | Cost / 1,000 calls |
+|----------------:|--------------:|-----------------:|-----------------:|-------------------:|
+| 1 | **$0.0008** | **$0.0801** | **$0.4005** | **$0.8010** |
+| 2 | **$0.0008** | **$0.0781** | **$0.3907** | **$0.7815** |
+| 3 | **$0.0010** | **$0.0958** | **$0.4788** | **$0.9577** |
+| 4 | **$0.0014** | **$0.1386** | **$0.6929** | **$1.3858** |
+| 5 | **$0.0013** | **$0.1264** | **$0.6320** | **$1.2639** |
+
 
 ## Requirements
 
