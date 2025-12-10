@@ -1,17 +1,24 @@
 """Authentication API routes."""
 
 import socket
+from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from loguru import logger
+from pydantic import BaseModel
 
 from homebox_companion import AuthenticationError
 
-from ..dependencies import get_client
+from ..dependencies import get_client, get_token
 from ..schemas.auth import LoginRequest, LoginResponse
 
 router = APIRouter()
+
+
+class ValidateResponse(BaseModel):
+    """Token validation response."""
+    valid: bool
 
 
 def _get_friendly_error_message(error: Exception) -> str:
@@ -70,6 +77,45 @@ async def login(request: LoginRequest) -> LoginResponse:
         logger.warning(f"Login failed for user {request.username}: {e}")
         friendly_message = _get_friendly_error_message(e)
         raise HTTPException(status_code=401, detail=friendly_message) from e
+
+
+@router.get("/validate", response_model=ValidateResponse)
+async def validate_token(
+    authorization: Annotated[str | None, Header()] = None,
+) -> ValidateResponse:
+    """Validate the current auth token against Homebox.
+
+    Makes a lightweight call to /users/self to verify the token is still valid.
+    Returns {valid: true} if valid, raises 401 if invalid.
+    """
+    token = get_token(authorization)
+    client = get_client()
+
+    try:
+        # Use /users/self as a lightweight token validation endpoint
+        response = await client.client.get(
+            f"{client.base_url}/users/self",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+
+        if response.is_success:
+            return ValidateResponse(valid=True)
+
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Token expired or invalid")
+
+        # Other errors - token might still be valid, but something else went wrong
+        # Return valid=true to avoid false negatives
+        logger.warning(f"Token validation got unexpected status: {response.status_code}")
+        return ValidateResponse(valid=True)
+
+    except httpx.RequestError as e:
+        # Network error - can't validate, assume valid to avoid blocking user
+        logger.warning(f"Token validation network error: {e}")
+        return ValidateResponse(valid=True)
 
 
 

@@ -209,9 +209,10 @@
 	// ANALYSIS - delegate to workflow
 	// ==========================================================================
 
-	function startAnalysis() {
+	async function startAnalysis() {
 		// Check token validity before starting analysis
-		if (!checkAuth()) {
+		const isValid = await checkAuth();
+		if (!isValid) {
 			showToast('Session expired. Please log in again.', 'warning');
 			return;
 		}
