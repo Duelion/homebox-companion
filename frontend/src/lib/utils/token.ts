@@ -1,58 +1,41 @@
 /**
- * JWT token utilities for client-side token validation
+ * Token validation utilities
  */
 
 import { get } from 'svelte/store';
 import { token, markSessionExpired } from '../stores/auth';
+import { auth } from '../api/auth';
+import { ApiError } from '../api/client';
 
 /**
- * Decode a JWT token and extract its payload
- * Note: This does NOT verify the signature - only decodes the payload
+ * Check if the current auth token is valid by validating with the server.
+ * If invalid/expired, triggers the session expired modal.
+ * @returns true if token is valid, false if expired/invalid
  */
-function decodeJwt(token: string): { exp?: number } | null {
-	try {
-		const parts = token.split('.');
-		if (parts.length !== 3) return null;
-		
-		const payload = parts[1];
-		const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-		return JSON.parse(decoded);
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Check if a JWT token is expired (or will expire within the buffer time)
- * @param token - The JWT token string
- * @param bufferSeconds - Number of seconds before expiration to consider token expired (default: 30)
- * @returns true if token is expired or will expire soon
- */
-export function isTokenExpired(token: string | null, bufferSeconds: number = 30): boolean {
-	if (!token) return true;
-	
-	const payload = decodeJwt(token);
-	if (!payload || !payload.exp) return true;
-	
-	const now = Math.floor(Date.now() / 1000);
-	const expiresAt = payload.exp - bufferSeconds;
-	
-	return now >= expiresAt;
-}
-
-/**
- * Check if the current auth token is valid
- * If expired, triggers the session expired modal
- * @returns true if token is valid, false if expired
- */
-export function checkAuth(): boolean {
+export async function checkAuth(): Promise<boolean> {
 	const currentToken = get(token);
 	
-	if (isTokenExpired(currentToken)) {
+	// No token means not authenticated
+	if (!currentToken) {
 		markSessionExpired();
 		return false;
 	}
 	
-	return true;
+	try {
+		// Validate token against the server
+		const response = await auth.validate();
+		return response.valid;
+	} catch (error) {
+		// 401 error means token is invalid/expired
+		if (error instanceof ApiError && error.status === 401) {
+			// markSessionExpired() is already called by the API client's handleUnauthorized
+			return false;
+		}
+		
+		// Other errors (network issues, etc.) - assume valid to avoid blocking user
+		// The actual API call will fail and trigger proper error handling
+		console.warn('Token validation failed with unexpected error:', error);
+		return true;
+	}
 }
 

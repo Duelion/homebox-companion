@@ -98,7 +98,8 @@
 		}
 
 		// Check token validity before submitting
-		if (!checkAuth()) {
+		const isValid = await checkAuth();
+		if (!isValid) {
 			showToast('Session expired. Please log in again.', 'warning');
 			return;
 		}
@@ -248,7 +249,8 @@
 		if (failedIndices.length === 0) return;
 
 		// Check token validity before retrying
-		if (!checkAuth()) {
+		const isValid = await checkAuth();
+		if (!isValid) {
 			showToast('Session expired. Please log in again.', 'warning');
 			return;
 		}
