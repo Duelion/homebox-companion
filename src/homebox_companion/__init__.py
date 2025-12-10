@@ -38,6 +38,7 @@ except PackageNotFoundError:
 # Core
 # AI utilities
 from .ai import (
+    cleanup_openai_clients,
     encode_image_bytes_to_data_uri,
     encode_image_to_data_uri,
 )
@@ -97,6 +98,7 @@ __all__ = [
     # Image utilities
     "encode_image_to_data_uri",
     "encode_image_bytes_to_data_uri",
+    "cleanup_openai_clients",
 ]
 
 

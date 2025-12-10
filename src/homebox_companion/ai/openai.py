@@ -32,6 +32,23 @@ def _get_openai_client(api_key: str) -> AsyncOpenAI:
     return _client_cache[api_key]
 
 
+async def cleanup_openai_clients() -> None:
+    """Close and cleanup all cached OpenAI client instances.
+
+    This should be called during application shutdown to properly close
+    HTTP connections and release resources.
+    """
+    global _client_cache
+    if _client_cache:
+        logger.debug(f"Cleaning up {len(_client_cache)} OpenAI client(s)")
+        for client in _client_cache.values():
+            try:
+                await client.close()
+            except Exception as e:
+                logger.warning(f"Error closing OpenAI client: {e}")
+        _client_cache.clear()
+
+
 def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
     """Format messages for readable logging output.
 

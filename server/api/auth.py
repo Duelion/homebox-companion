@@ -86,7 +86,7 @@ async def validate_token(
     """Validate the current auth token against Homebox.
 
     Makes a lightweight call to /users/self to verify the token is still valid.
-    Returns {valid: true} if valid, raises 401 if invalid.
+    Returns {valid: true} if valid, raises 401 if invalid, raises 503 if service unavailable.
     """
     token = get_token(authorization)
     client = get_client()
@@ -101,21 +101,54 @@ async def validate_token(
             },
         )
 
+        # Only consider 2xx status codes as valid tokens
         if response.is_success:
             return ValidateResponse(valid=True)
 
+        # 401 means token is expired or invalid
         if response.status_code == 401:
+            logger.info("Token validation failed: token expired or invalid")
             raise HTTPException(status_code=401, detail="Token expired or invalid")
 
-        # Other errors - token might still be valid, but something else went wrong
-        # Return valid=true to avoid false negatives
-        logger.warning(f"Token validation got unexpected status: {response.status_code}")
-        return ValidateResponse(valid=True)
+        # 403 might indicate token permissions issue - treat as invalid
+        if response.status_code == 403:
+            logger.warning("Token validation failed: forbidden (possible permission issue)")
+            raise HTTPException(status_code=401, detail="Token lacks required permissions")
 
-    except httpx.RequestError as e:
-        # Network error - can't validate, assume valid to avoid blocking user
-        logger.warning(f"Token validation network error: {e}")
-        return ValidateResponse(valid=True)
+        # 5xx or other server errors - validation service unavailable
+        # Don't assume token is valid, raise 503 to indicate service issue
+        logger.error(
+            f"Token validation service error: Homebox returned {response.status_code}"
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Token validation service temporarily unavailable. Please try again.",
+        )
+
+    except httpx.TimeoutException as e:
+        # Timeout - validation service unavailable
+        logger.error("Token validation timed out")
+        raise HTTPException(
+            status_code=503,
+            detail="Token validation timed out. Please try again.",
+        ) from e
+    except httpx.NetworkError as e:
+        # Network error - validation service unreachable
+        logger.error(f"Token validation network error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot reach token validation service. Please check your connection.",
+        ) from e
+    except HTTPException:
+        # Re-raise HTTPExceptions we created above
+        raise
+    except Exception as e:
+        # Unexpected error - log and return service unavailable
+        logger.error(f"Unexpected error during token validation: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Token validation failed due to an unexpected error.",
+        ) from e
 
 
 
