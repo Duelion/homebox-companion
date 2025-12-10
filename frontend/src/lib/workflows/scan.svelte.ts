@@ -11,6 +11,7 @@
 
 import { vision, items as itemsApi, fieldPreferences } from '$lib/api/index';
 import { labels as labelsStore } from '$lib/stores/labels';
+import { withRetry } from '$lib/utils/retry';
 import { get } from 'svelte/store';
 import type {
 	ScanState,
@@ -458,6 +459,7 @@ class ScanWorkflow {
 		};
 
 		let successCount = 0;
+		let partialSuccessCount = 0;
 		let failCount = 0;
 
 		try {
@@ -491,30 +493,68 @@ class ScanWorkflow {
 
 					if (response.created.length > 0) {
 						const createdItem = response.created[0] as { id?: string };
+						let attachmentsFailed = false;
 
 						// Upload attachments if item was created
 						if (createdItem?.id) {
 							// Upload thumbnail or original image (if available)
 							if (confirmedItem.customThumbnail) {
-								const thumbnailFile = await this.dataUrlToFile(
-									confirmedItem.customThumbnail,
-									`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
-								);
-								await itemsApi.uploadAttachment(createdItem.id, thumbnailFile);
+								try {
+									const thumbnailFile = await this.dataUrlToFile(
+										confirmedItem.customThumbnail,
+										`thumbnail_${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
+									);
+									await withRetry(
+										() => itemsApi.uploadAttachment(createdItem.id!, thumbnailFile),
+										{ 
+											maxAttempts: 3, 
+											onRetry: (attempt) => console.log(`Retrying thumbnail upload (attempt ${attempt})`)
+										}
+									);
+								} catch (error) {
+									console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
+									attachmentsFailed = true;
+								}
 							} else if (confirmedItem.originalFile) {
-								await itemsApi.uploadAttachment(createdItem.id, confirmedItem.originalFile);
+								try {
+									await withRetry(
+										() => itemsApi.uploadAttachment(createdItem.id!, confirmedItem.originalFile!),
+										{ 
+											maxAttempts: 3, 
+											onRetry: (attempt) => console.log(`Retrying image upload (attempt ${attempt})`)
+										}
+									);
+								} catch (error) {
+									console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
+									attachmentsFailed = true;
+								}
 							}
 							// Note: If both customThumbnail and originalFile are undefined, no primary image is uploaded
 
 							// Upload additional images (if any)
 							if (confirmedItem.additionalImages && confirmedItem.additionalImages.length > 0) {
 								for (const addImage of confirmedItem.additionalImages) {
-									await itemsApi.uploadAttachment(createdItem.id, addImage);
+									try {
+										await withRetry(
+											() => itemsApi.uploadAttachment(createdItem.id!, addImage),
+											{ 
+												maxAttempts: 3, 
+												onRetry: (attempt) => console.log(`Retrying additional image upload (attempt ${attempt})`)
+											}
+										);
+									} catch (error) {
+										console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
+										attachmentsFailed = true;
+									}
 								}
 							}
 						}
 
-						successCount++;
+						if (attachmentsFailed) {
+							partialSuccessCount++;
+						} else {
+							successCount++;
+						}
 					} else {
 						failCount++;
 					}
@@ -526,17 +566,20 @@ class ScanWorkflow {
 				this.state.submissionProgress = {
 					current: i + 1,
 					total: this.state.confirmedItems.length,
-					message: `Created ${successCount} of ${this.state.confirmedItems.length}...`,
+					message: `Created ${successCount + partialSuccessCount} of ${this.state.confirmedItems.length}...`,
 				};
 			}
 
 			// Handle results
-			if (failCount > 0 && successCount === 0) {
+			if (failCount > 0 && successCount === 0 && partialSuccessCount === 0) {
 				this.state.error = 'All items failed to create';
 				this.state.status = 'confirming';
 			} else if (failCount > 0) {
-				this.state.error = `Created ${successCount} items, ${failCount} failed`;
+				this.state.error = `Created ${successCount + partialSuccessCount} items, ${failCount} failed`;
 				// Stay in submitting state so user can see status
+			} else if (partialSuccessCount > 0) {
+				this.state.error = `${partialSuccessCount} item(s) created with missing attachments`;
+				this.state.status = 'complete';
 			} else {
 				// Complete success
 				this.state.status = 'complete';
