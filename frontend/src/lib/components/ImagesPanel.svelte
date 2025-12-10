@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { showToast } from '$lib/stores/ui';
+	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 
 	interface Props {
 		images: File[];
@@ -10,6 +11,15 @@
 	let { images = $bindable(), customThumbnail, onCustomThumbnailClear }: Props = $props();
 
 	let fileInput: HTMLInputElement;
+
+	// Object URL manager for cleanup
+	const urlManager = createObjectUrlManager();
+
+	// Cleanup object URLs when component is destroyed or images change
+	$effect(() => {
+		urlManager.sync(images);
+		return () => urlManager.cleanup();
+	});
 
 	function handleAddImages(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -38,7 +48,7 @@
 		if (index === 0 && customThumbnail) {
 			return customThumbnail;
 		}
-		return URL.createObjectURL(file);
+		return urlManager.getUrl(file);
 	}
 </script>
 
