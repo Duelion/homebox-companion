@@ -473,29 +473,15 @@
 		class="hidden"
 	/>
 
-	<!-- Analysis progress -->
+	<!-- Analysis progress overlay -->
 	{#if progress && (isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete))}
 		<AnalysisProgressBar
 			current={progress.current}
 			total={progress.total}
 			message={status === 'reviewing' ? 'Analysis complete!' : (progress.message || 'Analyzing...')}
 			onComplete={handleAnalysisComplete}
+			onCancel={isAnalyzing ? cancelAnalysis : undefined}
 		/>
-		{#if isAnalyzing}
-			<div class="mb-6">
-				<Button
-					variant="warning"
-					full
-					onclick={cancelAnalysis}
-				>
-					<span>Cancel Analysis</span>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<line x1="18" y1="6" x2="6" y2="18" />
-						<line x1="6" y1="6" x2="18" y2="18" />
-					</svg>
-				</Button>
-			</div>
-		{/if}
 	{/if}
 
 	{#if !isAnalyzing}
