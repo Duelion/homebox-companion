@@ -112,87 +112,59 @@
 	});
 </script>
 
-<!-- Full-screen overlay centered vertically -->
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-	<div class="w-full max-w-sm mx-4 flex flex-col items-center gap-6">
-		<!-- Spinner or success checkmark -->
-		<div class="relative">
-			{#if isComplete}
-				<!-- Success checkmark -->
-				<div class="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center success-pop">
-					<svg class="w-8 h-8 text-success" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-						<polyline points="20 6 9 17 4 12" />
-					</svg>
-				</div>
-			{:else}
-				<!-- Spinning loader -->
-				<div class="w-16 h-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin"></div>
-			{/if}
+<div class="bg-surface rounded-xl border border-border p-4 mb-6">
+	<!-- Header with message and count -->
+	<div class="flex items-center justify-between mb-2">
+		<span class="text-sm font-medium text-text">{message}</span>
+		<span class="text-sm text-text-muted">{current} / {total}</span>
+	</div>
+
+	<!-- Progress bar with notches -->
+	<div class="relative">
+		<!-- Track -->
+		<div 
+			class="h-2 bg-surface-elevated rounded-full overflow-hidden transition-all duration-300"
+			class:complete-pop={isComplete}
+		>
+			<!-- Fill bar with smooth transition -->
+			<div
+				class="h-full transition-all duration-300 ease-out"
+				class:bg-primary={!isComplete}
+				class:bg-success={isComplete}
+				style="width: {Math.max(0, Math.min(100, displayProgress))}%"
+			></div>
 		</div>
 
-		<!-- Message -->
-		<p class="text-lg font-medium text-text text-center">{message}</p>
-
-		<!-- Progress bar -->
-		<div class="w-full bg-surface rounded-xl border border-border p-4">
-			<div class="flex items-center justify-between mb-2">
-				<span class="text-sm text-text-muted">Progress</span>
-				<span class="text-sm text-text-muted">{current} / {total}</span>
-			</div>
-
-			<!-- Progress bar with notches -->
-			<div class="relative">
-				<!-- Track -->
-				<div 
-					class="h-2 bg-surface-elevated rounded-full overflow-hidden transition-all duration-300"
-					class:complete-glow={isComplete}
-				>
-					<!-- Fill bar with smooth transition -->
-					<div
-						class="h-full transition-all duration-300 ease-out"
-						class:bg-primary={!isComplete}
-						class:bg-success={isComplete}
-						style="width: {Math.max(0, Math.min(100, displayProgress))}%"
-					></div>
-				</div>
-
-				<!-- Notches -->
-				<div class="absolute inset-0 pointer-events-none">
-					{#each notches as notch}
-						<div
-							class="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-colors duration-300"
-							class:bg-primary={notch.completed && !isComplete}
-							class:bg-success={notch.completed && isComplete}
-							class:bg-border={!notch.completed}
-							style="left: {notch.position}%"
-						></div>
-					{/each}
-				</div>
-			</div>
+		<!-- Notches -->
+		<div class="absolute inset-0 pointer-events-none">
+			{#each notches as notch}
+				<div
+					class="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-colors duration-300"
+					class:bg-primary={notch.completed && !isComplete}
+					class:bg-success={notch.completed && isComplete}
+					class:bg-border={!notch.completed}
+					style="left: {notch.position}%"
+				></div>
+			{/each}
 		</div>
 	</div>
 </div>
 
 <style>
-	.complete-glow {
-		box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
-	}
-
-	.success-pop {
+	.complete-pop {
 		animation: pop 300ms ease-out;
+		box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
 	}
 
 	@keyframes pop {
 		0% {
-			transform: scale(0.8);
-			opacity: 0;
+			transform: scale(1);
 		}
 		50% {
-			transform: scale(1.1);
+			transform: scale(1.03);
 		}
 		100% {
 			transform: scale(1);
-			opacity: 1;
 		}
 	}
 </style>

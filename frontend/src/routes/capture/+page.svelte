@@ -473,14 +473,13 @@
 		class="hidden"
 	/>
 
-	<!-- Analysis progress overlay -->
+	<!-- Analysis progress -->
 	{#if progress && (isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete))}
 		<AnalysisProgressBar
 			current={progress.current}
 			total={progress.total}
 			message={status === 'reviewing' ? 'Analysis complete!' : (progress.message || 'Analyzing...')}
 			onComplete={handleAnalysisComplete}
-			onCancel={isAnalyzing ? cancelAnalysis : undefined}
 		/>
 	{/if}
 
