@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { locations as locationsApi, labels as labelsApi } from '$lib/api';
-	import { isAuthenticated, sessionExpired } from '$lib/stores/auth';
+	import { locations as locationsApi } from '$lib/api';
+	import { sessionExpired } from '$lib/stores/auth';
 	import {
 		locationTree,
 		locationPath,
 		currentLevelLocations,
 		selectedLocation,
 		selectedLocationPath,
-		type PathItem,
 	} from '$lib/stores/locations';
 	import { fetchLabels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { routeGuards } from '$lib/utils/routeGuard';
 	import type { Location } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import Loader from '$lib/components/Loader.svelte';
@@ -60,21 +60,9 @@
 		wasSessionExpired = currentExpired;
 	});
 
-	// Redirect if not authenticated
+	// Apply route guard: requires auth, redirects to capture if already in workflow
 	onMount(async () => {
-		if (!$isAuthenticated) {
-			goto('/');
-			return;
-		}
-
-		// If workflow already has a location, sync it to the store
-		if (scanWorkflow.state.locationId) {
-			// Workflow has location, could redirect to capture if in capturing state
-			if (scanWorkflow.state.status === 'capturing' || scanWorkflow.state.status === 'analyzing') {
-				goto('/capture');
-				return;
-			}
-		}
+		if (!routeGuards.location()) return;
 
 		await loadLocations();
 		await fetchLabels();

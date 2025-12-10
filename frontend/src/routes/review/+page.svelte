@@ -2,12 +2,12 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { vision } from '$lib/api/vision';
-	import { isAuthenticated } from '$lib/stores/auth';
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
-	import type { ReviewItem, CapturedImage } from '$lib/types';
+	import { routeGuards } from '$lib/utils/routeGuard';
+	import type { ReviewItem } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
@@ -64,25 +64,9 @@
 		}
 	});
 
-	// Redirect if not authenticated or no items
+	// Apply route guard: requires auth, location, and reviewing status
 	onMount(() => {
-		if (!$isAuthenticated) {
-			goto('/');
-			return;
-		}
-		if (!workflow.state.locationId) {
-			goto('/location');
-			return;
-		}
-		if (workflow.state.status !== 'reviewing') {
-			// Not in review state, redirect appropriately
-			if (workflow.state.status === 'idle' || workflow.state.status === 'capturing') {
-				goto('/capture');
-			} else if (workflow.state.status === 'confirming') {
-				goto('/summary');
-			}
-			return;
-		}
+		if (!routeGuards.review()) return;
 	});
 
 	// Watch for status changes

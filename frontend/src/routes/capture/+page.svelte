@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { isAuthenticated } from '$lib/stores/auth';
 	import { resetLocationState } from '$lib/stores/locations';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { checkAuth } from '$lib/utils/token';
-	import type { CapturedImage } from '$lib/types';
+	import { routeGuards } from '$lib/utils/routeGuard';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import CaptureButtons from '$lib/components/CaptureButtons.svelte';
@@ -35,24 +34,9 @@
 	let progress = $derived(workflow.state.analysisProgress);
 	let locationName = $derived(workflow.state.locationName);
 
-	// Redirect if not authenticated or no location
+	// Apply route guard: requires auth, location, and not in reviewing state
 	onMount(() => {
-		if (!$isAuthenticated) {
-			goto('/');
-			return;
-		}
-		
-		// If no location selected, redirect to location page
-		if (!workflow.state.locationId) {
-			goto('/location');
-			return;
-		}
-
-		// If we're in reviewing state (analysis finished while away), redirect to review
-		if (workflow.state.status === 'reviewing') {
-			goto('/review');
-			return;
-		}
+		if (!routeGuards.capture()) return;
 	});
 
 	// Watch for workflow errors
