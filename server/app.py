@@ -163,9 +163,9 @@ async def _test_homebox_connectivity() -> None:
             logger.debug(
                 f"Connectivity test: HEAD {settings.homebox_url} -> {response.status_code}"
             )
-            logger.debug(f"Connectivity test: Response headers: {dict(response.headers)}")
             if response.status_code in (301, 302, 307, 308):
-                logger.debug(f"Connectivity test: Redirect to: {response.headers.get('location')}")
+                redirect_location = response.headers.get('location')
+                logger.debug(f"Connectivity test: Redirect to: {redirect_location}")
     except httpx.ConnectError as e:
         logger.warning(f"Connectivity test: Connection failed: {e}")
     except httpx.TimeoutException:
