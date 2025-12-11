@@ -1,6 +1,7 @@
 """Authentication API routes."""
 
 import socket
+import traceback
 from typing import Annotated
 
 import httpx
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Header, HTTPException
 from loguru import logger
 from pydantic import BaseModel
 
-from homebox_companion import AuthenticationError
+from homebox_companion import AuthenticationError, settings
 
 from ..dependencies import get_client, get_token
 from ..schemas.auth import LoginRequest, LoginResponse
@@ -48,8 +49,20 @@ def _get_friendly_error_message(error: Exception) -> str:
     if "network is unreachable" in error_str or "no route to host" in error_str:
         return "Network unreachable. Please check your network connection and server address."
 
+    # JSON parsing errors (common with reverse proxy issues)
+    if "expecting value" in error_str or "jsondecodeerror" in error_str:
+        return (
+            "Server returned an invalid response (not JSON). "
+            "This often happens when a reverse proxy returns an HTML page instead of "
+            "forwarding to Homebox. Check that HBC_HOMEBOX_URL points directly to Homebox."
+        )
+
     # Authentication errors from Homebox
     if isinstance(error, AuthenticationError):
+        # Check if it's a JSON/response format issue vs actual auth failure
+        auth_msg = str(error)
+        if "invalid json" in auth_msg.lower() or "content-type" in auth_msg.lower():
+            return auth_msg  # Return the detailed message from client
         return "Invalid email or password. Please check your credentials."
 
     # HTTP errors
@@ -64,17 +77,83 @@ def _get_friendly_error_message(error: Exception) -> str:
     return str(error)
 
 
+def _log_exception_chain(error: Exception, prefix: str = "") -> None:
+    """Log the full exception chain for debugging."""
+    logger.debug(f"{prefix}Exception type: {type(error).__module__}.{type(error).__name__}")
+    logger.debug(f"{prefix}Exception message: {error}")
+
+    # Log exception attributes that might be useful
+    if hasattr(error, "request"):
+        try:
+            req = error.request
+            logger.debug(f"{prefix}Request URL: {req.url}")
+            logger.debug(f"{prefix}Request method: {req.method}")
+        except Exception:
+            pass
+
+    if hasattr(error, "response"):
+        try:
+            resp = error.response
+            logger.debug(f"{prefix}Response status: {resp.status_code}")
+            logger.debug(f"{prefix}Response headers: {dict(resp.headers)}")
+        except Exception:
+            pass
+
+    # Log the cause chain
+    if error.__cause__:
+        logger.debug(f"{prefix}Caused by:")
+        _log_exception_chain(error.__cause__, prefix + "  ")
+    elif error.__context__ and not error.__suppress_context__:
+        logger.debug(f"{prefix}Context (during handling of):")
+        _log_exception_chain(error.__context__, prefix + "  ")
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest) -> LoginResponse:
     """Authenticate with Homebox and return bearer token."""
     logger.info(f"Login attempt for user: {request.username}")
+
+    # Log configuration for debugging
+    logger.debug(f"Login: HBC_HOMEBOX_URL configured as: {settings.homebox_url}")
+    logger.debug(f"Login: Full API URL will be: {settings.api_url}")
+
     client = get_client()
     try:
         token = await client.login(request.username, request.password)
         logger.info(f"Login successful for user: {request.username}")
         return LoginResponse(token=token)
+    except httpx.ConnectError as e:
+        # Detailed logging for connection errors
+        logger.warning(f"Login failed for user {request.username}: Connection error")
+        logger.debug(f"Login: ConnectError details - {e}")
+        _log_exception_chain(e, "Login: ")
+
+        # Check for common Docker networking issues
+        url = settings.homebox_url
+        if "localhost" in url or "127.0.0.1" in url:
+            logger.warning(
+                "Login: HBC_HOMEBOX_URL uses localhost/127.0.0.1. "
+                "When running in Docker, use 'host.docker.internal' (Docker Desktop) "
+                "or the host's actual IP address instead."
+            )
+
+        friendly_message = _get_friendly_error_message(e)
+        raise HTTPException(status_code=401, detail=friendly_message) from e
+    except httpx.TimeoutException as e:
+        logger.warning(f"Login failed for user {request.username}: Timeout")
+        logger.debug(f"Login: TimeoutException details - {e}")
+        _log_exception_chain(e, "Login: ")
+        friendly_message = _get_friendly_error_message(e)
+        raise HTTPException(status_code=401, detail=friendly_message) from e
+    except AuthenticationError as e:
+        logger.warning(f"Login failed for user {request.username}: {e}")
+        _log_exception_chain(e, "Login: ")
+        friendly_message = _get_friendly_error_message(e)
+        raise HTTPException(status_code=401, detail=friendly_message) from e
     except Exception as e:
         logger.warning(f"Login failed for user {request.username}: {e}")
+        logger.debug(f"Login: Full traceback:\n{traceback.format_exc()}")
+        _log_exception_chain(e, "Login: ")
         friendly_message = _get_friendly_error_message(e)
         raise HTTPException(status_code=401, detail=friendly_message) from e
 

@@ -84,21 +84,79 @@ class HomeboxClient:
         Raises:
             AuthenticationError: If authentication fails.
         """
+        login_url = f"{self.base_url}/users/login"
+        logger.debug(f"Login: Attempting connection to {login_url}")
+        logger.debug(f"Login: Base URL configured as {self.base_url}")
+
         payload = {
             "username": username,
             "password": password,
             "stayLoggedIn": True,
         }
-        response = await self.client.post(
-            f"{self.base_url}/users/login",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data=payload,
-        )
+
+        try:
+            response = await self.client.post(
+                login_url,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data=payload,
+            )
+        except Exception as e:
+            # Log detailed connection error information
+            logger.debug(f"Login: Connection failed to {login_url}")
+            logger.debug(f"Login: Exception type: {type(e).__name__}")
+            logger.debug(f"Login: Exception message: {e}")
+            if hasattr(e, "__cause__") and e.__cause__:
+                cause = e.__cause__
+                logger.debug(f"Login: Underlying cause: {type(cause).__name__}: {cause}")
+            raise
+
+        # Log response details for debugging
+        logger.debug(f"Login: Response status code: {response.status_code}")
+        logger.debug(f"Login: Response headers: {dict(response.headers)}")
+
+        # Check content type to help diagnose HTML vs JSON issues
+        content_type = response.headers.get("content-type", "")
+        logger.debug(f"Login: Content-Type header: {content_type}")
+
+        # Log response body preview (first 500 chars) to help diagnose issues
+        response_text = response.text
+        preview_length = min(500, len(response_text))
+        response_preview = response_text[:preview_length]
+        if len(response_text) > preview_length:
+            response_preview += "... [truncated]"
+        logger.debug(f"Login: Response body preview: {response_preview}")
+
+        # Detect common issues
+        if "text/html" in content_type:
+            logger.warning(
+                "Login: Received HTML response instead of JSON. "
+                "This usually indicates a reverse proxy issue, authentication wall, "
+                "or incorrect URL. Check that HBC_HOMEBOX_URL points directly to "
+                "the Homebox API, not a proxy login page."
+            )
+        elif not response_text:
+            logger.warning("Login: Received empty response body from server")
+
         self._ensure_success(response, "Login")
-        data = response.json()
+
+        try:
+            data = response.json()
+        except ValueError as json_err:
+            logger.error(f"Login: Failed to parse JSON response: {json_err}")
+            logger.error(f"Login: Raw response (first 1000 chars): {response_text[:1000]}")
+            raise AuthenticationError(
+                f"Server returned invalid JSON. Content-Type was '{content_type}'. "
+                f"Response preview: {response_text[:200]}"
+            ) from json_err
+
         token = data.get("token") or data.get("jwt") or data.get("accessToken")
         if not token:
+            logger.error(
+                f"Login: Response JSON missing token field. Keys present: {list(data.keys())}"
+            )
             raise AuthenticationError("Login response did not include a token field.")
+
+        logger.debug("Login: Successfully obtained authentication token")
         return token
 
     async def list_locations(
