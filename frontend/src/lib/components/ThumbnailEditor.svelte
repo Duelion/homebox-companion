@@ -367,7 +367,7 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-8">
+<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 sm:p-8">
 	<div class="bg-neutral-900 rounded-2xl border border-neutral-700 max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
 		<!-- Header -->
 		<div class="flex items-center justify-between p-4 border-b border-neutral-700">
