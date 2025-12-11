@@ -79,7 +79,7 @@
 		>
 			<polyline points="6 9 12 15 18 9" />
 		</svg>
-		<span class="font-medium">Additional Photos</span>
+		<span class="font-medium">Attached Photos</span>
 		{#if images.length > 0}
 			<span class="ml-auto text-xs bg-neutral-800 px-2 py-0.5 rounded-full">{images.length}</span>
 		{/if}
