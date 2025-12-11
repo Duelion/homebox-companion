@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
 	import { showToast } from '$lib/stores/ui';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 
@@ -6,9 +7,11 @@
 		images: File[];
 		customThumbnail?: string;
 		onCustomThumbnailClear?: () => void;
+		expanded: boolean;
+		onToggle: () => void;
 	}
 
-	let { images = $bindable(), customThumbnail, onCustomThumbnailClear }: Props = $props();
+	let { images = $bindable(), customThumbnail, onCustomThumbnailClear, expanded, onToggle }: Props = $props();
 
 	let fileInput: HTMLInputElement;
 
@@ -61,8 +64,30 @@
 	class="hidden"
 />
 
-<div class="border-t border-border pt-4">
-	{#if images.length > 0}
+<div class="border-t border-neutral-700 pt-4">
+	<button
+		type="button"
+		class="flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-100 w-full mb-3 transition-colors"
+		onclick={onToggle}
+	>
+		<svg
+			class="w-4 h-4 transition-transform {expanded ? 'rotate-180' : ''}"
+			fill="none"
+			stroke="currentColor"
+			viewBox="0 0 24 24"
+			stroke-width="1.5"
+		>
+			<polyline points="6 9 12 15 18 9" />
+		</svg>
+		<span class="font-medium">Additional Photos</span>
+		{#if images.length > 0}
+			<span class="ml-auto text-xs bg-neutral-800 px-2 py-0.5 rounded-full">{images.length}</span>
+		{/if}
+	</button>
+	
+	{#if expanded}
+		<div transition:slide={{ duration: 200 }}>
+			{#if images.length > 0}
 		<!-- Has images: show gallery strip -->
 		<div class="flex items-center gap-2 mb-3">
 			<svg class="w-4 h-4 text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,6 +178,8 @@
 				</svg>
 			</div>
 		</button>
+			{/if}
+		</div>
 	{/if}
 </div>
 

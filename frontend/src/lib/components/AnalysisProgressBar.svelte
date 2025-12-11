@@ -28,9 +28,9 @@
 		return currentMilestone + (nextMilestone - currentMilestone) * 0.9;
 	});
 
-	// Generate notch positions for each item
+	// Generate notch positions for each item (excluding the last one at 100%)
 	let notches = $derived(
-		Array.from({ length: total }, (_, i) => ({
+		Array.from({ length: total - 1 }, (_, i) => ({
 			position: ((i + 1) / total) * 100,
 			completed: i < current
 		}))

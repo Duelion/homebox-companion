@@ -59,7 +59,6 @@
 		
 		// Navigate immediately to prevent UI shift from buttons reappearing
 		if (workflow.state.status === 'reviewing') {
-			showToast(`Detected ${workflow.state.detectedItems.length} item(s)`, 'success');
 			goto('/review');
 		}
 	}
@@ -137,11 +136,12 @@
 	// ==========================================================================
 
 	function toggleImageExpanded(index: number) {
-		expandedImages = new Set(expandedImages);
 		if (expandedImages.has(index)) {
-			expandedImages.delete(index);
+			// Collapse if already expanded
+			expandedImages = new Set();
 		} else {
-			expandedImages.add(index);
+			// Expand this one and collapse all others
+			expandedImages = new Set([index]);
 		}
 	}
 
@@ -529,8 +529,8 @@
 	{/if}
 </div>
 
-<!-- Sticky Analyze button at bottom -->
-<div class="fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 p-4 pb-safe z-40">
+<!-- Sticky Analyze button at bottom - above navigation bar -->
+<div class="fixed bottom-nav-offset left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 p-4 z-40">
 	<div class="max-w-lg mx-auto">
 		{#if showAnalyzingUI && isAnalyzing}
 			<Button

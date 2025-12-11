@@ -101,7 +101,7 @@
 
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !$isOnline}
-		<div class="fixed left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-40 {$isAuthenticated ? 'bottom-16' : 'bottom-0'}">
+		<div class="fixed left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-40 {$isAuthenticated ? 'bottom-nav-offset' : 'bottom-0'}">
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<line x1="1" y1="1" x2="23" y2="23" />
 				<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />

@@ -32,13 +32,11 @@
 	// Local UI state
 	let editedItem = $state<ReviewItem | null>(null);
 	let showExtendedFields = $state(false);
+	let showImagesPanel = $state(false);
 	let showAiCorrection = $state(false);
 	let showThumbnailEditor = $state(false);
 	let isProcessing = $state(false);
 	let allImages = $state<File[]>([]);
-
-	// Count selected labels
-	const selectedLabelCount = $derived(editedItem?.label_ids?.length ?? 0);
 
 	// Check if item has any extended field data
 	function hasExtendedFieldData(item: ReviewItem | null): boolean {
@@ -76,9 +74,37 @@
 				...(currentItem.originalFile ? [currentItem.originalFile] : []),
 				...(currentItem.additionalImages || [])
 			];
+			// Auto-expand extended fields if they have data, otherwise close all panels
 			showExtendedFields = hasExtendedFieldData(currentItem);
+			showImagesPanel = false;
+			showAiCorrection = false;
 		}
 	});
+	
+	// Accordion behavior: when one panel opens, close the others
+	function toggleExtendedFields() {
+		showExtendedFields = !showExtendedFields;
+		if (showExtendedFields) {
+			showImagesPanel = false;
+			showAiCorrection = false;
+		}
+	}
+	
+	function toggleImagesPanel() {
+		showImagesPanel = !showImagesPanel;
+		if (showImagesPanel) {
+			showExtendedFields = false;
+			showAiCorrection = false;
+		}
+	}
+	
+	function toggleAiCorrection() {
+		showAiCorrection = !showAiCorrection;
+		if (showAiCorrection) {
+			showExtendedFields = false;
+			showImagesPanel = false;
+		}
+	}
 
 	// Apply route guard: requires auth, location, and reviewing status
 	onMount(() => {
@@ -125,7 +151,6 @@
 		}
 
 		workflow.confirmItem(editedItem);
-		showToast(`"${editedItem.name}" confirmed`, 'success');
 	}
 
 	function toggleLabel(labelId: string) {
@@ -204,7 +229,6 @@
 	function handleThumbnailSave(dataUrl: string) {
 		if (editedItem) {
 			editedItem.customThumbnail = dataUrl;
-			showToast('Thumbnail updated', 'success');
 		}
 		showThumbnailEditor = false;
 	}
@@ -232,22 +256,10 @@
 
 	<StepIndicator currentStep={3} />
 
-	<!-- Header with prominent item counter -->
-	<div class="flex items-start justify-between mb-6">
-		<div>
-			<h2 class="text-h2 text-neutral-100 mb-1">Review Items</h2>
-			<p class="text-body-sm text-neutral-400">Edit or skip detected items</p>
-		</div>
-		{#if detectedItems.length > 0}
-			<div class="text-right">
-				<div class="text-h3 text-neutral-100 font-bold">
-					{currentIndex + 1} <span class="text-neutral-500 font-normal">of</span> {detectedItems.length}
-				</div>
-				{#if confirmedItems.length > 0}
-					<div class="text-caption text-success-500">{confirmedItems.length} confirmed</div>
-				{/if}
-			</div>
-		{/if}
+	<!-- Header -->
+	<div class="mb-6">
+		<h2 class="text-h2 text-neutral-100 mb-1">Review Items</h2>
+		<p class="text-body-sm text-neutral-400">Edit or skip detected items</p>
 	</div>
 
 	{#if editedItem}
@@ -328,12 +340,7 @@
 				<!-- Labels with chip selection -->
 				{#if $labels.length > 0}
 					<div>
-						<span class="label">
-							Labels
-							{#if selectedLabelCount > 0}
-								<span class="text-primary-400 font-normal">({selectedLabelCount} selected)</span>
-							{/if}
-						</span>
+						<span class="label">Labels</span>
 						<div class="flex flex-wrap gap-2" role="group" aria-label="Select labels">
 							{#each $labels as label}
 								{@const isSelected = editedItem.label_ids?.includes(label.id)}
@@ -353,7 +360,7 @@
 				<ExtendedFieldsPanel
 					bind:item={editedItem}
 					expanded={showExtendedFields}
-					onToggle={() => (showExtendedFields = !showExtendedFields)}
+					onToggle={toggleExtendedFields}
 				/>
 
 				<!-- Images panel -->
@@ -365,13 +372,15 @@
 							editedItem.customThumbnail = undefined;
 						}
 					}}
+					expanded={showImagesPanel}
+					onToggle={toggleImagesPanel}
 				/>
 
 				<!-- AI Correction panel -->
 				<AiCorrectionPanel
 					expanded={showAiCorrection}
 					loading={isProcessing}
-					onToggle={() => (showAiCorrection = !showAiCorrection)}
+					onToggle={toggleAiCorrection}
 					onCorrect={handleAiCorrection}
 				/>
 			</div>
@@ -395,16 +404,16 @@
 
 <!-- Sticky action footer -->
 {#if editedItem}
-	<div class="fixed bottom-0 left-0 right-0 bg-neutral-900/95 backdrop-blur-lg border-t border-neutral-700 p-4 pb-safe z-40">
+	<div class="fixed bottom-nav-offset left-0 right-0 bg-neutral-900/95 backdrop-blur-lg border-t border-neutral-700 z-40">
 		<div class="max-w-lg mx-auto">
-			<!-- Item counter in footer for mobile -->
-			<div class="flex items-center justify-center mb-3 md:hidden">
+			<!-- Item counter in footer for mobile - positioned above bottom nav -->
+			<div class="flex items-center justify-center py-3 md:hidden">
 				<span class="text-body-sm font-medium text-neutral-300">
 					Item {currentIndex + 1} of {detectedItems.length}
 				</span>
 			</div>
 			<!-- Action buttons -->
-			<div class="flex gap-3">
+			<div class="flex gap-3 px-4 pb-4">
 				<Button variant="secondary" full onclick={skipItem} disabled={isProcessing}>
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path d="M13 17l5-5-5-5M6 17l5-5-5-5" />

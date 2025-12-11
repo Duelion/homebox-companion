@@ -37,14 +37,6 @@
 		}, 0)
 	);
 
-	const totalLabels = $derived(() => {
-		const labelIds = new Set<string>();
-		confirmedItems.forEach(item => {
-			item.label_ids?.forEach(id => labelIds.add(id));
-		});
-		return labelIds.size;
-	});
-
 	function handleLocationChange(id: string, name: string, path: string) {
 		workflow.setLocation(id, name, path);
 		// Keep status as confirming since we're still on summary page
@@ -70,7 +62,6 @@
 	function removeItem(index: number) {
 		const item = confirmedItems[index];
 		workflow.removeConfirmedItem(index);
-		showToast(`"${item.name}" removed`, 'info');
 
 		if (confirmedItems.length === 0) {
 			goto('/capture');
@@ -319,12 +310,6 @@
 					<polyline points="21 15 16 10 5 21" />
 				</svg>
 				{totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} will be uploaded
-			</li>
-			<li class="flex items-center gap-2">
-				<svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-					<path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-				</svg>
-				{totalLabels()} label{totalLabels() !== 1 ? 's' : ''} applied
 			</li>
 		</ul>
 	</div>
