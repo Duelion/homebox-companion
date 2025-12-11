@@ -208,7 +208,7 @@
 					notes: corrected.notes ?? null,
 				};
 
-				showToast('Item corrected by AI', 'success');
+				// Visual feedback is sufficient - form updates are visible
 				showAiCorrection = false;
 			}
 		} catch (error) {

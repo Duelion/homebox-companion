@@ -29,12 +29,11 @@
 		isSubmitting = true;
 		setLoading(true, 'Signing in...');
 
-		try {
-			const response = await auth.login(email, password);
-			token.set(response.token);
-			showToast('Login successful!', 'success');
-			goto('/location');
-		} catch (error) {
+	try {
+		const response = await auth.login(email, password);
+		token.set(response.token);
+		goto('/location');
+	} catch (error) {
 			console.error('Login failed:', error);
 			showToast(
 				error instanceof Error ? error.message : 'Login failed. Please check your credentials.',
