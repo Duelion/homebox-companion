@@ -1,9 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
-  <rect width="180" height="180" fill="#1a1025"/>
-  <g fill="none" stroke="#a855f7" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" transform="translate(30, 28)">
-    <path d="M105 80V40a10 10 0 0 0-5-8.65l-35-20a10 10 0 0 0-10 0l-35 20A10 10 0 0 0 15 40v40a10 10 0 0 0 5 8.65l35 20a10 10 0 0 0 10 0l35-20A10 10 0 0 0 105 80z"/>
-    <polyline points="16.35 34.8 60 60.05 103.65 34.8"/>
-    <line x1="60" y1="110.4" x2="60" y2="60"/>
+  <!-- Container background -->
+  <rect width="180" height="180" fill="#282653" rx="36.0"/>
+  
+  <!-- Cube icon with connected corners -->
+  <g transform="translate(45.0, 45.0)">
+    <svg viewBox="0 0 24 24" width="90.0" height="90.0" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
   </g>
 </svg>
-
