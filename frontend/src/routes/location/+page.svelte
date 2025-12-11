@@ -38,6 +38,10 @@
 	let showQrScanner = $state(false);
 	let isProcessingQr = $state(false);
 
+	// Success indicator state
+	let recentlyCreatedLocationId = $state<string | null>(null);
+	let showSuccessBadge = $state(false);
+
 	// Derived: filtered locations based on search
 	let filteredLocations = $derived(
 		searchQuery.trim() === ''
@@ -189,61 +193,91 @@
 	}
 
 	async function handleSaveLocation(data: { name: string; description: string; parentId: string | null }) {
-		if (locationModalMode === 'create') {
-		const newLocation = await locationsApi.create({
-			name: data.name,
-			description: data.description,
-			parent_id: data.parentId,
-		});
+		try {
+			if (locationModalMode === 'create') {
+				const newLocation = await locationsApi.create({
+					name: data.name,
+					description: data.description,
+					parent_id: data.parentId,
+				});
 
-			const savedPath = [...$locationPath];
-			await loadLocations();
+				const savedPath = [...$locationPath];
+				await loadLocations();
 
-			if ($selectedLocation) {
-				selectedLocation.set(null);
-				scanWorkflow.clearLocation();
+				// Show success indicator on newly created location
+				recentlyCreatedLocationId = newLocation.id;
+				showSuccessBadge = true;
 				
-				const parentId = data.parentId;
-				if (parentId) {
-					const parentLoc = findLocationById($locationTree, parentId);
-					if (parentLoc) {
-						locationPath.set([{ id: parentLoc.id, name: parentLoc.name }]);
-						currentLevelLocations.set(parentLoc.children || []);
+				// Hide success badge after 3 seconds
+				setTimeout(() => {
+					showSuccessBadge = false;
+					setTimeout(() => {
+						recentlyCreatedLocationId = null;
+					}, 300); // Wait for animation to complete
+				}, 3000);
+
+				if ($selectedLocation) {
+					selectedLocation.set(null);
+					scanWorkflow.clearLocation();
+					
+					const parentId = data.parentId;
+					if (parentId) {
+						const parentLoc = findLocationById($locationTree, parentId);
+						if (parentLoc) {
+							locationPath.set([{ id: parentLoc.id, name: parentLoc.name }]);
+							currentLevelLocations.set(parentLoc.children || []);
+						}
+					} else {
+						locationPath.set([]);
+						currentLevelLocations.set($locationTree);
 					}
-				} else {
-					locationPath.set([]);
-					currentLevelLocations.set($locationTree);
+				} else if (savedPath.length > 0) {
+					locationPath.set(savedPath);
+					
+					let current: Location[] = $locationTree;
+					for (const pathItem of savedPath) {
+						const loc = current.find((l) => l.id === pathItem.id);
+						if (loc?.children) {
+							current = loc.children;
+						}
+					}
+					currentLevelLocations.set(current);
 				}
-			} else if (savedPath.length > 0) {
-				locationPath.set(savedPath);
+			} else if (locationModalMode === 'edit' && $selectedLocation) {
+				const updatedLocation = await locationsApi.update($selectedLocation.id, {
+					name: data.name,
+					description: data.description,
+				});
+
+				await loadLocations();
+
+				const locationData: Location = {
+					id: updatedLocation.id,
+					name: updatedLocation.name,
+					description: updatedLocation.description,
+					children: $selectedLocation.children || [],
+				};
+				selectedLocation.set(locationData);
 				
-				let current: Location[] = $locationTree;
-				for (const pathItem of savedPath) {
-					const loc = current.find((l) => l.id === pathItem.id);
-					if (loc?.children) {
-						current = loc.children;
-					}
-				}
-				currentLevelLocations.set(current);
+				// Update workflow with new name
+				scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
+				
+				// Show success indicator on updated location
+				recentlyCreatedLocationId = updatedLocation.id;
+				showSuccessBadge = true;
+				
+				// Hide success badge after 3 seconds
+				setTimeout(() => {
+					showSuccessBadge = false;
+					setTimeout(() => {
+						recentlyCreatedLocationId = null;
+					}, 300); // Wait for animation to complete
+				}, 3000);
 			}
-		} else if (locationModalMode === 'edit' && $selectedLocation) {
-		const updatedLocation = await locationsApi.update($selectedLocation.id, {
-			name: data.name,
-			description: data.description,
-		});
-
-			await loadLocations();
-
-			const locationData: Location = {
-				id: updatedLocation.id,
-				name: updatedLocation.name,
-				description: updatedLocation.description,
-				children: $selectedLocation.children || [],
-			};
-			selectedLocation.set(locationData);
-			
-			// Update workflow with new name
-			scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
+		} catch (error) {
+			console.error('Failed to save location:', error);
+			// Re-throw to let LocationModal handle the error display
+			throw error;
 		}
 	}
 
@@ -357,7 +391,7 @@
 		<!-- SELECTED STATE -->
 		<div class="space-y-4">
 			<!-- Selected location card with ring highlight -->
-			<div class="bg-neutral-900 rounded-xl border border-primary-500 ring-2 ring-primary-500/30 p-4 shadow-md">
+			<div class="relative bg-neutral-900 rounded-xl border border-primary-500 ring-2 ring-primary-500/30 p-4 shadow-md">
 				<div class="flex items-center gap-3">
 					<div class="p-3 bg-primary-500/20 rounded-lg">
 						<svg class="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -387,6 +421,22 @@
 						</svg>
 					</button>
 				</div>
+				
+				<!-- Success badge for edited location -->
+				{#if $selectedLocation.id === recentlyCreatedLocationId && showSuccessBadge}
+					<div class="absolute -top-2 -right-2 success-badge">
+						<div class="relative">
+							<!-- Ping animation -->
+							<div class="absolute inset-0 bg-success-500/20 rounded-full animate-ping"></div>
+							<!-- Badge background -->
+							<div class="relative w-8 h-8 bg-success-500 rounded-full flex items-center justify-center shadow-lg">
+								<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+									<polyline points="20 6 9 17 4 12" />
+								</svg>
+							</div>
+						</div>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Add sub-location button (secondary style, not dashed) -->
@@ -571,34 +621,52 @@
 					</div>
 				{:else}
 					{#each $currentLevelLocations as location}
-						<button
-							type="button"
-							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
-							onclick={() => navigateInto(location)}
-						>
-							<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
-								<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-									<circle cx="12" cy="10" r="3" />
-								</svg>
-							</div>
-							<div class="flex-1 min-w-0">
-								<p class="font-medium text-neutral-100 truncate">{location.name}</p>
-								{#if location.description}
-									<p class="text-body-sm text-neutral-500 truncate">{location.description}</p>
-								{/if}
-							</div>
-							{#if location.children && location.children.length > 0}
-								<div class="flex items-center gap-1 text-neutral-500 text-body-sm">
-									<span>{location.children.length}</span>
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-										<polyline points="9 18 15 12 9 6" />
+						<div class="relative">
+							<button
+								type="button"
+								class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
+								onclick={() => navigateInto(location)}
+							>
+								<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
+									<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+										<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+										<circle cx="12" cy="10" r="3" />
 									</svg>
 								</div>
-							{:else if location.itemCount !== undefined}
-								<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
+								<div class="flex-1 min-w-0">
+									<p class="font-medium text-neutral-100 truncate">{location.name}</p>
+									{#if location.description}
+										<p class="text-body-sm text-neutral-500 truncate">{location.description}</p>
+									{/if}
+								</div>
+								{#if location.children && location.children.length > 0}
+									<div class="flex items-center gap-1 text-neutral-500 text-body-sm">
+										<span>{location.children.length}</span>
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+											<polyline points="9 18 15 12 9 6" />
+										</svg>
+									</div>
+								{:else if location.itemCount !== undefined}
+									<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
+								{/if}
+							</button>
+							
+							<!-- Success badge for newly created location -->
+							{#if location.id === recentlyCreatedLocationId && showSuccessBadge}
+								<div class="absolute -top-2 -right-2 success-badge">
+									<div class="relative">
+										<!-- Ping animation -->
+										<div class="absolute inset-0 bg-success-500/20 rounded-full animate-ping"></div>
+										<!-- Badge background -->
+										<div class="relative w-8 h-8 bg-success-500 rounded-full flex items-center justify-center shadow-lg">
+											<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+												<polyline points="20 6 9 17 4 12" />
+											</svg>
+										</div>
+									</div>
+								</div>
 							{/if}
-						</button>
+						</div>
 					{/each}
 				{/if}
 
