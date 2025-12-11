@@ -33,7 +33,6 @@
 	let isAnalyzing = $derived(status === 'analyzing');
 	let progress = $derived(workflow.state.analysisProgress);
 	let locationName = $derived(workflow.state.locationName);
-	let hasStartedAnalysis = $derived(status === 'analyzing' || status === 'reviewing');
 
 	// True while analyzing OR while the completion animation is playing
 	// This prevents UI elements from appearing/disappearing during animation
@@ -207,7 +206,7 @@
 </svelte:head>
 
 <div class="animate-in pb-28">
-	<BackLink href="/location" label="Change Location" onclick={goBack} disabled={hasStartedAnalysis} />
+	<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
 
 	<StepIndicator currentStep={2} />
 
