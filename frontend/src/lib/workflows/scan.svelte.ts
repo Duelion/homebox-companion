@@ -24,6 +24,7 @@ import type {
 	Progress,
 	ItemInput,
 	ItemSubmissionStatus,
+	SubmissionResult,
 } from '$lib/types';
 
 // =============================================================================
@@ -42,6 +43,7 @@ const initialState: ScanState = {
 	confirmedItems: [],
 	submissionProgress: null,
 	itemStatuses: {},
+	lastSubmissionResult: null,
 	error: null,
 };
 
@@ -671,9 +673,11 @@ class ScanWorkflow {
 				// Keep status as 'submitting' to show per-item status UI
 			} else if (result.partialSuccessCount > 0) {
 				this.state.error = `${result.partialSuccessCount} item(s) created with missing attachments`;
+				this.saveSubmissionResult();
 				this.state.status = 'complete';
 				result.success = true;
 			} else {
+				this.saveSubmissionResult();
 				this.state.status = 'complete';
 				result.success = true;
 			}
@@ -754,6 +758,7 @@ class ScanWorkflow {
 			);
 
 			if (allSuccess) {
+				this.saveSubmissionResult();
 				this.state.status = 'complete';
 				result.success = true;
 			} else if (result.failCount > 0) {
@@ -830,6 +835,45 @@ class ScanWorkflow {
 	/** Get source image for a review/confirmed item */
 	getSourceImage(item: ReviewItem | ConfirmedItem): CapturedImage | null {
 		return this.state.images[item.sourceImageIndex] ?? null;
+	}
+
+	/** Save submission result for success page display */
+	private saveSubmissionResult(): void {
+		// Count successful items
+		const successfulIndices = Object.entries(this.state.itemStatuses)
+			.filter(([_, status]) => status === 'success' || status === 'partial_success')
+			.map(([index]) => parseInt(index));
+
+		const successfulItems = successfulIndices.map(i => this.state.confirmedItems[i]).filter(Boolean);
+
+		// Calculate totals
+		const itemNames = successfulItems.map(item => item.name);
+		const photoCount = successfulItems.reduce((count, item) => {
+			let photos = 0;
+			if (item.originalFile || item.customThumbnail) photos++;
+			if (item.additionalImages) photos += item.additionalImages.length;
+			return count + photos;
+		}, 0);
+
+		// Count unique labels across all items
+		const allLabelIds = new Set<string>();
+		successfulItems.forEach(item => {
+			item.label_ids?.forEach(id => allLabelIds.add(id));
+		});
+
+		this.state.lastSubmissionResult = {
+			itemCount: successfulItems.length,
+			photoCount,
+			labelCount: allLabelIds.size,
+			itemNames,
+			locationName: this.state.locationName || 'Unknown',
+			locationId: this.state.locationId || '',
+		};
+	}
+
+	/** Get last submission result (preserved after workflow completion) */
+	get submissionResult(): SubmissionResult | null {
+		return this.state.lastSubmissionResult;
 	}
 }
 
