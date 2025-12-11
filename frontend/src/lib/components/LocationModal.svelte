@@ -121,7 +121,7 @@
 			<textarea
 				id="location-description"
 				bind:value={description}
-				placeholder="Optional description..."
+				placeholder="e.g., Second drawer from top, left side of garage"
 				rows="3"
 				class="w-full px-4 py-3 bg-background border border-border rounded-xl text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none"
 				disabled={isSaving}
