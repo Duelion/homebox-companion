@@ -185,7 +185,7 @@ class ScanWorkflow {
 		this.state.analysisProgress = {
 			current: 0,
 			total: imageCount,
-			message: 'Analyzing items...',
+			message: imageCount === 1 ? 'Analyzing item...' : 'Analyzing items...',
 		};
 
 		try {
@@ -204,15 +204,15 @@ class ScanWorkflow {
 						signal,
 					});
 
-					completedCount++;
-					this.state.analysisProgress = {
-						current: completedCount,
-						total: this.state.images.length,
-						message: 'Analyzing items...',
-					};
+				completedCount++;
+				this.state.analysisProgress = {
+					current: completedCount,
+					total: this.state.images.length,
+					message: this.state.images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
+				};
 
-					return {
-						success: true as const,
+				return {
+					success: true as const,
 						imageIndex: index,
 						image,
 						items: response.items,
@@ -222,15 +222,15 @@ class ScanWorkflow {
 					if (error instanceof Error && error.name === 'AbortError') {
 						throw error;
 					}
-					
-					completedCount++;
-					this.state.analysisProgress = {
-						current: completedCount,
-						total: this.state.images.length,
-						message: 'Analyzing items...',
-					};
+				
+				completedCount++;
+				this.state.analysisProgress = {
+					current: completedCount,
+					total: this.state.images.length,
+					message: this.state.images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
+				};
 
-					console.error(`Failed to analyze image ${index + 1}:`, error);
+				console.error(`Failed to analyze image ${index + 1}:`, error);
 					return {
 						success: false as const,
 						imageIndex: index,
