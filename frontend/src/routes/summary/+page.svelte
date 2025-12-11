@@ -41,7 +41,7 @@
 		workflow.setLocation(id, name, path);
 		// Keep status as confirming since we're still on summary page
 		workflow.state.status = 'confirming';
-		showToast(`Location changed to "${name}"`, 'success');
+		// Visual feedback is sufficient - location path updates on screen
 	}
 
 	function getLabelName(labelId: string): string {

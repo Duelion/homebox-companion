@@ -190,13 +190,11 @@
 
 	async function handleSaveLocation(data: { name: string; description: string; parentId: string | null }) {
 		if (locationModalMode === 'create') {
-			const newLocation = await locationsApi.create({
-				name: data.name,
-				description: data.description,
-				parent_id: data.parentId,
-			});
-
-			showToast(`Created "${newLocation.name}"`, 'success');
+		const newLocation = await locationsApi.create({
+			name: data.name,
+			description: data.description,
+			parent_id: data.parentId,
+		});
 
 			const savedPath = [...$locationPath];
 			await loadLocations();
@@ -229,12 +227,10 @@
 				currentLevelLocations.set(current);
 			}
 		} else if (locationModalMode === 'edit' && $selectedLocation) {
-			const updatedLocation = await locationsApi.update($selectedLocation.id, {
-				name: data.name,
-				description: data.description,
-			});
-
-			showToast(`Updated "${updatedLocation.name}"`, 'success');
+		const updatedLocation = await locationsApi.update($selectedLocation.id, {
+			name: data.name,
+			description: data.description,
+		});
 
 			await loadLocations();
 
@@ -298,11 +294,9 @@
 				children: location.children || [],
 			};
 
-			selectedLocation.set(locationData);
-			scanWorkflow.setLocation(locationData.id, locationData.name, locationPath);
-			
-			showToast(`Selected: ${location.name}`, 'success');
-		} catch (error) {
+		selectedLocation.set(locationData);
+		scanWorkflow.setLocation(locationData.id, locationData.name, locationPath);
+	} catch (error) {
 			console.error('QR scan error:', error);
 			if (error instanceof Error && error.message.includes('401')) {
 				showToast('Session expired. Please log in again.', 'error');
