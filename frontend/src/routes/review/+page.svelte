@@ -336,14 +336,14 @@
 		</div>
 
 		<div class="flex gap-3">
-			<Button variant="secondary" onclick={skipItem}>
+			<Button variant="secondary" onclick={skipItem} disabled={isProcessing}>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<line x1="18" y1="6" x2="6" y2="18" />
 					<line x1="6" y1="6" x2="18" y2="18" />
 				</svg>
 				<span>Skip</span>
 			</Button>
-			<Button variant="primary" onclick={confirmItem}>
+			<Button variant="primary" onclick={confirmItem} disabled={isProcessing}>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<polyline points="20 6 9 17 4 12" />
 				</svg>
