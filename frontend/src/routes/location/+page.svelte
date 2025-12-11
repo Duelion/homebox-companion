@@ -38,10 +38,6 @@
 	let showQrScanner = $state(false);
 	let isProcessingQr = $state(false);
 
-	// Success indicator state
-	let recentlyCreatedLocationId = $state<string | null>(null);
-	let showSuccessBadge = $state(false);
-
 	// Derived: filtered locations based on search
 	let filteredLocations = $derived(
 		searchQuery.trim() === ''
@@ -178,9 +174,6 @@
 	function openCreateModal(parent: { id: string; name: string } | null = null) {
 		locationModalMode = 'create';
 		createParentLocation = parent;
-		// Clear any existing success badge before opening modal
-		showSuccessBadge = false;
-		recentlyCreatedLocationId = null;
 		showLocationModal = true;
 	}
 
@@ -192,9 +185,6 @@
 
 	function openEditModal() {
 		locationModalMode = 'edit';
-		// Clear any existing success badge before opening modal
-		showSuccessBadge = false;
-		recentlyCreatedLocationId = null;
 		showLocationModal = true;
 	}
 
@@ -209,20 +199,6 @@
 
 				const savedPath = [...$locationPath];
 				await loadLocations();
-
-				// Show success indicator after modal closes (delay for modal animation)
-				setTimeout(() => {
-					recentlyCreatedLocationId = newLocation.id;
-					showSuccessBadge = true;
-					
-					// Hide success badge after 3 seconds
-					setTimeout(() => {
-						showSuccessBadge = false;
-						setTimeout(() => {
-							recentlyCreatedLocationId = null;
-						}, 300); // Wait for animation to complete
-					}, 3000);
-				}, 200); // Wait for modal to close
 
 				if ($selectedLocation) {
 					selectedLocation.set(null);
@@ -269,20 +245,6 @@
 				
 				// Update workflow with new name
 				scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
-				
-				// Show success indicator after modal closes (delay for modal animation)
-				setTimeout(() => {
-					recentlyCreatedLocationId = updatedLocation.id;
-					showSuccessBadge = true;
-					
-					// Hide success badge after 3 seconds
-					setTimeout(() => {
-						showSuccessBadge = false;
-						setTimeout(() => {
-							recentlyCreatedLocationId = null;
-						}, 300); // Wait for animation to complete
-					}, 3000);
-				}, 200); // Wait for modal to close
 			}
 		} catch (error) {
 			console.error('Failed to save location:', error);
@@ -401,7 +363,7 @@
 		<!-- SELECTED STATE -->
 		<div class="space-y-4">
 			<!-- Selected location card with ring highlight -->
-			<div class="relative bg-neutral-900 rounded-xl border border-primary-500 ring-2 ring-primary-500/30 p-4 shadow-md">
+			<div class="bg-neutral-900 rounded-xl border border-primary-500 ring-2 ring-primary-500/30 p-4 shadow-md">
 				<div class="flex items-center gap-3">
 					<div class="p-3 bg-primary-500/20 rounded-lg">
 						<svg class="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -431,22 +393,6 @@
 						</svg>
 					</button>
 				</div>
-				
-				<!-- Success badge for edited location -->
-				{#if $selectedLocation.id === recentlyCreatedLocationId && showSuccessBadge}
-					<div class="absolute -top-2 -right-2 success-badge">
-						<div class="relative">
-							<!-- Ping animation -->
-							<div class="absolute inset-0 bg-success-500/20 rounded-full animate-ping"></div>
-							<!-- Badge background -->
-							<div class="relative w-8 h-8 bg-success-500 rounded-full flex items-center justify-center shadow-lg">
-								<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-									<polyline points="20 6 9 17 4 12" />
-								</svg>
-							</div>
-						</div>
-					</div>
-				{/if}
 			</div>
 
 			<!-- Add sub-location button (secondary style, not dashed) -->
@@ -631,52 +577,34 @@
 					</div>
 				{:else}
 					{#each $currentLevelLocations as location}
-						<div class="relative">
-							<button
-								type="button"
-								class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
-								onclick={() => navigateInto(location)}
-							>
-								<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
-									<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-										<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-										<circle cx="12" cy="10" r="3" />
+						<button
+							type="button"
+							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
+							onclick={() => navigateInto(location)}
+						>
+							<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
+								<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+									<circle cx="12" cy="10" r="3" />
+								</svg>
+							</div>
+							<div class="flex-1 min-w-0">
+								<p class="font-medium text-neutral-100 truncate">{location.name}</p>
+								{#if location.description}
+									<p class="text-body-sm text-neutral-500 truncate">{location.description}</p>
+								{/if}
+							</div>
+							{#if location.children && location.children.length > 0}
+								<div class="flex items-center gap-1 text-neutral-500 text-body-sm">
+									<span>{location.children.length}</span>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+										<polyline points="9 18 15 12 9 6" />
 									</svg>
 								</div>
-								<div class="flex-1 min-w-0">
-									<p class="font-medium text-neutral-100 truncate">{location.name}</p>
-									{#if location.description}
-										<p class="text-body-sm text-neutral-500 truncate">{location.description}</p>
-									{/if}
-								</div>
-								{#if location.children && location.children.length > 0}
-									<div class="flex items-center gap-1 text-neutral-500 text-body-sm">
-										<span>{location.children.length}</span>
-										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-											<polyline points="9 18 15 12 9 6" />
-										</svg>
-									</div>
-								{:else if location.itemCount !== undefined}
-									<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
-								{/if}
-							</button>
-							
-							<!-- Success badge for newly created location -->
-							{#if location.id === recentlyCreatedLocationId && showSuccessBadge}
-								<div class="absolute -top-2 -right-2 success-badge">
-									<div class="relative">
-										<!-- Ping animation -->
-										<div class="absolute inset-0 bg-success-500/20 rounded-full animate-ping"></div>
-										<!-- Badge background -->
-										<div class="relative w-8 h-8 bg-success-500 rounded-full flex items-center justify-center shadow-lg">
-											<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-												<polyline points="20 6 9 17 4 12" />
-											</svg>
-										</div>
-									</div>
-								</div>
+							{:else if location.itemCount !== undefined}
+								<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
 							{/if}
-						</div>
+						</button>
 					{/each}
 				{/if}
 

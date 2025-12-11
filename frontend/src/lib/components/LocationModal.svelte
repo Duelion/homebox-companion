@@ -23,7 +23,7 @@
 
 	let name = $state('');
 	let description = $state('');
-	let isSaving = $state(false);
+	let saveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 	let error = $state('');
 
 	// Reset form when modal opens
@@ -37,7 +37,7 @@
 				description = '';
 			}
 			error = '';
-			isSaving = false;
+			saveState = 'idle';
 		}
 	});
 
@@ -49,7 +49,7 @@
 			return;
 		}
 
-		isSaving = true;
+		saveState = 'saving';
 		error = '';
 
 		try {
@@ -58,20 +58,29 @@
 				description: description.trim(),
 				parentId: mode === 'create' ? (parentLocation?.id || null) : null,
 			});
-			open = false;
+			
+			// Show success state
+			saveState = 'success';
+			
+			// Close modal after brief delay to show success
+			setTimeout(() => {
+				open = false;
+			}, 800);
 		} catch (err) {
+			saveState = 'error';
 			error = err instanceof Error ? err.message : 'Failed to save location';
-		} finally {
-			isSaving = false;
 		}
 	}
 
 	function handleClose() {
+		// Prevent closing while saving or showing success
+		if (saveState === 'saving' || saveState === 'success') return;
 		open = false;
 		onclose?.();
 	}
 
 	const title = $derived(mode === 'create' ? 'Create Location' : 'Edit Location');
+	const isSaving = $derived(saveState === 'saving' || saveState === 'success');
 </script>
 
 <Modal bind:open {title} onclose={handleClose}>
@@ -139,12 +148,16 @@
 				Cancel
 			</Button>
 			<Button variant="primary" full type="submit" disabled={isSaving || !name.trim()}>
-				{#if isSaving}
-					<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-					</svg>
+				{#if saveState === 'saving'}
+					<div class="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
 					<span>Saving...</span>
+				{:else if saveState === 'success'}
+					<div class="w-8 h-8 flex items-center justify-center bg-success-500/20 rounded-full">
+						<svg class="w-5 h-5 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+							<polyline points="20 6 9 17 4 12" />
+						</svg>
+					</div>
+					<span>Saved!</span>
 				{:else}
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<polyline points="20 6 9 17 4 12" />
