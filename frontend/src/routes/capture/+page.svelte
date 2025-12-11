@@ -155,11 +155,6 @@
 		);
 	}
 
-	function clearAll() {
-		workflow.clearImages();
-		expandedImages = new Set();
-	}
-
 	function updateImageOption(index: number, field: 'separateItems' | 'extraInstructions', value: boolean | string) {
 		workflow.updateImageOptions(index, { [field]: value });
 	}
@@ -419,19 +414,6 @@
 					onCamera={() => cameraInput.click()} 
 					onUpload={() => fileInput.click()} 
 				/>
-			{/if}
-		</div>
-
-		<div class="flex items-center justify-between mb-6 text-sm">
-			<span class="text-text-muted">{images.length} item{images.length !== 1 ? 's' : ''} selected</span>
-			{#if !showAnalyzingUI}
-				<button
-					type="button"
-					class="text-danger hover:underline"
-					onclick={clearAll}
-				>
-					Clear all
-				</button>
 			{/if}
 		</div>
 	{:else}
