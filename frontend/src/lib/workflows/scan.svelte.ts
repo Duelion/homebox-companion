@@ -159,6 +159,7 @@ class ScanWorkflow {
 		// CRITICAL: Set status IMMEDIATELY to prevent race conditions
 		if (this.state.status === 'analyzing') {
 			console.warn('Analysis already in progress, ignoring duplicate request');
+			this.state.error = 'Analysis already in progress';
 			return;
 		}
 
@@ -166,6 +167,8 @@ class ScanWorkflow {
 			this.state.error = 'Please add at least one image';
 			return;
 		}
+
+		console.log(`[ScanWorkflow] Starting analysis for ${this.state.images.length} image(s)`);
 
 		// Set status BEFORE any async operations to prevent duplicate triggers
 		this.analysisAbortController = new AbortController();
@@ -178,7 +181,12 @@ class ScanWorkflow {
 		};
 
 		// Load default label (now happens AFTER status is set)
-		await this.loadDefaultLabel();
+		try {
+			await this.loadDefaultLabel();
+		} catch (error) {
+			console.error('[ScanWorkflow] Failed to load default label:', error);
+			// Continue anyway - default label is optional
+		}
 
 		// Update progress message
 		const imageCount = this.state.images.length;
@@ -192,17 +200,20 @@ class ScanWorkflow {
 			const allDetectedItems: ReviewItem[] = [];
 			let completedCount = 0;
 
-			// Process images in parallel
-			const signal = this.analysisAbortController?.signal;
-			const detectionPromises = this.state.images.map(async (image, index) => {
-				try {
-					const response = await vision.detect(image.file, {
-						singleItem: !image.separateItems,
-						extraInstructions: image.extraInstructions || undefined,
-						extractExtendedFields: true,
-						additionalImages: image.additionalFiles,
-						signal,
-					});
+		// Process images in parallel
+		const signal = this.analysisAbortController?.signal;
+		const detectionPromises = this.state.images.map(async (image, index) => {
+			try {
+				console.log(`[ScanWorkflow] Starting detection for image ${index + 1}/${this.state.images.length}: ${image.file.name}`);
+				const response = await vision.detect(image.file, {
+					singleItem: !image.separateItems,
+					extraInstructions: image.extraInstructions || undefined,
+					extractExtendedFields: true,
+					additionalImages: image.additionalFiles,
+					signal,
+				});
+
+				console.log(`[ScanWorkflow] Detection complete for image ${index + 1}, found ${response.items.length} item(s)`);
 
 				completedCount++;
 				this.state.analysisProgress = {
@@ -213,16 +224,17 @@ class ScanWorkflow {
 
 				return {
 					success: true as const,
-						imageIndex: index,
-						image,
-						items: response.items,
-					};
-				} catch (error) {
-					// Re-throw abort errors to be handled at the top level
-					if (error instanceof Error && error.name === 'AbortError') {
-						throw error;
-					}
-				
+					imageIndex: index,
+					image,
+					items: response.items,
+				};
+			} catch (error) {
+				// Re-throw abort errors to be handled at the top level
+				if (error instanceof Error && error.name === 'AbortError') {
+					console.log(`[ScanWorkflow] Analysis aborted for image ${index + 1}`);
+					throw error;
+				}
+			
 				completedCount++;
 				this.state.analysisProgress = {
 					current: completedCount,
@@ -230,24 +242,28 @@ class ScanWorkflow {
 					message: this.state.images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 				};
 
-				console.error(`Failed to analyze image ${index + 1}:`, error);
-					return {
-						success: false as const,
-						imageIndex: index,
-						image,
-						error: error instanceof Error ? error.message : 'Unknown error',
-					};
-				}
-			});
-
-			const results = await Promise.all(detectionPromises);
-
-			// Check if cancelled
-			if (this.analysisAbortController?.signal.aborted) {
-				return;
+				console.error(`[ScanWorkflow] Failed to analyze image ${index + 1} (${image.file.name}):`, error);
+				return {
+					success: false as const,
+					imageIndex: index,
+					image,
+					error: error instanceof Error ? error.message : 'Unknown error',
+				};
 			}
+		});
 
-			// Process results
+		console.log('[ScanWorkflow] Waiting for all detections to complete...');
+		const results = await Promise.all(detectionPromises);
+
+		console.log(`[ScanWorkflow] All detections complete. Processing ${results.length} result(s)...`);
+
+		// Check if cancelled
+		if (this.analysisAbortController?.signal.aborted) {
+			console.log('[ScanWorkflow] Analysis was cancelled, exiting');
+			return;
+		}
+
+		// Process results
 			// Validate default label exists in current Homebox instance
 			const currentLabels = get(labelsStore);
 			const validDefaultLabelId = this.defaultLabelId && 
@@ -290,6 +306,7 @@ class ScanWorkflow {
 			}
 
 		// Success! Move to review
+		console.log(`[ScanWorkflow] Analysis complete! Detected ${allDetectedItems.length} item(s)`);
 		this.state.detectedItems = allDetectedItems;
 		this.state.currentReviewIndex = 0;
 		// Keep analysisProgress for success animation - will be cleared by UI after animation
@@ -298,10 +315,17 @@ class ScanWorkflow {
 			// Don't set error if cancelled (check both signal and error type)
 			if (this.analysisAbortController?.signal.aborted || 
 				(error instanceof Error && error.name === 'AbortError')) {
+				console.log('[ScanWorkflow] Analysis cancelled by user');
 				return;
 			}
 
-			console.error('Analysis failed:', error);
+			console.error('[ScanWorkflow] Analysis failed with error:', error);
+			// Log additional details for network errors
+			if (error instanceof Error) {
+				console.error('[ScanWorkflow] Error type:', error.name);
+				console.error('[ScanWorkflow] Error message:', error.message);
+				console.error('[ScanWorkflow] Error stack:', error.stack);
+			}
 			this.state.error = error instanceof Error ? error.message : 'Analysis failed';
 			this.state.status = 'capturing';
 		} finally {

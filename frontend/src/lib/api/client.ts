@@ -109,24 +109,37 @@ export async function requestFormData<T>(
 	
 	const authToken = get(token);
 
-	const response = await fetch(`${BASE_URL}${endpoint}`, {
-		method: 'POST',
-		headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-		body: formData,
-		signal: opts.signal,
-	});
+	try {
+		console.log(`[API] Sending FormData request to ${endpoint}`);
+		const response = await fetch(`${BASE_URL}${endpoint}`, {
+			method: 'POST',
+			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+			body: formData,
+			signal: opts.signal,
+		});
 
-	if (!response.ok) {
-		if (handleUnauthorized(response)) {
-			throw new ApiError(401, 'Session expired');
+		console.log(`[API] Response from ${endpoint}: ${response.status} ${response.statusText}`);
+
+		if (!response.ok) {
+			if (handleUnauthorized(response)) {
+				throw new ApiError(401, 'Session expired');
+			}
+			const error = await response.json().catch(() => ({}));
+			throw new ApiError(
+				response.status,
+				(error as { detail?: string }).detail || errorMessage
+			);
 		}
-		const error = await response.json().catch(() => ({}));
-		throw new ApiError(
-			response.status,
-			(error as { detail?: string }).detail || errorMessage
-		);
-	}
 
-	return response.json();
+		return response.json();
+	} catch (error) {
+		// Log network errors before re-throwing
+		if (error instanceof ApiError) {
+			// Already handled above, just re-throw
+			throw error;
+		}
+		console.error(`[API] Network error for ${endpoint}:`, error);
+		throw error;
+	}
 }
 

@@ -22,6 +22,7 @@
 	let expandedImages = $state<Set<number>>(new Set());
 	let additionalImageInputs: { [key: number]: HTMLInputElement } = {};
 	let analysisAnimationComplete = $state(false);
+	let isStartingAnalysis = $state(false);
 
 	// Get workflow state for reading
 	const workflow = scanWorkflow;
@@ -183,17 +184,29 @@
 	// ==========================================================================
 
 	async function startAnalysis() {
-		// Check token validity before starting analysis
-		const isValid = await checkAuth();
-		if (!isValid) {
-			showToast('Session expired. Please log in again.', 'warning');
+		// Prevent double-clicks
+		if (isStartingAnalysis || isAnalyzing) {
+			console.warn('[Capture] Analysis already starting or in progress, ignoring click');
 			return;
 		}
+
+		isStartingAnalysis = true;
 		
-		analysisAnimationComplete = false;
-		// Collapse all expanded cards when analysis starts
-		expandedImages = new Set();
-		workflow.startAnalysis();
+		try {
+			// Check token validity before starting analysis
+			const isValid = await checkAuth();
+			if (!isValid) {
+				showToast('Session expired. Please log in again.', 'warning');
+				return;
+			}
+			
+			analysisAnimationComplete = false;
+			// Collapse all expanded cards when analysis starts
+			expandedImages = new Set();
+			await workflow.startAnalysis();
+		} finally {
+			isStartingAnalysis = false;
+		}
 	}
 
 	function cancelAnalysis() {
@@ -548,10 +561,14 @@
 			<Button
 				variant="primary"
 				full
-				disabled={images.length === 0}
+				disabled={images.length === 0 || isStartingAnalysis}
 				onclick={startAnalysis}
 			>
-				<span>Analyze with AI</span>
+				{#if isStartingAnalysis}
+					<span>Starting...</span>
+				{:else}
+					<span>Analyze with AI</span>
+				{/if}
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
 				</svg>
