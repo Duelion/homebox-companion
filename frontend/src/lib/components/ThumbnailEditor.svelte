@@ -69,12 +69,13 @@
 
 	onMount(() => {
 		// Calculate responsive canvas size based on viewport width
-		// Range: 340px (small) to 480px (larger screens)
+		// Use most of the available width for a larger working area
 		const viewportWidth = window.innerWidth;
 		if (viewportWidth >= 640) {
 			canvasSize = Math.min(480, viewportWidth - 80);
 		} else {
-			canvasSize = Math.min(380, viewportWidth - 48);
+			// On small screens, use more width for a bigger canvas
+			canvasSize = Math.min(440, viewportWidth - 32);
 		}
 		
 		// Wait for next tick to ensure canvas dimensions are set
@@ -367,8 +368,8 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 sm:p-8">
-	<div class="bg-neutral-900 rounded-2xl border border-neutral-700 max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
+<div class="fixed inset-0 z-[60] flex items-start justify-center bg-black/80 p-4 sm:p-8 overflow-y-auto">
+	<div class="bg-neutral-900 rounded-2xl border border-neutral-700 max-w-lg w-full shadow-xl my-auto sm:my-8">
 		<!-- Header -->
 		<div class="flex items-center justify-between p-4 border-b border-neutral-700">
 			<h3 class="text-body-lg font-semibold text-neutral-100">Edit Thumbnail</h3>
@@ -416,7 +417,7 @@
 		{/if}
 
 		<!-- Canvas area with cursor states -->
-		<div bind:this={canvasContainer} class="flex-1 flex items-center justify-center p-3 overflow-hidden touch-none">
+		<div bind:this={canvasContainer} class="flex items-center justify-center p-4 touch-none">
 			<canvas
 				bind:this={canvas}
 				width={canvasSize}
