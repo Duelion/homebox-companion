@@ -34,6 +34,10 @@
 	let progress = $derived(workflow.state.analysisProgress);
 	let locationName = $derived(workflow.state.locationName);
 
+	// True while analyzing OR while the completion animation is playing
+	// This prevents UI elements from appearing/disappearing during animation
+	let showAnalyzingUI = $derived(isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete));
+
 	// Apply route guard: requires auth, location, and not in reviewing state
 	onMount(() => {
 		if (!routeGuards.capture()) return;
@@ -409,7 +413,7 @@
 			{/each}
 
 			<!-- Capture buttons inside dashed border -->
-			{#if images.length < MAX_IMAGES && !isAnalyzing}
+			{#if images.length < MAX_IMAGES && !showAnalyzingUI}
 				<CaptureButtons 
 					onCamera={() => cameraInput.click()} 
 					onUpload={() => fileInput.click()} 
@@ -419,7 +423,7 @@
 
 		<div class="flex items-center justify-between mb-6 text-sm">
 			<span class="text-text-muted">{images.length} item{images.length !== 1 ? 's' : ''} selected</span>
-			{#if !isAnalyzing}
+			{#if !showAnalyzingUI}
 				<button
 					type="button"
 					class="text-danger hover:underline"
@@ -458,7 +462,7 @@
 	/>
 
 	<!-- Analysis progress -->
-	{#if progress && (isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete))}
+	{#if progress && showAnalyzingUI}
 		<AnalysisProgressBar
 			current={progress.current}
 			total={progress.total}
@@ -467,7 +471,7 @@
 		/>
 	{/if}
 
-	{#if !isAnalyzing}
+	{#if !showAnalyzingUI}
 		<Button
 			variant="primary"
 			full
