@@ -20,6 +20,9 @@
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
 	let latestVersionNumber = $state<string | null>(null);
+	let isCheckingUpdates = $state(false);
+	let updateCheckError = $state<string | null>(null);
+	let updateCheckDone = $state(false); // Shows "Up to date" message after manual check
 
 	// Field preferences state
 	let showFieldPrefs = $state(false);
@@ -288,6 +291,31 @@
 		goto('/');
 	}
 
+	async function checkForUpdates() {
+		isCheckingUpdates = true;
+		updateCheckError = null;
+		updateCheckDone = false;
+
+		try {
+			const versionResult = await getVersion(true); // Force check for updates
+			
+			if (versionResult.update_available && versionResult.latest_version) {
+				updateAvailable = true;
+				latestVersionNumber = versionResult.latest_version;
+			} else {
+				updateAvailable = false;
+				latestVersionNumber = null;
+				updateCheckDone = true; // Show "Up to date" message
+				setTimeout(() => { updateCheckDone = false; }, 5000); // Clear after 5 seconds
+			}
+		} catch (error) {
+			console.error('Failed to check for updates:', error);
+			updateCheckError = error instanceof Error ? error.message : 'Failed to check for updates';
+		} finally {
+			isCheckingUpdates = false;
+		}
+	}
+
 	async function loadFieldPrefs() {
 		if (effectiveDefaults !== null || isLoadingFieldPrefs) {
 			showFieldPrefs = !showFieldPrefs;
@@ -487,8 +515,39 @@
 							</svg>
 							<span>v{latestVersionNumber}</span>
 						</a>
+					{:else if updateCheckDone}
+						<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-success/20 text-success rounded-full text-xs">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+							<span>Up to date</span>
+						</span>
 					{/if}
 				</div>
+			</div>
+
+			<!-- Check for Updates Button -->
+			<div class="py-2 border-t border-border/20">
+				<button
+					type="button"
+					class="w-full py-2.5 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+					onclick={checkForUpdates}
+					disabled={isCheckingUpdates}
+				>
+					{#if isCheckingUpdates}
+						<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+						<span>Checking for updates...</span>
+					{:else}
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+							<path d="M23 4v6h-6M1 20v-6h6" />
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+						</svg>
+						<span>Check for Updates</span>
+					{/if}
+				</button>
+				{#if updateCheckError}
+					<p class="mt-2 text-xs text-danger">{updateCheckError}</p>
+				{/if}
 			</div>
 
 			<!-- Configuration Info -->
