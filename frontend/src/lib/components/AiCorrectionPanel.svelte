@@ -58,6 +58,7 @@
 				></textarea>
 				<Button
 					variant="secondary"
+					full
 					onclick={handleCorrect}
 					{loading}
 					disabled={loading || !correctionPrompt.trim()}

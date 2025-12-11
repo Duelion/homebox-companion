@@ -51,19 +51,17 @@
 		}
 	});
 
-	// Watch for status changes to navigate
-	$effect(() => {
-		if (workflow.state.status === 'reviewing' && analysisAnimationComplete) {
-			showToast(`Detected ${workflow.state.detectedItems.length} item(s)`, 'success');
-			goto('/review');
-		}
-	});
-
-	// Handle analysis animation completion
+	// Handle analysis animation completion - navigate directly to avoid CaptureButtons appearing
 	function handleAnalysisComplete() {
 		analysisAnimationComplete = true;
 		// Clear progress after animation finishes
 		workflow.state.analysisProgress = null;
+		
+		// Navigate immediately to prevent UI shift from buttons reappearing
+		if (workflow.state.status === 'reviewing') {
+			showToast(`Detected ${workflow.state.detectedItems.length} item(s)`, 'success');
+			goto('/review');
+		}
 	}
 
 	// ==========================================================================
