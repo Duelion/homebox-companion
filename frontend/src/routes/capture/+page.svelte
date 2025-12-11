@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import { resetLocationState } from '$lib/stores/locations';
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
@@ -283,9 +284,9 @@
 						</div>
 					</div>
 
-					<!-- Expandable options -->
-					{#if expandedImages.has(index)}
-						<div class="px-3 pb-3 pt-0 space-y-3 border-t border-border/50 mt-0">
+				<!-- Expandable options -->
+				{#if expandedImages.has(index)}
+					<div class="px-3 pb-3 pt-0 space-y-3 border-t border-border/50 mt-0" transition:slide={{ duration: 200 }}>
 							<!-- Separate into multiple items toggle -->
 							<label class="flex items-center gap-3 pt-3 cursor-pointer">
 								<div class="relative">

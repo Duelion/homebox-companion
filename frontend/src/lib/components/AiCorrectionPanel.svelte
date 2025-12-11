@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
 	import Button from './Button.svelte';
 	import AnalysisProgressBar from './AnalysisProgressBar.svelte';
 
@@ -39,7 +40,7 @@
 	</button>
 
 	{#if expanded}
-		<div class="mt-3 space-y-3">
+		<div class="mt-3 space-y-3" transition:slide={{ duration: 200 }}>
 			{#if loading}
 				<AnalysisProgressBar
 					current={0}

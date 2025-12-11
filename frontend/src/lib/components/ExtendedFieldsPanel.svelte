@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
 	import type { ReviewItem } from '$lib/types';
 
 	interface Props {
@@ -43,7 +44,7 @@
 	</button>
 
 	{#if expanded}
-		<div class="mt-4 space-y-4">
+		<div class="mt-4 space-y-4" transition:slide={{ duration: 200 }}>
 			<div class="grid grid-cols-2 gap-3">
 				<div>
 					<label for="manufacturer" class="label">Manufacturer</label>
