@@ -178,6 +178,9 @@
 	function openCreateModal(parent: { id: string; name: string } | null = null) {
 		locationModalMode = 'create';
 		createParentLocation = parent;
+		// Clear any existing success badge before opening modal
+		showSuccessBadge = false;
+		recentlyCreatedLocationId = null;
 		showLocationModal = true;
 	}
 
@@ -189,6 +192,9 @@
 
 	function openEditModal() {
 		locationModalMode = 'edit';
+		// Clear any existing success badge before opening modal
+		showSuccessBadge = false;
+		recentlyCreatedLocationId = null;
 		showLocationModal = true;
 	}
 
@@ -204,17 +210,19 @@
 				const savedPath = [...$locationPath];
 				await loadLocations();
 
-				// Show success indicator on newly created location
-				recentlyCreatedLocationId = newLocation.id;
-				showSuccessBadge = true;
-				
-				// Hide success badge after 3 seconds
+				// Show success indicator after modal closes (delay for modal animation)
 				setTimeout(() => {
-					showSuccessBadge = false;
+					recentlyCreatedLocationId = newLocation.id;
+					showSuccessBadge = true;
+					
+					// Hide success badge after 3 seconds
 					setTimeout(() => {
-						recentlyCreatedLocationId = null;
-					}, 300); // Wait for animation to complete
-				}, 3000);
+						showSuccessBadge = false;
+						setTimeout(() => {
+							recentlyCreatedLocationId = null;
+						}, 300); // Wait for animation to complete
+					}, 3000);
+				}, 200); // Wait for modal to close
 
 				if ($selectedLocation) {
 					selectedLocation.set(null);
@@ -262,17 +270,19 @@
 				// Update workflow with new name
 				scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
 				
-				// Show success indicator on updated location
-				recentlyCreatedLocationId = updatedLocation.id;
-				showSuccessBadge = true;
-				
-				// Hide success badge after 3 seconds
+				// Show success indicator after modal closes (delay for modal animation)
 				setTimeout(() => {
-					showSuccessBadge = false;
+					recentlyCreatedLocationId = updatedLocation.id;
+					showSuccessBadge = true;
+					
+					// Hide success badge after 3 seconds
 					setTimeout(() => {
-						recentlyCreatedLocationId = null;
-					}, 300); // Wait for animation to complete
-				}, 3000);
+						showSuccessBadge = false;
+						setTimeout(() => {
+							recentlyCreatedLocationId = null;
+						}, 300); // Wait for animation to complete
+					}, 3000);
+				}, 200); // Wait for modal to close
 			}
 		} catch (error) {
 			console.error('Failed to save location:', error);
