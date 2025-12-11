@@ -78,24 +78,21 @@ def _get_friendly_error_message(error: Exception) -> str:
 
 
 def _log_exception_chain(error: Exception, prefix: str = "") -> None:
-    """Log the full exception chain for debugging."""
-    logger.debug(f"{prefix}Exception type: {type(error).__module__}.{type(error).__name__}")
-    logger.debug(f"{prefix}Exception message: {error}")
+    """Log essential exception information for debugging."""
+    logger.debug(f"{prefix}Exception: {type(error).__name__}: {error}")
 
-    # Log exception attributes that might be useful
+    # Log safe request/response metadata only (no headers or bodies)
     if hasattr(error, "request"):
         try:
             req = error.request
-            logger.debug(f"{prefix}Request URL: {req.url}")
-            logger.debug(f"{prefix}Request method: {req.method}")
+            logger.debug(f"{prefix}URL: {req.url}")
         except Exception:
             pass
 
     if hasattr(error, "response"):
         try:
             resp = error.response
-            logger.debug(f"{prefix}Response status: {resp.status_code}")
-            logger.debug(f"{prefix}Response headers: {dict(resp.headers)}")
+            logger.debug(f"{prefix}Status: {resp.status_code}")
         except Exception:
             pass
 
@@ -104,14 +101,14 @@ def _log_exception_chain(error: Exception, prefix: str = "") -> None:
         logger.debug(f"{prefix}Caused by:")
         _log_exception_chain(error.__cause__, prefix + "  ")
     elif error.__context__ and not error.__suppress_context__:
-        logger.debug(f"{prefix}Context (during handling of):")
+        logger.debug(f"{prefix}During:")
         _log_exception_chain(error.__context__, prefix + "  ")
 
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest) -> LoginResponse:
     """Authenticate with Homebox and return bearer token."""
-    logger.info(f"Login attempt for user: {request.username}")
+    logger.info("Login attempt")
 
     # Log configuration for debugging
     logger.debug(f"Login: HBC_HOMEBOX_URL configured as: {settings.homebox_url}")
@@ -120,12 +117,11 @@ async def login(request: LoginRequest) -> LoginResponse:
     client = get_client()
     try:
         token = await client.login(request.username, request.password)
-        logger.info(f"Login successful for user: {request.username}")
+        logger.info("Login successful")
         return LoginResponse(token=token)
     except httpx.ConnectError as e:
         # Detailed logging for connection errors
-        logger.warning(f"Login failed for user {request.username}: Connection error")
-        logger.debug(f"Login: ConnectError details - {e}")
+        logger.warning("Login failed: Connection error")
         _log_exception_chain(e, "Login: ")
 
         # Check for common Docker networking issues
@@ -140,18 +136,17 @@ async def login(request: LoginRequest) -> LoginResponse:
         friendly_message = _get_friendly_error_message(e)
         raise HTTPException(status_code=401, detail=friendly_message) from e
     except httpx.TimeoutException as e:
-        logger.warning(f"Login failed for user {request.username}: Timeout")
-        logger.debug(f"Login: TimeoutException details - {e}")
+        logger.warning("Login failed: Timeout")
         _log_exception_chain(e, "Login: ")
         friendly_message = _get_friendly_error_message(e)
         raise HTTPException(status_code=401, detail=friendly_message) from e
     except AuthenticationError as e:
-        logger.warning(f"Login failed for user {request.username}: {e}")
+        logger.warning(f"Login failed: {e}")
         _log_exception_chain(e, "Login: ")
         friendly_message = _get_friendly_error_message(e)
         raise HTTPException(status_code=401, detail=friendly_message) from e
     except Exception as e:
-        logger.warning(f"Login failed for user {request.username}: {e}")
+        logger.warning(f"Login failed: {e}")
         logger.debug(f"Login: Full traceback:\n{traceback.format_exc()}")
         _log_exception_chain(e, "Login: ")
         friendly_message = _get_friendly_error_message(e)

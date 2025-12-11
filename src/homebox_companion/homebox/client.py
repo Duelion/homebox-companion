@@ -101,32 +101,22 @@ class HomeboxClient:
                 data=payload,
             )
         except Exception as e:
-            # Log detailed connection error information
+            # Log connection error information
             logger.debug(f"Login: Connection failed to {login_url}")
-            logger.debug(f"Login: Exception type: {type(e).__name__}")
-            logger.debug(f"Login: Exception message: {e}")
+            logger.debug(f"Login: {type(e).__name__}: {e}")
             if hasattr(e, "__cause__") and e.__cause__:
                 cause = e.__cause__
-                logger.debug(f"Login: Underlying cause: {type(cause).__name__}: {cause}")
+                logger.debug(f"Login: Caused by: {type(cause).__name__}: {cause}")
             raise
 
-        # Log response details for debugging
-        logger.debug(f"Login: Response status code: {response.status_code}")
-        logger.debug(f"Login: Response headers: {dict(response.headers)}")
+        # Log response status for debugging
+        logger.debug(f"Login: Response status: {response.status_code}")
 
         # Check content type to help diagnose HTML vs JSON issues
         content_type = response.headers.get("content-type", "")
-        logger.debug(f"Login: Content-Type header: {content_type}")
-
-        # Log response body preview (first 500 chars) to help diagnose issues
         response_text = response.text
-        preview_length = min(500, len(response_text))
-        response_preview = response_text[:preview_length]
-        if len(response_text) > preview_length:
-            response_preview += "... [truncated]"
-        logger.debug(f"Login: Response body preview: {response_preview}")
 
-        # Detect common issues
+        # Detect common issues (without logging sensitive response body)
         if "text/html" in content_type:
             logger.warning(
                 "Login: Received HTML response instead of JSON. "
@@ -143,10 +133,10 @@ class HomeboxClient:
             data = response.json()
         except ValueError as json_err:
             logger.error(f"Login: Failed to parse JSON response: {json_err}")
-            logger.error(f"Login: Raw response (first 1000 chars): {response_text[:1000]}")
+            logger.error(f"Login: Content-Type was '{content_type}'")
             raise AuthenticationError(
                 f"Server returned invalid JSON. Content-Type was '{content_type}'. "
-                f"Response preview: {response_text[:200]}"
+                "This usually indicates a reverse proxy or server configuration issue."
             ) from json_err
 
         token = data.get("token") or data.get("jwt") or data.get("accessToken")
