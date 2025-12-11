@@ -112,6 +112,16 @@ export interface Progress {
 	message?: string;
 }
 
+/** Result of the last successful submission (for success page display) */
+export interface SubmissionResult {
+	itemCount: number;
+	photoCount: number;
+	labelCount: number;
+	itemNames: string[];
+	locationName: string;
+	locationId: string;
+}
+
 /** Complete scan workflow state */
 export interface ScanState {
 	status: ScanStatus;
@@ -132,6 +142,8 @@ export interface ScanState {
 	submissionProgress: Progress | null;
 	/** Per-item submission status for UI feedback */
 	itemStatuses: Record<number, ItemSubmissionStatus>;
+	/** Result of last successful submission (preserved for success page) */
+	lastSubmissionResult: SubmissionResult | null;
 	// Error handling
 	error: string | null;
 }

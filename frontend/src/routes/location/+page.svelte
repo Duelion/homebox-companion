@@ -17,6 +17,7 @@
 	import type { Location } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import Loader from '$lib/components/Loader.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import LocationModal from '$lib/components/LocationModal.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -331,41 +332,62 @@
 
 	<StepIndicator currentStep={1} />
 
-	<h2 class="text-2xl font-bold text-text mb-2">Select Location</h2>
-	<p class="text-text-muted mb-6">Choose where your items will be stored</p>
+	<h2 class="text-h2 text-neutral-100 mb-1">Select Location</h2>
+	<p class="text-body-sm text-neutral-400 mb-6">Choose where your items will be stored</p>
 
 	{#if isLoadingLocations}
-		<div class="py-12">
-			<Loader message="Loading locations..." />
+		<!-- Skeleton loading state -->
+		<div class="space-y-3">
+			<!-- Search skeleton -->
+			<div class="flex gap-2 mb-4">
+				<Skeleton width="100%" height="48px" rounded="xl" />
+				<Skeleton width="48px" height="48px" rounded="xl" />
+			</div>
+			
+			<!-- Location card skeletons -->
+			{#each Array(6) as _, i}
+				<div class="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex items-center gap-3" style="animation-delay: {i * 50}ms;">
+					<Skeleton width="44px" height="44px" rounded="lg" />
+					<div class="flex-1 space-y-2">
+						<Skeleton width="60%" height="16px" rounded="md" />
+						<Skeleton width="40%" height="12px" rounded="md" />
+					</div>
+					<Skeleton width="20px" height="20px" rounded="full" />
+				</div>
+			{/each}
+			
+			<!-- Create button skeleton -->
+			<Skeleton width="100%" height="44px" rounded="xl" class="mt-4" />
 		</div>
 	{:else if $selectedLocation}
 		<!-- SELECTED STATE -->
 		<div class="space-y-4">
-			<div class="bg-surface rounded-xl border border-primary p-4">
+			<!-- Selected location card with ring highlight -->
+			<div class="bg-neutral-900 rounded-xl border border-primary-500 ring-2 ring-primary-500/30 p-4 shadow-md">
 				<div class="flex items-center gap-3">
-					<div class="p-3 bg-primary/20 rounded-lg">
-						<svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<div class="p-3 bg-primary-500/20 rounded-lg">
+						<svg class="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 							<circle cx="12" cy="10" r="3" />
 						</svg>
 					</div>
 					<div class="flex-1 min-w-0">
-						<p class="text-sm text-text-muted">Selected location:</p>
-						<p class="text-lg font-semibold text-text">{$selectedLocation.name}</p>
+						<p class="text-body-sm text-neutral-400">Selected location:</p>
+						<p class="text-body font-semibold text-neutral-100">{$selectedLocation.name}</p>
 						{#if $selectedLocationPath !== $selectedLocation.name}
-							<p class="text-sm text-text-dim">{$selectedLocationPath}</p>
+							<p class="text-body-sm text-neutral-500">{$selectedLocationPath}</p>
 						{/if}
 						{#if $selectedLocation.description}
-							<p class="text-sm text-text-muted mt-1">{$selectedLocation.description}</p>
+							<p class="text-body-sm text-neutral-400 mt-1">{$selectedLocation.description}</p>
 						{/if}
 					</div>
 					<button
 						type="button"
-						class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+						class="p-2 rounded-lg text-neutral-400 hover:text-primary-400 hover:bg-primary-500/10 transition-colors"
 						onclick={openEditModal}
 						title="Edit location"
 					>
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
 							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
 						</svg>
@@ -373,23 +395,18 @@
 				</div>
 			</div>
 
-			<button
-				type="button"
-				class="w-full p-3 text-center text-primary hover:bg-primary/10 rounded-xl border border-dashed border-primary/40 transition-colors"
-				onclick={openCreateSubLocationModal}
-			>
-				<span class="flex items-center justify-center gap-2 whitespace-nowrap">
-					<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<line x1="12" y1="5" x2="12" y2="19" />
-						<line x1="5" y1="12" x2="19" y2="12" />
-					</svg>
-					Add sub-location
-				</span>
-			</button>
+			<!-- Add sub-location button (secondary style, not dashed) -->
+			<Button variant="secondary" full onclick={openCreateSubLocationModal}>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<line x1="12" y1="5" x2="12" y2="19" />
+					<line x1="5" y1="12" x2="19" y2="12" />
+				</svg>
+				<span>Add Sub-location</span>
+			</Button>
 
 			<Button variant="primary" full onclick={continueToCapture}>
 				<span>Continue to Capture</span>
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<line x1="5" y1="12" x2="19" y2="12" />
 					<polyline points="12 5 19 12 12 19" />
 				</svg>
@@ -398,11 +415,11 @@
 	{:else}
 		<!-- SELECTION STATE -->
 		
-		<!-- Search box with QR scan button -->
+		<!-- Search box with elevated style and QR scan button -->
 		<div class="flex gap-2 mb-4">
 			<div class="relative flex-1">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<svg class="w-5 h-5 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+					<svg class="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<circle cx="11" cy="11" r="8" />
 						<path d="m21 21-4.35-4.35" />
 					</svg>
@@ -411,16 +428,16 @@
 					type="text"
 					placeholder="Search all locations..."
 					bind:value={searchQuery}
-					class="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-xl text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+					class="w-full h-12 pl-11 pr-10 bg-neutral-800 border border-neutral-600 rounded-xl text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all"
 				/>
 				{#if searchQuery}
 					<button
 						type="button"
-						class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text"
+						class="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-200 transition-colors"
 						aria-label="Clear search"
 						onclick={() => searchQuery = ''}
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<line x1="18" y1="6" x2="6" y2="18" />
 							<line x1="6" y1="6" x2="18" y2="18" />
 						</svg>
@@ -433,13 +450,13 @@
 				type="button"
 				onclick={openQrScanner}
 				disabled={isProcessingQr}
-				class="px-4 py-3 bg-surface border border-border rounded-xl text-text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
+				class="w-12 h-12 flex items-center justify-center bg-neutral-800 border border-neutral-600 rounded-xl text-neutral-400 hover:text-primary-400 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all disabled:opacity-50"
 				title="Scan QR Code"
 			>
 				{#if isProcessingQr}
 					<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
 				{:else}
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<!-- QR Code icon -->
 						<rect x="3" y="3" width="7" height="7" rx="1" />
 						<rect x="14" y="3" width="7" height="7" rx="1" />
@@ -457,33 +474,33 @@
 			<!-- SEARCH RESULTS -->
 			<div class="space-y-2">
 				{#if filteredLocations.length === 0}
-					<div class="py-8 text-center text-text-muted">
-						<svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<div class="py-8 text-center text-neutral-500">
+						<svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<circle cx="11" cy="11" r="8" />
 							<path d="m21 21-4.35-4.35" />
 						</svg>
 						<p>No locations found for "{searchQuery}"</p>
 					</div>
 				{:else}
-					<p class="text-sm text-text-muted mb-2">{filteredLocations.length} location{filteredLocations.length !== 1 ? 's' : ''} found</p>
+					<p class="text-body-sm text-neutral-400 mb-2">{filteredLocations.length} location{filteredLocations.length !== 1 ? 's' : ''} found</p>
 					{#each filteredLocations as item}
 						<button
 							type="button"
-							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-surface border-border hover:border-primary/30 hover:bg-surface-elevated transition-all text-left group"
+							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
 							onclick={() => selectFromSearch(item)}
 						>
-							<div class="p-2 bg-surface-elevated rounded-lg group-hover:bg-primary/20 transition-colors">
-								<svg class="w-5 h-5 text-text-muted group-hover:text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
+								<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 									<circle cx="12" cy="10" r="3" />
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="font-medium text-text">{item.location.name}</p>
-								<p class="text-sm text-text-dim truncate">{item.path}</p>
+								<p class="font-medium text-neutral-100">{item.location.name}</p>
+								<p class="text-body-sm text-neutral-500 truncate">{item.path}</p>
 							</div>
 							{#if item.location.itemCount !== undefined}
-								<span class="text-sm text-text-dim">{item.location.itemCount} items</span>
+								<span class="text-body-sm text-neutral-500">{item.location.itemCount} items</span>
 							{/if}
 						</button>
 					{/each}
@@ -496,10 +513,10 @@
 				<div class="flex items-center gap-1 overflow-x-auto pb-2 mb-4 text-sm">
 					<button
 						type="button"
-						class="flex items-center gap-1 px-2 py-1 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated transition-colors whitespace-nowrap"
+						class="flex items-center gap-1 px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors whitespace-nowrap"
 						onclick={() => navigateToPath(-1)}
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
 							<polyline points="9 22 9 12 15 12 15 22" />
 						</svg>
@@ -507,12 +524,12 @@
 					</button>
 
 					{#each $locationPath as pathItem, index}
-						<svg class="w-4 h-4 text-text-dim shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-4 h-4 text-neutral-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<polyline points="9 18 15 12 9 6" />
 						</svg>
 						<button
 							type="button"
-							class="px-2 py-1 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated transition-colors whitespace-nowrap"
+							class="px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors whitespace-nowrap"
 							onclick={() => navigateToPath(index)}
 						>
 							{pathItem.name}
@@ -523,7 +540,7 @@
 				<!-- Select current folder button -->
 				<button
 					type="button"
-					class="w-full flex items-center gap-3 p-3 mb-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-left"
+					class="w-full flex items-center gap-3 p-3 mb-4 rounded-xl border border-dashed border-primary-500/40 bg-primary-500/5 hover:bg-primary-500/10 transition-colors text-left"
 					aria-label="Select current location"
 					onclick={() => {
 						let current: Location[] = $locationTree;
@@ -540,80 +557,71 @@
 						if (found) selectLocation(found, path);
 					}}
 				>
-					<div class="p-2 bg-primary/20 rounded-lg">
-						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<div class="p-2 bg-primary-500/20 rounded-lg">
+						<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 							<polyline points="20 6 9 17 4 12" />
 						</svg>
 					</div>
 					<div class="flex-1">
-						<p class="font-medium text-primary">Select "{$locationPath[$locationPath.length - 1].name}"</p>
-						<p class="text-sm text-text-dim">Use this folder as item location</p>
+						<p class="font-medium text-primary-400">Select "{$locationPath[$locationPath.length - 1].name}"</p>
+						<p class="text-body-sm text-neutral-500">Use this folder as item location</p>
 					</div>
 				</button>
 			{/if}
 
-			<!-- Location list -->
+			<!-- Location list with improved cards -->
 			<div class="space-y-2">
 				{#if $currentLevelLocations.length === 0}
-					<div class="py-8 text-center text-text-muted">
+					<div class="py-8 text-center text-neutral-500">
 						<p>No sub-locations here</p>
 					</div>
 				{:else}
 					{#each $currentLevelLocations as location}
 						<button
 							type="button"
-							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-surface border-border hover:border-primary/30 hover:bg-surface-elevated transition-all text-left group"
+							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
 							onclick={() => navigateInto(location)}
 						>
-							<div class="p-2 bg-surface-elevated rounded-lg group-hover:bg-primary/20 transition-colors">
-								<svg class="w-5 h-5 text-text-muted group-hover:text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
+								<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 									<circle cx="12" cy="10" r="3" />
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="font-medium text-text truncate">{location.name}</p>
+								<p class="font-medium text-neutral-100 truncate">{location.name}</p>
 								{#if location.description}
-									<p class="text-sm text-text-muted truncate">{location.description}</p>
+									<p class="text-body-sm text-neutral-500 truncate">{location.description}</p>
 								{/if}
 							</div>
 							{#if location.children && location.children.length > 0}
-								<div class="flex items-center gap-1 text-text-dim text-sm">
+								<div class="flex items-center gap-1 text-neutral-500 text-body-sm">
 									<span>{location.children.length}</span>
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 										<polyline points="9 18 15 12 9 6" />
 									</svg>
 								</div>
 							{:else if location.itemCount !== undefined}
-								<span class="text-sm text-text-dim">{location.itemCount} items</span>
+								<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
 							{/if}
 						</button>
 					{/each}
 				{/if}
 
-				<!-- Create new location button -->
-				<button
-					type="button"
-					class="w-full flex items-center gap-3 p-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all text-left group"
-					onclick={() => openCreateModal(getCurrentParent())}
-				>
-					<div class="p-2 bg-primary/20 rounded-lg">
-						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<line x1="12" y1="5" x2="12" y2="19" />
-							<line x1="5" y1="12" x2="19" y2="12" />
-						</svg>
-					</div>
-					<div class="flex-1">
-						<p class="font-medium text-primary">Create new location</p>
-						<p class="text-sm text-text-dim">
-							{#if $locationPath.length > 0}
-								Add inside {$locationPath[$locationPath.length - 1].name}
-							{:else}
-								Add at root level
-							{/if}
-						</p>
-					</div>
-				</button>
+				<!-- Create new location button (secondary style) -->
+				<Button variant="secondary" full onclick={() => openCreateModal(getCurrentParent())}>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<line x1="12" y1="5" x2="12" y2="19" />
+						<line x1="5" y1="12" x2="19" y2="12" />
+					</svg>
+					<span>
+						{#if $locationPath.length > 0}
+							Create Location in {$locationPath[$locationPath.length - 1].name}
+						{:else}
+							Create New Location
+						{/if}
+					</span>
+				</Button>
 			</div>
 		{/if}
 	{/if}
