@@ -26,5 +26,8 @@
 	"dependencies": {
 		"heic2any": "^0.0.4",
 		"qr-scanner": "^1.4.2"
+	},
+	"overrides": {
+		"cookie": "^0.7.0"
 	}
 }
