@@ -117,7 +117,7 @@
 
 	<!-- Footer with version - only shown on login page (not authenticated) -->
 	{#if !$isAuthenticated}
-		<footer class="text-center py-3 text-text-dim text-xs flex items-center justify-center gap-3">
+		<footer class="sticky bottom-0 mt-auto text-center py-3 text-text-dim text-xs flex items-center justify-center gap-3 bg-background border-t border-border/50">
 			{#if $appVersion}
 				<span>v{$appVersion}</span>
 			{/if}
