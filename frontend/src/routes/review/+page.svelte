@@ -252,7 +252,7 @@
 </svelte:head>
 
 <div class="animate-in pb-32">
-	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={true} />
+	<BackLink href="/capture" label="Back to Capture" onclick={goBack} />
 
 	<StepIndicator currentStep={3} />
 
