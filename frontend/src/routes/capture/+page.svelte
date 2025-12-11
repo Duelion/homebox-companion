@@ -196,6 +196,8 @@
 		}
 		
 		analysisAnimationComplete = false;
+		// Collapse all expanded cards when analysis starts
+		expandedImages = new Set();
 		workflow.startAnalysis();
 	}
 
