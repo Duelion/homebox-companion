@@ -3,11 +3,16 @@
 		href: string;
 		label?: string;
 		onclick?: () => void;
+		disabled?: boolean;
 	}
 
-	let { href, label = 'Go back', onclick }: Props = $props();
+	let { href, label = 'Go back', onclick, disabled = false }: Props = $props();
 
 	function handleClick(e: MouseEvent) {
+		if (disabled) {
+			e.preventDefault();
+			return;
+		}
 		if (onclick) {
 			e.preventDefault();
 			onclick();
@@ -17,11 +22,14 @@
 
 <a
 	{href}
-	class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-text-muted hover:text-text bg-surface-elevated/50 hover:bg-surface-elevated border border-transparent hover:border-border/50 transition-all duration-200 mb-4 group"
+	class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all duration-200 mb-4 group {disabled
+		? 'text-neutral-600 bg-neutral-900/50 border border-neutral-800 cursor-not-allowed opacity-50'
+		: 'text-text-muted hover:text-text bg-surface-elevated/50 hover:bg-surface-elevated border border-transparent hover:border-border/50'}"
 	onclick={handleClick}
+	aria-disabled={disabled}
 >
 	<svg
-		class="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5"
+		class="w-4 h-4 transition-transform duration-200 {disabled ? '' : 'group-hover:-translate-x-0.5'}"
 		fill="none"
 		stroke="currentColor"
 		viewBox="0 0 24 24"
