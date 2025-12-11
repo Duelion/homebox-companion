@@ -69,6 +69,7 @@ All estimates below are based on measured token usage from this app’s producti
 | 4 | **$0.0014** | **$0.1386** | **$0.6929** | **$1.3858** |
 | 5 | **$0.0013** | **$0.1264** | **$0.6320** | **$1.2639** |
 
+> Although gpt-5-nano may be smaller and faster on a per-token basis, our testing shows that it generates significantly more tokens to complete the same task, ultimately offsetting any apparent speed advantage.
 
 ## 📋 Requirements
 
