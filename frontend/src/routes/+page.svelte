@@ -58,7 +58,7 @@
 <div class="flex flex-col items-center justify-center min-h-[70vh] animate-in">
 	<!-- Refined logo icon -->
 	<div class="w-20 h-20 bg-primary-600/20 rounded-2xl flex items-center justify-center mb-10 shadow-lg">
-		<svg class="w-10 h-10 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+		<svg class="w-10 h-10 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
 			<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
 		</svg>
 	</div>
