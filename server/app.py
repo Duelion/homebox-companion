@@ -118,6 +118,62 @@ async def _get_latest_github_version() -> str | None:
         return None
 
 
+async def _test_homebox_connectivity() -> None:
+    """Test connectivity to Homebox server and log diagnostic information.
+
+    Only runs when log level is DEBUG. Helps diagnose connection issues
+    by testing DNS resolution and HTTP connectivity.
+    """
+    if settings.log_level.upper() != "DEBUG":
+        return
+
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(settings.homebox_url)
+    host = parsed.hostname
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    logger.debug(f"Connectivity test: Target URL: {settings.homebox_url}")
+    logger.debug(f"Connectivity test: Parsed host: {host}, port: {port}, scheme: {parsed.scheme}")
+
+    # Test DNS resolution
+    if host:
+        try:
+            addresses = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            logger.debug(f"Connectivity test: DNS resolved {host} to {len(addresses)} address(es)")
+            for addr in addresses[:5]:  # Show up to 5 addresses
+                family, socktype, proto, canonname, sockaddr = addr
+                family_name = "IPv4" if family == socket.AF_INET else "IPv6"
+                logger.debug(f"Connectivity test:   {family_name}: {sockaddr[0]}:{sockaddr[1]}")
+        except socket.gaierror as e:
+            logger.warning(f"Connectivity test: DNS resolution failed for {host}: {e}")
+            if host in ("localhost", "127.0.0.1"):
+                logger.warning(
+                    "Connectivity test: Using localhost from Docker container won't work. "
+                    "Use 'host.docker.internal' (Docker Desktop) or the host's actual IP."
+                )
+            return
+
+    # Test HTTP connectivity
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            # Just do a HEAD request to check connectivity
+            response = await client.head(settings.homebox_url)
+            logger.debug(
+                f"Connectivity test: HEAD {settings.homebox_url} -> {response.status_code}"
+            )
+            logger.debug(f"Connectivity test: Response headers: {dict(response.headers)}")
+            if response.status_code in (301, 302, 307, 308):
+                logger.debug(f"Connectivity test: Redirect to: {response.headers.get('location')}")
+    except httpx.ConnectError as e:
+        logger.warning(f"Connectivity test: Connection failed: {e}")
+    except httpx.TimeoutException:
+        logger.warning("Connectivity test: Connection timed out")
+    except Exception as e:
+        logger.warning(f"Connectivity test: Unexpected error: {type(e).__name__}: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources across the app lifecycle."""
@@ -125,15 +181,20 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Starting Homebox Companion API")
     logger.info(f"Version: {__version__}")
-    logger.info(f"Homebox API URL: {settings.api_url}")
+    logger.info(f"Homebox URL (HBC_HOMEBOX_URL): {settings.homebox_url}")
+    logger.info(f"Full API endpoint: {settings.api_url}")
     logger.info(f"OpenAI Model: {settings.openai_model}")
+    logger.info(f"Log level: {settings.log_level}")
 
     if settings.is_demo_mode:
-        logger.warning("Using demo server - set HBC_API_URL for your own instance")
+        logger.warning("Using demo server - set HBC_HOMEBOX_URL for your own instance")
 
     # Validate settings on startup
     for issue in settings.validate_config():
         logger.warning(issue)
+
+    # Run connectivity test in debug mode
+    await _test_homebox_connectivity()
 
     # Create and set the shared client
     client = HomeboxClient(base_url=settings.api_url)
