@@ -240,7 +240,7 @@
 				
 				// Get color class based on log level (matching Loguru's default color scheme)
 				// https://github.com/Delgan/loguru/blob/master/loguru/_defaults.py
-				let levelClass = 'text-text font-semibold'; // Default: bold white (INFO)
+				let levelClass = 'text-neutral-100 font-semibold'; // Default: bold white (INFO)
 				switch (levelTrimmed) {
 					case 'TRACE':
 						levelClass = 'text-cyan-400 font-semibold';
@@ -249,25 +249,25 @@
 						levelClass = 'text-blue-400 font-semibold';
 						break;
 					case 'INFO':
-						levelClass = 'text-text font-semibold';
+						levelClass = 'text-neutral-100 font-semibold';
 						break;
 					case 'SUCCESS':
-						levelClass = 'text-green-400 font-semibold';
+						levelClass = 'text-success-500 font-semibold';
 						break;
 					case 'WARNING':
-						levelClass = 'text-yellow-400 font-semibold';
+						levelClass = 'text-warning-500 font-semibold';
 						break;
 					case 'ERROR':
-						levelClass = 'text-red-400 font-semibold';
+						levelClass = 'text-error-500 font-semibold';
 						break;
 					case 'CRITICAL':
-						levelClass = 'text-red-500 font-bold';
+						levelClass = 'text-error-700 font-bold';
 						break;
 				}
 				
 				// Build colorized line matching Loguru's format:
 				// <green>timestamp</green> | <level>LEVEL</level> | <cyan>location</cyan> - <level>message</level>
-				return `<span class="text-green-400">${escapeHtml(timestamp)}</span> | ` +
+				return `<span class="text-success-500">${escapeHtml(timestamp)}</span> | ` +
 					`<span class="${levelClass}">${escapeHtml(level)}</span>| ` +
 					`<span class="text-cyan-400">${escapeHtml(location)}</span>- ` +
 					`<span class="${levelClass}">${escapeHtml(message)}</span>`;
@@ -479,14 +479,14 @@
 
 <div class="animate-in space-y-6">
 	<div>
-		<h1 class="text-2xl font-bold text-text">Settings</h1>
-		<p class="text-text-muted text-sm mt-1">App configuration and information</p>
+		<h1 class="text-h1 font-bold text-neutral-100">Settings</h1>
+		<p class="text-body-sm text-neutral-400 mt-1">App configuration and information</p>
 	</div>
 
 	<!-- About Section -->
 	<section class="card space-y-4">
-		<h2 class="text-lg font-semibold text-text flex items-center gap-2">
-			<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+		<h2 class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2">
+			<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 				<circle cx="12" cy="12" r="10" />
 				<line x1="12" y1="16" x2="12" y2="12" />
 				<line x1="12" y1="8" x2="12.01" y2="8" />
@@ -497,15 +497,15 @@
 		<div class="space-y-3">
 			<!-- Version -->
 			<div class="flex items-center justify-between py-2">
-				<span class="text-text-muted">Version</span>
+				<span class="text-neutral-400">Version</span>
 				<div class="flex items-center gap-2">
-					<span class="text-text font-mono">{$appVersion || 'Loading...'}</span>
+					<span class="text-neutral-100 font-mono">{$appVersion || 'Loading...'}</span>
 					{#if updateAvailable && latestVersionNumber}
 						<a
 							href="https://github.com/Duelion/homebox-companion/releases/latest"
 							target="_blank"
 							rel="noopener noreferrer"
-							class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-xs hover:bg-amber-500/30 transition-colors"
+							class="inline-flex items-center gap-1 px-2 py-0.5 bg-warning-500/20 text-warning-500 rounded-full text-xs hover:bg-warning-500/30 transition-colors"
 							title="Click to view release"
 						>
 							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -516,7 +516,7 @@
 							<span>v{latestVersionNumber}</span>
 						</a>
 					{:else if updateCheckDone}
-						<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-success/20 text-success rounded-full text-xs">
+						<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-success-500/20 text-success-500 rounded-full text-xs">
 							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
@@ -527,10 +527,10 @@
 			</div>
 
 			<!-- Check for Updates Button -->
-			<div class="py-2 border-t border-border/20">
+			<div class="py-2 border-t border-neutral-800">
 				<button
 					type="button"
-					class="w-full py-2.5 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+					class="w-full py-2.5 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
 					onclick={checkForUpdates}
 					disabled={isCheckingUpdates}
 				>
@@ -538,7 +538,7 @@
 						<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
 						<span>Checking for updates...</span>
 					{:else}
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path d="M23 4v6h-6M1 20v-6h6" />
 							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 						</svg>
@@ -546,21 +546,21 @@
 					{/if}
 				</button>
 				{#if updateCheckError}
-					<p class="mt-2 text-xs text-danger">{updateCheckError}</p>
+					<p class="mt-2 text-xs text-error-500">{updateCheckError}</p>
 				{/if}
 			</div>
 
 			<!-- Configuration Info -->
 			{#if config}
 				<!-- Homebox URL -->
-				<div class="flex items-center justify-between py-2 border-t border-border/20">
-					<span class="text-text-muted">Homebox URL</span>
+				<div class="flex items-center justify-between py-2 border-t border-neutral-800">
+					<span class="text-neutral-400">Homebox URL</span>
 					<div class="flex items-center gap-2">
 						<a
 							href={config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="text-text hover:text-primary font-mono text-sm transition-colors flex items-center gap-1"
+							class="text-neutral-100 hover:text-primary-400 font-mono text-sm transition-colors flex items-center gap-1"
 							title="Open Homebox instance"
 						>
 							{config.homebox_url}
@@ -571,7 +571,7 @@
 							</svg>
 						</a>
 						{#if config.is_demo_mode}
-							<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-xs">
+							<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-warning-500/20 text-warning-500 rounded-full text-xs">
 								Demo
 							</span>
 						{/if}
@@ -579,23 +579,23 @@
 				</div>
 
 				<!-- AI Model -->
-				<div class="flex items-center justify-between py-2 border-t border-border/20">
-					<span class="text-text-muted">AI Model</span>
-					<span class="text-text font-mono text-sm">{config.openai_model}</span>
+				<div class="flex items-center justify-between py-2 border-t border-neutral-800">
+					<span class="text-neutral-400">AI Model</span>
+					<span class="text-neutral-100 font-mono text-sm">{config.openai_model}</span>
 				</div>
 			{:else if isLoadingConfig}
 				<div class="flex items-center justify-center py-4">
-					<div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+					<div class="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
 				</div>
 			{/if}
 
 			<!-- GitHub Link -->
-			<div class="pt-2 border-t border-border/20">
+			<div class="pt-2 border-t border-neutral-800">
 				<a
 					href="https://github.com/Duelion/homebox-companion"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="flex items-center justify-between py-2 text-text-muted hover:text-text transition-colors group"
+					class="flex items-center justify-between py-2 text-neutral-400 hover:text-neutral-100 transition-colors group"
 				>
 					<span class="flex items-center gap-2">
 						<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
@@ -616,8 +616,8 @@
 	<!-- Logs Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-semibold text-text flex items-center gap-2">
-				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+			<h2 class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 					<polyline points="14 2 14 8 20 8" />
 					<line x1="16" y1="13" x2="8" y2="13" />
@@ -630,17 +630,18 @@
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
 						onclick={refreshLogs}
 						disabled={isLoadingLogs}
 						title="Refresh logs"
+						aria-label="Refresh logs"
 					>
 						<svg
-							class="w-4 h-4 {isLoadingLogs ? 'animate-spin' : ''}"
+							class="w-5 h-5 {isLoadingLogs ? 'animate-spin' : ''}"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
-							stroke-width="2"
+							stroke-width="1.5"
 						>
 							<path d="M23 4v6h-6M1 20v-6h6" />
 							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
@@ -648,12 +649,13 @@
 					</button>
 					<button
 						type="button"
-						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
 						onclick={handleDownloadLogs}
 						disabled={!logs.filename}
 						title="Download full log file"
+						aria-label="Download logs"
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 							<polyline points="7 10 12 15 17 10" />
 							<line x1="12" y1="15" x2="12" y2="3" />
@@ -661,11 +663,12 @@
 					</button>
 					<button
 						type="button"
-						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
 						onclick={() => (logsFullscreen = true)}
 						title="Expand fullscreen"
+						aria-label="View logs fullscreen"
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
 						</svg>
 					</button>
@@ -673,13 +676,13 @@
 			{/if}
 		</div>
 
-	<p class="text-sm text-text-muted">
+	<p class="text-body-sm text-neutral-400">
 		View recent application logs for debugging and reference.
 	</p>
 
 	<button
 		type="button"
-		class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center gap-2"
+		class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
 		onclick={loadLogs}
 		disabled={isLoadingLogs}
 	>
@@ -687,7 +690,7 @@
 			<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
 			<span>Loading logs...</span>
 		{:else}
-			<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+			<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 				<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 				<polyline points="14 2 14 8 20 8" />
 				<line x1="16" y1="13" x2="8" y2="13" />
@@ -703,21 +706,21 @@
 
 	{#if showLogs}
 		{#if logsError}
-			<div class="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm">
+			<div class="p-4 bg-error-500/10 border border-error-500/30 rounded-xl text-error-500 text-sm">
 				{logsError}
 			</div>
 		{:else if logs}
 			<div class="mt-3 space-y-2">
 				{#if logs.filename}
-					<div class="flex items-center justify-between text-xs text-text-dim">
+					<div class="flex items-center justify-between text-xs text-neutral-500">
 						<span>{logs.filename}</span>
 						<span>
 							{logs.truncated ? `Last ${logs.total_lines > 300 ? 300 : logs.total_lines} of ${logs.total_lines}` : `${logs.total_lines}`} lines
 						</span>
 					</div>
 				{/if}
-				<div class="bg-background rounded-xl border border-border overflow-hidden">
-					<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedLogs()}</pre>
+				<div class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden">
+					<pre bind:this={logsContainer} class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedLogs()}</pre>
 				</div>
 			</div>
 		{/if}
@@ -727,14 +730,14 @@
 	<!-- AI Output Configuration Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-semibold text-text flex items-center gap-2">
-				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+			<h2 class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4" />
 				</svg>
 				Configure AI Output
 			</h2>
 			{#if showFieldPrefs && fieldPrefsSaved}
-				<span class="text-sm text-success flex items-center gap-1">
+				<span class="text-sm text-success-500 flex items-center gap-1">
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 					</svg>
@@ -743,13 +746,13 @@
 			{/if}
 		</div>
 
-	<p class="text-sm text-text-muted">
+	<p class="text-body-sm text-neutral-400">
 		Customize how the AI generates item data. Leave fields empty to use default behavior.
 	</p>
 
 	<button
 		type="button"
-		class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center gap-2"
+		class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
 		onclick={loadFieldPrefs}
 		disabled={isLoadingFieldPrefs}
 	>
@@ -757,7 +760,7 @@
 			<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
 			<span>Loading...</span>
 		{:else}
-			<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+			<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 				<path d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4" />
 			</svg>
 			<span>Configure Fields</span>
@@ -769,20 +772,20 @@
 
 	{#if showFieldPrefs}
 		{#if fieldPrefsError}
-			<div class="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm">
+			<div class="p-4 bg-error-500/10 border border-error-500/30 rounded-xl text-error-500 text-sm">
 				{fieldPrefsError}
 			</div>
 		{/if}
 
 		<!-- Output Language Setting -->
-		<div class="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
+		<div class="p-4 bg-primary-600/10 rounded-xl border border-primary-500/20 space-y-3">
 			<div class="flex items-center gap-2">
-				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
 				</svg>
-				<label for="output_language" class="font-semibold text-text">Output Language</label>
+				<label for="output_language" class="font-semibold text-neutral-100">Output Language</label>
 			</div>
-			<p class="text-xs text-text-muted">
+			<p class="text-xs text-neutral-400">
 				Choose what language the AI should use for item names, descriptions, and notes.
 			</p>
 			<input
@@ -791,11 +794,11 @@
 				value={prefs.output_language || ''}
 				oninput={(e) => handleFieldInput('output_language', e.currentTarget.value)}
 				placeholder={effectiveDefaults ? effectiveDefaults.output_language : 'Loading...'}
-				class="w-full px-3 py-2 bg-background border border-border rounded-lg text-text placeholder-text-dim text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+				class="input"
 			/>
-			<div class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-				<p class="text-xs text-amber-200 flex items-start gap-2">
-					<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+			<div class="p-2 bg-warning-500/10 border border-warning-500/30 rounded-lg">
+				<p class="text-xs text-warning-500 flex items-start gap-2">
+					<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
 					</svg>
 					<span><strong>Note:</strong> Field customization instructions below should still be written in English. Only the AI output will be in the configured language.</span>
@@ -804,51 +807,51 @@
 		</div>
 
 		<!-- Default Label Setting -->
-		<div class="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
+		<div class="p-4 bg-primary-600/10 rounded-xl border border-primary-500/20 space-y-3">
 			<div class="flex items-center gap-2">
-				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
 				</svg>
-				<label for="default_label" class="font-semibold text-text">Default Label</label>
+				<label for="default_label" class="font-semibold text-neutral-100">Default Label</label>
 			</div>
-			<p class="text-xs text-text-muted">
+			<p class="text-xs text-neutral-400">
 				Automatically tag all items created via Homebox Companion with this label.
 			</p>
 			<select
 				id="default_label"
 				value={prefs.default_label_id || ''}
 				onchange={(e) => { prefs.default_label_id = e.currentTarget.value || null; }}
-				class="w-full px-3 py-2 bg-background border border-border rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+				class="input"
 			>
 				<option value="">No default label</option>
 				{#each availableLabels as label}
 					<option value={label.id}>{label.name}{effectiveDefaults?.default_label_id === label.id ? ' (env default)' : ''}</option>
 				{/each}
 			</select>
-			<p class="text-xs text-text-dim">
+			<p class="text-xs text-neutral-500">
 				Useful for identifying items added through this app in your Homebox inventory.
 			</p>
 		</div>
 
-		<!-- Field Customizations -->
-		<div class="space-y-4">
+		<!-- Field Customizations - 2-column grid on wider screens -->
+		<div class="grid gap-4 sm:grid-cols-2">
 			{#each fieldMeta as field}
-					<div class="p-3 bg-surface-elevated/50 rounded-lg border border-border/50 space-y-2">
-						<label for={field.key} class="block text-sm font-semibold text-text">
+					<div class="p-3 bg-neutral-800/50 rounded-lg border border-neutral-700/50 space-y-2">
+						<label for={field.key} class="block text-sm font-semibold text-neutral-100">
 							{field.label}
 						</label>
-						<div class="text-xs text-text-muted bg-background/50 px-2 py-1.5 rounded border border-border/30">
-							<span class="text-text-dim">Default:</span> {effectiveDefaults?.[field.key] ?? 'Loading...'}
+						<div class="text-xs text-neutral-400 bg-neutral-950/50 px-2 py-1.5 rounded border border-neutral-700/30">
+							<span class="text-neutral-500">Default:</span> {effectiveDefaults?.[field.key] ?? 'Loading...'}
 						</div>
 						<input
 							type="text"
 							id={field.key}
 							value={prefs[field.key] || ''}
 							oninput={(e) => handleFieldInput(field.key, e.currentTarget.value)}
-							placeholder="Leave empty to use default, or type custom instruction..."
-							class="w-full px-3 py-2 bg-background border border-border rounded-lg text-text placeholder-text-dim text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+							placeholder="Leave empty for default..."
+							class="input text-sm"
 						/>
-						<p class="text-xs text-text-dim">Example: {field.example}</p>
+						<p class="text-xs text-neutral-500 line-clamp-2">Example: {field.example}</p>
 					</div>
 				{/each}
 			</div>
@@ -876,16 +879,76 @@
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 					</svg>
-					<span>Reset to Defaults</span>
+					<span>Reset</span>
 				</Button>
 			</div>
 		{/if}
 
-		<!-- Prompt Preview Section - Always visible at section level -->
-		<div class="pt-4 border-t border-border/20">
+		<!-- Docker Persistence Warning & Export - Moved up for visibility -->
+		<div class="p-4 bg-warning-500/10 border border-warning-500/30 rounded-xl space-y-3">
+			<div class="flex items-start gap-2">
+				<svg class="w-5 h-5 text-warning-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
+				<div>
+					<p class="text-sm font-medium text-warning-500 mb-1">Docker users</p>
+					<p class="text-xs text-neutral-400">Customizations are stored in a config file that may be lost when updating your container. Export as environment variables to persist settings.</p>
+				</div>
+			</div>
+			
 			<button
 				type="button"
-				class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center gap-2"
+				class="w-full py-2.5 px-4 bg-warning-500/20 hover:bg-warning-500/30 border border-warning-500/30 rounded-lg text-warning-500 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+				onclick={toggleEnvExport}
+				disabled={isLoadingExport}
+			>
+				{#if isLoadingExport}
+					<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+					<span>Loading...</span>
+				{:else}
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+					</svg>
+					<span>Export as Environment Variables</span>
+				{/if}
+			</button>
+		</div>
+
+		{#if showEnvExport && exportPrefs}
+			<div class="space-y-2">
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-neutral-400 font-medium">Add these to your docker-compose.yml or .env file</span>
+					<button
+						type="button"
+						class="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 rounded-lg transition-colors min-h-[36px]"
+						onclick={copyEnvVars}
+						aria-label="Copy environment variables"
+					>
+						{#if envCopied}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+							<span>Copied!</span>
+						{:else}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+								<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+							</svg>
+							<span>Copy</span>
+						{/if}
+					</button>
+				</div>
+				<div class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden">
+					<pre class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto whitespace-pre-wrap break-words">{generateEnvVars(exportPrefs)}</pre>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Prompt Preview Section -->
+		<div class="pt-4 border-t border-neutral-800">
+			<button
+				type="button"
+				class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
 				onclick={loadPromptPreview}
 				disabled={isLoadingPreview}
 			>
@@ -893,7 +956,7 @@
 					<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
 					<span>Generating preview...</span>
 				{:else}
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
 						<path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
 					</svg>
@@ -907,96 +970,34 @@
 		{#if showPromptPreview && promptPreview}
 			<div class="mt-3 space-y-2">
 				<div class="flex items-center justify-between">
-					<span class="text-xs text-text-muted font-medium">System Prompt Preview</span>
+					<span class="text-xs text-neutral-400 font-medium">System Prompt Preview</span>
 					<button
 						type="button"
-						class="p-1.5 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
 						onclick={() => (promptFullscreen = true)}
 						title="Expand fullscreen"
+						aria-label="View prompt fullscreen"
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
 						</svg>
 					</button>
 				</div>
-				<div class="bg-background rounded-xl border border-border overflow-hidden">
-					<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-words">{promptPreview}</pre>
+				<div class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden">
+					<pre class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-words">{promptPreview}</pre>
 				</div>
-				<p class="text-xs text-text-dim">
+				<p class="text-xs text-neutral-500">
 					This is what the AI will see when analyzing your images. Labels shown are examples; actual labels from your Homebox instance will be used.
 				</p>
 			</div>
 		{/if}
 	</div>
-
-	<!-- Docker Persistence Warning & Export -->
-	<div class="pt-4 border-t border-border/20 space-y-3">
-		<!-- Export Button -->
-		<button
-			type="button"
-			class="w-full py-3 px-4 bg-surface-elevated/50 hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-text transition-all flex items-center justify-center gap-2"
-			onclick={toggleEnvExport}
-			disabled={isLoadingExport}
-		>
-			{#if isLoadingExport}
-				<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-				<span>Loading...</span>
-			{:else}
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-					<path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-				</svg>
-				<span>Export as Environment Variables</span>
-				<svg class="w-4 h-4 ml-auto transition-transform {showEnvExport ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<polyline points="6 9 12 15 18 9" />
-				</svg>
-			{/if}
-		</button>
-
-		{#if showEnvExport && exportPrefs}
-			<div class="space-y-2">
-				<div class="flex items-center justify-between">
-					<span class="text-xs text-text-muted font-medium">Add these to your docker-compose.yml or .env file</span>
-					<button
-						type="button"
-						class="flex items-center gap-1 text-xs px-2 py-1 bg-primary/20 hover:bg-primary/30 text-primary rounded transition-colors"
-						onclick={copyEnvVars}
-					>
-						{#if envCopied}
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-							<span>Copied!</span>
-						{:else}
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-								<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-							</svg>
-							<span>Copy</span>
-						{/if}
-					</button>
-				</div>
-				<div class="bg-background rounded-xl border border-border overflow-hidden">
-					<pre class="p-4 text-xs font-mono text-text-muted overflow-x-auto whitespace-pre-wrap break-words">{generateEnvVars(exportPrefs)}</pre>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Warning -->
-		<div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-			<p class="text-xs text-amber-200 flex items-start gap-2">
-				<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-					<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-				</svg>
-				<span><strong>Docker users:</strong> Customizations are stored in a config file that may be lost when updating your container. Use the export above to persist settings via environment variables.</span>
-			</p>
-		</div>
-	</div>
 </section>
 
 	<!-- Account Section -->
 	<section class="card space-y-4">
-		<h2 class="text-lg font-semibold text-text flex items-center gap-2">
-			<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+		<h2 class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2">
+			<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 				<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
 				<circle cx="12" cy="7" r="4" />
 			</svg>
@@ -1004,7 +1005,7 @@
 		</h2>
 
 		<Button variant="danger" full onclick={handleLogout}>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 				<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
 				<polyline points="16 17 21 12 16 7" />
 				<line x1="21" y1="12" x2="9" y2="12" />
@@ -1019,11 +1020,11 @@
 
 <!-- Fullscreen Logs Modal -->
 {#if logsFullscreen && logs}
-	<div class="fixed inset-0 z-[60] flex flex-col bg-background">
+	<div class="fixed inset-0 z-[60] flex flex-col bg-neutral-950">
 		<!-- Header -->
-		<div class="flex items-center justify-between p-4 border-b border-border bg-surface">
+		<div class="flex items-center justify-between p-4 border-b border-neutral-700 bg-neutral-900">
 			<div class="flex items-center gap-3">
-				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 					<polyline points="14 2 14 8 20 8" />
 					<line x1="16" y1="13" x2="8" y2="13" />
@@ -1031,9 +1032,9 @@
 					<polyline points="10 9 9 9 8 9" />
 				</svg>
 				<div>
-					<h2 class="text-lg font-semibold text-text">Application Logs</h2>
+					<h2 class="text-body-lg font-semibold text-neutral-100">Application Logs</h2>
 					{#if logs.filename}
-						<p class="text-xs text-text-dim">
+						<p class="text-xs text-neutral-500">
 							{logs.filename} • {logs.truncated ? `Last ${logs.total_lines > 300 ? 300 : logs.total_lines} of ${logs.total_lines}` : logs.total_lines} lines
 						</p>
 					{/if}
@@ -1042,17 +1043,18 @@
 			<div class="flex items-center gap-2">
 				<button
 					type="button"
-					class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
 					onclick={refreshLogs}
 					disabled={isLoadingLogs}
 					title="Refresh logs"
+					aria-label="Refresh logs"
 				>
 					<svg
 						class="w-5 h-5 {isLoadingLogs ? 'animate-spin' : ''}"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
-						stroke-width="2"
+						stroke-width="1.5"
 					>
 						<path d="M23 4v6h-6M1 20v-6h6" />
 						<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
@@ -1060,12 +1062,13 @@
 				</button>
 				<button
 					type="button"
-					class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
 					onclick={handleDownloadLogs}
 					disabled={!logs.filename}
 					title="Download full log file"
+					aria-label="Download logs"
 				>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 						<polyline points="7 10 12 15 17 10" />
 						<line x1="12" y1="15" x2="12" y2="3" />
@@ -1073,11 +1076,12 @@
 				</button>
 				<button
 					type="button"
-					class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
 					onclick={() => (logsFullscreen = false)}
 					title="Close fullscreen"
+					aria-label="Close"
 				>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path d="M18 6L6 18M6 6l12 12" />
 					</svg>
 				</button>
@@ -1085,42 +1089,43 @@
 		</div>
 		<!-- Content -->
 		<div bind:this={logsFullscreenContainer} class="flex-1 overflow-auto p-4 pb-24">
-			<pre class="text-xs font-mono text-text-muted whitespace-pre-wrap break-all leading-relaxed">{@html colorizedLogs()}</pre>
+			<pre class="text-xs font-mono text-neutral-400 whitespace-pre-wrap break-all leading-relaxed">{@html colorizedLogs()}</pre>
 		</div>
 	</div>
 {/if}
 
 <!-- Fullscreen Prompt Preview Modal -->
 {#if promptFullscreen && promptPreview}
-	<div class="fixed inset-0 z-[60] flex flex-col bg-background">
+	<div class="fixed inset-0 z-[60] flex flex-col bg-neutral-950">
 		<!-- Header -->
-		<div class="flex items-center justify-between p-4 border-b border-border bg-surface">
+		<div class="flex items-center justify-between p-4 border-b border-neutral-700 bg-neutral-900">
 			<div class="flex items-center gap-3">
-				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
 					<path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
 				</svg>
 				<div>
-					<h2 class="text-lg font-semibold text-text">AI System Prompt</h2>
-					<p class="text-xs text-text-dim">
+					<h2 class="text-body-lg font-semibold text-neutral-100">AI System Prompt</h2>
+					<p class="text-xs text-neutral-500">
 						This is what the AI sees when analyzing your images
 					</p>
 				</div>
 			</div>
 			<button
 				type="button"
-				class="p-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-colors"
+				class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
 				onclick={() => (promptFullscreen = false)}
 				title="Close fullscreen"
+				aria-label="Close"
 			>
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M18 6L6 18M6 6l12 12" />
 				</svg>
 			</button>
 		</div>
 		<!-- Content -->
 		<div class="flex-1 overflow-auto p-4 pb-24">
-			<pre class="text-sm font-mono text-text-muted whitespace-pre-wrap break-words leading-relaxed">{promptPreview}</pre>
+			<pre class="text-sm font-mono text-neutral-400 whitespace-pre-wrap break-words leading-relaxed">{promptPreview}</pre>
 		</div>
 	</div>
 {/if}

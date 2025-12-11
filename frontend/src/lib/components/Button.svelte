@@ -23,12 +23,13 @@
 		children,
 	}: Props = $props();
 
+	// Modernized variant classes with tonal colors
 	const variantClasses = {
-		primary: 'bg-primary text-white hover:bg-primary-hover hover:shadow-glow',
-		secondary: 'bg-surface-elevated text-text hover:bg-surface-hover border border-border',
-		ghost: 'bg-transparent text-text-muted hover:text-text hover:bg-surface-elevated',
-		danger: 'bg-danger text-white hover:bg-red-600',
-		warning: 'bg-amber-500 text-white hover:bg-amber-600 hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]',
+		primary: 'bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700 disabled:bg-neutral-800 disabled:text-neutral-500 focus:ring-primary-500/50',
+		secondary: 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700 hover:border-neutral-600 active:bg-neutral-900 border border-neutral-700 disabled:bg-neutral-900 disabled:text-neutral-600 disabled:border-neutral-800 focus:ring-neutral-500/50',
+		ghost: 'bg-transparent text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 active:bg-neutral-700 disabled:text-neutral-600 focus:ring-neutral-500/50',
+		danger: 'bg-error-600 text-white hover:bg-error-500 active:bg-error-700 disabled:bg-neutral-800 disabled:text-neutral-500 focus:ring-error-500/50',
+		warning: 'bg-warning-500 text-white hover:bg-warning-600 active:bg-warning-700 disabled:bg-neutral-800 disabled:text-neutral-500 focus:ring-warning-500/50',
 	};
 
 	const sizeClasses = {
@@ -42,7 +43,7 @@
 	{type}
 	{onclick}
 	disabled={disabled || loading}
-	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:grayscale disabled:hover:shadow-none {variantClasses[variant]} {sizeClasses[size]}"
+	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950 {variantClasses[variant]} {sizeClasses[size]}"
 	class:w-full={full}
 >
 	{#if loading}
@@ -50,12 +51,3 @@
 	{/if}
 	{@render children()}
 </button>
-
-
-
-
-
-
-
-
-

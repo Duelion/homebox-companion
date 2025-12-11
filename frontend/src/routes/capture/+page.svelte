@@ -9,7 +9,6 @@
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
-	import CaptureButtons from '$lib/components/CaptureButtons.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 
@@ -206,29 +205,29 @@
 	<title>Capture Items - Homebox Companion</title>
 </svelte:head>
 
-<div class="animate-in">
+<div class="animate-in pb-28">
 	<BackLink href="/location" label="Change Location" onclick={goBack} />
 
 	<StepIndicator currentStep={2} />
 
-	<h2 class="text-2xl font-bold text-text mb-2">Capture Items</h2>
-	<p class="text-text-muted mb-6">Add photos and configure detection options for each</p>
+	<h2 class="text-h2 text-neutral-100 mb-1">Capture Items</h2>
+	<p class="text-body-sm text-neutral-400 mb-6">Add photos and configure detection options</p>
 
 	<!-- Image list with collapsible cards -->
 	{#if images.length > 0}
 		<div class="space-y-3 mb-4">
 			{#each images as image, index}
-				<div class="bg-surface rounded-xl border border-border overflow-hidden">
+				<div class="bg-neutral-900 rounded-xl border border-neutral-700 shadow-sm overflow-hidden transition-all hover:border-neutral-600">
 					<!-- Header (always visible) -->
 					<div class="flex items-center gap-3 p-3">
 						<!-- Thumbnail -->
-						<div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-surface-elevated relative">
+						<div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-neutral-800 relative">
 							<img
 								src={image.dataUrl}
 								alt="Captured {index + 1}"
 								class="w-full h-full object-cover"
 							/>
-							<div class="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+							<div class="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-medium">
 								{index + 1}
 							</div>
 						</div>
@@ -236,42 +235,43 @@
 						<!-- File info -->
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2">
-								<p class="text-sm font-medium text-text truncate">{image.file.name}</p>
+								<p class="text-body-sm font-medium text-neutral-200 truncate">{image.file.name}</p>
 								{#if image.additionalFiles && image.additionalFiles.length > 0}
-									<span class="px-1.5 py-0.5 bg-primary/20 text-primary-light rounded text-xs">
+									<span class="px-1.5 py-0.5 bg-primary-500/20 text-primary-300 rounded text-caption font-medium">
 										+{image.additionalFiles.length}
 									</span>
 								{/if}
 							</div>
-							<p class="text-xs text-text-muted">{formatFileSize(image.file.size)}</p>
+							<p class="text-caption text-neutral-500">{formatFileSize(image.file.size)}</p>
 						</div>
 
 						<!-- Action buttons -->
 						<div class="flex items-center gap-1">
 							<button
 								type="button"
-								class="p-2 text-text-muted hover:text-text transition-colors"
+								class="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
 								aria-label={expandedImages.has(index) ? 'Collapse options' : 'Expand options'}
 								onclick={() => toggleImageExpanded(index)}
 								disabled={isAnalyzing}
 							>
 								<svg 
-									class="w-5 h-5 transition-transform {expandedImages.has(index) ? 'rotate-180' : ''}" 
+									class="w-5 h-5 transition-transform duration-200 {expandedImages.has(index) ? 'rotate-180' : ''}" 
 									fill="none" 
 									stroke="currentColor" 
 									viewBox="0 0 24 24"
+									stroke-width="1.5"
 								>
-									<polyline points="18 15 12 9 6 15" />
+									<polyline points="6 9 12 15 18 9" />
 								</svg>
 							</button>
 							<button
 								type="button"
-								class="p-2 text-text-muted hover:text-danger transition-colors"
+								class="p-2 text-neutral-400 hover:text-error-400 hover:bg-error-500/10 rounded-lg transition-colors"
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
 								disabled={isAnalyzing}
 							>
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 									<line x1="18" y1="6" x2="6" y2="18" />
 									<line x1="6" y1="6" x2="18" y2="18" />
 								</svg>
@@ -281,7 +281,7 @@
 
 				<!-- Expandable options -->
 				{#if expandedImages.has(index)}
-					<div class="px-3 pb-3 pt-0 space-y-3 border-t border-border/50 mt-0" transition:slide={{ duration: 200 }}>
+					<div class="px-3 pb-3 pt-0 space-y-3 border-t border-neutral-800 mt-0" transition:slide={{ duration: 200 }}>
 							<!-- Separate into multiple items toggle -->
 							<label class="flex items-center gap-3 pt-3 cursor-pointer">
 								<div class="relative">
@@ -292,10 +292,10 @@
 										class="sr-only peer"
 										disabled={isAnalyzing}
 									/>
-									<div class="w-10 h-6 bg-surface-elevated rounded-full peer-checked:bg-primary transition-colors"></div>
-									<div class="absolute left-1 top-1 w-4 h-4 bg-text-muted rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-all"></div>
+									<div class="w-10 h-6 bg-neutral-700 rounded-full peer-checked:bg-primary-600 transition-colors"></div>
+									<div class="absolute left-1 top-1 w-4 h-4 bg-neutral-400 rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-all"></div>
 								</div>
-								<span class="text-sm text-text">Separate into multiple items</span>
+								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
 							</label>
 
 							<!-- Optional instructions -->
@@ -305,7 +305,7 @@
 									placeholder="Optional: describe what's in this photo..."
 									value={image.extraInstructions}
 									oninput={(e) => updateImageOption(index, 'extraInstructions', (e.target as HTMLInputElement).value)}
-									class="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+									class="input text-body-sm"
 									disabled={isAnalyzing}
 								/>
 							</div>
@@ -322,21 +322,21 @@
 
 							{#if image.additionalDataUrls && image.additionalDataUrls.length > 0}
 								<!-- Has additional photos: show gallery strip -->
-								<div class="pt-3 border-t border-border/30">
+								<div class="pt-3 border-t border-neutral-800/50">
 									<div class="flex items-center gap-2 mb-3">
-										<svg class="w-4 h-4 text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 											<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
 											<circle cx="8.5" cy="8.5" r="1.5"/>
 											<polyline points="21 15 16 10 5 21"/>
 										</svg>
-										<span class="text-sm font-medium text-text">
+										<span class="text-body-sm font-medium text-neutral-200">
 											{image.additionalDataUrls.length} additional photo{image.additionalDataUrls.length !== 1 ? 's' : ''}
 										</span>
 									</div>
 									
 									<div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
 										{#each image.additionalDataUrls as additionalUrl, additionalIndex}
-											<div class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-surface-elevated group ring-1 ring-border/50">
+											<div class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-neutral-800 group ring-1 ring-neutral-700">
 												<img
 													src={additionalUrl}
 													alt="Additional {additionalIndex + 1}"
@@ -344,7 +344,7 @@
 												/>
 												<button
 													type="button"
-													class="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-danger rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+													class="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-error-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
 													aria-label="Remove additional image"
 													onclick={() => removeAdditionalImage(index, additionalIndex)}
 													disabled={isAnalyzing}
@@ -354,7 +354,7 @@
 														<line x1="6" y1="6" x2="18" y2="18" />
 													</svg>
 												</button>
-												<div class="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+												<div class="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
 													{additionalIndex + 1}
 												</div>
 											</div>
@@ -363,15 +363,15 @@
 						<!-- Add more button inline -->
 						<button
 							type="button"
-							class="flex-shrink-0 w-20 h-20 rounded-xl border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 transition-all"
+							class="flex-shrink-0 w-20 h-20 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex flex-col items-center justify-center gap-1 transition-all"
 							onclick={() => additionalImageInputs[index]?.click()}
 							disabled={isAnalyzing}
 						>
-											<svg class="w-6 h-6 text-text-muted" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+											<svg class="w-6 h-6 text-neutral-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
 												<line x1="12" y1="5" x2="12" y2="19" />
 												<line x1="5" y1="12" x2="19" y2="12" />
 											</svg>
-											<span class="text-[10px] text-text-muted font-medium">Add</span>
+											<span class="text-[10px] text-neutral-500 font-medium">Add</span>
 										</button>
 									</div>
 								</div>
@@ -379,13 +379,13 @@
 								<!-- Empty state: prominent add button -->
 								<button
 									type="button"
-									class="w-full mt-2 p-4 rounded-xl border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+									class="w-full mt-2 p-4 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
 									onclick={() => additionalImageInputs[index]?.click()}
 									disabled={isAnalyzing}
 								>
 									<div class="flex items-center gap-4">
-										<div class="w-12 h-12 rounded-xl bg-surface-elevated flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-											<svg class="w-6 h-6 text-text-muted group-hover:text-primary transition-colors" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+										<div class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors">
+											<svg class="w-6 h-6 text-neutral-500 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
 												<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
 												<circle cx="8.5" cy="8.5" r="1.5"/>
 												<polyline points="21 15 16 10 5 21"/>
@@ -394,10 +394,10 @@
 											</svg>
 										</div>
 										<div class="flex-1 text-left">
-											<p class="text-sm font-medium text-text group-hover:text-primary transition-colors">Add more photos</p>
-											<p class="text-xs text-text-dim">Close-ups, labels, serial numbers, different angles</p>
+											<p class="text-body-sm font-medium text-neutral-200 group-hover:text-primary-400 transition-colors">Add more photos</p>
+											<p class="text-caption text-neutral-500">Close-ups, labels, serial numbers, different angles</p>
 										</div>
-										<svg class="w-5 h-5 text-text-muted group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5 text-neutral-500 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 											<polyline points="9 18 15 12 9 6" />
 										</svg>
 									</div>
@@ -408,21 +408,93 @@
 				</div>
 			{/each}
 
-			<!-- Capture buttons inside dashed border -->
+			<!-- Add more images button -->
 			{#if images.length < MAX_IMAGES && !showAnalyzingUI}
-				<CaptureButtons 
-					onCamera={() => cameraInput.click()} 
-					onUpload={() => fileInput.click()} 
-				/>
+				<div class="flex gap-3">
+					<button
+						type="button"
+						class="flex-1 p-4 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
+						onclick={() => cameraInput.click()}
+					>
+						<div class="flex flex-col items-center gap-2">
+							<div class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors">
+								<svg class="w-6 h-6 text-neutral-400 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+									<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+									<circle cx="12" cy="13" r="4" />
+								</svg>
+							</div>
+							<span class="text-body-sm font-medium text-neutral-400 group-hover:text-primary-400 transition-colors">Camera</span>
+						</div>
+					</button>
+					<button
+						type="button"
+						class="flex-1 p-4 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
+						onclick={() => fileInput.click()}
+					>
+						<div class="flex flex-col items-center gap-2">
+							<div class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors">
+								<svg class="w-6 h-6 text-neutral-400 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+									<polyline points="17 8 12 3 7 8" />
+									<line x1="12" y1="3" x2="12" y2="15" />
+								</svg>
+							</div>
+							<span class="text-body-sm font-medium text-neutral-400 group-hover:text-primary-400 transition-colors">Upload</span>
+						</div>
+					</button>
+				</div>
 			{/if}
 		</div>
 	{:else}
-		<!-- Empty state - same capture buttons -->
-		<div class="mb-6">
-			<CaptureButtons 
-				onCamera={() => cameraInput.click()} 
-				onUpload={() => fileInput.click()} 
-			/>
+		<!-- Enhanced empty state -->
+		<div class="flex flex-col items-center py-12 px-4 mb-6">
+			<div class="w-24 h-24 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-6">
+				<svg class="w-12 h-12 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+					<circle cx="12" cy="13" r="4" />
+				</svg>
+			</div>
+			<h3 class="text-h3 text-neutral-100 mb-2 text-center">Capture your items</h3>
+			<p class="text-body-sm text-neutral-400 text-center max-w-xs mb-8">
+				Take photos or upload images of items you want to add to your inventory
+			</p>
+			
+			<!-- Capture buttons -->
+			<div class="flex gap-3 w-full max-w-sm">
+				<button
+					type="button"
+					class="flex-1 p-4 rounded-xl bg-neutral-900 border border-neutral-700 hover:border-primary-500/50 hover:bg-neutral-800 transition-all group shadow-sm"
+					onclick={() => cameraInput.click()}
+				>
+					<div class="flex flex-col items-center gap-2">
+						<div class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors">
+							<svg class="w-6 h-6 text-neutral-300 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+								<circle cx="12" cy="13" r="4" />
+							</svg>
+						</div>
+						<span class="text-body-sm font-medium text-neutral-200 group-hover:text-primary-400 transition-colors">Camera</span>
+					</div>
+				</button>
+				<button
+					type="button"
+					class="flex-1 p-4 rounded-xl bg-neutral-900 border border-neutral-700 hover:border-primary-500/50 hover:bg-neutral-800 transition-all group shadow-sm"
+					onclick={() => fileInput.click()}
+				>
+					<div class="flex flex-col items-center gap-2">
+						<div class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors">
+							<svg class="w-6 h-6 text-neutral-300 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="17 8 12 3 7 8" />
+								<line x1="12" y1="3" x2="12" y2="15" />
+							</svg>
+						</div>
+						<span class="text-body-sm font-medium text-neutral-200 group-hover:text-primary-400 transition-colors">Upload</span>
+					</div>
+				</button>
+			</div>
+			
+			<p class="text-caption text-neutral-500 mt-6">Max {MAX_IMAGES} images · {MAX_FILE_SIZE_MB}MB per file</p>
 		</div>
 	{/if}
 
@@ -444,43 +516,49 @@
 		class="hidden"
 	/>
 
-	<!-- Analysis progress -->
+	<!-- Analysis progress (inline, not in footer) -->
 	{#if progress && showAnalyzingUI}
-		<AnalysisProgressBar
-			current={progress.current}
-			total={progress.total}
-			message={status === 'reviewing' ? 'Analysis complete!' : (progress.message || 'Analyzing...')}
-			onComplete={handleAnalysisComplete}
-		/>
+		<div class="mb-4">
+			<AnalysisProgressBar
+				current={progress.current}
+				total={progress.total}
+				message={status === 'reviewing' ? 'Analysis complete!' : (progress.message || 'Analyzing...')}
+				onComplete={handleAnalysisComplete}
+			/>
+		</div>
+	{/if}
+</div>
 
-		<!-- Cancel button during analysis -->
-		{#if isAnalyzing}
+<!-- Sticky Analyze button at bottom -->
+<div class="fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 p-4 pb-safe z-40">
+	<div class="max-w-lg mx-auto">
+		{#if showAnalyzingUI && isAnalyzing}
 			<Button
 				variant="secondary"
 				full
 				onclick={cancelAnalysis}
 			>
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<line x1="18" y1="6" x2="6" y2="18" />
 					<line x1="6" y1="6" x2="18" y2="18" />
 				</svg>
-				<span>Cancel</span>
+				<span>Cancel Analysis</span>
 			</Button>
+		{:else if !showAnalyzingUI}
+			<Button
+				variant="primary"
+				full
+				disabled={images.length === 0}
+				onclick={startAnalysis}
+			>
+				<span>Analyze with AI</span>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+				</svg>
+			</Button>
+			{#if images.length === 0}
+				<p class="text-center text-caption text-neutral-500 mt-2">Add photos to continue</p>
+			{/if}
 		{/if}
-	{/if}
-
-	{#if !showAnalyzingUI}
-		<Button
-			variant="primary"
-			full
-			disabled={images.length === 0}
-			onclick={startAnalysis}
-		>
-			<span>Analyze with AI</span>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<circle cx="11" cy="11" r="8" />
-				<path d="m21 21-4.35-4.35" />
-			</svg>
-		</Button>
-	{/if}
+	</div>
 </div>
