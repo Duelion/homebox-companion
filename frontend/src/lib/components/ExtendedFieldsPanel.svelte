@@ -74,7 +74,7 @@
 					type="text"
 					id="serialNumber"
 					bind:value={item.serial_number}
-					placeholder="If visible on item"
+					placeholder="e.g., SN123456789"
 					class="input"
 				/>
 			</div>
@@ -110,7 +110,7 @@
 					id="notes"
 					bind:value={item.notes}
 					rows="2"
-					placeholder="Additional notes about the item..."
+					placeholder="e.g., Good condition, minor scratches on left side"
 					class="input resize-none"
 				></textarea>
 			</div>

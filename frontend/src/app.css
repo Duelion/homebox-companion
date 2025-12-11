@@ -181,6 +181,11 @@
 		padding-top: env(safe-area-inset-top, 0px);
 	}
 	
+	/* Position above bottom navigation with safe area */
+	.bottom-nav-offset {
+		bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+	}
+	
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply bg-neutral-800 rounded animate-shimmer;

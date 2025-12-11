@@ -185,7 +185,7 @@ class ScanWorkflow {
 		this.state.analysisProgress = {
 			current: 0,
 			total: imageCount,
-			message: imageCount === 1 ? 'Analyzing image...' : `Analyzing ${imageCount} images...`,
+			message: 'Analyzing items...',
 		};
 
 		try {
@@ -208,7 +208,7 @@ class ScanWorkflow {
 					this.state.analysisProgress = {
 						current: completedCount,
 						total: this.state.images.length,
-						message: `Analyzed ${completedCount} of ${this.state.images.length}...`,
+						message: 'Analyzing items...',
 					};
 
 					return {
@@ -227,7 +227,7 @@ class ScanWorkflow {
 					this.state.analysisProgress = {
 						current: completedCount,
 						total: this.state.images.length,
-						message: `Analyzed ${completedCount} of ${this.state.images.length}...`,
+						message: 'Analyzing items...',
 					};
 
 					console.error(`Failed to analyze image ${index + 1}:`, error);
