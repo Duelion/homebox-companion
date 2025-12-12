@@ -1,11 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Container background -->
-  <rect width="32" height="32" fill="#282653" rx="6.4"/>
-  
-  <!-- Cube icon with connected corners (larger) -->
-  <g transform="translate(4.8, 4.8)">
-    <svg viewBox="0 0 24 24" width="22.4" height="22.4" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
+  <!-- Full-bleed background -->
+  <rect x="0" y="0" width="32" height="32" fill="#282653"/>
+
+  <!-- Icon scaled to same coordinate system -->
+  <g
+    fill="none"
+    stroke="#818cf8"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    transform="scale(1.3333)"
+  >
+    <!-- Original 24x24 icon, now scaled to fill 32x32 -->
+    <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
   </g>
 </svg>

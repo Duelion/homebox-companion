@@ -27,9 +27,8 @@
 	// Field preferences state
 	let showFieldPrefs = $state(false);
 	let isLoadingFieldPrefs = $state(false);
-	let isSavingFieldPrefs = $state(false);
+	let saveFieldPrefsState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 	let fieldPrefsError = $state<string | null>(null);
-	let fieldPrefsSaved = $state(false);
 	let availableLabels = $state<LabelData[]>([]);
 	let prefs = $state<FieldPreferences>({
 		output_language: null,
@@ -343,38 +342,55 @@
 	}
 
 	async function saveFieldPrefs() {
-		isSavingFieldPrefs = true;
+		saveFieldPrefsState = 'saving';
 		fieldPrefsError = null;
-		fieldPrefsSaved = false;
 
 		try {
 			const result = await fieldPreferences.update(prefs);
 			prefs = result;
-			fieldPrefsSaved = true;
-			setTimeout(() => { fieldPrefsSaved = false; }, 2000);
+			
+			// Show success state
+			saveFieldPrefsState = 'success';
+			
+			// Reset to idle after showing success
+			setTimeout(() => { 
+				saveFieldPrefsState = 'idle';
+			}, 2000);
 		} catch (error) {
 			console.error('Failed to save field preferences:', error);
 			fieldPrefsError = error instanceof Error ? error.message : 'Failed to save preferences';
-		} finally {
-			isSavingFieldPrefs = false;
+			saveFieldPrefsState = 'error';
+			// Reset error state after a delay
+			setTimeout(() => { 
+				saveFieldPrefsState = 'idle';
+			}, 3000);
 		}
 	}
 
 	async function resetFieldPrefs() {
-		isSavingFieldPrefs = true;
+		saveFieldPrefsState = 'saving';
 		fieldPrefsError = null;
 
 		try {
 			const result = await fieldPreferences.reset();
 			prefs = result;
-			fieldPrefsSaved = true;
 			promptPreview = null; // Clear preview when resetting
-			setTimeout(() => { fieldPrefsSaved = false; }, 2000);
+			
+			// Show success state
+			saveFieldPrefsState = 'success';
+			
+			// Reset to idle after showing success
+			setTimeout(() => { 
+				saveFieldPrefsState = 'idle';
+			}, 2000);
 		} catch (error) {
 			console.error('Failed to reset field preferences:', error);
 			fieldPrefsError = error instanceof Error ? error.message : 'Failed to reset preferences';
-		} finally {
-			isSavingFieldPrefs = false;
+			saveFieldPrefsState = 'error';
+			// Reset error state after a delay
+			setTimeout(() => { 
+				saveFieldPrefsState = 'idle';
+			}, 3000);
 		}
 	}
 
@@ -552,31 +568,31 @@
 
 			<!-- Configuration Info -->
 			{#if config}
-				<!-- Homebox URL -->
-				<div class="flex items-center justify-between py-2 border-t border-neutral-800">
-					<span class="text-neutral-400">Homebox URL</span>
-					<div class="flex items-center gap-2">
-						<a
-							href={config.homebox_url}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="text-neutral-100 hover:text-primary-400 font-mono text-sm transition-colors flex items-center gap-1"
-							title="Open Homebox instance"
-						>
-							{config.homebox_url}
-							<svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-								<polyline points="15 3 21 3 21 9" />
-								<line x1="10" y1="14" x2="21" y2="3" />
-							</svg>
-						</a>
-						{#if config.is_demo_mode}
-							<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-warning-500/20 text-warning-500 rounded-full text-xs">
-								Demo
-							</span>
-						{/if}
-					</div>
+			<!-- Homebox URL -->
+			<div class="flex items-center justify-between py-2 border-t border-neutral-800">
+				<span class="text-neutral-400 flex-shrink-0">Homebox URL</span>
+				<div class="flex items-center gap-2 min-w-0">
+					<a
+						href={config.homebox_url}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-neutral-100 hover:text-primary-400 font-mono text-sm transition-colors flex items-center gap-1 truncate max-w-[200px]"
+						title={config.homebox_url}
+					>
+						<span class="truncate">{config.homebox_url}</span>
+						<svg class="w-3 h-3 opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+							<polyline points="15 3 21 3 21 9" />
+							<line x1="10" y1="14" x2="21" y2="3" />
+						</svg>
+					</a>
+					{#if config.is_demo_mode}
+						<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-warning-500/20 text-warning-500 rounded-full text-xs flex-shrink-0">
+							Demo
+						</span>
+					{/if}
 				</div>
+			</div>
 
 				<!-- AI Model -->
 				<div class="flex items-center justify-between py-2 border-t border-neutral-800">
@@ -589,27 +605,33 @@
 				</div>
 			{/if}
 
-			<!-- GitHub Link -->
-			<div class="pt-2 border-t border-neutral-800">
-				<a
-					href="https://github.com/Duelion/homebox-companion"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="flex items-center justify-between py-2 text-neutral-400 hover:text-neutral-100 transition-colors group"
-				>
-					<span class="flex items-center gap-2">
-						<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
-							<path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-						</svg>
-						<span>View on GitHub</span>
-					</span>
-					<svg class="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-						<polyline points="15 3 21 3 21 9" />
-						<line x1="10" y1="14" x2="21" y2="3" />
+		<!-- GitHub Link -->
+		<div class="pt-2 border-t border-neutral-800 space-y-2">
+			<a
+				href="https://github.com/Duelion/homebox-companion"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="flex items-center justify-between py-2 text-neutral-400 hover:text-neutral-100 transition-colors group"
+			>
+				<span class="flex items-center gap-2">
+					<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+						<path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
 					</svg>
-				</a>
-			</div>
+					<span>View on GitHub</span>
+				</span>
+				<svg class="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+					<polyline points="15 3 21 3 21 9" />
+					<line x1="10" y1="14" x2="21" y2="3" />
+				</svg>
+			</a>
+			<p class="text-xs text-neutral-500 flex items-start gap-1.5">
+				<svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 16 16">
+					<path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z" />
+				</svg>
+				<span>Enjoying the app? Consider giving us a star on GitHub!</span>
+			</p>
+		</div>
 		</div>
 	</section>
 
@@ -736,10 +758,10 @@
 				</svg>
 				Configure AI Output
 			</h2>
-			{#if showFieldPrefs && fieldPrefsSaved}
-				<span class="text-sm text-success-500 flex items-center gap-1">
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+			{#if showFieldPrefs && saveFieldPrefsState === 'success'}
+				<span class="inline-flex items-center gap-2 px-3 py-1.5 bg-success-500/20 text-success-500 rounded-full text-sm font-medium">
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+						<polyline points="20 6 9 17 4 12" />
 					</svg>
 					Saved
 				</span>
@@ -860,21 +882,29 @@
 				<Button
 					variant="primary"
 					onclick={saveFieldPrefs}
-					disabled={isSavingFieldPrefs}
+					disabled={saveFieldPrefsState === 'saving' || saveFieldPrefsState === 'success'}
 				>
-					{#if isSavingFieldPrefs}
-						<div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+					{#if saveFieldPrefsState === 'saving'}
+						<div class="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+						<span>Saving...</span>
+					{:else if saveFieldPrefsState === 'success'}
+						<div class="w-8 h-8 flex items-center justify-center bg-success-500/20 rounded-full">
+							<svg class="w-5 h-5 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</div>
+						<span>Saved!</span>
 					{:else}
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 						</svg>
+						<span>Save</span>
 					{/if}
-					<span>Save</span>
 				</Button>
 				<Button
 					variant="secondary"
 					onclick={resetFieldPrefs}
-					disabled={isSavingFieldPrefs}
+					disabled={saveFieldPrefsState === 'saving' || saveFieldPrefsState === 'success'}
 				>
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
