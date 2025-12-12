@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { auth } from '$lib/api';
+	import { auth, getConfig } from '$lib/api';
 	import { token, isAuthenticated } from '$lib/stores/auth';
 	import { showToast, setLoading } from '$lib/stores/ui';
 	import Button from '$lib/components/Button.svelte';
@@ -11,10 +11,23 @@
 	let isSubmitting = $state(false);
 	let showPassword = $state(false);
 
-	// Redirect if already authenticated
-	onMount(() => {
+	// Redirect if already authenticated, or auto-fill demo credentials
+	onMount(async () => {
 		if ($isAuthenticated) {
 			goto('/location');
+			return;
+		}
+
+		// Check if in demo mode and auto-fill credentials
+		try {
+			const config = await getConfig();
+			if (config.is_demo_mode) {
+				email = 'demo@example.com';
+				password = 'demo';
+			}
+		} catch (error) {
+			// If config fetch fails, just continue without auto-fill
+			console.error('Failed to fetch config:', error);
 		}
 	});
 

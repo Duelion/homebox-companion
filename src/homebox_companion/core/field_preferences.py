@@ -274,22 +274,24 @@ def save_field_preferences(preferences: FieldPreferences) -> None:
 
 
 def reset_field_preferences() -> FieldPreferences:
-    """Reset field preferences to env var defaults (or hardcoded if no env vars).
+    """Reset field preferences to defaults.
 
-    This removes the config file, allowing env var defaults to take effect.
+    This removes the config file, clearing all custom preferences.
+    Returns all fields as None, allowing defaults from env vars or hardcoded
+    fallbacks to be used during prompt generation.
 
     Returns:
-        FieldPreferences instance with env var defaults.
+        FieldPreferences instance with all fields set to None.
     """
     if PREFERENCES_FILE.exists():
         PREFERENCES_FILE.unlink()
 
-    # Return empty preferences - defaults come from FieldPreferencesDefaults
-    defaults = get_defaults()
+    # Return empty preferences - all None means "use defaults"
+    # Defaults will be applied during prompt generation, not stored here
     return FieldPreferences(
-        output_language=defaults.output_language,
-        default_label_id=defaults.default_label_id,
-        name=None,  # None means "use default"
+        output_language=None,
+        default_label_id=None,
+        name=None,
         description=None,
         quantity=None,
         manufacturer=None,
