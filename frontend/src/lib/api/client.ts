@@ -4,6 +4,7 @@
 
 import { get } from 'svelte/store';
 import { token, markSessionExpired } from '../stores/auth';
+import { apiLogger as log } from '../utils/logger';
 
 const BASE_URL = '/api';
 
@@ -110,7 +111,7 @@ export async function requestFormData<T>(
 	const authToken = get(token);
 
 	try {
-		console.log(`[API] Sending FormData request to ${endpoint}`);
+		log.debug(`FormData request to ${endpoint}`);
 		const response = await fetch(`${BASE_URL}${endpoint}`, {
 			method: 'POST',
 			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -118,7 +119,7 @@ export async function requestFormData<T>(
 			signal: opts.signal,
 		});
 
-		console.log(`[API] Response from ${endpoint}: ${response.status} ${response.statusText}`);
+		log.debug(`Response from ${endpoint}:`, response.status, response.statusText);
 
 		if (!response.ok) {
 			if (handleUnauthorized(response)) {
@@ -138,7 +139,7 @@ export async function requestFormData<T>(
 			// Already handled above, just re-throw
 			throw error;
 		}
-		console.error(`[API] Network error for ${endpoint}:`, error);
+		log.error(`Network error for ${endpoint}`, error);
 		throw error;
 	}
 }

@@ -7,10 +7,13 @@
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { checkAuth } from '$lib/utils/token';
 	import { routeGuards } from '$lib/utils/routeGuard';
+	import { createLogger } from '$lib/utils/logger';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
+
+	const log = createLogger({ prefix: 'Capture' });
 
 	const MAX_IMAGES = 30;
 	const MAX_FILE_SIZE_MB = 10;
@@ -186,7 +189,7 @@
 	async function startAnalysis() {
 		// Prevent double-clicks
 		if (isStartingAnalysis || isAnalyzing) {
-			console.warn('[Capture] Analysis already starting or in progress, ignoring click');
+			log.debug('Analysis already starting or in progress, ignoring click');
 			return;
 		}
 
