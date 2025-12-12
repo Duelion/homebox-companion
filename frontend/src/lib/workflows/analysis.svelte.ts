@@ -244,6 +244,7 @@ export class AnalysisService {
 	cancel(): void {
 		if (this.abortController) {
 			this.abortController.abort();
+			this.abortController = null;
 		}
 	}
 
