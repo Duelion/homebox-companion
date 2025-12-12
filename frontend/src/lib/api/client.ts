@@ -37,6 +37,45 @@ function handleUnauthorized(response: Response): boolean {
 	return false;
 }
 
+/**
+ * Check if response has JSON content based on Content-Type header
+ */
+function isJsonResponse(response: Response): boolean {
+	const contentType = response.headers.get('content-type');
+	return contentType !== null && contentType.includes('application/json');
+}
+
+/**
+ * Safely parse response body based on status and content type.
+ * Returns undefined for 204 No Content or empty responses.
+ */
+async function parseResponseBody<T>(response: Response): Promise<T> {
+	// 204 No Content - return undefined
+	if (response.status === 204) {
+		return undefined as T;
+	}
+
+	// Check Content-Length for empty body
+	const contentLength = response.headers.get('content-length');
+	if (contentLength === '0') {
+		return undefined as T;
+	}
+
+	// Parse based on content type
+	if (isJsonResponse(response)) {
+		return response.json();
+	}
+
+	// Non-JSON response - return text as-is (caller can handle)
+	const text = await response.text();
+	// If empty text, return undefined
+	if (!text) {
+		return undefined as T;
+	}
+	// Return text (type assertion since caller expects T)
+	return text as T;
+}
+
 export interface RequestOptions extends RequestInit {
 	signal?: AbortSignal;
 }
@@ -85,7 +124,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		);
 	}
 
-	return response.json();
+	return parseResponseBody<T>(response);
 }
 
 export interface FormDataRequestOptions {
@@ -132,7 +171,7 @@ export async function requestFormData<T>(
 			);
 		}
 
-		return response.json();
+		return parseResponseBody<T>(response);
 	} catch (error) {
 		// Log network errors before re-throwing
 		if (error instanceof ApiError) {
