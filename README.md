@@ -1,3 +1,5 @@
+<h1 align="center" style="margin-top: -10px;"></h1>
+
 <div align="center">
   <img src="frontend/static/icon-192.svg" height="200"/>
 </div>
