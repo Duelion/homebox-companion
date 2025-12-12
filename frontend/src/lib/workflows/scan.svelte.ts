@@ -74,17 +74,64 @@ class ScanWorkflow {
 	 */
 	private _stateProxy: ScanState | null = null;
 
+	/** Valid readable state properties */
+	private static readonly READABLE_PROPS = new Set<keyof ScanState>([
+		'status',
+		'locationId',
+		'locationName',
+		'locationPath',
+		'images',
+		'analysisProgress',
+		'detectedItems',
+		'currentReviewIndex',
+		'confirmedItems',
+		'submissionProgress',
+		'itemStatuses',
+		'lastSubmissionResult',
+		'error'
+	]);
+
+	/** Writable state properties */
+	private static readonly WRITABLE_PROPS = new Set<keyof ScanState>([
+		'status',
+		'locationId',
+		'locationName',
+		'locationPath',
+		'error',
+		'analysisProgress'
+	]);
+
 	/**
 	 * Unified state object for backward compatibility with existing pages.
 	 * Returns a Proxy that intercepts property assignments.
+	 * 
+	 * IMPORTANT: This proxy throws errors for unknown property access to surface bugs.
+	 * - Reading unknown properties throws TypeError
+	 * - Writing to read-only properties throws TypeError
+	 * - Writing to unknown properties throws TypeError
 	 */
 	get state(): ScanState {
 		// Create proxy once and reuse (the proxy handlers access live service state)
 		if (!this._stateProxy) {
 			const workflow = this;
 			this._stateProxy = new Proxy({} as ScanState, {
-				get(_target, prop: keyof ScanState) {
-					switch (prop) {
+				get(_target, prop: string | symbol) {
+					// Allow Symbol access (for iteration, etc.)
+					if (typeof prop === 'symbol') {
+						return undefined;
+					}
+
+					const propName = prop as keyof ScanState;
+
+					// Check if property is valid
+					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
+						throw new TypeError(
+							`Cannot read unknown workflow state property: '${prop}'. ` +
+							`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
+						);
+					}
+
+					switch (propName) {
 						case 'status':
 							return workflow._status;
 						case 'locationId':
@@ -112,11 +159,37 @@ class ScanWorkflow {
 						case 'error':
 							return workflow._error;
 						default:
-							return undefined;
+							// TypeScript exhaustiveness check - should never reach here
+							const _exhaustive: never = propName;
+							throw new TypeError(`Unhandled property: ${_exhaustive}`);
 					}
 				},
-				set(_target, prop: keyof ScanState, value) {
-					switch (prop) {
+				set(_target, prop: string | symbol, value) {
+					// Reject Symbol writes
+					if (typeof prop === 'symbol') {
+						throw new TypeError(`Cannot set Symbol property on workflow state`);
+					}
+
+					const propName = prop as keyof ScanState;
+
+					// Check if property exists at all
+					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
+						throw new TypeError(
+							`Cannot set unknown workflow state property: '${prop}'. ` +
+							`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
+						);
+					}
+
+					// Check if property is writable
+					if (!ScanWorkflow.WRITABLE_PROPS.has(propName)) {
+						throw new TypeError(
+							`Cannot set read-only workflow state property: '${prop}'. ` +
+							`This property can only be modified through workflow methods. ` +
+							`Writable properties are: ${[...ScanWorkflow.WRITABLE_PROPS].join(', ')}`
+						);
+					}
+
+					switch (propName) {
 						case 'status':
 							workflow._status = value as ScanStatus;
 							return true;
@@ -136,10 +209,29 @@ class ScanWorkflow {
 							workflow.analysisService.progress = value as Progress | null;
 							return true;
 						default:
-							// For read-only properties, silently ignore writes
-							log.warn(`Attempted to set read-only state property: ${String(prop)}`);
-							return true;
+							// TypeScript exhaustiveness check - should never reach here
+							// since we validated against WRITABLE_PROPS above
+							throw new TypeError(`Unhandled writable property: ${prop}`);
 					}
+				},
+				has(_target, prop: string | symbol) {
+					if (typeof prop === 'symbol') {
+						return false;
+					}
+					return ScanWorkflow.READABLE_PROPS.has(prop as keyof ScanState);
+				},
+				ownKeys() {
+					return [...ScanWorkflow.READABLE_PROPS];
+				},
+				getOwnPropertyDescriptor(_target, prop: string | symbol) {
+					if (typeof prop === 'symbol' || !ScanWorkflow.READABLE_PROPS.has(prop as keyof ScanState)) {
+						return undefined;
+					}
+					return {
+						enumerable: true,
+						configurable: true,
+						writable: ScanWorkflow.WRITABLE_PROPS.has(prop as keyof ScanState)
+					};
 				}
 			});
 		}
