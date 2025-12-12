@@ -88,6 +88,7 @@ class ScanWorkflow {
 		'submissionProgress',
 		'itemStatuses',
 		'lastSubmissionResult',
+		'submissionErrors',
 		'error'
 	]);
 
@@ -156,6 +157,8 @@ class ScanWorkflow {
 							return workflow.submissionService.itemStatuses;
 						case 'lastSubmissionResult':
 							return workflow.submissionService.lastResult;
+						case 'submissionErrors':
+							return workflow.submissionService.lastErrors;
 						case 'error':
 							return workflow._error;
 						default:

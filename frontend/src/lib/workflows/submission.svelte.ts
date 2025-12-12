@@ -31,6 +31,8 @@ export interface SubmitResult {
 	partialSuccessCount: number;
 	failCount: number;
 	sessionExpired: boolean;
+	/** Backend error messages for items that failed to create */
+	errors: string[];
 }
 
 // =============================================================================
@@ -46,6 +48,9 @@ export class SubmissionService {
 
 	/** Result of last successful submission (for success page) */
 	lastResult = $state<SubmissionResult | null>(null);
+
+	/** Error messages from the last submission attempt */
+	lastErrors = $state<string[]>([]);
 
 	/** Abort controller for cancellable operations */
 	private abortController: AbortController | null = null;
@@ -127,13 +132,16 @@ export class SubmissionService {
 		return allSucceeded;
 	}
 
-	/** Submit a single item. Updates itemStatuses. Returns status. */
+	/** Result of submitting a single item */
+	private submitItemResult: { status: ItemSubmissionStatus; error?: string } = { status: 'pending' };
+
+	/** Submit a single item. Updates itemStatuses. Returns status and any error message. */
 	private async submitItem(
 		index: number,
 		confirmedItem: ConfirmedItem,
 		locationId: string | null,
 		signal?: AbortSignal
-	): Promise<ItemSubmissionStatus> {
+	): Promise<{ status: ItemSubmissionStatus; error?: string }> {
 		this.itemStatuses = { ...this.itemStatuses, [index]: 'creating' };
 
 		try {
@@ -158,21 +166,38 @@ export class SubmissionService {
 				{ signal }
 			);
 
+			// Check for backend errors (207 Multi-Status partial failure)
+			if (response.errors && response.errors.length > 0) {
+				// If we have both created items and errors, it's a partial success
+				// For single-item submission, if there's an error, the item failed
+				if (response.created.length === 0) {
+					const errorMsg = response.errors[0];
+					log.error(`Backend error creating item ${confirmedItem.name}: ${errorMsg}`);
+					this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
+					return { status: 'failed', error: errorMsg };
+				}
+				// Item was created but there was also an error (shouldn't happen for single item)
+				log.warn(`Item ${confirmedItem.name} created with warnings: ${response.errors.join(', ')}`);
+			}
+
 			if (response.created.length > 0) {
-				const createdItem = response.created[0] as { id?: string };
+				const createdItem = response.created[0];
 
 				if (createdItem?.id) {
 					const attachmentsOk = await this.uploadAttachments(createdItem.id, confirmedItem, signal);
 					const status: ItemSubmissionStatus = attachmentsOk ? 'success' : 'partial_success';
 					this.itemStatuses = { ...this.itemStatuses, [index]: status };
-					return status;
+					return { status };
 				}
-				// Item created but no ID returned - treat as success
-				this.itemStatuses = { ...this.itemStatuses, [index]: 'success' };
-				return 'success';
+				// Item created but no ID returned - log warning and treat as partial success
+				log.warn(`Item ${confirmedItem.name} created but response missing 'id' field`);
+				this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
+				return { status: 'partial_success', error: 'Item created but no ID returned - attachments skipped' };
 			} else {
+				// No created items and no errors - unexpected state
+				log.error(`No items created for ${confirmedItem.name} and no error reported`);
 				this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
-				return 'failed';
+				return { status: 'failed', error: 'Item creation failed - no items returned' };
 			}
 		} catch (error) {
 			if (error instanceof Error && error.name === 'AbortError') {
@@ -183,9 +208,10 @@ export class SubmissionService {
 				// Session expired - mark and re-throw
 				throw error;
 			}
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 			log.error(`Failed to create item ${confirmedItem.name}`, error);
 			this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
-			return 'failed';
+			return { status: 'failed', error: errorMsg };
 		}
 	}
 
@@ -209,7 +235,8 @@ export class SubmissionService {
 			successCount: 0,
 			partialSuccessCount: 0,
 			failCount: 0,
-			sessionExpired: false
+			sessionExpired: false,
+			errors: []
 		};
 
 		if (items.length === 0) {
@@ -248,14 +275,24 @@ export class SubmissionService {
 					return result;
 				}
 
-				const status = await this.submitItem(i, items[i], locationId, signal);
+				const itemResult = await this.submitItem(i, items[i], locationId, signal);
 
-				if (status === 'success') {
+				if (itemResult.status === 'success') {
 					result.successCount++;
-				} else if (status === 'partial_success') {
+				} else if (itemResult.status === 'partial_success') {
 					result.partialSuccessCount++;
+					// Collect warning for partial success (e.g., missing attachments)
+					if (itemResult.error) {
+						result.errors.push(`${items[i].name}: ${itemResult.error}`);
+					}
 				} else {
 					result.failCount++;
+					// Collect error message for failed items
+					if (itemResult.error) {
+						result.errors.push(itemResult.error);
+					} else {
+						result.errors.push(`Failed to create '${items[i].name}'`);
+					}
 				}
 
 				this.progress = {
@@ -273,20 +310,27 @@ export class SubmissionService {
 				result.success = false;
 			}
 
+			// Save errors for UI display
+			this.lastErrors = result.errors;
 			return result;
 		} catch (error) {
 			if (
 				this.abortController?.signal.aborted ||
 				(error instanceof Error && error.name === 'AbortError')
 			) {
+				this.lastErrors = result.errors;
 				return result;
 			}
 			// Check for 401 authentication error
 			if (error instanceof ApiError && error.status === 401) {
 				result.sessionExpired = true;
+				this.lastErrors = result.errors;
 				return result;
 			}
 			log.error('Submission failed', error);
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			result.errors.push(`Submission failed: ${errorMsg}`);
+			this.lastErrors = result.errors;
 			return result;
 		} finally {
 			this.abortController = null;
@@ -304,7 +348,8 @@ export class SubmissionService {
 			successCount: 0,
 			partialSuccessCount: 0,
 			failCount: 0,
-			sessionExpired: false
+			sessionExpired: false,
+			errors: []
 		};
 
 		const failedIndices = Object.entries(this.itemStatuses)
@@ -332,14 +377,22 @@ export class SubmissionService {
 					return result;
 				}
 
-				const status = await this.submitItem(i, items[i], locationId, signal);
+				const itemResult = await this.submitItem(i, items[i], locationId, signal);
 
-				if (status === 'success') {
+				if (itemResult.status === 'success') {
 					result.successCount++;
-				} else if (status === 'partial_success') {
+				} else if (itemResult.status === 'partial_success') {
 					result.partialSuccessCount++;
+					if (itemResult.error) {
+						result.errors.push(`${items[i].name}: ${itemResult.error}`);
+					}
 				} else {
 					result.failCount++;
+					if (itemResult.error) {
+						result.errors.push(itemResult.error);
+					} else {
+						result.errors.push(`Failed to create '${items[i].name}'`);
+					}
 				}
 			}
 
@@ -352,19 +405,26 @@ export class SubmissionService {
 				result.success = true;
 			}
 
+			// Save errors for UI display
+			this.lastErrors = result.errors;
 			return result;
 		} catch (error) {
 			if (
 				this.abortController?.signal.aborted ||
 				(error instanceof Error && error.name === 'AbortError')
 			) {
+				this.lastErrors = result.errors;
 				return result;
 			}
 			if (error instanceof ApiError && error.status === 401) {
 				result.sessionExpired = true;
+				this.lastErrors = result.errors;
 				return result;
 			}
 			log.error('Retry failed', error);
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			result.errors.push(`Retry failed: ${errorMsg}`);
+			this.lastErrors = result.errors;
 			return result;
 		} finally {
 			this.abortController = null;
@@ -428,6 +488,7 @@ export class SubmissionService {
 		this.progress = null;
 		this.itemStatuses = {};
 		this.lastResult = null;
+		this.lastErrors = [];
 	}
 
 	// =========================================================================
