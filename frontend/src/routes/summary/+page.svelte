@@ -22,6 +22,7 @@
 	const locationPath = $derived(workflow.state.locationPath);
 	const locationId = $derived(workflow.state.locationId);
 	const itemStatuses = $derived(workflow.state.itemStatuses);
+	const submissionErrors = $derived(workflow.state.submissionErrors);
 
 	// Local UI state
 	let isSubmitting = $state(false);
@@ -312,6 +313,32 @@
 			</li>
 		</ul>
 	</div>
+
+	<!-- Error details (shown when there are submission errors) -->
+	{#if submissionErrors.length > 0}
+		<div class="bg-error-500/10 border border-error-500/30 rounded-xl p-4 mb-6">
+			<div class="flex items-start gap-3">
+				<svg class="w-5 h-5 text-error-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<circle cx="12" cy="12" r="10" />
+					<line x1="12" y1="8" x2="12" y2="12" />
+					<line x1="12" y1="16" x2="12.01" y2="16" />
+				</svg>
+				<div class="flex-1 min-w-0">
+					<h4 class="text-body-sm font-semibold text-error-300 mb-2">
+						{submissionErrors.length === 1 ? 'Error' : `${submissionErrors.length} Errors`} occurred during submission
+					</h4>
+					<ul class="space-y-1.5 text-body-sm text-error-200/80">
+						{#each submissionErrors as error}
+							<li class="flex items-start gap-2">
+								<span class="text-error-400 flex-shrink-0">•</span>
+								<span class="break-words">{error}</span>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Actions -->
 	<div class="space-y-3">
