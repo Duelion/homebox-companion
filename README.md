@@ -9,12 +9,15 @@
 > **Not affiliated with the Homebox project.** This is an unofficial third-party companion app.
 
 AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.
-<p align="center">
-  <img src=".github/assets/images/01_select_location.png" width="200" alt="Select Location" style="margin: 0 10px;"/>
-  <img src=".github/assets/images/02_capture_items.png" width="200" alt="Capture Items" style="margin: 0 10px;"/>
-  <img src=".github/assets/images/03_review_items.png" width="200" alt="Review Items" style="margin: 0 10px;"/>
-  <img src=".github/assets/images/04_submit.png" width="200" alt="Submit" style="margin: 0 10px;"/>
-</p>
+<table align="center">
+  <tr>
+    <td><img src=".github/assets/images/01_select_location.png" width="180" alt="Select Location"></td>
+    <td><img src=".github/assets/images/02_capture_items.png" width="180" alt="Capture Items"></td>
+    <td><img src=".github/assets/images/03_review_items.png" width="180" alt="Review Items"></td>
+    <td><img src=".github/assets/images/04_submit.png" width="180" alt="Submit"></td>
+  </tr>
+</table>
+
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
 
 ## 🔄 How It Works
