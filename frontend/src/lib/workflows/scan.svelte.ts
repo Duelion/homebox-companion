@@ -26,7 +26,6 @@ import type {
 	ReviewItem,
 	ConfirmedItem,
 	Progress,
-	ItemSubmissionStatus,
 	SubmissionResult
 } from '$lib/types';
 
@@ -68,40 +67,83 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/**
-	 * Unified state object for backward compatibility with existing pages.
-	 * Provides a single reactive object that mirrors the old ScanState interface.
+	 * State proxy that allows both reading and direct property assignment.
+	 * This maintains backward compatibility with code like:
+	 *   workflow.state.status = 'confirming'
+	 *   workflow.state.analysisProgress = null
 	 */
-	get state(): ScanState {
-		return {
-			status: this._status,
-			locationId: this._locationId,
-			locationName: this._locationName,
-			locationPath: this._locationPath,
-			images: this.captureService.images,
-			analysisProgress: this.analysisService.progress,
-			detectedItems: this.reviewService.detectedItems,
-			currentReviewIndex: this.reviewService.currentReviewIndex,
-			confirmedItems: this.reviewService.confirmedItems,
-			submissionProgress: this.submissionService.progress,
-			itemStatuses: this.submissionService.itemStatuses,
-			lastSubmissionResult: this.submissionService.lastResult,
-			error: this._error
-		};
-	}
+	private _stateProxy: ScanState | null = null;
 
 	/**
-	 * Setter for state (supports direct property assignment for backward compatibility)
-	 * Note: This is a compatibility shim - prefer using specific methods
+	 * Unified state object for backward compatibility with existing pages.
+	 * Returns a Proxy that intercepts property assignments.
 	 */
-	set state(newState: Partial<ScanState>) {
-		if (newState.status !== undefined) this._status = newState.status;
-		if (newState.locationId !== undefined) this._locationId = newState.locationId;
-		if (newState.locationName !== undefined) this._locationName = newState.locationName;
-		if (newState.locationPath !== undefined) this._locationPath = newState.locationPath;
-		if (newState.error !== undefined) this._error = newState.error;
-		if (newState.analysisProgress !== undefined) {
-			this.analysisService.progress = newState.analysisProgress;
+	get state(): ScanState {
+		// Create proxy once and reuse (the proxy handlers access live service state)
+		if (!this._stateProxy) {
+			const workflow = this;
+			this._stateProxy = new Proxy({} as ScanState, {
+				get(_target, prop: keyof ScanState) {
+					switch (prop) {
+						case 'status':
+							return workflow._status;
+						case 'locationId':
+							return workflow._locationId;
+						case 'locationName':
+							return workflow._locationName;
+						case 'locationPath':
+							return workflow._locationPath;
+						case 'images':
+							return workflow.captureService.images;
+						case 'analysisProgress':
+							return workflow.analysisService.progress;
+						case 'detectedItems':
+							return workflow.reviewService.detectedItems;
+						case 'currentReviewIndex':
+							return workflow.reviewService.currentReviewIndex;
+						case 'confirmedItems':
+							return workflow.reviewService.confirmedItems;
+						case 'submissionProgress':
+							return workflow.submissionService.progress;
+						case 'itemStatuses':
+							return workflow.submissionService.itemStatuses;
+						case 'lastSubmissionResult':
+							return workflow.submissionService.lastResult;
+						case 'error':
+							return workflow._error;
+						default:
+							return undefined;
+					}
+				},
+				set(_target, prop: keyof ScanState, value) {
+					switch (prop) {
+						case 'status':
+							workflow._status = value as ScanStatus;
+							return true;
+						case 'locationId':
+							workflow._locationId = value as string | null;
+							return true;
+						case 'locationName':
+							workflow._locationName = value as string | null;
+							return true;
+						case 'locationPath':
+							workflow._locationPath = value as string | null;
+							return true;
+						case 'error':
+							workflow._error = value as string | null;
+							return true;
+						case 'analysisProgress':
+							workflow.analysisService.progress = value as Progress | null;
+							return true;
+						default:
+							// For read-only properties, silently ignore writes
+							log.warn(`Attempted to set read-only state property: ${String(prop)}`);
+							return true;
+					}
+				}
+			});
 		}
+		return this._stateProxy;
 	}
 
 	// =========================================================================
