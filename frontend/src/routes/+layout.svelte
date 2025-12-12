@@ -6,7 +6,7 @@
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { isOnline, appVersion, latestVersion, updateDismissed } from '$lib/stores/ui';
 	import { getVersion } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
 
@@ -14,20 +14,30 @@
 		updateDismissed.set(true);
 	}
 
+	// Event handlers (stable references for cleanup)
+	function handleOnline() {
+		isOnline.set(true);
+	}
+
+	function handleOffline() {
+		isOnline.set(false);
+	}
+
 	// Scroll to top after each navigation
+	// Note: afterNavigate is automatically cleaned up by SvelteKit when the component unmounts
 	afterNavigate(() => {
 		if (browser) {
 			window.scrollTo({ top: 0, behavior: 'instant' });
 		}
 	});
 
-	// Fetch version on mount
+	// Fetch version on mount and register event listeners
 	onMount(async () => {
 		if (browser) {
-			// Check online status
+			// Check online status and register listeners
 			isOnline.set(navigator.onLine);
-			window.addEventListener('online', () => isOnline.set(true));
-			window.addEventListener('offline', () => isOnline.set(false));
+			window.addEventListener('online', handleOnline);
+			window.addEventListener('offline', handleOffline);
 
 			// Fetch app version and check for updates
 			try {
@@ -39,6 +49,14 @@
 			} catch {
 				appVersion.set('unknown');
 			}
+		}
+	});
+
+	// Cleanup window event listeners on destroy
+	onDestroy(() => {
+		if (browser) {
+			window.removeEventListener('online', handleOnline);
+			window.removeEventListener('offline', handleOffline);
 		}
 	});
 </script>
