@@ -9,14 +9,26 @@ const storedToken = browser ? sessionStorage.getItem('hbc_token') : null;
 
 export const token = writable<string | null>(storedToken);
 
-// Persist token to sessionStorage
+// Persist token to sessionStorage with proper HMR cleanup
+let tokenUnsubscribe: (() => void) | undefined;
+
 if (browser) {
-	token.subscribe((value) => {
+	// Clean up any existing subscription (handles HMR)
+	tokenUnsubscribe?.();
+
+	tokenUnsubscribe = token.subscribe((value) => {
 		if (value) {
 			sessionStorage.setItem('hbc_token', value);
 		} else {
 			sessionStorage.removeItem('hbc_token');
 		}
+	});
+}
+
+// Clean up subscription during Vite HMR
+if (import.meta.hot) {
+	import.meta.hot.dispose(() => {
+		tokenUnsubscribe?.();
 	});
 }
 
