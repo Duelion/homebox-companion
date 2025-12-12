@@ -144,6 +144,8 @@ export interface ScanState {
 	itemStatuses: Record<number, ItemSubmissionStatus>;
 	/** Result of last successful submission (preserved for success page) */
 	lastSubmissionResult: SubmissionResult | null;
+	/** Error messages from the last submission attempt (for displaying specific failure reasons) */
+	submissionErrors: string[];
 	// Error handling
 	error: string | null;
 }
@@ -237,10 +239,39 @@ export interface CorrectionResponse {
 	message: string;
 }
 
+/** Item successfully created in Homebox (returned from backend) */
+export interface CreatedItem {
+	id: string;
+	name: string;
+	quantity: number;
+	description?: string | null;
+	/** Location object with id and name */
+	location?: {
+		id: string;
+		name?: string;
+	} | null;
+	/** Labels array with id and name */
+	labels?: Array<{
+		id: string;
+		name?: string;
+	}>;
+	// Extended fields (may be present after update)
+	manufacturer?: string | null;
+	modelNumber?: string | null;
+	serialNumber?: string | null;
+	purchasePrice?: number | null;
+	purchaseFrom?: string | null;
+	notes?: string | null;
+	insured?: boolean;
+}
+
 /** Response from batch item creation */
 export interface BatchCreateResponse {
-	created: unknown[];
+	/** Successfully created items */
+	created: CreatedItem[];
+	/** Error messages for items that failed to create */
 	errors: string[];
+	/** Summary message (e.g., "Created 2 items, 1 failed") */
 	message: string;
 }
 
