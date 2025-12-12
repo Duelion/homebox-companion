@@ -484,7 +484,11 @@ export class SubmissionService {
 
 	/** Reset all submission state */
 	reset(): void {
-		this.cancel();
+		// Abort any in-progress submission before clearing state
+		if (this.abortController) {
+			this.abortController.abort();
+			this.abortController = null;
+		}
 		this.progress = null;
 		this.itemStatuses = {};
 		this.lastResult = null;

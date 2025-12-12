@@ -78,21 +78,32 @@ class DetectedItem:
 
         Returns:
             A dictionary with extended fields if any are present, or None.
+            Empty strings after stripping whitespace are excluded.
         """
         payload: dict[str, str | float] = {}
 
         if self.manufacturer:
-            payload["manufacturer"] = str(self.manufacturer).strip()[:255]
+            value = str(self.manufacturer).strip()[:255]
+            if value:  # Exclude empty strings after strip
+                payload["manufacturer"] = value
         if self.model_number:
-            payload["modelNumber"] = str(self.model_number).strip()[:255]
+            value = str(self.model_number).strip()[:255]
+            if value:
+                payload["modelNumber"] = value
         if self.serial_number:
-            payload["serialNumber"] = str(self.serial_number).strip()[:255]
+            value = str(self.serial_number).strip()[:255]
+            if value:
+                payload["serialNumber"] = value
         if self.purchase_price is not None and self.purchase_price > 0:
             payload["purchasePrice"] = self.purchase_price
         if self.purchase_from:
-            payload["purchaseFrom"] = str(self.purchase_from).strip()[:255]
+            value = str(self.purchase_from).strip()[:255]
+            if value:
+                payload["purchaseFrom"] = value
         if self.notes:
-            payload["notes"] = str(self.notes).strip()[:1000]
+            value = str(self.notes).strip()[:1000]
+            if value:
+                payload["notes"] = value
 
         return payload if payload else None
 

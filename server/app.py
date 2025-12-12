@@ -26,7 +26,10 @@ from homebox_companion import (
 from .api import api_router
 from .dependencies import set_client
 
-# GitHub version check cache with thread safety
+# GitHub version check cache with async lock for thread safety within a single worker.
+# NOTE: This cache is per-worker. When running with multiple workers (e.g., uvicorn --workers N),
+# each worker maintains its own cache. This is acceptable since version checks are infrequent
+# and the TTL ensures reasonable freshness. For shared caching across workers, use Redis.
 _version_cache: dict[str, str | float | None] = {
     "latest_version": None,
     "last_check": 0.0,
@@ -65,7 +68,6 @@ def _is_newer_version(latest: str, current: str) -> bool:
 
 async def _get_latest_github_version() -> str | None:
     """Fetch the latest release version from GitHub with caching and proper error handling."""
-    global _version_cache
 
     # Use lock to prevent race conditions in multi-worker setups
     async with _version_cache_lock:

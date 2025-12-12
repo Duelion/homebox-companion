@@ -146,7 +146,17 @@ async def chat_completion(
         logger.debug(f"OpenAI response received ({len(raw_content)} chars)")
 
     # Try to get parsed content, fall back to JSON parsing
-    parsed_content = getattr(message, "parsed", None) or json.loads(raw_content)
+    parsed_content = getattr(message, "parsed", None)
+    if parsed_content is None:
+        try:
+            parsed_content = json.loads(raw_content)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse AI response as JSON: {e}")
+            logger.debug(f"Raw content (first 500 chars): {raw_content[:500]}")
+            raise ValueError(
+                f"AI returned invalid JSON response. This may indicate a model issue or "
+                f"malformed prompt. Error: {e.msg} at position {e.pos}"
+            ) from e
     return parsed_content
 
 
