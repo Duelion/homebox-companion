@@ -29,7 +29,7 @@ flowchart LR
 5. **Review & Edit** – Adjust AI suggestions, merge items, or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
-https://github.com/user-attachments/assets/3d1e9107-9a9e-47e7-88e5-f4934a4a79e8
+https://github.com/user-attachments/assets/fcaae316-f4fa-462e-8ed2-d0d7e82145fd
 
 ## 💰 OpenAI Cost Estimates
 
