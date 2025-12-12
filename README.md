@@ -1,4 +1,8 @@
-# 📦 Homebox Companion
+<div align="center">
+  <img src="frontend/static/icon-192.svg" height="200"/>
+</div>
+
+<h1 align="center" style="margin-top: -10px;"> Homebox Companion </h1>
 
 > **Not affiliated with the Homebox project.** This is an unofficial third-party companion app.
 
