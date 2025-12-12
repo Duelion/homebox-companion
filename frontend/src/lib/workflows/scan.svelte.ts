@@ -495,7 +495,7 @@ class ScanWorkflow {
 	): Promise<boolean> {
 		let allSucceeded = true;
 
-		// Upload custom thumbnail first (if available) - this becomes the primary image
+		// Upload custom thumbnail (replaces original) or original image as primary
 		if (confirmedItem.customThumbnail) {
 			try {
 				const thumbnailFile = await this.dataUrlToFile(
@@ -516,10 +516,8 @@ class ScanWorkflow {
 				console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
 				allSucceeded = false;
 			}
-		}
-
-		// Upload original file (either as primary if no custom thumbnail, or as additional attachment)
-		if (confirmedItem.originalFile) {
+		} else if (confirmedItem.originalFile) {
+			// Only upload original if no custom thumbnail (custom thumbnail replaces it)
 			try {
 				await withRetry(
 					() => itemsApi.uploadAttachment(itemId, confirmedItem.originalFile!, { signal }),
@@ -877,9 +875,8 @@ class ScanWorkflow {
 		const itemNames = successfulItems.map(item => item.name);
 		const photoCount = successfulItems.reduce((count, item) => {
 			let photos = 0;
-			// Count custom thumbnail and original file separately (both get uploaded)
-			if (item.customThumbnail) photos++;
-			if (item.originalFile) photos++;
+			// Custom thumbnail replaces original, so count as one primary image
+			if (item.originalFile || item.customThumbnail) photos++;
 			if (item.additionalImages) photos += item.additionalImages.length;
 			return count + photos;
 		}, 0);

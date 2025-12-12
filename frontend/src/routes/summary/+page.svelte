@@ -31,9 +31,8 @@
 	const totalPhotos = $derived(
 		confirmedItems.reduce((count, item) => {
 			let photos = 0;
-			// Count custom thumbnail and original file separately (both get uploaded)
-			if (item.customThumbnail) photos++;
-			if (item.originalFile) photos++;
+			// Custom thumbnail replaces original, so count as one primary image
+			if (item.originalFile || item.customThumbnail) photos++;
 			if (item.additionalImages) photos += item.additionalImages.length;
 			return count + photos;
 		}, 0)
