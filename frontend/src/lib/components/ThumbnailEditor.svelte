@@ -5,7 +5,7 @@
 	interface Props {
 		images: { file: File; dataUrl: string }[];
 		currentThumbnail?: string;
-		onSave: (dataUrl: string) => void;
+		onSave: (dataUrl: string, sourceImageIndex: number) => void;
 		onClose: () => void;
 	}
 
@@ -364,7 +364,8 @@
 		);
 
 		const dataUrl = outputCanvas.toDataURL('image/jpeg', 0.9);
-		onSave(dataUrl);
+		// Pass the selected image index so the caller can reorder images if needed
+		onSave(dataUrl, selectedImageIndex);
 	}
 </script>
 

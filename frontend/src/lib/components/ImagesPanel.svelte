@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { showToast } from '$lib/stores/ui';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
@@ -18,9 +19,13 @@
 	// Object URL manager for cleanup
 	const urlManager = createObjectUrlManager();
 
-	// Cleanup object URLs when component is destroyed or images change
+	// Sync object URLs when images change (cleanup removed files only)
 	$effect(() => {
 		urlManager.sync(images);
+	});
+
+	// Only cleanup all URLs on component unmount
+	onMount(() => {
 		return () => urlManager.cleanup();
 	});
 

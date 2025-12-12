@@ -106,9 +106,11 @@
 		}
 	}
 
-	// Apply route guard: requires auth, location, and reviewing status
+	// Apply route guard and setup cleanup
 	onMount(() => {
 		if (!routeGuards.review()) return;
+		// Cleanup object URLs only on component unmount
+		return () => urlManager.cleanup();
 	});
 
 	// Watch for status changes
@@ -226,9 +228,21 @@
 		}));
 	}
 
-	function handleThumbnailSave(dataUrl: string) {
+	function handleThumbnailSave(dataUrl: string, sourceImageIndex: number) {
 		if (editedItem) {
 			editedItem.customThumbnail = dataUrl;
+			
+			// If thumbnail was created from a non-primary image, reorder so it becomes primary
+			if (sourceImageIndex > 0 && sourceImageIndex < allImages.length) {
+				const selectedImage = allImages[sourceImageIndex];
+				// Remove the selected image from its current position and put it first
+				const reorderedImages = [
+					selectedImage,
+					...allImages.slice(0, sourceImageIndex),
+					...allImages.slice(sourceImageIndex + 1)
+				];
+				allImages = reorderedImages;
+			}
 		}
 		showThumbnailEditor = false;
 	}
@@ -240,10 +254,9 @@
 		return null;
 	}
 
-	// Cleanup object URLs when component is destroyed or images change
+	// Sync object URLs when images change (cleanup removed files only)
 	$effect(() => {
 		urlManager.sync(allImages);
-		return () => urlManager.cleanup();
 	});
 </script>
 

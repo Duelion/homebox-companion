@@ -31,7 +31,9 @@
 	const totalPhotos = $derived(
 		confirmedItems.reduce((count, item) => {
 			let photos = 0;
-			if (item.originalFile || item.customThumbnail) photos++;
+			// Count custom thumbnail and original file separately (both get uploaded)
+			if (item.customThumbnail) photos++;
+			if (item.originalFile) photos++;
 			if (item.additionalImages) photos += item.additionalImages.length;
 			return count + photos;
 		}, 0)
@@ -49,9 +51,11 @@
 		return label?.name ?? labelId;
 	}
 
-	// Apply route guard: requires auth, location, and confirming/submitting status
+	// Apply route guard and setup cleanup
 	onMount(() => {
 		if (!routeGuards.summary()) return;
+		// Cleanup object URLs only on component unmount
+		return () => urlManager.cleanup();
 	});
 
 	function addMoreItems() {
@@ -79,16 +83,12 @@
 		return null;
 	}
 
-	// Cleanup object URLs when component is destroyed or items change
+	// Sync object URLs when items change (cleanup removed files only)
 	$effect(() => {
-		// Track current files for cleanup
 		const currentFiles = confirmedItems
 			.map((item) => item.originalFile)
 			.filter((f): f is File => f !== undefined);
 		urlManager.sync(currentFiles);
-
-		// Cleanup on destroy
-		return () => urlManager.cleanup();
 	});
 
 	async function submitAll() {
