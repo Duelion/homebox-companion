@@ -193,8 +193,13 @@ class TestToCustomizationsDict:
 class TestResetPreferences:
     """Test resetting preferences to defaults."""
 
-    def test_deletes_file_and_returns_env_defaults(self, monkeypatch, tmp_path) -> None:
-        """Reset should delete file and return to env var defaults."""
+    def test_deletes_file_and_returns_none_values(self, monkeypatch, tmp_path) -> None:
+        """Reset should delete file and return prefs with None values.
+
+        The actual defaults (from env vars or hardcoded) are resolved via
+        get_output_language() or get_effective_customizations(), not stored
+        in the FieldPreferences object directly.
+        """
         monkeypatch.setenv("HBC_AI_OUTPUT_LANGUAGE", "Italian")
         monkeypatch.setenv("HBC_AI_NAME", "Env name")
 
@@ -215,8 +220,12 @@ class TestResetPreferences:
         # File should be deleted
         assert not prefs_file.exists()
 
-        # Should return env var defaults
-        assert prefs.output_language == "Italian"
+        # Raw field values should be None (meaning "use defaults")
+        assert prefs.output_language is None
+        assert prefs.name is None
+
+        # Effective value should come from env var via get_output_language()
+        assert prefs.get_output_language() == "Italian"
 
     def test_reset_without_file_succeeds(self, monkeypatch, tmp_path) -> None:
         """Reset should succeed even if no file exists."""
@@ -232,7 +241,9 @@ class TestResetPreferences:
         # Should not raise error
         prefs = field_preferences.reset_field_preferences()
 
-        assert prefs.output_language == "English"  # Hardcoded default
+        # Raw value is None, effective value comes from defaults
+        assert prefs.output_language is None
+        assert prefs.get_output_language() == "English"  # Hardcoded default
 
 
 class TestSaveAndLoad:

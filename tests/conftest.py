@@ -78,25 +78,37 @@ def homebox_credentials() -> tuple[str, str]:
 @pytest.fixture(scope="session")
 def single_item_single_image_path() -> Path:
     """Path to single item single image test asset."""
-    return ASSETS_DIR / "single_item_single_image.jpg"
+    path = ASSETS_DIR / "single_item_single_image.jpg"
+    if not path.exists():
+        pytest.skip(f"Test asset not found: {path}")
+    return path
 
 
 @pytest.fixture(scope="session")
 def single_item_multi_image_1_path() -> Path:
     """Path to first multi-image test asset (single item)."""
-    return ASSETS_DIR / "single_item_multi_image_1.jpg"
+    path = ASSETS_DIR / "single_item_multi_image_1.jpg"
+    if not path.exists():
+        pytest.skip(f"Test asset not found: {path}")
+    return path
 
 
 @pytest.fixture(scope="session")
 def single_item_multi_image_2_path() -> Path:
     """Path to second multi-image test asset (single item)."""
-    return ASSETS_DIR / "single_item_multi_image_2.jpg"
+    path = ASSETS_DIR / "single_item_multi_image_2.jpg"
+    if not path.exists():
+        pytest.skip(f"Test asset not found: {path}")
+    return path
 
 
 @pytest.fixture(scope="session")
 def multi_item_single_image_path() -> Path:
     """Path to multi-item single image test asset."""
-    return ASSETS_DIR / "multi_item_single_image.jpg"
+    path = ASSETS_DIR / "multi_item_single_image.jpg"
+    if not path.exists():
+        pytest.skip(f"Test asset not found: {path}")
+    return path
 
 
 # ---------------------------------------------------------------------------

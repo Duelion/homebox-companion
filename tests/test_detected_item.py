@@ -241,8 +241,8 @@ class TestGetExtendedFieldsPayload:
         assert "purchasePrice" not in payload
         assert payload["manufacturer"] == "Brand"
 
-    def test_whitespace_values_stripped(self) -> None:
-        """Whitespace-only values should be stripped to empty strings."""
+    def test_whitespace_values_excluded(self) -> None:
+        """Whitespace-only values should be excluded from payload."""
         item = DetectedItem(
             name="Item",
             quantity=1,
@@ -252,11 +252,9 @@ class TestGetExtendedFieldsPayload:
 
         payload = item.get_extended_fields_payload()
 
-        # Whitespace strings are stripped, but empty strings are still included
-        # The filtering of whitespace typically happens in from_raw_items
-        assert payload is not None
-        assert payload["manufacturer"] == ""
-        assert payload["notes"] == ""
+        # Whitespace-only strings are stripped and excluded from payload
+        # since empty strings are not useful for the Homebox API
+        assert payload is None  # No valid extended fields remain
 
 
 class TestHasExtendedFields:

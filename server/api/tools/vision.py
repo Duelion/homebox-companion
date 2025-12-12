@@ -248,12 +248,16 @@ async def detect_items_batch(
                     for item in detected
                 ],
             )
-        except Exception:
-            logger.exception(f"Detection failed for image {index}")
+        except Exception as e:
+            error_msg = str(e) if str(e) else "Detection failed"
+            # Truncate long error messages for the response
+            if len(error_msg) > 200:
+                error_msg = error_msg[:200] + "..."
+            logger.exception(f"Detection failed for image {index}: {error_msg}")
             return BatchDetectionResult(
                 image_index=index,
                 success=False,
-                error="Detection failed",
+                error=f"Detection failed: {error_msg}",
             )
 
     # Process all images in parallel
@@ -386,6 +390,10 @@ async def merge_items(
     )
 
 
+# Maximum length for correction instructions to prevent abuse
+MAX_CORRECTION_INSTRUCTIONS_LENGTH = 2000
+
+
 @router.post("/correct", response_model=CorrectionResponse)
 async def correct_item(
     image: Annotated[UploadFile, File(description="Original image of the item")],
@@ -399,7 +407,24 @@ async def correct_item(
     and the AI will re-analyze with the feedback.
     """
     logger.info("Item correction request received")
-    logger.debug(f"Correction instructions: {correction_instructions}")
+
+    # Validate correction instructions
+    if not correction_instructions or not correction_instructions.strip():
+        raise HTTPException(status_code=400, detail="Correction instructions are required")
+
+    if len(correction_instructions) > MAX_CORRECTION_INSTRUCTIONS_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Correction instructions too long. "
+                f"Maximum {MAX_CORRECTION_INSTRUCTIONS_LENGTH} characters allowed."
+            ),
+        )
+
+    # Sanitize - strip and truncate for safety
+    correction_instructions = correction_instructions.strip()[:MAX_CORRECTION_INSTRUCTIONS_LENGTH]
+    preview = correction_instructions[:100]
+    logger.debug(f"Correction instructions ({len(correction_instructions)} chars): {preview}...")
 
     if not settings.openai_api_key:
         logger.error("HBC_OPENAI_API_KEY not configured")
