@@ -167,6 +167,25 @@
 		animation: fadeIn 0.25s ease-out, slideUp 0.25s ease-out;
 	}
 	
+	/* Prevent ghost touches during page transitions on touch devices */
+	@media (hover: none) and (pointer: coarse) {
+		.animate-in button,
+		.animate-in [type="button"],
+		.animate-in a {
+			pointer-events: none;
+			animation: enablePointerEvents 0.3s ease-out forwards;
+		}
+	}
+	
+	@keyframes enablePointerEvents {
+		0%, 99% {
+			pointer-events: none;
+		}
+		100% {
+			pointer-events: auto;
+		}
+	}
+	
 	.glass {
 		@apply bg-neutral-900/80 backdrop-blur-lg;
 	}
