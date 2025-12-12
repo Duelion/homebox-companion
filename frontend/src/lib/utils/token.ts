@@ -6,6 +6,9 @@ import { get } from 'svelte/store';
 import { token, markSessionExpired } from '../stores/auth';
 import { auth } from '../api/auth';
 import { ApiError } from '../api/client';
+import { createLogger } from './logger';
+
+const log = createLogger({ prefix: 'Auth' });
 
 /**
  * Check if the current auth token is valid by validating with the server.
@@ -34,7 +37,7 @@ export async function checkAuth(): Promise<boolean> {
 		
 		// Other errors (network issues, etc.) - assume valid to avoid blocking user
 		// The actual API call will fail and trigger proper error handling
-		console.warn('Token validation failed with unexpected error:', error);
+		log.warn('Token validation failed with unexpected error');
 		return true;
 	}
 }

@@ -12,6 +12,7 @@
 import { vision, items as itemsApi, fieldPreferences, ApiError } from '$lib/api/index';
 import { labels as labelsStore } from '$lib/stores/labels';
 import { withRetry } from '$lib/utils/retry';
+import { workflowLogger as log } from '$lib/utils/logger';
 import { checkAuth } from '$lib/utils/token';
 import { get } from 'svelte/store';
 import type {
@@ -158,7 +159,7 @@ class ScanWorkflow {
 		// Prevent starting a new analysis if one is already in progress
 		// CRITICAL: Set status IMMEDIATELY to prevent race conditions
 		if (this.state.status === 'analyzing') {
-			console.warn('Analysis already in progress, ignoring duplicate request');
+			log.warn('Analysis already in progress, ignoring duplicate request');
 			this.state.error = 'Analysis already in progress';
 			return;
 		}
@@ -168,7 +169,7 @@ class ScanWorkflow {
 			return;
 		}
 
-		console.log(`[ScanWorkflow] Starting analysis for ${this.state.images.length} image(s)`);
+		log.debug(`Starting analysis for ${this.state.images.length} image(s)`);
 
 		// Set status BEFORE any async operations to prevent duplicate triggers
 		this.analysisAbortController = new AbortController();
@@ -184,7 +185,7 @@ class ScanWorkflow {
 		try {
 			await this.loadDefaultLabel();
 		} catch (error) {
-			console.error('[ScanWorkflow] Failed to load default label:', error);
+			log.error('Failed to load default label', error);
 			// Continue anyway - default label is optional
 		}
 
@@ -204,7 +205,7 @@ class ScanWorkflow {
 		const signal = this.analysisAbortController?.signal;
 		const detectionPromises = this.state.images.map(async (image, index) => {
 			try {
-				console.log(`[ScanWorkflow] Starting detection for image ${index + 1}/${this.state.images.length}: ${image.file.name}`);
+				log.debug(`Starting detection for image ${index + 1}/${this.state.images.length}`);
 				const response = await vision.detect(image.file, {
 					singleItem: !image.separateItems,
 					extraInstructions: image.extraInstructions || undefined,
@@ -213,7 +214,7 @@ class ScanWorkflow {
 					signal,
 				});
 
-				console.log(`[ScanWorkflow] Detection complete for image ${index + 1}, found ${response.items.length} item(s)`);
+				log.debug(`Detection complete for image ${index + 1}, found ${response.items.length} item(s)`);
 
 				completedCount++;
 				this.state.analysisProgress = {
@@ -231,7 +232,7 @@ class ScanWorkflow {
 			} catch (error) {
 				// Re-throw abort errors to be handled at the top level
 				if (error instanceof Error && error.name === 'AbortError') {
-					console.log(`[ScanWorkflow] Analysis aborted for image ${index + 1}`);
+					log.debug(`Analysis aborted for image ${index + 1}`);
 					throw error;
 				}
 			
@@ -242,7 +243,7 @@ class ScanWorkflow {
 					message: this.state.images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 				};
 
-				console.error(`[ScanWorkflow] Failed to analyze image ${index + 1} (${image.file.name}):`, error);
+				log.error(`Failed to analyze image ${index + 1}`, error);
 				return {
 					success: false as const,
 					imageIndex: index,
@@ -252,14 +253,14 @@ class ScanWorkflow {
 			}
 		});
 
-		console.log('[ScanWorkflow] Waiting for all detections to complete...');
+		log.debug('Waiting for all detections to complete...');
 		const results = await Promise.all(detectionPromises);
 
-		console.log(`[ScanWorkflow] All detections complete. Processing ${results.length} result(s)...`);
+		log.debug(`All detections complete. Processing ${results.length} result(s)...`);
 
 		// Check if cancelled
 		if (this.analysisAbortController?.signal.aborted) {
-			console.log('[ScanWorkflow] Analysis was cancelled, exiting');
+			log.debug('Analysis was cancelled, exiting');
 			return;
 		}
 
@@ -306,7 +307,7 @@ class ScanWorkflow {
 			}
 
 		// Success! Move to review
-		console.log(`[ScanWorkflow] Analysis complete! Detected ${allDetectedItems.length} item(s)`);
+		log.debug(`Analysis complete! Detected ${allDetectedItems.length} item(s)`);
 		this.state.detectedItems = allDetectedItems;
 		this.state.currentReviewIndex = 0;
 		// Keep analysisProgress for success animation - will be cleared by UI after animation
@@ -315,17 +316,11 @@ class ScanWorkflow {
 			// Don't set error if cancelled (check both signal and error type)
 			if (this.analysisAbortController?.signal.aborted || 
 				(error instanceof Error && error.name === 'AbortError')) {
-				console.log('[ScanWorkflow] Analysis cancelled by user');
+				log.debug('Analysis cancelled by user');
 				return;
 			}
 
-			console.error('[ScanWorkflow] Analysis failed with error:', error);
-			// Log additional details for network errors
-			if (error instanceof Error) {
-				console.error('[ScanWorkflow] Error type:', error.name);
-				console.error('[ScanWorkflow] Error message:', error.message);
-				console.error('[ScanWorkflow] Error stack:', error.stack);
-			}
+			log.error('Analysis failed', error);
 			this.state.error = error instanceof Error ? error.message : 'Analysis failed';
 			this.state.status = 'capturing';
 		} finally {
@@ -506,14 +501,14 @@ class ScanWorkflow {
 					() => itemsApi.uploadAttachment(itemId, thumbnailFile, { signal }),
 					{
 						maxAttempts: 3,
-						onRetry: (attempt) => console.log(`Retrying thumbnail upload (attempt ${attempt})`)
+						onRetry: (attempt) => log.debug(`Retrying thumbnail upload (attempt ${attempt})`)
 					}
 				);
 			} catch (error) {
 				if (error instanceof Error && error.name === 'AbortError') {
 					throw error;
 				}
-				console.error(`Failed to upload thumbnail for ${confirmedItem.name}:`, error);
+				log.error(`Failed to upload thumbnail for ${confirmedItem.name}`, error);
 				allSucceeded = false;
 			}
 		} else if (confirmedItem.originalFile) {
@@ -523,14 +518,14 @@ class ScanWorkflow {
 					() => itemsApi.uploadAttachment(itemId, confirmedItem.originalFile!, { signal }),
 					{
 						maxAttempts: 3,
-						onRetry: (attempt) => console.log(`Retrying image upload (attempt ${attempt})`)
+						onRetry: (attempt) => log.debug(`Retrying image upload (attempt ${attempt})`)
 					}
 				);
 			} catch (error) {
 				if (error instanceof Error && error.name === 'AbortError') {
 					throw error;
 				}
-				console.error(`Failed to upload image for ${confirmedItem.name}:`, error);
+				log.error(`Failed to upload image for ${confirmedItem.name}`, error);
 				allSucceeded = false;
 			}
 		}
@@ -543,14 +538,14 @@ class ScanWorkflow {
 						() => itemsApi.uploadAttachment(itemId, addImage, { signal }),
 						{
 							maxAttempts: 3,
-							onRetry: (attempt) => console.log(`Retrying additional image upload (attempt ${attempt})`)
+							onRetry: (attempt) => log.debug(`Retrying additional image upload (attempt ${attempt})`)
 						}
 					);
 				} catch (error) {
 					if (error instanceof Error && error.name === 'AbortError') {
 						throw error;
 					}
-					console.error(`Failed to upload additional image for ${confirmedItem.name}:`, error);
+					log.error(`Failed to upload additional image for ${confirmedItem.name}`, error);
 					allSucceeded = false;
 				}
 			}
@@ -613,7 +608,7 @@ class ScanWorkflow {
 				// Session expired - mark and re-throw
 				throw error;
 			}
-			console.error(`Failed to create item ${confirmedItem.name}:`, error);
+			log.error(`Failed to create item ${confirmedItem.name}`, error);
 			this.state.itemStatuses = { ...this.state.itemStatuses, [index]: 'failed' };
 			return 'failed';
 		}
@@ -716,7 +711,7 @@ class ScanWorkflow {
 				result.sessionExpired = true;
 				return result;
 			}
-			console.error('Submission failed:', error);
+			log.error('Submission failed', error);
 			this.state.error = error instanceof Error ? error.message : 'Submission failed';
 			this.state.status = 'confirming';
 		} finally {
@@ -798,7 +793,7 @@ class ScanWorkflow {
 				result.sessionExpired = true;
 				return result;
 			}
-			console.error('Retry failed:', error);
+			log.error('Retry failed', error);
 			this.state.error = error instanceof Error ? error.message : 'Retry failed';
 		} finally {
 			this.submissionAbortController = null;
