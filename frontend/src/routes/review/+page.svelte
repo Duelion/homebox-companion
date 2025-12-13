@@ -135,6 +135,9 @@
 
 	function skipItem() {
 		workflow.skipItem();
+
+		// Scroll to top for next item
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	function confirmItem() {
@@ -153,6 +156,9 @@
 		}
 
 		workflow.confirmItem(editedItem);
+
+		// Scroll to top for next item
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	function toggleLabel(labelId: string) {
