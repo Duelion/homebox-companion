@@ -112,28 +112,21 @@
 	}
 
 	async function navigateInto(location: Location) {
-		if (location.children && location.children.length > 0) {
-			// Fetch fresh details to ensure children have their own children info
-			isLoadingLocations = true;
-			try {
-				const details = await locationsApi.get(location.id);
-				locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
-				currentLevelLocations.set(details.children || []);
-			} catch (error) {
-				console.error('Failed to load location details:', error);
-				showToast('Failed to load location details', 'error');
-				// Fallback to using existing children data
-				locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
-				currentLevelLocations.set(location.children);
-			} finally {
-				isLoadingLocations = false;
-			}
-		} else {
-			// Build full path from breadcrumbs + current location
-			const pathParts = $locationPath.map(p => p.name);
-			pathParts.push(location.name);
-			const fullPath = pathParts.join(' / ');
-			selectLocation(location, fullPath);
+		// Always navigate into the location's context, regardless of children
+		// Fetch fresh details to ensure children have their own children info
+		isLoadingLocations = true;
+		try {
+			const details = await locationsApi.get(location.id);
+			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
+			currentLevelLocations.set(details.children || []);
+		} catch (error) {
+			console.error('Failed to load location details:', error);
+			showToast('Failed to load location details', 'error');
+			// Fallback to using existing children data
+			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
+			currentLevelLocations.set(location.children || []);
+		} finally {
+			isLoadingLocations = false;
 		}
 	}
 
@@ -447,7 +440,12 @@
 			</Button>
 
 			<!-- Optional: Assign to Container Item -->
-			<Button variant="secondary" full onclick={openItemPicker}>
+			<Button 
+				variant="secondary" 
+				full 
+				onclick={openItemPicker}
+				disabled={($selectedLocation?.itemCount ?? 0) === 0}
+			>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
 				</svg>
@@ -455,7 +453,7 @@
 					{#if scanWorkflow.state.parentItemName}
 						Inside: {scanWorkflow.state.parentItemName} (change)
 					{:else}
-						Place Inside an Item (optional)
+						Place Inside an Item ({$selectedLocation?.itemCount ?? 0})
 					{/if}
 				</span>
 			</Button>

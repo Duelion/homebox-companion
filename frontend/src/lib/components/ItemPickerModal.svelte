@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { items as itemsApi } from '$lib/api';
+	import { items as itemsApi, getConfig } from '$lib/api';
 	import { showToast } from '$lib/stores/ui';
 	import type { ItemSummary } from '$lib/types';
 	import Button from './Button.svelte';
@@ -17,9 +17,16 @@
 
 	let isLoading = $state(true);
 	let items = $state<ItemSummary[]>([]);
+	let homeboxUrl = $state<string>('');
 	// Track user's selection, defaulting to any current parent item
 	let selectedItemId = $derived(currentItemId);
 	let searchQuery = $state('');
+	
+	// Helper to construct thumbnail URL
+	function getThumbnailUrl(item: ItemSummary): string | null {
+		if (!item.thumbnailId || !homeboxUrl) return null;
+		return `${homeboxUrl}/api/v1/items/${item.id}/attachments/${item.thumbnailId}`;
+	}
 
 	// Filtered items based on search
 	let filteredItems = $derived(
@@ -31,7 +38,7 @@
 	);
 
 	onMount(async () => {
-		await loadItems();
+		await Promise.all([loadItems(), loadConfig()]);
 	});
 
 	async function loadItems() {
@@ -44,6 +51,16 @@
 			items = [];
 		} finally {
 			isLoading = false;
+		}
+	}
+
+	async function loadConfig() {
+		try {
+			const config = await getConfig();
+			homeboxUrl = config.homebox_url;
+		} catch (error) {
+			console.error('Failed to load config:', error);
+			// Non-critical - thumbnails just won't load
 		}
 	}
 
@@ -134,6 +151,7 @@
 				</div>
 			{:else}
 				{#each filteredItems as item}
+					{@const thumbnailUrl = getThumbnailUrl(item)}
 					<button
 						type="button"
 						class="w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left {selectedItemId === item.id
@@ -141,11 +159,21 @@
 							: 'bg-neutral-800 border-neutral-700 hover:border-neutral-600'}"
 						onclick={() => selectItem(item)}
 					>
-						<!-- Thumbnail placeholder (no image URLs in this context) -->
-						<div class="w-14 h-14 flex-shrink-0 rounded-lg bg-neutral-700 flex items-center justify-center">
-							<svg class="w-7 h-7 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
-								<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-							</svg>
+						<!-- Thumbnail -->
+						<div class="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-neutral-700">
+							{#if thumbnailUrl}
+								<img
+									src={thumbnailUrl}
+									alt={item.name}
+									class="w-full h-full object-cover"
+								/>
+							{:else}
+								<div class="w-full h-full flex items-center justify-center">
+									<svg class="w-7 h-7 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
+										<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+									</svg>
+								</div>
+							{/if}
 						</div>
 
 						<div class="flex-1 min-w-0">
