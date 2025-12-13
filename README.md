@@ -277,3 +277,4 @@ MIT License
 - [Homebox](https://github.com/sysadminsmedia/homebox) – The inventory system this app extends
 - [OpenAI](https://openai.com) – Vision AI capabilities
 - [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) – Backend & frontend frameworks
+<p align="center"> <a href="https://buymeacoffee.com/duelion" target="_blank" rel="noopener noreferrer"> <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="125"> </a> </p>
