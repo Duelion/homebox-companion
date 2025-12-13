@@ -233,19 +233,23 @@
 
 	<!-- Current location display -->
 	{#if locationPath}
-		<div class="flex items-center gap-2 text-body-sm text-neutral-400 mb-6 mt-4">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-				<circle cx="12" cy="10" r="3" />
-			</svg>
-			<span>Items will be added to:</span>
-			<span class="font-semibold text-neutral-200">{locationPath}</span>
-			{#if parentItemName}
-				<svg class="w-4 h-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-					<polyline points="9 18 15 12 9 6" />
+		<div class="flex flex-wrap items-start gap-x-4 gap-y-2 text-body-sm text-neutral-400 mb-6 mt-4">
+			<!-- Location block -->
+			<div class="flex items-center gap-2">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+					<circle cx="12" cy="10" r="3" />
 				</svg>
-				<span class="text-neutral-500">Inside:</span>
-				<span class="font-semibold text-primary-400">{parentItemName}</span>
+				<span>Items will be added to:</span>
+				<span class="font-semibold text-neutral-200">{locationPath}</span>
+			</div>
+			
+			<!-- Parent item block (if present) -->
+			{#if parentItemName}
+				<div class="flex items-center gap-2">
+					<span class="text-neutral-500">Inside:</span>
+					<span class="font-semibold text-primary-400">{parentItemName}</span>
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -485,12 +489,6 @@
 	{:else}
 		<!-- Enhanced empty state -->
 		<div class="flex flex-col items-center py-12 px-4 mb-6">
-			<div class="w-24 h-24 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-6">
-				<svg class="w-12 h-12 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-					<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-					<circle cx="12" cy="13" r="4" />
-				</svg>
-			</div>
 			<h3 class="text-h3 text-neutral-100 mb-2 text-center">Capture your items</h3>
 			<p class="text-body-sm text-neutral-400 text-center max-w-xs mb-8">
 				Take photos or upload images of items you want to add to your inventory
