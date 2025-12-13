@@ -133,6 +133,39 @@ export interface FormDataRequestOptions {
 }
 
 /**
+ * Fetch a binary resource (image, file) with authentication and return a blob URL.
+ * Returns null if the request fails (e.g., 404, auth error).
+ */
+export async function requestBlobUrl(endpoint: string, signal?: AbortSignal): Promise<string | null> {
+	const authToken = get(token);
+
+	try {
+		const response = await fetch(`${BASE_URL}${endpoint}`, {
+			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+			signal,
+		});
+
+		if (!response.ok) {
+			if (handleUnauthorized(response)) {
+				return null;
+			}
+			log.debug(`Blob request failed for ${endpoint}: ${response.status}`);
+			return null;
+		}
+
+		const blob = await response.blob();
+		return URL.createObjectURL(blob);
+	} catch (error) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			// Request was cancelled, not an error
+			return null;
+		}
+		log.debug(`Blob request error for ${endpoint}:`, error);
+		return null;
+	}
+}
+
+/**
  * Make a FormData API request with automatic auth header and error handling.
  * Use this for file uploads and multipart form submissions.
  */

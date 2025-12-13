@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
 from homebox_companion import AuthenticationError, DetectedItem, HomeboxClient
@@ -230,3 +230,48 @@ async def upload_item_attachment(
         # Log full error but return generic message
         logger.exception(f"Error uploading attachment to item {item_id}")
         raise HTTPException(status_code=500, detail="Failed to upload attachment") from e
+
+
+@router.get("/items/{item_id}/attachments/{attachment_id}")
+async def get_item_attachment(
+    item_id: str,
+    attachment_id: str,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+) -> Response:
+    """Proxy attachment requests to Homebox with proper auth.
+
+    This allows the frontend to load thumbnails without exposing auth tokens
+    to the browser. The browser makes requests to this endpoint, and we
+    forward them to Homebox with the proper Authorization header.
+    """
+    logger.debug(f"Proxying attachment request: item={item_id}, attachment={attachment_id}")
+
+    try:
+        response = await client.client.get(
+            f"{client.base_url}/items/{item_id}/attachments/{attachment_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Session expired")
+        elif response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Attachment not found")
+        elif response.status_code != 200:
+            logger.error(f"Homebox API error: {response.status_code}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to fetch attachment from Homebox"
+            )
+
+        # Return the image with proper content type
+        return Response(
+            content=response.content,
+            media_type=response.headers.get("content-type", "image/jpeg"),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch attachment: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch attachment") from e

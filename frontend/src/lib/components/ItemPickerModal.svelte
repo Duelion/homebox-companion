@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { items as itemsApi, getConfig } from '$lib/api';
+	import { onMount, onDestroy } from 'svelte';
+	import { items as itemsApi } from '$lib/api';
 	import { showToast } from '$lib/stores/ui';
 	import { createLogger } from '$lib/utils/logger';
 	import type { ItemSummary } from '$lib/types';
@@ -20,15 +20,15 @@
 
 	let isLoading = $state(true);
 	let items = $state<ItemSummary[]>([]);
-	let homeboxUrl = $state<string>('');
 	// Track user's selection, defaulting to any current parent item
 	let selectedItemId = $derived(currentItemId);
 	let searchQuery = $state('');
+	// Store fetched thumbnail blob URLs (itemId -> blobUrl)
+	let thumbnailUrls = $state<Map<string, string>>(new Map());
 	
-	// Helper to construct thumbnail URL
+	// Helper to get thumbnail URL for an item
 	function getThumbnailUrl(item: ItemSummary): string | null {
-		if (!item.thumbnailId || !homeboxUrl) return null;
-		return `${homeboxUrl}/api/v1/items/${item.id}/attachments/${item.thumbnailId}`;
+		return thumbnailUrls.get(item.id) ?? null;
 	}
 
 	// Filtered items based on search
@@ -42,7 +42,14 @@
 
 	onMount(async () => {
 		log.debug('Loading items for location:', locationId);
-		await Promise.all([loadItems(), loadConfig()]);
+		await loadItems();
+	});
+
+	// Clean up blob URLs when component is destroyed
+	onDestroy(() => {
+		for (const url of thumbnailUrls.values()) {
+			URL.revokeObjectURL(url);
+		}
 	});
 
 	async function loadItems() {
@@ -50,6 +57,8 @@
 		try {
 			items = await itemsApi.list(locationId);
 			log.debug(`Loaded ${items.length} items`);
+			// Fetch thumbnails for items that have them
+			await loadThumbnails(items);
 		} catch (error) {
 			log.error('Failed to load items', error);
 			showToast('Failed to load items', 'error');
@@ -59,15 +68,29 @@
 		}
 	}
 
-	async function loadConfig() {
-		try {
-			const config = await getConfig();
-			homeboxUrl = config.homebox_url;
-			log.debug('Loaded Homebox URL for thumbnails:', homeboxUrl);
-		} catch (error) {
-			log.error('Failed to load config for thumbnails', error);
-			// Non-critical - thumbnails just won't load
+	async function loadThumbnails(itemsList: ItemSummary[]) {
+		const itemsWithThumbnails = itemsList.filter(item => item.thumbnailId);
+		if (itemsWithThumbnails.length === 0) return;
+
+		log.debug(`Fetching ${itemsWithThumbnails.length} thumbnails`);
+		
+		// Fetch all thumbnails in parallel
+		const results = await Promise.all(
+			itemsWithThumbnails.map(async (item) => {
+				const url = await itemsApi.getThumbnail(item.id, item.thumbnailId!);
+				return { itemId: item.id, url };
+			})
+		);
+
+		// Store successful results
+		const newUrls = new Map(thumbnailUrls);
+		for (const { itemId, url } of results) {
+			if (url) {
+				newUrls.set(itemId, url);
+			}
 		}
+		thumbnailUrls = newUrls;
+		log.debug(`Loaded ${newUrls.size} thumbnails`);
 	}
 
 	function selectItem(item: ItemSummary) {
@@ -170,7 +193,7 @@
 							{#if thumbnailUrl}
 								<img
 									src={thumbnailUrl}
-									alt={item.name}
+									alt=""
 									class="w-full h-full object-cover"
 								/>
 							{:else}

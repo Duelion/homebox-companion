@@ -2,7 +2,7 @@
  * Items API endpoints
  */
 
-import { request, requestFormData } from './client';
+import { request, requestFormData, requestBlobUrl } from './client';
 import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
 
 export interface CreateOptions {
@@ -33,5 +33,12 @@ export const items = {
 			{ errorMessage: 'Failed to upload attachment', signal: options.signal }
 		);
 	},
+
+	/**
+	 * Fetch a thumbnail image and return a blob URL for use in <img> src.
+	 * Returns null if the thumbnail doesn't exist or fails to load.
+	 */
+	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal) =>
+		requestBlobUrl(`/items/${itemId}/attachments/${attachmentId}`, signal),
 };
 
