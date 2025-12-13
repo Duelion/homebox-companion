@@ -45,8 +45,9 @@ Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are depr
 │                     Svelte Frontend                              │
 │  (SvelteKit + Tailwind CSS + Svelte 5 runes)                    │
 ├─────────────────────────────────────────────────────────────────┤
-│  • ScanWorkflow class manages entire scan-to-submit flow        │
-│  • Thin view pattern: pages delegate to workflow                │
+│  • ScanWorkflow coordinates specialized services                 │
+│  • Services: Capture, Analysis, Review, Submission               │
+│  • Thin view pattern: pages delegate to workflow                 │
 │  • Components: QrScanner, LocationModal, ThumbnailEditor, etc.  │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -57,7 +58,8 @@ Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are depr
 ├─────────────────────────────────────────────────────────────────┤
 │  /api/login, /api/locations/*, /api/labels, /api/items/*        │
 │  /api/tools/vision/* (detect, analyze, merge, correct)          │
-│  /api/settings/* (field-preferences, prompt-preview)            │
+│  /api/settings/* (field-preferences, effective-defaults)        │
+│  /api/config, /api/logs, /api/version                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┴───────────────┐
@@ -83,12 +85,11 @@ homebox-companion/
 │   │   └── logging.py               # Loguru setup
 │   ├── homebox/
 │   │   ├── client.py                # Async HTTP client
-│   │   └── models.py                # Location, Item, Label
+│   │   └── models.py                # Location, Item, Label, ItemCreate, ItemUpdate
 │   ├── ai/
 │   │   ├── images.py                # Image encoding utilities
 │   │   ├── openai.py                # OpenAI client wrapper
-│   │   ├── prompts.py               # Shared prompt templates
-│   │   └── vision_prompts.py        # Vision-specific prompts
+│   │   └── prompts.py               # Shared prompt templates
 │   └── tools/vision/
 │       ├── detector.py              # detect_items_from_bytes
 │       ├── analyzer.py              # analyze_item_details
@@ -98,45 +99,75 @@ homebox-companion/
 │       └── prompts.py               # Detection prompts
 │
 ├── server/                          # FastAPI backend
-│   ├── app.py                       # App factory + lifespan
+│   ├── app.py                       # App factory + lifespan + version check
 │   ├── dependencies.py              # DI: get_client, get_token, VisionContext
 │   ├── api/
+│   │   ├── __init__.py              # Router aggregation
 │   │   ├── auth.py                  # /api/login
+│   │   ├── config.py                # /api/config (non-sensitive config)
 │   │   ├── locations.py             # /api/locations/*
 │   │   ├── labels.py                # /api/labels
-│   │   ├── items.py                 # /api/items/*
+│   │   ├── items.py                 # /api/items/* (CRUD + attachments)
+│   │   ├── logs.py                  # /api/logs (view + download)
 │   │   ├── field_preferences.py     # /api/settings/*
 │   │   └── tools/vision.py          # /api/tools/vision/*
 │   └── schemas/                     # Pydantic request/response models
+│       ├── auth.py, items.py, locations.py, vision.py
 │
 ├── frontend/                        # Svelte frontend
 │   └── src/
 │       ├── lib/
 │       │   ├── api/                 # Split API modules
-│       │   │   ├── client.ts        # Base fetch wrapper
-│       │   │   ├── auth.ts, locations.ts, labels.ts, items.ts
+│       │   │   ├── client.ts        # Base fetch wrapper + ApiError
+│       │   │   ├── auth.ts          # Login
+│       │   │   ├── locations.ts     # Location CRUD
+│       │   │   ├── labels.ts        # Labels list
+│       │   │   ├── items.ts         # Item creation + attachments
 │       │   │   ├── vision.ts        # AI detection endpoints
-│       │   │   └── settings.ts      # Field preferences
+│       │   │   ├── settings.ts      # Config, logs, field preferences
+│       │   │   └── index.ts         # Re-exports all APIs
 │       │   ├── types/index.ts       # Consolidated TypeScript types
-│       │   ├── workflows/
-│       │   │   └── scan.svelte.ts   # ScanWorkflow class (Svelte 5)
+│       │   ├── workflows/           # State management (Svelte 5 runes)
+│       │   │   ├── scan.svelte.ts   # ScanWorkflow coordinator
+│       │   │   ├── capture.svelte.ts    # CaptureService
+│       │   │   ├── analysis.svelte.ts   # AnalysisService
+│       │   │   ├── review.svelte.ts     # ReviewService
+│       │   │   ├── submission.svelte.ts # SubmissionService
+│       │   │   └── index.ts         # Exports
 │       │   ├── stores/              # Svelte stores
-│       │   │   ├── auth.ts, locations.ts, labels.ts, ui.ts
-│       │   └── components/          # Reusable components
-│       │       ├── QrScanner.svelte
-│       │       ├── LocationModal.svelte
-│       │       ├── ThumbnailEditor.svelte
-│       │       └── ...
+│       │   │   ├── auth.ts          # Token + session expiry
+│       │   │   ├── locations.ts     # Location tree cache
+│       │   │   ├── labels.ts        # Labels cache
+│       │   │   └── ui.ts            # App version + UI state
+│       │   ├── components/          # Reusable components
+│       │   │   ├── QrScanner.svelte
+│       │   │   ├── LocationModal.svelte
+│       │   │   ├── ThumbnailEditor.svelte
+│       │   │   ├── ItemPickerModal.svelte   # Parent item selection
+│       │   │   ├── SessionExpiredModal.svelte
+│       │   │   ├── AiCorrectionPanel.svelte
+│       │   │   ├── ExtendedFieldsPanel.svelte
+│       │   │   └── ... (18 total)
+│       │   └── utils/               # Utility functions
+│       │       ├── imageCompression.ts
+│       │       ├── logger.ts        # Domain-specific loggers
+│       │       ├── retry.ts         # Retry with exponential backoff
+│       │       ├── routeGuard.ts    # Auth route guards
+│       │       └── token.ts         # Token validation
 │       └── routes/                  # SvelteKit pages
+│           ├── +layout.svelte       # Global layout + SessionExpiredModal
 │           ├── +page.svelte         # Login
-│           ├── location/            # Location selection
-│           ├── capture/             # Photo capture
-│           ├── review/              # Item review
+│           ├── location/            # Location selection + parent item
+│           ├── capture/             # Photo capture + image options
+│           ├── review/              # Item review + AI correction
 │           ├── summary/             # Submission summary
 │           ├── success/             # Success page
-│           └── settings/            # Settings page
+│           └── settings/            # Settings (config, logs, field prefs)
 │
 ├── tests/                           # Test suite
+├── config/                          # Runtime config storage
+│   └── field_preferences.json       # User AI customizations (persisted)
+├── logs/                            # Application logs (daily rotation)
 ├── pyproject.toml                   # Python config + version
 └── Dockerfile                       # Multi-stage Docker build
 ```
@@ -145,38 +176,84 @@ homebox-companion/
 
 ## Frontend Architecture
 
-### ScanWorkflow Pattern (Svelte 5)
+### Workflow Service Decomposition
 
-The frontend uses a class-based workflow pattern with Svelte 5 runes:
+The scan workflow is decomposed into focused services, each handling one phase:
 
 ```typescript
-// lib/workflows/scan.svelte.ts
+// lib/workflows/scan.svelte.ts - Coordinator
 class ScanWorkflow {
-    state = $state<ScanState>({...});  // Reactive state
+    private captureService = new CaptureService();    // Image management
+    private analysisService = new AnalysisService();  // AI detection
+    private reviewService = new ReviewService();      // Item review/confirmation
+    private submissionService = new SubmissionService(); // Homebox submission
+
+    // Unified state accessor via Proxy for backward compatibility
+    get state(): ScanState { ... }
     
-    // Actions
+    // Location management
     setLocation(id, name, path) {...}
-    addImage(file, options) {...}
-    async startAnalysis() {...}
-    confirmCurrentItem() {...}
-    async submitConfirmedItems() {...}
+    setParentItem(id, name) {...}  // For sub-items
+    
+    // Delegates to services
+    addImage(image) {...}          // → CaptureService
+    startAnalysis() {...}          // → AnalysisService
+    confirmItem(item) {...}        // → ReviewService
+    submitAll() {...}              // → SubmissionService
 }
 
 export const scanWorkflow = new ScanWorkflow();
 ```
+
+**Service responsibilities:**
+
+| Service | State Managed | Key Methods |
+|---------|--------------|-------------|
+| `CaptureService` | `images`, additional images | `addImage()`, `removeImage()`, `addAdditionalImages()` |
+| `AnalysisService` | `progress`, default label | `analyze()`, `cancel()`, `loadDefaultLabel()` |
+| `ReviewService` | `detectedItems`, `confirmedItems`, `currentReviewIndex` | `confirmCurrentItem()`, `skipCurrentItem()` |
+| `SubmissionService` | `progress`, `itemStatuses`, `lastResult`, `lastErrors` | `submitAll()`, `retryFailed()`, `saveResult()` |
 
 **Key concepts:**
 - Single source of truth for the entire scan flow
 - State persists across tab navigation
 - Pages are "thin views" that render workflow state
 - Analysis continues in background even when navigating away
+- Supports parent item selection for sub-item relationships
+
+### Session Handling
+
+The app handles session expiry gracefully:
+
+```typescript
+// lib/stores/auth.ts
+export const sessionExpired = writable(false);
+export function markSessionExpired() { sessionExpired.set(true); }
+
+// lib/api/client.ts
+function handleUnauthorized(response: Response): boolean {
+    if (response.status === 401 && get(token)) {
+        markSessionExpired();
+        return true;
+    }
+    return false;
+}
+```
+
+The `SessionExpiredModal` in `+layout.svelte` shows when any API returns 401.
 
 ### API Client Structure
 
 ```typescript
-// lib/api/client.ts - Base request wrapper with auth handling
-// lib/api/vision.ts - AI detection endpoints
-// lib/api/settings.ts - Field preferences + prompt preview
+// lib/api/client.ts
+export class ApiError extends Error { status: number; data: unknown; }
+export async function request<T>(endpoint, options): Promise<T>
+export async function requestFormData<T>(endpoint, formData, options): Promise<T>
+export async function requestBlobUrl(endpoint, signal): Promise<string | null>
+
+// lib/api/index.ts - Re-exports all domain APIs
+export { auth, locations, labels, items, vision, fieldPreferences }
+export { getVersion, getConfig, getLogs, downloadLogs }
 ```
 
 ### Component Patterns
@@ -184,6 +261,7 @@ export const scanWorkflow = new ScanWorkflow();
 - Use Svelte 5 `$props()` for component inputs
 - Use `$state()` for local reactive state
 - Emit events via callback props (e.g., `onScan`, `onClose`)
+- Use `$effect()` for side effects (e.g., auto-scroll logs)
 
 ---
 
@@ -197,23 +275,45 @@ Shared context for vision endpoints:
 @dataclass
 class VisionContext:
     token: str
-    labels: list[dict]
-    field_preferences: FieldPreferences
+    labels: list[dict[str, str]]
+    field_preferences: dict[str, str] | None  # Effective customizations
     output_language: str | None
     default_label_id: str | None
 
 async def get_vision_context(...) -> VisionContext:
-    # Loads labels, preferences in one place
+    # Extracts token, fetches labels, loads preferences in one place
 ```
 
 ### Field Preferences
 
-AI customization is stored in `config/field_preferences.json` with env var fallbacks:
+AI customization has three layers:
+
+1. **Hardcoded defaults** in `FieldPreferencesDefaults` (pydantic-settings)
+2. **Environment variables** (HBC_AI_*) override hardcoded defaults
+3. **File-based preferences** (`config/field_preferences.json`) override env vars
 
 ```python
+# Load order: hardcoded → env vars → file
 def load_field_preferences() -> FieldPreferences:
-    # 1. Load env var defaults (HBC_AI_*)
-    # 2. Overlay with file-based preferences (UI settings win)
+    # Returns user file preferences (may be empty)
+
+def get_defaults() -> FieldPreferencesDefaults:
+    # Returns env var values or hardcoded fallbacks (all fields have values)
+```
+
+The `get_effective_customizations()` method merges user prefs with defaults.
+
+### Item Creation Flow
+
+Items are created in two steps due to Homebox API limitations:
+
+```python
+# Step 1: POST with basic fields
+item = await client.create_item(token, ItemCreate(...))
+
+# Step 2: PUT with extended fields (manufacturer, model, serial, etc.)
+if detected_item.has_extended_fields():
+    await client.update_item(token, item_id, extended_payload)
 ```
 
 ---
@@ -231,13 +331,30 @@ FIELD_DEFAULTS = {
     # ...
 }
 
+def build_critical_constraints(single_item: bool) -> str: ...
 def build_naming_rules(customizations) -> str: ...
 def build_item_schema(customizations) -> str: ...
 def build_extended_fields_schema(customizations) -> str: ...
 def build_label_prompt(labels) -> str: ...
+def build_language_instruction(output_language) -> str: ...
 ```
 
 User customizations **replace** defaults (not append).
+
+### Detection prompts
+
+`src/homebox_companion/tools/vision/prompts.py` contains:
+
+```python
+def build_detection_system_prompt(
+    labels: list[dict[str, str]] | None = None,
+    single_item: bool = False,
+    extra_instructions: str | None = None,
+    extract_extended_fields: bool = True,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
+) -> str: ...
+```
 
 ### Adding New AI Tools
 
@@ -297,26 +414,55 @@ __version__ = version("homebox-companion")
 
 ## API Endpoints
 
+### Core API
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/login` | Authenticate with Homebox |
+| GET | `/api/version` | Get app version + update check |
+| GET | `/api/config` | Get non-sensitive configuration |
+| GET | `/api/logs` | Get recent application logs |
+| GET | `/api/logs/download` | Download full log file |
+
+### Locations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | `/api/locations` | List all locations |
 | GET | `/api/locations/tree` | Get hierarchical location tree |
 | GET | `/api/locations/{id}` | Get single location with children |
 | POST | `/api/locations` | Create a new location |
 | PUT | `/api/locations/{id}` | Update a location |
+
+### Labels & Items
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | `/api/labels` | List all labels |
+| GET | `/api/items` | List items (optional: `?location_id=`) |
 | POST | `/api/items` | Batch create items |
 | POST | `/api/items/{id}/attachments` | Upload item attachment |
+| GET | `/api/items/{id}/attachments/{aid}` | Proxy attachment (for thumbnails) |
+
+### Vision Tools
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | POST | `/api/tools/vision/detect` | Detect items in a single image |
-| POST | `/api/tools/vision/detect-batch` | Detect items in multiple images |
-| POST | `/api/tools/vision/analyze` | Multi-image analysis |
+| POST | `/api/tools/vision/detect-batch` | Detect items in multiple images (parallel) |
+| POST | `/api/tools/vision/analyze` | Multi-image analysis for details |
 | POST | `/api/tools/vision/merge` | Merge multiple items using AI |
 | POST | `/api/tools/vision/correct` | Correct item with user feedback |
+
+### Settings
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | `/api/settings/field-preferences` | Get AI customization settings |
 | PUT | `/api/settings/field-preferences` | Update AI customization settings |
-| POST | `/api/settings/prompt-preview` | Preview AI prompt with current settings |
-| GET | `/api/version` | Get application version |
+| DELETE | `/api/settings/field-preferences` | Reset to defaults |
+| GET | `/api/settings/effective-defaults` | Get defaults (env or hardcoded) |
+| POST | `/api/settings/prompt-preview` | Preview AI prompt with settings |
 
 ---
 
@@ -372,5 +518,28 @@ from homebox_companion import (
     
     # Utilities
     encode_image_to_data_uri, encode_image_bytes_to_data_uri,
+    cleanup_openai_clients,
 )
 ```
+
+---
+
+## Common Pitfalls
+
+### Frontend
+
+1. **Don't modify `state.confirmedItems` directly** - use workflow methods
+2. **AbortController** - always check for abort errors in async operations
+3. **Proxy state** - `workflow.state` is a Proxy; accessing unknown properties throws
+
+### Backend
+
+1. **Extended fields require PUT** - Homebox API doesn't accept them on create
+2. **VisionContext auto-filters default label** - AI suggestions don't include it
+3. **Field preferences file location** - `config/field_preferences.json` (created on first save)
+
+### AI Prompts
+
+1. **Customizations replace defaults** - don't concatenate instructions
+2. **Single item mode** - forces quantity=1 and treats everything as one item
+3. **Extra instructions** - user hints are appended to the prompt
