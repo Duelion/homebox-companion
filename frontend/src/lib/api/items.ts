@@ -3,7 +3,7 @@
  */
 
 import { request, requestFormData } from './client';
-import type { BatchCreateRequest, BatchCreateResponse } from '../types';
+import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
 
 export interface CreateOptions {
 	signal?: AbortSignal;
@@ -14,6 +14,9 @@ export interface UploadOptions {
 }
 
 export const items = {
+	list: (locationId?: string) =>
+		request<ItemSummary[]>(`/items${locationId ? `?location_id=${locationId}` : ''}`),
+
 	create: (data: BatchCreateRequest, options: CreateOptions = {}) =>
 		request<BatchCreateResponse>('/items', {
 			method: 'POST',

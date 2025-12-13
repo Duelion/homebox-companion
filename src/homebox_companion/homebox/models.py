@@ -98,6 +98,7 @@ class ItemCreate:
     description: str | None = None
     location_id: str | None = None
     label_ids: list[str] | None = None
+    parent_id: str | None = None  # For sub-item relationships
 
     def to_payload(self) -> dict:
         """Convert to API payload for item creation."""
@@ -114,6 +115,8 @@ class ItemCreate:
             payload["locationId"] = self.location_id
         if self.label_ids:
             payload["labelIds"] = self.label_ids
+        if self.parent_id:
+            payload["parentId"] = self.parent_id
 
         return payload
 

@@ -140,6 +140,7 @@ export class SubmissionService {
 		index: number,
 		confirmedItem: ConfirmedItem,
 		locationId: string | null,
+		parentId: string | null,
 		signal?: AbortSignal
 	): Promise<{ status: ItemSubmissionStatus; error?: string }> {
 		this.itemStatuses = { ...this.itemStatuses, [index]: 'creating' };
@@ -150,6 +151,7 @@ export class SubmissionService {
 				quantity: confirmedItem.quantity,
 				description: confirmedItem.description,
 				label_ids: confirmedItem.label_ids,
+				parent_id: parentId,
 				manufacturer: confirmedItem.manufacturer,
 				model_number: confirmedItem.model_number,
 				serial_number: confirmedItem.serial_number,
@@ -223,11 +225,13 @@ export class SubmissionService {
 	 * Submit all confirmed items to Homebox.
 	 * @param items - Array of confirmed items to submit
 	 * @param locationId - Target location ID
+	 * @param parentId - Optional parent item ID (for sub-items)
 	 * @param options.validateAuth - If true, validate auth token before submitting (default: true)
 	 */
 	async submitAll(
 		items: ConfirmedItem[],
 		locationId: string | null,
+		parentId: string | null,
 		options?: { validateAuth?: boolean }
 	): Promise<SubmitResult> {
 		const result: SubmitResult = {
@@ -275,7 +279,7 @@ export class SubmissionService {
 					return result;
 				}
 
-				const itemResult = await this.submitItem(i, items[i], locationId, signal);
+				const itemResult = await this.submitItem(i, items[i], locationId, parentId, signal);
 
 				if (itemResult.status === 'success') {
 					result.successCount++;
@@ -341,8 +345,9 @@ export class SubmissionService {
 	 * Retry only failed items.
 	 * @param items - Full array of confirmed items (uses itemStatuses to find failures)
 	 * @param locationId - Target location ID
+	 * @param parentId - Optional parent item ID (for sub-items)
 	 */
-	async retryFailed(items: ConfirmedItem[], locationId: string | null): Promise<SubmitResult> {
+	async retryFailed(items: ConfirmedItem[], locationId: string | null, parentId: string | null): Promise<SubmitResult> {
 		const result: SubmitResult = {
 			success: false,
 			successCount: 0,
@@ -377,7 +382,7 @@ export class SubmissionService {
 					return result;
 				}
 
-				const itemResult = await this.submitItem(i, items[i], locationId, signal);
+				const itemResult = await this.submitItem(i, items[i], locationId, parentId, signal);
 
 				if (itemResult.status === 'success') {
 					result.successCount++;
