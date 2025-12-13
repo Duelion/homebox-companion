@@ -92,7 +92,7 @@
 		img.onload = () => {
 			loadedImage = img;
 			resetTransform();
-			render();
+			requestAnimationFrame(() => render());
 		};
 		img.src = images[index].dataUrl;
 		selectedImageIndex = index;
