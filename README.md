@@ -1,3 +1,5 @@
+<h1 align="center" style="margin-top: -10px;"></h1>
+
 <div align="center">
   <img src="frontend/static/icon-192.svg" height="200"/>
 </div>
@@ -7,9 +9,16 @@
 > **Not affiliated with the Homebox project.** This is an unofficial third-party companion app.
 
 AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.
+<table align="center">
+  <tr>
+    <td><img src=".github/assets/images/01_select_location.png" width="180" alt="Select Location"></td>
+    <td><img src=".github/assets/images/02_capture_items.png" width="180" alt="Capture Items"></td>
+    <td><img src=".github/assets/images/03_review_items.png" width="180" alt="Review Items"></td>
+    <td><img src=".github/assets/images/04_submit.png" width="180" alt="Submit"></td>
+  </tr>
+</table>
 
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
-
 
 ## 🔄 How It Works
 
@@ -268,3 +277,4 @@ MIT License
 - [Homebox](https://github.com/sysadminsmedia/homebox) – The inventory system this app extends
 - [OpenAI](https://openai.com) – Vision AI capabilities
 - [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) – Backend & frontend frameworks
+<p align="center"> <a href="https://buymeacoffee.com/duelion" target="_blank" rel="noopener noreferrer"> <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="125"> </a> </p>
