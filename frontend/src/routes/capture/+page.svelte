@@ -222,12 +222,12 @@
 </svelte:head>
 
 <div class="animate-in pb-28">
-	<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
-
 	<StepIndicator currentStep={2} />
 
 	<h2 class="text-h2 text-neutral-100 mb-1">Capture Items</h2>
 	<p class="text-body-sm text-neutral-400 mb-6">Add photos and configure detection options</p>
+
+	<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
 
 	<!-- Image list with collapsible cards -->
 	{#if images.length > 0}
