@@ -326,14 +326,14 @@
 </svelte:head>
 
 <div class="animate-in">
-	{#if $selectedLocation}
-		<BackLink href="/location" label="Choose a different location" onclick={changeSelection} />
-	{/if}
-
 	<StepIndicator currentStep={1} />
 
 	<h2 class="text-h2 text-neutral-100 mb-1">Select Location</h2>
 	<p class="text-body-sm text-neutral-400 mb-6">Choose where your items will be stored</p>
+
+	{#if $selectedLocation}
+		<BackLink href="/location" label="Choose a different location" onclick={changeSelection} />
+	{/if}
 
 	{#if isLoadingLocations}
 		<!-- Skeleton loading state -->

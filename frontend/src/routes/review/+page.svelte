@@ -265,15 +265,12 @@
 </svelte:head>
 
 <div class="animate-in pb-32">
-	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
-
 	<StepIndicator currentStep={3} />
 
-	<!-- Header -->
-	<div class="mb-6">
-		<h2 class="text-h2 text-neutral-100 mb-1">Review Items</h2>
-		<p class="text-body-sm text-neutral-400">Edit or skip detected items</p>
-	</div>
+	<h2 class="text-h2 text-neutral-100 mb-1">Review Items</h2>
+	<p class="text-body-sm text-neutral-400 mb-6">Edit or skip detected items</p>
+
+	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
 
 	{#if editedItem}
 		{@const displayThumbnail = getDisplayThumbnail()}
