@@ -37,6 +37,8 @@
 	let isAnalyzing = $derived(status === 'analyzing');
 	let progress = $derived(workflow.state.analysisProgress);
 	let locationName = $derived(workflow.state.locationName);
+	let locationPath = $derived(workflow.state.locationPath);
+	let parentItemName = $derived(workflow.state.parentItemName);
 
 	// True while analyzing OR while the completion animation is playing
 	// This prevents UI elements from appearing/disappearing during animation
@@ -228,6 +230,25 @@
 	<p class="text-body-sm text-neutral-400 mb-6">Add photos and configure detection options</p>
 
 	<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
+
+	<!-- Current location display -->
+	{#if locationPath}
+		<div class="flex items-center gap-2 text-body-sm text-neutral-400 mb-6 mt-4">
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+				<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+				<circle cx="12" cy="10" r="3" />
+			</svg>
+			<span>Items will be added to:</span>
+			<span class="font-semibold text-neutral-200">{locationPath}</span>
+			{#if parentItemName}
+				<svg class="w-4 h-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<polyline points="9 18 15 12 9 6" />
+				</svg>
+				<span class="text-neutral-500">Inside:</span>
+				<span class="font-semibold text-primary-400">{parentItemName}</span>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Image list with collapsible cards -->
 	{#if images.length > 0}
