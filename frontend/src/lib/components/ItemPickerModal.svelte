@@ -2,9 +2,12 @@
 	import { onMount } from 'svelte';
 	import { items as itemsApi, getConfig } from '$lib/api';
 	import { showToast } from '$lib/stores/ui';
+	import { createLogger } from '$lib/utils/logger';
 	import type { ItemSummary } from '$lib/types';
 	import Button from './Button.svelte';
 	import Loader from './Loader.svelte';
+
+	const log = createLogger({ prefix: 'ItemPicker' });
 
 	interface Props {
 		locationId: string;
@@ -38,6 +41,7 @@
 	);
 
 	onMount(async () => {
+		log.debug('Loading items for location:', locationId);
 		await Promise.all([loadItems(), loadConfig()]);
 	});
 
@@ -45,8 +49,9 @@
 		isLoading = true;
 		try {
 			items = await itemsApi.list(locationId);
+			log.debug(`Loaded ${items.length} items`);
 		} catch (error) {
-			console.error('Failed to load items:', error);
+			log.error('Failed to load items', error);
 			showToast('Failed to load items', 'error');
 			items = [];
 		} finally {
@@ -58,8 +63,9 @@
 		try {
 			const config = await getConfig();
 			homeboxUrl = config.homebox_url;
+			log.debug('Loaded Homebox URL for thumbnails:', homeboxUrl);
 		} catch (error) {
-			console.error('Failed to load config:', error);
+			log.error('Failed to load config for thumbnails', error);
 			// Non-critical - thumbnails just won't load
 		}
 	}

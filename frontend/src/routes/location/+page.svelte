@@ -14,6 +14,7 @@
 	import { showToast } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
+	import { createLogger } from '$lib/utils/logger';
 	import type { Location } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import Loader from '$lib/components/Loader.svelte';
@@ -23,6 +24,8 @@
 	import ItemPickerModal from '$lib/components/ItemPickerModal.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
+
+	const log = createLogger({ prefix: 'LocationPage' });
 
 	// Local UI state
 	let isLoadingLocations = $state(true);
@@ -74,14 +77,16 @@
 	});
 
 	async function loadLocations() {
+		log.debug('Loading location tree');
 		isLoadingLocations = true;
 		try {
 			const tree = await locationsApi.tree();
+			log.debug('Loaded location tree, top-level count:', tree.length);
 			locationTree.set(tree);
 			currentLevelLocations.set(tree);
 			allLocationsFlat = flattenLocations(tree, '');
 		} catch (error) {
-			console.error('Failed to load locations:', error);
+			log.error('Failed to load locations', error);
 			showToast('Failed to load locations', 'error');
 		} finally {
 			isLoadingLocations = false;
@@ -113,14 +118,15 @@
 
 	async function navigateInto(location: Location) {
 		// Always navigate into the location's context, regardless of children
-		// Fetch fresh details to ensure children have their own children info
+		log.debug('Navigating into location:', location.name, location.id);
 		isLoadingLocations = true;
 		try {
 			const details = await locationsApi.get(location.id);
+			log.debug('Loaded location details, children:', details.children?.length ?? 0);
 			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
 			currentLevelLocations.set(details.children || []);
 		} catch (error) {
-			console.error('Failed to load location details:', error);
+			log.error('Failed to load location details', error);
 			showToast('Failed to load location details', 'error');
 			// Fallback to using existing children data
 			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
@@ -131,6 +137,7 @@
 	}
 
 	function selectLocation(location: Location, path: string) {
+		log.debug('Selected location:', location.name, 'itemCount:', location.itemCount ?? 'unknown');
 		// Update both the location store (for UI) and the workflow (for scan flow)
 		selectedLocation.set(location);
 		scanWorkflow.setLocation(location.id, location.name, path);
@@ -155,9 +162,9 @@
 			try {
 				const details = await locationsApi.get(targetId);
 				currentLevelLocations.set(details.children || []);
-			} catch (error) {
-				console.error('Failed to load location details:', error);
-				// Fallback to traversing the tree
+		} catch (error) {
+			log.error('Failed to load location details', error);
+			// Fallback to traversing the tree
 				let current: Location[] = $locationTree;
 				for (const pathItem of newPath) {
 					const loc = current.find((l) => l.id === pathItem.id);
@@ -263,7 +270,7 @@
 				scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
 			}
 		} catch (error) {
-			console.error('Failed to save location:', error);
+			log.error('Failed to save location', error);
 			// Re-throw to let LocationModal handle the error display
 			throw error;
 		}
@@ -319,7 +326,7 @@
 		selectedLocation.set(locationData);
 		scanWorkflow.setLocation(locationData.id, locationData.name, locationPath);
 	} catch (error) {
-			console.error('QR scan error:', error);
+			log.error('QR scan error', error);
 			if (error instanceof Error && error.message.includes('401')) {
 				showToast('Session expired. Please log in again.', 'error');
 			} else if (error instanceof Error && error.message.includes('404')) {
@@ -333,7 +340,7 @@
 	}
 
 	function handleQrError(error: string) {
-		console.warn('QR Scanner error:', error);
+		log.warn('QR Scanner error:', error);
 	}
 
 	// Item picker handlers
