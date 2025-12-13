@@ -35,3 +35,4 @@ server/static/
 # OS files
 .DS_Store
 Thumbs.db
+homebox_api.json

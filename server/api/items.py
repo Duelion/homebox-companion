@@ -2,17 +2,80 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from homebox_companion import AuthenticationError, DetectedItem
+from homebox_companion import AuthenticationError, DetectedItem, HomeboxClient
 from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_client, get_token, validate_file_size
 from ..schemas.items import BatchCreateRequest
 
 router = APIRouter()
+
+
+@router.get("/items")
+async def list_items(
+    location_id: str | None = Query(None, alias="location_id"),
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+) -> list[dict]:
+    """
+    List items, optionally filtered by location.
+
+    Returns a simplified list of items suitable for selection UI.
+    """
+    try:
+        logger.debug(f"Fetching items for location_id={location_id}")
+
+        # Build query parameters for Homebox API
+        params = {}
+        if location_id:
+            params["locations"] = location_id
+
+        # Call Homebox API directly using the underlying httpx client
+        response = await client.client.get(
+            f"{client.base_url}/items",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            params=params or None,
+        )
+
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Session expired")
+        elif response.status_code != 200:
+            logger.error(f"Homebox API error: {response.status_code} - {response.text}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to fetch items from Homebox"
+            )
+
+        data = response.json()
+
+        # Extract items from paginated response
+        items = data.get("items", [])
+
+        # Return simplified item data
+        result = []
+        for item in items:
+            result.append({
+                "id": item["id"],
+                "name": item["name"],
+                "quantity": item.get("quantity", 1),
+                "thumbnailId": item.get("thumbnailId"),
+            })
+
+        logger.debug(f"Found {len(result)} items")
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch items: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch items") from e
 
 
 @router.post("/items")
@@ -42,6 +105,7 @@ async def create_items(
         logger.debug(f"Creating item: {item_input.name}")
         logger.debug(f"  location_id: {location_id}")
         logger.debug(f"  label_ids: {item_input.label_ids}")
+        logger.debug(f"  parent_id: {item_input.parent_id}")
 
         detected_item = DetectedItem(
             name=item_input.name,
@@ -65,6 +129,7 @@ async def create_items(
                 description=detected_item.description,
                 location_id=detected_item.location_id,
                 label_ids=detected_item.label_ids,
+                parent_id=item_input.parent_id,  # Include parent_id for sub-items
             )
             result = await client.create_item(token, item_create)
             item_id = result.get("id")
@@ -88,6 +153,9 @@ async def create_items(
                         ],
                         **extended_payload,
                     }
+                    # Preserve parentId if it was set
+                    if item_input.parent_id:
+                        update_data["parentId"] = item_input.parent_id
                     result = await client.update_item(token, item_id, update_data)
                     logger.info("  Updated item with extended fields")
 
@@ -162,4 +230,3 @@ async def upload_item_attachment(
         # Log full error but return generic message
         logger.exception(f"Error uploading attachment to item {item_id}")
         raise HTTPException(status_code=500, detail="Failed to upload attachment") from e
-

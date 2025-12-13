@@ -33,6 +33,14 @@ export interface Label {
 	color?: string;
 }
 
+/** Item summary for selection/listing (lightweight) */
+export interface ItemSummary {
+	id: string;
+	name: string;
+	quantity: number;
+	thumbnailId?: string | null;
+}
+
 /** Core item fields shared across all item types */
 export interface ItemCore {
 	name: string;
@@ -129,6 +137,9 @@ export interface ScanState {
 	locationId: string | null;
 	locationName: string | null;
 	locationPath: string | null;
+	// Parent Item (for sub-item relationships)
+	parentItemId: string | null;
+	parentItemName: string | null;
 	// Capture
 	images: CapturedImage[];
 	// Analysis
@@ -177,6 +188,7 @@ export interface BatchCreateRequest {
 /** Item input for creation (with location) */
 export interface ItemInput extends ItemCore, ItemExtended {
 	location_id?: string | null;
+	parent_id?: string | null;
 	insured?: boolean;
 }
 

@@ -59,6 +59,12 @@ class ScanWorkflow {
 	/** Selected location path */
 	private _locationPath = $state<string | null>(null);
 
+	/** Selected parent item ID (for sub-item relationships) */
+	private _parentItemId = $state<string | null>(null);
+
+	/** Selected parent item name */
+	private _parentItemName = $state<string | null>(null);
+
 	/** Current error message */
 	private _error = $state<string | null>(null);
 
@@ -80,6 +86,8 @@ class ScanWorkflow {
 		'locationId',
 		'locationName',
 		'locationPath',
+		'parentItemId',
+		'parentItemName',
 		'images',
 		'analysisProgress',
 		'detectedItems',
@@ -98,6 +106,8 @@ class ScanWorkflow {
 		'locationId',
 		'locationName',
 		'locationPath',
+		'parentItemId',
+		'parentItemName',
 		'error',
 		'analysisProgress'
 	]);
@@ -141,6 +151,10 @@ class ScanWorkflow {
 							return workflow._locationName;
 						case 'locationPath':
 							return workflow._locationPath;
+						case 'parentItemId':
+							return workflow._parentItemId;
+						case 'parentItemName':
+							return workflow._parentItemName;
 						case 'images':
 							return workflow.captureService.images;
 						case 'analysisProgress':
@@ -205,6 +219,12 @@ class ScanWorkflow {
 						case 'locationPath':
 							workflow._locationPath = value as string | null;
 							return true;
+						case 'parentItemId':
+							workflow._parentItemId = value as string | null;
+							return true;
+						case 'parentItemName':
+							workflow._parentItemName = value as string | null;
+							return true;
 						case 'error':
 							workflow._error = value as string | null;
 							return true;
@@ -245,8 +265,13 @@ class ScanWorkflow {
 	// LOCATION ACTIONS
 	// =========================================================================
 
-	/** Set the selected location */
+	/** Set the selected location (clears parent item since items are location-specific) */
 	setLocation(id: string, name: string, path: string): void {
+		// If changing to a different location, clear parent item
+		if (this._locationId !== id) {
+			this._parentItemId = null;
+			this._parentItemName = null;
+		}
 		this._locationId = id;
 		this._locationName = name;
 		this._locationPath = path;
@@ -254,12 +279,26 @@ class ScanWorkflow {
 		this._error = null;
 	}
 
-	/** Clear location selection */
+	/** Clear location selection (also clears parent item since it's location-specific) */
 	clearLocation(): void {
 		this._locationId = null;
 		this._locationName = null;
 		this._locationPath = null;
+		this._parentItemId = null;
+		this._parentItemName = null;
 		this._status = 'location';
+	}
+
+	/** Set the parent item (for sub-item relationships) */
+	setParentItem(id: string, name: string): void {
+		this._parentItemId = id;
+		this._parentItemName = name;
+	}
+
+	/** Clear parent item selection */
+	clearParentItem(): void {
+		this._parentItemId = null;
+		this._parentItemName = null;
 	}
 
 	// =========================================================================
@@ -469,7 +508,7 @@ class ScanWorkflow {
 		this._status = 'submitting';
 		this._error = null;
 
-		const result = await this.submissionService.submitAll(items, this._locationId, options);
+		const result = await this.submissionService.submitAll(items, this._locationId, this._parentItemId, options);
 
 		if (result.sessionExpired) {
 			return result;
@@ -519,7 +558,7 @@ class ScanWorkflow {
 
 		this._error = null;
 
-		const result = await this.submissionService.retryFailed(items, this._locationId);
+		const result = await this.submissionService.retryFailed(items, this._locationId, this._parentItemId);
 
 		if (result.sessionExpired) {
 			return result;
@@ -560,14 +599,18 @@ class ScanWorkflow {
 		this._locationId = null;
 		this._locationName = null;
 		this._locationPath = null;
+		this._parentItemId = null;
+		this._parentItemName = null;
 		this._error = null;
 	}
 
-	/** Start a new scan (keeps location if set) */
+	/** Start a new scan (keeps location and parent item if set) */
 	startNew(): void {
 		const locationId = this._locationId;
 		const locationName = this._locationName;
 		const locationPath = this._locationPath;
+		const parentItemId = this._parentItemId;
+		const parentItemName = this._parentItemName;
 
 		this.reset();
 
@@ -575,6 +618,8 @@ class ScanWorkflow {
 			this._locationId = locationId;
 			this._locationName = locationName;
 			this._locationPath = locationPath;
+			this._parentItemId = parentItemId;
+			this._parentItemName = parentItemName;
 			this._status = 'capturing';
 		} else {
 			this._status = 'location';

@@ -20,6 +20,7 @@
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import LocationModal from '$lib/components/LocationModal.svelte';
+	import ItemPickerModal from '$lib/components/ItemPickerModal.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
 
@@ -33,6 +34,9 @@
 	let showLocationModal = $state(false);
 	let locationModalMode = $state<'create' | 'edit'>('create');
 	let createParentLocation = $state<{ id: string; name: string } | null>(null);
+
+	// Item picker modal state
+	let showItemPicker = $state(false);
 
 	// QR Scanner state
 	let showQrScanner = $state(false);
@@ -344,6 +348,19 @@
 	function handleQrError(error: string) {
 		console.warn('QR Scanner error:', error);
 	}
+
+	// Item picker handlers
+	function openItemPicker() {
+		showItemPicker = true;
+	}
+
+	function handleParentItemSelect(id: string, name: string) {
+		if (id && name) {
+			scanWorkflow.setParentItem(id, name);
+		} else {
+			scanWorkflow.clearParentItem();
+		}
+	}
 </script>
 
 <svelte:head>
@@ -427,6 +444,20 @@
 					<line x1="5" y1="12" x2="19" y2="12" />
 				</svg>
 				<span>Add Sub-location</span>
+			</Button>
+
+			<!-- Optional: Assign to Container Item -->
+			<Button variant="secondary" full onclick={openItemPicker}>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+				</svg>
+				<span>
+					{#if scanWorkflow.state.parentItemName}
+						Inside: {scanWorkflow.state.parentItemName} (change)
+					{:else}
+						Place Inside an Item (optional)
+					{/if}
+				</span>
 			</Button>
 
 			<Button variant="primary" full onclick={continueToCapture}>
@@ -660,6 +691,16 @@
 	parentLocation={locationModalMode === 'create' ? createParentLocation : null}
 	onsave={handleSaveLocation}
 />
+
+<!-- Item Picker Modal -->
+{#if showItemPicker && $selectedLocation}
+	<ItemPickerModal
+		locationId={$selectedLocation.id}
+		currentItemId={scanWorkflow.state.parentItemId}
+		onSelect={handleParentItemSelect}
+		onClose={() => (showItemPicker = false)}
+	/>
+{/if}
 
 <!-- QR Scanner Modal -->
 {#if showQrScanner}

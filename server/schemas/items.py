@@ -11,6 +11,7 @@ class ItemInput(BaseModel):
     description: str | None = None
     location_id: str | None = None
     label_ids: list[str] | None = None
+    parent_id: str | None = None  # For sub-item relationships
     # Advanced fields
     serial_number: str | None = None
     model_number: str | None = None

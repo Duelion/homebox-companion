@@ -21,6 +21,7 @@
 	const confirmedItems = $derived(workflow.state.confirmedItems);
 	const locationPath = $derived(workflow.state.locationPath);
 	const locationId = $derived(workflow.state.locationId);
+	const parentItemName = $derived(workflow.state.parentItemName);
 	const itemStatuses = $derived(workflow.state.itemStatuses);
 	const submissionErrors = $derived(workflow.state.submissionErrors);
 
@@ -166,6 +167,13 @@
 			</svg>
 			<span>Items will be added to:</span>
 			<span class="font-semibold text-neutral-200">{locationPath}</span>
+			{#if parentItemName}
+				<svg class="w-4 h-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<polyline points="9 18 15 12 9 6" />
+				</svg>
+				<span class="text-neutral-500">Inside:</span>
+				<span class="font-semibold text-primary-400">{parentItemName}</span>
+			{/if}
 			<button
 				type="button"
 				class="text-primary-400 hover:text-primary-300 ml-auto transition-colors disabled:opacity-50 px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 min-h-[44px] flex items-center"
