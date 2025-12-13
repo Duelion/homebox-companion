@@ -77,11 +77,39 @@ async def get_location(
     location_id: str,
     authorization: Annotated[str | None, Header()] = None,
 ) -> dict[str, Any]:
-    """Fetch a specific location by ID with its children."""
+    """Fetch a specific location by ID with its children enriched with their own children info."""
     token = get_token(authorization)
     client = get_client()
     try:
-        return await client.get_location(token, location_id)
+        location = await client.get_location(token, location_id)
+        
+        # Enrich children with their own children info (for nested navigation)
+        children = location.get("children", [])
+        if children:
+            enriched_children = []
+            for child in children:
+                try:
+                    # Fetch full details for each child to get their children
+                    child_details = await client.get_location(token, child["id"])
+                    enriched_children.append({
+                        "id": child_details.get("id"),
+                        "name": child_details.get("name"),
+                        "description": child_details.get("description", ""),
+                        "itemCount": child.get("itemCount", 0),
+                        "children": child_details.get("children", []),
+                    })
+                except Exception:
+                    # If we can't get details, include basic info without children
+                    enriched_children.append({
+                        "id": child.get("id"),
+                        "name": child.get("name"),
+                        "description": child.get("description", ""),
+                        "itemCount": child.get("itemCount", 0),
+                        "children": [],
+                    })
+            location["children"] = enriched_children
+        
+        return location
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
