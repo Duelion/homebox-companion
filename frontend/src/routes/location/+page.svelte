@@ -32,6 +32,8 @@
 	let searchQuery = $state('');
 	let allLocationsFlat = $state<{ location: Location; path: string }[]>([]);
 	let wasSessionExpired = $state(false);
+	// Store the current location we're viewing (from navigateInto) for accurate selection
+	let currentNavigatedLocation = $state<Location | null>(null);
 
 	// Modal state
 	let showLocationModal = $state(false);
@@ -79,6 +81,7 @@
 	async function loadLocations() {
 		log.debug('Loading location tree');
 		isLoadingLocations = true;
+		currentNavigatedLocation = null;
 		try {
 			const tree = await locationsApi.tree();
 			log.debug('Loaded location tree, top-level count:', tree.length);
@@ -104,11 +107,20 @@
 				// Refresh children of the parent location
 				const details = await locationsApi.get(parentId);
 				currentLevelLocations.set(details.children || []);
+				// Update the current navigated location with fresh data
+				currentNavigatedLocation = {
+					id: details.id,
+					name: details.name,
+					description: details.description || '',
+					itemCount: details.itemCount ?? 0,
+					children: details.children || [],
+				};
 			} else {
 				// Refresh top-level locations
 				const tree = await locationsApi.tree();
 				locationTree.set(tree);
 				currentLevelLocations.set(tree);
+				currentNavigatedLocation = null;
 			}
 			
 			// Also refresh flat list for search
@@ -134,17 +146,6 @@
 		return result;
 	}
 
-	function findLocationById(locations: Location[], id: string): Location | null {
-		for (const loc of locations) {
-			if (loc.id === id) return loc;
-			if (loc.children && loc.children.length > 0) {
-				const found = findLocationById(loc.children, id);
-				if (found) return found;
-			}
-		}
-		return null;
-	}
-
 	async function navigateInto(location: Location) {
 		// Always navigate into the location's context, regardless of children
 		log.debug('Navigating into location:', location.name, location.id);
@@ -154,12 +155,21 @@
 			log.debug('Loaded location details, children:', details.children?.length ?? 0);
 			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
 			currentLevelLocations.set(details.children || []);
+			// Store the current location with all its data including itemCount
+			currentNavigatedLocation = {
+				id: details.id,
+				name: details.name,
+				description: details.description || '',
+				itemCount: details.itemCount ?? 0,
+				children: details.children || [],
+			};
 		} catch (error) {
 			log.error('Failed to load location details', error);
 			showToast('Failed to load location details', 'error');
 			// Fallback to using existing children data
 			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
 			currentLevelLocations.set(location.children || []);
+			currentNavigatedLocation = location;
 		} finally {
 			isLoadingLocations = false;
 		}
@@ -181,6 +191,7 @@
 		if (index === -1) {
 			// Navigate back to root - refresh tree to ensure it's current
 			isLoadingLocations = true;
+			currentNavigatedLocation = null; // Clear current location
 			try {
 				const tree = await locationsApi.tree();
 				locationTree.set(tree);
@@ -205,6 +216,14 @@
 			try {
 				const details = await locationsApi.get(targetId);
 				currentLevelLocations.set(details.children || []);
+				// Store the navigated location
+				currentNavigatedLocation = {
+					id: details.id,
+					name: details.name,
+					description: details.description || '',
+					itemCount: details.itemCount ?? 0,
+					children: details.children || [],
+				};
 		} catch (error) {
 			log.error('Failed to load location details', error);
 			showToast('Failed to navigate back', 'error');
@@ -230,6 +249,14 @@
 			try {
 				const details = await locationsApi.get(lastPathItem.id);
 				currentLevelLocations.set(details.children || []);
+				// Restore the current navigated location
+				currentNavigatedLocation = {
+					id: details.id,
+					name: details.name,
+					description: details.description || '',
+					itemCount: details.itemCount ?? 0,
+					children: details.children || [],
+				};
 			} catch (error) {
 				log.error('Failed to load location details', error);
 				showToast('Failed to restore navigation', 'error');
@@ -239,6 +266,7 @@
 		} else {
 			// Was at root level - refresh to show any new locations
 			isLoadingLocations = true;
+			currentNavigatedLocation = null;
 			try {
 				const tree = await locationsApi.tree();
 				locationTree.set(tree);
@@ -372,15 +400,16 @@
 			// since we don't have the parent hierarchy from a single API call
 			const locationPath = location.name;
 
-			// Set the location
-			const locationData: Location = {
-				id: location.id,
-				name: location.name,
-				description: location.description || '',
-				children: location.children || [],
-			};
+		// Set the location
+		const locationData: Location = {
+			id: location.id,
+			name: location.name,
+			description: location.description || '',
+			itemCount: location.itemCount ?? 0,
+			children: location.children || [],
+		};
 
-		selectedLocation.set(locationData);
+	selectedLocation.set(locationData);
 		scanWorkflow.setLocation(locationData.id, locationData.name, locationPath);
 	} catch (error) {
 			log.error('QR scan error', error);
@@ -640,26 +669,19 @@
 					{/each}
 				</div>
 
-			<!-- Select current folder button -->
-			<button
-				type="button"
-				class="w-full flex items-center gap-3 p-4 mb-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-primary-500 hover:bg-primary-500/5 transition-all text-left group"
-				aria-label="Select current location"
-				onclick={() => {
-					let current: Location[] = $locationTree;
-					let found: Location | null = null;
-					let path = '';
-					for (const pathItem of $locationPath) {
-						const loc = current.find((l) => l.id === pathItem.id);
-						if (loc) {
-							found = loc;
-							path = path ? `${path} / ${loc.name}` : loc.name;
-							if (loc.children) current = loc.children;
-						}
-					}
-					if (found) selectLocation(found, path);
-				}}
-			>
+		<!-- Select current folder button -->
+		<button
+			type="button"
+			class="w-full flex items-center gap-3 p-4 mb-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-primary-500 hover:bg-primary-500/5 transition-all text-left group"
+			aria-label="Select current location"
+			onclick={() => {
+				// Use the stored current location from navigateInto instead of traversing stale tree
+				if (currentNavigatedLocation) {
+					const path = $locationPath.map(p => p.name).join(' / ');
+					selectLocation(currentNavigatedLocation, path);
+				}
+			}}
+		>
 				<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
 					<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
