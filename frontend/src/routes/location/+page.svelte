@@ -613,36 +613,44 @@
 					{/each}
 				</div>
 
-				<!-- Select current folder button -->
-				<button
-					type="button"
-					class="w-full flex items-center gap-3 p-3 mb-4 rounded-xl border border-dashed border-primary-500/40 bg-primary-500/5 hover:bg-primary-500/10 transition-colors text-left"
-					aria-label="Select current location"
-					onclick={() => {
-						let current: Location[] = $locationTree;
-						let found: Location | null = null;
-						let path = '';
-						for (const pathItem of $locationPath) {
-							const loc = current.find((l) => l.id === pathItem.id);
-							if (loc) {
-								found = loc;
-								path = path ? `${path} / ${loc.name}` : loc.name;
-								if (loc.children) current = loc.children;
-							}
+			<!-- Select current folder button -->
+			<button
+				type="button"
+				class="w-full flex items-center gap-3 p-4 mb-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-primary-500 hover:bg-primary-500/5 transition-all text-left group"
+				aria-label="Select current location"
+				onclick={() => {
+					let current: Location[] = $locationTree;
+					let found: Location | null = null;
+					let path = '';
+					for (const pathItem of $locationPath) {
+						const loc = current.find((l) => l.id === pathItem.id);
+						if (loc) {
+							found = loc;
+							path = path ? `${path} / ${loc.name}` : loc.name;
+							if (loc.children) current = loc.children;
 						}
-						if (found) selectLocation(found, path);
-					}}
-				>
-					<div class="p-2 bg-primary-500/20 rounded-lg">
-						<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
-					</div>
-					<div class="flex-1">
-						<p class="font-medium text-primary-400">Select "{$locationPath[$locationPath.length - 1].name}"</p>
-						<p class="text-body-sm text-neutral-500">Use this folder as item location</p>
-					</div>
-				</button>
+					}
+					if (found) selectLocation(found, path);
+				}}
+			>
+				<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
+					<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+						<circle cx="12" cy="10" r="3" />
+					</svg>
+				</div>
+				<div class="flex-1 min-w-0">
+					<p class="font-medium text-neutral-100 group-hover:text-primary-400 transition-colors">Use "{$locationPath[$locationPath.length - 1].name}"</p>
+					<p class="text-body-sm text-neutral-500">Select as item location</p>
+				</div>
+				<div class="flex items-center gap-1 text-neutral-500 group-hover:text-primary-400 transition-colors">
+					<span class="text-body-sm font-medium">Select</span>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<line x1="5" y1="12" x2="19" y2="12" />
+						<polyline points="12 5 19 12 12 19" />
+					</svg>
+				</div>
+			</button>
 			{/if}
 
 			<!-- Location list with improved cards -->
