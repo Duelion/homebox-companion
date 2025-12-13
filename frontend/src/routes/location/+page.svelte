@@ -650,43 +650,55 @@
 						<polyline points="12 5 19 12 12 19" />
 					</svg>
 				</div>
-			</button>
-			{/if}
+		</button>
+		{/if}
 
-			<!-- Location list with improved cards -->
-			<div class="space-y-2">
-				{#each $currentLevelLocations as location}
-						<button
-							type="button"
-							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
-							onclick={() => navigateInto(location)}
-						>
-							<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
-								<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-									<circle cx="12" cy="10" r="3" />
+		<!-- Sublocations section -->
+		{#if $currentLevelLocations.length > 0 && $locationPath.length > 0}
+			<div class="flex items-center gap-2 mb-2 mt-2">
+				<div class="flex items-center gap-1.5 text-neutral-500">
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+					</svg>
+					<span class="text-body-sm font-medium">Inside {$locationPath[$locationPath.length - 1].name}</span>
+				</div>
+				<div class="flex-1 h-px bg-neutral-800"></div>
+			</div>
+		{/if}
+
+		<!-- Location list with improved cards -->
+		<div class="space-y-2">
+			{#each $currentLevelLocations as location}
+					<button
+						type="button"
+						class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900/60 border-neutral-700/70 shadow-sm hover:shadow-md hover:border-neutral-600 hover:bg-neutral-900 transition-all text-left group {$locationPath.length > 0 ? 'ml-2' : ''}"
+						onclick={() => navigateInto(location)}
+					>
+						<div class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors">
+							<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+							</svg>
+						</div>
+						<div class="flex-1 min-w-0">
+							<p class="font-medium text-neutral-100 truncate">{location.name}</p>
+							{#if location.description}
+								<p class="text-body-sm text-neutral-500 truncate">{location.description}</p>
+							{/if}
+						</div>
+						{#if location.children && location.children.length > 0}
+							<div class="flex items-center gap-1 text-neutral-500 text-body-sm">
+								<span>{location.children.length}</span>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+									<polyline points="9 18 15 12 9 6" />
 								</svg>
 							</div>
-							<div class="flex-1 min-w-0">
-								<p class="font-medium text-neutral-100 truncate">{location.name}</p>
-								{#if location.description}
-									<p class="text-body-sm text-neutral-500 truncate">{location.description}</p>
-								{/if}
-							</div>
-							{#if location.children && location.children.length > 0}
-								<div class="flex items-center gap-1 text-neutral-500 text-body-sm">
-									<span>{location.children.length}</span>
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-										<polyline points="9 18 15 12 9 6" />
-									</svg>
-								</div>
-							{:else if location.itemCount !== undefined}
-								<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
-							{/if}
-						</button>
-					{/each}
+						{:else if location.itemCount !== undefined}
+							<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
+						{/if}
+					</button>
+				{/each}
 
-				<!-- Create new location button (secondary style) -->
+			<!-- Create new location button (secondary style) -->
 				<Button variant="secondary" full onclick={() => openCreateModal(getCurrentParent())}>
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<line x1="12" y1="5" x2="12" y2="19" />
