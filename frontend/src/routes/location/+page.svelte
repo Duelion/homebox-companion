@@ -84,10 +84,39 @@
 			log.debug('Loaded location tree, top-level count:', tree.length);
 			locationTree.set(tree);
 			currentLevelLocations.set(tree);
-			allLocationsFlat = flattenLocations(tree, '');
+			
+			// Also load flat list for search (without tree structure)
+			const flatList = await locationsApi.list();
+			allLocationsFlat = flattenLocations(flatList, '');
 		} catch (error) {
 			log.error('Failed to load locations', error);
 			showToast('Failed to load locations', 'error');
+		} finally {
+			isLoadingLocations = false;
+		}
+	}
+
+	async function refreshCurrentLevel(parentId: string | null) {
+		log.debug('Refreshing current level, parentId:', parentId);
+		isLoadingLocations = true;
+		try {
+			if (parentId) {
+				// Refresh children of the parent location
+				const details = await locationsApi.get(parentId);
+				currentLevelLocations.set(details.children || []);
+			} else {
+				// Refresh top-level locations
+				const tree = await locationsApi.tree();
+				locationTree.set(tree);
+				currentLevelLocations.set(tree);
+			}
+			
+			// Also refresh flat list for search
+			const flatList = await locationsApi.list();
+			allLocationsFlat = flattenLocations(flatList, '');
+		} catch (error) {
+			log.error('Failed to refresh current level', error);
+			showToast('Failed to refresh locations', 'error');
 		} finally {
 			isLoadingLocations = false;
 		}
@@ -150,8 +179,22 @@
 
 	async function navigateToPath(index: number) {
 		if (index === -1) {
-			locationPath.set([]);
-			currentLevelLocations.set($locationTree);
+			// Navigate back to root - refresh tree to ensure it's current
+			isLoadingLocations = true;
+			try {
+				const tree = await locationsApi.tree();
+				locationTree.set(tree);
+				locationPath.set([]);
+				currentLevelLocations.set(tree);
+			} catch (error) {
+				log.error('Failed to refresh root locations', error);
+				showToast('Failed to load locations', 'error');
+				// Fallback to cached tree
+				locationPath.set([]);
+				currentLevelLocations.set($locationTree);
+			} finally {
+				isLoadingLocations = false;
+			}
 		} else {
 			const newPath = $locationPath.slice(0, index + 1);
 			locationPath.set(newPath);
@@ -164,15 +207,7 @@
 				currentLevelLocations.set(details.children || []);
 		} catch (error) {
 			log.error('Failed to load location details', error);
-			// Fallback to traversing the tree
-				let current: Location[] = $locationTree;
-				for (const pathItem of newPath) {
-					const loc = current.find((l) => l.id === pathItem.id);
-					if (loc?.children) {
-						current = loc.children;
-					}
-				}
-				currentLevelLocations.set(current);
+			showToast('Failed to navigate back', 'error');
 			} finally {
 				isLoadingLocations = false;
 			}
@@ -197,22 +232,26 @@
 				currentLevelLocations.set(details.children || []);
 			} catch (error) {
 				log.error('Failed to load location details', error);
-				// Fallback: traverse the tree
-				let current: Location[] = $locationTree;
-				for (const pathItem of previousPath) {
-					const loc = current.find((l) => l.id === pathItem.id);
-					if (loc?.children) {
-						current = loc.children;
-					}
-				}
-				currentLevelLocations.set(current);
+				showToast('Failed to restore navigation', 'error');
 			} finally {
 				isLoadingLocations = false;
 			}
 		} else {
-			// Was at root level, stay at root
-			locationPath.set([]);
-			currentLevelLocations.set($locationTree);
+			// Was at root level - refresh to show any new locations
+			isLoadingLocations = true;
+			try {
+				const tree = await locationsApi.tree();
+				locationTree.set(tree);
+				locationPath.set([]);
+				currentLevelLocations.set(tree);
+			} catch (error) {
+				log.error('Failed to refresh locations', error);
+				// Fallback to cached tree
+				locationPath.set([]);
+				currentLevelLocations.set($locationTree);
+			} finally {
+				isLoadingLocations = false;
+			}
 		}
 	}
 
@@ -250,44 +289,22 @@
 					parent_id: data.parentId,
 				});
 
-				const savedPath = [...$locationPath];
-				await loadLocations();
-
-				if ($selectedLocation) {
-					selectedLocation.set(null);
-					scanWorkflow.clearLocation();
-					
-					const parentId = data.parentId;
-					if (parentId) {
-						const parentLoc = findLocationById($locationTree, parentId);
-						if (parentLoc) {
-							locationPath.set([{ id: parentLoc.id, name: parentLoc.name }]);
-							currentLevelLocations.set(parentLoc.children || []);
-						}
-					} else {
-						locationPath.set([]);
-						currentLevelLocations.set($locationTree);
-					}
-				} else if (savedPath.length > 0) {
-					locationPath.set(savedPath);
-					
-					let current: Location[] = $locationTree;
-					for (const pathItem of savedPath) {
-						const loc = current.find((l) => l.id === pathItem.id);
-						if (loc?.children) {
-							current = loc.children;
-						}
-					}
-					currentLevelLocations.set(current);
-				}
+				log.debug('Created location:', newLocation.name, 'under parent:', data.parentId);
+				
+				// Refresh current level by fetching parent's children directly
+				// This avoids tree traversal and works at any depth
+				await refreshCurrentLevel(data.parentId);
+				
+				showToast(`Location "${newLocation.name}" created`, 'success');
 			} else if (locationModalMode === 'edit' && $selectedLocation) {
 				const updatedLocation = await locationsApi.update($selectedLocation.id, {
 					name: data.name,
 					description: data.description,
 				});
 
-				await loadLocations();
-
+				log.debug('Updated location:', updatedLocation.name);
+				
+				// Update selected location with new data
 				const locationData: Location = {
 					id: updatedLocation.id,
 					name: updatedLocation.name,
@@ -298,6 +315,16 @@
 				
 				// Update workflow with new name
 				scanWorkflow.setLocation(locationData.id, locationData.name, $selectedLocationPath);
+				
+				// Refresh flat list for search to show updated name
+				try {
+					const flatList = await locationsApi.list();
+					allLocationsFlat = flattenLocations(flatList, '');
+				} catch (error) {
+					log.warn('Failed to refresh search list after edit', error);
+				}
+				
+				showToast(`Location "${updatedLocation.name}" updated`, 'success');
 			}
 		} catch (error) {
 			log.error('Failed to save location', error);
