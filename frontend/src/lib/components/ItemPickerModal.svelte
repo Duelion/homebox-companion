@@ -21,10 +21,15 @@
 	let isLoading = $state(true);
 	let items = $state<ItemSummary[]>([]);
 	// Track user's selection, defaulting to any current parent item
-	let selectedItemId = $derived(currentItemId);
+	let selectedItemId = $state(currentItemId);
 	let searchQuery = $state('');
 	// Store fetched thumbnail blob URLs (itemId -> blobUrl)
 	let thumbnailUrls = $state<Map<string, string>>(new Map());
+
+	// Sync selectedItemId when currentItemId prop changes
+	$effect(() => {
+		selectedItemId = currentItemId;
+	});
 	
 	// Helper to get thumbnail URL for an item
 	function getThumbnailUrl(item: ItemSummary): string | null {
