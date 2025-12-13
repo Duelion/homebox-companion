@@ -29,7 +29,11 @@ export const selectedLocationPath = derived(
 	([$path, $selected]) => {
 		if (!$selected) return '';
 		const pathNames = $path.map((p) => p.name);
-		pathNames.push($selected.name);
+		// Only append selected name if not already the last path item
+		const lastPathItem = $path[$path.length - 1];
+		if (!lastPathItem || lastPathItem.id !== $selected.id) {
+			pathNames.push($selected.name);
+		}
 		return pathNames.join(' / ');
 	}
 );
