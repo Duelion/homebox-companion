@@ -489,6 +489,12 @@
 	{:else}
 		<!-- Enhanced empty state -->
 		<div class="flex flex-col items-center py-12 px-4 mb-6">
+			<div class="w-24 h-24 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-6">
+				<svg class="w-12 h-12 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+					<circle cx="12" cy="13" r="4" />
+				</svg>
+			</div>
 			<h3 class="text-h3 text-neutral-100 mb-2 text-center">Capture your items</h3>
 			<p class="text-body-sm text-neutral-400 text-center max-w-xs mb-8">
 				Take photos or upload images of items you want to add to your inventory
