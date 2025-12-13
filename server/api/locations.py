@@ -1,5 +1,6 @@
 """Location API routes."""
 
+import asyncio
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException
@@ -82,33 +83,43 @@ async def get_location(
     client = get_client()
     try:
         location = await client.get_location(token, location_id)
-        
+
+        # Fetch flat location list to get accurate itemCount for all locations
+        all_locations = await client.list_locations(token)
+        itemcount_lookup = {loc["id"]: loc.get("itemCount", 0) for loc in all_locations}
+
+        # Enrich the location itself with itemCount
+        location["itemCount"] = itemcount_lookup.get(location_id, location.get("itemCount", 0))
+
         # Enrich children with their own children info (for nested navigation)
         children = location.get("children", [])
         if children:
-            enriched_children = []
-            for child in children:
+            # Fetch all child details in parallel for better performance
+            async def fetch_child_details(child: dict[str, Any]) -> dict[str, Any]:
                 try:
-                    # Fetch full details for each child to get their children
                     child_details = await client.get_location(token, child["id"])
-                    enriched_children.append({
+                    return {
                         "id": child_details.get("id"),
                         "name": child_details.get("name"),
                         "description": child_details.get("description", ""),
-                        "itemCount": child.get("itemCount", 0),
+                        "itemCount": itemcount_lookup.get(child["id"], 0),
                         "children": child_details.get("children", []),
-                    })
+                    }
                 except Exception:
                     # If we can't get details, include basic info without children
-                    enriched_children.append({
+                    return {
                         "id": child.get("id"),
                         "name": child.get("name"),
                         "description": child.get("description", ""),
-                        "itemCount": child.get("itemCount", 0),
+                        "itemCount": itemcount_lookup.get(child.get("id", ""), 0),
                         "children": [],
-                    })
-            location["children"] = enriched_children
-        
+                    }
+
+            enriched_children = await asyncio.gather(
+                *[fetch_child_details(child) for child in children]
+            )
+            location["children"] = list(enriched_children)
+
         return location
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=str(e)) from e
