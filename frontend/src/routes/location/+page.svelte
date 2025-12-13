@@ -179,11 +179,41 @@
 		}
 	}
 
-	function changeSelection() {
+	async function changeSelection() {
+		const previousPath = [...$locationPath];
 		selectedLocation.set(null);
 		scanWorkflow.clearLocation();
-		locationPath.set([]);
-		currentLevelLocations.set($locationTree);
+		
+		// If we had a path (user was inside a location), restore it
+		if (previousPath.length > 0) {
+			// Restore the path - user will be brought back to where they were browsing
+			locationPath.set(previousPath);
+			
+			// Fetch the location details to get current children
+			const lastPathItem = previousPath[previousPath.length - 1];
+			isLoadingLocations = true;
+			try {
+				const details = await locationsApi.get(lastPathItem.id);
+				currentLevelLocations.set(details.children || []);
+			} catch (error) {
+				log.error('Failed to load location details', error);
+				// Fallback: traverse the tree
+				let current: Location[] = $locationTree;
+				for (const pathItem of previousPath) {
+					const loc = current.find((l) => l.id === pathItem.id);
+					if (loc?.children) {
+						current = loc.children;
+					}
+				}
+				currentLevelLocations.set(current);
+			} finally {
+				isLoadingLocations = false;
+			}
+		} else {
+			// Was at root level, stay at root
+			locationPath.set([]);
+			currentLevelLocations.set($locationTree);
+		}
 	}
 
 	function continueToCapture() {
@@ -617,12 +647,7 @@
 
 			<!-- Location list with improved cards -->
 			<div class="space-y-2">
-				{#if $currentLevelLocations.length === 0}
-					<div class="py-8 text-center text-neutral-500">
-						<p>No sub-locations here</p>
-					</div>
-				{:else}
-					{#each $currentLevelLocations as location}
+				{#each $currentLevelLocations as location}
 						<button
 							type="button"
 							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
@@ -652,7 +677,6 @@
 							{/if}
 						</button>
 					{/each}
-				{/if}
 
 				<!-- Create new location button (secondary style) -->
 				<Button variant="secondary" full onclick={() => openCreateModal(getCurrentParent())}>
