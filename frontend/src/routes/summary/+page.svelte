@@ -9,7 +9,6 @@
 	import type { ConfirmedItem } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
-	import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -20,14 +19,12 @@
 	// Derived state from workflow
 	const confirmedItems = $derived(workflow.state.confirmedItems);
 	const locationPath = $derived(workflow.state.locationPath);
-	const locationId = $derived(workflow.state.locationId);
 	const parentItemName = $derived(workflow.state.parentItemName);
 	const itemStatuses = $derived(workflow.state.itemStatuses);
 	const submissionErrors = $derived(workflow.state.submissionErrors);
 
 	// Local UI state
 	let isSubmitting = $state(false);
-	let showLocationPicker = $state(false);
 
 	// Calculate summary statistics
 	const totalPhotos = $derived(
@@ -39,13 +36,6 @@
 			return count + photos;
 		}, 0)
 	);
-
-	function handleLocationChange(id: string, name: string, path: string) {
-		workflow.setLocation(id, name, path);
-		// Keep status as confirming since we're still on summary page
-		workflow.state.status = 'confirming';
-		// Visual feedback is sufficient - location path updates on screen
-	}
 
 	function getLabelName(labelId: string): string {
 		const label = $labels.find((l) => l.id === labelId);
@@ -174,15 +164,6 @@
 				<span class="text-neutral-500">Inside:</span>
 				<span class="font-semibold text-primary-400">{parentItemName}</span>
 			{/if}
-			<button
-				type="button"
-				class="text-primary-400 hover:text-primary-300 ml-auto transition-colors disabled:opacity-50 px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 min-h-[44px] flex items-center"
-				onclick={() => (showLocationPicker = true)}
-				disabled={isSubmitting}
-				aria-label="Change location"
-			>
-				Change
-			</button>
 		</div>
 	{/if}
 
@@ -400,11 +381,3 @@
 		{/if}
 	</div>
 </div>
-
-{#if showLocationPicker}
-	<LocationPickerModal
-		currentLocationId={locationId}
-		onSelect={handleLocationChange}
-		onClose={() => (showLocationPicker = false)}
-	/>
-{/if}
