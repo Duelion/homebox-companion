@@ -107,10 +107,23 @@
 		return null;
 	}
 
-	function navigateInto(location: Location) {
+	async function navigateInto(location: Location) {
 		if (location.children && location.children.length > 0) {
-			locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
-			currentLevelLocations.set(location.children);
+			// Fetch fresh details to ensure children have their own children info
+			isLoadingLocations = true;
+			try {
+				const details = await locationsApi.get(location.id);
+				locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
+				currentLevelLocations.set(details.children || []);
+			} catch (error) {
+				console.error('Failed to load location details:', error);
+				showToast('Failed to load location details', 'error');
+				// Fallback to using existing children data
+				locationPath.update((path) => [...path, { id: location.id, name: location.name }]);
+				currentLevelLocations.set(location.children);
+			} finally {
+				isLoadingLocations = false;
+			}
 		} else {
 			// Build full path from breadcrumbs + current location
 			const pathParts = $locationPath.map(p => p.name);
@@ -131,7 +144,7 @@
 		selectLocation(item.location, item.path);
 	}
 
-	function navigateToPath(index: number) {
+	async function navigateToPath(index: number) {
 		if (index === -1) {
 			locationPath.set([]);
 			currentLevelLocations.set($locationTree);
@@ -139,14 +152,26 @@
 			const newPath = $locationPath.slice(0, index + 1);
 			locationPath.set(newPath);
 			
-			let current: Location[] = $locationTree;
-			for (const pathItem of newPath) {
-				const loc = current.find((l) => l.id === pathItem.id);
-				if (loc?.children) {
-					current = loc.children;
+			// Fetch fresh details for the target location to ensure children are up-to-date
+			const targetId = newPath[newPath.length - 1].id;
+			isLoadingLocations = true;
+			try {
+				const details = await locationsApi.get(targetId);
+				currentLevelLocations.set(details.children || []);
+			} catch (error) {
+				console.error('Failed to load location details:', error);
+				// Fallback to traversing the tree
+				let current: Location[] = $locationTree;
+				for (const pathItem of newPath) {
+					const loc = current.find((l) => l.id === pathItem.id);
+					if (loc?.children) {
+						current = loc.children;
+					}
 				}
+				currentLevelLocations.set(current);
+			} finally {
+				isLoadingLocations = false;
 			}
-			currentLevelLocations.set(current);
 		}
 	}
 
