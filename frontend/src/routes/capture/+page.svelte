@@ -385,6 +385,7 @@
 										</span>
 									</div>
 									
+									<!-- Thumbnail gallery -->
 									<div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
 										{#each image.additionalDataUrls as additionalUrl, additionalIndex}
 											<div class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-neutral-800 group ring-1 ring-neutral-700">
@@ -410,34 +411,36 @@
 												</div>
 											</div>
 										{/each}
-										
-					<!-- Add more buttons inline -->
-					<button
-						type="button"
-						class="flex-shrink-0 w-20 h-20 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex flex-col items-center justify-center gap-0.5 transition-all"
-						onclick={() => additionalCameraInputs[index]?.click()}
-						disabled={isAnalyzing}
-					>
-						<svg class="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-							<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-							<circle cx="12" cy="13" r="4" />
-						</svg>
-						<span class="text-[10px] text-neutral-500 font-medium">Camera</span>
-					</button>
-					<button
-						type="button"
-						class="flex-shrink-0 w-20 h-20 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex flex-col items-center justify-center gap-0.5 transition-all"
-						onclick={() => additionalImageInputs[index]?.click()}
-						disabled={isAnalyzing}
-					>
-						<svg class="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-							<polyline points="17 8 12 3 7 8" />
-							<line x1="12" y1="3" x2="12" y2="15" />
-						</svg>
-						<span class="text-[10px] text-neutral-500 font-medium">Upload</span>
-					</button>
-								</div>
+									</div>
+									
+									<!-- Add more buttons below gallery -->
+									<div class="flex gap-2 mt-3">
+										<button
+											type="button"
+											class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
+											onclick={() => additionalCameraInputs[index]?.click()}
+											disabled={isAnalyzing}
+										>
+											<svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+												<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+												<circle cx="12" cy="13" r="4" />
+											</svg>
+											<span class="text-caption text-neutral-400 font-medium">Camera</span>
+										</button>
+										<button
+											type="button"
+											class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
+											onclick={() => additionalImageInputs[index]?.click()}
+											disabled={isAnalyzing}
+										>
+											<svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+												<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+												<polyline points="17 8 12 3 7 8" />
+												<line x1="12" y1="3" x2="12" y2="15" />
+											</svg>
+											<span class="text-caption text-neutral-400 font-medium">Upload</span>
+										</button>
+									</div>
 								</div>
 						{:else}
 							<!-- Empty state: prominent add buttons -->
