@@ -12,7 +12,8 @@
 
 // Re-export client utilities
 export { 
-	ApiError, 
+	ApiError,
+	NetworkError,
 	request, 
 	requestFormData,
 	requestBlobUrl,

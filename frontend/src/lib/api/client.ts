@@ -36,7 +36,8 @@ function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEF
 }
 
 /**
- * API Error class with status and data
+ * API Error class with status and data.
+ * Thrown when the server returns a non-OK HTTP response.
  */
 export class ApiError extends Error {
 	status: number;
@@ -47,6 +48,27 @@ export class ApiError extends Error {
 		this.status = status;
 		this.data = data;
 		this.name = 'ApiError';
+	}
+}
+
+/**
+ * Network Error class for connection-level failures.
+ * Thrown when fetch fails due to network issues, DNS failures, or timeouts.
+ */
+export class NetworkError extends Error {
+	/** The original error that caused this network failure */
+	cause: Error;
+	/** Whether this was a timeout error */
+	isTimeout: boolean;
+	/** Whether the request was aborted by the caller */
+	isAborted: boolean;
+
+	constructor(message: string, cause: Error, options: { isTimeout?: boolean; isAborted?: boolean } = {}) {
+		super(message);
+		this.cause = cause;
+		this.isTimeout = options.isTimeout ?? false;
+		this.isAborted = options.isAborted ?? false;
+		this.name = 'NetworkError';
 	}
 }
 
@@ -73,6 +95,62 @@ function handleUnauthorized(response: Response): boolean {
 		}
 	}
 	return false;
+}
+
+/**
+ * Wraps a fetch error into a typed NetworkError.
+ * Handles abort errors, timeout errors, and generic network failures.
+ * 
+ * @param error - The error from a failed fetch call
+ * @param endpoint - The endpoint that was being fetched (for error message)
+ * @returns A NetworkError with appropriate type flags set
+ */
+function wrapFetchError(error: unknown, endpoint: string): NetworkError {
+	if (error instanceof Error) {
+		// Check for abort errors (user cancellation or timeout)
+		if (error.name === 'AbortError') {
+			// Timeouts from AbortSignal.timeout() also throw AbortError
+			// Check if the message contains "timeout" to distinguish
+			const isTimeout = error.message.toLowerCase().includes('timeout');
+			if (isTimeout) {
+				return new NetworkError(
+					`Request to ${endpoint} timed out`,
+					error,
+					{ isTimeout: true, isAborted: false }
+				);
+			}
+			// User-initiated abort
+			return new NetworkError(
+				`Request to ${endpoint} was cancelled`,
+				error,
+				{ isTimeout: false, isAborted: true }
+			);
+		}
+		
+		// Check for timeout explicitly (some implementations use TimeoutError)
+		if (error.name === 'TimeoutError') {
+			return new NetworkError(
+				`Request to ${endpoint} timed out`,
+				error,
+				{ isTimeout: true, isAborted: false }
+			);
+		}
+		
+		// Generic network error (connection refused, DNS failure, etc.)
+		return new NetworkError(
+			`Network error while fetching ${endpoint}: ${error.message}`,
+			error,
+			{ isTimeout: false, isAborted: false }
+		);
+	}
+	
+	// Unknown error type, wrap in a generic Error first
+	const wrappedError = new Error(String(error));
+	return new NetworkError(
+		`Network error while fetching ${endpoint}`,
+		wrappedError,
+		{ isTimeout: false, isAborted: false }
+	);
 }
 
 /**
@@ -129,6 +207,9 @@ export interface RequestOptions extends RequestInit {
  * 
  * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
+ * 
+ * @throws {ApiError} When the server returns a non-OK HTTP response
+ * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
 	const authToken = get(token);
@@ -151,11 +232,18 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		? createTimeoutSignal(options.signal, timeoutMs)
 		: options.signal;
 
-	const response = await fetch(`${BASE_URL}${endpoint}`, {
-		...options,
-		headers,
-		signal,
-	});
+	let response: Response;
+	try {
+		response = await fetch(`${BASE_URL}${endpoint}`, {
+			...options,
+			headers,
+			signal,
+		});
+	} catch (error) {
+		const networkError = wrapFetchError(error, endpoint);
+		log.error(`Network error for ${endpoint}`, networkError);
+		throw networkError;
+	}
 
 	if (!response.ok) {
 		if (handleUnauthorized(response)) {
@@ -222,22 +310,30 @@ export interface BlobUrlRequestOptions {
  * 
  * @param endpoint - API endpoint to fetch
  * @param options - Optional signal for cancellation and/or custom timeout
- * @returns BlobUrlResult with url and revoke function, or null if the request fails
+ * @returns BlobUrlResult with url and revoke function
+ * @throws {ApiError} When the server returns a non-OK HTTP response
+ * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
  * 
  * @example
  * ```typescript
- * const result = await requestBlobUrl('/items/123/thumbnail');
- * if (result) {
+ * try {
+ *   const result = await requestBlobUrl('/items/123/thumbnail');
  *   img.src = result.url;
  *   // Later, when done with the image:
  *   result.revoke();
+ * } catch (error) {
+ *   if (error instanceof NetworkError && error.isAborted) {
+ *     // Request was cancelled, handle gracefully
+ *   } else if (error instanceof ApiError && error.status === 404) {
+ *     // Resource not found, show placeholder
+ *   }
  * }
  * ```
  */
 export async function requestBlobUrl(
 	endpoint: string, 
 	options?: AbortSignal | BlobUrlRequestOptions
-): Promise<BlobUrlResult | null> {
+): Promise<BlobUrlResult> {
 	// Support both legacy AbortSignal parameter and new options object
 	const opts: BlobUrlRequestOptions = options instanceof AbortSignal 
 		? { signal: options } 
@@ -251,35 +347,36 @@ export async function requestBlobUrl(
 		? createTimeoutSignal(opts.signal, timeoutMs)
 		: opts.signal;
 
+	let response: Response;
 	try {
-		const response = await fetch(`${BASE_URL}${endpoint}`, {
+		response = await fetch(`${BASE_URL}${endpoint}`, {
 			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
 			signal,
 		});
-
-		if (!response.ok) {
-			if (handleUnauthorized(response)) {
-				return null;
-			}
-			log.debug(`Blob request failed for ${endpoint}: ${response.status}`);
-			return null;
-		}
-
-		const blob = await response.blob();
-		const url = URL.createObjectURL(blob);
-		
-		return {
-			url,
-			revoke: () => URL.revokeObjectURL(url)
-		};
 	} catch (error) {
-		if (error instanceof Error && error.name === 'AbortError') {
-			// Request was cancelled, not an error
-			return null;
-		}
-		log.debug(`Blob request error for ${endpoint}:`, error);
-		return null;
+		const networkError = wrapFetchError(error, endpoint);
+		log.debug(`Blob request network error for ${endpoint}:`, networkError.message);
+		throw networkError;
 	}
+
+	if (!response.ok) {
+		if (handleUnauthorized(response)) {
+			throw new ApiError(401, 'Session expired');
+		}
+		log.debug(`Blob request failed for ${endpoint}: ${response.status}`);
+		throw new ApiError(
+			response.status,
+			`Blob request failed with status ${response.status}`
+		);
+	}
+
+	const blob = await response.blob();
+	const url = URL.createObjectURL(blob);
+	
+	return {
+		url,
+		revoke: () => URL.revokeObjectURL(url)
+	};
 }
 
 /**
@@ -288,6 +385,9 @@ export async function requestBlobUrl(
  * 
  * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
+ * 
+ * @throws {ApiError} When the server returns a non-OK HTTP response
+ * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
  */
 export async function requestFormData<T>(
 	endpoint: string,
@@ -308,37 +408,34 @@ export async function requestFormData<T>(
 		? createTimeoutSignal(opts.signal, timeoutMs)
 		: opts.signal;
 
+	let response: Response;
 	try {
 		log.debug(`FormData request to ${endpoint}`);
-		const response = await fetch(`${BASE_URL}${endpoint}`, {
+		response = await fetch(`${BASE_URL}${endpoint}`, {
 			method: 'POST',
 			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
 			body: formData,
 			signal,
 		});
-
-		log.debug(`Response from ${endpoint}:`, response.status, response.statusText);
-
-		if (!response.ok) {
-			if (handleUnauthorized(response)) {
-				throw new ApiError(401, 'Session expired');
-			}
-			const error = await response.json().catch(() => ({}));
-			throw new ApiError(
-				response.status,
-				(error as { detail?: string }).detail || errorMessage
-			);
-		}
-
-		return parseResponseBody<T>(response);
 	} catch (error) {
-		// Log network errors before re-throwing
-		if (error instanceof ApiError) {
-			// Already handled above, just re-throw
-			throw error;
-		}
-		log.error(`Network error for ${endpoint}`, error);
-		throw error;
+		const networkError = wrapFetchError(error, endpoint);
+		log.error(`Network error for ${endpoint}`, networkError);
+		throw networkError;
 	}
+
+	log.debug(`Response from ${endpoint}:`, response.status, response.statusText);
+
+	if (!response.ok) {
+		if (handleUnauthorized(response)) {
+			throw new ApiError(401, 'Session expired');
+		}
+		const error = await response.json().catch(() => ({}));
+		throw new ApiError(
+			response.status,
+			(error as { detail?: string }).detail || errorMessage
+		);
+	}
+
+	return parseResponseBody<T>(response);
 }
 
