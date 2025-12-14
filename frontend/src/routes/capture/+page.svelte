@@ -229,11 +229,9 @@
 	<h2 class="text-h2 text-neutral-100 mb-1">Capture Items</h2>
 	<p class="text-body-sm text-neutral-400 mb-6">Add photos and configure detection options</p>
 
-	<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
-
 	<!-- Current location display -->
 	{#if locationPath}
-		<div class="flex flex-wrap items-start gap-x-4 gap-y-2 text-body-sm text-neutral-400 mb-6 mt-4">
+		<div class="flex flex-wrap items-start gap-x-4 gap-y-2 text-body-sm text-neutral-400 mb-3">
 			<!-- Location block -->
 			<div class="flex items-center gap-2">
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -252,6 +250,8 @@
 				</div>
 			{/if}
 		</div>
+
+		<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
 	{/if}
 
 	<!-- Image list with collapsible cards -->
