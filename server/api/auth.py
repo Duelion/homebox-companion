@@ -145,12 +145,42 @@ async def login(request: LoginRequest) -> LoginResponse:
         _log_exception_chain(e, "Login: ")
         friendly_message = _get_friendly_error_message(e)
         raise HTTPException(status_code=401, detail=friendly_message) from e
+    except httpx.HTTPStatusError as e:
+        # Handle HTTP errors from Homebox based on status code
+        _log_exception_chain(e, "Login: ")
+        if e.response.status_code == 401:
+            logger.warning("Login failed: Invalid credentials (401)")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid email or password. Please check your credentials.",
+            ) from e
+        elif e.response.status_code == 403:
+            logger.warning("Login failed: Forbidden (403)")
+            raise HTTPException(
+                status_code=403, detail="Access forbidden. Please check your credentials."
+            ) from e
+        elif e.response.status_code >= 500:
+            logger.error(f"Login failed: Homebox server error ({e.response.status_code})")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Homebox server error (HTTP {e.response.status_code}). "
+                "Please try again later.",
+            ) from e
+        else:
+            logger.warning(f"Login failed: HTTP {e.response.status_code}")
+            friendly_message = _get_friendly_error_message(e)
+            raise HTTPException(status_code=401, detail=friendly_message) from e
     except Exception as e:
-        logger.warning(f"Login failed: {e}")
+        # Unexpected errors should surface as 500, not 401
+        # This prevents hiding server-side issues (serialization, dependency failures, etc.)
+        logger.error(f"Login failed with unexpected error: {e}")
         logger.debug(f"Login: Full traceback:\n{traceback.format_exc()}")
         _log_exception_chain(e, "Login: ")
-        friendly_message = _get_friendly_error_message(e)
-        raise HTTPException(status_code=401, detail=friendly_message) from e
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred during login. "
+            "Please try again or contact support.",
+        ) from e
 
 
 @router.get("/validate", response_model=ValidateResponse)
