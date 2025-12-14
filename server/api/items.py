@@ -26,56 +26,29 @@ async def list_items(
 
     Returns a simplified list of items suitable for selection UI.
     """
+    logger.debug(f"Fetching items for location_id={location_id}")
+
     try:
-        logger.debug(f"Fetching items for location_id={location_id}")
-
-        # Build query parameters for Homebox API
-        params = {}
-        if location_id:
-            params["locations"] = location_id
-
-        # Call Homebox API directly using the underlying httpx client
-        response = await client.client.get(
-            f"{client.base_url}/items",
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {token}",
-            },
-            params=params or None,
-        )
-
-        if response.status_code == 401:
-            raise HTTPException(status_code=401, detail="Session expired")
-        elif response.status_code != 200:
-            logger.error(f"Homebox API error: {response.status_code} - {response.text}")
-            raise HTTPException(
-                status_code=response.status_code,
-                detail="Failed to fetch items from Homebox"
-            )
-
-        data = response.json()
-
-        # Extract items from paginated response
-        items = data.get("items", [])
-
-        # Return simplified item data
-        result = []
-        for item in items:
-            result.append({
-                "id": item["id"],
-                "name": item["name"],
-                "quantity": item.get("quantity", 1),
-                "thumbnailId": item.get("thumbnailId"),
-            })
-
-        logger.debug(f"Found {len(result)} items")
-        return result
-
-    except HTTPException:
-        raise
+        items = await client.list_items(token, location_id=location_id)
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail="Session expired") from e
     except Exception as e:
         logger.error(f"Failed to fetch items: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch items") from e
+
+    # Return simplified item data
+    result = [
+        {
+            "id": item["id"],
+            "name": item["name"],
+            "quantity": item.get("quantity", 1),
+            "thumbnailId": item.get("thumbnailId"),
+        }
+        for item in items
+    ]
+
+    logger.debug(f"Found {len(result)} items")
+    return result
 
 
 @router.post("/items")
@@ -248,30 +221,12 @@ async def get_item_attachment(
     logger.debug(f"Proxying attachment request: item={item_id}, attachment={attachment_id}")
 
     try:
-        response = await client.client.get(
-            f"{client.base_url}/items/{item_id}/attachments/{attachment_id}",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-
-        if response.status_code == 401:
-            raise HTTPException(status_code=401, detail="Session expired")
-        elif response.status_code == 404:
-            raise HTTPException(status_code=404, detail="Attachment not found")
-        elif response.status_code != 200:
-            logger.error(f"Homebox API error: {response.status_code}")
-            raise HTTPException(
-                status_code=response.status_code,
-                detail="Failed to fetch attachment from Homebox"
-            )
-
-        # Return the image with proper content type
-        return Response(
-            content=response.content,
-            media_type=response.headers.get("content-type", "image/jpeg"),
-        )
-
-    except HTTPException:
-        raise
+        content, content_type = await client.get_attachment(token, item_id, attachment_id)
+        return Response(content=content, media_type=content_type)
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail="Session expired") from e
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Attachment not found") from e
     except Exception as e:
         logger.error(f"Failed to fetch attachment: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch attachment") from e
