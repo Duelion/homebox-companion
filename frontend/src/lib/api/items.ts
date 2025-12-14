@@ -2,8 +2,10 @@
  * Items API endpoints
  */
 
-import { request, requestFormData, requestBlobUrl } from './client';
+import { request, requestFormData, requestBlobUrl, type BlobUrlResult } from './client';
 import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
+
+export type { BlobUrlResult };
 
 export interface CreateOptions {
 	signal?: AbortSignal;
@@ -35,10 +37,12 @@ export const items = {
 	},
 
 	/**
-	 * Fetch a thumbnail image and return a blob URL for use in <img> src.
+	 * Fetch a thumbnail image and return a blob URL with cleanup function.
 	 * Returns null if the thumbnail doesn't exist or fails to load.
+	 * 
+	 * IMPORTANT: Call `result.revoke()` when done to avoid memory leaks.
 	 */
-	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal) =>
+	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal): Promise<BlobUrlResult | null> =>
 		requestBlobUrl(`/items/${itemId}/attachments/${attachmentId}`, signal),
 };
 

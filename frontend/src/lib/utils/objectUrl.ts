@@ -13,6 +13,12 @@
 const urlCache = new WeakMap<File, string>();
 
 /**
+ * Registry for tracking fetched blob URLs by their endpoint/key.
+ * Unlike File-based URLs, fetched URLs need explicit key management.
+ */
+const fetchedUrlRegistry = new Map<string, string>();
+
+/**
  * Get or create an object URL for a File.
  * The URL is cached per File reference to avoid creating duplicates.
  *
@@ -112,6 +118,120 @@ export function createObjectUrlManager() {
 					trackedFiles.delete(file);
 				}
 			}
+		}
+	};
+}
+
+/**
+ * Register a fetched blob URL for a given key (typically an API endpoint).
+ * If there's an existing URL for this key, it will be revoked first.
+ *
+ * @param key - Unique identifier for this URL (e.g., API endpoint)
+ * @param url - The blob URL to register
+ */
+export function registerFetchedBlobUrl(key: string, url: string): void {
+	// Revoke any existing URL for this key to prevent leaks
+	const existingUrl = fetchedUrlRegistry.get(key);
+	if (existingUrl) {
+		URL.revokeObjectURL(existingUrl);
+	}
+	fetchedUrlRegistry.set(key, url);
+}
+
+/**
+ * Revoke a fetched blob URL by its key.
+ *
+ * @param key - The key used when registering the URL
+ */
+export function revokeFetchedBlobUrl(key: string): void {
+	const url = fetchedUrlRegistry.get(key);
+	if (url) {
+		URL.revokeObjectURL(url);
+		fetchedUrlRegistry.delete(key);
+	}
+}
+
+/**
+ * Revoke a blob URL directly (without needing the key).
+ * Searches the registry for the URL and removes it.
+ *
+ * @param url - The blob URL to revoke
+ */
+export function revokeBlobUrl(url: string): void {
+	URL.revokeObjectURL(url);
+	// Also remove from registry if tracked
+	for (const [key, registeredUrl] of fetchedUrlRegistry) {
+		if (registeredUrl === url) {
+			fetchedUrlRegistry.delete(key);
+			break;
+		}
+	}
+}
+
+/**
+ * Create a manager for tracking fetched blob URLs with component-scoped cleanup.
+ * Similar to createObjectUrlManager but for URLs fetched via API calls.
+ *
+ * Usage in Svelte 5:
+ * ```
+ * const blobManager = createFetchedBlobUrlManager();
+ *
+ * onDestroy(() => blobManager.cleanup());
+ *
+ * // Register URLs as they're fetched
+ * const url = await fetchThumbnail(itemId);
+ * blobManager.track(itemId, url);
+ * ```
+ */
+export function createFetchedBlobUrlManager() {
+	const trackedUrls = new Map<string, string>();
+
+	return {
+		/**
+		 * Track a fetched blob URL. If a URL already exists for this key,
+		 * the old one is revoked first.
+		 */
+		track(key: string, url: string): void {
+			const existingUrl = trackedUrls.get(key);
+			if (existingUrl) {
+				URL.revokeObjectURL(existingUrl);
+			}
+			trackedUrls.set(key, url);
+		},
+
+		/**
+		 * Get a tracked URL by key.
+		 */
+		get(key: string): string | undefined {
+			return trackedUrls.get(key);
+		},
+
+		/**
+		 * Revoke and remove a specific URL by key.
+		 */
+		revoke(key: string): void {
+			const url = trackedUrls.get(key);
+			if (url) {
+				URL.revokeObjectURL(url);
+				trackedUrls.delete(key);
+			}
+		},
+
+		/**
+		 * Revoke all tracked URLs. Call this in cleanup/destroy.
+		 */
+		cleanup(): void {
+			for (const url of trackedUrls.values()) {
+				URL.revokeObjectURL(url);
+			}
+			trackedUrls.clear();
+		},
+
+		/**
+		 * Get the number of tracked URLs (useful for debugging).
+		 */
+		get size(): number {
+			return trackedUrls.size;
 		}
 	};
 }
