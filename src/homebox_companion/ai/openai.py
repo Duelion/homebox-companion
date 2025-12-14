@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+from collections import OrderedDict
 from typing import Any
 
 from loguru import logger
@@ -10,15 +12,23 @@ from openai import AsyncOpenAI
 
 from ..core.config import settings
 
-# Cache for OpenAI client instances to enable connection reuse
-_client_cache: dict[str, AsyncOpenAI] = {}
+# Maximum number of cached OpenAI clients to prevent unbounded memory growth
+_MAX_CLIENT_CACHE_SIZE = 10
+
+# Cache for OpenAI client instances with LRU eviction
+# Using OrderedDict for LRU behavior: most recently used items move to end
+_client_cache: OrderedDict[str, AsyncOpenAI] = OrderedDict()
+
+# Lock for thread/async-safe cache access
+_client_cache_lock = asyncio.Lock()
 
 
-def _get_openai_client(api_key: str) -> AsyncOpenAI:
+async def _get_openai_client(api_key: str) -> AsyncOpenAI:
     """Get or create a cached OpenAI client for the given API key.
 
     This enables connection pooling and reuse across multiple requests,
-    improving performance for parallel API calls.
+    improving performance for parallel API calls. Uses LRU eviction to
+    bound cache size and prevent memory leaks in multi-tenant scenarios.
 
     Args:
         api_key: The OpenAI API key.
@@ -26,10 +36,25 @@ def _get_openai_client(api_key: str) -> AsyncOpenAI:
     Returns:
         A cached or newly created AsyncOpenAI client.
     """
-    if api_key not in _client_cache:
+    async with _client_cache_lock:
+        if api_key in _client_cache:
+            # Move to end (most recently used)
+            _client_cache.move_to_end(api_key)
+            return _client_cache[api_key]
+
+        # Evict oldest clients if cache is at capacity
+        while len(_client_cache) >= _MAX_CLIENT_CACHE_SIZE:
+            oldest_key, oldest_client = _client_cache.popitem(last=False)
+            logger.debug("Evicting oldest OpenAI client from cache (size limit reached)")
+            try:
+                await oldest_client.close()
+            except Exception as e:
+                logger.warning(f"Error closing evicted OpenAI client: {e}")
+
         logger.debug("Creating new OpenAI client instance")
-        _client_cache[api_key] = AsyncOpenAI(api_key=api_key)
-    return _client_cache[api_key]
+        client = AsyncOpenAI(api_key=api_key)
+        _client_cache[api_key] = client
+        return client
 
 
 async def cleanup_openai_clients() -> None:
@@ -39,14 +64,15 @@ async def cleanup_openai_clients() -> None:
     HTTP connections and release resources.
     """
     global _client_cache
-    if _client_cache:
-        logger.debug(f"Cleaning up {len(_client_cache)} OpenAI client(s)")
-        for client in _client_cache.values():
-            try:
-                await client.close()
-            except Exception as e:
-                logger.warning(f"Error closing OpenAI client: {e}")
-        _client_cache.clear()
+    async with _client_cache_lock:
+        if _client_cache:
+            logger.debug(f"Cleaning up {len(_client_cache)} OpenAI client(s)")
+            for client in _client_cache.values():
+                try:
+                    await client.close()
+                except Exception as e:
+                    logger.warning(f"Error closing OpenAI client: {e}")
+            _client_cache.clear()
 
 
 def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
@@ -113,7 +139,7 @@ async def chat_completion(
         f"\n{'='*60}"
     )
 
-    client = _get_openai_client(api_key)
+    client = await _get_openai_client(api_key)
 
     kwargs: dict[str, Any] = {
         "model": model,
