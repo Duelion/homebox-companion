@@ -3,10 +3,37 @@
  */
 
 import { get } from 'svelte/store';
-import { token, markSessionExpired } from '../stores/auth';
+import { token, markSessionExpired, logout } from '../stores/auth';
 import { apiLogger as log } from '../utils/logger';
 
 const BASE_URL = '/api';
+
+/**
+ * Default request timeout in milliseconds.
+ * Applies when no AbortSignal is provided by the caller.
+ */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Create a combined AbortSignal that aborts when either:
+ * - The caller's signal aborts (if provided)
+ * - The default timeout elapses
+ * 
+ * @param callerSignal - Optional signal from the caller
+ * @param timeoutMs - Timeout in milliseconds
+ * @returns AbortSignal that respects both conditions
+ */
+function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): AbortSignal {
+	const timeoutSignal = AbortSignal.timeout(timeoutMs);
+	
+	if (!callerSignal) {
+		return timeoutSignal;
+	}
+	
+	// Combine caller signal with timeout signal
+	// AbortSignal.any() combines multiple signals - aborts when any one aborts
+	return AbortSignal.any([callerSignal, timeoutSignal]);
+}
 
 /**
  * API Error class with status and data
@@ -24,14 +51,25 @@ export class ApiError extends Error {
 }
 
 /**
- * Check if response is a 401 and trigger session expired modal
+ * Check if response is a 401 and handle authentication failure.
+ * 
+ * - If a token exists: marks session as expired (shows re-auth modal)
+ * - If no token exists: calls logout() to clear any stale state
+ * 
+ * @returns true if session expired modal was triggered, false otherwise
  */
 function handleUnauthorized(response: Response): boolean {
 	if (response.status === 401) {
 		const authToken = get(token);
 		if (authToken) {
+			// Token exists but was rejected - session expired
 			markSessionExpired('expired');
 			return true;
+		} else {
+			// No token but got 401 - likely login failure or stale state
+			// Clear any potential stale auth state to ensure clean UI
+			logout();
+			return false;
 		}
 	}
 	return false;
@@ -78,13 +116,23 @@ async function parseResponseBody<T>(response: Response): Promise<T> {
 
 export interface RequestOptions extends RequestInit {
 	signal?: AbortSignal;
+	/**
+	 * Request timeout in milliseconds.
+	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (30 seconds).
+	 * Set to 0 or Infinity to disable timeout.
+	 */
+	timeout?: number;
 }
 
 /**
- * Make a JSON API request with automatic auth header and error handling
+ * Make a JSON API request with automatic auth header, timeout, and error handling.
+ * 
+ * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (30 seconds)
+ * unless a custom timeout is specified or a caller-provided signal aborts earlier.
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
 	const authToken = get(token);
+	const timeoutMs = options.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
 	const headers: HeadersInit = {
 		...options.headers,
@@ -98,10 +146,15 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		(headers as Record<string, string>)['Content-Type'] = 'application/json';
 	}
 
+	// Create signal with default timeout, combining with caller's signal if provided
+	const signal = timeoutMs > 0 && timeoutMs < Infinity 
+		? createTimeoutSignal(options.signal, timeoutMs)
+		: options.signal;
+
 	const response = await fetch(`${BASE_URL}${endpoint}`, {
 		...options,
 		headers,
-		signal: options.signal,
+		signal,
 	});
 
 	if (!response.ok) {
@@ -130,6 +183,12 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 export interface FormDataRequestOptions {
 	signal?: AbortSignal;
 	errorMessage?: string;
+	/**
+	 * Request timeout in milliseconds.
+	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (30 seconds).
+	 * Set to 0 or Infinity to disable timeout.
+	 */
+	timeout?: number;
 }
 
 /**
@@ -142,14 +201,27 @@ export interface BlobUrlResult {
 	revoke: () => void;
 }
 
+export interface BlobUrlRequestOptions {
+	signal?: AbortSignal;
+	/**
+	 * Request timeout in milliseconds.
+	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (30 seconds).
+	 * Set to 0 or Infinity to disable timeout.
+	 */
+	timeout?: number;
+}
+
 /**
- * Fetch a binary resource (image, file) with authentication and return a blob URL with cleanup.
+ * Fetch a binary resource (image, file) with authentication, timeout, and return a blob URL with cleanup.
  * 
  * IMPORTANT: Blob URLs hold references to underlying data and MUST be revoked to avoid memory leaks.
  * Call `result.revoke()` when the URL is no longer needed (e.g., in onDestroy or when removing an image).
  * 
+ * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (30 seconds)
+ * unless a custom timeout is specified or a caller-provided signal aborts earlier.
+ * 
  * @param endpoint - API endpoint to fetch
- * @param signal - Optional AbortSignal for cancellation
+ * @param options - Optional signal for cancellation and/or custom timeout
  * @returns BlobUrlResult with url and revoke function, or null if the request fails
  * 
  * @example
@@ -162,8 +234,22 @@ export interface BlobUrlResult {
  * }
  * ```
  */
-export async function requestBlobUrl(endpoint: string, signal?: AbortSignal): Promise<BlobUrlResult | null> {
+export async function requestBlobUrl(
+	endpoint: string, 
+	options?: AbortSignal | BlobUrlRequestOptions
+): Promise<BlobUrlResult | null> {
+	// Support both legacy AbortSignal parameter and new options object
+	const opts: BlobUrlRequestOptions = options instanceof AbortSignal 
+		? { signal: options } 
+		: (options ?? {});
+	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
+	
 	const authToken = get(token);
+
+	// Create signal with default timeout, combining with caller's signal if provided
+	const signal = timeoutMs > 0 && timeoutMs < Infinity
+		? createTimeoutSignal(opts.signal, timeoutMs)
+		: opts.signal;
 
 	try {
 		const response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -197,8 +283,11 @@ export async function requestBlobUrl(endpoint: string, signal?: AbortSignal): Pr
 }
 
 /**
- * Make a FormData API request with automatic auth header and error handling.
+ * Make a FormData API request with automatic auth header, timeout, and error handling.
  * Use this for file uploads and multipart form submissions.
+ * 
+ * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (30 seconds)
+ * unless a custom timeout is specified or a caller-provided signal aborts earlier.
  */
 export async function requestFormData<T>(
 	endpoint: string,
@@ -210,8 +299,14 @@ export async function requestFormData<T>(
 		? { errorMessage: options } 
 		: options;
 	const errorMessage = opts.errorMessage ?? 'Request failed';
+	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 	
 	const authToken = get(token);
+
+	// Create signal with default timeout, combining with caller's signal if provided
+	const signal = timeoutMs > 0 && timeoutMs < Infinity
+		? createTimeoutSignal(opts.signal, timeoutMs)
+		: opts.signal;
 
 	try {
 		log.debug(`FormData request to ${endpoint}`);
@@ -219,7 +314,7 @@ export async function requestFormData<T>(
 			method: 'POST',
 			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
 			body: formData,
-			signal: opts.signal,
+			signal,
 		});
 
 		log.debug(`Response from ${endpoint}:`, response.status, response.statusText);
