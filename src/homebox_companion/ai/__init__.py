@@ -1,6 +1,10 @@
 """AI/LLM integration module."""
 
-from .images import encode_image_bytes_to_data_uri, encode_image_to_data_uri
+from .images import (
+    encode_compressed_image_to_base64,
+    encode_image_bytes_to_data_uri,
+    encode_image_to_data_uri,
+)
 from .openai import chat_completion, cleanup_openai_clients, vision_completion
 from .prompts import (
     FIELD_DEFAULTS,
@@ -16,6 +20,7 @@ __all__ = [
     # Image utilities
     "encode_image_to_data_uri",
     "encode_image_bytes_to_data_uri",
+    "encode_compressed_image_to_base64",
     # OpenAI helpers
     "chat_completion",
     "vision_completion",

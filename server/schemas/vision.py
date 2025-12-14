@@ -30,11 +30,22 @@ class DetectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
     pass
 
 
+class CompressedImage(BaseModel):
+    """Compressed image data for Homebox upload."""
+
+    data: str = Field(description="Base64-encoded compressed image")
+    mime_type: str = Field(description="MIME type (typically 'image/jpeg')")
+
+
 class DetectionResponse(BaseModel):
     """Response from image detection."""
 
     items: list[DetectedItemResponse]
     message: str = "Detection complete"
+    compressed_images: list[CompressedImage] = Field(
+        default_factory=list,
+        description="Compressed versions of images for Homebox upload"
+    )
 
 
 class AdvancedItemDetails(ItemExtendedFieldsMixin):

@@ -92,6 +92,10 @@ export interface ReviewItem extends ItemCore, ItemExtended {
 	originalFile?: File;
 	/** Custom cropped thumbnail data URL */
 	customThumbnail?: string;
+	/** Compressed image data URL for Homebox upload (replaces originalFile after analysis) */
+	compressedDataUrl?: string;
+	/** Compressed additional images for Homebox upload */
+	compressedAdditionalDataUrls?: string[];
 }
 
 /** Item confirmed by user, ready for submission */
@@ -199,10 +203,17 @@ export interface MergeItem extends ItemCore, ItemExtended {}
 // API TYPES - Responses
 // =============================================================================
 
+/** Compressed image from backend */
+export interface CompressedImage {
+	data: string;  // Base64-encoded image
+	mime_type: string;
+}
+
 /** Response from item detection */
 export interface DetectionResponse {
 	items: DetectedItem[];
 	message: string;
+	compressed_images: CompressedImage[];
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */

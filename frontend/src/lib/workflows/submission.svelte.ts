@@ -74,7 +74,7 @@ export class SubmissionService {
 	): Promise<boolean> {
 		let allSucceeded = true;
 
-		// Upload custom thumbnail (replaces original) or original image as primary
+		// Upload custom thumbnail (replaces original) or compressed/original image as primary
 		if (confirmedItem.customThumbnail) {
 			try {
 				const thumbnailFile = await this.dataUrlToFile(
@@ -92,8 +92,29 @@ export class SubmissionService {
 				log.error(`Failed to upload thumbnail for ${confirmedItem.name}`, error);
 				allSucceeded = false;
 			}
+		} else if (confirmedItem.compressedDataUrl) {
+			// Use compressed image if available (preferred)
+			try {
+				const compressedFile = await this.dataUrlToFile(
+					confirmedItem.compressedDataUrl,
+					`${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
+				);
+				await withRetry(
+					() => itemsApi.uploadAttachment(itemId, compressedFile, { signal }),
+					{
+						maxAttempts: 3,
+						onRetry: (attempt) => log.debug(`Retrying compressed image upload (attempt ${attempt})`)
+					}
+				);
+			} catch (error) {
+				if (error instanceof Error && error.name === 'AbortError') {
+					throw error;
+				}
+				log.error(`Failed to upload compressed image for ${confirmedItem.name}`, error);
+				allSucceeded = false;
+			}
 		} else if (confirmedItem.originalFile) {
-			// Only upload original if no custom thumbnail (custom thumbnail replaces it)
+			// Fallback to original file if no compressed version available
 			try {
 				await withRetry(
 					() => itemsApi.uploadAttachment(itemId, confirmedItem.originalFile!, { signal }),
@@ -111,21 +132,40 @@ export class SubmissionService {
 			}
 		}
 
-		// Upload additional images (if any)
-		if (confirmedItem.additionalImages && confirmedItem.additionalImages.length > 0) {
-			for (const addImage of confirmedItem.additionalImages) {
+		// Upload additional images (prefer compressed versions)
+		const additionalToUpload: File[] = [];
+		
+		// Use compressed additional images if available
+		if (confirmedItem.compressedAdditionalDataUrls && confirmedItem.compressedAdditionalDataUrls.length > 0) {
+			for (let i = 0; i < confirmedItem.compressedAdditionalDataUrls.length; i++) {
 				try {
-					await withRetry(() => itemsApi.uploadAttachment(itemId, addImage, { signal }), {
-						maxAttempts: 3,
-						onRetry: (attempt) => log.debug(`Retrying additional image upload (attempt ${attempt})`)
-					});
+					const additionalFile = await this.dataUrlToFile(
+						confirmedItem.compressedAdditionalDataUrls[i],
+						`${confirmedItem.name.replace(/\s+/g, '_')}_${i + 1}.jpg`
+					);
+					additionalToUpload.push(additionalFile);
 				} catch (error) {
-					if (error instanceof Error && error.name === 'AbortError') {
-						throw error;
-					}
-					log.error(`Failed to upload additional image for ${confirmedItem.name}`, error);
-					allSucceeded = false;
+					log.error(`Failed to convert compressed additional image ${i}`, error);
 				}
+			}
+		} else if (confirmedItem.additionalImages && confirmedItem.additionalImages.length > 0) {
+			// Fallback to original additional images
+			additionalToUpload.push(...confirmedItem.additionalImages);
+		}
+		
+		// Upload all additional images
+		for (const addImage of additionalToUpload) {
+			try {
+				await withRetry(() => itemsApi.uploadAttachment(itemId, addImage, { signal }), {
+					maxAttempts: 3,
+					onRetry: (attempt) => log.debug(`Retrying additional image upload (attempt ${attempt})`)
+				});
+			} catch (error) {
+				if (error instanceof Error && error.name === 'AbortError') {
+					throw error;
+				}
+				log.error(`Failed to upload additional image for ${confirmedItem.name}`, error);
+				allSucceeded = false;
 			}
 		}
 

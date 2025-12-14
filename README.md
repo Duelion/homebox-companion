@@ -222,8 +222,30 @@ Open `http://localhost:8000` in your browser.
 | `HBC_OPENAI_API_KEY` | **Yes** | – | Your OpenAI API key |
 | `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL |
 | `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | Model to use (`gpt-5-nano` for cheaper) |
+| `HBC_IMAGE_QUALITY` | No | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
 
 ### Advanced Settings
+
+<details>
+<summary>Image Quality</summary>
+
+Control compression applied to images uploaded to Homebox. Compression happens server-side during AI analysis to avoid slowing down mobile devices.
+
+| Quality Level | Max Dimension | JPEG Quality | File Size | Use Case |
+|--------------|---------------|--------------|-----------|----------|
+| `raw` | No limit | Original | Largest | Full quality originals |
+| `high` | 2560px | 85% | Large | Best quality, moderate size |
+| `medium` | 1920px | 75% | Moderate | **Default** - balanced |
+| `low` | 1280px | 60% | Smallest | Faster uploads, smaller storage |
+
+**Example:**
+```bash
+HBC_IMAGE_QUALITY=high
+```
+
+**Note:** This setting only affects images uploaded to Homebox. AI analysis always uses optimized images regardless of this setting.
+
+</details>
 
 <details>
 <summary>Server & Logging</summary>

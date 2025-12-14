@@ -13,6 +13,7 @@ from homebox_companion import (
     analyze_item_details_from_images,
     correct_item_with_openai,
     detect_items_from_bytes,
+    encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
     merge_items_with_openai,
     settings,
@@ -28,6 +29,7 @@ from ...schemas.vision import (
     AdvancedItemDetails,
     BatchDetectionResponse,
     BatchDetectionResult,
+    CompressedImage,
     CorrectedItemResponse,
     CorrectionResponse,
     DetectedItemResponse,
@@ -108,10 +110,33 @@ async def detect_items(
 
     logger.debug(f"Loaded {len(ctx.labels)} labels for context")
 
+    # Get image quality settings
+    max_dimension, jpeg_quality = settings.image_quality_params
+
+    # Run AI detection and image compression in parallel
+    async def compress_all_images() -> list[CompressedImage]:
+        """Compress all images (primary + additional) for Homebox upload."""
+        all_images_to_compress = [(image_bytes, content_type)] + additional_image_data
+        compressed = []
+
+        for img_bytes, _ in all_images_to_compress:
+            # Run compression in executor to avoid blocking
+            base64_data, mime = await asyncio.to_thread(
+                encode_compressed_image_to_base64,
+                img_bytes,
+                max_dimension,
+                jpeg_quality
+            )
+            compressed.append(CompressedImage(data=base64_data, mime_type=mime))
+
+        return compressed
+
     # Detect items
     try:
-        logger.info("Starting OpenAI vision detection...")
-        detected = await detect_items_from_bytes(
+        logger.info("Starting OpenAI vision detection and image compression...")
+
+        # Run detection and compression in parallel
+        detection_task = detect_items_from_bytes(
             image_bytes=image_bytes,
             api_key=settings.openai_api_key,
             mime_type=content_type,
@@ -124,7 +149,11 @@ async def detect_items(
             field_preferences=ctx.field_preferences,
             output_language=ctx.output_language,
         )
-        logger.info(f"Detected {len(detected)} items")
+        compression_task = compress_all_images()
+
+        detected, compressed_images = await asyncio.gather(detection_task, compression_task)
+
+        logger.info(f"Detected {len(detected)} items, compressed {len(compressed_images)} images")
     except Exception as e:
         logger.exception("Detection failed")
         raise HTTPException(status_code=500, detail="Detection failed") from e
@@ -145,7 +174,8 @@ async def detect_items(
                 notes=item.notes,
             )
             for item in detected
-        ]
+        ],
+        compressed_images=compressed_images,
     )
 
 

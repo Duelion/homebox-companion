@@ -37,6 +37,9 @@
 	let showThumbnailEditor = $state(false);
 	let isProcessing = $state(false);
 	let allImages = $state<File[]>([]);
+	
+	// Track original images to detect modifications (for invalidating compressed URLs)
+	let originalImageSet = $state<Set<File>>(new Set());
 
 	// Check if item has any extended field data
 	function hasExtendedFieldData(item: ReviewItem | null): boolean {
@@ -70,10 +73,13 @@
 			editedItem = { ...currentItem };
 			showAiCorrection = false;
 			// Build unified images array: original first, then additional
-			allImages = [
+			const imageArray = [
 				...(currentItem.originalFile ? [currentItem.originalFile] : []),
 				...(currentItem.additionalImages || [])
 			];
+			allImages = imageArray;
+			// Track original images to detect modifications
+			originalImageSet = new Set(imageArray);
 			// Auto-expand extended fields if they have data, otherwise close all panels
 			showExtendedFields = hasExtendedFieldData(currentItem);
 			showImagesPanel = false;
@@ -143,6 +149,21 @@
 	function confirmItem() {
 		if (!editedItem) return;
 
+		// Check if images were modified (added, removed, or reordered)
+		// If so, compressed URLs are stale and must be cleared
+		const imagesModified = (() => {
+			// Check if count changed
+			if (allImages.length !== originalImageSet.size) return true;
+			// Check if any image was removed or a new one added
+			for (const img of allImages) {
+				if (!originalImageSet.has(img)) return true;
+			}
+			// Check if order changed (first image determines primary compressed URL)
+			const originalPrimary = currentItem?.originalFile;
+			if (originalPrimary && allImages[0] !== originalPrimary) return true;
+			return false;
+		})();
+
 		// Sync unified allImages back to item structure
 		// First image becomes "original", rest become "additional"
 		if (allImages.length > 0) {
@@ -153,6 +174,12 @@
 			editedItem.originalFile = undefined;
 			editedItem.additionalImages = [];
 			editedItem.customThumbnail = undefined;
+		}
+
+		// Clear stale compressed URLs if images were modified
+		if (imagesModified) {
+			editedItem.compressedDataUrl = undefined;
+			editedItem.compressedAdditionalDataUrls = undefined;
 		}
 
 		workflow.confirmItem(editedItem);
