@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { auth, ApiError } from '$lib/api';
+	import { auth, ApiError, NetworkError } from '$lib/api';
 	import { sessionExpired, sessionExpiredReason, onReauthSuccess, logout, type SessionExpiredReason } from '$lib/stores/auth';
 	import { resetLocationState } from '$lib/stores/locations';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
@@ -52,7 +52,12 @@
 			return 'expired';
 		}
 		
-		// Network errors (TypeError: Failed to fetch, etc.)
+		// Network errors (connection refused, DNS failure, timeout, etc.)
+		if (error instanceof NetworkError) {
+			return 'network';
+		}
+		
+		// Legacy: raw TypeError from fetch (shouldn't happen with new client, but kept for safety)
 		if (error instanceof TypeError || 
 			(error instanceof Error && error.message.includes('fetch'))) {
 			return 'network';

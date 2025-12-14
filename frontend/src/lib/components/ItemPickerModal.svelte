@@ -79,11 +79,21 @@
 
 		log.debug(`Fetching ${itemsWithThumbnails.length} thumbnails`);
 		
-		// Fetch all thumbnails in parallel
+		// Fetch all thumbnails in parallel, catching errors individually
 		const results = await Promise.all(
 			itemsWithThumbnails.map(async (item) => {
-				const result = await itemsApi.getThumbnail(item.id, item.thumbnailId!);
-				return { itemId: item.id, result };
+				try {
+					const result = await itemsApi.getThumbnail(item.id, item.thumbnailId!);
+					return { itemId: item.id, result };
+				} catch (error) {
+					// Ignore aborted requests silently
+					if (error instanceof Error && error.name === 'AbortError') {
+						return { itemId: item.id, result: null };
+					}
+					// Log other errors but continue - missing thumbnails are not critical
+					log.debug(`Failed to load thumbnail for item ${item.id}:`, error);
+					return { itemId: item.id, result: null };
+				}
 			})
 		);
 
