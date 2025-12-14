@@ -529,7 +529,7 @@
 				</svg>
 				<span>
 					{#if scanWorkflow.state.parentItemName}
-						Inside: {scanWorkflow.state.parentItemName} (change)
+						Inside: {scanWorkflow.state.parentItemName}
 					{:else}
 						Place Inside an Item ({$selectedLocation?.itemCount ?? 0})
 					{/if}
