@@ -15,6 +15,7 @@ class ConfigResponse(BaseModel):
     homebox_url: str
     openai_model: str
     update_check_enabled: bool
+    image_quality: str
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -29,5 +30,6 @@ async def get_config() -> ConfigResponse:
         homebox_url=settings.homebox_url,
         openai_model=settings.openai_model,
         update_check_enabled=not settings.disable_update_check,
+        image_quality=settings.image_quality.value,
     )
 

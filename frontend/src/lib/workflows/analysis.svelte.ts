@@ -125,7 +125,8 @@ export class AnalysisService {
 						success: true as const,
 						imageIndex: index,
 						image,
-						items: response.items
+						items: response.items,
+						compressedImages: response.compressed_images || []
 					};
 				} catch (error) {
 					// Re-throw abort errors to be handled at the top level
@@ -172,6 +173,13 @@ export class AnalysisService {
 			// Process results
 			for (const result of results) {
 				if (result.success) {
+					// Get compressed images for this result
+					const compressedImages = result.compressedImages || [];
+					
+					// First compressed image is the primary, rest are additional
+					const primaryCompressed = compressedImages[0];
+					const additionalCompressed = compressedImages.slice(1);
+					
 					for (const item of result.items) {
 						// Add default label if configured and valid
 						let labelIds = item.label_ids ?? [];
@@ -179,12 +187,25 @@ export class AnalysisService {
 							labelIds = [...labelIds, validDefaultLabelId];
 						}
 
+						// Convert compressed images to data URLs
+						const compressedDataUrl = primaryCompressed 
+							? `data:${primaryCompressed.mime_type};base64,${primaryCompressed.data}`
+							: undefined;
+						
+						const compressedAdditionalDataUrls = additionalCompressed.map(
+							img => `data:${img.mime_type};base64,${img.data}`
+						);
+
 						allDetectedItems.push({
 							...item,
 							label_ids: labelIds,
 							sourceImageIndex: result.imageIndex,
 							originalFile: result.image.file,
-							additionalImages: result.image.additionalFiles || []
+							additionalImages: result.image.additionalFiles || [],
+							compressedDataUrl,
+							compressedAdditionalDataUrls: compressedAdditionalDataUrls.length > 0 
+								? compressedAdditionalDataUrls 
+								: undefined
 						});
 					}
 				}

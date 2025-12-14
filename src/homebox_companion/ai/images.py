@@ -9,7 +9,7 @@ from pathlib import Path
 from loguru import logger
 from PIL import Image
 
-# Default settings for image optimization
+# Default settings for image optimization (for AI vision)
 DEFAULT_MAX_DIMENSION = 2048  # OpenAI recommends max 2048px for detail="high"
 DEFAULT_JPEG_QUALITY = 85
 
@@ -146,6 +146,118 @@ def encode_image_bytes_to_data_uri(
 
     payload = base64.b64encode(image_bytes).decode("ascii")
     return f"data:image/{suffix};base64,{payload}"
+
+
+def compress_image_for_upload(
+    image_bytes: bytes,
+    max_dimension: int | None = None,
+    quality: int = 75,
+) -> tuple[bytes, str]:
+    """Compress an image for Homebox upload based on quality settings.
+
+    This function is separate from optimize_image_for_vision() to allow
+    different compression strategies for AI (which needs good quality)
+    vs Homebox storage (where users may prefer smaller files).
+
+    Args:
+        image_bytes: Raw image data.
+        max_dimension: Maximum width or height in pixels. None = no resizing.
+        quality: JPEG compression quality (1-100).
+
+    Returns:
+        Tuple of (compressed_bytes, mime_type).
+    """
+    # If raw quality requested (no max_dimension), return original
+    if max_dimension is None:
+        return image_bytes, "image/jpeg"
+
+    original_size = len(image_bytes)
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        original_dimensions = img.size
+
+        # Handle EXIF orientation
+        try:
+            from PIL import ExifTags
+
+            for orientation in ExifTags.TAGS:
+                if ExifTags.TAGS[orientation] == "Orientation":
+                    break
+
+            exif = img._getexif()
+            if exif is not None:
+                orientation_value = exif.get(orientation)
+                if orientation_value == 3:
+                    img = img.rotate(180, expand=True)
+                elif orientation_value == 6:
+                    img = img.rotate(270, expand=True)
+                elif orientation_value == 8:
+                    img = img.rotate(90, expand=True)
+        except (AttributeError, KeyError, TypeError):
+            # No EXIF data or no orientation tag
+            pass
+
+        # Resize if larger than max dimension
+        needs_resize = max(img.size) > max_dimension
+        if needs_resize:
+            img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+            logger.debug(
+                f"Resized image for upload from {original_dimensions} to {img.size}"
+            )
+
+        # Convert to RGB if necessary (handles RGBA, P mode, etc.)
+        if img.mode in ("RGBA", "P", "LA"):
+            # Create white background for transparent images
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+            img = background
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+
+        # Compress to JPEG
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=quality, optimize=True)
+        compressed_bytes = output.getvalue()
+
+        compressed_size = len(compressed_bytes)
+        savings = ((original_size - compressed_size) / original_size) * 100
+
+        if savings > 5:  # Only log if meaningful savings
+            logger.debug(
+                f"Image compressed for upload: {original_size:,} -> {compressed_size:,} bytes "
+                f"({savings:.1f}% reduction)"
+            )
+
+        return compressed_bytes, "image/jpeg"
+
+    except Exception as e:
+        logger.warning(f"Image compression failed, using original: {e}")
+        return image_bytes, "image/jpeg"
+
+
+def encode_compressed_image_to_base64(
+    image_bytes: bytes,
+    max_dimension: int | None = None,
+    quality: int = 75,
+) -> tuple[str, str]:
+    """Compress an image and encode to base64 for API response.
+
+    Args:
+        image_bytes: Raw image data.
+        max_dimension: Maximum width or height in pixels. None = no resizing.
+        quality: JPEG compression quality (1-100).
+
+    Returns:
+        Tuple of (base64_string, mime_type).
+    """
+    compressed_bytes, mime_type = compress_image_for_upload(
+        image_bytes, max_dimension, quality
+    )
+    base64_str = base64.b64encode(compressed_bytes).decode("ascii")
+    return base64_str, mime_type
 
 
 
