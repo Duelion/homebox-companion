@@ -38,11 +38,13 @@ export const items = {
 
 	/**
 	 * Fetch a thumbnail image and return a blob URL with cleanup function.
-	 * Returns null if the thumbnail doesn't exist or fails to load.
 	 * 
 	 * IMPORTANT: Call `result.revoke()` when done to avoid memory leaks.
+	 * 
+	 * @throws {ApiError} When the server returns a non-OK response (e.g., 404 for missing thumbnail)
+	 * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
 	 */
-	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal): Promise<BlobUrlResult | null> =>
+	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal): Promise<BlobUrlResult> =>
 		requestBlobUrl(`/items/${itemId}/attachments/${attachmentId}`, signal),
 };
 
