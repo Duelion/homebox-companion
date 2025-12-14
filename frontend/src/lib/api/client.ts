@@ -30,7 +30,7 @@ function handleUnauthorized(response: Response): boolean {
 	if (response.status === 401) {
 		const authToken = get(token);
 		if (authToken) {
-			markSessionExpired();
+			markSessionExpired('expired');
 			return true;
 		}
 	}
@@ -133,10 +133,36 @@ export interface FormDataRequestOptions {
 }
 
 /**
- * Fetch a binary resource (image, file) with authentication and return a blob URL.
- * Returns null if the request fails (e.g., 404, auth error).
+ * Result of a blob URL request, including the URL and a cleanup function.
  */
-export async function requestBlobUrl(endpoint: string, signal?: AbortSignal): Promise<string | null> {
+export interface BlobUrlResult {
+	/** The blob URL for use in img.src, etc. */
+	url: string;
+	/** Call this function to revoke the URL and free memory. */
+	revoke: () => void;
+}
+
+/**
+ * Fetch a binary resource (image, file) with authentication and return a blob URL with cleanup.
+ * 
+ * IMPORTANT: Blob URLs hold references to underlying data and MUST be revoked to avoid memory leaks.
+ * Call `result.revoke()` when the URL is no longer needed (e.g., in onDestroy or when removing an image).
+ * 
+ * @param endpoint - API endpoint to fetch
+ * @param signal - Optional AbortSignal for cancellation
+ * @returns BlobUrlResult with url and revoke function, or null if the request fails
+ * 
+ * @example
+ * ```typescript
+ * const result = await requestBlobUrl('/items/123/thumbnail');
+ * if (result) {
+ *   img.src = result.url;
+ *   // Later, when done with the image:
+ *   result.revoke();
+ * }
+ * ```
+ */
+export async function requestBlobUrl(endpoint: string, signal?: AbortSignal): Promise<BlobUrlResult | null> {
 	const authToken = get(token);
 
 	try {
@@ -154,7 +180,12 @@ export async function requestBlobUrl(endpoint: string, signal?: AbortSignal): Pr
 		}
 
 		const blob = await response.blob();
-		return URL.createObjectURL(blob);
+		const url = URL.createObjectURL(blob);
+		
+		return {
+			url,
+			revoke: () => URL.revokeObjectURL(url)
+		};
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') {
 			// Request was cancelled, not an error
