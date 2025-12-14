@@ -1,6 +1,6 @@
 """Vision tool request/response schemas."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # Base mixin for item extended fields to reduce duplication
@@ -99,7 +99,7 @@ class BatchDetectionResult(BaseModel):
 
     image_index: int
     success: bool
-    items: list[DetectedItemResponse] = []
+    items: list[DetectedItemResponse] = Field(default_factory=list)
     error: str | None = None
 
 
