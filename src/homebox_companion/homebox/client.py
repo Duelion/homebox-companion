@@ -583,6 +583,30 @@ class HomeboxClient:
         )
         return Attachment.from_api(raw)
 
+    async def ensure_asset_ids(self, token: str) -> int:
+        """Ensure all items have asset IDs assigned.
+
+        Calls the Homebox action to assign sequential asset IDs to all items
+        that don't currently have one. This is idempotent - items that already
+        have asset IDs are not affected.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            Number of items that were assigned asset IDs.
+        """
+        response = await self.client.post(
+            f"{self.base_url}/actions/ensure-asset-ids",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Ensure asset IDs")
+        result = response.json()
+        return result.get("completed", 0)
+
     @staticmethod
     def _ensure_success(response: httpx.Response, context: str) -> None:
         """Raise an error if the response indicates failure."""

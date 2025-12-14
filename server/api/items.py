@@ -152,6 +152,16 @@ async def create_items(
 
     logger.info(f"Item creation complete: {len(created)} created, {len(errors)} failed")
 
+    # After all items created, ensure asset IDs are assigned
+    if created:
+        try:
+            assigned = await client.ensure_asset_ids(token)
+            if assigned > 0:
+                logger.info(f"Assigned asset IDs to {assigned} item(s)")
+        except Exception as e:
+            # Non-fatal - log but don't fail the request
+            logger.warning(f"Failed to ensure asset IDs: {e}")
+
     return JSONResponse(
         content={
             "created": created,
