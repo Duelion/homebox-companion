@@ -5,7 +5,7 @@
 import { get } from 'svelte/store';
 import { token, markSessionExpired, type SessionExpiredReason } from '../stores/auth';
 import { auth } from '../api/auth';
-import { ApiError } from '../api/client';
+import { ApiError, NetworkError } from '../api/client';
 import { createLogger } from './logger';
 
 const log = createLogger({ prefix: 'Auth' });
@@ -21,7 +21,12 @@ function getErrorReason(error: unknown): SessionExpiredReason {
 		return 'expired'; // Other API errors treated as expired
 	}
 	
-	// Network errors (TypeError: Failed to fetch, etc.)
+	// Network errors (connection refused, DNS failure, timeout, etc.)
+	if (error instanceof NetworkError) {
+		return 'network';
+	}
+	
+	// Legacy: raw TypeError from fetch (shouldn't happen with new client, but kept for safety)
 	if (error instanceof TypeError || 
 		(error instanceof Error && error.message.includes('fetch'))) {
 		return 'network';
