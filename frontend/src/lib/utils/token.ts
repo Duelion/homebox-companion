@@ -47,7 +47,14 @@ export async function checkAuth(): Promise<boolean> {
 	try {
 		// Validate token against the server
 		const response = await auth.validate();
-		return response.valid;
+		
+		// Handle edge case where server returns valid: false instead of 401
+		if (!response.valid) {
+			markSessionExpired('expired');
+			return false;
+		}
+		
+		return true;
 	} catch (error) {
 		// 401 error means token is invalid/expired
 		if (error instanceof ApiError && error.status === 401) {

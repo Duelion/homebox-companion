@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { auth } from '$lib/api';
+	import { auth, ApiError } from '$lib/api';
 	import { sessionExpired, sessionExpiredReason, onReauthSuccess, logout, type SessionExpiredReason } from '$lib/stores/auth';
 	import { resetLocationState } from '$lib/stores/locations';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
@@ -39,6 +39,27 @@
 				};
 		}
 	}
+	
+	/**
+	 * Determine the error reason from a login failure.
+	 */
+	function getLoginErrorReason(error: unknown): SessionExpiredReason {
+		if (error instanceof ApiError) {
+			if (error.status >= 500) {
+				return 'server_error';
+			}
+			// 401/403 means invalid credentials, not a session issue
+			return 'expired';
+		}
+		
+		// Network errors (TypeError: Failed to fetch, etc.)
+		if (error instanceof TypeError || 
+			(error instanceof Error && error.message.includes('fetch'))) {
+			return 'network';
+		}
+		
+		return 'unknown';
+	}
 
 	// Reactive content based on reason
 	let content = $derived(getReasonContent($sessionExpiredReason));
@@ -62,8 +83,19 @@
 			password = '';
 		} catch (error) {
 			console.error('Re-authentication failed:', error);
-			errorMessage =
-				error instanceof Error ? error.message : 'Login failed. Please check your credentials.';
+			
+			// Update the modal's reason if the error type changed (e.g., network error during re-auth)
+			const errorReason = getLoginErrorReason(error);
+			if (errorReason === 'network' || errorReason === 'server_error') {
+				// Update the header to reflect the current connection issue
+				sessionExpiredReason.set(errorReason);
+				errorMessage = errorReason === 'network' 
+					? 'Unable to connect. Please check your internet connection.'
+					: 'Server error. Please try again later.';
+			} else {
+				// Credential errors - keep original header, show error message
+				errorMessage = error instanceof Error ? error.message : 'Login failed. Please check your credentials.';
+			}
 		} finally {
 			isSubmitting = false;
 		}
