@@ -24,7 +24,7 @@ from homebox_companion import (
 )
 
 from .api import api_router
-from .dependencies import set_client
+from .dependencies import client_holder
 
 # GitHub version check cache with async lock for thread safety within a single worker.
 # NOTE: This cache is per-worker. When running with multiple workers (e.g., uvicorn --workers N),
@@ -200,13 +200,13 @@ async def lifespan(app: FastAPI):
 
     # Create and set the shared client
     client = HomeboxClient(base_url=settings.api_url)
-    set_client(client)
+    client_holder.set(client)
 
     yield
 
     # Cleanup
     logger.info("Shutting down Homebox Companion API")
-    await client.aclose()
+    await client_holder.close()
     await cleanup_openai_clients()
     logger.info("Shutdown complete")
 
