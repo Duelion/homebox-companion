@@ -35,10 +35,12 @@ export async function checkAuth(): Promise<boolean> {
 			return false;
 		}
 		
-		// Other errors (network issues, etc.) - assume valid to avoid blocking user
-		// The actual API call will fail and trigger proper error handling
-		log.warn('Token validation failed with unexpected error');
-		return true;
+		// Other errors (network issues, 5xx, etc.) - treat as invalid to avoid
+		// sending users to protected routes with unverified credentials.
+		// This prevents confusing loops and stale token usage.
+		log.warn('Token validation failed with unexpected error:', error);
+		markSessionExpired();
+		return false;
 	}
 }
 
