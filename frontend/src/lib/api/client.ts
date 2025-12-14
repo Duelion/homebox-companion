@@ -12,7 +12,7 @@ const BASE_URL = '/api';
  * Default request timeout in milliseconds.
  * Applies when no AbortSignal is provided by the caller.
  */
-export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 /**
  * Create a combined AbortSignal that aborts when either:
@@ -118,7 +118,7 @@ export interface RequestOptions extends RequestInit {
 	signal?: AbortSignal;
 	/**
 	 * Request timeout in milliseconds.
-	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (30 seconds).
+	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (60 seconds).
 	 * Set to 0 or Infinity to disable timeout.
 	 */
 	timeout?: number;
@@ -127,7 +127,7 @@ export interface RequestOptions extends RequestInit {
 /**
  * Make a JSON API request with automatic auth header, timeout, and error handling.
  * 
- * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (30 seconds)
+ * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -185,7 +185,7 @@ export interface FormDataRequestOptions {
 	errorMessage?: string;
 	/**
 	 * Request timeout in milliseconds.
-	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (30 seconds).
+	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (60 seconds).
 	 * Set to 0 or Infinity to disable timeout.
 	 */
 	timeout?: number;
@@ -205,7 +205,7 @@ export interface BlobUrlRequestOptions {
 	signal?: AbortSignal;
 	/**
 	 * Request timeout in milliseconds.
-	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (30 seconds).
+	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (60 seconds).
 	 * Set to 0 or Infinity to disable timeout.
 	 */
 	timeout?: number;
@@ -217,7 +217,7 @@ export interface BlobUrlRequestOptions {
  * IMPORTANT: Blob URLs hold references to underlying data and MUST be revoked to avoid memory leaks.
  * Call `result.revoke()` when the URL is no longer needed (e.g., in onDestroy or when removing an image).
  * 
- * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (30 seconds)
+ * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
  * 
  * @param endpoint - API endpoint to fetch
@@ -286,7 +286,7 @@ export async function requestBlobUrl(
  * Make a FormData API request with automatic auth header, timeout, and error handling.
  * Use this for file uploads and multipart form submissions.
  * 
- * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (30 seconds)
+ * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
  */
 export async function requestFormData<T>(
