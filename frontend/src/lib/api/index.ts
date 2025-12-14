@@ -11,7 +11,16 @@
  */
 
 // Re-export client utilities
-export { ApiError, request, requestFormData } from './client';
+export { 
+	ApiError, 
+	request, 
+	requestFormData,
+	requestBlobUrl,
+	DEFAULT_REQUEST_TIMEOUT_MS,
+	type RequestOptions,
+	type FormDataRequestOptions,
+	type BlobUrlRequestOptions,
+} from './client';
 
 // Re-export domain APIs
 export { auth } from './auth';
