@@ -26,6 +26,7 @@ export interface ConfigResponse {
 	homebox_url: string;
 	openai_model: string;
 	update_check_enabled: boolean;
+	image_quality: string;
 }
 
 export const getConfig = () => request<ConfigResponse>('/config');

@@ -15,6 +15,8 @@ Environment Variables:
     HBC_DISABLE_UPDATE_CHECK: Set to true to disable GitHub update checks (default: false)
     HBC_MAX_UPLOAD_SIZE_MB: Maximum file upload size in MB (default: 20)
     HBC_CORS_ORIGINS: Allowed CORS origins, comma-separated or "*" for all (default: "*")
+    HBC_IMAGE_QUALITY: Image quality for Homebox uploads (default: medium).
+        Options: raw (original), high (2560px, 85%), medium (1920px, 75%), low (1280px, 60%)
 
 AI Output Customization env vars (HBC_AI_*) are handled separately in
 field_preferences.py via FieldPreferencesDefaults.
@@ -22,6 +24,7 @@ field_preferences.py via FieldPreferencesDefaults.
 
 from __future__ import annotations
 
+from enum import Enum
 from functools import lru_cache
 
 from pydantic import computed_field
@@ -29,6 +32,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Demo server for testing - users should replace with their own instance
 DEMO_HOMEBOX_URL = "https://demo.homebox.software"
+
+
+class ImageQuality(str, Enum):
+    """Image quality levels for Homebox uploads.
+
+    Controls compression applied to images before uploading to Homebox.
+    Compression happens server-side during AI analysis to avoid slowing down mobile devices.
+    """
+
+    RAW = "raw"        # No compression, original file
+    HIGH = "high"      # 2560px max, 85% JPEG quality
+    MEDIUM = "medium"  # 1920px max, 75% JPEG quality (default)
+    LOW = "low"        # 1280px max, 60% JPEG quality
 
 
 class Settings(BaseSettings):
@@ -70,6 +86,9 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 20  # Maximum file upload size in MB
     cors_origins: str = "*"  # Comma-separated origins or "*" for all
 
+    # Image processing configuration
+    image_quality: ImageQuality = ImageQuality.MEDIUM
+
     @computed_field
     @property
     def api_url(self) -> str:
@@ -96,6 +115,23 @@ class Settings(BaseSettings):
         if self.cors_origins == "*":
             return ["*"]
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @computed_field
+    @property
+    def image_quality_params(self) -> tuple[int | None, int]:
+        """Get image compression parameters based on quality setting.
+
+        Returns:
+            Tuple of (max_dimension, jpeg_quality).
+            max_dimension is None for 'raw' quality (no resizing).
+        """
+        quality_map = {
+            ImageQuality.RAW: (None, 100),
+            ImageQuality.HIGH: (2560, 85),
+            ImageQuality.MEDIUM: (1920, 75),
+            ImageQuality.LOW: (1280, 60),
+        }
+        return quality_map[self.image_quality]
 
     def validate_config(self) -> list[str]:
         """Validate settings and return list of issues."""
