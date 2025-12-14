@@ -99,11 +99,16 @@ function handleUnauthorized(response: Response): boolean {
 
 /**
  * Wraps a fetch error into a typed NetworkError.
- * Handles abort errors, timeout errors, and generic network failures.
+ * Handles timeout errors and generic network failures.
+ * 
+ * NOTE: User-initiated abort errors (AbortError without timeout) are re-thrown
+ * directly to preserve the existing cancellation detection pattern used
+ * throughout the codebase (checking error.name === 'AbortError').
  * 
  * @param error - The error from a failed fetch call
  * @param endpoint - The endpoint that was being fetched (for error message)
  * @returns A NetworkError with appropriate type flags set
+ * @throws The original error if it's a user-initiated abort
  */
 function wrapFetchError(error: unknown, endpoint: string): NetworkError {
 	if (error instanceof Error) {
@@ -119,12 +124,9 @@ function wrapFetchError(error: unknown, endpoint: string): NetworkError {
 					{ isTimeout: true, isAborted: false }
 				);
 			}
-			// User-initiated abort
-			return new NetworkError(
-				`Request to ${endpoint} was cancelled`,
-				error,
-				{ isTimeout: false, isAborted: true }
-			);
+			// User-initiated abort - re-throw directly to preserve existing
+			// cancellation detection pattern (error.name === 'AbortError')
+			throw error;
 		}
 		
 		// Check for timeout explicitly (some implementations use TimeoutError)
@@ -322,10 +324,15 @@ export interface BlobUrlRequestOptions {
  *   // Later, when done with the image:
  *   result.revoke();
  * } catch (error) {
- *   if (error instanceof NetworkError && error.isAborted) {
- *     // Request was cancelled, handle gracefully
+ *   if (error instanceof Error && error.name === 'AbortError') {
+ *     // Request was cancelled by user, handle gracefully
  *   } else if (error instanceof ApiError && error.status === 404) {
  *     // Resource not found, show placeholder
+ *   } else if (error instanceof NetworkError) {
+ *     // Network error (connection, DNS, timeout)
+ *     if (error.isTimeout) {
+ *       // Handle timeout specifically
+ *     }
  *   }
  * }
  * ```

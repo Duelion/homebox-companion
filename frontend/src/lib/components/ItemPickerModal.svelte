@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { items as itemsApi, type BlobUrlResult, NetworkError } from '$lib/api';
+	import { items as itemsApi, type BlobUrlResult } from '$lib/api';
 	import { showToast } from '$lib/stores/ui';
 	import { createLogger } from '$lib/utils/logger';
 	import type { ItemSummary } from '$lib/types';
@@ -87,7 +87,7 @@
 					return { itemId: item.id, result };
 				} catch (error) {
 					// Ignore aborted requests silently
-					if (error instanceof NetworkError && error.isAborted) {
+					if (error instanceof Error && error.name === 'AbortError') {
 						return { itemId: item.id, result: null };
 					}
 					// Log other errors but continue - missing thumbnails are not critical
