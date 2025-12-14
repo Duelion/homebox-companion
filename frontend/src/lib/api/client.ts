@@ -30,7 +30,7 @@ function handleUnauthorized(response: Response): boolean {
 	if (response.status === 401) {
 		const authToken = get(token);
 		if (authToken) {
-			markSessionExpired();
+			markSessionExpired('expired');
 			return true;
 		}
 	}

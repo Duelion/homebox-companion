@@ -34,8 +34,20 @@ if (import.meta.hot) {
 
 export const isAuthenticated = derived(token, ($token) => !!$token);
 
+/**
+ * Reason for session expiry - helps show appropriate UI feedback
+ */
+export type SessionExpiredReason = 
+	| 'expired'      // Token expired (401 from server)
+	| 'network'      // Network error (couldn't reach server)
+	| 'server_error' // Server error (5xx response)
+	| 'unknown';     // Unknown error
+
 // Session expiry state
 export const sessionExpired = writable<boolean>(false);
+
+// Reason for session expiry (for differentiated UI feedback)
+export const sessionExpiredReason = writable<SessionExpiredReason | null>(null);
 
 // Queue of callbacks to retry after re-auth
 let pendingRequests: Array<() => void> = [];
@@ -56,14 +68,16 @@ if (import.meta.hot) {
 	});
 }
 
-export function markSessionExpired(retryCallback?: () => void) {
+export function markSessionExpired(reason: SessionExpiredReason = 'expired', retryCallback?: () => void) {
 	if (retryCallback) pendingRequests.push(retryCallback);
+	sessionExpiredReason.set(reason);
 	sessionExpired.set(true);
 }
 
 export function onReauthSuccess(newToken: string) {
 	token.set(newToken);
 	sessionExpired.set(false);
+	sessionExpiredReason.set(null);
 	// Retry all pending requests
 	const callbacks = pendingRequests;
 	pendingRequests = [];
@@ -76,12 +90,14 @@ export function onReauthSuccess(newToken: string) {
  */
 export function dismissSessionExpired(): void {
 	sessionExpired.set(false);
+	sessionExpiredReason.set(null);
 	clearPendingRequests();
 }
 
 export function logout() {
 	token.set(null);
 	sessionExpired.set(false);
+	sessionExpiredReason.set(null);
 	clearPendingRequests();
 }
 
