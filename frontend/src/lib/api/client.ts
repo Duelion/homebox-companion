@@ -54,20 +54,21 @@ export class ApiError extends Error {
 /**
  * Network Error class for connection-level failures.
  * Thrown when fetch fails due to network issues, DNS failures, or timeouts.
+ * 
+ * NOTE: User-initiated abort errors (when the user cancels a request) are NOT
+ * wrapped in NetworkError. They are thrown as raw AbortError to preserve the
+ * existing cancellation detection pattern (checking error.name === 'AbortError').
  */
 export class NetworkError extends Error {
 	/** The original error that caused this network failure */
 	cause: Error;
 	/** Whether this was a timeout error */
 	isTimeout: boolean;
-	/** Whether the request was aborted by the caller */
-	isAborted: boolean;
 
-	constructor(message: string, cause: Error, options: { isTimeout?: boolean; isAborted?: boolean } = {}) {
+	constructor(message: string, cause: Error, options: { isTimeout?: boolean } = {}) {
 		super(message);
 		this.cause = cause;
 		this.isTimeout = options.isTimeout ?? false;
-		this.isAborted = options.isAborted ?? false;
 		this.name = 'NetworkError';
 	}
 }
@@ -121,7 +122,7 @@ function wrapFetchError(error: unknown, endpoint: string): NetworkError {
 				return new NetworkError(
 					`Request to ${endpoint} timed out`,
 					error,
-					{ isTimeout: true, isAborted: false }
+					{ isTimeout: true }
 				);
 			}
 			// User-initiated abort - re-throw directly to preserve existing
@@ -134,15 +135,14 @@ function wrapFetchError(error: unknown, endpoint: string): NetworkError {
 			return new NetworkError(
 				`Request to ${endpoint} timed out`,
 				error,
-				{ isTimeout: true, isAborted: false }
+				{ isTimeout: true }
 			);
 		}
 		
 		// Generic network error (connection refused, DNS failure, etc.)
 		return new NetworkError(
 			`Network error while fetching ${endpoint}: ${error.message}`,
-			error,
-			{ isTimeout: false, isAborted: false }
+			error
 		);
 	}
 	
@@ -150,8 +150,7 @@ function wrapFetchError(error: unknown, endpoint: string): NetworkError {
 	const wrappedError = new Error(String(error));
 	return new NetworkError(
 		`Network error while fetching ${endpoint}`,
-		wrappedError,
-		{ isTimeout: false, isAborted: false }
+		wrappedError
 	);
 }
 
