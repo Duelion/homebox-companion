@@ -408,6 +408,35 @@ class HomeboxClient:
         raw = await self.update_item(token, item_id, item_data)
         return Item.from_api(raw)
 
+    async def list_items(
+        self, token: str, *, location_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """List items, optionally filtered by location.
+
+        Args:
+            token: The bearer token from login.
+            location_id: Optional location ID to filter items.
+
+        Returns:
+            List of item dictionaries from the paginated response.
+        """
+        params = {}
+        if location_id:
+            params["locations"] = location_id
+
+        response = await self.client.get(
+            f"{self.base_url}/items",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            params=params or None,
+        )
+        self._ensure_success(response, "List items")
+        data = response.json()
+        # Homebox returns paginated response with items in "items" field
+        return data.get("items", [])
+
     async def get_item(self, token: str, item_id: str) -> dict[str, Any]:
         """Get full item details by ID.
 
@@ -459,6 +488,34 @@ class HomeboxClient:
             },
         )
         self._ensure_success(response, "Delete item")
+
+    async def get_attachment(
+        self,
+        token: str,
+        item_id: str,
+        attachment_id: str,
+    ) -> tuple[bytes, str]:
+        """Get an attachment's content by ID.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item.
+            attachment_id: The ID of the attachment.
+
+        Returns:
+            Tuple of (content_bytes, content_type).
+
+        Raises:
+            AuthenticationError: If authentication fails.
+            RuntimeError: If the attachment is not found or other errors.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/items/{item_id}/attachments/{attachment_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self._ensure_success(response, "Get attachment")
+        content_type = response.headers.get("content-type", "application/octet-stream")
+        return response.content, content_type
 
     async def upload_attachment(
         self,

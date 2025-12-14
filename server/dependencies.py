@@ -5,27 +5,102 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
+import httpx
 from fastapi import Header, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import AuthenticationError, HomeboxClient, settings
 from homebox_companion.core.field_preferences import load_field_preferences
 
-# Global client instance (set during app lifespan)
-_homebox_client: HomeboxClient | None = None
+
+class ClientHolder:
+    """Manages the lifecycle of the shared HomeboxClient instance.
+
+    This class provides explicit lifecycle management for the HTTP client,
+    making it easier to configure for testing and multi-worker deployments.
+
+    Usage:
+        # In app lifespan:
+        client = HomeboxClient(base_url=settings.api_url)
+        client_holder.set(client)
+        yield
+        await client_holder.close()
+
+        # In tests:
+        client_holder.set(mock_client)
+        # ... run tests ...
+        client_holder.reset()
+
+    Note:
+        In multi-worker deployments (e.g., uvicorn --workers N), each worker
+        maintains its own ClientHolder instance. This is the expected behavior
+        for async HTTP clients, as httpx.AsyncClient is not thread-safe.
+    """
+
+    def __init__(self) -> None:
+        self._client: HomeboxClient | None = None
+
+    def set(self, client: HomeboxClient) -> None:
+        """Set the shared client instance.
+
+        Args:
+            client: The HomeboxClient instance to use.
+        """
+        self._client = client
+
+    def get(self) -> HomeboxClient:
+        """Get the shared client instance.
+
+        Returns:
+            The shared HomeboxClient instance.
+
+        Raises:
+            HTTPException: If the client has not been initialized.
+        """
+        if self._client is None:
+            raise HTTPException(status_code=500, detail="Client not initialized")
+        return self._client
+
+    async def close(self) -> None:
+        """Close the client and release resources."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    def reset(self) -> None:
+        """Reset the holder without closing (for testing).
+
+        Use this in tests to reset state between test cases.
+        For normal shutdown, use close() instead.
+        """
+        self._client = None
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the client has been initialized."""
+        return self._client is not None
+
+
+# Singleton holder instance - each worker gets its own
+client_holder = ClientHolder()
 
 
 def set_client(client: HomeboxClient) -> None:
-    """Set the global Homebox client instance."""
-    global _homebox_client
-    _homebox_client = client
+    """Set the global Homebox client instance.
+
+    This is a convenience wrapper for backward compatibility.
+    Prefer using client_holder.set() directly for clarity.
+    """
+    client_holder.set(client)
 
 
 def get_client() -> HomeboxClient:
-    """Get the shared Homebox client."""
-    if _homebox_client is None:
-        raise HTTPException(status_code=500, detail="Client not initialized")
-    return _homebox_client
+    """Get the shared Homebox client.
+
+    This is a FastAPI dependency that returns the shared client instance.
+    Can be overridden in tests using app.dependency_overrides[get_client].
+    """
+    return client_holder.get()
 
 
 def get_token(authorization: Annotated[str | None, Header()] = None) -> str:
@@ -96,6 +171,7 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
 
     Raises:
         AuthenticationError: If authentication fails (re-raised to caller).
+        RuntimeError: If the API returns an unexpected error (not transient).
     """
     client = get_client()
     try:
@@ -109,13 +185,15 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
         # Re-raise auth errors - session is invalid and caller needs to know
         logger.warning("Authentication failed while fetching labels for AI context")
         raise
-    except Exception:
-        # Log other errors but gracefully degrade - AI can work without labels
+    except (httpx.TimeoutException, httpx.NetworkError) as e:
+        # Transient network errors: gracefully degrade - AI can work without labels
         logger.warning(
-            "Failed to fetch labels for AI context, continuing without label suggestions",
-            exc_info=True,
+            f"Transient network error fetching labels for AI context: {type(e).__name__}. "
+            "Continuing without label suggestions.",
         )
         return []
+    # Let other errors (RuntimeError from API, schema errors, etc.) propagate
+    # to surface issues rather than silently degrading AI behavior
 
 
 # =============================================================================
