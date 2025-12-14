@@ -17,7 +17,7 @@ export { ApiError, request, requestFormData } from './client';
 export { auth } from './auth';
 export { locations } from './locations';
 export { labels } from './labels';
-export { items } from './items';
+export { items, type BlobUrlResult } from './items';
 export { vision } from './vision';
 
 // Re-export settings APIs

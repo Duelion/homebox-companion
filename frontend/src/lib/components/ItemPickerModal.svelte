@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { items as itemsApi } from '$lib/api';
+	import { items as itemsApi, type BlobUrlResult } from '$lib/api';
 	import { showToast } from '$lib/stores/ui';
 	import { createLogger } from '$lib/utils/logger';
 	import type { ItemSummary } from '$lib/types';
@@ -23,8 +23,8 @@
 	// Track user's selection, defaulting to any current parent item
 	let selectedItemId = $state(currentItemId);
 	let searchQuery = $state('');
-	// Store fetched thumbnail blob URLs (itemId -> blobUrl)
-	let thumbnailUrls = $state<Map<string, string>>(new Map());
+	// Store fetched thumbnail results with their revoke functions (itemId -> BlobUrlResult)
+	let thumbnailResults = $state<Map<string, BlobUrlResult>>(new Map());
 
 	// Sync selectedItemId when currentItemId prop changes
 	$effect(() => {
@@ -33,7 +33,7 @@
 	
 	// Helper to get thumbnail URL for an item
 	function getThumbnailUrl(item: ItemSummary): string | null {
-		return thumbnailUrls.get(item.id) ?? null;
+		return thumbnailResults.get(item.id)?.url ?? null;
 	}
 
 	// Filtered items based on search
@@ -52,8 +52,8 @@
 
 	// Clean up blob URLs when component is destroyed
 	onDestroy(() => {
-		for (const url of thumbnailUrls.values()) {
-			URL.revokeObjectURL(url);
+		for (const result of thumbnailResults.values()) {
+			result.revoke();
 		}
 	});
 
@@ -82,20 +82,25 @@
 		// Fetch all thumbnails in parallel
 		const results = await Promise.all(
 			itemsWithThumbnails.map(async (item) => {
-				const url = await itemsApi.getThumbnail(item.id, item.thumbnailId!);
-				return { itemId: item.id, url };
+				const result = await itemsApi.getThumbnail(item.id, item.thumbnailId!);
+				return { itemId: item.id, result };
 			})
 		);
 
-		// Store successful results
-		const newUrls = new Map(thumbnailUrls);
-		for (const { itemId, url } of results) {
-			if (url) {
-				newUrls.set(itemId, url);
+		// Store successful results (with their revoke functions for cleanup)
+		const newResults = new Map(thumbnailResults);
+		for (const { itemId, result } of results) {
+			if (result) {
+				// Revoke any existing URL for this item before replacing
+				const existing = newResults.get(itemId);
+				if (existing) {
+					existing.revoke();
+				}
+				newResults.set(itemId, result);
 			}
 		}
-		thumbnailUrls = newUrls;
-		log.debug(`Loaded ${newUrls.size} thumbnails`);
+		thumbnailResults = newResults;
+		log.debug(`Loaded ${newResults.size} thumbnails`);
 	}
 
 	function selectItem(item: ItemSummary) {
