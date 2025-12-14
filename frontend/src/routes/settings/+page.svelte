@@ -599,6 +599,12 @@
 					<span class="text-neutral-400">AI Model</span>
 					<span class="text-neutral-100 font-mono text-sm">{config.openai_model}</span>
 				</div>
+
+				<!-- Image Quality -->
+				<div class="flex items-center justify-between py-2 border-t border-neutral-800">
+					<span class="text-neutral-400">Image Quality</span>
+					<span class="text-neutral-100 font-mono text-sm capitalize">{config.image_quality}</span>
+				</div>
 			{:else if isLoadingConfig}
 				<div class="flex items-center justify-center py-4">
 					<div class="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>

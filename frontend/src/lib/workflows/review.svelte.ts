@@ -139,7 +139,7 @@ export class ReviewService {
 		// Remove from confirmed
 		this.confirmedItems = this.confirmedItems.filter((_, i) => i !== index);
 
-		// Create review item from confirmed item
+		// Create review item from confirmed item (preserve all fields including compressed URLs)
 		const reviewItem: ReviewItem = {
 			name: item.name,
 			quantity: item.quantity,
@@ -154,7 +154,9 @@ export class ReviewService {
 			sourceImageIndex: item.sourceImageIndex,
 			additionalImages: item.additionalImages,
 			originalFile: item.originalFile,
-			customThumbnail: item.customThumbnail
+			customThumbnail: item.customThumbnail,
+			compressedDataUrl: item.compressedDataUrl,
+			compressedAdditionalDataUrls: item.compressedAdditionalDataUrls
 		};
 
 		// Add to detected items for re-review
