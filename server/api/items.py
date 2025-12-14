@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
@@ -54,7 +54,8 @@ async def list_items(
 @router.post("/items")
 async def create_items(
     request: BatchCreateRequest,
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> JSONResponse:
     """Create multiple items in Homebox.
 
@@ -64,9 +65,6 @@ async def create_items(
     """
     logger.info(f"Creating {len(request.items)} items")
     logger.debug(f"Request location_id: {request.location_id}")
-
-    token = get_token(authorization)
-    client = get_client()
 
     created: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -170,14 +168,12 @@ async def create_items(
 async def upload_item_attachment(
     item_id: str,
     file: Annotated[UploadFile, File(description="Image file to upload")],
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> dict[str, Any]:
     """Upload an attachment (image) to an existing item."""
     logger.info(f"Uploading attachment to item: {item_id}")
     logger.debug(f"File: {file.filename}, content_type: {file.content_type}")
-
-    token = get_token(authorization)
-    client = get_client()
 
     # Validate file size (raises HTTPException if too large)
     file_bytes = await validate_file_size(file)
