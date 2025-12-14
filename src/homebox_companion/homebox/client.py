@@ -507,12 +507,18 @@ class HomeboxClient:
 
         Raises:
             AuthenticationError: If authentication fails.
-            RuntimeError: If the attachment is not found or other errors.
+            FileNotFoundError: If the attachment is not found (404).
+            RuntimeError: If other API errors occur.
         """
         response = await self.client.get(
             f"{self.base_url}/items/{item_id}/attachments/{attachment_id}",
             headers={"Authorization": f"Bearer {token}"},
         )
+        # Handle 404 explicitly with a specific exception type
+        if response.status_code == 404:
+            raise FileNotFoundError(
+                f"Attachment {attachment_id} not found for item {item_id}"
+            )
         self._ensure_success(response, "Get attachment")
         content_type = response.headers.get("content-type", "application/octet-stream")
         return response.content, content_type

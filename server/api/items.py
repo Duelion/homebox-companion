@@ -225,13 +225,8 @@ async def get_item_attachment(
         return Response(content=content, media_type=content_type)
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail="Session expired") from e
-    except RuntimeError as e:
-        error_msg = str(e)
-        # Check for 404 in the error message from _ensure_success
-        if "404" in error_msg:
-            raise HTTPException(status_code=404, detail="Attachment not found") from e
-        logger.error(f"Failed to fetch attachment: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch attachment") from e
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Attachment not found") from e
     except Exception as e:
         logger.error(f"Failed to fetch attachment: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch attachment") from e
