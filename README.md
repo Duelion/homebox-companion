@@ -292,7 +292,7 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 ## 📄 License
 
-MIT License
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
