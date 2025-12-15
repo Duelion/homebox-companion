@@ -7,7 +7,7 @@ name = "homebox-companion"
 version = "1.21.2"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.12"
 keywords = ["homebox", "inventory", "ai", "vision", "openai", "home-inventory"]
 classifiers = [
@@ -15,7 +15,7 @@ classifiers = [
     "Environment :: Web Environment",
     "Framework :: FastAPI",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
