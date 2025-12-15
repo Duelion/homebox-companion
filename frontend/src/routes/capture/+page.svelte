@@ -443,43 +443,37 @@
 									</div>
 								</div>
 						{:else}
-							<!-- Empty state: prominent add buttons -->
-							<div class="flex gap-3 mt-2">
-								<button
-									type="button"
-									class="flex-1 p-4 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
-									onclick={() => additionalCameraInputs[index]?.click()}
-									disabled={isAnalyzing}
-								>
-									<div class="flex flex-col items-center gap-2">
-										<div class="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors">
-											<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-												<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-												<circle cx="12" cy="13" r="4" />
-											</svg>
-										</div>
-										<span class="text-caption font-medium text-neutral-400 group-hover:text-primary-400 transition-colors">Camera</span>
-									</div>
-								</button>
-								<button
-									type="button"
-									class="flex-1 p-4 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
-									onclick={() => additionalImageInputs[index]?.click()}
-									disabled={isAnalyzing}
-								>
-									<div class="flex flex-col items-center gap-2">
-										<div class="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors">
-											<svg class="w-5 h-5 text-neutral-400 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-												<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-												<polyline points="17 8 12 3 7 8" />
-												<line x1="12" y1="3" x2="12" y2="15" />
-											</svg>
-										</div>
-										<span class="text-caption font-medium text-neutral-400 group-hover:text-primary-400 transition-colors">Upload</span>
-									</div>
-								</button>
+							<!-- Empty state: compact add buttons (same style as when photos exist) -->
+							<div class="pt-3 border-t border-neutral-800/50">
+								<p class="text-caption text-neutral-500 mb-2">Add close-ups, labels, serial numbers, different angles</p>
+								<div class="flex gap-2">
+									<button
+										type="button"
+										class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
+										onclick={() => additionalCameraInputs[index]?.click()}
+										disabled={isAnalyzing}
+									>
+										<svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+											<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+											<circle cx="12" cy="13" r="4" />
+										</svg>
+										<span class="text-caption text-neutral-400 font-medium">Camera</span>
+									</button>
+									<button
+										type="button"
+										class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
+										onclick={() => additionalImageInputs[index]?.click()}
+										disabled={isAnalyzing}
+									>
+										<svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+											<polyline points="17 8 12 3 7 8" />
+											<line x1="12" y1="3" x2="12" y2="15" />
+										</svg>
+										<span class="text-caption text-neutral-400 font-medium">Upload</span>
+									</button>
+								</div>
 							</div>
-							<p class="text-caption text-neutral-500 text-center mt-2">Close-ups, labels, serial numbers, different angles</p>
 						{/if}
 						</div>
 					{/if}
