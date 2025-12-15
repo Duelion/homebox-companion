@@ -183,41 +183,33 @@
 			</button>
 		</div>
 {:else}
-	<!-- Empty state: prominent add buttons -->
-	<div class="flex gap-3">
+	<!-- Empty state: compact add buttons (same style as when photos exist) -->
+	<p class="text-xs text-text-dim mb-2">Add labels, serial numbers, different angles</p>
+	<div class="flex gap-2">
 		<button
 			type="button"
-			class="flex-1 p-4 rounded-xl border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+			class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center gap-2 transition-all"
 			onclick={() => cameraInput.click()}
 		>
-			<div class="flex flex-col items-center gap-2">
-				<div class="w-10 h-10 rounded-xl bg-surface-elevated flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-					<svg class="w-5 h-5 text-text-muted group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-						<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-						<circle cx="12" cy="13" r="4" />
-					</svg>
-				</div>
-				<span class="text-xs font-medium text-text-muted group-hover:text-primary transition-colors">Camera</span>
-			</div>
+			<svg class="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+				<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+				<circle cx="12" cy="13" r="4" />
+			</svg>
+			<span class="text-xs text-text-muted font-medium">Camera</span>
 		</button>
 		<button
 			type="button"
-			class="flex-1 p-4 rounded-xl border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+			class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center gap-2 transition-all"
 			onclick={() => fileInput.click()}
 		>
-			<div class="flex flex-col items-center gap-2">
-				<div class="w-10 h-10 rounded-xl bg-surface-elevated flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-					<svg class="w-5 h-5 text-text-muted group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-						<polyline points="17 8 12 3 7 8" />
-						<line x1="12" y1="3" x2="12" y2="15" />
-					</svg>
-				</div>
-				<span class="text-xs font-medium text-text-muted group-hover:text-primary transition-colors">Upload</span>
-			</div>
+			<svg class="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+				<polyline points="17 8 12 3 7 8" />
+				<line x1="12" y1="3" x2="12" y2="15" />
+			</svg>
+			<span class="text-xs text-text-muted font-medium">Upload</span>
 		</button>
 	</div>
-	<p class="text-xs text-text-dim text-center mt-2">Labels, serial numbers, different angles</p>
 		{/if}
 		</div>
 	{/if}
