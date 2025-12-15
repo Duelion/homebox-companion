@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
+from starlette.responses import Response
 
 from homebox_companion import (
     AuthenticationError,
@@ -176,6 +177,27 @@ async def _test_homebox_connectivity() -> None:
         logger.warning(f"Connectivity test: Unexpected error: {type(e).__name__}: {e}")
 
 
+class CachedStaticFiles(StaticFiles):
+    """StaticFiles with proper cache control headers for cache busting."""
+    
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        
+        # index.html and root: always revalidate
+        if path in ("", "index.html") or path.endswith("/index.html"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        # Immutable hashed assets: cache forever
+        elif "/_app/immutable/" in f"/{path}" or path.startswith("_app/immutable/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        # Other static assets (icons, manifest, etc.): cache for 1 hour
+        else:
+            response.headers["Cache-Control"] = "public, max-age=3600"
+        
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources across the app lifecycle."""
@@ -281,7 +303,7 @@ def create_app() -> FastAPI:
     if os.path.isdir(static_dir):
         # Mount static files at root to serve _app/, favicon, etc.
         # This must come after API routes so /api/* takes priority
-        app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+        app.mount("/", CachedStaticFiles(directory=static_dir, html=True), name="static")
 
     # SPA fallback - serve index.html for any unmatched routes
     # Note: With html=True on StaticFiles, this handles SPA routing automatically
@@ -298,7 +320,11 @@ def create_app() -> FastAPI:
         # Serve index.html for all other 404s (SPA client-side routing)
         index_path = os.path.join(static_dir, "index.html")
         if os.path.isfile(index_path):
-            return FileResponse(index_path)
+            response = FileResponse(index_path)
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
         # No frontend built yet
         return JSONResponse({
             "name": "Homebox Companion API",
