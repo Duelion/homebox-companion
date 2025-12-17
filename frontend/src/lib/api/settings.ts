@@ -27,6 +27,7 @@ export interface ConfigResponse {
 	llm_model: string;
 	update_check_enabled: boolean;
 	image_quality: string;
+	log_level: string;
 }
 
 export const getConfig = () => request<ConfigResponse>('/config');

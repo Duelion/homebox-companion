@@ -5,7 +5,8 @@
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { isOnline, appVersion, latestVersion, updateDismissed } from '$lib/stores/ui';
-	import { getVersion } from '$lib/api';
+	import { getVersion, getConfig } from '$lib/api';
+	import { setLogLevel } from '$lib/utils/logger';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
@@ -38,6 +39,14 @@
 			isOnline.set(navigator.onLine);
 			window.addEventListener('online', handleOnline);
 			window.addEventListener('offline', handleOffline);
+
+			// Fetch config and sync log level early (before any logs are generated)
+			try {
+				const config = await getConfig();
+				setLogLevel(config.log_level);
+			} catch {
+				// Config fetch failed - keep default INFO level
+			}
 
 			// Fetch app version and check for updates
 			try {
