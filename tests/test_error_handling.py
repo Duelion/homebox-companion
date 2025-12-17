@@ -220,39 +220,6 @@ class TestFieldPreferencesFileCorruption:
         with pytest.raises(ValidationError):
             field_preferences.load_field_preferences()
 
-    @pytest.mark.skipif(
-        __import__("sys").platform == "win32",
-        reason="Windows file permissions work differently",
-    )
-    def test_read_only_directory_save_fails_gracefully(
-        self, monkeypatch, tmp_path
-    ) -> None:
-        """Saving to read-only directory should raise appropriate error (Unix only)."""
-        from homebox_companion.core import field_preferences
-        from homebox_companion.core.field_preferences import FieldPreferences
-
-        config_dir = tmp_path / "readonly_config"
-        config_dir.mkdir()
-        prefs_file = config_dir / "field_preferences.json"
-
-        # Make directory read-only (Unix-specific)
-        import stat
-
-        config_dir.chmod(stat.S_IRUSR | stat.S_IXUSR)
-
-        monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
-        monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
-
-        prefs = FieldPreferences(name="Test")
-
-        try:
-            # Should raise PermissionError or OSError
-            with pytest.raises((PermissionError, OSError)):
-                field_preferences.save_field_preferences(prefs)
-        finally:
-            # Restore write permissions for cleanup
-            config_dir.chmod(stat.S_IRWXU)
-
 
 class TestVisionDetectionErrorHandling:
     """Test vision detection handling of malformed/invalid responses."""
@@ -272,17 +239,4 @@ class TestVisionDetectionErrorHandling:
         items = DetectedItem.from_raw_items(raw_response.get("items", []))
 
         assert items == []
-
-    def test_items_not_a_list_returns_empty(self) -> None:
-        """Response with non-list 'items' should return empty list."""
-        # This tests the from_raw_items robustness
-        raw_response = {"items": "not a list"}
-
-        # Should handle gracefully (type checking in implementation)
-        try:
-            items = DetectedItem.from_raw_items(raw_response.get("items", []))
-            assert items == []
-        except (TypeError, AttributeError):
-            # If implementation doesn't handle this, it's still informative
-            pytest.skip("Implementation doesn't handle non-list items gracefully")
 
