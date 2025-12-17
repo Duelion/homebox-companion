@@ -23,8 +23,8 @@ async def merge_items_with_openai(
     Args:
         items: List of item dictionaries with name, quantity, description fields.
         image_data_uris: Optional list of image data URIs for context.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -32,8 +32,8 @@ async def merge_items_with_openai(
     Returns:
         Dictionary with merged item fields: name, quantity, description, labelIds.
     """
-    api_key = api_key or settings.openai_api_key
-    model = model or settings.openai_model
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
 
     logger.info(f"Merging {len(items)} items with AI")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")

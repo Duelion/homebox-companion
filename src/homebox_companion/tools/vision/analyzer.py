@@ -30,8 +30,8 @@ async def analyze_item_details_from_images(
         image_data_uris: List of data URI strings for each image.
         item_name: The name of the item being analyzed.
         item_description: Optional initial description of the item.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -39,8 +39,8 @@ async def analyze_item_details_from_images(
     Returns:
         Dictionary with extracted fields.
     """
-    api_key = api_key or settings.openai_api_key
-    model = model or settings.openai_model
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
 
     logger.info(f"Analyzing {len(image_data_uris)} images for item: {item_name}")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")

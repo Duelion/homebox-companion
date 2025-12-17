@@ -1,78 +1,50 @@
-"""OpenAI API client wrapper."""
+"""LLM API client wrapper using LiteLLM for multi-provider support.
+
+This module provides the low-level completion functions used by the rest of the
+codebase. It abstracts away the underlying LLM provider (OpenAI, Anthropic, etc.)
+using LiteLLM while maintaining a consistent API.
+"""
 
 from __future__ import annotations
 
-import asyncio
 import json
-from collections import OrderedDict
 from typing import Any
 
+import litellm
 from loguru import logger
-from openai import AsyncOpenAI
 
 from ..core.config import settings
+from .model_allowlist import get_model_capabilities
 
-# Maximum number of cached OpenAI clients to prevent unbounded memory growth
-_MAX_CLIENT_CACHE_SIZE = 10
+# Silence LiteLLM's verbose logging (we use loguru)
+litellm.suppress_debug_info = True
 
-# Cache for OpenAI client instances with LRU eviction
-# Using OrderedDict for LRU behavior: most recently used items move to end
-_client_cache: OrderedDict[str, AsyncOpenAI] = OrderedDict()
-
-# Lock for thread/async-safe cache access
-_client_cache_lock = asyncio.Lock()
+# Default timeout for LLM API calls (in seconds)
+DEFAULT_LLM_TIMEOUT = 120
 
 
-async def _get_openai_client(api_key: str) -> AsyncOpenAI:
-    """Get or create a cached OpenAI client for the given API key.
+class LLMError(Exception):
+    """Base exception for LLM-related errors."""
 
-    This enables connection pooling and reuse across multiple requests,
-    improving performance for parallel API calls. Uses LRU eviction to
-    bound cache size and prevent memory leaks in multi-tenant scenarios.
-
-    Args:
-        api_key: The OpenAI API key.
-
-    Returns:
-        A cached or newly created AsyncOpenAI client.
-    """
-    async with _client_cache_lock:
-        if api_key in _client_cache:
-            # Move to end (most recently used)
-            _client_cache.move_to_end(api_key)
-            return _client_cache[api_key]
-
-        # Evict oldest clients if cache is at capacity
-        while len(_client_cache) >= _MAX_CLIENT_CACHE_SIZE:
-            oldest_key, oldest_client = _client_cache.popitem(last=False)
-            logger.debug("Evicting oldest OpenAI client from cache (size limit reached)")
-            try:
-                await oldest_client.close()
-            except Exception as e:
-                logger.warning(f"Error closing evicted OpenAI client: {e}")
-
-        logger.debug("Creating new OpenAI client instance")
-        client = AsyncOpenAI(api_key=api_key)
-        _client_cache[api_key] = client
-        return client
+    pass
 
 
-async def cleanup_openai_clients() -> None:
-    """Close and cleanup all cached OpenAI client instances.
+class ModelNotAllowedError(LLMError):
+    """Raised when trying to use a model not in the allowlist."""
 
-    This should be called during application shutdown to properly close
-    HTTP connections and release resources.
-    """
-    global _client_cache
-    async with _client_cache_lock:
-        if _client_cache:
-            logger.debug(f"Cleaning up {len(_client_cache)} OpenAI client(s)")
-            for client in _client_cache.values():
-                try:
-                    await client.close()
-                except Exception as e:
-                    logger.warning(f"Error closing OpenAI client: {e}")
-            _client_cache.clear()
+    pass
+
+
+class CapabilityNotSupportedError(LLMError):
+    """Raised when a model lacks a required capability."""
+
+    pass
+
+
+class JSONRepairError(LLMError):
+    """Raised when JSON parsing fails even after repair attempt."""
+
+    pass
 
 
 def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
@@ -109,51 +81,129 @@ def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
     return "".join(output_lines)
 
 
-async def chat_completion(
-    messages: list[dict[str, Any]],
-    *,
-    api_key: str | None = None,
-    model: str | None = None,
-    response_format: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    """Send a chat completion request to OpenAI.
+def _build_repair_prompt(original_response: str, error_msg: str, expected_schema: str) -> str:
+    """Build a prompt for JSON repair.
 
     Args:
-        messages: List of message dicts for the conversation.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
-        response_format: Optional response format (e.g., {"type": "json_object"}).
+        original_response: The malformed JSON response from the model.
+        error_msg: The error message from JSON parsing.
+        expected_schema: Description of expected JSON structure.
 
     Returns:
-        Parsed response content as a dictionary.
+        A prompt that instructs the model to fix the JSON.
     """
-    api_key = api_key or settings.openai_api_key
-    model = model or settings.openai_model
+    return f"""The previous response was not valid JSON. Please fix it and return ONLY valid JSON.
 
-    logger.debug(f"Calling OpenAI API with model: {model}")
+Error: {error_msg}
 
-    # TRACE level: Log full prompt being sent to LLM
+Original (malformed) response:
+```
+{original_response[:2000]}
+```
+
+Expected format: {expected_schema}
+
+Return ONLY the corrected JSON object, nothing else."""
+
+
+def _parse_json_response(
+    raw_content: str,
+    expected_keys: list[str] | None = None,
+) -> tuple[dict[str, Any], str | None]:
+    """Parse and validate JSON response.
+
+    Args:
+        raw_content: Raw string content from the model.
+        expected_keys: Optional list of keys that should be present in the response.
+
+    Returns:
+        Tuple of (parsed dict, error_message or None).
+    """
+    try:
+        parsed = json.loads(raw_content)
+    except json.JSONDecodeError as e:
+        return {}, f"JSON parse error: {e.msg} at position {e.pos}"
+
+    if not isinstance(parsed, dict):
+        return {}, f"Expected JSON object, got {type(parsed).__name__}"
+
+    if expected_keys:
+        missing = [k for k in expected_keys if k not in parsed]
+        if missing:
+            return parsed, f"Missing required keys: {missing}"
+
+    return parsed, None
+
+
+async def _acompletion_with_repair(
+    messages: list[dict[str, Any]],
+    *,
+    model: str,
+    api_key: str,
+    api_base: str | None = None,
+    response_format: dict[str, str] | None = None,
+    expected_keys: list[str] | None = None,
+) -> dict[str, Any]:
+    """Call LiteLLM with optional JSON repair on failure.
+
+    Args:
+        messages: Chat messages.
+        model: Model identifier.
+        api_key: API key for the provider.
+        api_base: Optional custom API base URL.
+        response_format: Optional response format (e.g., {"type": "json_object"}).
+        expected_keys: Keys to check in JSON response (triggers repair if missing).
+
+    Returns:
+        Parsed JSON response as a dictionary.
+
+    Raises:
+        JSONRepairError: If JSON parsing fails after repair attempt.
+        LLMError: For other LLM-related errors.
+    """
+    # Build kwargs for litellm
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "api_key": api_key,
+        "timeout": DEFAULT_LLM_TIMEOUT,
+    }
+    if api_base:
+        kwargs["api_base"] = api_base
+    if response_format:
+        kwargs["response_format"] = response_format
+
+    # First attempt
+    logger.debug(f"Calling LiteLLM with model: {model}")
     logger.trace(
         f">>> PROMPT SENT TO LLM ({model}) >>>"
         f"{_format_messages_for_logging(messages)}"
         f"\n{'='*60}"
     )
 
-    client = await _get_openai_client(api_key)
+    try:
+        completion = await litellm.acompletion(**kwargs)
+    except litellm.AuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        raise LLMError(f"Authentication failed. Check your API key. Error: {e}") from e
+    except litellm.RateLimitError as e:
+        logger.warning(f"Rate limit hit: {e}")
+        raise LLMError(f"Rate limit exceeded. Please try again later. Error: {e}") from e
+    except litellm.APIConnectionError as e:
+        logger.error(f"Connection error: {e}")
+        raise LLMError(f"Failed to connect to LLM API. Error: {e}") from e
+    except litellm.Timeout as e:
+        logger.error(f"Request timed out: {e}")
+        raise LLMError(
+            f"LLM request timed out after {DEFAULT_LLM_TIMEOUT}s. "
+            f"The model may be overloaded. Error: {e}"
+        ) from e
+    except Exception as e:
+        logger.exception(f"LLM call failed: {e}")
+        raise LLMError(f"LLM request failed: {e}") from e
 
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-    }
-    if response_format:
-        kwargs["response_format"] = response_format
+    raw_content = completion.choices[0].message.content or "{}"
 
-    completion = await client.chat.completions.create(**kwargs)
-
-    message = completion.choices[0].message
-    raw_content = message.content or "{}"
-
-    # TRACE level: Log full response from LLM
     logger.trace(
         f"<<< RESPONSE FROM LLM ({model}) <<<"
         f"\n{'='*60}\n"
@@ -161,29 +211,122 @@ async def chat_completion(
         f"\n{'='*60}"
     )
 
-    # Log token usage for cost monitoring
+    # Log token usage
     if completion.usage:
         logger.debug(
-            f"OpenAI response received ({len(raw_content)} chars) | "
+            f"LLM response received ({len(raw_content)} chars) | "
             f"Tokens: {completion.usage.total_tokens} total "
             f"({completion.usage.prompt_tokens} input, {completion.usage.completion_tokens} output)"
         )
     else:
-        logger.debug(f"OpenAI response received ({len(raw_content)} chars)")
+        logger.debug(f"LLM response received ({len(raw_content)} chars)")
 
-    # Try to get parsed content, fall back to JSON parsing
-    parsed_content = getattr(message, "parsed", None)
-    if parsed_content is None:
-        try:
-            parsed_content = json.loads(raw_content)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse AI response as JSON: {e}")
-            logger.debug(f"Raw content (first 500 chars): {raw_content[:500]}")
-            raise ValueError(
-                f"AI returned invalid JSON response. This may indicate a model issue or "
-                f"malformed prompt. Error: {e.msg} at position {e.pos}"
-            ) from e
-    return parsed_content
+    # Parse and validate
+    parsed, error = _parse_json_response(raw_content, expected_keys)
+    if error is None:
+        return parsed
+
+    # Repair attempt (one retry only)
+    logger.warning(f"JSON validation failed, attempting repair: {error}")
+
+    expected_schema = "JSON object"
+    if expected_keys:
+        expected_schema = f"JSON object with keys: {expected_keys}"
+
+    repair_prompt = _build_repair_prompt(raw_content, error, expected_schema)
+    repair_messages = messages.copy()
+    repair_messages.append({"role": "assistant", "content": raw_content})
+    repair_messages.append({"role": "user", "content": repair_prompt})
+
+    logger.debug("Sending repair request to LLM...")
+    try:
+        repair_completion = await litellm.acompletion(
+            model=model,
+            messages=repair_messages,
+            api_key=api_key,
+            api_base=api_base,
+            response_format=response_format,
+            timeout=DEFAULT_LLM_TIMEOUT,
+        )
+    except Exception as e:
+        logger.error(f"Repair request failed: {e}")
+        raise JSONRepairError(
+            f"Failed to repair JSON response. Original error: {error}. Repair error: {e}"
+        ) from e
+
+    repaired_content = repair_completion.choices[0].message.content or "{}"
+
+    logger.trace(
+        f"<<< REPAIR RESPONSE FROM LLM ({model}) <<<"
+        f"\n{'='*60}\n"
+        f"{repaired_content}"
+        f"\n{'='*60}"
+    )
+
+    repaired_parsed, repaired_error = _parse_json_response(repaired_content, expected_keys)
+    if repaired_error is None:
+        logger.info("JSON repair successful")
+        return repaired_parsed
+
+    # Repair failed
+    logger.error(f"JSON repair failed: {repaired_error}")
+    raise JSONRepairError(
+        f"AI returned invalid JSON that could not be repaired. "
+        f"Original error: {error}. Repair error: {repaired_error}. "
+        f"This may indicate an issue with the model or prompt."
+    )
+
+
+async def chat_completion(
+    messages: list[dict[str, Any]],
+    *,
+    api_key: str | None = None,
+    model: str | None = None,
+    response_format: dict[str, str] | None = None,
+    expected_keys: list[str] | None = None,
+) -> dict[str, Any]:
+    """Send a chat completion request to the configured LLM.
+
+    Args:
+        messages: List of message dicts for the conversation.
+        api_key: API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
+        response_format: Optional response format (e.g., {"type": "json_object"}).
+        expected_keys: Optional keys to validate in JSON response.
+
+    Returns:
+        Parsed response content as a dictionary.
+
+    Raises:
+        ModelNotAllowedError: If model is not in allowlist.
+        LLMError: For API or parsing errors.
+    """
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
+
+    # Validate model is allowed
+    caps = get_model_capabilities(model, allow_unsafe=settings.llm_allow_unsafe_models)
+    if caps is None:
+        raise ModelNotAllowedError(
+            f"Model '{model}' is not in the allowlist. "
+            f"Set HBC_LLM_ALLOW_UNSAFE_MODELS=true to use untested models (at your own risk)."
+        )
+
+    # Determine response format based on capabilities
+    effective_response_format = response_format
+    if response_format and response_format.get("type") == "json_object" and not caps.json_mode:
+        # Model doesn't support json_object mode, rely on prompt-only JSON
+        logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
+        effective_response_format = None
+
+    return await _acompletion_with_repair(
+        messages,
+        model=model,
+        api_key=api_key,
+        api_base=settings.llm_api_base,
+        response_format=effective_response_format,
+        expected_keys=expected_keys,
+    )
 
 
 async def vision_completion(
@@ -193,19 +336,51 @@ async def vision_completion(
     *,
     api_key: str | None = None,
     model: str | None = None,
+    expected_keys: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Send a vision completion request with images to OpenAI.
+    """Send a vision completion request with images to the LLM.
 
     Args:
         system_prompt: The system message content.
         user_prompt: The user message text content.
         image_data_uris: List of base64-encoded image data URIs.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        api_key: API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
+        expected_keys: Optional keys to validate in JSON response.
 
     Returns:
         Parsed response content as a dictionary.
+
+    Raises:
+        ModelNotAllowedError: If model is not in allowlist.
+        CapabilityNotSupportedError: If model doesn't support vision.
+        LLMError: For API or parsing errors.
     """
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
+
+    # Validate model is allowed
+    caps = get_model_capabilities(model, allow_unsafe=settings.llm_allow_unsafe_models)
+    if caps is None:
+        raise ModelNotAllowedError(
+            f"Model '{model}' is not in the allowlist. "
+            f"Set HBC_LLM_ALLOW_UNSAFE_MODELS=true to use untested models (at your own risk)."
+        )
+
+    # Check vision capability
+    if not caps.vision:
+        raise CapabilityNotSupportedError(
+            f"Model '{model}' does not support vision (image inputs). "
+            f"Please use a vision-capable model like gpt-5-mini."
+        )
+
+    # Check multi-image capability if needed
+    if len(image_data_uris) > 1 and not caps.multi_image:
+        raise CapabilityNotSupportedError(
+            f"Model '{model}' does not support multiple images in a single request. "
+            f"Please use a multi-image capable model or send images one at a time."
+        )
+
     # Build content list with text and images
     content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]
 
@@ -217,9 +392,25 @@ async def vision_completion(
         {"role": "user", "content": content},
     ]
 
-    return await chat_completion(
+    # Determine response format based on capabilities
+    response_format: dict[str, str] | None = None
+    if caps.json_mode:
+        response_format = {"type": "json_object"}
+
+    return await _acompletion_with_repair(
         messages,
-        api_key=api_key,
         model=model,
-        response_format={"type": "json_object"},
+        api_key=api_key,
+        api_base=settings.llm_api_base,
+        response_format=response_format,
+        expected_keys=expected_keys,
     )
+
+
+async def cleanup_openai_clients() -> None:
+    """Cleanup function for backwards compatibility.
+
+    LiteLLM manages its own HTTP clients internally, so this is now a no-op.
+    Kept for API compatibility with existing code that calls this on shutdown.
+    """
+    logger.debug("cleanup_openai_clients called (no-op with LiteLLM)")
