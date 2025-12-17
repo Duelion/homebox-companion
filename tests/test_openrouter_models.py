@@ -3,6 +3,9 @@
 These tests require TEST_LLM_API_KEY to be set with an OpenRouter API key.
 Each test validates single-item detection works correctly for each model.
 
+The HBC_LLM_ALLOW_UNSAFE_MODELS flag is automatically enabled via the
+allow_unsafe_models fixture from conftest.py.
+
 Run with: TEST_LLM_API_KEY=your-key uv run pytest tests/test_openrouter_models.py -v
 """
 
@@ -26,6 +29,9 @@ OPENROUTER_MODELS = [
     "openrouter/openai/gpt-4o",
     "openrouter/anthropic/claude-3-opus-20240229",
 ]
+
+# Apply allow_unsafe_models fixture to all tests in this module
+pytestmark = pytest.mark.usefixtures("allow_unsafe_models")
 
 
 @pytest.fixture(scope="module")
@@ -57,4 +63,3 @@ async def test_single_item_detection(
     assert len(detected_items) == 1, "Expected exactly 1 item with single_item=True"
     assert detected_items[0].name, "Item must have a name"
     assert detected_items[0].quantity >= 1, "Quantity must be at least 1"
-

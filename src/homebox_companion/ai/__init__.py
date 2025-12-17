@@ -5,15 +5,16 @@ from .images import (
     encode_image_bytes_to_data_uri,
     encode_image_to_data_uri,
 )
-from .model_capabilities import ModelCapabilities, get_model_capabilities
 from .llm import (
     CapabilityNotSupportedError,
     JSONRepairError,
     LLMError,
     chat_completion,
+    cleanup_llm_clients,
     cleanup_openai_clients,
     vision_completion,
 )
+from .model_capabilities import ModelCapabilities, get_model_capabilities
 from .prompts import (
     NAMING_FORMAT,
     build_critical_constraints,
@@ -31,7 +32,8 @@ __all__ = [
     # LLM helpers
     "chat_completion",
     "vision_completion",
-    "cleanup_openai_clients",
+    "cleanup_llm_clients",
+    "cleanup_openai_clients",  # Deprecated alias
     # LLM exceptions
     "LLMError",
     "CapabilityNotSupportedError",

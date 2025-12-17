@@ -8,7 +8,7 @@ Instructions for AI/LLM agents working on this codebase.
 
 ## Overview
 
-**Homebox Companion** is an AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management. Users take photos of items, and OpenAI GPT-5 vision automatically identifies and catalogs them.
+**Homebox Companion** is an AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management. Users take photos of items, and AI vision models automatically identify and catalog them.
 
 ---
 
@@ -19,7 +19,7 @@ Instructions for AI/LLM agents working on this codebase.
 - **Python**: Use `uv` for package management (`uv sync`, `uv add`, `uv run`)
 - **Frontend**: Use `npm` in the `frontend/` directory
 - **Linting**: Run `uv run ruff check .` before commits
-- **Testing**: Use real APIs (demo Homebox + OpenAI), not mocks
+- **Testing**: Use real APIs (demo Homebox + LLM provider), not mocks
 
 ### Required Environment Variables
 
@@ -73,8 +73,8 @@ Model names are passed directly to LiteLLM - do not modify or extract base names
               ┌───────────────┴───────────────┐
               ▼                               ▼
 ┌─────────────────────────────┐     ┌─────────────────────────────┐
-│   Homebox Instance          │     │     OpenAI API              │
-│   (Self-hosted or demo)     │     │     (GPT-5 Vision)          │
+│   Homebox Instance          │     │   LLM Provider API          │
+│   (Self-hosted or demo)     │     │   (Vision-capable models)   │
 └─────────────────────────────┘     └─────────────────────────────┘
 ```
 
@@ -102,8 +102,8 @@ homebox-companion/
 │   └── tools/vision/
 │       ├── detector.py              # detect_items_from_bytes
 │       ├── analyzer.py              # analyze_item_details
-│       ├── merger.py                # merge_items_with_openai
-│       ├── corrector.py             # correct_item_with_openai
+│       ├── merger.py                # merge_items (LLM-based)
+│       ├── corrector.py             # correct_item (LLM-based)
 │       ├── models.py                # DetectedItem dataclass
 │       └── prompts.py               # Detection prompts
 │
@@ -410,11 +410,11 @@ These fields require a PUT after item creation (Homebox API limitation):
 # Unit tests
 uv run pytest
 
-# Integration tests (requires HBC_OPENAI_API_KEY)
+# Integration tests (requires HBC_LLM_API_KEY or HBC_OPENAI_API_KEY)
 uv run pytest -m integration
 ```
 
-Integration tests hit the real Homebox demo server and OpenAI API.
+Integration tests hit the real Homebox demo server and LLM provider API.
 
 ---
 
@@ -540,11 +540,11 @@ from homebox_companion import (
     
     # Vision
     DetectedItem, detect_items_from_bytes, discriminatory_detect_items,
-    analyze_item_details_from_images, correct_item_with_openai, merge_items_with_openai,
+    analyze_item_details_from_images, correct_item, merge_items,
     
     # Utilities
     encode_image_to_data_uri, encode_image_bytes_to_data_uri,
-    cleanup_openai_clients,
+    cleanup_llm_clients,
 )
 ```
 

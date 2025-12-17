@@ -24,7 +24,7 @@ export const getVersion = (forceCheck: boolean = false) =>
 export interface ConfigResponse {
 	is_demo_mode: boolean;
 	homebox_url: string;
-	openai_model: string;
+	llm_model: string;
 	update_check_enabled: boolean;
 	image_quality: string;
 }

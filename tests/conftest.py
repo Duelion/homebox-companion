@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import Generator
 
 import pytest
 import pytest_asyncio
@@ -76,6 +78,41 @@ def homebox_api_url(test_settings: TestSettings) -> str:
 def homebox_credentials() -> tuple[str, str]:
     """Provide Homebox demo credentials."""
     return DEMO_USERNAME, DEMO_PASSWORD
+
+
+# ---------------------------------------------------------------------------
+# Settings Override Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def allow_unsafe_models() -> Generator[None, None, None]:
+    """Enable HBC_LLM_ALLOW_UNSAFE_MODELS for the test module.
+    
+    This fixture reloads the app settings after modifying the environment
+    variable. All modules access settings via config.settings, so updating
+    the config module is sufficient.
+    """
+    from homebox_companion.core import config
+    from homebox_companion.core.config import get_settings
+    
+    # Store original value
+    original = os.environ.get("HBC_LLM_ALLOW_UNSAFE_MODELS")
+    
+    # Set new value and reload settings
+    os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = "true"
+    get_settings.cache_clear()
+    config.settings = get_settings()
+    
+    yield
+    
+    # Restore original state
+    if original is None:
+        os.environ.pop("HBC_LLM_ALLOW_UNSAFE_MODELS", None)
+    else:
+        os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = original
+    get_settings.cache_clear()
+    config.settings = get_settings()
 
 
 # ---------------------------------------------------------------------------

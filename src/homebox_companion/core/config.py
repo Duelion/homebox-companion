@@ -6,12 +6,13 @@ clashes with other applications on the same system.
 Environment Variables:
     HBC_HOMEBOX_URL: Base URL of your Homebox instance (default: demo server).
         We automatically append /api/v1 to this URL.
-    HBC_OPENAI_API_KEY: Your OpenAI API key for vision detection
-    HBC_OPENAI_MODEL: OpenAI model to use (default: gpt-5-mini)
-    HBC_LLM_API_KEY: API key for the configured LLM provider (preferred over HBC_OPENAI_API_KEY)
-    HBC_LLM_MODEL: LLM model to use (preferred over HBC_OPENAI_MODEL)
-    HBC_LLM_API_BASE: Optional API base URL for OpenAI-compatible gateways
+    HBC_OPENAI_API_KEY: (Legacy) API key for LLM provider (use HBC_LLM_API_KEY instead)
+    HBC_OPENAI_MODEL: (Legacy) LLM model to use (use HBC_LLM_MODEL instead, default: gpt-5-mini)
+    HBC_LLM_API_KEY: API key for the configured LLM provider (preferred)
+    HBC_LLM_MODEL: LLM model identifier (preferred)
+    HBC_LLM_API_BASE: Optional API base URL for LLM-compatible gateways
     HBC_LLM_ALLOW_UNSAFE_MODELS: If true, allow models not in the curated allowlist (best-effort)
+    HBC_LLM_TIMEOUT: LLM request timeout in seconds (default: 120)
     HBC_SERVER_HOST: Host to bind the web server to (default: 0.0.0.0)
     HBC_SERVER_PORT: Port for the web server (default: 8000). In production,
         this single port serves both the API and the static frontend.
@@ -71,11 +72,11 @@ class Settings(BaseSettings):
     # Homebox configuration - user provides base URL, we append /api/v1
     homebox_url: str = DEMO_HOMEBOX_URL
 
-    # OpenAI configuration
+    # Legacy LLM configuration (deprecated - use llm_* fields instead)
     openai_api_key: str = ""
     openai_model: str = "gpt-5-mini"
 
-    # LiteLLM / generic LLM configuration (preferred)
+    # LLM configuration (preferred)
     llm_api_key: str = ""
     llm_model: str = ""
     llm_api_base: str | None = None
@@ -98,6 +99,9 @@ class Settings(BaseSettings):
 
     # Image processing configuration
     image_quality: ImageQuality = ImageQuality.MEDIUM
+
+    # LLM request timeout (in seconds)
+    llm_timeout: int = 120
 
     @computed_field
     @property
