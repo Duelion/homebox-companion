@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "openai>=2.8.1",
+    "litellm>=1.72.0",
     "httpx>=0.27.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",

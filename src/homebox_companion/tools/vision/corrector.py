@@ -36,8 +36,8 @@ async def correct_item_with_openai(
         current_item: The current item dict with name, quantity, description.
         correction_instructions: User's correction text explaining what's wrong
             or how to fix the detection.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest for items.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -45,8 +45,8 @@ async def correct_item_with_openai(
     Returns:
         List of corrected item dictionaries.
     """
-    api_key = api_key or settings.openai_api_key
-    model = model or settings.openai_model
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
 
     logger.info(f"Correcting item '{current_item.get('name')}' with user instructions")
     logger.debug(f"User correction: {correction_instructions}")
@@ -101,6 +101,7 @@ async def correct_item_with_openai(
         image_data_uris=[image_data_uri],
         api_key=api_key,
         model=model,
+        expected_keys=["items"],
     )
 
     items = parsed_content.get("items", [])

@@ -27,8 +27,15 @@ class TestSettings(BaseSettings):
         env_file_encoding="utf-8",
     )
 
+    # Legacy OpenAI config (kept for backwards compatibility in tests)
     openai_api_key: str = ""
     openai_model: str = "gpt-5-mini"
+
+    # New generic LLM config (preferred)
+    llm_api_key: str = ""
+    llm_model: str = ""
+    llm_api_base: str | None = None
+    llm_allow_unsafe_models: bool = False
     homebox_url: str = DEMO_HOMEBOX_URL
 
     @property
@@ -46,16 +53,17 @@ def test_settings() -> TestSettings:
 
 @pytest.fixture(scope="session")
 def api_key(test_settings: TestSettings) -> str:
-    """Provide OpenAI API key, skipping test if not set."""
-    if not test_settings.openai_api_key:
-        pytest.skip("HBC_OPENAI_API_KEY must be set for AI tests.")
-    return test_settings.openai_api_key
+    """Provide LLM API key, skipping test if not set."""
+    key = (test_settings.llm_api_key or test_settings.openai_api_key or "").strip()
+    if not key:
+        pytest.skip("HBC_LLM_API_KEY (or legacy HBC_OPENAI_API_KEY) must be set for AI tests.")
+    return key
 
 
 @pytest.fixture(scope="session")
 def model(test_settings: TestSettings) -> str:
-    """Provide OpenAI model name."""
-    return test_settings.openai_model
+    """Provide LLM model name."""
+    return (test_settings.llm_model or test_settings.openai_model or "gpt-5-mini").strip()
 
 
 @pytest.fixture(scope="session")
