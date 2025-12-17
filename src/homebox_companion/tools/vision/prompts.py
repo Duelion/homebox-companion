@@ -41,7 +41,7 @@ def build_detection_system_prompt(
     """
     # Ensure field_preferences is a dict (empty dict if None)
     field_preferences = field_preferences or {}
-    
+
     # Build components with customizations
     language_instr = build_language_instruction(output_language)
     critical = build_critical_constraints(single_item)
@@ -145,7 +145,7 @@ def build_multi_image_system_prompt(
     """
     # Ensure field_preferences is a dict (empty dict if None)
     field_preferences = field_preferences or {}
-    
+
     # Build components with customizations
     language_instr = build_language_instruction(output_language)
     critical = build_critical_constraints(single_item)
@@ -203,7 +203,7 @@ def build_discriminatory_system_prompt(
     """
     # Ensure field_preferences is a dict (empty dict if None)
     field_preferences = field_preferences or {}
-    
+
     # Build components with customizations
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)

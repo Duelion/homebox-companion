@@ -7,20 +7,21 @@ using LiteLLM while maintaining a consistent API.
 
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 
 import litellm
 from loguru import logger
 
-from ..core.config import settings
+from ..core import config
 from .model_capabilities import get_model_capabilities
 
 # Silence LiteLLM's verbose logging (we use loguru)
 litellm.suppress_debug_info = True
 
-# Default timeout for LLM API calls (in seconds)
-DEFAULT_LLM_TIMEOUT = 120
+# Maximum characters to include from malformed response in repair prompt
+MAX_REPAIR_CONTEXT_LENGTH = 2000
 
 
 class LLMError(Exception):
@@ -86,13 +87,25 @@ def _build_repair_prompt(original_response: str, error_msg: str, expected_schema
     Returns:
         A prompt that instructs the model to fix the JSON.
     """
+    # Smart truncation: if response is too long, try to keep the end (closing braces)
+    # as well as the beginning to preserve JSON structure context
+    truncated_response = original_response
+    if len(original_response) > MAX_REPAIR_CONTEXT_LENGTH:
+        # Keep first 70% and last 30% of the limit
+        head_chars = int(MAX_REPAIR_CONTEXT_LENGTH * 0.7)
+        tail_chars = MAX_REPAIR_CONTEXT_LENGTH - head_chars - 20  # Reserve space for ellipsis
+        truncated_response = (
+            f"{original_response[:head_chars]}\n\n... (truncated) ...\n\n"
+            f"{original_response[-tail_chars:]}"
+        )
+    
     return f"""The previous response was not valid JSON. Please fix it and return ONLY valid JSON.
 
 Error: {error_msg}
 
 Original (malformed) response:
 ```
-{original_response[:2000]}
+{truncated_response}
 ```
 
 Expected format: {expected_schema}
@@ -160,7 +173,7 @@ async def _acompletion_with_repair(
         "model": model,
         "messages": messages,
         "api_key": api_key,
-        "timeout": DEFAULT_LLM_TIMEOUT,
+        "timeout": config.settings.llm_timeout,
     }
     if api_base:
         kwargs["api_base"] = api_base
@@ -189,14 +202,20 @@ async def _acompletion_with_repair(
     except litellm.Timeout as e:
         logger.error(f"Request timed out: {e}")
         raise LLMError(
-            f"LLM request timed out after {DEFAULT_LLM_TIMEOUT}s. "
+            f"LLM request timed out after {config.settings.llm_timeout}s. "
             f"The model may be overloaded. Error: {e}"
         ) from e
     except Exception as e:
         logger.exception(f"LLM call failed: {e}")
         raise LLMError(f"LLM request failed: {e}") from e
 
-    raw_content = completion.choices[0].message.content or "{}"
+    if not completion.choices:
+        raise LLMError("LLM returned empty response (no choices)")
+
+    raw_content = completion.choices[0].message.content
+    if raw_content is None:
+        logger.warning("LLM returned None content, defaulting to empty JSON object")
+        raw_content = "{}"
 
     logger.trace(
         f"<<< RESPONSE FROM LLM ({model}) <<<"
@@ -228,7 +247,8 @@ async def _acompletion_with_repair(
         expected_schema = f"JSON object with keys: {expected_keys}"
 
     repair_prompt = _build_repair_prompt(raw_content, error, expected_schema)
-    repair_messages = messages.copy()
+    # Deep copy to prevent modifications to vision messages with nested structures
+    repair_messages = copy.deepcopy(messages)
     repair_messages.append({"role": "assistant", "content": raw_content})
     repair_messages.append({"role": "user", "content": repair_prompt})
 
@@ -240,7 +260,7 @@ async def _acompletion_with_repair(
             api_key=api_key,
             api_base=api_base,
             response_format=response_format,
-            timeout=DEFAULT_LLM_TIMEOUT,
+            timeout=config.settings.llm_timeout,
         )
     except Exception as e:
         logger.error(f"Repair request failed: {e}")
@@ -248,7 +268,13 @@ async def _acompletion_with_repair(
             f"Failed to repair JSON response. Original error: {error}. Repair error: {e}"
         ) from e
 
-    repaired_content = repair_completion.choices[0].message.content or "{}"
+    if not repair_completion.choices:
+        raise JSONRepairError("LLM returned empty response during repair attempt")
+
+    repaired_content = repair_completion.choices[0].message.content
+    if repaired_content is None:
+        logger.warning("LLM returned None content during repair, defaulting to empty JSON object")
+        repaired_content = "{}"
 
     logger.trace(
         f"<<< REPAIR RESPONSE FROM LLM ({model}) <<<"
@@ -294,15 +320,14 @@ async def chat_completion(
     Raises:
         LLMError: For API or parsing errors.
     """
-    api_key = api_key or settings.effective_llm_api_key
-    model = model or settings.effective_llm_model
+    api_key = api_key or config.settings.effective_llm_api_key
+    model = model or config.settings.effective_llm_model
 
     # Determine response format based on capabilities (if validation enabled)
     effective_response_format = response_format
-    if not settings.llm_allow_unsafe_models:
+    if not config.settings.llm_allow_unsafe_models:
         caps = get_model_capabilities(model)
         if response_format and response_format.get("type") == "json_object" and not caps.json_mode:
-            # Model doesn't support json_object mode, rely on prompt-only JSON
             logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
             effective_response_format = None
 
@@ -310,7 +335,7 @@ async def chat_completion(
         messages,
         model=model,
         api_key=api_key,
-        api_base=settings.llm_api_base,
+        api_base=config.settings.llm_api_base,
         response_format=effective_response_format,
         expected_keys=expected_keys,
     )
@@ -339,28 +364,42 @@ async def vision_completion(
         Parsed response content as a dictionary.
 
     Raises:
+        ValueError: If image_data_uris is empty.
         CapabilityNotSupportedError: If model doesn't support vision.
         LLMError: For API or parsing errors.
     """
-    api_key = api_key or settings.effective_llm_api_key
-    model = model or settings.effective_llm_model
+    if not image_data_uris:
+        raise ValueError("vision_completion requires at least one image")
 
-    # Check vision capability (if validation enabled)
-    if not settings.llm_allow_unsafe_models:
+    api_key = api_key or config.settings.effective_llm_api_key
+    model = model or config.settings.effective_llm_model
+
+    # Determine capabilities and response format
+    response_format: dict[str, str] | None = None
+
+    if config.settings.llm_allow_unsafe_models:
+        # Without validation, try json_mode by default and let LiteLLM handle it
+        response_format = {"type": "json_object"}
+    else:
+        # Validate model capabilities
         caps = get_model_capabilities(model)
-        
+
         if not caps.vision:
             raise CapabilityNotSupportedError(
                 f"Model '{model}' does not support vision (image inputs). "
                 f"Please use a vision-capable model like gpt-5-mini."
             )
 
-        # Check multi-image capability if needed
         if len(image_data_uris) > 1 and not caps.multi_image:
             raise CapabilityNotSupportedError(
                 f"Model '{model}' does not support multiple images in a single request. "
                 f"Please use a multi-image capable model or send images one at a time."
             )
+
+        if caps.json_mode:
+            response_format = {"type": "json_object"}
+        else:
+            logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
 
     # Build content list with text and images
     content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]
@@ -373,29 +412,35 @@ async def vision_completion(
         {"role": "user", "content": content},
     ]
 
-    # Determine response format based on capabilities (if validation enabled)
-    response_format: dict[str, str] | None = None
-    if not settings.llm_allow_unsafe_models:
-        if caps.json_mode:
-            response_format = {"type": "json_object"}
-    else:
-        # Without validation, try json_mode by default and let LiteLLM handle it
-        response_format = {"type": "json_object"}
-
     return await _acompletion_with_repair(
         messages,
         model=model,
         api_key=api_key,
-        api_base=settings.llm_api_base,
+        api_base=config.settings.llm_api_base,
         response_format=response_format,
         expected_keys=expected_keys,
     )
 
 
-async def cleanup_openai_clients() -> None:
-    """Cleanup function for backwards compatibility.
+def cleanup_llm_clients() -> None:
+    """No-op cleanup function.
 
     LiteLLM manages its own HTTP clients internally, so this is now a no-op.
     Kept for API compatibility with existing code that calls this on shutdown.
     """
-    logger.debug("cleanup_openai_clients called (no-op with LiteLLM)")
+    logger.debug("cleanup_llm_clients called (no-op with LiteLLM)")
+
+
+def cleanup_openai_clients() -> None:
+    """Deprecated: Use cleanup_llm_clients() instead.
+
+    This function is deprecated and will be removed in a future version.
+    """
+    import warnings
+    warnings.warn(
+        "cleanup_openai_clients() is deprecated, use cleanup_llm_clients() instead. "
+        "Note: Both are no-ops as LiteLLM manages HTTP clients internally.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    cleanup_llm_clients()

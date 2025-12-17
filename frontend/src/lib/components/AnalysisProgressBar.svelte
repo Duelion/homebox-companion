@@ -51,7 +51,7 @@
 			}
 
 			// Asymptotic approach with random variance for organic feel
-			// Move 2-4% of remaining distance per tick (slower for 5-15s OpenAI response time)
+			// Move 2-4% of remaining distance per tick (slower for 5-15s LLM response time)
 			const moveRate = 0.02 + Math.random() * 0.02;
 			displayProgress += distance * moveRate;
 		}, 250); // Tick every 250ms for slower, more deliberate movement

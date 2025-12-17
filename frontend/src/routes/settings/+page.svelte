@@ -594,11 +594,11 @@
 				</div>
 			</div>
 
-				<!-- AI Model -->
-				<div class="flex items-center justify-between py-2 border-t border-neutral-800">
-					<span class="text-neutral-400">AI Model</span>
-					<span class="text-neutral-100 font-mono text-sm">{config.openai_model}</span>
-				</div>
+			<!-- AI Model -->
+			<div class="flex items-center justify-between py-2 border-t border-neutral-800">
+				<span class="text-neutral-400">AI Model</span>
+				<span class="text-neutral-100 font-mono text-sm">{config.llm_model}</span>
+			</div>
 
 				<!-- Image Quality -->
 				<div class="flex items-center justify-between py-2 border-t border-neutral-800">
