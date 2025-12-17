@@ -24,17 +24,25 @@ Instructions for AI/LLM agents working on this codebase.
 ### Required Environment Variables
 
 ```bash
-HBC_OPENAI_API_KEY=sk-your-key          # Required
+HBC_LLM_API_KEY=sk-your-key             # Required (replaces HBC_OPENAI_API_KEY)
+HBC_LLM_MODEL=gpt-5-mini                # Optional, defaults to gpt-5-mini
+HBC_LLM_API_BASE=https://...            # Optional, for OpenRouter/proxies
 HBC_HOMEBOX_URL=https://demo.homebox.software  # Optional, defaults to demo
 ```
 
+Legacy variables (`HBC_OPENAI_API_KEY`, `HBC_OPENAI_MODEL`) still work but are deprecated.
+
 Demo credentials: `demo@example.com` / `demo`
 
-### OpenAI Model Policy
+### LLM Provider Policy
 
-**Use GPT-5 models only**: `gpt-5-mini` (default) or `gpt-5-nano` (faster/cheaper).
+**This app uses LiteLLM** for multi-provider support. Any vision-capable model is supported:
+- OpenAI: `gpt-5-mini` (default), `gpt-5-nano`, `gpt-4o`, `gpt-4o-mini`
+- Anthropic: `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229`
+- Google: `gemini-2.0-flash`, `gemini-1.5-pro`
+- OpenRouter: `openrouter/provider/model` (requires `HBC_LLM_API_BASE`)
 
-Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are deprecated for this project.
+Model names are passed directly to LiteLLM - do not modify or extract base names.
 
 ---
 
@@ -88,7 +96,8 @@ homebox-companion/
 │   │   └── models.py                # Location, Item, Label, ItemCreate, ItemUpdate
 │   ├── ai/
 │   │   ├── images.py                # Image encoding utilities
-│   │   ├── openai.py                # OpenAI client wrapper
+│   │   ├── llm.py                   # LiteLLM client wrapper (multi-provider)
+│   │   ├── model_capabilities.py    # Runtime capability checking via LiteLLM
 │   │   └── prompts.py               # Shared prompt templates
 │   └── tools/vision/
 │       ├── detector.py              # detect_items_from_bytes
@@ -283,6 +292,23 @@ class VisionContext:
 async def get_vision_context(...) -> VisionContext:
     # Extracts token, fetches labels, loads preferences in one place
 ```
+
+### Model Capability Checking
+
+LiteLLM provides runtime capability checking:
+
+```python
+from homebox_companion.ai.model_capabilities import get_model_capabilities
+
+caps = get_model_capabilities("gpt-4o")
+# Returns: ModelCapabilities(model="gpt-4o", vision=True, multi_image=True, json_mode=True)
+
+caps = get_model_capabilities("openrouter/anthropic/claude-3.5-sonnet")
+# LiteLLM handles provider routing automatically
+```
+
+Models are validated via `litellm.supports_vision()` and `litellm.supports_response_schema()`. 
+Set `HBC_LLM_ALLOW_UNSAFE_MODELS=true` to skip validation for unrecognized models.
 
 ### Field Preferences
 

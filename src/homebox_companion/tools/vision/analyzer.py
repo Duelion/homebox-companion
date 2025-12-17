@@ -4,14 +4,9 @@ from __future__ import annotations
 
 from loguru import logger
 
-from ...ai.openai import vision_completion
-from ...ai.prompts import (
-    FIELD_DEFAULTS,
-    build_label_prompt,
-    build_language_instruction,
-    build_naming_rules,
-)
+from ...ai.llm import vision_completion
 from ...core.config import settings
+from .prompts import build_analysis_system_prompt
 
 
 async def analyze_item_details_from_images(
@@ -46,39 +41,13 @@ async def analyze_item_details_from_images(
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
 
-    language_instr = build_language_instruction(output_language)
-    label_prompt = build_label_prompt(labels)
-    naming_rules = build_naming_rules(field_preferences)
-
-    # Merge field preferences with defaults
-    instr = {**FIELD_DEFAULTS, **(field_preferences or {})}
-
-    item_context = f"Item: '{item_name}'"
-    if item_description:
-        item_context += f" - {item_description}"
-
-    system_prompt = (
-        # 1. Role + task
-        f"You are an inventory assistant analyzing images. {item_context}\n"
-        # 2. Language instruction (if not English)
-        f"{language_instr}\n"
-        # 3. Critical instruction
-        "Extract ALL visible details: serial numbers, model numbers, brand, "
-        "price tags, condition issues. Only use what's visible.\n\n"
-        # 4. Output schema
-        "Return JSON with:\n"
-        f"- name: string ({instr['name']})\n"
-        f"- description: string ({instr['description']})\n"
-        f"- serialNumber: string or null ({instr['serial_number']})\n"
-        f"- modelNumber: string or null ({instr['model_number']})\n"
-        f"- manufacturer: string or null ({instr['manufacturer']})\n"
-        f"- purchasePrice: number or null ({instr['purchase_price']})\n"
-        f"- notes: string or null ({instr['notes']})\n"
-        "- labelIds: array of applicable label IDs\n\n"
-        # 5. Naming
-        f"{naming_rules}\n\n"
-        # 6. Labels
-        f"{label_prompt}"
+    # Build system prompt using the consolidated builder
+    system_prompt = build_analysis_system_prompt(
+        item_name=item_name,
+        item_description=item_description,
+        labels=labels,
+        field_preferences=field_preferences,
+        output_language=output_language,
     )
 
     user_prompt = (

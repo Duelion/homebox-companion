@@ -121,11 +121,11 @@ class FieldPreferences(BaseModel):
         )
 
     def to_customizations_dict(self) -> dict[str, str]:
-        """Convert to dict with keys matching FIELD_DEFAULTS for prompt integration.
+        """Convert to dict for prompt integration.
 
-        Returns dict with keys that match the FIELD_DEFAULTS keys in ai/prompts.py:
+        Returns dict with keys used by prompt builders:
         name, description, quantity, manufacturer, model_number, serial_number,
-        purchase_price, purchase_from, notes.
+        purchase_price, purchase_from, notes, naming_examples.
 
         Only non-empty values are included. output_language is excluded as it's
         handled separately in prompt building.

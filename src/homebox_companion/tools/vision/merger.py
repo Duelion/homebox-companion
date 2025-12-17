@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from ...ai.openai import vision_completion
+from ...ai.llm import vision_completion
 from ...ai.prompts import build_label_prompt, build_language_instruction, build_naming_rules
 from ...core.config import settings
 
@@ -39,6 +39,9 @@ async def merge_items_with_openai(
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
 
+    # Ensure field_preferences is a dict (empty dict if None)
+    field_preferences = field_preferences or {}
+
     # Format items compactly
     items_text = ", ".join(
         f"{item.get('name', '?')} (x{item.get('quantity', 1)})"
@@ -52,12 +55,12 @@ async def merge_items_with_openai(
     # Get field customizations or defaults
     name_instr = (
         field_preferences.get("name")
-        if field_preferences and field_preferences.get("name")
+        if field_preferences.get("name")
         else "Title Case, consolidated name"
     )
     desc_instr = (
         field_preferences.get("description")
-        if field_preferences and field_preferences.get("description")
+        if field_preferences.get("description")
         else "list variants included, no quantities"
     )
 
@@ -94,7 +97,7 @@ async def merge_items_with_openai(
         )
     else:
         # No images - use text-only completion
-        from ...ai.openai import chat_completion
+        from ...ai.llm import chat_completion
 
         messages = [
             {"role": "system", "content": system_prompt},
