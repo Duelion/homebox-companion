@@ -6,6 +6,7 @@
 	import { appVersion } from '$lib/stores/ui';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { getConfig, getLogs, downloadLogs, getVersion, labels as labelsApi, fieldPreferences, type ConfigResponse, type LogsResponse, type FieldPreferences, type EffectiveDefaults, type LabelData } from '$lib/api';
+	import { getLogBuffer, clearLogBuffer, exportLogs, type LogEntry } from '$lib/utils/logger';
 	import Button from '$lib/components/Button.svelte';
 
 	let config = $state<ConfigResponse | null>(null);
@@ -16,6 +17,13 @@
 	let logsError = $state<string | null>(null);
 	let logsContainer = $state<HTMLPreElement | null>(null);
 	let logsFullscreenContainer = $state<HTMLDivElement | null>(null);
+
+	// Frontend logs state
+	let frontendLogs = $state<LogEntry[]>([]);
+	let showFrontendLogs = $state(false);
+	let frontendLogsContainer = $state<HTMLPreElement | null>(null);
+	let frontendLogsFullscreenContainer = $state<HTMLDivElement | null>(null);
+	let frontendLogsFullscreen = $state(false);
 
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
@@ -281,6 +289,112 @@
 			.replace(/>/g, '&gt;')
 			.replace(/"/g, '&quot;')
 			.replace(/'/g, '&#039;');
+	}
+
+	// Frontend logs functions
+	function loadFrontendLogs() {
+		frontendLogs = [...getLogBuffer()];
+		showFrontendLogs = !showFrontendLogs;
+	}
+
+	function refreshFrontendLogs() {
+		frontendLogs = [...getLogBuffer()];
+	}
+
+	function handleClearFrontendLogs() {
+		clearLogBuffer();
+		frontendLogs = [];
+	}
+
+	function handleExportFrontendLogs() {
+		const json = exportLogs();
+		const blob = new Blob([json], { type: 'application/json' });
+		const url = window.URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `frontend-logs-${new Date().toISOString().split('T')[0]}.json`;
+		document.body.appendChild(a);
+		a.click();
+		window.URL.revokeObjectURL(url);
+		document.body.removeChild(a);
+	}
+
+	// Auto-scroll frontend logs to bottom when loaded or refreshed
+	$effect(() => {
+		if (frontendLogsContainer && frontendLogs.length > 0 && showFrontendLogs) {
+			requestAnimationFrame(() => {
+				if (frontendLogsContainer) {
+					frontendLogsContainer.scrollTop = frontendLogsContainer.scrollHeight;
+				}
+			});
+		}
+	});
+
+	// Auto-scroll fullscreen frontend logs to bottom when opened or refreshed
+	$effect(() => {
+		if (frontendLogsFullscreenContainer && frontendLogs.length > 0 && frontendLogsFullscreen) {
+			requestAnimationFrame(() => {
+				if (frontendLogsFullscreenContainer) {
+					frontendLogsFullscreenContainer.scrollTop = frontendLogsFullscreenContainer.scrollHeight;
+				}
+			});
+		}
+	});
+
+	// Colorize frontend logs (similar to backend logs but adapted for LogEntry format)
+	function colorizedFrontendLogs(): string {
+		if (!frontendLogs || frontendLogs.length === 0) return '';
+		
+		return frontendLogs
+			.map(entry => {
+				// Format timestamp from ISO to match backend format
+				const date = new Date(entry.timestamp);
+				const timestamp = date.toISOString().replace('T', ' ').substring(0, 19);
+				
+				// Get color class based on log level
+				let levelClass = 'text-neutral-100 font-semibold';
+				switch (entry.level) {
+					case 'TRACE':
+						levelClass = 'text-cyan-400 font-semibold';
+						break;
+					case 'DEBUG':
+						levelClass = 'text-blue-400 font-semibold';
+						break;
+					case 'INFO':
+						levelClass = 'text-neutral-100 font-semibold';
+						break;
+					case 'SUCCESS':
+						levelClass = 'text-success-500 font-semibold';
+						break;
+					case 'WARNING':
+						levelClass = 'text-warning-500 font-semibold';
+						break;
+					case 'ERROR':
+						levelClass = 'text-error-500 font-semibold';
+						break;
+					case 'CRITICAL':
+						levelClass = 'text-error-700 font-bold';
+						break;
+				}
+				
+				// Pad level to 8 characters for alignment
+				const paddedLevel = entry.level.padEnd(8, ' ');
+				
+				// Build display message: include error summary (first line only) if present
+				let displayMessage = entry.message;
+				if (entry.error) {
+					// Get first line of error (the error message, not the full stack)
+					const errorFirstLine = entry.error.split('\n')[0];
+					displayMessage = `${entry.message} [${errorFirstLine}]`;
+				}
+				
+				// Build colorized line matching Loguru's format
+				return `<span class="text-success-500">${escapeHtml(timestamp)}</span> | ` +
+					`<span class="${levelClass}">${escapeHtml(paddedLevel)}</span>| ` +
+					`<span class="text-cyan-400">${escapeHtml(entry.module)}</span>- ` +
+					`<span class="${levelClass}">${escapeHtml(displayMessage)}</span>`;
+			})
+			.join('\n');
 	}
 
 	function handleLogout() {
@@ -755,6 +869,111 @@
 	{/if}
 	</section>
 
+	<!-- Frontend Logs Section -->
+	<section class="card space-y-4">
+		<div class="flex items-center justify-between">
+			<h2 class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+				</svg>
+				Frontend Logs
+			</h2>
+			{#if showFrontendLogs && frontendLogs.length > 0}
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						onclick={refreshFrontendLogs}
+						title="Refresh logs"
+						aria-label="Refresh logs"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+						>
+							<path d="M23 4v6h-6M1 20v-6h6" />
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						onclick={handleExportFrontendLogs}
+						title="Export as JSON"
+						aria-label="Export logs"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="7 10 12 15 17 10" />
+							<line x1="12" y1="15" x2="12" y2="3" />
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						onclick={handleClearFrontendLogs}
+						title="Clear logs"
+						aria-label="Clear logs"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+							<path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						onclick={() => (frontendLogsFullscreen = true)}
+						title="Expand fullscreen"
+						aria-label="View logs fullscreen"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+						</svg>
+					</button>
+				</div>
+			{/if}
+		</div>
+
+	<p class="text-body-sm text-neutral-400">
+		View browser console logs stored in memory. Logs are cleared on page refresh.
+	</p>
+
+	<button
+		type="button"
+		class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
+		onclick={loadFrontendLogs}
+	>
+		<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+			<path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+		</svg>
+		<span>Show Frontend Logs</span>
+		<svg class="w-4 h-4 ml-auto transition-transform {showFrontendLogs ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<polyline points="6 9 12 15 18 9" />
+		</svg>
+	</button>
+
+	{#if showFrontendLogs}
+		{#if frontendLogs.length === 0}
+			<div class="p-4 bg-neutral-800/50 border border-neutral-700 rounded-xl text-neutral-400 text-sm text-center">
+				No frontend logs available. Logs will appear here as you use the app.
+			</div>
+		{:else}
+			<div class="mt-3 space-y-2">
+				<div class="flex items-center justify-between text-xs text-neutral-500">
+					<span>In-memory buffer</span>
+					<span>{frontendLogs.length} {frontendLogs.length === 1 ? 'entry' : 'entries'}</span>
+				</div>
+				<div class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden">
+					<pre bind:this={frontendLogsContainer} class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedFrontendLogs()}</pre>
+				</div>
+			</div>
+		{/if}
+	{/if}
+	</section>
+
 	<!-- AI Output Configuration Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
@@ -1162,6 +1381,85 @@
 		<!-- Content -->
 		<div class="flex-1 overflow-auto p-4 pb-24">
 			<pre class="text-sm font-mono text-neutral-400 whitespace-pre-wrap break-words leading-relaxed">{promptPreview}</pre>
+		</div>
+	</div>
+{/if}
+
+<!-- Fullscreen Frontend Logs Modal -->
+{#if frontendLogsFullscreen && frontendLogs.length > 0}
+	<div class="fixed inset-0 z-[60] flex flex-col bg-neutral-950">
+		<!-- Header -->
+		<div class="flex items-center justify-between p-4 border-b border-neutral-700 bg-neutral-900">
+			<div class="flex items-center gap-3">
+				<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+				</svg>
+				<div>
+					<h2 class="text-body-lg font-semibold text-neutral-100">Frontend Logs</h2>
+					<p class="text-xs text-neutral-500">
+						In-memory buffer • {frontendLogs.length} {frontendLogs.length === 1 ? 'entry' : 'entries'}
+					</p>
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<button
+					type="button"
+					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					onclick={refreshFrontendLogs}
+					title="Refresh logs"
+					aria-label="Refresh logs"
+				>
+					<svg
+						class="w-5 h-5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+					>
+						<path d="M23 4v6h-6M1 20v-6h6" />
+						<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+					</svg>
+				</button>
+				<button
+					type="button"
+					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					onclick={handleExportFrontendLogs}
+					title="Export as JSON"
+					aria-label="Export logs"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="7 10 12 15 17 10" />
+						<line x1="12" y1="15" x2="12" y2="3" />
+					</svg>
+				</button>
+				<button
+					type="button"
+					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					onclick={handleClearFrontendLogs}
+					title="Clear logs"
+					aria-label="Clear logs"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+					</svg>
+				</button>
+				<button
+					type="button"
+					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					onclick={() => (frontendLogsFullscreen = false)}
+					title="Close fullscreen"
+					aria-label="Close"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path d="M18 6L6 18M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+		</div>
+		<!-- Content -->
+		<div bind:this={frontendLogsFullscreenContainer} class="flex-1 overflow-auto p-4 pb-24">
+			<pre class="text-xs font-mono text-neutral-400 whitespace-pre-wrap break-all leading-relaxed">{@html colorizedFrontendLogs()}</pre>
 		</div>
 	</div>
 {/if}

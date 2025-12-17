@@ -16,6 +16,7 @@ class ConfigResponse(BaseModel):
     llm_model: str
     update_check_enabled: bool
     image_quality: str
+    log_level: str
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -31,5 +32,6 @@ async def get_config() -> ConfigResponse:
         llm_model=settings.effective_llm_model,
         update_check_enabled=not settings.disable_update_check,
         image_quality=settings.image_quality.value,
+        log_level=settings.log_level,
     )
 

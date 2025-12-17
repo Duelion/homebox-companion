@@ -172,9 +172,6 @@ export class SubmissionService {
 		return allSucceeded;
 	}
 
-	/** Result of submitting a single item */
-	private submitItemResult: { status: ItemSubmissionStatus; error?: string } = { status: 'pending' };
-
 	/** Submit a single item. Updates itemStatuses. Returns status and any error message. */
 	private async submitItem(
 		index: number,
