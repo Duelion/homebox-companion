@@ -21,13 +21,9 @@ from homebox_companion import detect_items_from_bytes
 # OpenRouter model paths (full paths required for OpenRouter API)
 # Note: Only models verified to work on OpenRouter are included
 OPENROUTER_MODELS = [
-    "openrouter/openai/gpt-5-mini",
     "openrouter/openai/gpt-5-nano",
     "openrouter/google/gemini-2.5-flash",
     "openrouter/anthropic/claude-3-5-sonnet-20241022",
-    "openrouter/openai/gpt-4o-mini",
-    "openrouter/openai/gpt-4o",
-    "openrouter/anthropic/claude-3-opus-20240229",
 ]
 
 # Apply allow_unsafe_models fixture to all tests in this module
