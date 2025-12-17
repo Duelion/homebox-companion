@@ -14,7 +14,7 @@ import litellm
 from loguru import logger
 
 from ..core.config import settings
-from .model_allowlist import get_model_capabilities
+from .model_capabilities import get_model_capabilities
 
 # Silence LiteLLM's verbose logging (we use loguru)
 litellm.suppress_debug_info = True
@@ -25,12 +25,6 @@ DEFAULT_LLM_TIMEOUT = 120
 
 class LLMError(Exception):
     """Base exception for LLM-related errors."""
-
-    pass
-
-
-class ModelNotAllowedError(LLMError):
-    """Raised when trying to use a model not in the allowlist."""
 
     pass
 
@@ -298,26 +292,19 @@ async def chat_completion(
         Parsed response content as a dictionary.
 
     Raises:
-        ModelNotAllowedError: If model is not in allowlist.
         LLMError: For API or parsing errors.
     """
     api_key = api_key or settings.effective_llm_api_key
     model = model or settings.effective_llm_model
 
-    # Validate model is allowed
-    caps = get_model_capabilities(model, allow_unsafe=settings.llm_allow_unsafe_models)
-    if caps is None:
-        raise ModelNotAllowedError(
-            f"Model '{model}' is not in the allowlist. "
-            f"Set HBC_LLM_ALLOW_UNSAFE_MODELS=true to use untested models (at your own risk)."
-        )
-
-    # Determine response format based on capabilities
+    # Determine response format based on capabilities (if validation enabled)
     effective_response_format = response_format
-    if response_format and response_format.get("type") == "json_object" and not caps.json_mode:
-        # Model doesn't support json_object mode, rely on prompt-only JSON
-        logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
-        effective_response_format = None
+    if not settings.llm_allow_unsafe_models:
+        caps = get_model_capabilities(model)
+        if response_format and response_format.get("type") == "json_object" and not caps.json_mode:
+            # Model doesn't support json_object mode, rely on prompt-only JSON
+            logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
+            effective_response_format = None
 
     return await _acompletion_with_repair(
         messages,
@@ -352,34 +339,28 @@ async def vision_completion(
         Parsed response content as a dictionary.
 
     Raises:
-        ModelNotAllowedError: If model is not in allowlist.
         CapabilityNotSupportedError: If model doesn't support vision.
         LLMError: For API or parsing errors.
     """
     api_key = api_key or settings.effective_llm_api_key
     model = model or settings.effective_llm_model
 
-    # Validate model is allowed
-    caps = get_model_capabilities(model, allow_unsafe=settings.llm_allow_unsafe_models)
-    if caps is None:
-        raise ModelNotAllowedError(
-            f"Model '{model}' is not in the allowlist. "
-            f"Set HBC_LLM_ALLOW_UNSAFE_MODELS=true to use untested models (at your own risk)."
-        )
+    # Check vision capability (if validation enabled)
+    if not settings.llm_allow_unsafe_models:
+        caps = get_model_capabilities(model)
+        
+        if not caps.vision:
+            raise CapabilityNotSupportedError(
+                f"Model '{model}' does not support vision (image inputs). "
+                f"Please use a vision-capable model like gpt-5-mini."
+            )
 
-    # Check vision capability
-    if not caps.vision:
-        raise CapabilityNotSupportedError(
-            f"Model '{model}' does not support vision (image inputs). "
-            f"Please use a vision-capable model like gpt-5-mini."
-        )
-
-    # Check multi-image capability if needed
-    if len(image_data_uris) > 1 and not caps.multi_image:
-        raise CapabilityNotSupportedError(
-            f"Model '{model}' does not support multiple images in a single request. "
-            f"Please use a multi-image capable model or send images one at a time."
-        )
+        # Check multi-image capability if needed
+        if len(image_data_uris) > 1 and not caps.multi_image:
+            raise CapabilityNotSupportedError(
+                f"Model '{model}' does not support multiple images in a single request. "
+                f"Please use a multi-image capable model or send images one at a time."
+            )
 
     # Build content list with text and images
     content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]
@@ -392,9 +373,13 @@ async def vision_completion(
         {"role": "user", "content": content},
     ]
 
-    # Determine response format based on capabilities
+    # Determine response format based on capabilities (if validation enabled)
     response_format: dict[str, str] | None = None
-    if caps.json_mode:
+    if not settings.llm_allow_unsafe_models:
+        if caps.json_mode:
+            response_format = {"type": "json_object"}
+    else:
+        # Without validation, try json_mode by default and let LiteLLM handle it
         response_format = {"type": "json_object"}
 
     return await _acompletion_with_repair(

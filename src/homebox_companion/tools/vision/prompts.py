@@ -39,6 +39,9 @@ def build_detection_system_prompt(
     Returns:
         Complete system prompt string.
     """
+    # Ensure field_preferences is a dict (empty dict if None)
+    field_preferences = field_preferences or {}
+    
     # Build components with customizations
     language_instr = build_language_instruction(output_language)
     critical = build_critical_constraints(single_item)
@@ -140,6 +143,9 @@ def build_multi_image_system_prompt(
     Returns:
         Complete system prompt string.
     """
+    # Ensure field_preferences is a dict (empty dict if None)
+    field_preferences = field_preferences or {}
+    
     # Build components with customizations
     language_instr = build_language_instruction(output_language)
     critical = build_critical_constraints(single_item)
@@ -195,6 +201,9 @@ def build_discriminatory_system_prompt(
     Returns:
         Complete system prompt string.
     """
+    # Ensure field_preferences is a dict (empty dict if None)
+    field_preferences = field_preferences or {}
+    
     # Build components with customizations
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
@@ -251,4 +260,71 @@ def build_discriminatory_user_prompt(previous_merged_item: dict | None = None) -
         "'M3 Phillips Screw' + 'M5 Phillips Screw'."
         + context
         + "\nReturn only JSON."
+    )
+
+
+def build_analysis_system_prompt(
+    item_name: str,
+    item_description: str | None,
+    labels: list[dict[str, str]] | None = None,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
+) -> str:
+    """Build system prompt for detailed item analysis from multiple images.
+
+    This is used by analyzer.py to extract detailed information from
+    multiple images of the same item.
+
+    Args:
+        item_name: The name of the item being analyzed.
+        item_description: Optional initial description of the item.
+        labels: Optional list of label dicts for assignment.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for output (default: English).
+
+    Returns:
+        Complete system prompt string.
+    """
+    # Build components with customizations (with safe defaults if None)
+    field_preferences = field_preferences or {}
+    language_instr = build_language_instruction(output_language)
+    naming_rules = build_naming_rules(field_preferences)
+    label_prompt = build_label_prompt(labels)
+
+    # Build item context
+    item_context = f"Item: '{item_name}'"
+    if item_description:
+        item_context += f" - {item_description}"
+
+    # Build extended field schema for analysis (always include extended fields)
+    name_instr = field_preferences.get("name", "Title Case, max 255 characters")
+    desc_instr = field_preferences.get("description", "max 1000 chars, condition/attributes only")
+    serial_instr = field_preferences.get("serial_number", "S/N when visible")
+    model_instr = field_preferences.get("model_number", "product code when visible")
+    mfr_instr = field_preferences.get("manufacturer", "brand name when visible")
+    price_instr = field_preferences.get("purchase_price", "price from tag, just the number")
+    notes_instr = field_preferences.get("notes", "ONLY for defects/damage")
+
+    return (
+        # 1. Role + task
+        f"You are an inventory assistant analyzing images. {item_context}\n"
+        # 2. Language instruction (if not English)
+        f"{language_instr}\n"
+        # 3. Critical instruction
+        "Extract ALL visible details: serial numbers, model numbers, brand, "
+        "price tags, condition issues. Only use what's visible.\n\n"
+        # 4. Output schema
+        "Return JSON with:\n"
+        f"- name: string ({name_instr})\n"
+        f"- description: string ({desc_instr})\n"
+        f"- serialNumber: string or null ({serial_instr})\n"
+        f"- modelNumber: string or null ({model_instr})\n"
+        f"- manufacturer: string or null ({mfr_instr})\n"
+        f"- purchasePrice: number or null ({price_instr})\n"
+        f"- notes: string or null ({notes_instr})\n"
+        "- labelIds: array of applicable label IDs\n\n"
+        # 5. Naming
+        f"{naming_rules}\n\n"
+        # 6. Labels
+        f"{label_prompt}"
     )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from loguru import logger
 
 from ...ai.images import encode_image_bytes_to_data_uri
-from ...ai.openai import vision_completion
+from ...ai.llm import vision_completion
 from ...core.config import settings
 from .models import DetectedItem
 from .prompts import (

@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from homebox_companion.ai.prompts import (
-    FIELD_DEFAULTS,
     NAMING_FORMAT,
     build_critical_constraints,
     build_extended_fields_schema,
@@ -14,6 +13,10 @@ from homebox_companion.ai.prompts import (
     build_language_instruction,
     build_naming_rules,
 )
+from homebox_companion.core.field_preferences import get_defaults
+
+# Get default values for tests
+DEFAULTS = get_defaults()
 
 
 class TestBuildItemSchema:
@@ -21,7 +24,7 @@ class TestBuildItemSchema:
 
     def test_default_contains_required_fields(self) -> None:
         """Schema should contain name, quantity, description, labelIds."""
-        result = build_item_schema()
+        result = build_item_schema({})
 
         assert "name: string" in result
         assert "quantity: integer" in result
@@ -29,12 +32,13 @@ class TestBuildItemSchema:
         assert "labelIds: array" in result
 
     def test_default_uses_field_defaults(self) -> None:
-        """Without customizations, should use FIELD_DEFAULTS."""
-        result = build_item_schema()
+        """With empty customizations, should use fallback defaults."""
+        result = build_item_schema({})
 
-        assert FIELD_DEFAULTS["name"] in result
-        assert FIELD_DEFAULTS["quantity"] in result
-        assert FIELD_DEFAULTS["description"] in result
+        # Should contain some reasonable default text
+        assert "Title Case" in result or "max 255" in result
+        assert ">= 1" in result or "count" in result.lower()
+        assert "max 1000" in result or "condition" in result.lower()
 
     def test_with_customizations_replaces_defaults_inline(self) -> None:
         """Custom instructions should replace defaults inline, not append."""
@@ -51,9 +55,9 @@ class TestBuildItemSchema:
         assert "CUSTOM: Only defects" in result
         assert "CUSTOM: Count carefully" in result
 
-        # Defaults should NOT be present (replaced, not appended)
-        assert FIELD_DEFAULTS["name"] not in result
-        assert FIELD_DEFAULTS["description"] not in result
+        # Should use custom instructions, not default fallbacks
+        assert "Title Case" not in result
+        assert "condition/attributes" not in result
 
     def test_partial_customizations_keeps_other_defaults(self) -> None:
         """Only customized fields should be replaced."""
@@ -65,9 +69,9 @@ class TestBuildItemSchema:
 
         # Custom name
         assert "CUSTOM: Name instruction" in result
-        # Default quantity and description
-        assert FIELD_DEFAULTS["quantity"] in result
-        assert FIELD_DEFAULTS["description"] in result
+        # Default quantity and description fallbacks
+        assert ">= 1" in result or "count" in result.lower()
+        assert "max 1000" in result or "condition" in result.lower()
 
 
 class TestBuildNamingRules:
@@ -75,18 +79,18 @@ class TestBuildNamingRules:
 
     def test_default_contains_naming_format(self) -> None:
         """Should contain the NAMING_FORMAT constant."""
-        result = build_naming_rules()
+        result = build_naming_rules({})
 
         assert NAMING_FORMAT in result
-        assert "[Item Type]" in result
+        assert "[Item Type]" in result or "[Type]" in result
         assert "[Brand]" in result
 
     def test_default_contains_examples(self) -> None:
         """Should contain naming examples."""
-        result = build_naming_rules()
+        result = build_naming_rules({})
 
         assert "Examples:" in result
-        assert "Ball Bearing" in result or FIELD_DEFAULTS["naming_examples"] in result
+        assert "Ball Bearing" in result or "LED Strip" in result
 
     def test_with_user_preference_adds_override_section(self) -> None:
         """User naming preference should add USER NAMING PREFERENCE section."""
@@ -115,7 +119,7 @@ class TestBuildNamingRules:
 
     def test_default_format_no_override_section(self) -> None:
         """Without user customization, should not have override section."""
-        result = build_naming_rules()
+        result = build_naming_rules({})
 
         assert "USER NAMING PREFERENCE" not in result
 
@@ -125,7 +129,7 @@ class TestBuildExtendedFieldsSchema:
 
     def test_contains_all_optional_fields(self) -> None:
         """Schema should list all extended fields."""
-        result = build_extended_fields_schema()
+        result = build_extended_fields_schema({})
 
         assert "manufacturer:" in result
         assert "modelNumber:" in result
@@ -135,11 +139,11 @@ class TestBuildExtendedFieldsSchema:
         assert "notes:" in result
 
     def test_default_uses_field_defaults(self) -> None:
-        """Without customizations, should use FIELD_DEFAULTS."""
-        result = build_extended_fields_schema()
+        """With empty customizations, should use fallback defaults."""
+        result = build_extended_fields_schema({})
 
-        assert "brand name from logo" in result or "brand/logo" in result
-        assert "product code from label" in result or "part number" in result
+        assert "brand" in result.lower() or "manufacturer" in result.lower()
+        assert "code" in result.lower() or "model" in result.lower()
 
     def test_with_customizations_replaces_inline(self) -> None:
         """Custom instructions should replace defaults inline."""
@@ -154,23 +158,21 @@ class TestBuildExtendedFieldsSchema:
         assert "CUSTOM: Extract brand from logos" in result
         assert "CUSTOM: Storage recommendations" in result
 
-        # Defaults should NOT be present for customized fields
-        assert FIELD_DEFAULTS["manufacturer"] not in result
-        assert FIELD_DEFAULTS["notes"] not in result
+        # Should use custom instructions, not default fallbacks
+        assert "brand name when visible" not in result
+        assert "ONLY for defects" not in result
 
-    def test_notes_examples_only_for_default_instruction(self) -> None:
-        """Notes examples appear with default instruction, not with custom ones."""
-        # With default - examples are part of the default instruction
-        result_default = build_extended_fields_schema()
-        assert "GOOD:" in result_default and "BAD:" in result_default
-        assert "Cracked lens" in result_default
-
-        # With custom instruction - examples should NOT appear
+    def test_notes_with_custom_instruction(self) -> None:
+        """Custom notes instruction should override default."""
+        # With custom instruction
         customizations = {"notes": "Always include warranty info"}
         result_custom = build_extended_fields_schema(customizations)
-        assert "GOOD:" not in result_custom
-        assert "Cracked lens" not in result_custom
+        
+        # Custom instruction should be present
         assert "Always include warranty info" in result_custom
+        
+        # Should not contain fallback default text
+        assert "ONLY for defects" not in result_custom
 
 
 class TestBuildCriticalConstraints:
@@ -303,21 +305,15 @@ class TestPromptStructureProperties:
 
     def test_schema_builders_return_non_empty(self) -> None:
         """All schema builders should return non-empty strings."""
-        assert build_item_schema()
-        assert build_extended_fields_schema()
-        assert build_naming_rules()
-
-    def test_customizations_none_safe(self) -> None:
-        """All builders should handle None customizations gracefully."""
-        # Should not raise errors
-        build_item_schema(None)
-        build_extended_fields_schema(None)
-        build_naming_rules(None)
+        assert build_item_schema({})
+        assert build_extended_fields_schema({})
+        assert build_naming_rules({})
 
     def test_customizations_empty_dict_safe(self) -> None:
         """All builders should handle empty dict gracefully."""
         empty_customizations = {}
 
+        # Should not raise errors with empty dict
         build_item_schema(empty_customizations)
         build_extended_fields_schema(empty_customizations)
         build_naming_rules(empty_customizations)

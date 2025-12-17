@@ -43,7 +43,6 @@ from .ai import (
     CapabilityNotSupportedError,
     JSONRepairError,
     LLMError,
-    ModelNotAllowedError,
     cleanup_openai_clients,
     encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
@@ -89,7 +88,6 @@ __all__ = [
     "AuthenticationError",
     # LLM exceptions
     "LLMError",
-    "ModelNotAllowedError",
     "CapabilityNotSupportedError",
     "JSONRepairError",
     # Homebox client
