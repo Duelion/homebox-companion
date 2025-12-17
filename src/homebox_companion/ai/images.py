@@ -14,6 +14,53 @@ DEFAULT_MAX_DIMENSION = 2048  # OpenAI recommends max 2048px for detail="high"
 DEFAULT_JPEG_QUALITY = 85
 
 
+def _normalize_image(img: Image.Image) -> Image.Image:
+    """Normalize image: handle EXIF orientation and convert to RGB.
+
+    This is a shared helper for both optimize_image_for_vision() and
+    compress_image_for_upload() to avoid code duplication.
+
+    Args:
+        img: PIL Image object to normalize.
+
+    Returns:
+        Normalized PIL Image in RGB mode with correct orientation.
+    """
+    # Handle EXIF orientation
+    try:
+        from PIL import ExifTags
+
+        for orientation in ExifTags.TAGS:
+            if ExifTags.TAGS[orientation] == "Orientation":
+                break
+
+        exif = img._getexif()
+        if exif is not None:
+            orientation_value = exif.get(orientation)
+            if orientation_value == 3:
+                img = img.rotate(180, expand=True)
+            elif orientation_value == 6:
+                img = img.rotate(270, expand=True)
+            elif orientation_value == 8:
+                img = img.rotate(90, expand=True)
+    except (AttributeError, KeyError, TypeError):
+        # No EXIF data or no orientation tag
+        pass
+
+    # Convert to RGB if necessary (handles RGBA, P mode, etc.)
+    if img.mode in ("RGBA", "P", "LA"):
+        # Create white background for transparent images
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        if img.mode == "P":
+            img = img.convert("RGBA")
+        background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+        img = background
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
+    return img
+
+
 def optimize_image_for_vision(
     image_bytes: bytes,
     max_dimension: int = DEFAULT_MAX_DIMENSION,
@@ -39,26 +86,8 @@ def optimize_image_for_vision(
         img = Image.open(io.BytesIO(image_bytes))
         original_dimensions = img.size
 
-        # Handle EXIF orientation
-        try:
-            from PIL import ExifTags
-
-            for orientation in ExifTags.TAGS:
-                if ExifTags.TAGS[orientation] == "Orientation":
-                    break
-
-            exif = img._getexif()
-            if exif is not None:
-                orientation_value = exif.get(orientation)
-                if orientation_value == 3:
-                    img = img.rotate(180, expand=True)
-                elif orientation_value == 6:
-                    img = img.rotate(270, expand=True)
-                elif orientation_value == 8:
-                    img = img.rotate(90, expand=True)
-        except (AttributeError, KeyError, TypeError):
-            # No EXIF data or no orientation tag
-            pass
+        # Normalize image (EXIF orientation + RGB conversion)
+        img = _normalize_image(img)
 
         # Resize if larger than max dimension
         needs_resize = max(img.size) > max_dimension
@@ -67,17 +96,6 @@ def optimize_image_for_vision(
             logger.debug(
                 f"Resized image from {original_dimensions} to {img.size}"
             )
-
-        # Convert to RGB if necessary (handles RGBA, P mode, etc.)
-        if img.mode in ("RGBA", "P", "LA"):
-            # Create white background for transparent images
-            background = Image.new("RGB", img.size, (255, 255, 255))
-            if img.mode == "P":
-                img = img.convert("RGBA")
-            background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
-            img = background
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
 
         # Compress to JPEG
         output = io.BytesIO()
@@ -177,26 +195,8 @@ def compress_image_for_upload(
         img = Image.open(io.BytesIO(image_bytes))
         original_dimensions = img.size
 
-        # Handle EXIF orientation
-        try:
-            from PIL import ExifTags
-
-            for orientation in ExifTags.TAGS:
-                if ExifTags.TAGS[orientation] == "Orientation":
-                    break
-
-            exif = img._getexif()
-            if exif is not None:
-                orientation_value = exif.get(orientation)
-                if orientation_value == 3:
-                    img = img.rotate(180, expand=True)
-                elif orientation_value == 6:
-                    img = img.rotate(270, expand=True)
-                elif orientation_value == 8:
-                    img = img.rotate(90, expand=True)
-        except (AttributeError, KeyError, TypeError):
-            # No EXIF data or no orientation tag
-            pass
+        # Normalize image (EXIF orientation + RGB conversion)
+        img = _normalize_image(img)
 
         # Resize if larger than max dimension
         needs_resize = max(img.size) > max_dimension
@@ -205,17 +205,6 @@ def compress_image_for_upload(
             logger.debug(
                 f"Resized image for upload from {original_dimensions} to {img.size}"
             )
-
-        # Convert to RGB if necessary (handles RGBA, P mode, etc.)
-        if img.mode in ("RGBA", "P", "LA"):
-            # Create white background for transparent images
-            background = Image.new("RGB", img.size, (255, 255, 255))
-            if img.mode == "P":
-                img = img.convert("RGBA")
-            background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
-            img = background
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
 
         # Compress to JPEG
         output = io.BytesIO()

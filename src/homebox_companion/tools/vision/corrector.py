@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from ...ai.openai import vision_completion
+from ...ai.llm import vision_completion
 from ...ai.prompts import (
     build_extended_fields_schema,
     build_item_schema,
@@ -53,6 +53,9 @@ async def correct_item_with_openai(
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
 
+    # Ensure field_preferences is a dict (empty dict if None)
+    field_preferences = field_preferences or {}
+    
     # Build schemas with customizations
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
