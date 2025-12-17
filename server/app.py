@@ -179,10 +179,10 @@ async def _test_homebox_connectivity() -> None:
 
 class CachedStaticFiles(StaticFiles):
     """StaticFiles with proper cache control headers for cache busting."""
-    
+
     async def get_response(self, path: str, scope) -> Response:
         response = await super().get_response(path, scope)
-        
+
         # index.html and root: always revalidate
         if path in ("", "index.html") or path.endswith("/index.html"):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -194,7 +194,7 @@ class CachedStaticFiles(StaticFiles):
         # Other static assets (icons, manifest, etc.): cache for 1 hour
         else:
             response.headers["Cache-Control"] = "public, max-age=3600"
-        
+
         return response
 
 

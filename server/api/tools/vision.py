@@ -10,6 +10,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import (
+    CapabilityNotSupportedError,
+    JSONRepairError,
+    LLMError,
+    ModelNotAllowedError,
     analyze_item_details_from_images,
     correct_item_with_openai,
     detect_items_from_bytes,
@@ -39,6 +43,42 @@ from ...schemas.vision import (
 )
 
 router = APIRouter()
+
+
+def _llm_error_to_http(e: Exception) -> HTTPException:
+    """Convert LLM exceptions to appropriate HTTP exceptions.
+
+    Args:
+        e: The exception to convert.
+
+    Returns:
+        HTTPException with appropriate status code and detail message.
+    """
+    if isinstance(e, ModelNotAllowedError):
+        return HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    if isinstance(e, CapabilityNotSupportedError):
+        return HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    if isinstance(e, JSONRepairError):
+        return HTTPException(
+            status_code=502,
+            detail=f"AI returned invalid response that could not be repaired: {e}",
+        )
+    if isinstance(e, LLMError):
+        return HTTPException(
+            status_code=502,
+            detail=f"LLM service error: {e}",
+        )
+    # Generic fallback
+    return HTTPException(
+        status_code=500,
+        detail=f"Detection failed: {e}",
+    )
 
 
 def filter_default_label(label_ids: list[str] | None, default_label_id: str | None) -> list[str]:
@@ -72,7 +112,7 @@ async def detect_items(
         list[UploadFile] | None, File(description="Additional images for the same item")
     ] = None,
 ) -> DetectionResponse:
-    """Analyze an uploaded image and detect items using OpenAI vision.
+    """Analyze an uploaded image and detect items using LLM vision.
 
     Args:
         image: The primary image file to analyze.
@@ -87,11 +127,11 @@ async def detect_items(
     logger.info(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
     logger.info(f"Extract extended fields: {extract_extended_fields}")
 
-    if not settings.openai_api_key:
-        logger.error("HBC_OPENAI_API_KEY not configured")
+    if not settings.effective_llm_api_key:
+        logger.error("LLM API key not configured")
         raise HTTPException(
             status_code=500,
-            detail="OpenAI API key not configured",
+            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
         )
 
     # Read and validate primary image
@@ -133,14 +173,14 @@ async def detect_items(
 
     # Detect items
     try:
-        logger.info("Starting OpenAI vision detection and image compression...")
+        logger.info("Starting LLM vision detection and image compression...")
 
         # Run detection and compression in parallel
         detection_task = detect_items_from_bytes(
             image_bytes=image_bytes,
-            api_key=settings.openai_api_key,
+            api_key=settings.effective_llm_api_key,
             mime_type=content_type,
-            model=settings.openai_model,
+            model=settings.effective_llm_model,
             labels=ctx.labels,
             single_item=single_item,
             extra_instructions=extra_instructions,
@@ -154,8 +194,11 @@ async def detect_items(
         detected, compressed_images = await asyncio.gather(detection_task, compression_task)
 
         logger.info(f"Detected {len(detected)} items, compressed {len(compressed_images)} images")
+    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+        logger.error(f"Detection failed: {e}")
+        raise _llm_error_to_http(e) from e
     except Exception as e:
-        logger.exception("Detection failed")
+        logger.exception("Detection failed unexpectedly")
         raise HTTPException(status_code=500, detail="Detection failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
@@ -186,7 +229,7 @@ async def detect_items_batch(
     configs: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
 ) -> BatchDetectionResponse:
-    """Analyze multiple images in parallel using OpenAI vision.
+    """Analyze multiple images in parallel using LLM vision.
 
     This endpoint processes all images concurrently, significantly reducing
     total processing time compared to sequential calls to /detect.
@@ -200,11 +243,11 @@ async def detect_items_batch(
     """
     logger.info(f"Batch detection for {len(images)} images")
 
-    if not settings.openai_api_key:
-        logger.error("HBC_OPENAI_API_KEY not configured")
+    if not settings.effective_llm_api_key:
+        logger.error("LLM API key not configured")
         raise HTTPException(
             status_code=500,
-            detail="OpenAI API key not configured",
+            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
         )
 
     if not images:
@@ -247,9 +290,9 @@ async def detect_items_batch(
         try:
             detected = await detect_items_from_bytes(
                 image_bytes=image_bytes,
-                api_key=settings.openai_api_key,
+                api_key=settings.effective_llm_api_key,
                 mime_type=mime_type,
-                model=settings.openai_model,
+                model=settings.effective_llm_model,
                 labels=ctx.labels,
                 single_item=single_item,
                 extra_instructions=extra_instructions,
@@ -277,6 +320,25 @@ async def detect_items_batch(
                     )
                     for item in detected
                 ],
+            )
+        except (ModelNotAllowedError, CapabilityNotSupportedError) as e:
+            # Configuration/capability errors - provide clear message
+            logger.error(f"Configuration error for image {index}: {e}")
+            return BatchDetectionResult(
+                image_index=index,
+                success=False,
+                error=str(e),
+            )
+        except (JSONRepairError, LLMError) as e:
+            # LLM service errors
+            logger.error(f"LLM error for image {index}: {e}")
+            error_msg = str(e)
+            if len(error_msg) > 200:
+                error_msg = error_msg[:200] + "..."
+            return BatchDetectionResult(
+                image_index=index,
+                success=False,
+                error=f"LLM error: {error_msg}",
             )
         except Exception as e:
             error_msg = str(e) if str(e) else "Detection failed"
@@ -332,9 +394,12 @@ async def analyze_item_advanced(
     logger.debug(f"Description: {item_description}")
     logger.debug(f"Number of images: {len(images) if images else 0}")
 
-    if not settings.openai_api_key:
-        logger.error("HBC_OPENAI_API_KEY not configured")
-        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    if not settings.effective_llm_api_key:
+        logger.error("LLM API key not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
+        )
 
     if not images:
         logger.warning("No images provided for analysis")
@@ -349,20 +414,23 @@ async def analyze_item_advanced(
 
     # Analyze images
     try:
-        logger.info(f"Analyzing {len(image_data_uris)} images with OpenAI...")
+        logger.info(f"Analyzing {len(image_data_uris)} images with LLM...")
         details = await analyze_item_details_from_images(
             image_data_uris=image_data_uris,
             item_name=item_name,
             item_description=item_description,
-            api_key=settings.openai_api_key,
-            model=settings.openai_model,
+            api_key=settings.effective_llm_api_key,
+            model=settings.effective_llm_model,
             labels=ctx.labels,
             field_preferences=ctx.field_preferences,
             output_language=ctx.output_language,
         )
         logger.info("Analysis complete")
+    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+        logger.error(f"Analysis failed: {e}")
+        raise _llm_error_to_http(e) from e
     except Exception as e:
-        logger.exception("Analysis failed")
+        logger.exception("Analysis failed unexpectedly")
         raise HTTPException(status_code=500, detail="Analysis failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
@@ -386,29 +454,35 @@ async def merge_items(
     """Merge multiple items into a single consolidated item using AI."""
     logger.info(f"Merging {len(request.items)} items")
 
-    if not settings.openai_api_key:
-        logger.error("HBC_OPENAI_API_KEY not configured")
-        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    if not settings.effective_llm_api_key:
+        logger.error("LLM API key not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
+        )
 
     if len(request.items) < 2:
         raise HTTPException(status_code=400, detail="At least 2 items are required to merge")
 
-    # Convert typed items to dicts for the OpenAI function
+    # Convert typed items to dicts for the LLM function
     items_as_dicts = [item.model_dump(exclude_none=True) for item in request.items]
 
     try:
-        logger.info("Calling OpenAI for item merge...")
+        logger.info("Calling LLM for item merge...")
         merged = await merge_items_with_openai(
             items=items_as_dicts,
-            api_key=settings.openai_api_key,
-            model=settings.openai_model,
+            api_key=settings.effective_llm_api_key,
+            model=settings.effective_llm_model,
             labels=ctx.labels,
             field_preferences=ctx.field_preferences,
             output_language=ctx.output_language,
         )
         logger.info(f"Merge complete: {merged.get('name')}")
+    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+        logger.error(f"Merge failed: {e}")
+        raise _llm_error_to_http(e) from e
     except Exception as e:
-        logger.exception("Merge failed")
+        logger.exception("Merge failed unexpectedly")
         raise HTTPException(status_code=500, detail="Merge failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
@@ -456,11 +530,11 @@ async def correct_item(
     preview = correction_instructions[:100]
     logger.debug(f"Correction instructions ({len(correction_instructions)} chars): {preview}...")
 
-    if not settings.openai_api_key:
-        logger.error("HBC_OPENAI_API_KEY not configured")
+    if not settings.effective_llm_api_key:
+        logger.error("LLM API key not configured")
         raise HTTPException(
             status_code=500,
-            detail="OpenAI API key not configured",
+            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
         )
 
     # Parse current item from JSON string
@@ -481,20 +555,23 @@ async def correct_item(
 
     # Call the correction function
     try:
-        logger.info("Starting OpenAI item correction...")
+        logger.info("Starting LLM item correction...")
         corrected_items = await correct_item_with_openai(
             image_data_uri=image_data_uri,
             current_item=current_item_dict,
             correction_instructions=correction_instructions,
-            api_key=settings.openai_api_key,
-            model=settings.openai_model,
+            api_key=settings.effective_llm_api_key,
+            model=settings.effective_llm_model,
             labels=ctx.labels,
             field_preferences=ctx.field_preferences,
             output_language=ctx.output_language,
         )
         logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
+    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+        logger.error(f"Correction failed: {e}")
+        raise _llm_error_to_http(e) from e
     except Exception as e:
-        logger.exception("Item correction failed")
+        logger.exception("Item correction failed unexpectedly")
         raise HTTPException(status_code=500, detail="Correction failed") from e
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
