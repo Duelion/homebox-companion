@@ -1,7 +1,11 @@
-"""AI tests for vision detection with real OpenAI API.
+"""AI tests for vision detection with real LLM API.
 
-These tests require HBC_OPENAI_API_KEY to be set and will be skipped
-if the API key is not available. They hit the real OpenAI API.
+These tests require an LLM API key to be set and will be skipped
+if no key is available. They hit the real LLM API.
+
+Environment variables (in order of preference):
+    - HBC_LLM_API_KEY + HBC_LLM_MODEL (preferred)
+    - HBC_OPENAI_API_KEY + HBC_OPENAI_MODEL (legacy fallback)
 
 Run with: uv run pytest tests/test_vision_ai.py
 """
