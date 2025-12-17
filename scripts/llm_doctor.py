@@ -27,7 +27,11 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from homebox_companion.ai.model_allowlist import MODEL_ALLOWLIST, get_model_capabilities
+from homebox_companion.ai.model_allowlist import (
+    MODEL_ALLOWLIST,
+    extract_base_model,
+    get_model_capabilities,
+)
 from homebox_companion.ai.openai import (
     CapabilityNotSupportedError,
     JSONRepairError,
@@ -303,8 +307,8 @@ async def run_diagnostics() -> DiagnosticReport:
     api_base = settings.llm_api_base
     allow_unsafe = settings.llm_allow_unsafe_models
 
-    # Check if model is in allowlist
-    is_allowlisted = model in MODEL_ALLOWLIST
+    # Check if model is in allowlist (support provider-prefixed identifiers)
+    is_allowlisted = extract_base_model(model) in MODEL_ALLOWLIST
     caps = get_model_capabilities(model, allow_unsafe=allow_unsafe)
 
     report = DiagnosticReport(

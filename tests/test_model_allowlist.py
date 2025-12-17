@@ -7,6 +7,7 @@ import pytest
 from homebox_companion.ai.model_allowlist import (
     MODEL_ALLOWLIST,
     ModelCapabilities,
+    extract_base_model,
     get_model_capabilities,
 )
 
@@ -72,6 +73,17 @@ class TestGetModelCapabilities:
         assert caps.multi_image is True
         assert caps.json_mode is True
 
+    def test_provider_prefixed_model_uses_base_capabilities(self) -> None:
+        """Provider-prefixed models should resolve to base allowlist capabilities."""
+        caps = get_model_capabilities("openrouter/openai/gpt-5-mini")
+        assert caps is not None
+        assert caps.model == "gpt-5-mini"
+
+    def test_provider_prefixed_model_is_not_allowlisted_without_base_match(self) -> None:
+        """Provider-prefixed models should fail if the base model isn't allowlisted."""
+        caps = get_model_capabilities("openrouter/anthropic/claude-3.5-sonnet")
+        assert caps is None
+
     def test_unknown_model_returns_none_by_default(self) -> None:
         """Unknown models should return None when allow_unsafe=False."""
         caps = get_model_capabilities("unknown-model-xyz")
@@ -86,6 +98,31 @@ class TestGetModelCapabilities:
         assert caps.vision is False
         assert caps.multi_image is False
         assert caps.json_mode is False
+
+
+class TestExtractBaseModel:
+    """Tests for extract_base_model()."""
+
+    def test_plain_model(self) -> None:
+        assert extract_base_model("gpt-5-mini") == "gpt-5-mini"
+
+    def test_openrouter_prefix(self) -> None:
+        assert extract_base_model("openrouter/openai/gpt-5-mini") == "gpt-5-mini"
+        assert (
+            extract_base_model("openrouter/anthropic/claude-3.5-sonnet") == "claude-3.5-sonnet"
+        )
+
+    def test_trims_whitespace(self) -> None:
+        assert extract_base_model("  openrouter/openai/gpt-5-mini  ") == "gpt-5-mini"
+
+    def test_empty_string(self) -> None:
+        assert extract_base_model("") == ""
+        assert extract_base_model("   ") == ""
+
+    def test_provider_dot_prefix(self) -> None:
+        assert extract_base_model("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0") == (
+            "claude-3-5-sonnet-20241022-v2:0"
+        )
 
     def test_empty_model_returns_none(self) -> None:
         """Empty string model should return None."""
