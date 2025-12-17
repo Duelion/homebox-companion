@@ -27,19 +27,14 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from homebox_companion.ai.model_allowlist import (
-    MODEL_ALLOWLIST,
-    extract_base_model,
-    get_model_capabilities,
-)
-from homebox_companion.ai.openai import (
+from homebox_companion.ai.llm import (
     CapabilityNotSupportedError,
     JSONRepairError,
     LLMError,
-    ModelNotAllowedError,
     chat_completion,
     vision_completion,
 )
+from homebox_companion.ai.model_capabilities import get_model_capabilities
 from homebox_companion.core.config import settings
 
 
@@ -61,7 +56,6 @@ class DiagnosticReport:
 
     model: str
     api_base: str | None
-    is_allowlisted: bool
     allow_unsafe: bool
     capabilities: dict[str, bool] = field(default_factory=dict)
     tests: list[TestResult] = field(default_factory=list)
@@ -74,9 +68,7 @@ class DiagnosticReport:
 
         print(f"\nModel: {self.model}")
         print(f"API Base: {self.api_base or '(default)'}")
-        print(f"Allowlisted: {'Yes' if self.is_allowlisted else 'No'}")
-        if not self.is_allowlisted:
-            print(f"Allow Unsafe: {'Yes' if self.allow_unsafe else 'No'}")
+        print(f"Allow Unsafe Models: {'Yes' if self.allow_unsafe else 'No'}")
 
         print("\nCapabilities:")
         for cap, supported in self.capabilities.items():
@@ -307,41 +299,21 @@ async def run_diagnostics() -> DiagnosticReport:
     api_base = settings.llm_api_base
     allow_unsafe = settings.llm_allow_unsafe_models
 
-    # Check if model is in allowlist (support provider-prefixed identifiers)
-    is_allowlisted = extract_base_model(model) in MODEL_ALLOWLIST
-    caps = get_model_capabilities(model, allow_unsafe=allow_unsafe)
+    # Get model capabilities via LiteLLM
+    caps = get_model_capabilities(model)
 
     report = DiagnosticReport(
         model=model,
         api_base=api_base,
-        is_allowlisted=is_allowlisted,
         allow_unsafe=allow_unsafe,
     )
 
-    # Check capabilities
-    if caps:
-        report.capabilities = {
-            "vision": caps.vision,
-            "multi_image": caps.multi_image,
-            "json_mode": caps.json_mode,
-        }
-    else:
-        report.capabilities = {
-            "vision": False,
-            "multi_image": False,
-            "json_mode": False,
-        }
-        report.tests.append(
-            TestResult(
-                name="Model validation",
-                passed=False,
-                error=(
-                    f"Model '{model}' is not in the allowlist. "
-                    "Set HBC_LLM_ALLOW_UNSAFE_MODELS=true to test anyway."
-                ),
-            )
-        )
-        return report
+    # Store capabilities
+    report.capabilities = {
+        "vision": caps.vision,
+        "multi_image": caps.multi_image,
+        "json_mode": caps.json_mode,
+    }
 
     # Run tests
     print(f"\nRunning diagnostics for model: {model}")
@@ -411,9 +383,6 @@ def main() -> int:
         all_passed = all(t.passed for t in report.tests)
         return 0 if all_passed else 1
 
-    except ModelNotAllowedError as e:
-        print(f"\n✗ ERROR: {e}")
-        return 1
     except LLMError as e:
         print(f"\n✗ LLM ERROR: {e}")
         return 1

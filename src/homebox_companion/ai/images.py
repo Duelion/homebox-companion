@@ -10,7 +10,7 @@ from loguru import logger
 from PIL import Image
 
 # Default settings for image optimization (for AI vision)
-DEFAULT_MAX_DIMENSION = 2048  # OpenAI recommends max 2048px for detail="high"
+DEFAULT_MAX_DIMENSION = 2048  # Most vision models work best with max 2048px images
 DEFAULT_JPEG_QUALITY = 85
 
 
@@ -69,7 +69,7 @@ def optimize_image_for_vision(
     """Optimize an image for LLM vision processing.
 
     Resizes large images and compresses to JPEG for faster uploads and
-    reduced token costs. OpenAI's vision API works best with images
+    reduced token costs. Vision models work best with images
     up to 2048px on the longest side.
 
     Args:
@@ -119,7 +119,7 @@ def optimize_image_for_vision(
 
 
 def encode_image_to_data_uri(image_path: Path | str, optimize: bool = True) -> str:
-    """Read an image file and return a data URI for OpenAI's vision API.
+    """Read an image file and return a data URI for vision model APIs.
 
     Args:
         image_path: Path to the image file.
@@ -146,7 +146,7 @@ def encode_image_bytes_to_data_uri(
     mime_type: str = "image/jpeg",
     optimize: bool = True,
 ) -> str:
-    """Encode raw image bytes to a data URI for OpenAI's vision API.
+    """Encode raw image bytes to a data URI for vision model APIs.
 
     Args:
         image_bytes: Raw image data.

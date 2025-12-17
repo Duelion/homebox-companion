@@ -85,8 +85,8 @@ async def _detect_items_from_data_uris(
 
     Args:
         image_data_uris: List of base64-encoded image data URIs.
-        api_key: OpenAI API key.
-        model: OpenAI model name.
+        api_key: LLM API key.
+        model: LLM model name.
         labels: Optional list of Homebox labels for item tagging.
         single_item: If True, treat everything as a single item.
         extra_instructions: User-provided hint about image contents.

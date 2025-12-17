@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 from loguru import logger
 
 from ...ai.llm import vision_completion
@@ -9,7 +11,7 @@ from ...ai.prompts import build_label_prompt, build_language_instruction, build_
 from ...core.config import settings
 
 
-async def merge_items_with_openai(
+async def merge_items(
     items: list[dict],
     image_data_uris: list[str] | None = None,
     api_key: str | None = None,
@@ -113,3 +115,18 @@ async def merge_items_with_openai(
     logger.info(f"Merge complete: {parsed_content.get('name', 'Unknown')}")
 
     return parsed_content
+
+
+async def merge_items_with_openai(*args, **kwargs) -> dict:
+    """Deprecated: Use merge_items() instead.
+
+    This function is kept for backwards compatibility but will be removed
+    in a future version. The new name reflects that we use LiteLLM for
+    multi-provider support, not just OpenAI.
+    """
+    warnings.warn(
+        "merge_items_with_openai() is deprecated, use merge_items() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return await merge_items(*args, **kwargs)

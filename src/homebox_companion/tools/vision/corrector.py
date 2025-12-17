@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 from loguru import logger
 
 from ...ai.llm import vision_completion
@@ -15,7 +17,7 @@ from ...ai.prompts import (
 from ...core.config import settings
 
 
-async def correct_item_with_openai(
+async def correct_item(
     image_data_uri: str,
     current_item: dict,
     correction_instructions: str,
@@ -55,7 +57,7 @@ async def correct_item_with_openai(
 
     # Ensure field_preferences is a dict (empty dict if None)
     field_preferences = field_preferences or {}
-    
+
     # Build schemas with customizations
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
@@ -118,3 +120,18 @@ async def correct_item_with_openai(
         logger.debug(f"  Corrected item: {item.get('name')}, qty: {item.get('quantity', 1)}")
 
     return items
+
+
+async def correct_item_with_openai(*args, **kwargs) -> list[dict]:
+    """Deprecated: Use correct_item() instead.
+
+    This function is kept for backwards compatibility but will be removed
+    in a future version. The new name reflects that we use LiteLLM for
+    multi-provider support, not just OpenAI.
+    """
+    warnings.warn(
+        "correct_item_with_openai() is deprecated, use correct_item() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return await correct_item(*args, **kwargs)

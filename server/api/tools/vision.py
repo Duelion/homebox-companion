@@ -13,14 +13,17 @@ from homebox_companion import (
     CapabilityNotSupportedError,
     JSONRepairError,
     LLMError,
-    ModelNotAllowedError,
     analyze_item_details_from_images,
-    correct_item_with_openai,
     detect_items_from_bytes,
     encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
-    merge_items_with_openai,
     settings,
+)
+from homebox_companion import (
+    correct_item as llm_correct_item,
+)
+from homebox_companion import (
+    merge_items as llm_merge_items,
 )
 
 from ...dependencies import (
@@ -54,11 +57,6 @@ def _llm_error_to_http(e: Exception) -> HTTPException:
     Returns:
         HTTPException with appropriate status code and detail message.
     """
-    if isinstance(e, ModelNotAllowedError):
-        return HTTPException(
-            status_code=400,
-            detail=str(e),
-        )
     if isinstance(e, CapabilityNotSupportedError):
         return HTTPException(
             status_code=400,
@@ -194,7 +192,7 @@ async def detect_items(
         detected, compressed_images = await asyncio.gather(detection_task, compression_task)
 
         logger.info(f"Detected {len(detected)} items, compressed {len(compressed_images)} images")
-    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
         logger.error(f"Detection failed: {e}")
         raise _llm_error_to_http(e) from e
     except Exception as e:
@@ -321,7 +319,7 @@ async def detect_items_batch(
                     for item in detected
                 ],
             )
-        except (ModelNotAllowedError, CapabilityNotSupportedError) as e:
+        except CapabilityNotSupportedError as e:
             # Configuration/capability errors - provide clear message
             logger.error(f"Configuration error for image {index}: {e}")
             return BatchDetectionResult(
@@ -426,7 +424,7 @@ async def analyze_item_advanced(
             output_language=ctx.output_language,
         )
         logger.info("Analysis complete")
-    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
         logger.error(f"Analysis failed: {e}")
         raise _llm_error_to_http(e) from e
     except Exception as e:
@@ -469,7 +467,7 @@ async def merge_items(
 
     try:
         logger.info("Calling LLM for item merge...")
-        merged = await merge_items_with_openai(
+        merged = await llm_merge_items(
             items=items_as_dicts,
             api_key=settings.effective_llm_api_key,
             model=settings.effective_llm_model,
@@ -478,7 +476,7 @@ async def merge_items(
             output_language=ctx.output_language,
         )
         logger.info(f"Merge complete: {merged.get('name')}")
-    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
         logger.error(f"Merge failed: {e}")
         raise _llm_error_to_http(e) from e
     except Exception as e:
@@ -556,7 +554,7 @@ async def correct_item(
     # Call the correction function
     try:
         logger.info("Starting LLM item correction...")
-        corrected_items = await correct_item_with_openai(
+        corrected_items = await llm_correct_item(
             image_data_uri=image_data_uri,
             current_item=current_item_dict,
             correction_instructions=correction_instructions,
@@ -567,7 +565,7 @@ async def correct_item(
             output_language=ctx.output_language,
         )
         logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
-    except (ModelNotAllowedError, CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
+    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
         logger.error(f"Correction failed: {e}")
         raise _llm_error_to_http(e) from e
     except Exception as e:

@@ -19,7 +19,6 @@ from starlette.responses import Response
 from homebox_companion import (
     AuthenticationError,
     HomeboxClient,
-    cleanup_openai_clients,
     settings,
     setup_logging,
 )
@@ -207,7 +206,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Version: {__version__}")
     logger.info(f"Homebox URL (HBC_HOMEBOX_URL): {settings.homebox_url}")
     logger.info(f"Full API endpoint: {settings.api_url}")
-    logger.info(f"OpenAI Model: {settings.openai_model}")
+    logger.info(f"LLM Model: {settings.effective_llm_model}")
     logger.info(f"Log level: {settings.log_level}")
 
     if settings.is_demo_mode:
@@ -229,7 +228,7 @@ async def lifespan(app: FastAPI):
     # Cleanup
     logger.info("Shutting down Homebox Companion API")
     await client_holder.close()
-    await cleanup_openai_clients()
+    # Note: cleanup_llm_clients() is now a no-op with LiteLLM
     logger.info("Shutdown complete")
 
 
