@@ -286,12 +286,17 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		const shouldRetry = await handleUnauthorized(response);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
+			// Create a fresh timeout signal for the retry (don't reuse the original)
+			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity 
+				? createTimeoutSignal(options.signal, timeoutMs)
+				: options.signal;
+			
 			log.debug(`Retrying ${endpoint} after token refresh`);
 			try {
 				response = await fetch(`${BASE_URL}${endpoint}`, {
 					...options,
 					headers: buildHeaders(),
-					signal,
+					signal: retrySignal,
 				});
 			} catch (error) {
 				const networkError = wrapFetchError(error, endpoint);
@@ -428,11 +433,16 @@ export async function requestBlobUrl(
 		const shouldRetry = await handleUnauthorized(response);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
+			// Create a fresh timeout signal for the retry (don't reuse the original)
+			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
+				? createTimeoutSignal(opts.signal, timeoutMs)
+				: opts.signal;
+			
 			log.debug(`Retrying blob request ${endpoint} after token refresh`);
 			try {
 				response = await fetch(`${BASE_URL}${endpoint}`, {
 					headers: buildHeaders(),
-					signal,
+					signal: retrySignal,
 				});
 			} catch (error) {
 				const networkError = wrapFetchError(error, endpoint);
@@ -517,13 +527,18 @@ export async function requestFormData<T>(
 		const shouldRetry = await handleUnauthorized(response);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
+			// Create a fresh timeout signal for the retry (don't reuse the original)
+			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
+				? createTimeoutSignal(opts.signal, timeoutMs)
+				: opts.signal;
+			
 			log.debug(`Retrying FormData request ${endpoint} after token refresh`);
 			try {
 				response = await fetch(`${BASE_URL}${endpoint}`, {
 					method: 'POST',
 					headers: buildHeaders(),
 					body: formData,
-					signal,
+					signal: retrySignal,
 				});
 				log.debug(`Retry response from ${endpoint}:`, response.status, response.statusText);
 			} catch (error) {

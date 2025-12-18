@@ -21,6 +21,9 @@ export const auth = {
 	 * Refresh the current token to extend its expiry.
 	 * Returns new token and expiry time, throws ApiError with 401 if token is invalid.
 	 */
-	refresh: () => request<LoginResponse>('/refresh'),
+	refresh: () =>
+		request<LoginResponse>('/refresh', {
+			method: 'POST',
+		}),
 };
 
