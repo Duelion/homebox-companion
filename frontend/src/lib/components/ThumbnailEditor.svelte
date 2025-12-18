@@ -26,10 +26,10 @@
 	let containerSize = $state(340);
 	let cropSize = $derived(Math.round(containerSize * 0.706));
 
-	// Scale limits - 100% = entire image fits in crop area
-	// displayScale is computed so that at 1.0, the largest dimension equals crop size
+	// Scale limits - 100% = image fills crop area (no black bars)
+	// displayScale is computed so that at 1.0, the shortest dimension equals crop size
 	let baseScale = $state(1); // Calculated when image loads
-	const MIN_SCALE = 1; // 100% - image width fills crop
+	const MIN_SCALE = 1; // 100% - image fills crop
 	const MAX_SCALE = 5; // 500%
 	const MIN_ROTATION = -180;
 	const MAX_ROTATION = 180;
@@ -42,7 +42,7 @@
 	let lastTouchAngle = 0;
 
 	// The actual CSS scale = baseScale * scale
-	// Where baseScale is calculated so entire image fits in crop at 100%
+	// Where baseScale is calculated so image fills crop at 100% (no black bars)
 	// And scale is the user-controlled 1.0 (100%) to 5.0 (500%)
 	let displayScale = $derived(baseScale * scale);
 
@@ -80,9 +80,9 @@
 	}
 
 	function resetTransform() {
-		// Calculate base scale so entire image fits in crop at 100%
+		// Calculate base scale so image fills crop at 100% (no black bars)
 		if (imageElement?.naturalWidth) {
-			baseScale = cropSize / Math.max(imageElement.naturalWidth, imageElement.naturalHeight);
+			baseScale = cropSize / Math.min(imageElement.naturalWidth, imageElement.naturalHeight);
 		}
 		scale = MIN_SCALE; // Start at 100%
 		rotation = 0;
@@ -91,8 +91,8 @@
 	}
 
 	function handleImageLoad() {
-		// Calculate base scale so entire image fits in crop at 100%
-		baseScale = cropSize / Math.max(imageElement.naturalWidth, imageElement.naturalHeight);
+		// Calculate base scale so image fills crop at 100% (no black bars)
+		baseScale = cropSize / Math.min(imageElement.naturalWidth, imageElement.naturalHeight);
 		scale = MIN_SCALE; // Start at 100%
 		offsetX = 0;
 		offsetY = 0;
