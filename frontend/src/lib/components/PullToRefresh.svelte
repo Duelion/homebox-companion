@@ -164,70 +164,71 @@
     });
 </script>
 
-<!-- 
-    Pull indicator - fixed position with opacity-based visibility.
-    Since the header uses glass/transparency, we can't rely solely on z-index.
-    The arrow fades in as user pulls (opacity), while staying in place (no translateY).
-    Combined with content sliding down, this creates a natural "reveal" effect.
--->
-{#if enabled}
-    <div
-        class="fixed left-1/2 z-30 flex justify-center pointer-events-none transition-opacity duration-150"
-        style="top: calc(4rem + env(safe-area-inset-top, 0px) + 0.75rem); transform: translateX(-50%); opacity: {Math.min(
-            pullDistance / 40,
-            1,
-        )}"
-    >
-        <div
-            class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-colors duration-200
-				{isRefreshing || shouldTrigger
-                ? 'bg-primary-600/20 border border-primary-500/50 text-primary-400'
-                : 'bg-neutral-800/95 border border-neutral-600/50 text-neutral-400'}"
-            style="transform: rotate({arrowRotation}deg)"
-        >
-            {#if isRefreshing}
-                <!-- Spinner -->
-                <svg
-                    class="w-6 h-6 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                >
-                    <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                    ></circle>
-                    <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                </svg>
-            {:else}
-                <!-- Arrow -->
-                <svg
-                    class="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    stroke-width="2"
-                >
-                    <path d="M12 19V5M5 12l7-7 7 7" />
-                </svg>
-            {/if}
-        </div>
-    </div>
-{/if}
-
-<!-- Content wrapper with pull transform -->
+<!-- Content wrapper with pull transform - arrow is INSIDE so it moves with content -->
 <div
-    class="transition-transform duration-200 ease-out will-change-transform"
+    class="relative transition-transform duration-200 ease-out will-change-transform"
     style={pullDistance > 0 || isRefreshing
         ? `transform: translateY(${Math.min(pullDistance, threshold * 1.2)}px)`
         : ""}
 >
+    <!-- 
+        Pull indicator - positioned INSIDE the content wrapper.
+        Uses absolute positioning with negative top to sit above the content.
+        Since it's inside the wrapper, it moves WITH the content when pulling.
+        The header (fixed, z-40) covers this (z-30), creating the "reveal" effect.
+        Opacity fade handles the transparent glass header.
+    -->
+    {#if enabled}
+        <div
+            class="absolute left-1/2 z-30 flex justify-center pointer-events-none transition-opacity duration-150"
+            style="top: -3rem; transform: translateX(-50%); opacity: {Math.min(
+                pullDistance / 40,
+                1,
+            )}"
+        >
+            <div
+                class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-colors duration-200
+                    {isRefreshing || shouldTrigger
+                    ? 'bg-primary-600/20 border border-primary-500/50 text-primary-400'
+                    : 'bg-neutral-800/95 border border-neutral-600/50 text-neutral-400'}"
+                style="transform: rotate({arrowRotation}deg)"
+            >
+                {#if isRefreshing}
+                    <!-- Spinner -->
+                    <svg
+                        class="w-6 h-6 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                    >
+                        <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                        ></circle>
+                        <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                    </svg>
+                {:else}
+                    <!-- Arrow -->
+                    <svg
+                        class="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        stroke-width="2"
+                    >
+                        <path d="M12 19V5M5 12l7-7 7 7" />
+                    </svg>
+                {/if}
+            </div>
+        </div>
+    {/if}
+
     {@render children()}
 </div>
