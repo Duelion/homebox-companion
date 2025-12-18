@@ -2,18 +2,18 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --silent --no-progress 2>/dev/null
 COPY frontend/ ./
-RUN npm run build
+RUN npm run build --silent 2>/dev/null
 
 # Stage 2: Python runtime
 FROM python:3.12-slim
 WORKDIR /app
 
 # Install uv for dependency management and curl for health checks
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir uv
+    && pip install --no-cache-dir -q uv
 
 # Copy Python project files
 COPY pyproject.toml uv.lock ./
@@ -21,7 +21,7 @@ COPY src/ ./src/
 COPY server/ ./server/
 
 # Install Python dependencies
-RUN uv sync --no-dev
+RUN uv sync --no-dev --quiet
 
 # Copy built frontend to server static directory
 COPY --from=frontend-builder /app/frontend/build ./server/static/
