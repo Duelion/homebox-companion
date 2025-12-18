@@ -13,8 +13,8 @@
 
 	// Selected image
 	let selectedImageIndex = $state(0);
-	let imageElement: HTMLImageElement;
-	let containerElement: HTMLDivElement;
+	let sourceImage: HTMLImageElement | null = $state(null);
+	let previewCanvas: HTMLCanvasElement;
 
 	// Transform state - all reactive
 	let scale = $state(1);
@@ -27,10 +27,9 @@
 	let cropSize = $derived(Math.round(containerSize * 0.706));
 
 	// Scale limits - 100% = image fills crop area (no black bars)
-	// displayScale is computed so that at 1.0, the shortest dimension equals crop size
-	let baseScale = $state(1); // Calculated when image loads
-	const MIN_SCALE = 1; // 100% - image fills crop
-	const MAX_SCALE = 5; // 500%
+	let baseScale = $state(1);
+	const MIN_SCALE = 1;
+	const MAX_SCALE = 5;
 	const MIN_ROTATION = -180;
 	const MAX_ROTATION = 180;
 
@@ -41,25 +40,72 @@
 	let lastTouchDistance = 0;
 	let lastTouchAngle = 0;
 
-	// The actual CSS scale = baseScale * scale
-	// Where baseScale is calculated so image fills crop at 100% (no black bars)
-	// And scale is the user-controlled 1.0 (100%) to 5.0 (500%)
+	// The actual scale = baseScale * scale
 	let displayScale = $derived(baseScale * scale);
 
-	// CSS transform string - computed reactively
-	let transformStyle = $derived(
-		`translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${displayScale})`,
-	);
-
-	// Linear slider for 100%-500% (no need for logarithmic since range is reasonable)
+	// Linear slider for 100%-500%
 	let zoomPercent = $derived(Math.round(scale * 100));
 	let zoomSliderValue = $derived(
 		(scale - MIN_SCALE) / (MAX_SCALE - MIN_SCALE),
-	); // 0 to 1
+	);
 
 	function sliderToScale(sliderValue: number): number {
 		return MIN_SCALE + sliderValue * (MAX_SCALE - MIN_SCALE);
 	}
+
+	// Unified render function - used for BOTH preview and save
+	function renderToCanvas(
+		ctx: CanvasRenderingContext2D,
+		canvasSize: number,
+		cropAreaSize: number,
+		img: HTMLImageElement,
+	) {
+		// Clear and fill background
+		ctx.fillStyle = "#0a0a0f";
+		ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+		// Scale factor from crop area to canvas size
+		const renderScale = canvasSize / cropAreaSize;
+
+		ctx.save();
+
+		// Move origin to center of canvas
+		ctx.translate(canvasSize / 2, canvasSize / 2);
+
+		// Apply user offset (scaled to canvas)
+		ctx.translate(offsetX * renderScale, offsetY * renderScale);
+
+		// Apply rotation
+		ctx.rotate((rotation * Math.PI) / 180);
+
+		// Apply scale (displayScale already includes baseScale)
+		ctx.scale(displayScale * renderScale, displayScale * renderScale);
+
+		// Draw image centered at origin
+		ctx.drawImage(
+			img,
+			-img.naturalWidth / 2,
+			-img.naturalHeight / 2,
+			img.naturalWidth,
+			img.naturalHeight,
+		);
+
+		ctx.restore();
+	}
+
+	// Reactive preview rendering - redraws when any transform changes
+	$effect(() => {
+		if (!previewCanvas || !sourceImage) return;
+
+		const ctx = previewCanvas.getContext("2d");
+		if (!ctx) return;
+
+		// Access reactive values to create dependencies
+		const _ = { scale, rotation, offsetX, offsetY, displayScale, cropSize };
+
+		// Use cropSize for preview (1:1 with display)
+		renderToCanvas(ctx, cropSize, cropSize, sourceImage);
+	});
 
 	onMount(() => {
 		// Calculate responsive container size
@@ -71,29 +117,52 @@
 		}
 	});
 
-	// Reset transform when image changes
+	// Load image when selected index changes
+	$effect(() => {
+		const dataUrl = images[selectedImageIndex]?.dataUrl;
+		if (!dataUrl) return;
+
+		const img = new Image();
+		img.onload = () => {
+			sourceImage = img;
+			// Calculate baseScale so image fills crop at 100%
+			if (cropSize > 0) {
+				baseScale =
+					cropSize / Math.min(img.naturalWidth, img.naturalHeight);
+			}
+			scale = MIN_SCALE;
+			rotation = 0;
+			offsetX = 0;
+			offsetY = 0;
+		};
+		img.src = dataUrl;
+	});
+
+	// Recalculate baseScale when cropSize changes
+	$effect(() => {
+		if (cropSize > 0 && sourceImage) {
+			const newBaseScale =
+				cropSize /
+				Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
+			if (Math.abs(newBaseScale - baseScale) > 0.0001) {
+				baseScale = newBaseScale;
+			}
+		}
+	});
+
 	function selectImage(index: number) {
 		if (index < 0 || index >= images.length) return;
 		selectedImageIndex = index;
-		// Reset transform for new image
-		resetTransform();
 	}
 
 	function resetTransform() {
-		// Calculate base scale so image fills crop at 100% (no black bars)
-		if (imageElement?.naturalWidth) {
-			baseScale = cropSize / Math.min(imageElement.naturalWidth, imageElement.naturalHeight);
+		if (sourceImage && cropSize > 0) {
+			baseScale =
+				cropSize /
+				Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
 		}
-		scale = MIN_SCALE; // Start at 100%
+		scale = MIN_SCALE;
 		rotation = 0;
-		offsetX = 0;
-		offsetY = 0;
-	}
-
-	function handleImageLoad() {
-		// Calculate base scale so image fills crop at 100% (no black bars)
-		baseScale = cropSize / Math.min(imageElement.naturalWidth, imageElement.naturalHeight);
-		scale = MIN_SCALE; // Start at 100%
 		offsetX = 0;
 		offsetY = 0;
 	}
@@ -108,14 +177,8 @@
 
 	function handleMouseMove(e: MouseEvent) {
 		if (!isDragging) return;
-
-		const dx = e.clientX - lastX;
-		const dy = e.clientY - lastY;
-
-		// Apply delta directly in screen coordinates (offset is applied before rotation in CSS)
-		offsetX += dx;
-		offsetY += dy;
-
+		offsetX += e.clientX - lastX;
+		offsetY += e.clientY - lastY;
 		lastX = e.clientX;
 		lastY = e.clientY;
 	}
@@ -146,15 +209,9 @@
 
 	function handleTouchMove(e: TouchEvent) {
 		e.preventDefault();
-
 		if (e.touches.length === 1 && isDragging) {
-			const dx = e.touches[0].clientX - lastX;
-			const dy = e.touches[0].clientY - lastY;
-
-			// Apply delta directly in screen coordinates (offset is applied before rotation in CSS)
-			offsetX += dx;
-			offsetY += dy;
-
+			offsetX += e.touches[0].clientX - lastX;
+			offsetY += e.touches[0].clientY - lastY;
 			lastX = e.touches[0].clientX;
 			lastY = e.touches[0].clientY;
 		} else if (e.touches.length === 2) {
@@ -219,40 +276,20 @@
 		rotation = Math.min(MAX_ROTATION, rotation + 90);
 	}
 
-	// Save cropped image - uses offscreen canvas only at save time
+	// Save - uses SAME render function as preview for perfect WYSIWYG
 	function saveCrop() {
+		if (!sourceImage) return;
+
 		const outputSize = 400;
 		const canvas = document.createElement("canvas");
 		canvas.width = outputSize;
 		canvas.height = outputSize;
 		const ctx = canvas.getContext("2d");
 
-		if (!ctx || !imageElement) return;
+		if (!ctx) return;
 
-		// Scale factor from display crop to output size
-		const outputScale = outputSize / cropSize;
-
-		ctx.fillStyle = "#0a0a0f";
-		ctx.fillRect(0, 0, outputSize, outputSize);
-
-		// Replicate the exact CSS transform chain (matches CSS order):
-		// 1. Move origin to center of output
-		ctx.translate(outputSize / 2, outputSize / 2);
-		// 2. Apply user offset in screen coordinates (scaled to output)
-		ctx.translate(offsetX * outputScale, offsetY * outputScale);
-		// 3. Apply user rotation
-		ctx.rotate((rotation * Math.PI) / 180);
-		// 4. Apply display scale (baseScale * scale), scaled to output
-		ctx.scale(displayScale * outputScale, displayScale * outputScale);
-
-		// Draw image centered at origin (matches CSS translate(-50%, -50%))
-		ctx.drawImage(
-			imageElement,
-			-imageElement.naturalWidth / 2,
-			-imageElement.naturalHeight / 2,
-			imageElement.naturalWidth,
-			imageElement.naturalHeight,
-		);
+		// Use same render function - guarantees identical output
+		renderToCanvas(ctx, outputSize, cropSize, sourceImage);
 
 		const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
 		onSave(dataUrl, selectedImageIndex);
@@ -337,42 +374,37 @@
 			</div>
 		{/if}
 
-		<!-- Image editor area - CSS transforms instead of canvas -->
+		<!-- Canvas-based editor area -->
 		<div
-			bind:this={containerElement}
 			class="flex items-center justify-center p-4 touch-none"
 			role="application"
 			aria-label="Image editor"
 		>
-		<div
-			class="relative overflow-hidden rounded-lg"
-			style:width="{containerSize}px"
-			style:height="{containerSize}px"
-			style:background="#0a0a0f"
-			onmousedown={handleMouseDown}
-			onmousemove={handleMouseMove}
-			onmouseup={handleMouseUp}
-			onmouseleave={handleMouseUp}
-			onwheel={handleWheel}
-			ontouchstart={handleTouchStart}
-			ontouchmove={handleTouchMove}
-			ontouchend={handleTouchEnd}
-		>
-				<!-- The image with CSS transforms -->
-				<img
-					bind:this={imageElement}
-					src={images[selectedImageIndex].dataUrl}
-					alt="Edit preview"
-					class="absolute pointer-events-none select-none"
-					style:left="50%"
-					style:top="50%"
-					style:transform-origin="center center"
-					style:transform="translate(-50%, -50%) {transformStyle}"
-					onload={handleImageLoad}
-					draggable="false"
-				/>
+			<div
+				class="relative rounded-lg"
+				style:width="{containerSize}px"
+				style:height="{containerSize}px"
+				style:background="#0a0a0f"
+				onmousedown={handleMouseDown}
+				onmousemove={handleMouseMove}
+				onmouseup={handleMouseUp}
+				onmouseleave={handleMouseUp}
+				onwheel={handleWheel}
+				ontouchstart={handleTouchStart}
+				ontouchmove={handleTouchMove}
+				ontouchend={handleTouchEnd}
+				role="img"
+				aria-label="Thumbnail preview canvas"
+			>
+				<!-- Canvas preview - positioned in center of container -->
+				<canvas
+					bind:this={previewCanvas}
+					width={cropSize}
+					height={cropSize}
+					class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-sm pointer-events-none"
+				></canvas>
 
-				<!-- Crop overlay - pure CSS -->
+				<!-- Crop overlay frame - visual indicator only -->
 				<div class="crop-overlay" style:--crop-size="{cropSize}px">
 					<div class="crop-frame"></div>
 				</div>
@@ -552,32 +584,11 @@
 </div>
 
 <style>
-	/* Crop overlay using CSS - no canvas drawing needed */
+	/* Crop overlay - visual frame only, no clipping needed for canvas */
 	.crop-overlay {
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
-	}
-
-	.crop-overlay::before {
-		content: "";
-		position: absolute;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
-		/* Cut out center square using clip-path */
-		clip-path: polygon(
-			/* Outer rectangle */ 0% 0%,
-			0% 100%,
-			100% 100%,
-			100% 0%,
-			0% 0%,
-			/* Inner cutout (clockwise) */ calc(50% - var(--crop-size) / 2)
-				calc(50% - var(--crop-size) / 2),
-			calc(50% + var(--crop-size) / 2) calc(50% - var(--crop-size) / 2),
-			calc(50% + var(--crop-size) / 2) calc(50% + var(--crop-size) / 2),
-			calc(50% - var(--crop-size) / 2) calc(50% + var(--crop-size) / 2),
-			calc(50% - var(--crop-size) / 2) calc(50% - var(--crop-size) / 2)
-		);
 	}
 
 	.crop-frame {
