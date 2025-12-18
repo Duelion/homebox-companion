@@ -3,6 +3,9 @@
  */
 import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
+import { stopRefreshTimer } from '../services/tokenRefresh';
+
+// Note: scheduleRefresh is imported dynamically in setAuthenticatedState to avoid circular dependency
 
 // Storage keys
 const TOKEN_KEY = 'hbc_token';
@@ -54,13 +57,22 @@ if (import.meta.hot) {
 export const isAuthenticated = derived(token, ($token) => !!$token);
 
 /**
+ * Tracks whether initial auth check has completed.
+ * Used to prevent race conditions between layout's initializeAuth and page-level auth checks.
+ */
+export const authInitialized = writable<boolean>(false);
+
+/** Token refresh threshold in milliseconds (5 minutes) */
+const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+
+/**
  * Check if token needs refresh (< 5 minutes remaining)
  */
 export function tokenNeedsRefresh(): boolean {
 	const expires = get(tokenExpiresAt);
 	if (!expires) return false;
 	const remaining = expires.getTime() - Date.now();
-	return remaining < 5 * 60 * 1000; // < 5 minutes
+	return remaining < TOKEN_REFRESH_THRESHOLD_MS;
 }
 
 /**
@@ -83,17 +95,38 @@ export function markSessionExpired(): void {
 }
 
 /**
- * Called after successful re-authentication
+ * Set authenticated state atomically with all required side effects.
+ * This is the canonical way to update auth state - use this instead of
+ * manually setting token/expiry/scheduling refresh.
+ * 
+ * @param newToken - The new auth token
+ * @param expiresAt - The token expiration date
  */
-export function onReauthSuccess(newToken: string): void {
+export function setAuthenticatedState(newToken: string, expiresAt: Date): void {
 	token.set(newToken);
+	tokenExpiresAt.set(expiresAt);
 	sessionExpired.set(false);
+	
+	// Import scheduleRefresh dynamically to avoid circular dependency
+	import('../services/tokenRefresh').then(({ scheduleRefresh }) => {
+		scheduleRefresh();
+	});
+}
+
+/**
+ * Called after successful re-authentication
+ * @param newToken - The new auth token
+ * @param expiresAt - The token expiration date
+ */
+export function onReauthSuccess(newToken: string, expiresAt: Date): void {
+	setAuthenticatedState(newToken, expiresAt);
 }
 
 /**
  * Logout and clear all auth state
  */
 export function logout(): void {
+	stopRefreshTimer();
 	token.set(null);
 	tokenExpiresAt.set(null);
 	sessionExpired.set(false);

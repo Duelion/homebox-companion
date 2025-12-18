@@ -139,7 +139,7 @@ function safeStringify(obj: object): string {
 function serializeError(error: Error, depth = 0): string {
 	// Prevent infinite recursion on malformed cause chains
 	if (depth > 5) return '[max cause depth]';
-	
+
 	const parts = [error.stack || error.message];
 	if (error.cause instanceof Error) {
 		parts.push(`Caused by: ${serializeError(error.cause, depth + 1)}`);
@@ -171,7 +171,7 @@ export function createLogger(options: LoggerOptions) {
 		// Single-pass: find error and build message args
 		let errorArg: Error | undefined;
 		const messageParts: string[] = [];
-		
+
 		for (const arg of args) {
 			if (arg instanceof Error) {
 				// Keep only the first error for structured logging
@@ -184,7 +184,7 @@ export function createLogger(options: LoggerOptions) {
 				messageParts.push(String(arg));
 			}
 		}
-		
+
 		const message = messageParts.join(' ');
 
 		// Format timestamp
@@ -281,3 +281,6 @@ export function createLogger(options: LoggerOptions) {
  */
 export const apiLogger = createLogger({ prefix: 'API' });
 export const workflowLogger = createLogger({ prefix: 'ScanWorkflow' });
+export const settingsLogger = createLogger({ prefix: 'Settings' });
+export const authLogger = createLogger({ prefix: 'Auth' });
+export const qrLogger = createLogger({ prefix: 'QRScanner' });

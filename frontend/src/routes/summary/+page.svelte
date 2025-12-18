@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { labels } from '$lib/stores/labels';
 	import { showToast } from '$lib/stores/ui';
+	import { markSessionExpired } from '$lib/stores/auth';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import { routeGuards } from '$lib/utils/routeGuard';
@@ -93,7 +94,8 @@
 		isSubmitting = false;
 
 		if (result.sessionExpired) {
-			showToast('Session expired. Please log in again.', 'warning');
+			// Token missing - trigger re-auth modal
+			markSessionExpired();
 			return;
 		}
 
@@ -118,7 +120,8 @@
 		isSubmitting = false;
 
 		if (result.sessionExpired) {
-			showToast('Session expired. Please log in again.', 'warning');
+			// Token missing - trigger re-auth modal
+			markSessionExpired();
 			return;
 		}
 

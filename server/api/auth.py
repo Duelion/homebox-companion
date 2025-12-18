@@ -7,7 +7,6 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, Header, HTTPException
 from loguru import logger
-from pydantic import BaseModel
 
 from homebox_companion import AuthenticationError, settings
 
@@ -132,12 +131,12 @@ async def login(request: LoginRequest) -> LoginResponse:
             )
 
         friendly_message = _get_friendly_error_message(e)
-        raise HTTPException(status_code=401, detail=friendly_message) from e
+        raise HTTPException(status_code=503, detail=friendly_message) from e
     except httpx.TimeoutException as e:
         logger.warning("Login failed: Timeout")
         _log_exception_chain(e, "Login: ")
         friendly_message = _get_friendly_error_message(e)
-        raise HTTPException(status_code=401, detail=friendly_message) from e
+        raise HTTPException(status_code=503, detail=friendly_message) from e
     except AuthenticationError as e:
         logger.warning(f"Login failed: {e}")
         _log_exception_chain(e, "Login: ")
@@ -181,7 +180,7 @@ async def login(request: LoginRequest) -> LoginResponse:
         ) from e
 
 
-@router.get("/refresh", response_model=LoginResponse)
+@router.post("/refresh", response_model=LoginResponse)
 async def refresh_token(
     authorization: Annotated[str | None, Header()] = None,
 ) -> LoginResponse:
