@@ -164,14 +164,11 @@
     });
 </script>
 
-<!-- Pull indicator - fixed position, revealed by content sliding down -->
-{#if (pullDistance > 0 || isRefreshing) && enabled}
+<!-- Pull indicator - always rendered, hidden behind header (z-30 < header z-40), revealed as content slides down -->
+{#if enabled}
     <div
-        class="fixed left-1/2 z-20 flex justify-center pointer-events-none"
-        style="top: calc(4rem + env(safe-area-inset-top, 0px) + 0.75rem); transform: translateX(-50%); opacity: {Math.min(
-            pullDistance / 30,
-            1,
-        )}"
+        class="fixed left-1/2 z-30 flex justify-center pointer-events-none"
+        style="top: calc(4rem + env(safe-area-inset-top, 0px) + 0.75rem); transform: translateX(-50%)"
     >
         <div
             class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-colors duration-200
