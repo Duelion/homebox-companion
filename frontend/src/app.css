@@ -11,6 +11,8 @@
 	body {
 		min-height: 100vh;
 		min-height: 100dvh;
+		/* Disable native pull-to-refresh on mobile Chrome */
+		overscroll-behavior-y: none;
 	}
 
 	/* Custom scrollbar */
