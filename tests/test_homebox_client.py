@@ -17,13 +17,20 @@ from homebox_companion import AuthenticationError, HomeboxClient, ItemCreate
 async def test_login_with_valid_credentials_returns_token(
     homebox_api_url: str, homebox_credentials: tuple[str, str]
 ) -> None:
-    """Login with valid credentials should return a bearer token."""
+    """Login with valid credentials should return a login response dict."""
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
 
-        assert token
+        # Should return a dict with token and expiresAt
+        assert response
+        assert isinstance(response, dict)
+        assert "token" in response
+        assert "expiresAt" in response
+
+        # Token should be a non-empty string
+        token = response["token"]
         assert isinstance(token, str)
         assert len(token) > 20  # Tokens are typically long strings
 
@@ -47,7 +54,8 @@ async def test_list_locations_returns_non_empty_list(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
         locations = await client.list_locations(token)
 
         assert locations
@@ -70,7 +78,8 @@ async def test_list_locations_with_filter_children(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
 
         all_locations = await client.list_locations(token)
         filtered_locations = await client.list_locations(token, filter_children=True)
@@ -91,7 +100,8 @@ async def test_get_single_location_returns_with_children(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
         locations = await client.list_locations(token)
 
         assert locations
@@ -112,7 +122,8 @@ async def test_create_item_returns_item_with_id(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
         locations = await client.list_locations(token)
 
         assert locations
@@ -148,7 +159,8 @@ async def test_update_item_returns_updated_values(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
         locations = await client.list_locations(token)
 
         assert locations
@@ -196,7 +208,8 @@ async def test_get_item_returns_full_details(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
         locations = await client.list_locations(token)
 
         assert locations
@@ -230,7 +243,8 @@ async def test_list_labels_returns_labels_list(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
         labels = await client.list_labels(token)
 
         # Demo server might or might not have labels
@@ -251,7 +265,8 @@ async def test_create_location_returns_created_location(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
 
         timestamp = datetime.now(UTC).isoformat(timespec="seconds")
         location_name = f"Test Location {timestamp}"
@@ -276,7 +291,8 @@ async def test_typed_methods_return_correct_types(
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        token = await client.login(username, password)
+        response = await client.login(username, password)
+        token = response["token"]
 
         # Test list_locations_typed
         locations = await client.list_locations_typed(token)
