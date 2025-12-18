@@ -3,13 +3,8 @@
 	import { onMount } from "svelte";
 	import { locations as locationsApi } from "$lib/api";
 	import { sessionExpired } from "$lib/stores/auth";
-	import {
-		locationTree,
-		locationPath,
-		currentLevelLocations,
-		selectedLocation,
-		selectedLocationPath,
-	} from "$lib/stores/locations";
+	import { locationStore } from "$lib/stores/locations.svelte";
+	import { locationNavigator } from "$lib/services/locationNavigator.svelte";
 	import { fetchLabels } from "$lib/stores/labels";
 	import { showToast } from "$lib/stores/ui";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
@@ -17,7 +12,6 @@
 	import { createLogger } from "$lib/utils/logger";
 	import type { Location } from "$lib/types";
 	import Button from "$lib/components/Button.svelte";
-	import Loader from "$lib/components/Loader.svelte";
 	import Skeleton from "$lib/components/Skeleton.svelte";
 	import StepIndicator from "$lib/components/StepIndicator.svelte";
 	import LocationModal from "$lib/components/LocationModal.svelte";
@@ -29,12 +23,7 @@
 	const log = createLogger({ prefix: "LocationPage" });
 
 	// Local UI state
-	let isLoadingLocations = $state(true);
 	let searchQuery = $state("");
-	let allLocationsFlat = $state<{ location: Location; path: string }[]>([]);
-	let wasSessionExpired = $state(false);
-	// Store the current location we're viewing (from navigateInto) for accurate selection
-	let currentNavigatedLocation = $state<Location | null>(null);
 
 	// Modal state
 	let showLocationModal = $state(false);
@@ -50,11 +39,11 @@
 	let showQrScanner = $state(false);
 	let isProcessingQr = $state(false);
 
-	// Derived: filtered locations based on search
+	// Derived: filtered locations based on search (uses store's flatList)
 	let filteredLocations = $derived(
 		searchQuery.trim() === ""
 			? []
-			: allLocationsFlat.filter(
+			: locationStore.flatList.filter(
 					(item) =>
 						item.location.name
 							.toLowerCase()
@@ -68,150 +57,43 @@
 	let isSearching = $derived(searchQuery.trim().length > 0);
 
 	// Reload locations when session is restored after expiry
+	// Use a simple variable to track previous state (not reactive, just storage)
+	let prevSessionExpired = false;
+
 	$effect(() => {
 		const currentExpired = $sessionExpired;
-		if (wasSessionExpired && !currentExpired) {
-			loadLocations();
+		// Detect transition from expired -> restored
+		if (prevSessionExpired && !currentExpired) {
+			locationNavigator.loadTree();
 			fetchLabels();
 		}
-		wasSessionExpired = currentExpired;
+		// Update previous state (plain variable, not tracked by Svelte)
+		prevSessionExpired = currentExpired;
 	});
 
 	// Apply route guard: requires auth, redirects to capture if already in workflow
 	onMount(async () => {
 		if (!routeGuards.location()) return;
 
-		await loadLocations();
+		await locationNavigator.loadTree();
 		await fetchLabels();
 	});
 
-	async function loadLocations() {
-		log.debug("Loading location tree");
-		isLoadingLocations = true;
-		currentNavigatedLocation = null;
-		try {
-			const tree = await locationsApi.tree();
-			log.debug("Loaded location tree, top-level count:", tree.length);
-			locationTree.set(tree);
-			currentLevelLocations.set(tree);
-
-			// Also load flat list for search (without tree structure)
-			const flatList = await locationsApi.list();
-			allLocationsFlat = flattenLocations(flatList, "");
-		} catch (error) {
-			log.error("Failed to load locations", error);
-			showToast("Failed to load locations", "error");
-		} finally {
-			isLoadingLocations = false;
-		}
-	}
-
-	async function refreshCurrentLevel(parentId: string | null) {
-		log.debug("Refreshing current level, parentId:", parentId);
-		isLoadingLocations = true;
-		try {
-			if (parentId) {
-				// Refresh children of the parent location
-				const details = await locationsApi.get(parentId);
-				currentLevelLocations.set(details.children || []);
-				// Update the current navigated location with fresh data
-				currentNavigatedLocation = {
-					id: details.id,
-					name: details.name,
-					description: details.description || "",
-					itemCount: details.itemCount ?? 0,
-					children: details.children || [],
-				};
-
-				// Also refresh the global tree cache to keep it in sync
-				const tree = await locationsApi.tree();
-				locationTree.set(tree);
-			} else {
-				// Refresh top-level locations (tree fetch covers both tree cache and current level)
-				const tree = await locationsApi.tree();
-				locationTree.set(tree);
-				currentLevelLocations.set(tree);
-				currentNavigatedLocation = null;
-			}
-
-			// Also refresh flat list for search
-			const flatList = await locationsApi.list();
-			allLocationsFlat = flattenLocations(flatList, "");
-		} catch (error) {
-			log.error("Failed to refresh current level", error);
-			showToast("Failed to refresh locations", "error");
-		} finally {
-			isLoadingLocations = false;
-		}
-	}
-
-	async function updateBreadcrumbNames() {
-		const path = $locationPath;
-		if (path.length === 0) return;
-
-		try {
-			// Fetch all locations in path to check for name changes
-			const updates = await Promise.all(
-				path.map(async (item) => {
-					const details = await locationsApi.get(item.id);
-					return { id: item.id, name: details.name };
-				}),
-			);
-
-			// Only update if names changed
-			const hasChanges = updates.some(
-				(u, i) => u.name !== path[i].name,
-			);
-			if (hasChanges) {
-				locationPath.set(updates);
-				log.debug("Updated breadcrumb names after refresh");
-			}
-		} catch (error) {
-			log.warn("Failed to update breadcrumb names", error);
-			// Don't show error toast - this is a non-critical enhancement
-		}
-	}
-
 	// Handler for pull-to-refresh: refreshes current view without resetting navigation
 	async function handlePullRefresh() {
-		const path = $locationPath;
+		const path = locationStore.path;
 
-		if ($selectedLocation) {
+		if (locationStore.selected) {
 			// Refresh selected location's details
-			isLoadingLocations = true;
-			try {
-				const details = await locationsApi.get($selectedLocation.id);
-				selectedLocation.set({
-					id: details.id,
-					name: details.name,
-					description: details.description || "",
-					itemCount: details.itemCount ?? 0,
-					children: details.children || [],
-				});
-				// Update workflow if name changed
-				if (details.name !== scanWorkflow.state.locationName) {
-					scanWorkflow.setLocation(
-						details.id,
-						details.name,
-						$selectedLocationPath,
-					);
-				}
-				// Also update breadcrumb names in case parent locations were renamed
-				await updateBreadcrumbNames();
-			} catch (error) {
-				log.error("Failed to refresh selected location", error);
-				showToast("Failed to refresh location", "error");
-			} finally {
-				isLoadingLocations = false;
-			}
+			await locationNavigator.refreshSelected();
 		} else if (path.length > 0) {
 			// Drilled into a location - refresh current level
 			const parentId = path[path.length - 1].id;
-			await refreshCurrentLevel(parentId);
-			await updateBreadcrumbNames();
+			await locationNavigator.refreshCurrentLevel(parentId);
+			await locationNavigator.updateBreadcrumbNames();
 		} else {
 			// At root level - refresh everything
-			await loadLocations();
+			await locationNavigator.loadTree();
 		}
 
 		// Always refresh labels to pick up new labels created by other users
@@ -222,186 +104,32 @@
 		}
 	}
 
-	function flattenLocations(
-		locations: Location[],
-		parentPath: string,
-	): { location: Location; path: string }[] {
-		const result: { location: Location; path: string }[] = [];
-		for (const loc of locations) {
-			const currentPath = parentPath
-				? `${parentPath} › ${loc.name}`
-				: loc.name;
-			result.push({ location: loc, path: currentPath });
-			if (loc.children && loc.children.length > 0) {
-				result.push(...flattenLocations(loc.children, currentPath));
-			}
-		}
-		return result;
-	}
-
-	async function navigateInto(location: Location) {
-		// Always navigate into the location's context, regardless of children
-		log.debug("Navigating into location:", location.name, location.id);
-		isLoadingLocations = true;
-		try {
-			const details = await locationsApi.get(location.id);
-			log.debug(
-				"Loaded location details, children:",
-				details.children?.length ?? 0,
-			);
-			locationPath.update((path) => [
-				...path,
-				{ id: location.id, name: location.name },
-			]);
-			currentLevelLocations.set(details.children || []);
-			// Store the current location with all its data including itemCount
-			currentNavigatedLocation = {
-				id: details.id,
-				name: details.name,
-				description: details.description || "",
-				itemCount: details.itemCount ?? 0,
-				children: details.children || [],
-			};
-		} catch (error) {
-			log.error("Failed to load location details", error);
-			showToast("Failed to load location details", "error");
-			// Fallback to using existing children data
-			locationPath.update((path) => [
-				...path,
-				{ id: location.id, name: location.name },
-			]);
-			currentLevelLocations.set(location.children || []);
-			currentNavigatedLocation = location;
-		} finally {
-			isLoadingLocations = false;
-		}
-	}
-
-	function selectLocation(location: Location, path: string) {
-		log.debug(
-			"Selected location:",
-			location.name,
-			"itemCount:",
-			location.itemCount ?? "unknown",
-		);
-		// Update both the location store (for UI) and the workflow (for scan flow)
-		selectedLocation.set(location);
-		scanWorkflow.setLocation(location.id, location.name, path);
+	function selectFromSearch(item: { location: Location; path: string }) {
+		locationNavigator.selectLocation(item.location, item.path);
 		searchQuery = "";
 	}
 
-	function selectFromSearch(item: { location: Location; path: string }) {
-		selectLocation(item.location, item.path);
-	}
-
-	async function navigateToPath(index: number) {
-		if (index === -1) {
-			// Navigate back to root - refresh tree to ensure it's current
-			isLoadingLocations = true;
-			currentNavigatedLocation = null; // Clear current location
-			try {
-				const tree = await locationsApi.tree();
-				locationTree.set(tree);
-				locationPath.set([]);
-				currentLevelLocations.set(tree);
-			} catch (error) {
-				log.error("Failed to refresh root locations", error);
-				showToast("Failed to load locations", "error");
-				// Fallback to cached tree
-				locationPath.set([]);
-				currentLevelLocations.set($locationTree);
-			} finally {
-				isLoadingLocations = false;
-			}
-		} else {
-			const newPath = $locationPath.slice(0, index + 1);
-			locationPath.set(newPath);
-
-			// Fetch fresh details for the target location to ensure children are up-to-date
-			const targetId = newPath[newPath.length - 1].id;
-			isLoadingLocations = true;
-			try {
-				const details = await locationsApi.get(targetId);
-				currentLevelLocations.set(details.children || []);
-				// Store the navigated location
-				currentNavigatedLocation = {
-					id: details.id,
-					name: details.name,
-					description: details.description || "",
-					itemCount: details.itemCount ?? 0,
-					children: details.children || [],
-				};
-			} catch (error) {
-				log.error("Failed to load location details", error);
-				showToast("Failed to navigate back", "error");
-			} finally {
-				isLoadingLocations = false;
-			}
+	function selectCurrentLocation() {
+		// Use the stored current location from navigateInto instead of traversing stale tree
+		if (locationNavigator.currentLocation) {
+			const pathStr = locationStore.path.map((p) => p.name).join(" / ");
+			locationNavigator.selectLocation(
+				locationNavigator.currentLocation,
+				pathStr,
+			);
 		}
 	}
 
 	async function changeSelection() {
-		const previousPath = [...$locationPath];
-		selectedLocation.set(null);
-		scanWorkflow.clearLocation();
-
-		// If we had a path (user was inside a location), restore it
-		if (previousPath.length > 0) {
-			// Restore the path - user will be brought back to where they were browsing
-			locationPath.set(previousPath);
-
-			// Fetch the location details to get current children
-			const lastPathItem = previousPath[previousPath.length - 1];
-			isLoadingLocations = true;
-			try {
-				const details = await locationsApi.get(lastPathItem.id);
-				currentLevelLocations.set(details.children || []);
-				// Restore the current navigated location
-				currentNavigatedLocation = {
-					id: details.id,
-					name: details.name,
-					description: details.description || "",
-					itemCount: details.itemCount ?? 0,
-					children: details.children || [],
-				};
-			} catch (error) {
-				log.error("Failed to load location details", error);
-				showToast("Failed to restore navigation", "error");
-			} finally {
-				isLoadingLocations = false;
-			}
-		} else {
-			// Was at root level - refresh to show any new locations
-			isLoadingLocations = true;
-			currentNavigatedLocation = null;
-			try {
-				const tree = await locationsApi.tree();
-				locationTree.set(tree);
-				locationPath.set([]);
-				currentLevelLocations.set(tree);
-			} catch (error) {
-				log.error("Failed to refresh locations", error);
-				// Fallback to cached tree
-				locationPath.set([]);
-				currentLevelLocations.set($locationTree);
-			} finally {
-				isLoadingLocations = false;
-			}
-		}
+		await locationNavigator.clearSelection();
 	}
 
 	function continueToCapture() {
-		if (!$selectedLocation) {
+		if (!locationStore.selected) {
 			showToast("Please select a location", "warning");
 			return;
 		}
 		goto("/capture");
-	}
-
-	function getCurrentParent(): { id: string; name: string } | null {
-		if ($locationPath.length === 0) return null;
-		const last = $locationPath[$locationPath.length - 1];
-		return { id: last.id, name: last.name };
 	}
 
 	function openCreateModal(
@@ -439,12 +167,12 @@
 
 				// Refresh current level by fetching parent's children directly
 				// This avoids tree traversal and works at any depth
-				await refreshCurrentLevel(data.parentId);
+				await locationNavigator.refreshCurrentLevel(data.parentId);
 
 				showToast(`Location "${newLocation.name}" created`, "success");
-			} else if (locationModalMode === "edit" && $selectedLocation) {
+			} else if (locationModalMode === "edit" && locationStore.selected) {
 				const updatedLocation = await locationsApi.update(
-					$selectedLocation.id,
+					locationStore.selected.id,
 					{
 						name: data.name,
 						description: data.description,
@@ -458,21 +186,21 @@
 					id: updatedLocation.id,
 					name: updatedLocation.name,
 					description: updatedLocation.description,
-					children: $selectedLocation.children || [],
+					children: locationStore.selected.children || [],
 				};
-				selectedLocation.set(locationData);
+				locationStore.setSelected(locationData);
 
 				// Update workflow with new name
 				scanWorkflow.setLocation(
 					locationData.id,
 					locationData.name,
-					$selectedLocationPath,
+					locationStore.selectedPath,
 				);
 
 				// Refresh flat list for search to show updated name
 				try {
 					const flatList = await locationsApi.list();
-					allLocationsFlat = flattenLocations(flatList, "");
+					locationStore.setFlatList(flatList);
 				} catch (error) {
 					log.warn("Failed to refresh search list after edit", error);
 				}
@@ -539,12 +267,7 @@
 				children: location.children || [],
 			};
 
-			selectedLocation.set(locationData);
-			scanWorkflow.setLocation(
-				locationData.id,
-				locationData.name,
-				locationPath,
-			);
+			locationNavigator.selectLocation(locationData, locationPath);
 		} catch (error) {
 			log.error("QR scan error", error);
 			if (error instanceof Error && error.message.includes("401")) {
@@ -589,7 +312,10 @@
 
 <PullToRefresh
 	onRefresh={handlePullRefresh}
-	enabled={!isLoadingLocations && !showLocationModal && !showItemPicker && !showQrScanner}
+	enabled={!locationNavigator.isLoading &&
+		!showLocationModal &&
+		!showItemPicker &&
+		!showQrScanner}
 >
 	<div class="animate-in">
 		<StepIndicator currentStep={1} />
@@ -599,7 +325,7 @@
 			Choose where your items will be stored
 		</p>
 
-		{#if $selectedLocation}
+		{#if locationStore.selected}
 			<BackLink
 				href="/location"
 				label="Choose a different location"
@@ -607,7 +333,7 @@
 			/>
 		{/if}
 
-		{#if isLoadingLocations}
+		{#if locationNavigator.isLoading}
 			<!-- Skeleton loading state -->
 			<div class="space-y-3">
 				<!-- Search skeleton -->
@@ -639,7 +365,7 @@
 					class="mt-4"
 				/>
 			</div>
-		{:else if $selectedLocation}
+		{:else if locationStore.selected}
 			<!-- SELECTED STATE -->
 			<div class="space-y-4">
 				<!-- Selected location card with ring highlight -->
@@ -666,16 +392,16 @@
 								Selected location:
 							</p>
 							<p class="text-body font-semibold text-neutral-100">
-								{$selectedLocation.name}
+								{locationStore.selected.name}
 							</p>
-							{#if $selectedLocationPath !== $selectedLocation.name}
+							{#if locationStore.selectedPath !== locationStore.selected.name}
 								<p class="text-body-sm text-neutral-500">
-									{$selectedLocationPath}
+									{locationStore.selectedPath}
 								</p>
 							{/if}
-							{#if $selectedLocation.description}
+							{#if locationStore.selected.description}
 								<p class="text-body-sm text-neutral-400 mt-1">
-									{$selectedLocation.description}
+									{locationStore.selected.description}
 								</p>
 							{/if}
 						</div>
@@ -708,7 +434,7 @@
 					variant="secondary"
 					full
 					onclick={openItemPicker}
-					disabled={($selectedLocation?.itemCount ?? 0) === 0}
+					disabled={(locationStore.selected?.itemCount ?? 0) === 0}
 				>
 					<svg
 						class="w-5 h-5"
@@ -725,8 +451,8 @@
 						{#if scanWorkflow.state.parentItemName}
 							Inside: {scanWorkflow.state.parentItemName}
 						{:else}
-							Place Inside an Item ({$selectedLocation?.itemCount ??
-								0})
+							Place Inside an Item ({locationStore.selected
+								?.itemCount ?? 0})
 						{/if}
 					</span>
 				</Button>
@@ -893,14 +619,14 @@
 			{:else}
 				<!-- BROWSE MODE -->
 
-				{#if $locationPath.length > 0}
+				{#if locationStore.path.length > 0}
 					<div
 						class="flex items-center gap-1 overflow-x-auto pb-2 mb-4 text-sm"
 					>
 						<button
 							type="button"
 							class="flex items-center gap-1 px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors whitespace-nowrap"
-							onclick={() => navigateToPath(-1)}
+							onclick={() => locationNavigator.navigateToPath(-1)}
 						>
 							<svg
 								class="w-4 h-4"
@@ -917,7 +643,7 @@
 							<span>All</span>
 						</button>
 
-						{#each $locationPath as pathItem, index}
+						{#each locationStore.path as pathItem, index}
 							<svg
 								class="w-4 h-4 text-neutral-600 shrink-0"
 								fill="none"
@@ -930,7 +656,8 @@
 							<button
 								type="button"
 								class="px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors whitespace-nowrap"
-								onclick={() => navigateToPath(index)}
+								onclick={() =>
+									locationNavigator.navigateToPath(index)}
 							>
 								{pathItem.name}
 							</button>
@@ -942,15 +669,7 @@
 						type="button"
 						class="w-full flex items-center gap-3 p-4 mb-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-primary-500 hover:bg-primary-500/5 transition-all text-left group"
 						aria-label="Select current location"
-						onclick={() => {
-							// Use the stored current location from navigateInto instead of traversing stale tree
-							if (currentNavigatedLocation) {
-								const path = $locationPath
-									.map((p) => p.name)
-									.join(" / ");
-								selectLocation(currentNavigatedLocation, path);
-							}
-						}}
+						onclick={selectCurrentLocation}
 					>
 						<div
 							class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors"
@@ -972,8 +691,9 @@
 							<p
 								class="font-medium text-neutral-100 group-hover:text-primary-400 transition-colors"
 							>
-								Use "{$locationPath[$locationPath.length - 1]
-									.name}"
+								Use "{locationStore.path[
+									locationStore.path.length - 1
+								].name}"
 							</p>
 							<p class="text-body-sm text-neutral-500">
 								Select as item location
@@ -998,7 +718,7 @@
 				{/if}
 
 				<!-- Sublocations section -->
-				{#if $currentLevelLocations.length > 0 && $locationPath.length > 0}
+				{#if locationStore.currentLevel.length > 0 && locationStore.path.length > 0}
 					<div class="flex items-center gap-2 mb-2 mt-2">
 						<div class="flex items-center gap-1.5 text-neutral-500">
 							<svg
@@ -1013,8 +733,9 @@
 								/>
 							</svg>
 							<span class="text-body-sm font-medium"
-								>Inside {$locationPath[$locationPath.length - 1]
-									.name}</span
+								>Inside {locationStore.path[
+									locationStore.path.length - 1
+								].name}</span
 							>
 						</div>
 						<div class="flex-1 h-px bg-neutral-800"></div>
@@ -1023,14 +744,15 @@
 
 				<!-- Location list with improved cards -->
 				<div class="space-y-2">
-					{#each $currentLevelLocations as location}
+					{#each locationStore.currentLevel as location}
 						<button
 							type="button"
-							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900/60 border-neutral-700/70 shadow-sm hover:shadow-md hover:border-neutral-600 hover:bg-neutral-900 transition-all text-left group {$locationPath.length >
-							0
+							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900/60 border-neutral-700/70 shadow-sm hover:shadow-md hover:border-neutral-600 hover:bg-neutral-900 transition-all text-left group {locationStore
+								.path.length > 0
 								? 'ml-2'
 								: ''}"
-							onclick={() => navigateInto(location)}
+							onclick={() =>
+								locationNavigator.navigateInto(location)}
 						>
 							<div
 								class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors"
@@ -1088,7 +810,10 @@
 					<Button
 						variant="secondary"
 						full
-						onclick={() => openCreateModal(getCurrentParent())}
+						onclick={() =>
+							openCreateModal(
+								locationNavigator.getCurrentParent(),
+							)}
 					>
 						<svg
 							class="w-5 h-5"
@@ -1101,9 +826,9 @@
 							<line x1="5" y1="12" x2="19" y2="12" />
 						</svg>
 						<span>
-							{#if $locationPath.length > 0}
-								Create Location in {$locationPath[
-									$locationPath.length - 1
+							{#if locationStore.path.length > 0}
+								Create Location in {locationStore.path[
+									locationStore.path.length - 1
 								].name}
 							{:else}
 								Create New Location
@@ -1120,7 +845,7 @@
 <LocationModal
 	bind:open={showLocationModal}
 	mode={locationModalMode}
-	location={locationModalMode === "edit" ? $selectedLocation : null}
+	location={locationModalMode === "edit" ? locationStore.selected : null}
 	parentLocation={locationModalMode === "create"
 		? createParentLocation
 		: null}
@@ -1128,9 +853,9 @@
 />
 
 <!-- Item Picker Modal -->
-{#if showItemPicker && $selectedLocation}
+{#if showItemPicker && locationStore.selected}
 	<ItemPickerModal
-		locationId={$selectedLocation.id}
+		locationId={locationStore.selected.id}
 		currentItemId={scanWorkflow.state.parentItemId}
 		onSelect={handleParentItemSelect}
 		onClose={() => (showItemPicker = false)}
