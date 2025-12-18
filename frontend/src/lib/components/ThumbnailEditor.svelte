@@ -26,8 +26,8 @@
 	let containerSize = $state(340);
 	let cropSize = $derived(Math.round(containerSize * 0.706));
 
-	// Scale limits - 100% = image width fills crop area
-	// displayScale is computed so that at 1.0, the image width equals crop width
+	// Scale limits - 100% = entire image fits in crop area
+	// displayScale is computed so that at 1.0, the largest dimension equals crop size
 	let baseScale = $state(1); // Calculated when image loads
 	const MIN_SCALE = 1; // 100% - image width fills crop
 	const MAX_SCALE = 5; // 500%
@@ -42,7 +42,7 @@
 	let lastTouchAngle = 0;
 
 	// The actual CSS scale = baseScale * scale
-	// Where baseScale is calculated so image width = crop width
+	// Where baseScale is calculated so entire image fits in crop at 100%
 	// And scale is the user-controlled 1.0 (100%) to 5.0 (500%)
 	let displayScale = $derived(baseScale * scale);
 
@@ -80,9 +80,9 @@
 	}
 
 	function resetTransform() {
-		// Calculate base scale so image width = crop width at 100%
+		// Calculate base scale so entire image fits in crop at 100%
 		if (imageElement?.naturalWidth) {
-			baseScale = cropSize / imageElement.naturalWidth;
+			baseScale = cropSize / Math.max(imageElement.naturalWidth, imageElement.naturalHeight);
 		}
 		scale = MIN_SCALE; // Start at 100%
 		rotation = 0;
@@ -91,8 +91,8 @@
 	}
 
 	function handleImageLoad() {
-		// Calculate base scale so image width = crop width at 100%
-		baseScale = cropSize / imageElement.naturalWidth;
+		// Calculate base scale so entire image fits in crop at 100%
+		baseScale = cropSize / Math.max(imageElement.naturalWidth, imageElement.naturalHeight);
 		scale = MIN_SCALE; // Start at 100%
 		offsetX = 0;
 		offsetY = 0;
@@ -112,10 +112,9 @@
 		const dx = e.clientX - lastX;
 		const dy = e.clientY - lastY;
 
-		// Convert screen delta to rotated space
-		const rad = (-rotation * Math.PI) / 180;
-		offsetX += dx * Math.cos(rad) - dy * Math.sin(rad);
-		offsetY += dx * Math.sin(rad) + dy * Math.cos(rad);
+		// Apply delta directly in screen coordinates (offset is applied before rotation in CSS)
+		offsetX += dx;
+		offsetY += dy;
 
 		lastX = e.clientX;
 		lastY = e.clientY;
@@ -152,10 +151,9 @@
 			const dx = e.touches[0].clientX - lastX;
 			const dy = e.touches[0].clientY - lastY;
 
-			// Convert to rotated space
-			const rad = (-rotation * Math.PI) / 180;
-			offsetX += dx * Math.cos(rad) - dy * Math.sin(rad);
-			offsetY += dx * Math.sin(rad) + dy * Math.cos(rad);
+			// Apply delta directly in screen coordinates (offset is applied before rotation in CSS)
+			offsetX += dx;
+			offsetY += dy;
 
 			lastX = e.touches[0].clientX;
 			lastY = e.touches[0].clientY;
@@ -237,13 +235,13 @@
 		ctx.fillStyle = "#0a0a0f";
 		ctx.fillRect(0, 0, outputSize, outputSize);
 
-		// Replicate the exact CSS transform chain:
+		// Replicate the exact CSS transform chain (matches CSS order):
 		// 1. Move origin to center of output
 		ctx.translate(outputSize / 2, outputSize / 2);
-		// 2. Apply user rotation
-		ctx.rotate((rotation * Math.PI) / 180);
-		// 3. Apply user offset (scaled to output)
+		// 2. Apply user offset in screen coordinates (scaled to output)
 		ctx.translate(offsetX * outputScale, offsetY * outputScale);
+		// 3. Apply user rotation
+		ctx.rotate((rotation * Math.PI) / 180);
 		// 4. Apply display scale (baseScale * scale), scaled to output
 		ctx.scale(displayScale * outputScale, displayScale * outputScale);
 
@@ -411,8 +409,8 @@
 					<div
 						class="flex justify-between text-[10px] text-neutral-600 px-0.5"
 					>
-						<span>Min</span>
 						<span>100%</span>
+						<span>300%</span>
 						<span>500%</span>
 					</div>
 				</div>
