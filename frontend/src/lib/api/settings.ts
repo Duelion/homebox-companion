@@ -47,32 +47,19 @@ export const getLogs = (lines: number = 200) =>
 	request<LogsResponse>(`/logs?lines=${lines}`);
 
 export const downloadLogs = async (filename: string) => {
-	const response = await fetch(`/api/logs/download`, {
-		method: 'GET',
-		headers: {
-			Authorization: `Bearer ${localStorage.getItem('token')}`,
-		},
-	});
+	const { requestBlobUrl } = await import('./client');
 
-	if (!response.ok) {
-		throw new Error('Failed to download log file');
-	}
+	const result = await requestBlobUrl('/logs/download');
 
-	// Create a blob from the response
-	const blob = await response.blob();
-	
-	// Create a temporary URL for the blob
-	const url = window.URL.createObjectURL(blob);
-	
 	// Create a temporary link and trigger download
 	const a = document.createElement('a');
-	a.href = url;
+	a.href = result.url;
 	a.download = filename;
 	document.body.appendChild(a);
 	a.click();
-	
+
 	// Cleanup
-	window.URL.revokeObjectURL(url);
+	result.revoke();
 	document.body.removeChild(a);
 };
 
