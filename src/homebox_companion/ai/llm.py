@@ -380,20 +380,52 @@ async def vision_completion(
     if config.settings.llm_allow_unsafe_models:
         # Without validation, try json_mode by default and let LiteLLM handle it
         response_format = {"type": "json_object"}
+        logger.debug(
+            f"Skipping capability validation for model '{model}' "
+            f"(HBC_LLM_ALLOW_UNSAFE_MODELS=true)"
+        )
     else:
         # Validate model capabilities
         caps = get_model_capabilities(model)
+        
+        logger.debug(
+            f"Model '{model}' capabilities for vision request: "
+            f"vision={caps.vision}, json_mode={caps.json_mode}, multi_image={caps.multi_image}"
+        )
 
         if not caps.vision:
             raise CapabilityNotSupportedError(
-                f"Model '{model}' does not support vision (image inputs). "
-                f"Please use a vision-capable model like gpt-5-mini."
+                f"Model '{model}' does not support vision (image inputs).\n\n"
+                f"Homebox Companion requires a vision-capable model to analyze item photos. "
+                f"LiteLLM reports that '{model}' does not have vision capabilities.\n\n"
+                f"Possible reasons:\n"
+                f"  • The model name is incorrect or misspelled\n"
+                f"  • The model doesn't support image inputs (text-only model)\n"
+                f"  • The provider prefix is missing (e.g., 'openai/' or 'openrouter/')\n\n"
+                f"Officially supported models:\n"
+                f"  • gpt-5-mini (default, recommended)\n"
+                f"  • gpt-5-nano (lower cost per token, but generates more tokens)\n\n"
+                f"Note: While LiteLLM supports many vision models (GPT-4o, Claude 3, Gemini, etc.), "
+                f"this app is tested and optimized for gpt-5 series models. Other models may work but are not officially supported.\n\n"
+                f"If you're using a different vision-capable model and want to bypass this check, "
+                f"set HBC_LLM_ALLOW_UNSAFE_MODELS=true (use with caution - the model must actually support vision).\n\n"
+                f"Configure your model via the HBC_LLM_MODEL environment variable."
             )
 
         if len(image_data_uris) > 1 and not caps.multi_image:
             raise CapabilityNotSupportedError(
-                f"Model '{model}' does not support multiple images in a single request. "
-                f"Please use a multi-image capable model or send images one at a time."
+                f"Model '{model}' does not support multiple images in a single request.\n\n"
+                f"You're trying to analyze {len(image_data_uris)} images at once, but LiteLLM reports "
+                f"that '{model}' only supports single-image inputs.\n\n"
+                f"Officially supported multi-image models:\n"
+                f"  • gpt-5-mini (default, recommended)\n"
+                f"  • gpt-5-nano\n\n"
+                f"These models can analyze multiple images simultaneously for better context and accuracy.\n\n"
+                f"Alternative solutions:\n"
+                f"  • Use one of the supported models above\n"
+                f"  • Process images one at a time (less efficient but may work with your model)\n"
+                f"  • Set HBC_LLM_ALLOW_UNSAFE_MODELS=true to bypass this check (use with caution)\n\n"
+                f"Configure your model via the HBC_LLM_MODEL environment variable."
             )
 
         if caps.json_mode:
