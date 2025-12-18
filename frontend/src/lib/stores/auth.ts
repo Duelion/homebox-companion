@@ -116,7 +116,8 @@ export function setAuthenticatedState(newToken: string, expiresAt: Date): void {
 			scheduleRefresh();
 		})
 		.catch((err) => {
-			log.error('Failed to schedule token refresh:', err);
+			// Log prominently as this means token refresh won't be scheduled
+			log.warn('Failed to schedule token refresh - session may expire unexpectedly:', err);
 		});
 }
 

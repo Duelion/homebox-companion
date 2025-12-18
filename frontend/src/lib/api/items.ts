@@ -16,8 +16,8 @@ export interface UploadOptions {
 }
 
 export const items = {
-	list: (locationId?: string) =>
-		request<ItemSummary[]>(`/items${locationId ? `?location_id=${locationId}` : ''}`),
+	list: (locationId?: string, signal?: AbortSignal) =>
+		request<ItemSummary[]>(`/items${locationId ? `?location_id=${locationId}` : ''}`, { signal }),
 
 	create: (data: BatchCreateRequest, options: CreateOptions = {}) =>
 		request<BatchCreateResponse>('/items', {
