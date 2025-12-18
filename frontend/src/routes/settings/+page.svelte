@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
 	import { isAuthenticated, logout } from "$lib/stores/auth";
-	import { resetLocationState } from "$lib/stores/locations";
+	import { resetLocationState } from "$lib/stores/locations.svelte";
 	import { appVersion } from "$lib/stores/ui";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import {
