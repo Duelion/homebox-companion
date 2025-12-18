@@ -4,6 +4,7 @@
 	import { slide } from 'svelte/transition';
 	import { resetLocationState } from '$lib/stores/locations';
 	import { showToast } from '$lib/stores/ui';
+	import { markSessionExpired } from '$lib/stores/auth';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { checkAuth } from '$lib/utils/token';
 	import { routeGuards } from '$lib/utils/routeGuard';
@@ -202,7 +203,8 @@
 			// Check token validity before starting analysis
 			const isValid = await checkAuth();
 			if (!isValid) {
-				showToast('Session expired. Please log in again.', 'warning');
+				// Token missing - trigger re-auth modal
+				markSessionExpired();
 				return;
 			}
 			

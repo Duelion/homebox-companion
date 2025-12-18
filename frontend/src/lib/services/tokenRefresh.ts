@@ -3,7 +3,7 @@
  * Handles automatic token refresh and scheduling
  */
 import { get } from 'svelte/store';
-import { token, tokenExpiresAt, tokenNeedsRefresh, tokenIsExpired } from '../stores/auth';
+import { token, tokenExpiresAt, tokenNeedsRefresh, tokenIsExpired, authInitialized } from '../stores/auth';
 import { auth } from '../api';
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -15,11 +15,13 @@ let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 export async function refreshToken(): Promise<boolean> {
 	try {
 		const response = await auth.refresh();
-		token.set(response.token);
-		tokenExpiresAt.set(new Date(response.expires_at));
-		scheduleRefresh();
+		// Use setAuthenticatedState to ensure all state updates happen atomically
+		const { setAuthenticatedState } = await import('../stores/auth');
+		setAuthenticatedState(response.token, new Date(response.expires_at));
 		return true;
-	} catch {
+	} catch (error) {
+		// Log error for debugging (previously swallowed silently)
+		console.error('Token refresh failed:', error);
 		return false;
 	}
 }
@@ -58,19 +60,37 @@ export function stopRefreshTimer(): void {
  * Checks local token expiry and schedules refresh if valid
  */
 export async function initializeAuth(): Promise<void> {
-	const currentToken = get(token);
-	if (!currentToken) return;
+	try {
+		const currentToken = get(token);
+		if (!currentToken) {
+			return;
+		}
 
-	// Check local expiry (no server call)
-	if (tokenIsExpired()) {
-		// Token expired locally - clear and require re-login
-		token.set(null);
-		tokenExpiresAt.set(null);
-		return;
+		// Check local expiry (no server call)
+		if (tokenIsExpired()) {
+			// Token expired locally - clear and require re-login
+			token.set(null);
+			tokenExpiresAt.set(null);
+			return;
+		}
+
+		// If token needs refresh (< 5 minutes remaining), refresh immediately
+		// Otherwise, just schedule the next refresh
+		if (tokenNeedsRefresh()) {
+			const refreshed = await refreshToken();
+			if (!refreshed) {
+				// Refresh failed - token might be invalid, clear it
+				token.set(null);
+				tokenExpiresAt.set(null);
+			}
+			// scheduleRefresh() already called by refreshToken() via setAuthenticatedState
+		} else {
+			// Token still has enough time - schedule refresh for later
+			scheduleRefresh();
+		}
+	} finally {
+		// Mark auth as initialized regardless of outcome
+		authInitialized.set(true);
 	}
-
-	// Token still valid locally - schedule refresh
-	// If token is actually invalid server-side, any API call will trigger 401 → refresh → retry
-	scheduleRefresh();
 }
 
