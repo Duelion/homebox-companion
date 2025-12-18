@@ -164,11 +164,19 @@
     });
 </script>
 
-<!-- Pull indicator - always rendered, hidden behind header (z-30 < header z-40), revealed as content slides down -->
+<!-- 
+    Pull indicator - fixed position with opacity-based visibility.
+    Since the header uses glass/transparency, we can't rely solely on z-index.
+    The arrow fades in as user pulls (opacity), while staying in place (no translateY).
+    Combined with content sliding down, this creates a natural "reveal" effect.
+-->
 {#if enabled}
     <div
-        class="fixed left-1/2 z-30 flex justify-center pointer-events-none"
-        style="top: calc(4rem + env(safe-area-inset-top, 0px) + 0.75rem); transform: translateX(-50%)"
+        class="fixed left-1/2 z-30 flex justify-center pointer-events-none transition-opacity duration-150"
+        style="top: calc(4rem + env(safe-area-inset-top, 0px) + 0.75rem); transform: translateX(-50%); opacity: {Math.min(
+            pullDistance / 40,
+            1,
+        )}"
     >
         <div
             class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-colors duration-200
