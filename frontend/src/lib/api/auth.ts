@@ -6,11 +6,8 @@ import { request } from './client';
 
 export interface LoginResponse {
 	token: string;
+	expires_at: string;
 	message: string;
-}
-
-export interface ValidateResponse {
-	valid: boolean;
 }
 
 export const auth = {
@@ -21,9 +18,9 @@ export const auth = {
 		}),
 	
 	/**
-	 * Validate the current token against the server.
-	 * Returns { valid: true } if valid, throws ApiError with 401 if invalid.
+	 * Refresh the current token to extend its expiry.
+	 * Returns new token and expiry time, throws ApiError with 401 if token is invalid.
 	 */
-	validate: () => request<ValidateResponse>('/validate'),
+	refresh: () => request<LoginResponse>('/refresh'),
 };
 

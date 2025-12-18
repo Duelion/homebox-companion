@@ -7,6 +7,7 @@
 	import { isOnline, appVersion, latestVersion, updateDismissed } from '$lib/stores/ui';
 	import { getVersion, getConfig } from '$lib/api';
 	import { setLogLevel } from '$lib/utils/logger';
+	import { initializeAuth } from '$lib/services/tokenRefresh';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
@@ -35,6 +36,9 @@
 	// Fetch version on mount and register event listeners
 	onMount(async () => {
 		if (browser) {
+			// Initialize auth (check token, refresh if needed)
+			await initializeAuth();
+
 			// Check online status and register listeners
 			isOnline.set(navigator.onLine);
 			window.addEventListener('online', handleOnline);

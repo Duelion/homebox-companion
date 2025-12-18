@@ -14,4 +14,5 @@ class LoginResponse(BaseModel):
     """Login response with token."""
 
     token: str
+    expires_at: str
     message: str = "Login successful"

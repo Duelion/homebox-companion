@@ -1,104 +1,102 @@
 /**
  * Authentication store
  */
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
 
-// Token stored in sessionStorage
-const storedToken = browser ? sessionStorage.getItem('hbc_token') : null;
+// Storage keys
+const TOKEN_KEY = 'hbc_token';
+const EXPIRES_KEY = 'hbc_token_expires';
+
+// Load from localStorage
+const storedToken = browser ? localStorage.getItem(TOKEN_KEY) : null;
+const storedExpires = browser ? localStorage.getItem(EXPIRES_KEY) : null;
 
 export const token = writable<string | null>(storedToken);
+export const tokenExpiresAt = writable<Date | null>(
+	storedExpires ? new Date(storedExpires) : null
+);
 
-// Persist token to sessionStorage with proper HMR cleanup
+// Persist token to localStorage with proper HMR cleanup
 let tokenUnsubscribe: (() => void) | undefined;
+let expiresUnsubscribe: (() => void) | undefined;
 
 if (browser) {
-	// Clean up any existing subscription (handles HMR)
+	// Clean up any existing subscriptions (handles HMR)
 	tokenUnsubscribe?.();
+	expiresUnsubscribe?.();
 
 	tokenUnsubscribe = token.subscribe((value) => {
 		if (value) {
-			sessionStorage.setItem('hbc_token', value);
+			localStorage.setItem(TOKEN_KEY, value);
 		} else {
-			sessionStorage.removeItem('hbc_token');
+			localStorage.removeItem(TOKEN_KEY);
+		}
+	});
+
+	expiresUnsubscribe = tokenExpiresAt.subscribe((value) => {
+		if (value) {
+			localStorage.setItem(EXPIRES_KEY, value.toISOString());
+		} else {
+			localStorage.removeItem(EXPIRES_KEY);
 		}
 	});
 }
 
-// Clean up subscription during Vite HMR
+// Clean up subscriptions during Vite HMR
 if (import.meta.hot) {
 	import.meta.hot.dispose(() => {
 		tokenUnsubscribe?.();
+		expiresUnsubscribe?.();
 	});
 }
 
 export const isAuthenticated = derived(token, ($token) => !!$token);
 
 /**
- * Reason for session expiry - helps show appropriate UI feedback
+ * Check if token needs refresh (< 5 minutes remaining)
  */
-export type SessionExpiredReason = 
-	| 'expired'      // Token expired (401 from server)
-	| 'network'      // Network error (couldn't reach server)
-	| 'server_error' // Server error (5xx response)
-	| 'unknown';     // Unknown error
+export function tokenNeedsRefresh(): boolean {
+	const expires = get(tokenExpiresAt);
+	if (!expires) return false;
+	const remaining = expires.getTime() - Date.now();
+	return remaining < 5 * 60 * 1000; // < 5 minutes
+}
+
+/**
+ * Check if token is expired
+ */
+export function tokenIsExpired(): boolean {
+	const expires = get(tokenExpiresAt);
+	if (!expires) return true;
+	return expires.getTime() < Date.now();
+}
 
 // Session expiry state
 export const sessionExpired = writable<boolean>(false);
 
-// Reason for session expiry (for differentiated UI feedback)
-export const sessionExpiredReason = writable<SessionExpiredReason | null>(null);
-
-// Queue of callbacks to retry after re-auth
-let pendingRequests: Array<() => void> = [];
-
 /**
- * Clear all pending retry callbacks.
- * Call this when the session expired modal is dismissed without re-auth,
- * or during cleanup to prevent memory leaks.
+ * Mark the session as expired and show re-auth modal
  */
-export function clearPendingRequests(): void {
-	pendingRequests = [];
-}
-
-// Clean up pending requests during Vite HMR
-if (import.meta.hot) {
-	import.meta.hot.dispose(() => {
-		clearPendingRequests();
-	});
-}
-
-export function markSessionExpired(reason: SessionExpiredReason = 'expired', retryCallback?: () => void) {
-	if (retryCallback) pendingRequests.push(retryCallback);
-	sessionExpiredReason.set(reason);
+export function markSessionExpired(): void {
 	sessionExpired.set(true);
 }
 
-export function onReauthSuccess(newToken: string) {
+/**
+ * Called after successful re-authentication
+ */
+export function onReauthSuccess(newToken: string): void {
 	token.set(newToken);
 	sessionExpired.set(false);
-	sessionExpiredReason.set(null);
-	// Retry all pending requests
-	const callbacks = pendingRequests;
-	pendingRequests = [];
-	callbacks.forEach((cb) => cb());
 }
 
 /**
- * Dismiss the session expired modal without re-authenticating.
- * Clears any pending retry callbacks to prevent memory leaks.
+ * Logout and clear all auth state
  */
-export function dismissSessionExpired(): void {
-	sessionExpired.set(false);
-	sessionExpiredReason.set(null);
-	clearPendingRequests();
-}
-
-export function logout() {
+export function logout(): void {
 	token.set(null);
+	tokenExpiresAt.set(null);
 	sessionExpired.set(false);
-	sessionExpiredReason.set(null);
-	clearPendingRequests();
 }
 
 

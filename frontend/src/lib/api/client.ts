@@ -5,6 +5,7 @@
 import { get } from 'svelte/store';
 import { token, markSessionExpired, logout } from '../stores/auth';
 import { apiLogger as log } from '../utils/logger';
+import { refreshToken } from '../services/tokenRefresh';
 
 const BASE_URL = '/api';
 
@@ -73,29 +74,56 @@ export class NetworkError extends Error {
 	}
 }
 
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 /**
- * Check if response is a 401 and handle authentication failure.
- * 
- * - If a token exists: marks session as expired (shows re-auth modal)
- * - If no token exists: calls logout() to clear any stale state
- * 
- * @returns true if session expired modal was triggered, false otherwise
+ * Attempt to refresh the token once, preventing concurrent refresh attempts
  */
-function handleUnauthorized(response: Response): boolean {
-	if (response.status === 401) {
-		const authToken = get(token);
-		if (authToken) {
-			// Token exists but was rejected - session expired
-			markSessionExpired('expired');
-			return true;
-		} else {
-			// No token but got 401 - likely login failure or stale state
-			// Clear any potential stale auth state to ensure clean UI
-			logout();
-			return false;
-		}
+async function attemptRefreshOnce(): Promise<boolean> {
+	if (isRefreshing && refreshPromise) {
+		return refreshPromise;
 	}
-	return false;
+	isRefreshing = true;
+	refreshPromise = refreshToken();
+	const result = await refreshPromise;
+	isRefreshing = false;
+	refreshPromise = null;
+	return result;
+}
+
+/**
+ * Handle 401 response with automatic token refresh and retry.
+ * 
+ * - If no token exists: calls logout() to clear stale state
+ * - If token exists: attempts refresh and signals whether to retry
+ * - If refresh fails: shows re-auth modal
+ * 
+ * @param response - The 401 response
+ * @returns true if request should be retried with new token, false otherwise
+ */
+async function handleUnauthorized(response: Response): Promise<boolean> {
+	if (response.status !== 401) {
+		return false;
+	}
+
+	const authToken = get(token);
+	if (!authToken) {
+		// No token but got 401 - likely login failure or stale state
+		logout();
+		return false;
+	}
+
+	// Token exists but was rejected - try to refresh
+	const refreshSucceeded = await attemptRefreshOnce();
+	if (!refreshSucceeded) {
+		// Refresh failed - show re-auth modal
+		markSessionExpired();
+		return false;
+	}
+
+	// Refresh succeeded - caller should retry the request
+	return true;
 }
 
 /**
@@ -205,6 +233,7 @@ export interface RequestOptions extends RequestInit {
 
 /**
  * Make a JSON API request with automatic auth header, timeout, and error handling.
+ * Automatically retries once if token refresh succeeds after a 401.
  * 
  * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
@@ -213,31 +242,37 @@ export interface RequestOptions extends RequestInit {
  * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-	const authToken = get(token);
 	const timeoutMs = options.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
-	const headers: HeadersInit = {
-		...options.headers,
+	// Helper to build headers with current token
+	const buildHeaders = (): HeadersInit => {
+		const authToken = get(token);
+		const headers: HeadersInit = {
+			...options.headers,
+		};
+
+		if (authToken) {
+			(headers as Record<string, string>)['Authorization'] = `Bearer ${authToken}`;
+		}
+
+		if (options.body && typeof options.body === 'string') {
+			(headers as Record<string, string>)['Content-Type'] = 'application/json';
+		}
+
+		return headers;
 	};
-
-	if (authToken) {
-		(headers as Record<string, string>)['Authorization'] = `Bearer ${authToken}`;
-	}
-
-	if (options.body && typeof options.body === 'string') {
-		(headers as Record<string, string>)['Content-Type'] = 'application/json';
-	}
 
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal = timeoutMs > 0 && timeoutMs < Infinity 
 		? createTimeoutSignal(options.signal, timeoutMs)
 		: options.signal;
 
+	// First attempt
 	let response: Response;
 	try {
 		response = await fetch(`${BASE_URL}${endpoint}`, {
 			...options,
-			headers,
+			headers: buildHeaders(),
 			signal,
 		});
 	} catch (error) {
@@ -246,11 +281,28 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		throw networkError;
 	}
 
-	if (!response.ok) {
-		if (handleUnauthorized(response)) {
-			throw new ApiError(401, 'Session expired');
+	// Handle 401 with automatic retry after refresh
+	if (!response.ok && response.status === 401) {
+		const shouldRetry = await handleUnauthorized(response);
+		if (shouldRetry) {
+			// Token was refreshed - retry the request with new token
+			log.debug(`Retrying ${endpoint} after token refresh`);
+			try {
+				response = await fetch(`${BASE_URL}${endpoint}`, {
+					...options,
+					headers: buildHeaders(),
+					signal,
+				});
+			} catch (error) {
+				const networkError = wrapFetchError(error, endpoint);
+				log.error(`Network error on retry for ${endpoint}`, networkError);
+				throw networkError;
+			}
 		}
+	}
 
+	// Handle other errors
+	if (!response.ok) {
 		let errorData: unknown;
 		try {
 			errorData = await response.json();
@@ -302,6 +354,7 @@ export interface BlobUrlRequestOptions {
 
 /**
  * Fetch a binary resource (image, file) with authentication, timeout, and return a blob URL with cleanup.
+ * Automatically retries once if token refresh succeeds after a 401.
  * 
  * IMPORTANT: Blob URLs hold references to underlying data and MUST be revoked to avoid memory leaks.
  * Call `result.revoke()` when the URL is no longer needed (e.g., in onDestroy or when removing an image).
@@ -345,18 +398,23 @@ export async function requestBlobUrl(
 		? { signal: options } 
 		: (options ?? {});
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
-	
-	const authToken = get(token);
+
+	// Helper to build headers with current token
+	const buildHeaders = (): HeadersInit => {
+		const authToken = get(token);
+		return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal = timeoutMs > 0 && timeoutMs < Infinity
 		? createTimeoutSignal(opts.signal, timeoutMs)
 		: opts.signal;
 
+	// First attempt
 	let response: Response;
 	try {
 		response = await fetch(`${BASE_URL}${endpoint}`, {
-			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+			headers: buildHeaders(),
 			signal,
 		});
 	} catch (error) {
@@ -365,10 +423,27 @@ export async function requestBlobUrl(
 		throw networkError;
 	}
 
-	if (!response.ok) {
-		if (handleUnauthorized(response)) {
-			throw new ApiError(401, 'Session expired');
+	// Handle 401 with automatic retry after refresh
+	if (!response.ok && response.status === 401) {
+		const shouldRetry = await handleUnauthorized(response);
+		if (shouldRetry) {
+			// Token was refreshed - retry the request with new token
+			log.debug(`Retrying blob request ${endpoint} after token refresh`);
+			try {
+				response = await fetch(`${BASE_URL}${endpoint}`, {
+					headers: buildHeaders(),
+					signal,
+				});
+			} catch (error) {
+				const networkError = wrapFetchError(error, endpoint);
+				log.debug(`Blob request network error on retry for ${endpoint}:`, networkError.message);
+				throw networkError;
+			}
 		}
+	}
+
+	// Handle other errors
+	if (!response.ok) {
 		log.debug(`Blob request failed for ${endpoint}: ${response.status}`);
 		throw new ApiError(
 			response.status,
@@ -387,6 +462,7 @@ export async function requestBlobUrl(
 
 /**
  * Make a FormData API request with automatic auth header, timeout, and error handling.
+ * Automatically retries once if token refresh succeeds after a 401.
  * Use this for file uploads and multipart form submissions.
  * 
  * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
@@ -406,20 +482,25 @@ export async function requestFormData<T>(
 		: options;
 	const errorMessage = opts.errorMessage ?? 'Request failed';
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
-	
-	const authToken = get(token);
+
+	// Helper to build headers with current token
+	const buildHeaders = (): HeadersInit => {
+		const authToken = get(token);
+		return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal = timeoutMs > 0 && timeoutMs < Infinity
 		? createTimeoutSignal(opts.signal, timeoutMs)
 		: opts.signal;
 
+	// First attempt
 	let response: Response;
 	try {
 		log.debug(`FormData request to ${endpoint}`);
 		response = await fetch(`${BASE_URL}${endpoint}`, {
 			method: 'POST',
-			headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+			headers: buildHeaders(),
 			body: formData,
 			signal,
 		});
@@ -431,10 +512,30 @@ export async function requestFormData<T>(
 
 	log.debug(`Response from ${endpoint}:`, response.status, response.statusText);
 
-	if (!response.ok) {
-		if (handleUnauthorized(response)) {
-			throw new ApiError(401, 'Session expired');
+	// Handle 401 with automatic retry after refresh
+	if (!response.ok && response.status === 401) {
+		const shouldRetry = await handleUnauthorized(response);
+		if (shouldRetry) {
+			// Token was refreshed - retry the request with new token
+			log.debug(`Retrying FormData request ${endpoint} after token refresh`);
+			try {
+				response = await fetch(`${BASE_URL}${endpoint}`, {
+					method: 'POST',
+					headers: buildHeaders(),
+					body: formData,
+					signal,
+				});
+				log.debug(`Retry response from ${endpoint}:`, response.status, response.statusText);
+			} catch (error) {
+				const networkError = wrapFetchError(error, endpoint);
+				log.error(`Network error on retry for ${endpoint}`, networkError);
+				throw networkError;
+			}
 		}
+	}
+
+	// Handle other errors
+	if (!response.ok) {
 		const error = await response.json().catch(() => ({}));
 		throw new ApiError(
 			response.status,

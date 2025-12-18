@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { auth, getConfig } from '$lib/api';
-	import { token, isAuthenticated } from '$lib/stores/auth';
+	import { token, tokenExpiresAt, isAuthenticated } from '$lib/stores/auth';
 	import { showToast, setLoading } from '$lib/stores/ui';
+	import { scheduleRefresh } from '$lib/services/tokenRefresh';
 	import Button from '$lib/components/Button.svelte';
 	import { onMount } from 'svelte';
 
@@ -45,6 +46,8 @@
 	try {
 		const response = await auth.login(email, password);
 		token.set(response.token);
+		tokenExpiresAt.set(new Date(response.expires_at));
+		scheduleRefresh();
 		goto('/location');
 	} catch (error) {
 			console.error('Login failed:', error);
