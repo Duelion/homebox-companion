@@ -46,8 +46,11 @@
     let startY = 0;
     let currentY = 0;
 
-    // Progress towards threshold (0 to 1+)
-    let progress = $derived(Math.min(pullDistance / threshold, 1.5));
+    // Progress towards threshold (0 to 1, capped)
+    let progress = $derived(Math.min(pullDistance / threshold, 1));
+
+    // Arrow rotation: starts at 180deg (pointing down), rotates to 0deg (pointing up) at threshold
+    let arrowRotation = $derived(180 - progress * 180);
 
     // Visual states
     let shouldTrigger = $derived(pullDistance >= threshold);
@@ -144,7 +147,7 @@
 				{isRefreshing || shouldTrigger
                 ? 'bg-primary-600/20 border border-primary-500/50 text-primary-400'
                 : 'bg-neutral-800/95 border border-neutral-600/50 text-neutral-400'}"
-            style="transform: rotate({progress * 180}deg)"
+            style="transform: rotate({arrowRotation}deg)"
         >
             {#if isRefreshing}
                 <!-- Spinner -->
