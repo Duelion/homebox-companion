@@ -36,10 +36,21 @@
 				});
 			}
 
-			// Now safe to check authentication status
+			// Check if token exists and validate it before redirecting
 			if (get(isAuthenticated)) {
-				goto("/location");
-				return;
+				log.debug("Token found, validating before redirect...");
+				const isValid = await auth.validateToken();
+				if (isValid) {
+					log.debug("Token valid, redirecting to /location");
+					goto("/location");
+					return;
+				} else {
+					log.debug("Token invalid or expired, clearing auth state");
+					// Token is invalid - clear it so user can log in
+					// Import logout dynamically to avoid circular dependency issues
+					const { logout } = await import("$lib/stores/auth");
+					logout();
+				}
 			}
 
 			// Check if in demo mode and auto-fill credentials
