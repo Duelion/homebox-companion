@@ -43,7 +43,8 @@ class HomeboxClient:
 
     Example:
         >>> async with HomeboxClient() as client:
-        ...     token = await client.login("user@example.com", "password")
+        ...     response = await client.login("user@example.com", "password")
+        ...     token = response["token"]
         ...     locations = await client.list_locations(token)
     """
 
