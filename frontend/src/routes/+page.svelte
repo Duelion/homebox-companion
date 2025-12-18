@@ -115,7 +115,7 @@
 			class="w-20 h-20 bg-primary-600/20 rounded-2xl flex items-center justify-center mb-10 shadow-lg"
 		>
 			<svg
-				class="w-10 h-10 text-primary-400"
+				class="w-14 h-14 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
