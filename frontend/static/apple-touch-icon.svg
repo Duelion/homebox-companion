@@ -18,21 +18,8 @@
   <!-- Solid background (original color) -->
   <rect x="0" y="0" width="180" height="180" fill="#282653"/>
   
-  <!-- Icon with subtle 3D depth effect -->
+  <!-- Icon (no shadow) -->
   <g transform="translate(90, 90) scale(6.5) translate(-12, -12)">
-    <!-- Subtle drop shadow underneath -->
-    <g
-      fill="none"
-      stroke="#0f0d1e"
-      stroke-width="1.5"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      opacity="0.25"
-      transform="translate(0, 0.3)"
-    >
-      <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-    </g>
-    
     <!-- Main icon (original color) -->
     <g
       fill="none"
