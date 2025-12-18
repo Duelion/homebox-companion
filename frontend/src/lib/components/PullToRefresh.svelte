@@ -61,117 +61,117 @@
     // Visual states
     let shouldTrigger = $derived(pullDistance >= threshold);
 
-	function handleTouchStart(e: TouchEvent) {
-		if (!enabled || isRefreshing) return;
+    function handleTouchStart(e: TouchEvent) {
+        if (!enabled || isRefreshing) return;
 
-		// Only activate if at top of page (with tolerance for fractional scroll values)
-		if (window.scrollY > 1) return;
+        // Only activate if at top of page (with tolerance for fractional scroll values)
+        if (window.scrollY > 1) return;
 
-		// Only handle single touch (ignore multi-touch gestures)
-		if (e.touches.length !== 1) return;
+        // Only handle single touch (ignore multi-touch gestures)
+        if (e.touches.length !== 1) return;
 
-		startY = e.touches[0].clientY;
-		isPulling = true;
-	}
+        startY = e.touches[0].clientY;
+        isPulling = true;
+    }
 
-	function handleTouchMove(e: TouchEvent) {
-		if (!isPulling || !enabled || isRefreshing) return;
+    function handleTouchMove(e: TouchEvent) {
+        if (!isPulling || !enabled || isRefreshing) return;
 
-		// Ensure we're still in single-touch mode
-		if (e.touches.length !== 1) {
-			resetPullState();
-			return;
-		}
+        // Ensure we're still in single-touch mode
+        if (e.touches.length !== 1) {
+            resetPullState();
+            return;
+        }
 
-		currentY = e.touches[0].clientY;
-		const diff = currentY - startY;
+        currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
 
-		// Only allow pulling down, not up
-		if (diff > 0) {
-			// Apply resistance - gets harder to pull as you go further
-			pullDistance = Math.pow(diff, 0.8);
+        // Only allow pulling down, not up
+        if (diff > 0) {
+            // Apply resistance - gets harder to pull as you go further
+            pullDistance = Math.pow(diff, 0.8);
 
-			// Prevent native scroll while pulling (with tolerance)
-			if (window.scrollY <= 1 && diff > 10) {
-				e.preventDefault();
-			}
-		} else {
-			pullDistance = 0;
-		}
-	}
+            // Prevent native scroll while pulling (with tolerance)
+            if (window.scrollY <= 1 && diff > 10) {
+                e.preventDefault();
+            }
+        } else {
+            pullDistance = 0;
+        }
+    }
 
-	async function handleTouchEnd() {
-		if (!isPulling || !enabled) return;
+    async function handleTouchEnd() {
+        if (!isPulling || !enabled) return;
 
-		isPulling = false;
+        isPulling = false;
 
-		if (shouldTrigger && !isRefreshing) {
-			isRefreshing = true;
-			// Keep indicator visible during refresh
-			pullDistance = threshold;
+        if (shouldTrigger && !isRefreshing) {
+            isRefreshing = true;
+            // Keep indicator visible during refresh
+            pullDistance = threshold;
 
-			try {
-				await onRefresh();
-			} finally {
-				isRefreshing = false;
-				pullDistance = 0;
-			}
-		} else {
-			// Snap back
-			pullDistance = 0;
-		}
+            try {
+                await onRefresh();
+            } finally {
+                isRefreshing = false;
+                pullDistance = 0;
+            }
+        } else {
+            // Snap back
+            pullDistance = 0;
+        }
 
-		startY = 0;
-		currentY = 0;
-	}
+        startY = 0;
+        currentY = 0;
+    }
 
-	function handleTouchCancel() {
-		// Reset state if touch is interrupted (e.g., by system gesture)
-		resetPullState();
-	}
+    function handleTouchCancel() {
+        // Reset state if touch is interrupted (e.g., by system gesture)
+        resetPullState();
+    }
 
-	function resetPullState() {
-		isPulling = false;
-		pullDistance = 0;
-		startY = 0;
-		currentY = 0;
-	}
+    function resetPullState() {
+        isPulling = false;
+        pullDistance = 0;
+        startY = 0;
+        currentY = 0;
+    }
 
-	// Register global touch listeners for better gesture tracking
-	onMount(() => {
-		if (!browser) return;
+    // Register global touch listeners for better gesture tracking
+    onMount(() => {
+        if (!browser) return;
 
-		// Use passive: false to allow preventDefault on touchmove
-		window.addEventListener("touchstart", handleTouchStart, {
-			passive: true,
-		});
-		window.addEventListener("touchmove", handleTouchMove, {
-			passive: false,
-		});
-		window.addEventListener("touchend", handleTouchEnd, { passive: true });
-		window.addEventListener("touchcancel", handleTouchCancel, {
-			passive: true,
-		});
-	});
+        // Use passive: false to allow preventDefault on touchmove
+        window.addEventListener("touchstart", handleTouchStart, {
+            passive: true,
+        });
+        window.addEventListener("touchmove", handleTouchMove, {
+            passive: false,
+        });
+        window.addEventListener("touchend", handleTouchEnd, { passive: true });
+        window.addEventListener("touchcancel", handleTouchCancel, {
+            passive: true,
+        });
+    });
 
-	onDestroy(() => {
-		if (!browser) return;
+    onDestroy(() => {
+        if (!browser) return;
 
-		window.removeEventListener("touchstart", handleTouchStart);
-		window.removeEventListener("touchmove", handleTouchMove);
-		window.removeEventListener("touchend", handleTouchEnd);
-		window.removeEventListener("touchcancel", handleTouchCancel);
-	});
+        window.removeEventListener("touchstart", handleTouchStart);
+        window.removeEventListener("touchmove", handleTouchMove);
+        window.removeEventListener("touchend", handleTouchEnd);
+        window.removeEventListener("touchcancel", handleTouchCancel);
+    });
 </script>
 
-<!-- Pull indicator - starts hidden above header, slides down when pulling -->
+<!-- Pull indicator - fixed position, revealed by content sliding down -->
 {#if (pullDistance > 0 || isRefreshing) && enabled}
     <div
-        class="fixed left-1/2 z-30 flex justify-center pointer-events-none"
-        style="top: calc(4rem + env(safe-area-inset-top, 0px)); transform: translateX(-50%) translateY({Math.min(
-            pullDistance,
-            threshold * 1.2,
-        ) - 60}px); opacity: {Math.min(pullDistance / 30, 1)}"
+        class="fixed left-1/2 z-20 flex justify-center pointer-events-none"
+        style="top: calc(4rem + env(safe-area-inset-top, 0px) + 0.75rem); transform: translateX(-50%); opacity: {Math.min(
+            pullDistance / 30,
+            1,
+        )}"
     >
         <div
             class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-colors duration-200
