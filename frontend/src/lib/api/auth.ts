@@ -16,14 +16,18 @@ export const auth = {
 			method: 'POST',
 			body: JSON.stringify({ username, password }),
 		}),
-	
+
 	/**
 	 * Refresh the current token to extend its expiry.
 	 * Returns new token and expiry time, throws ApiError with 401 if token is invalid.
+	 * 
+	 * Note: Uses skipAuthRetry to prevent infinite loops - if refresh fails with 401,
+	 * we don't want to try refreshing again.
 	 */
 	refresh: () =>
 		request<LoginResponse>('/refresh', {
 			method: 'POST',
+			skipAuthRetry: true,
 		}),
 };
 

@@ -26,11 +26,11 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
  */
 function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): AbortSignal {
 	const timeoutSignal = AbortSignal.timeout(timeoutMs);
-	
+
 	if (!callerSignal) {
 		return timeoutSignal;
 	}
-	
+
 	// Combine caller signal with timeout signal
 	// AbortSignal.any() combines multiple signals - aborts when any one aborts
 	return AbortSignal.any([callerSignal, timeoutSignal]);
@@ -157,7 +157,7 @@ function wrapFetchError(error: unknown, endpoint: string): NetworkError {
 			// cancellation detection pattern (error.name === 'AbortError')
 			throw error;
 		}
-		
+
 		// Check for timeout explicitly (some implementations use TimeoutError)
 		if (error.name === 'TimeoutError') {
 			return new NetworkError(
@@ -166,14 +166,14 @@ function wrapFetchError(error: unknown, endpoint: string): NetworkError {
 				{ isTimeout: true }
 			);
 		}
-		
+
 		// Generic network error (connection refused, DNS failure, etc.)
 		return new NetworkError(
 			`Network error while fetching ${endpoint}: ${error.message}`,
 			error
 		);
 	}
-	
+
 	// Unknown error type, wrap in a generic Error first
 	const wrappedError = new Error(String(error));
 	return new NetworkError(
@@ -229,6 +229,12 @@ export interface RequestOptions extends RequestInit {
 	 * Set to 0 or Infinity to disable timeout.
 	 */
 	timeout?: number;
+	/**
+	 * Skip automatic 401 handling and token refresh retry.
+	 * Used internally for the refresh endpoint to avoid circular retry loops.
+	 * When true, a 401 response will immediately throw an ApiError.
+	 */
+	skipAuthRetry?: boolean;
 }
 
 /**
@@ -263,7 +269,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
-	const signal = timeoutMs > 0 && timeoutMs < Infinity 
+	const signal = timeoutMs > 0 && timeoutMs < Infinity
 		? createTimeoutSignal(options.signal, timeoutMs)
 		: options.signal;
 
@@ -282,15 +288,16 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	}
 
 	// Handle 401 with automatic retry after refresh
-	if (!response.ok && response.status === 401) {
+	// Skip for refresh endpoint itself to avoid circular retry loops
+	if (!response.ok && response.status === 401 && !options.skipAuthRetry) {
 		const shouldRetry = await handleUnauthorized(response);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
-			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity 
+			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
 				? createTimeoutSignal(options.signal, timeoutMs)
 				: options.signal;
-			
+
 			log.debug(`Retrying ${endpoint} after token refresh`);
 			try {
 				response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -395,12 +402,12 @@ export interface BlobUrlRequestOptions {
  * ```
  */
 export async function requestBlobUrl(
-	endpoint: string, 
+	endpoint: string,
 	options?: AbortSignal | BlobUrlRequestOptions
 ): Promise<BlobUrlResult> {
 	// Support both legacy AbortSignal parameter and new options object
-	const opts: BlobUrlRequestOptions = options instanceof AbortSignal 
-		? { signal: options } 
+	const opts: BlobUrlRequestOptions = options instanceof AbortSignal
+		? { signal: options }
 		: (options ?? {});
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
@@ -437,7 +444,7 @@ export async function requestBlobUrl(
 			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
 				? createTimeoutSignal(opts.signal, timeoutMs)
 				: opts.signal;
-			
+
 			log.debug(`Retrying blob request ${endpoint} after token refresh`);
 			try {
 				response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -463,7 +470,7 @@ export async function requestBlobUrl(
 
 	const blob = await response.blob();
 	const url = URL.createObjectURL(blob);
-	
+
 	return {
 		url,
 		revoke: () => URL.revokeObjectURL(url)
@@ -487,8 +494,8 @@ export async function requestFormData<T>(
 	options: FormDataRequestOptions | string = {}
 ): Promise<T> {
 	// Support legacy string errorMessage parameter for backwards compatibility
-	const opts: FormDataRequestOptions = typeof options === 'string' 
-		? { errorMessage: options } 
+	const opts: FormDataRequestOptions = typeof options === 'string'
+		? { errorMessage: options }
 		: options;
 	const errorMessage = opts.errorMessage ?? 'Request failed';
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
@@ -531,7 +538,7 @@ export async function requestFormData<T>(
 			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
 				? createTimeoutSignal(opts.signal, timeoutMs)
 				: opts.signal;
-			
+
 			log.debug(`Retrying FormData request ${endpoint} after token refresh`);
 			try {
 				response = await fetch(`${BASE_URL}${endpoint}`, {
