@@ -26,9 +26,11 @@
 	let containerSize = $state(340);
 	let cropSize = $derived(Math.round(containerSize * 0.706));
 
-	// Scale limits
-	let minScale = $state(0.5);
-	const MAX_SCALE = 5;
+	// Scale limits - 100% = image width fills crop area
+	// displayScale is computed so that at 1.0, the image width equals crop width
+	let baseScale = $state(1); // Calculated when image loads
+	const MIN_SCALE = 1; // 100% - image width fills crop
+	const MAX_SCALE = 5; // 500%
 	const MIN_ROTATION = -180;
 	const MAX_ROTATION = 180;
 
@@ -39,24 +41,25 @@
 	let lastTouchDistance = 0;
 	let lastTouchAngle = 0;
 
+	// The actual CSS scale = baseScale * scale
+	// Where baseScale is calculated so image width = crop width
+	// And scale is the user-controlled 1.0 (100%) to 5.0 (500%)
+	let displayScale = $derived(baseScale * scale);
+
 	// CSS transform string - computed reactively
 	let transformStyle = $derived(
-		`translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`,
+		`translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${displayScale})`,
 	);
 
-	// Logarithmic zoom for better UX
-	function scaleToSlider(s: number): number {
-		const logBase = MAX_SCALE / minScale;
-		return Math.log(s / minScale) / Math.log(logBase);
-	}
+	// Linear slider for 100%-500% (no need for logarithmic since range is reasonable)
+	let zoomPercent = $derived(Math.round(scale * 100));
+	let zoomSliderValue = $derived(
+		(scale - MIN_SCALE) / (MAX_SCALE - MIN_SCALE),
+	); // 0 to 1
 
 	function sliderToScale(sliderValue: number): number {
-		const logBase = MAX_SCALE / minScale;
-		return minScale * Math.pow(logBase, sliderValue);
+		return MIN_SCALE + sliderValue * (MAX_SCALE - MIN_SCALE);
 	}
-
-	let zoomPercent = $derived(Math.round(scale * 100));
-	let zoomSliderValue = $derived(scaleToSlider(scale));
 
 	onMount(() => {
 		// Calculate responsive container size
@@ -77,22 +80,20 @@
 	}
 
 	function resetTransform() {
-		// Wait for image to load to calculate proper scale
+		// Calculate base scale so image width = crop width at 100%
 		if (imageElement?.naturalWidth) {
-			minScale = cropSize / imageElement.naturalWidth;
-			scale = minScale;
-		} else {
-			scale = 0.5;
+			baseScale = cropSize / imageElement.naturalWidth;
 		}
+		scale = MIN_SCALE; // Start at 100%
 		rotation = 0;
 		offsetX = 0;
 		offsetY = 0;
 	}
 
 	function handleImageLoad() {
-		// Calculate min scale so image width fills crop area
-		minScale = cropSize / imageElement.naturalWidth;
-		scale = minScale;
+		// Calculate base scale so image width = crop width at 100%
+		baseScale = cropSize / imageElement.naturalWidth;
+		scale = MIN_SCALE; // Start at 100%
 		offsetX = 0;
 		offsetY = 0;
 	}
@@ -127,7 +128,7 @@
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
 		const delta = e.deltaY > 0 ? 0.95 : 1.05;
-		scale = Math.max(minScale, Math.min(MAX_SCALE, scale * delta));
+		scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * delta));
 	}
 
 	// Touch handlers
@@ -163,7 +164,7 @@
 			const newDistance = getTouchDistance(e.touches);
 			const scaleChange = newDistance / lastTouchDistance;
 			scale = Math.max(
-				minScale,
+				MIN_SCALE,
 				Math.min(MAX_SCALE, scale * scaleChange),
 			);
 			lastTouchDistance = newDistance;
@@ -230,17 +231,23 @@
 
 		if (!ctx || !imageElement) return;
 
+		// Scale factor from display crop to output size
 		const outputScale = outputSize / cropSize;
 
 		ctx.fillStyle = "#0a0a0f";
 		ctx.fillRect(0, 0, outputSize, outputSize);
 
-		// Apply same transforms as CSS
+		// Replicate the exact CSS transform chain:
+		// 1. Move origin to center of output
 		ctx.translate(outputSize / 2, outputSize / 2);
+		// 2. Apply user rotation
 		ctx.rotate((rotation * Math.PI) / 180);
+		// 3. Apply user offset (scaled to output)
 		ctx.translate(offsetX * outputScale, offsetY * outputScale);
-		ctx.scale(scale * outputScale, scale * outputScale);
+		// 4. Apply display scale (baseScale * scale), scaled to output
+		ctx.scale(displayScale * outputScale, displayScale * outputScale);
 
+		// Draw image centered at origin (matches CSS translate(-50%, -50%))
 		ctx.drawImage(
 			imageElement,
 			-imageElement.naturalWidth / 2,
