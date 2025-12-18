@@ -49,8 +49,14 @@
     // Progress towards threshold (0 to 1, capped)
     let progress = $derived(Math.min(pullDistance / threshold, 1));
 
-    // Arrow rotation: starts at 180deg (pointing down), rotates to 0deg (pointing up) at threshold
-    let arrowRotation = $derived(180 - progress * 180);
+    // Arrow rotation: stays pointing down (180deg) for first 40% of pull,
+    // then rotates to point up (0deg) for the remaining 60%
+    let arrowRotation = $derived.by(() => {
+        if (progress < 0.4) return 180; // Stay pointing down
+        // Map 0.4-1.0 progress to 180-0 degrees
+        const rotationProgress = (progress - 0.4) / 0.6;
+        return 180 - rotationProgress * 180;
+    });
 
     // Visual states
     let shouldTrigger = $derived(pullDistance >= threshold);
