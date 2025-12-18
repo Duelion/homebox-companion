@@ -344,20 +344,20 @@
 			role="application"
 			aria-label="Image editor"
 		>
-			<div
-				class="relative overflow-hidden rounded-lg"
-				style:width="{containerSize}px"
-				style:height="{containerSize}px"
-				style:background="#0a0a0f"
-				onmousedown={handleMouseDown}
-				onmousemove={handleMouseMove}
-				onmouseup={handleMouseUp}
-				onmouseleave={handleMouseUp}
-				onwheel={handleWheel}
-				ontouchstart={handleTouchStart}
-				ontouchmove={handleTouchMove}
-				ontouchend={handleTouchEnd}
-			>
+		<div
+			class="relative overflow-hidden rounded-lg"
+			style:width="{containerSize}px"
+			style:height="{containerSize}px"
+			style:background="#0a0a0f"
+			onmousedown={handleMouseDown}
+			onmousemove={handleMouseMove}
+			onmouseup={handleMouseUp}
+			onmouseleave={handleMouseUp}
+			onwheel={handleWheel}
+			ontouchstart={handleTouchStart}
+			ontouchmove={handleTouchMove}
+			ontouchend={handleTouchEnd}
+		>
 				<!-- The image with CSS transforms -->
 				<img
 					bind:this={imageElement}
