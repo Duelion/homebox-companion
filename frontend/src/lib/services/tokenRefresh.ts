@@ -5,6 +5,7 @@
 import { get } from 'svelte/store';
 import { token, tokenExpiresAt, tokenNeedsRefresh, tokenIsExpired, authInitialized } from '../stores/auth';
 import { auth } from '../api';
+import { authLogger as log } from '../utils/logger';
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -21,7 +22,7 @@ export async function refreshToken(): Promise<boolean> {
 		return true;
 	} catch (error) {
 		// Log error for debugging (previously swallowed silently)
-		console.error('Token refresh failed:', error);
+		log.error('Token refresh failed:', error);
 		return false;
 	}
 }
