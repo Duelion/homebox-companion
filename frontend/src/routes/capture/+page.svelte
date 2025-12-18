@@ -273,13 +273,18 @@
 
 	<!-- Current location display -->
 	{#if locationPath}
+		<BackLink
+			href="/location"
+			label="Change Location"
+			onclick={goBack}
+			disabled={isAnalyzing}
+		/>
+
 		<div
-			class="flex flex-col sm:flex-row sm:flex-wrap sm:items-start gap-2 sm:gap-x-4 text-body-sm text-neutral-400 mb-3"
+			class="flex flex-col gap-2 text-body-sm text-neutral-400 mb-3 mt-2"
 		>
 			<!-- Location block -->
-			<div
-				class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"
-			>
+			<div class="flex flex-col gap-1">
 				<div class="flex items-center gap-2">
 					<svg
 						class="w-4 h-4 shrink-0"
@@ -295,7 +300,7 @@
 					</svg>
 					<span>Items will be added to:</span>
 				</div>
-				<span class="font-semibold text-neutral-200 pl-6 sm:pl-0"
+				<span class="font-semibold text-neutral-200 pl-6"
 					>{locationPath}</span
 				>
 			</div>
@@ -310,13 +315,6 @@
 				</div>
 			{/if}
 		</div>
-
-		<BackLink
-			href="/location"
-			label="Change Location"
-			onclick={goBack}
-			disabled={isAnalyzing}
-		/>
 	{/if}
 
 	<!-- Image list with collapsible cards -->

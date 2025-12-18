@@ -29,5 +29,25 @@ export const auth = {
 			method: 'POST',
 			skipAuthRetry: true,
 		}),
+
+	/**
+	 * Validate if the current token is still valid.
+	 * Makes a lightweight request to /locations to test the token.
+	 * Returns true if valid, false if expired/invalid.
+	 * 
+	 * Note: Uses skipAuthRetry to avoid triggering session expired modal during validation.
+	 */
+	validateToken: async (): Promise<boolean> => {
+		try {
+			await request('/locations', {
+				method: 'GET',
+				skipAuthRetry: true,
+			});
+			return true;
+		} catch {
+			// Any error (401, network, etc.) means token is not valid
+			return false;
+		}
+	},
 };
 
