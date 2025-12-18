@@ -19,26 +19,21 @@ export { scanWorkflow } from './workflows/scan.svelte';
 // =============================================================================
 export { token, isAuthenticated, sessionExpired, logout, markSessionExpired, onReauthSuccess } from './stores/auth';
 export { labels, labelsById, fetchLabels, clearLabelsCache, getLabelName, isLabelsLoading } from './stores/labels';
-export { 
-	allLocations, 
-	locationTree, 
-	locationPath, 
-	currentLevelLocations, 
-	selectedLocation, 
-	selectedLocationPath, 
-	resetLocationState,
+export {
+	locationStore,
 	type PathItem,
-} from './stores/locations';
-export { 
-	isLoading, 
-	loadingMessage, 
-	toasts, 
-	showToast, 
-	dismissToast, 
-	isOnline, 
-	appVersion, 
-	latestVersion, 
-	updateDismissed, 
+	type FlatLocation,
+} from './stores/locations.svelte';
+export {
+	isLoading,
+	loadingMessage,
+	toasts,
+	showToast,
+	dismissToast,
+	isOnline,
+	appVersion,
+	latestVersion,
+	updateDismissed,
 	setLoading,
 	type Toast,
 } from './stores/ui';

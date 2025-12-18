@@ -139,6 +139,13 @@ export function logout(): void {
 	token.set(null);
 	tokenExpiresAt.set(null);
 	sessionExpired.set(false);
+
+	// Clear location state on logout (using dynamic import to avoid circular dependency)
+	import('./locations.svelte').then(({ locationStore }) => {
+		locationStore.clear();
+	}).catch((err) => {
+		log.warn('Failed to clear location state on logout:', err);
+	});
 }
 
 
