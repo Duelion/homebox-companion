@@ -44,6 +44,34 @@ Demo credentials: `demo@example.com` / `demo`
 
 Model names are passed directly to LiteLLM - do not modify or extract base names.
 
+#### Officially Supported Models
+
+Only `gpt-5-mini` and `gpt-5-nano` are officially tested and supported:
+- **gpt-5-mini** (default, recommended): Balanced performance and cost
+- **gpt-5-nano**: Lower cost per token, but generates significantly more tokens to complete the same task, offsetting any apparent speed advantage
+
+**Important**: While LiteLLM supports many vision models, this app is tested and optimized only for gpt-5 series. Other models may work via `HBC_LLM_ALLOW_UNSAFE_MODELS=true` but are not officially supported.
+
+#### Guidelines for Error Messages and User Communication
+
+When writing error messages, documentation, or responding to users about model selection:
+
+1. **Only suggest officially supported models**: Recommend `gpt-5-mini` and `gpt-5-nano` exclusively in error messages and solutions
+2. **Do not suggest other models**: Don't recommend GPT-4o, Claude, Gemini, or other models as alternatives, even though LiteLLM supports them
+3. **Acknowledge but don't discourage experimentation**: It's fine to mention that other vision models exist and may work, but make it clear:
+   - They are not officially supported
+   - Users experiment at their own risk
+   - No guarantees on quality, reliability, or compatibility
+   - The bypass flag (`HBC_LLM_ALLOW_UNSAFE_MODELS=true`) is available for advanced users
+4. **Be accurate about gpt-5-nano**: Never claim it's "faster" - it generates more tokens, offsetting per-token speed benefits (see README.md token analysis)
+
+**Example of correct messaging:**
+> "Officially supported models: gpt-5-mini (recommended), gpt-5-nano. While other vision-capable models may work, they are not officially supported. Advanced users can experiment by setting HBC_LLM_ALLOW_UNSAFE_MODELS=true."
+
+**Example of incorrect messaging:**
+> ❌ "Try gpt-4o or claude-3-5-sonnet for better results"
+> ❌ "Use gpt-5-nano for faster processing"
+
 ---
 
 ## Architecture
