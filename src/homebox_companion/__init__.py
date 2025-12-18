@@ -13,7 +13,8 @@ Quick Start:
     >>>
     >>> # Create items in Homebox
     >>> async with HomeboxClient() as client:
-    ...     token = await client.login("user@example.com", "password")
+    ...     response = await client.login("user@example.com", "password")
+    ...     token = response["token"]
     ...     for item in items:
     ...         item.location_id = "your-location-id"
     ...         await client.create_item(token, item.to_create_payload())

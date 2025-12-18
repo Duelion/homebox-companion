@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 import pytest_asyncio
@@ -88,24 +88,24 @@ def homebox_credentials() -> tuple[str, str]:
 @pytest.fixture(scope="module")
 def allow_unsafe_models() -> Generator[None, None, None]:
     """Enable HBC_LLM_ALLOW_UNSAFE_MODELS for the test module.
-    
+
     This fixture reloads the app settings after modifying the environment
     variable. All modules access settings via config.settings, so updating
     the config module is sufficient.
     """
     from homebox_companion.core import config
     from homebox_companion.core.config import get_settings
-    
+
     # Store original value
     original = os.environ.get("HBC_LLM_ALLOW_UNSAFE_MODELS")
-    
+
     # Set new value and reload settings
     os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = "true"
     get_settings.cache_clear()
     config.settings = get_settings()
-    
+
     yield
-    
+
     # Restore original state
     if original is None:
         os.environ.pop("HBC_LLM_ALLOW_UNSAFE_MODELS", None)
@@ -180,7 +180,8 @@ async def cleanup_items(homebox_api_url: str, homebox_credentials: tuple[str, st
         username, password = homebox_credentials
         try:
             async with HomeboxClient(base_url=homebox_api_url) as client:
-                token = await client.login(username, password)
+                response = await client.login(username, password)
+                token = response["token"]
                 for item_id in created_ids:
                     try:
                         await client.delete_item(token, item_id)
@@ -211,7 +212,8 @@ async def cleanup_locations(homebox_api_url: str, homebox_credentials: tuple[str
         username, password = homebox_credentials
         try:
             async with HomeboxClient(base_url=homebox_api_url) as client:
-                token = await client.login(username, password)
+                response = await client.login(username, password)
+                token = response["token"]
                 for location_id in created_ids:
                     try:
                         # Homebox API typically uses DELETE /locations/{id}
