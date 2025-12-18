@@ -130,14 +130,14 @@
     });
 </script>
 
-<!-- Pull indicator -->
+<!-- Pull indicator - starts hidden above header, slides down when pulling -->
 {#if (pullDistance > 0 || isRefreshing) && enabled}
     <div
-        class="fixed left-1/2 -translate-x-1/2 z-30 flex justify-center pointer-events-none"
-        style="top: calc(3.5rem + env(safe-area-inset-top, 0px)); transform: translateX(-50%) translateY({Math.min(
+        class="fixed left-1/2 z-30 flex justify-center pointer-events-none"
+        style="top: calc(4rem + env(safe-area-inset-top, 0px)); transform: translateX(-50%) translateY({Math.min(
             pullDistance,
             threshold * 1.2,
-        )}px)"
+        ) - 60}px); opacity: {Math.min(pullDistance / 30, 1)}"
     >
         <div
             class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-colors duration-200
