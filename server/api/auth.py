@@ -17,11 +17,6 @@ from ..schemas.auth import LoginRequest, LoginResponse
 router = APIRouter()
 
 
-class ValidateResponse(BaseModel):
-    """Token validation response."""
-    valid: bool
-
-
 def _get_friendly_error_message(error: Exception) -> str:
     """Convert technical errors to user-friendly messages."""
     error_str = str(error).lower()
@@ -116,9 +111,12 @@ async def login(request: LoginRequest) -> LoginResponse:
 
     client = get_client()
     try:
-        token = await client.login(request.username, request.password)
+        response_data = await client.login(request.username, request.password)
         logger.info("Login successful")
-        return LoginResponse(token=token)
+        return LoginResponse(
+            token=response_data.get("token"),
+            expires_at=response_data.get("expiresAt", ""),
+        )
     except httpx.ConnectError as e:
         # Detailed logging for connection errors
         logger.warning("Login failed: Connection error")
@@ -183,75 +181,67 @@ async def login(request: LoginRequest) -> LoginResponse:
         ) from e
 
 
-@router.get("/validate", response_model=ValidateResponse)
-async def validate_token(
+@router.get("/refresh", response_model=LoginResponse)
+async def refresh_token(
     authorization: Annotated[str | None, Header()] = None,
-) -> ValidateResponse:
-    """Validate the current auth token against Homebox.
+) -> LoginResponse:
+    """Refresh the access token using Homebox's refresh endpoint.
 
-    Makes a lightweight call to /users/self to verify the token is still valid.
-    Returns {valid: true} if valid, raises 401 if invalid, raises 503 if service unavailable.
+    Exchanges the current valid token for a new one with extended expiry.
+    Returns the new token and expiry time.
     """
     token = get_token(authorization)
     client = get_client()
 
     try:
-        # Use /users/self as a lightweight token validation endpoint
         response = await client.client.get(
-            f"{client.base_url}/users/self",
+            f"{client.base_url}/users/refresh",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
             },
         )
 
-        # Only consider 2xx status codes as valid tokens
-        if response.is_success:
-            return ValidateResponse(valid=True)
-
-        # 401 means token is expired or invalid
         if response.status_code == 401:
-            logger.info("Token validation failed: token expired or invalid")
-            raise HTTPException(status_code=401, detail="Token expired or invalid")
+            logger.info("Token refresh failed: token expired or invalid")
+            raise HTTPException(
+                status_code=401,
+                detail="Token expired, please re-login",
+            )
 
-        # 403 might indicate token permissions issue - treat as invalid
-        if response.status_code == 403:
-            logger.warning("Token validation failed: forbidden (possible permission issue)")
-            raise HTTPException(status_code=401, detail="Token lacks required permissions")
+        if not response.is_success:
+            logger.error(f"Token refresh failed with status {response.status_code}")
+            raise HTTPException(
+                status_code=502,
+                detail="Failed to refresh token",
+            )
 
-        # 5xx or other server errors - validation service unavailable
-        # Don't assume token is valid, raise 503 to indicate service issue
-        logger.error(
-            f"Token validation service error: Homebox returned {response.status_code}"
+        data = response.json()
+        logger.info("Token refresh successful")
+        return LoginResponse(
+            token=data.get("token"),
+            expires_at=data.get("expiresAt", ""),
         )
-        raise HTTPException(
-            status_code=503,
-            detail="Token validation service temporarily unavailable. Please try again.",
-        )
-
     except httpx.TimeoutException as e:
-        # Timeout - validation service unavailable
-        logger.error("Token validation timed out")
+        logger.error("Token refresh timed out")
         raise HTTPException(
             status_code=503,
-            detail="Token validation timed out. Please try again.",
+            detail="Token refresh timed out. Please try again.",
         ) from e
     except httpx.NetworkError as e:
-        # Network error - validation service unreachable
-        logger.error(f"Token validation network error: {e}")
+        logger.error(f"Token refresh network error: {e}")
         raise HTTPException(
             status_code=503,
-            detail="Cannot reach token validation service. Please check your connection.",
+            detail="Cannot reach token refresh service. Please check your connection.",
         ) from e
     except HTTPException:
         # Re-raise HTTPExceptions we created above
         raise
     except Exception as e:
-        # Unexpected error - log and return service unavailable
-        logger.error(f"Unexpected error during token validation: {e}", exc_info=True)
+        logger.error(f"Unexpected error during token refresh: {e}", exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail="Token validation failed due to an unexpected error.",
+            detail="Token refresh failed due to an unexpected error.",
         ) from e
 
 
