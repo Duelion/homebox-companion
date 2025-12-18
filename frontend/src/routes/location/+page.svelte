@@ -141,6 +141,19 @@
 		}
 	}
 
+	// Handler for pull-to-refresh: refreshes current view without resetting navigation
+	async function handlePullRefresh() {
+		const path = $locationPath;
+		if (path.length > 0) {
+			// Drilled into a location - refresh current level
+			const parentId = path[path.length - 1].id;
+			await refreshCurrentLevel(parentId);
+		} else {
+			// At root level - refresh everything
+			await loadLocations();
+		}
+	}
+
 	function flattenLocations(
 		locations: Location[],
 		parentPath: string,
@@ -506,7 +519,10 @@
 	<title>Select Location - Homebox Companion</title>
 </svelte:head>
 
-<PullToRefresh onRefresh={loadLocations}>
+<PullToRefresh
+	onRefresh={handlePullRefresh}
+	enabled={!$selectedLocation && !isLoadingLocations}
+>
 	<div class="animate-in">
 		<StepIndicator currentStep={1} />
 
