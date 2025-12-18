@@ -3,6 +3,7 @@
  */
 import { writable, derived } from 'svelte/store';
 import type { LocationData, LocationTreeNode } from '$lib/api';
+import { token } from './auth';
 
 // All locations (flat list)
 export const allLocations = writable<LocationData[]>([]);
@@ -44,6 +45,15 @@ export function resetLocationState() {
 	currentLevelLocations.set([]);
 	selectedLocation.set(null);
 }
+
+// Clear location state when user logs out
+token.subscribe((value) => {
+	if (!value) {
+		allLocations.set([]);
+		locationTree.set([]);
+		resetLocationState();
+	}
+});
 
 
 

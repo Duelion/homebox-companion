@@ -111,9 +111,13 @@ export function setAuthenticatedState(newToken: string, expiresAt: Date): void {
 	sessionExpired.set(false);
 
 	// Import scheduleRefresh dynamically to avoid circular dependency
-	import('../services/tokenRefresh').then(({ scheduleRefresh }) => {
-		scheduleRefresh();
-	});
+	import('../services/tokenRefresh')
+		.then(({ scheduleRefresh }) => {
+			scheduleRefresh();
+		})
+		.catch((err) => {
+			log.error('Failed to schedule token refresh:', err);
+		});
 }
 
 /**
