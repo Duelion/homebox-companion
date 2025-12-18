@@ -176,6 +176,7 @@
 			editedItem.originalFile = undefined;
 			editedItem.additionalImages = [];
 			editedItem.customThumbnail = undefined;
+			editedItem.thumbnailTransform = undefined;
 		}
 
 		// Clear stale compressed URLs if images were modified
@@ -266,24 +267,49 @@
 		}));
 	}
 
-	function handleThumbnailSave(dataUrl: string, sourceImageIndex: number) {
-		if (editedItem) {
-			editedItem.customThumbnail = dataUrl;
+	// Default transform for new thumbnails
+	function getDefaultTransform(): import("$lib/types").ThumbnailTransform {
+		return {
+			scale: 1,
+			rotation: 0,
+			offsetX: 0,
+			offsetY: 0,
+			sourceImageIndex: 0,
+			dataUrl: null,
+		};
+	}
+
+	// Open thumbnail editor with transform initialization
+	function openThumbnailEditor() {
+		if (!editedItem) return;
+		// Initialize transform if not exists
+		if (!editedItem.thumbnailTransform) {
+			editedItem.thumbnailTransform = getDefaultTransform();
+		}
+		showThumbnailEditor = true;
+	}
+
+	// Sync customThumbnail when transform changes (reactive effect)
+	$effect(() => {
+		if (!editedItem) return;
+		const transform = editedItem.thumbnailTransform;
+		if (transform?.dataUrl) {
+			editedItem.customThumbnail = transform.dataUrl;
 
 			// If thumbnail was created from a non-primary image, reorder so it becomes primary
-			if (sourceImageIndex > 0 && sourceImageIndex < allImages.length) {
-				const selectedImage = allImages[sourceImageIndex];
-				// Remove the selected image from its current position and put it first
+			if (transform.sourceImageIndex > 0 && transform.sourceImageIndex < allImages.length) {
+				const selectedImage = allImages[transform.sourceImageIndex];
 				const reorderedImages = [
 					selectedImage,
-					...allImages.slice(0, sourceImageIndex),
-					...allImages.slice(sourceImageIndex + 1),
+					...allImages.slice(0, transform.sourceImageIndex),
+					...allImages.slice(transform.sourceImageIndex + 1),
 				];
 				allImages = reorderedImages;
+				// Reset source index since we reordered
+				transform.sourceImageIndex = 0;
 			}
 		}
-		showThumbnailEditor = false;
-	}
+	});
 
 	function getDisplayThumbnail(): string | null {
 		if (!editedItem) return null;
@@ -336,7 +362,7 @@
 					<button
 						type="button"
 						class="absolute bottom-3 right-3 px-3 py-2.5 min-h-[44px] bg-black/70 hover:bg-black/90 rounded-lg text-white text-sm flex items-center gap-2 transition-all md:opacity-0 md:group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/50"
-						onclick={() => (showThumbnailEditor = true)}
+						onclick={openThumbnailEditor}
 						aria-label="Edit thumbnail image"
 					>
 						<svg
@@ -468,6 +494,7 @@
 					onCustomThumbnailClear={() => {
 						if (editedItem) {
 							editedItem.customThumbnail = undefined;
+							editedItem.thumbnailTransform = undefined;
 						}
 					}}
 					expanded={showImagesPanel}
@@ -491,12 +518,13 @@
 
 	{#if showThumbnailEditor && editedItem && allImages.length > 0}
 		{@const availableImages = getAvailableImages()}
-		<ThumbnailEditor
-			images={availableImages}
-			currentThumbnail={editedItem.customThumbnail}
-			onSave={handleThumbnailSave}
-			onClose={() => (showThumbnailEditor = false)}
-		/>
+		{#if editedItem.thumbnailTransform}
+			<ThumbnailEditor
+				images={availableImages}
+				bind:transform={editedItem.thumbnailTransform}
+				onClose={() => (showThumbnailEditor = false)}
+			/>
+		{/if}
 	{/if}
 </div>
 
@@ -552,3 +580,4 @@
 		</div>
 	</div>
 {/if}
+
