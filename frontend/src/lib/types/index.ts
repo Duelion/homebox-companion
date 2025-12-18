@@ -82,6 +82,16 @@ export interface CapturedImage {
 	additionalDataUrls?: string[];
 }
 
+/** Thumbnail editor transform state */
+export interface ThumbnailTransform {
+	scale: number;
+	rotation: number;
+	offsetX: number;
+	offsetY: number;
+	sourceImageIndex: number;
+	dataUrl: string | null;
+}
+
 /** Item detected by AI, ready for review */
 export interface ReviewItem extends ItemCore, ItemExtended {
 	/** Index of the source image in capturedImages array */
@@ -92,6 +102,8 @@ export interface ReviewItem extends ItemCore, ItemExtended {
 	originalFile?: File;
 	/** Custom cropped thumbnail data URL */
 	customThumbnail?: string;
+	/** Thumbnail editor transform state for restoring edits */
+	thumbnailTransform?: ThumbnailTransform;
 	/** Compressed image data URL for Homebox upload (replaces originalFile after analysis) */
 	compressedDataUrl?: string;
 	/** Compressed additional images for Homebox upload */

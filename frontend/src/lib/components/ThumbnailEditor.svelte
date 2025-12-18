@@ -1,26 +1,27 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import Button from "./Button.svelte";
+	import type { ThumbnailTransform } from "$lib/types";
 
 	interface Props {
 		images: { file: File; dataUrl: string }[];
-		currentThumbnail?: string;
-		onSave: (dataUrl: string, sourceImageIndex: number) => void;
+		transform: ThumbnailTransform;
 		onClose: () => void;
 	}
 
-	let { images, currentThumbnail, onSave, onClose }: Props = $props();
+	let { images, transform = $bindable(), onClose }: Props = $props();
 
-	// Selected image
-	let selectedImageIndex = $state(0);
+	// Internal image state
 	let sourceImage: HTMLImageElement | null = $state(null);
 	let previewCanvas: HTMLCanvasElement;
 
-	// Transform state - all reactive
+	// Local reactive state synced with transform prop
 	let scale = $state(1);
 	let rotation = $state(0);
 	let offsetX = $state(0);
 	let offsetY = $state(0);
+	let selectedImageIndex = $state(0);
+	let initialized = $state(false);
 
 	// Responsive sizing
 	let containerSize = $state(340);
@@ -40,8 +41,29 @@
 	let lastTouchDistance = 0;
 	let lastTouchAngle = 0;
 
+	// ResizeObserver for responsive sizing
+	let resizeObserver: ResizeObserver | null = null;
+	let editorContainer: HTMLDivElement;
+
+	// Image loading race condition prevention
+	let imageLoadVersion = 0;
+
 	// The actual scale = baseScale * scale
 	let displayScale = $derived(baseScale * scale);
+
+	// Calculate max pan distance to keep image partially in view
+	function clampOffset(x: number, y: number): { x: number; y: number } {
+		if (!sourceImage) return { x, y };
+		// Allow panning up to half the scaled image size beyond the crop area
+		const scaledSize =
+			Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight) *
+			displayScale;
+		const maxOffset = (scaledSize + cropSize) / 2 - 20; // Keep at least 20px visible
+		return {
+			x: Math.max(-maxOffset, Math.min(maxOffset, x)),
+			y: Math.max(-maxOffset, Math.min(maxOffset, y)),
+		};
+	}
 
 	// Linear slider for 100%-500%
 	let zoomPercent = $derived(Math.round(scale * 100));
@@ -93,6 +115,10 @@
 		ctx.restore();
 	}
 
+	// Get device pixel ratio for High-DPI support
+	const dpr =
+		typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+
 	// Reactive preview rendering - redraws when any transform changes
 	$effect(() => {
 		if (!previewCanvas || !sourceImage) return;
@@ -101,20 +127,92 @@
 		if (!ctx) return;
 
 		// Access reactive values to create dependencies
-		const _ = { scale, rotation, offsetX, offsetY, displayScale, cropSize };
+		const _ = {
+			scale,
+			rotation,
+			offsetX,
+			offsetY,
+			displayScale,
+			cropSize,
+			containerSize,
+		};
 
-		// Use cropSize for preview (1:1 with display)
-		renderToCanvas(ctx, cropSize, cropSize, sourceImage);
+		// Set canvas internal resolution for High-DPI displays
+		const canvasPixelSize = containerSize * dpr;
+		previewCanvas.width = canvasPixelSize;
+		previewCanvas.height = canvasPixelSize;
+
+		// Render at high resolution
+		renderToCanvas(ctx, canvasPixelSize, cropSize * dpr, sourceImage);
 	});
 
-	onMount(() => {
-		// Calculate responsive container size
+	function updateContainerSize() {
 		const viewportWidth = window.innerWidth;
-		if (viewportWidth >= 640) {
-			containerSize = Math.min(480, viewportWidth - 80);
-		} else {
-			containerSize = Math.min(440, viewportWidth - 32);
+		const newSize =
+			viewportWidth >= 640
+				? Math.min(480, viewportWidth - 80)
+				: Math.min(440, viewportWidth - 32);
+
+		if (newSize !== containerSize) {
+			const oldCropSize = cropSize;
+			containerSize = newSize;
+			// Recalculate baseScale when container resizes
+			if (sourceImage && cropSize > 0 && oldCropSize > 0) {
+				const scaleRatio = cropSize / oldCropSize;
+				baseScale =
+					cropSize /
+					Math.min(
+						sourceImage.naturalWidth,
+						sourceImage.naturalHeight,
+					);
+				// Scale offset proportionally
+				offsetX *= scaleRatio;
+				offsetY *= scaleRatio;
+			}
 		}
+	}
+
+	onMount(() => {
+		updateContainerSize();
+
+		// Set up resize observer on the editor container for efficiency
+		// Use a small timeout to ensure editorContainer is bound
+		const setupObserver = () => {
+			if (!editorContainer) {
+				// Fallback to window resize if container not ready
+				window.addEventListener("resize", updateContainerSize);
+				return;
+			}
+			resizeObserver = new ResizeObserver(() => {
+				updateContainerSize();
+			});
+			resizeObserver.observe(editorContainer);
+		};
+		// Defer to next tick to ensure binding is complete
+		queueMicrotask(setupObserver);
+	});
+
+	onDestroy(() => {
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+		}
+		// Clean up fallback listener if used
+		window.removeEventListener("resize", updateContainerSize);
+	});
+
+	// Initialize from transform prop on mount
+	$effect(() => {
+		if (initialized) return;
+
+		// Restore previous state if available
+		if (transform.dataUrl) {
+			selectedImageIndex = transform.sourceImageIndex;
+			scale = transform.scale;
+			rotation = transform.rotation;
+			offsetX = transform.offsetX;
+			offsetY = transform.offsetY;
+		}
+		initialized = true;
 	});
 
 	// Load image when selected index changes
@@ -122,36 +220,51 @@
 		const dataUrl = images[selectedImageIndex]?.dataUrl;
 		if (!dataUrl) return;
 
+		// Increment version to prevent race conditions
+		const currentVersion = ++imageLoadVersion;
+		const currentIndex = selectedImageIndex;
+
 		const img = new Image();
 		img.onload = () => {
+			// Guard against race condition: only apply if this is still the current load
+			if (currentVersion !== imageLoadVersion) return;
+
 			sourceImage = img;
 			// Calculate baseScale so image fills crop at 100%
 			if (cropSize > 0) {
 				baseScale =
 					cropSize / Math.min(img.naturalWidth, img.naturalHeight);
 			}
-			scale = MIN_SCALE;
-			rotation = 0;
-			offsetX = 0;
-			offsetY = 0;
+			// Only reset transform if this is a NEW image selection (not restoring)
+			// or if there's no previous transform
+			if (
+				!transform.dataUrl ||
+				currentIndex !== transform.sourceImageIndex
+			) {
+				scale = MIN_SCALE;
+				rotation = 0;
+				offsetX = 0;
+				offsetY = 0;
+			}
 		};
 		img.src = dataUrl;
-	});
 
-	// Recalculate baseScale when cropSize changes
-	$effect(() => {
-		if (cropSize > 0 && sourceImage) {
-			const newBaseScale =
-				cropSize /
-				Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
-			if (Math.abs(newBaseScale - baseScale) > 0.0001) {
-				baseScale = newBaseScale;
-			}
-		}
+		// Cleanup: abort pending load if effect re-runs
+		return () => {
+			img.onload = null;
+			img.src = ""; // Cancel pending load
+		};
 	});
 
 	function selectImage(index: number) {
 		if (index < 0 || index >= images.length) return;
+		// Switching to a different image resets transform
+		if (index !== selectedImageIndex) {
+			scale = MIN_SCALE;
+			rotation = 0;
+			offsetX = 0;
+			offsetY = 0;
+		}
 		selectedImageIndex = index;
 	}
 
@@ -177,8 +290,11 @@
 
 	function handleMouseMove(e: MouseEvent) {
 		if (!isDragging) return;
-		offsetX += e.clientX - lastX;
-		offsetY += e.clientY - lastY;
+		const newX = offsetX + (e.clientX - lastX);
+		const newY = offsetY + (e.clientY - lastY);
+		const clamped = clampOffset(newX, newY);
+		offsetX = clamped.x;
+		offsetY = clamped.y;
 		lastX = e.clientX;
 		lastY = e.clientY;
 	}
@@ -210,8 +326,11 @@
 	function handleTouchMove(e: TouchEvent) {
 		e.preventDefault();
 		if (e.touches.length === 1 && isDragging) {
-			offsetX += e.touches[0].clientX - lastX;
-			offsetY += e.touches[0].clientY - lastY;
+			const newX = offsetX + (e.touches[0].clientX - lastX);
+			const newY = offsetY + (e.touches[0].clientY - lastY);
+			const clamped = clampOffset(newX, newY);
+			offsetX = clamped.x;
+			offsetY = clamped.y;
 			lastX = e.touches[0].clientX;
 			lastY = e.touches[0].clientY;
 		} else if (e.touches.length === 2) {
@@ -276,6 +395,69 @@
 		rotation = Math.min(MAX_ROTATION, rotation + 90);
 	}
 
+	// Keyboard accessibility
+	const PAN_STEP = 10;
+	const ZOOM_STEP = 0.1;
+	const ROTATE_STEP = 5;
+
+	function handleKeyDown(e: KeyboardEvent) {
+		let handled = true;
+		switch (e.key) {
+			case "ArrowLeft":
+				{
+					const clamped = clampOffset(offsetX - PAN_STEP, offsetY);
+					offsetX = clamped.x;
+					offsetY = clamped.y;
+				}
+				break;
+			case "ArrowRight":
+				{
+					const clamped = clampOffset(offsetX + PAN_STEP, offsetY);
+					offsetX = clamped.x;
+					offsetY = clamped.y;
+				}
+				break;
+			case "ArrowUp":
+				{
+					const clamped = clampOffset(offsetX, offsetY - PAN_STEP);
+					offsetX = clamped.x;
+					offsetY = clamped.y;
+				}
+				break;
+			case "ArrowDown":
+				{
+					const clamped = clampOffset(offsetX, offsetY + PAN_STEP);
+					offsetX = clamped.x;
+					offsetY = clamped.y;
+				}
+				break;
+			case "+":
+			case "=":
+				scale = Math.min(MAX_SCALE, scale + ZOOM_STEP);
+				break;
+			case "-":
+			case "_":
+				scale = Math.max(MIN_SCALE, scale - ZOOM_STEP);
+				break;
+			case "r":
+				if (e.shiftKey) {
+					rotation = Math.max(MIN_ROTATION, rotation - ROTATE_STEP);
+				} else {
+					rotation = Math.min(MAX_ROTATION, rotation + ROTATE_STEP);
+				}
+				break;
+			case "Escape":
+				onClose();
+				break;
+			default:
+				handled = false;
+		}
+		if (handled) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
+	}
+
 	// Save - uses SAME render function as preview for perfect WYSIWYG
 	function saveCrop() {
 		if (!sourceImage) return;
@@ -292,7 +474,18 @@
 		renderToCanvas(ctx, outputSize, cropSize, sourceImage);
 
 		const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-		onSave(dataUrl, selectedImageIndex);
+
+		// Update transform prop with current state (bindable syncs to parent)
+		transform = {
+			scale,
+			rotation,
+			offsetX,
+			offsetY,
+			sourceImageIndex: selectedImageIndex,
+			dataUrl,
+		};
+
+		onClose();
 	}
 </script>
 
@@ -331,8 +524,8 @@
 		<!-- Instructions -->
 		<div class="px-4 py-2 bg-neutral-800/50 border-b border-neutral-700/50">
 			<p class="text-xs text-neutral-400 text-center">
-				Drag to pan • Scroll to zoom • On mobile: pinch to zoom, two
-				fingers to rotate
+				Drag to pan • Scroll to zoom • Arrow keys to pan • +/- to zoom •
+				R to rotate • Esc to close
 			</p>
 		</div>
 
@@ -381,7 +574,8 @@
 			aria-label="Image editor"
 		>
 			<div
-				class="relative rounded-lg"
+				bind:this={editorContainer}
+				class="relative rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50"
 				style:width="{containerSize}px"
 				style:height="{containerSize}px"
 				style:background="#0a0a0f"
@@ -393,14 +587,17 @@
 				ontouchstart={handleTouchStart}
 				ontouchmove={handleTouchMove}
 				ontouchend={handleTouchEnd}
-				role="img"
-				aria-label="Thumbnail preview canvas"
+				onkeydown={handleKeyDown}
+				tabindex="0"
+				role="application"
+				aria-label="Thumbnail editor. Use arrow keys to pan, plus/minus to zoom, R to rotate, Escape to close."
 			>
 				<!-- Canvas preview - positioned in center of container -->
+				<!-- Note: width/height set in $effect for High-DPI support, CSS dimensions control display -->
 				<canvas
 					bind:this={previewCanvas}
-					width={cropSize}
-					height={cropSize}
+					style:width="{containerSize}px"
+					style:height="{containerSize}px"
 					class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-sm pointer-events-none"
 				></canvas>
 
@@ -584,11 +781,32 @@
 </div>
 
 <style>
-	/* Crop overlay - visual frame only, no clipping needed for canvas */
+	/* Crop overlay - darkens out-of-bounds areas */
 	.crop-overlay {
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
+	}
+
+	.crop-overlay::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		/* Cut out center square using clip-path */
+		clip-path: polygon(
+			/* Outer rectangle */ 0% 0%,
+			0% 100%,
+			100% 100%,
+			100% 0%,
+			0% 0%,
+			/* Inner cutout (clockwise) */ calc(50% - var(--crop-size) / 2)
+				calc(50% - var(--crop-size) / 2),
+			calc(50% + var(--crop-size) / 2) calc(50% - var(--crop-size) / 2),
+			calc(50% + var(--crop-size) / 2) calc(50% + var(--crop-size) / 2),
+			calc(50% - var(--crop-size) / 2) calc(50% + var(--crop-size) / 2),
+			calc(50% - var(--crop-size) / 2) calc(50% - var(--crop-size) / 2)
+		);
 	}
 
 	.crop-frame {
