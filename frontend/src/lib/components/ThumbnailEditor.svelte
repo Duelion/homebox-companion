@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
+	import { onMount } from "svelte";
 	import Button from "./Button.svelte";
 
 	interface Props {
@@ -11,232 +11,98 @@
 
 	let { images, currentThumbnail, onSave, onClose }: Props = $props();
 
-	let canvas: HTMLCanvasElement;
-	let ctx: CanvasRenderingContext2D | null = null;
-	let canvasContainer: HTMLDivElement;
-
 	// Selected image
 	let selectedImageIndex = $state(0);
-	let loadedImage: HTMLImageElement | null = null;
+	let imageElement: HTMLImageElement;
+	let containerElement: HTMLDivElement;
 
-	// Transform state
-	// Offset is in the ROTATED coordinate space (relative to crop center after rotation)
+	// Transform state - all reactive
 	let scale = $state(1);
-	let rotation = $state(0); // in degrees
+	let rotation = $state(0);
 	let offsetX = $state(0);
 	let offsetY = $state(0);
 
-	// Responsive canvas size (340-480px based on viewport)
-	let canvasSize = $state(340);
+	// Responsive sizing
+	let containerSize = $state(340);
+	let cropSize = $derived(Math.round(containerSize * 0.706));
 
-	// Crop area (square, centered) - scales with canvas
-	let CROP_SIZE = $derived(Math.round(canvasSize * 0.706)); // ~240/340 ratio
-	let cropCenterX = $derived(canvasSize / 2);
-	let cropCenterY = $derived(canvasSize / 2);
+	// Scale limits
+	let minScale = $state(0.5);
+	const MAX_SCALE = 5;
+	const MIN_ROTATION = -180;
+	const MAX_ROTATION = 180;
 
-	// Touch/mouse state
-	let isDragging = $state(false);
+	// Gesture state (not reactive - internal tracking only)
+	let isDragging = false;
 	let lastX = 0;
 	let lastY = 0;
 	let lastTouchDistance = 0;
 	let lastTouchAngle = 0;
 
-	// Scale limits
-	// minScale is dynamic - calculated per image so crop square touches image edges at slider=0
-	let minScale = $state(0.1);
-	const MAX_SCALE = 5; // 500% max zoom
-	const MIN_ROTATION = -180;
-	const MAX_ROTATION = 180;
+	// CSS transform string - computed reactively
+	let transformStyle = $derived(
+		`translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`,
+	);
 
-	// Logarithmic slider conversion functions
-	// This makes zoom feel linear to users (same slider distance = same perceived zoom change)
-	// Formula: scale = minScale * (MAX_SCALE/minScale)^sliderPosition
+	// Logarithmic zoom for better UX
 	function scaleToSlider(s: number): number {
-		// Convert actual scale to slider position (0-1)
 		const logBase = MAX_SCALE / minScale;
 		return Math.log(s / minScale) / Math.log(logBase);
 	}
 
 	function sliderToScale(sliderValue: number): number {
-		// Convert slider position (0-1) to actual scale
 		const logBase = MAX_SCALE / minScale;
 		return minScale * Math.pow(logBase, sliderValue);
 	}
 
-	// For slider display
 	let zoomPercent = $derived(Math.round(scale * 100));
 	let zoomSliderValue = $derived(scaleToSlider(scale));
 
 	onMount(() => {
-		// Calculate responsive canvas size based on viewport width
-		// Use most of the available width for a larger working area
+		// Calculate responsive container size
 		const viewportWidth = window.innerWidth;
 		if (viewportWidth >= 640) {
-			canvasSize = Math.min(480, viewportWidth - 80);
+			containerSize = Math.min(480, viewportWidth - 80);
 		} else {
-			// On small screens, use more width for a bigger canvas
-			canvasSize = Math.min(440, viewportWidth - 32);
-		}
-
-		// Wait for next tick to ensure canvas dimensions are set
-		requestAnimationFrame(() => {
-			ctx = canvas.getContext("2d");
-			loadImage(selectedImageIndex);
-		});
-	});
-
-	// Cleanup loaded image on component destroy
-	onDestroy(() => {
-		if (loadedImage) {
-			loadedImage.src = "";
-			loadedImage = null;
+			containerSize = Math.min(440, viewportWidth - 32);
 		}
 	});
 
-	function loadImage(index: number) {
+	// Reset transform when image changes
+	function selectImage(index: number) {
 		if (index < 0 || index >= images.length) return;
-
-		// Store reference to old image for cleanup after new one loads
-		const oldImage = loadedImage;
-
-		const img = new Image();
-		img.onload = () => {
-			// Clear old image AFTER new one is loaded to prevent black screen
-			if (oldImage) {
-				oldImage.src = "";
-			}
-			loadedImage = img;
-			resetTransform();
-			requestAnimationFrame(() => render());
-		};
-		img.src = images[index].dataUrl;
 		selectedImageIndex = index;
+		// Reset transform for new image
+		resetTransform();
 	}
 
 	function resetTransform() {
-		if (!loadedImage) return;
-
-		// Calculate minimum scale so image width fits the crop area
-		// For portrait images, height extends beyond crop - user can pan vertically
-		// For landscape images, this naturally fills the crop area
-		const cropSize = CROP_SIZE;
-		minScale = cropSize / loadedImage.width;
-
-		// Start at minimum scale (image width matches crop width)
-		scale = minScale;
+		// Wait for image to load to calculate proper scale
+		if (imageElement?.naturalWidth) {
+			minScale = cropSize / imageElement.naturalWidth;
+			scale = minScale;
+		} else {
+			scale = 0.5;
+		}
 		rotation = 0;
 		offsetX = 0;
 		offsetY = 0;
-		render();
 	}
 
-	function render() {
-		if (!ctx || !loadedImage) return;
-
-		const w = canvasSize;
-		const h = canvasSize;
-		const cropSize = CROP_SIZE;
-		const centerX = cropCenterX;
-		const centerY = cropCenterY;
-
-		// Clear canvas
-		ctx.fillStyle = "#0a0a0f"; // neutral-950
-		ctx.fillRect(0, 0, w, h);
-
-		// Save context state
-		ctx.save();
-
-		// Transform order for rotation around crop center:
-		// 1. Move to crop center
-		ctx.translate(centerX, centerY);
-		// 2. Rotate around crop center
-		ctx.rotate((rotation * Math.PI) / 180);
-		// 3. Apply offset (in rotated space)
-		ctx.translate(offsetX, offsetY);
-		// 4. Scale
-		ctx.scale(scale, scale);
-		// 5. Draw image centered at this point
-		ctx.drawImage(
-			loadedImage,
-			-loadedImage.width / 2,
-			-loadedImage.height / 2,
-			loadedImage.width,
-			loadedImage.height,
-		);
-
-		ctx.restore();
-
-		// Draw dark overlay with transparent crop area
-		ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-		ctx.fillRect(0, 0, w, centerY - cropSize / 2);
-		ctx.fillRect(
-			0,
-			centerY + cropSize / 2,
-			w,
-			h - (centerY + cropSize / 2),
-		);
-		ctx.fillRect(
-			0,
-			centerY - cropSize / 2,
-			centerX - cropSize / 2,
-			cropSize,
-		);
-		ctx.fillRect(
-			centerX + cropSize / 2,
-			centerY - cropSize / 2,
-			w - (centerX + cropSize / 2),
-			cropSize,
-		);
-
-		// Draw crop border
-		ctx.strokeStyle = "rgba(99, 102, 241, 0.8)"; // primary-500
-		ctx.lineWidth = 2;
-		ctx.strokeRect(
-			centerX - cropSize / 2,
-			centerY - cropSize / 2,
-			cropSize,
-			cropSize,
-		);
-
-		// Draw corner handles
-		const handleSize = 20;
-		ctx.strokeStyle = "#6366f1"; // primary-500
-		ctx.lineWidth = 3;
-
-		// Top-left
-		ctx.beginPath();
-		ctx.moveTo(centerX - cropSize / 2, centerY - cropSize / 2 + handleSize);
-		ctx.lineTo(centerX - cropSize / 2, centerY - cropSize / 2);
-		ctx.lineTo(centerX - cropSize / 2 + handleSize, centerY - cropSize / 2);
-		ctx.stroke();
-
-		// Top-right
-		ctx.beginPath();
-		ctx.moveTo(centerX + cropSize / 2 - handleSize, centerY - cropSize / 2);
-		ctx.lineTo(centerX + cropSize / 2, centerY - cropSize / 2);
-		ctx.lineTo(centerX + cropSize / 2, centerY - cropSize / 2 + handleSize);
-		ctx.stroke();
-
-		// Bottom-left
-		ctx.beginPath();
-		ctx.moveTo(centerX - cropSize / 2, centerY + cropSize / 2 - handleSize);
-		ctx.lineTo(centerX - cropSize / 2, centerY + cropSize / 2);
-		ctx.lineTo(centerX - cropSize / 2 + handleSize, centerY + cropSize / 2);
-		ctx.stroke();
-
-		// Bottom-right
-		ctx.beginPath();
-		ctx.moveTo(centerX + cropSize / 2 - handleSize, centerY + cropSize / 2);
-		ctx.lineTo(centerX + cropSize / 2, centerY + cropSize / 2);
-		ctx.lineTo(centerX + cropSize / 2, centerY + cropSize / 2 - handleSize);
-		ctx.stroke();
+	function handleImageLoad() {
+		// Calculate min scale so image width fills crop area
+		minScale = cropSize / imageElement.naturalWidth;
+		scale = minScale;
+		offsetX = 0;
+		offsetY = 0;
 	}
 
-	// Mouse drag for panning
+	// Mouse handlers
 	function handleMouseDown(e: MouseEvent) {
 		isDragging = true;
 		lastX = e.clientX;
 		lastY = e.clientY;
+		e.preventDefault();
 	}
 
 	function handleMouseMove(e: MouseEvent) {
@@ -247,33 +113,26 @@
 
 		// Convert screen delta to rotated space
 		const rad = (-rotation * Math.PI) / 180;
-		const rotatedDx = dx * Math.cos(rad) - dy * Math.sin(rad);
-		const rotatedDy = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-		offsetX += rotatedDx;
-		offsetY += rotatedDy;
+		offsetX += dx * Math.cos(rad) - dy * Math.sin(rad);
+		offsetY += dx * Math.sin(rad) + dy * Math.cos(rad);
 
 		lastX = e.clientX;
 		lastY = e.clientY;
-		render();
 	}
 
 	function handleMouseUp() {
 		isDragging = false;
 	}
 
-	// Mouse wheel for zoom (keep for convenience)
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
 		const delta = e.deltaY > 0 ? 0.95 : 1.05;
 		scale = Math.max(minScale, Math.min(MAX_SCALE, scale * delta));
-		render();
 	}
 
-	// Touch events
+	// Touch handlers
 	function handleTouchStart(e: TouchEvent) {
 		e.preventDefault();
-
 		if (e.touches.length === 1) {
 			isDragging = true;
 			lastX = e.touches[0].clientX;
@@ -294,11 +153,8 @@
 
 			// Convert to rotated space
 			const rad = (-rotation * Math.PI) / 180;
-			const rotatedDx = dx * Math.cos(rad) - dy * Math.sin(rad);
-			const rotatedDy = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-			offsetX += rotatedDx;
-			offsetY += rotatedDy;
+			offsetX += dx * Math.cos(rad) - dy * Math.sin(rad);
+			offsetY += dx * Math.sin(rad) + dy * Math.cos(rad);
 
 			lastX = e.touches[0].clientX;
 			lastY = e.touches[0].clientY;
@@ -321,8 +177,6 @@
 			);
 			lastTouchAngle = newAngle;
 		}
-
-		render();
 	}
 
 	function handleTouchEnd(e: TouchEvent) {
@@ -350,62 +204,52 @@
 	// Slider handlers
 	function handleZoomSlider(e: Event) {
 		const input = e.target as HTMLInputElement;
-		// Convert linear slider position to logarithmic scale
 		scale = sliderToScale(parseFloat(input.value));
-		render();
 	}
 
 	function handleRotationSlider(e: Event) {
 		const input = e.target as HTMLInputElement;
 		rotation = parseFloat(input.value);
-		render();
 	}
 
-	// Quick rotation buttons
 	function rotateLeft90() {
 		rotation = Math.max(MIN_ROTATION, rotation - 90);
-		render();
 	}
 
 	function rotateRight90() {
 		rotation = Math.min(MAX_ROTATION, rotation + 90);
-		render();
 	}
 
-	// Save cropped image
+	// Save cropped image - uses offscreen canvas only at save time
 	function saveCrop() {
-		if (!loadedImage) return;
-
 		const outputSize = 400;
-		const outputCanvas = document.createElement("canvas");
-		outputCanvas.width = outputSize;
-		outputCanvas.height = outputSize;
-		const outputCtx = outputCanvas.getContext("2d");
+		const canvas = document.createElement("canvas");
+		canvas.width = outputSize;
+		canvas.height = outputSize;
+		const ctx = canvas.getContext("2d");
 
-		if (!outputCtx) return;
+		if (!ctx || !imageElement) return;
 
-		const cropSize = CROP_SIZE;
 		const outputScale = outputSize / cropSize;
 
-		outputCtx.fillStyle = "#0a0a0f"; // neutral-950
-		outputCtx.fillRect(0, 0, outputSize, outputSize);
+		ctx.fillStyle = "#0a0a0f";
+		ctx.fillRect(0, 0, outputSize, outputSize);
 
-		// Same transform order as render, but scaled for output
-		outputCtx.translate(outputSize / 2, outputSize / 2);
-		outputCtx.rotate((rotation * Math.PI) / 180);
-		outputCtx.translate(offsetX * outputScale, offsetY * outputScale);
-		outputCtx.scale(scale * outputScale, scale * outputScale);
+		// Apply same transforms as CSS
+		ctx.translate(outputSize / 2, outputSize / 2);
+		ctx.rotate((rotation * Math.PI) / 180);
+		ctx.translate(offsetX * outputScale, offsetY * outputScale);
+		ctx.scale(scale * outputScale, scale * outputScale);
 
-		outputCtx.drawImage(
-			loadedImage,
-			-loadedImage.width / 2,
-			-loadedImage.height / 2,
-			loadedImage.width,
-			loadedImage.height,
+		ctx.drawImage(
+			imageElement,
+			-imageElement.naturalWidth / 2,
+			-imageElement.naturalHeight / 2,
+			imageElement.naturalWidth,
+			imageElement.naturalHeight,
 		);
 
-		const dataUrl = outputCanvas.toDataURL("image/jpeg", 0.9);
-		// Pass the selected image index so the caller can reorder images if needed
+		const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
 		onSave(dataUrl, selectedImageIndex);
 	}
 </script>
@@ -442,7 +286,7 @@
 			</button>
 		</div>
 
-		<!-- Instructions at top for better discovery -->
+		<!-- Instructions -->
 		<div class="px-4 py-2 bg-neutral-800/50 border-b border-neutral-700/50">
 			<p class="text-xs text-neutral-400 text-center">
 				Drag to pan • Scroll to zoom • On mobile: pinch to zoom, two
@@ -450,7 +294,7 @@
 			</p>
 		</div>
 
-		<!-- Image selector with larger thumbnails and labels -->
+		<!-- Image selector -->
 		{#if images.length > 1}
 			<div class="px-4 py-3 border-b border-neutral-700/50">
 				<span class="text-xs text-neutral-400 mb-2 block font-medium"
@@ -461,7 +305,7 @@
 						<button
 							type="button"
 							class="flex flex-col items-center gap-1 flex-shrink-0"
-							onclick={() => loadImage(index)}
+							onclick={() => selectImage(index)}
 						>
 							<div
 								class="w-16 h-16 rounded-lg overflow-hidden border-2 transition-all {selectedImageIndex ===
@@ -488,18 +332,18 @@
 			</div>
 		{/if}
 
-		<!-- Canvas area with cursor states -->
+		<!-- Image editor area - CSS transforms instead of canvas -->
 		<div
-			bind:this={canvasContainer}
+			bind:this={containerElement}
 			class="flex items-center justify-center p-4 touch-none"
+			role="application"
+			aria-label="Image editor"
 		>
-			<canvas
-				bind:this={canvas}
-				width={canvasSize}
-				height={canvasSize}
-				class="rounded-lg {isDragging
-					? 'cursor-grabbing'
-					: 'cursor-grab'}"
+			<div
+				class="relative overflow-hidden rounded-lg"
+				style:width="{containerSize}px"
+				style:height="{containerSize}px"
+				style:background="#0a0a0f"
 				onmousedown={handleMouseDown}
 				onmousemove={handleMouseMove}
 				onmouseup={handleMouseUp}
@@ -508,12 +352,31 @@
 				ontouchstart={handleTouchStart}
 				ontouchmove={handleTouchMove}
 				ontouchend={handleTouchEnd}
-			></canvas>
+			>
+				<!-- The image with CSS transforms -->
+				<img
+					bind:this={imageElement}
+					src={images[selectedImageIndex].dataUrl}
+					alt="Edit preview"
+					class="absolute pointer-events-none select-none"
+					style:left="50%"
+					style:top="50%"
+					style:transform-origin="center center"
+					style:transform="translate(-50%, -50%) {transformStyle}"
+					onload={handleImageLoad}
+					draggable="false"
+				/>
+
+				<!-- Crop overlay - pure CSS -->
+				<div class="crop-overlay" style:--crop-size="{cropSize}px">
+					<div class="crop-frame"></div>
+				</div>
+			</div>
 		</div>
 
 		<!-- Slider Controls -->
 		<div class="px-4 py-4 border-t border-neutral-700/50 space-y-5">
-			<!-- Zoom slider with tick marks -->
+			<!-- Zoom slider -->
 			<div>
 				<div class="flex items-center justify-between mb-2">
 					<label
@@ -537,7 +400,6 @@
 						>{zoomPercent}%</span
 					>
 				</div>
-				<!-- Tick marks for zoom -->
 				<div class="relative mb-1">
 					<div
 						class="flex justify-between text-[10px] text-neutral-600 px-0.5"
@@ -559,7 +421,7 @@
 				/>
 			</div>
 
-			<!-- Rotation slider with tick marks -->
+			<!-- Rotation slider -->
 			<div>
 				<div class="flex items-center justify-between mb-2">
 					<label
@@ -586,7 +448,6 @@
 						>{Math.round(rotation)}°</span
 					>
 				</div>
-				<!-- Tick marks for rotation -->
 				<div class="relative mb-1 px-11">
 					<div
 						class="flex justify-between text-[10px] text-neutral-600"
@@ -686,7 +547,92 @@
 </div>
 
 <style>
-	/* Custom slider styling with larger thumbs (22px) */
+	/* Crop overlay using CSS - no canvas drawing needed */
+	.crop-overlay {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
+
+	.crop-overlay::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		/* Cut out center square using clip-path */
+		clip-path: polygon(
+			/* Outer rectangle */ 0% 0%,
+			0% 100%,
+			100% 100%,
+			100% 0%,
+			0% 0%,
+			/* Inner cutout (clockwise) */ calc(50% - var(--crop-size) / 2)
+				calc(50% - var(--crop-size) / 2),
+			calc(50% + var(--crop-size) / 2) calc(50% - var(--crop-size) / 2),
+			calc(50% + var(--crop-size) / 2) calc(50% + var(--crop-size) / 2),
+			calc(50% - var(--crop-size) / 2) calc(50% + var(--crop-size) / 2),
+			calc(50% - var(--crop-size) / 2) calc(50% - var(--crop-size) / 2)
+		);
+	}
+
+	.crop-frame {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: var(--crop-size);
+		height: var(--crop-size);
+		transform: translate(-50%, -50%);
+		border: 2px solid rgba(99, 102, 241, 0.8);
+		box-sizing: border-box;
+	}
+
+	/* Corner handles */
+	.crop-frame::before,
+	.crop-frame::after {
+		content: "";
+		position: absolute;
+		width: 20px;
+		height: 20px;
+		border: 3px solid #6366f1;
+	}
+
+	.crop-frame::before {
+		top: -2px;
+		left: -2px;
+		border-right: none;
+		border-bottom: none;
+	}
+
+	.crop-frame::after {
+		top: -2px;
+		right: -2px;
+		border-left: none;
+		border-bottom: none;
+	}
+
+	/* Bottom corners via pseudo-elements on the overlay */
+	.crop-overlay::after {
+		content: "";
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: var(--crop-size);
+		height: var(--crop-size);
+		transform: translate(-50%, -50%);
+		pointer-events: none;
+		/* Only show bottom corners */
+		background:
+			/* Bottom-left */
+			linear-gradient(to right, #6366f1 3px, transparent 3px) 0 100%,
+			linear-gradient(to top, #6366f1 3px, transparent 3px) 0 100%,
+			/* Bottom-right */
+				linear-gradient(to left, #6366f1 3px, transparent 3px) 100% 100%,
+			linear-gradient(to top, #6366f1 3px, transparent 3px) 100% 100%;
+		background-repeat: no-repeat;
+		background-size: 20px 20px;
+	}
+
+	/* Custom slider styling */
 	input[type="range"] {
 		-webkit-appearance: none;
 		appearance: none;
@@ -696,7 +642,7 @@
 	input[type="range"]::-webkit-slider-runnable-track {
 		width: 100%;
 		height: 8px;
-		background: #1e1e2e; /* neutral-800 */
+		background: #1e1e2e;
 		border-radius: 4px;
 	}
 
@@ -705,7 +651,7 @@
 		appearance: none;
 		width: 22px;
 		height: 22px;
-		background: #6366f1; /* primary-500 */
+		background: #6366f1;
 		border-radius: 50%;
 		cursor: pointer;
 		margin-top: -7px;
@@ -727,14 +673,14 @@
 	input[type="range"]::-moz-range-track {
 		width: 100%;
 		height: 8px;
-		background: #1e1e2e; /* neutral-800 */
+		background: #1e1e2e;
 		border-radius: 4px;
 	}
 
 	input[type="range"]::-moz-range-thumb {
 		width: 22px;
 		height: 22px;
-		background: #6366f1; /* primary-500 */
+		background: #6366f1;
 		border-radius: 50%;
 		cursor: pointer;
 		border: none;
@@ -745,7 +691,6 @@
 		box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
 	}
 
-	/* Focus states for accessibility */
 	input[type="range"]:focus {
 		outline: none;
 	}
