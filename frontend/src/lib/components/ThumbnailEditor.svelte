@@ -96,13 +96,15 @@
 	function loadImage(index: number) {
 		if (index < 0 || index >= images.length) return;
 
-		// Clear previous image to help GC
-		if (loadedImage) {
-			loadedImage.src = "";
-		}
+		// Store reference to old image for cleanup after new one loads
+		const oldImage = loadedImage;
 
 		const img = new Image();
 		img.onload = () => {
+			// Clear old image AFTER new one is loaded to prevent black screen
+			if (oldImage) {
+				oldImage.src = "";
+			}
 			loadedImage = img;
 			resetTransform();
 			requestAnimationFrame(() => render());
