@@ -23,7 +23,7 @@
 
 		try {
 			const response = await auth.login(email, password);
-			onReauthSuccess(response.token);
+			onReauthSuccess(response.token, new Date(response.expires_at));
 			// Reset form
 			email = '';
 			password = '';

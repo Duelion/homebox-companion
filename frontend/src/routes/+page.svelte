@@ -1,34 +1,54 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { auth, getConfig } from '$lib/api';
-	import { token, tokenExpiresAt, isAuthenticated } from '$lib/stores/auth';
+	import { setAuthenticatedState, isAuthenticated, authInitialized } from '$lib/stores/auth';
 	import { showToast, setLoading } from '$lib/stores/ui';
-	import { scheduleRefresh } from '$lib/services/tokenRefresh';
 	import Button from '$lib/components/Button.svelte';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 
 	let email = $state('');
 	let password = $state('');
 	let isSubmitting = $state(false);
 	let showPassword = $state(false);
+	let isCheckingAuth = $state(true); // Show loading during auth check
 
 	// Redirect if already authenticated, or auto-fill demo credentials
 	onMount(async () => {
-		if ($isAuthenticated) {
-			goto('/location');
-			return;
-		}
-
-		// Check if in demo mode and auto-fill credentials
 		try {
-			const config = await getConfig();
-			if (config.is_demo_mode) {
-				email = 'demo@example.com';
-				password = 'demo';
+			// Wait for auth initialization to complete to avoid race conditions
+			// where we check isAuthenticated before initializeAuth clears expired tokens
+			if (!get(authInitialized)) {
+				await new Promise<void>((resolve) => {
+					const unsubscribe = authInitialized.subscribe((initialized) => {
+						if (initialized) {
+							unsubscribe();
+							resolve();
+						}
+					});
+				});
 			}
-		} catch (error) {
-			// If config fetch fails, just continue without auto-fill
-			console.error('Failed to fetch config:', error);
+
+			// Now safe to check authentication status
+			if (get(isAuthenticated)) {
+				goto('/location');
+				return;
+			}
+
+			// Check if in demo mode and auto-fill credentials
+			try {
+				const config = await getConfig();
+				if (config.is_demo_mode) {
+					email = 'demo@example.com';
+					password = 'demo';
+				}
+			} catch (error) {
+				// If config fetch fails, just continue without auto-fill
+				console.error('Failed to fetch config:', error);
+			}
+		} finally {
+			// Auth check complete, show login form
+			isCheckingAuth = false;
 		}
 	});
 
@@ -45,9 +65,7 @@
 
 	try {
 		const response = await auth.login(email, password);
-		token.set(response.token);
-		tokenExpiresAt.set(new Date(response.expires_at));
-		scheduleRefresh();
+		setAuthenticatedState(response.token, new Date(response.expires_at));
 		goto('/location');
 	} catch (error) {
 			console.error('Login failed:', error);
@@ -71,22 +89,29 @@
 </svelte:head>
 
 <div class="flex flex-col items-center justify-center min-h-[70vh] animate-in">
-	<!-- Refined logo icon -->
-	<div class="w-20 h-20 bg-primary-600/20 rounded-2xl flex items-center justify-center mb-10 shadow-lg">
-		<svg class="w-10 h-10 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-			<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-		</svg>
-	</div>
+	{#if isCheckingAuth}
+		<!-- Loading state during auth check -->
+		<div class="flex flex-col items-center gap-4">
+			<div class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+			<p class="text-sm text-text-muted">Loading...</p>
+		</div>
+	{:else}
+		<!-- Refined logo icon -->
+		<div class="w-20 h-20 bg-primary-600/20 rounded-2xl flex items-center justify-center mb-10 shadow-lg">
+			<svg class="w-10 h-10 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+			</svg>
+		</div>
 
-	<!-- Typography with improved hierarchy -->
-	<h1 class="text-h1 text-neutral-100 mb-2 text-center px-4">
-		Welcome back
-	</h1>
-	<p class="text-body text-neutral-400 mb-10 text-center px-4 max-w-xs">
-		Sign in to continue to Homebox Companion
-	</p>
+		<!-- Typography with improved hierarchy -->
+		<h1 class="text-h1 text-neutral-100 mb-2 text-center px-4">
+			Welcome back
+		</h1>
+		<p class="text-body text-neutral-400 mb-10 text-center px-4 max-w-xs">
+			Sign in to continue to Homebox Companion
+		</p>
 
-	<form class="w-full max-w-sm space-y-5 px-4" onsubmit={handleSubmit}>
+		<form class="w-full max-w-sm space-y-5 px-4" onsubmit={handleSubmit}>
 		<div>
 			<label for="email" class="label">Email</label>
 			<input
@@ -143,4 +168,5 @@
 			</Button>
 		</div>
 	</form>
+	{/if}
 </div>
