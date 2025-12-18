@@ -122,8 +122,12 @@
 					itemCount: details.itemCount ?? 0,
 					children: details.children || [],
 				};
+
+				// Also refresh the global tree cache to keep it in sync
+				const tree = await locationsApi.tree();
+				locationTree.set(tree);
 			} else {
-				// Refresh top-level locations
+				// Refresh top-level locations (tree fetch covers both tree cache and current level)
 				const tree = await locationsApi.tree();
 				locationTree.set(tree);
 				currentLevelLocations.set(tree);
@@ -141,16 +145,80 @@
 		}
 	}
 
+	async function updateBreadcrumbNames() {
+		const path = $locationPath;
+		if (path.length === 0) return;
+
+		try {
+			// Fetch all locations in path to check for name changes
+			const updates = await Promise.all(
+				path.map(async (item) => {
+					const details = await locationsApi.get(item.id);
+					return { id: item.id, name: details.name };
+				}),
+			);
+
+			// Only update if names changed
+			const hasChanges = updates.some(
+				(u, i) => u.name !== path[i].name,
+			);
+			if (hasChanges) {
+				locationPath.set(updates);
+				log.debug("Updated breadcrumb names after refresh");
+			}
+		} catch (error) {
+			log.warn("Failed to update breadcrumb names", error);
+			// Don't show error toast - this is a non-critical enhancement
+		}
+	}
+
 	// Handler for pull-to-refresh: refreshes current view without resetting navigation
 	async function handlePullRefresh() {
 		const path = $locationPath;
-		if (path.length > 0) {
+
+		if ($selectedLocation) {
+			// Refresh selected location's details
+			isLoadingLocations = true;
+			try {
+				const details = await locationsApi.get($selectedLocation.id);
+				selectedLocation.set({
+					id: details.id,
+					name: details.name,
+					description: details.description || "",
+					itemCount: details.itemCount ?? 0,
+					children: details.children || [],
+				});
+				// Update workflow if name changed
+				if (details.name !== scanWorkflow.state.locationName) {
+					scanWorkflow.setLocation(
+						details.id,
+						details.name,
+						$selectedLocationPath,
+					);
+				}
+				// Also update breadcrumb names in case parent locations were renamed
+				await updateBreadcrumbNames();
+			} catch (error) {
+				log.error("Failed to refresh selected location", error);
+				showToast("Failed to refresh location", "error");
+			} finally {
+				isLoadingLocations = false;
+			}
+		} else if (path.length > 0) {
 			// Drilled into a location - refresh current level
 			const parentId = path[path.length - 1].id;
 			await refreshCurrentLevel(parentId);
+			await updateBreadcrumbNames();
 		} else {
 			// At root level - refresh everything
 			await loadLocations();
+		}
+
+		// Always refresh labels to pick up new labels created by other users
+		try {
+			await fetchLabels(true); // force refresh
+		} catch (error) {
+			log.warn("Failed to refresh labels during pull-to-refresh", error);
 		}
 	}
 
@@ -521,7 +589,7 @@
 
 <PullToRefresh
 	onRefresh={handlePullRefresh}
-	enabled={!$selectedLocation && !isLoadingLocations}
+	enabled={!isLoadingLocations && !showLocationModal && !showItemPicker && !showQrScanner}
 >
 	<div class="animate-in">
 		<StepIndicator currentStep={1} />

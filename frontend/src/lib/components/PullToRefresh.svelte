@@ -61,82 +61,107 @@
     // Visual states
     let shouldTrigger = $derived(pullDistance >= threshold);
 
-    function handleTouchStart(e: TouchEvent) {
-        if (!enabled || isRefreshing) return;
+	function handleTouchStart(e: TouchEvent) {
+		if (!enabled || isRefreshing) return;
 
-        // Only activate if at top of page
-        if (window.scrollY > 0) return;
+		// Only activate if at top of page (with tolerance for fractional scroll values)
+		if (window.scrollY > 1) return;
 
-        startY = e.touches[0].clientY;
-        isPulling = true;
-    }
+		// Only handle single touch (ignore multi-touch gestures)
+		if (e.touches.length !== 1) return;
 
-    function handleTouchMove(e: TouchEvent) {
-        if (!isPulling || !enabled || isRefreshing) return;
+		startY = e.touches[0].clientY;
+		isPulling = true;
+	}
 
-        currentY = e.touches[0].clientY;
-        const diff = currentY - startY;
+	function handleTouchMove(e: TouchEvent) {
+		if (!isPulling || !enabled || isRefreshing) return;
 
-        // Only allow pulling down, not up
-        if (diff > 0) {
-            // Apply resistance - gets harder to pull as you go further
-            pullDistance = Math.pow(diff, 0.8);
+		// Ensure we're still in single-touch mode
+		if (e.touches.length !== 1) {
+			resetPullState();
+			return;
+		}
 
-            // Prevent native scroll while pulling
-            if (window.scrollY === 0 && diff > 10) {
-                e.preventDefault();
-            }
-        } else {
-            pullDistance = 0;
-        }
-    }
+		currentY = e.touches[0].clientY;
+		const diff = currentY - startY;
 
-    async function handleTouchEnd() {
-        if (!isPulling || !enabled) return;
+		// Only allow pulling down, not up
+		if (diff > 0) {
+			// Apply resistance - gets harder to pull as you go further
+			pullDistance = Math.pow(diff, 0.8);
 
-        isPulling = false;
+			// Prevent native scroll while pulling (with tolerance)
+			if (window.scrollY <= 1 && diff > 10) {
+				e.preventDefault();
+			}
+		} else {
+			pullDistance = 0;
+		}
+	}
 
-        if (shouldTrigger && !isRefreshing) {
-            isRefreshing = true;
-            // Keep indicator visible during refresh
-            pullDistance = threshold;
+	async function handleTouchEnd() {
+		if (!isPulling || !enabled) return;
 
-            try {
-                await onRefresh();
-            } finally {
-                isRefreshing = false;
-                pullDistance = 0;
-            }
-        } else {
-            // Snap back
-            pullDistance = 0;
-        }
+		isPulling = false;
 
-        startY = 0;
-        currentY = 0;
-    }
+		if (shouldTrigger && !isRefreshing) {
+			isRefreshing = true;
+			// Keep indicator visible during refresh
+			pullDistance = threshold;
 
-    // Register global touch listeners for better gesture tracking
-    onMount(() => {
-        if (!browser) return;
+			try {
+				await onRefresh();
+			} finally {
+				isRefreshing = false;
+				pullDistance = 0;
+			}
+		} else {
+			// Snap back
+			pullDistance = 0;
+		}
 
-        // Use passive: false to allow preventDefault on touchmove
-        window.addEventListener("touchstart", handleTouchStart, {
-            passive: true,
-        });
-        window.addEventListener("touchmove", handleTouchMove, {
-            passive: false,
-        });
-        window.addEventListener("touchend", handleTouchEnd, { passive: true });
-    });
+		startY = 0;
+		currentY = 0;
+	}
 
-    onDestroy(() => {
-        if (!browser) return;
+	function handleTouchCancel() {
+		// Reset state if touch is interrupted (e.g., by system gesture)
+		resetPullState();
+	}
 
-        window.removeEventListener("touchstart", handleTouchStart);
-        window.removeEventListener("touchmove", handleTouchMove);
-        window.removeEventListener("touchend", handleTouchEnd);
-    });
+	function resetPullState() {
+		isPulling = false;
+		pullDistance = 0;
+		startY = 0;
+		currentY = 0;
+	}
+
+	// Register global touch listeners for better gesture tracking
+	onMount(() => {
+		if (!browser) return;
+
+		// Use passive: false to allow preventDefault on touchmove
+		window.addEventListener("touchstart", handleTouchStart, {
+			passive: true,
+		});
+		window.addEventListener("touchmove", handleTouchMove, {
+			passive: false,
+		});
+		window.addEventListener("touchend", handleTouchEnd, { passive: true });
+		window.addEventListener("touchcancel", handleTouchCancel, {
+			passive: true,
+		});
+	});
+
+	onDestroy(() => {
+		if (!browser) return;
+
+		window.removeEventListener("touchstart", handleTouchStart);
+		window.removeEventListener("touchmove", handleTouchMove);
+		window.removeEventListener("touchend", handleTouchEnd);
+		window.removeEventListener("touchcancel", handleTouchCancel);
+	});
 </script>
 
 <!-- Pull indicator - starts hidden above header, slides down when pulling -->
