@@ -191,6 +191,9 @@
 	// ==========================================================================
 
 	async function startAnalysis() {
+		// Entry logging
+		log.info('Analyze button clicked');
+		
 		// Prevent double-clicks
 		if (isStartingAnalysis || isAnalyzing) {
 			log.debug('Analysis already starting or in progress, ignoring click');
@@ -198,20 +201,31 @@
 		}
 
 		isStartingAnalysis = true;
+		log.debug('Starting analysis flow...');
 		
 		try {
 			// Check token validity before starting analysis
+			log.debug('Checking authentication...');
 			const isValid = await checkAuth();
 			if (!isValid) {
 				// Token missing - trigger re-auth modal
+				log.warn('Auth check failed, marking session expired');
 				markSessionExpired();
 				return;
 			}
+			log.debug('Auth check passed');
 			
+			// Before workflow call
+			log.info(`Starting workflow analysis for ${workflow.state.images.length} image(s)`);
 			analysisAnimationComplete = false;
 			// Collapse all expanded cards when analysis starts
 			expandedImages = new Set();
 			await workflow.startAnalysis();
+			log.debug('Workflow.startAnalysis() completed');
+		} catch (error) {
+			// Error logging
+			log.error('Analysis failed with exception', error);
+			throw error;
 		} finally {
 			isStartingAnalysis = false;
 		}
