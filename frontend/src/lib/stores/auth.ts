@@ -4,6 +4,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
 import { stopRefreshTimer } from '../services/tokenRefresh';
+import { authLogger as log } from '../utils/logger';
 
 // Note: scheduleRefresh is imported dynamically in setAuthenticatedState to avoid circular dependency
 
@@ -91,6 +92,7 @@ export const sessionExpired = writable<boolean>(false);
  * Mark the session as expired and show re-auth modal
  */
 export function markSessionExpired(): void {
+	log.info('Session expired, showing re-auth modal');
 	sessionExpired.set(true);
 }
 
@@ -103,10 +105,11 @@ export function markSessionExpired(): void {
  * @param expiresAt - The token expiration date
  */
 export function setAuthenticatedState(newToken: string, expiresAt: Date): void {
+	log.debug('Setting authenticated state, expires:', expiresAt.toISOString());
 	token.set(newToken);
 	tokenExpiresAt.set(expiresAt);
 	sessionExpired.set(false);
-	
+
 	// Import scheduleRefresh dynamically to avoid circular dependency
 	import('../services/tokenRefresh').then(({ scheduleRefresh }) => {
 		scheduleRefresh();
@@ -126,6 +129,7 @@ export function onReauthSuccess(newToken: string, expiresAt: Date): void {
  * Logout and clear all auth state
  */
 export function logout(): void {
+	log.info('User logout');
 	stopRefreshTimer();
 	token.set(null);
 	tokenExpiresAt.set(null);
