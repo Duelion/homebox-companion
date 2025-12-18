@@ -270,6 +270,7 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 | `HBC_LLM_MODEL` | No | `gpt-5-mini` | Model identifier (officially: `gpt-5-mini`, `gpt-5-nano`, `gpt-4o`, `gpt-4o-mini`) |
 | `HBC_LLM_API_BASE` | No | – | Custom API base URL (for proxies or experimental providers) |
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | No | `false` | Skip capability validation for unrecognized models |
+| `HBC_LLM_TIMEOUT` | No | `120` | LLM request timeout in seconds |
 | `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox instance URL |
 | `HBC_IMAGE_QUALITY` | No | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
 
