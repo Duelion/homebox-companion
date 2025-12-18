@@ -92,11 +92,18 @@ export function getLabelName(labelId: string): string | undefined {
 }
 
 // Clear cache when user logs out
-token.subscribe((value) => {
+const tokenUnsubscribe = token.subscribe((value) => {
 	if (!value) {
 		clearLabelsCache();
 	}
 });
+
+// Clean up subscription during Vite HMR
+if (import.meta.hot) {
+	import.meta.hot.dispose(() => {
+		tokenUnsubscribe();
+	});
+}
 
 
 
