@@ -92,10 +92,15 @@ def build_item_schema(customizations: dict[str, str]) -> str:
     Returns:
         Item schema string with field instructions.
     """
+    name_instr = customizations.get('name', 'Title Case, max 255 characters')
+    qty_instr = customizations.get('quantity', '>= 1, count of identical items')
+    desc_instr = customizations.get(
+        'description', 'max 1000 chars, condition/attributes only'
+    )
     return f"""OUTPUT SCHEMA - Each item must include:
-- name: string ({customizations.get('name', 'Title Case, max 255 characters')})
-- quantity: integer ({customizations.get('quantity', '>= 1, count of identical items')})
-- description: string ({customizations.get('description', 'max 1000 chars, condition/attributes only')})
+- name: string ({name_instr})
+- quantity: integer ({qty_instr})
+- description: string ({desc_instr})
 - labelIds: array of matching label IDs"""
 
 
@@ -110,14 +115,22 @@ def build_extended_fields_schema(customizations: dict[str, str]) -> str:
     Returns:
         Extended fields schema string with field instructions.
     """
+    mfr_instr = customizations.get('manufacturer', 'brand name when visible')
+    model_instr = customizations.get('model_number', 'product code when visible')
+    serial_instr = customizations.get('serial_number', 'S/N when visible')
+    price_instr = customizations.get(
+        'purchase_price', 'price from tag, just the number'
+    )
+    from_instr = customizations.get('purchase_from', 'store name when visible')
+    notes_instr = customizations.get('notes', 'ONLY for defects/damage')
     return f"""
 OPTIONAL FIELDS (include only when visible or user-provided):
-- manufacturer: string or null ({customizations.get('manufacturer', 'brand name when visible')})
-- modelNumber: string or null ({customizations.get('model_number', 'product code when visible')})
-- serialNumber: string or null ({customizations.get('serial_number', 'S/N when visible')})
-- purchasePrice: number or null ({customizations.get('purchase_price', 'price from tag, just the number')})
-- purchaseFrom: string or null ({customizations.get('purchase_from', 'store name when visible')})
-- notes: string or null ({customizations.get('notes', 'ONLY for defects/damage')})"""
+- manufacturer: string or null ({mfr_instr})
+- modelNumber: string or null ({model_instr})
+- serialNumber: string or null ({serial_instr})
+- purchasePrice: number or null ({price_instr})
+- purchaseFrom: string or null ({from_instr})
+- notes: string or null ({notes_instr})"""
 
 
 def build_label_prompt(labels: list[dict[str, str]] | None) -> str:
