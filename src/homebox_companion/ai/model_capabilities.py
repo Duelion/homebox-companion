@@ -51,11 +51,11 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
         1. Models supporting structured outputs always support basic JSON mode
         2. LiteLLM doesn't expose a separate "supports_json_mode" function
         3. This is the most reliable capability check available
-        
+
         Results are cached to avoid repeated capability checks for the same model.
     """
     logger.info(f"Checking capabilities for model: {model}")
-    
+
     vision = litellm.supports_vision(model)
 
     # Note: multi_image is assumed True for vision models. Most modern vision
@@ -71,14 +71,20 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
         f"Model '{model}' capabilities detected: "
         f"vision={vision}, json_mode={json_mode}, multi_image={multi_image}"
     )
-    
-    # Warn if model string looks like it might be a vision model but doesn't have vision support
-    # This helps catch misconfigured model names (e.g., missing provider prefix)
-    if not vision and any(keyword in model.lower() for keyword in ['vision', 'gpt-4o', 'gpt-5', 'claude-3', 'gemini', 'llava']):
+
+    # Warn if model string looks like it might be a vision model but doesn't
+    # have vision support. This helps catch misconfigured model names
+    # (e.g., missing provider prefix)
+    vision_keywords = [
+        'vision', 'gpt-4o', 'gpt-5', 'claude-3', 'gemini', 'llava'
+    ]
+    if not vision and any(keyword in model.lower() for keyword in vision_keywords):
         logger.warning(
             f"Model '{model}' appears to be a vision model based on its name, "
-            f"but LiteLLM reports it doesn't support vision. This may indicate an incorrect model identifier. "
-            f"Try prefixing with provider (e.g., 'openai/{model}' or 'openrouter/...')."
+            f"but LiteLLM reports it doesn't support vision. "
+            f"This may indicate an incorrect model identifier. "
+            f"Try prefixing with provider "
+            f"(e.g., 'openai/{model}' or 'openrouter/...')."
         )
 
     return ModelCapabilities(

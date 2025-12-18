@@ -167,10 +167,10 @@ class TestBuildExtendedFieldsSchema:
         # With custom instruction
         customizations = {"notes": "Always include warranty info"}
         result_custom = build_extended_fields_schema(customizations)
-        
+
         # Custom instruction should be present
         assert "Always include warranty info" in result_custom
-        
+
         # Should not contain fallback default text
         assert "ONLY for defects" not in result_custom
 
