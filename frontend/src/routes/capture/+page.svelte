@@ -274,29 +274,35 @@
 	<!-- Current location display -->
 	{#if locationPath}
 		<div
-			class="flex flex-wrap items-start gap-x-4 gap-y-2 text-body-sm text-neutral-400 mb-3"
+			class="flex flex-col sm:flex-row sm:flex-wrap sm:items-start gap-2 sm:gap-x-4 text-body-sm text-neutral-400 mb-3"
 		>
 			<!-- Location block -->
-			<div class="flex items-center gap-2">
-				<svg
-					class="w-4 h-4"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-					<circle cx="12" cy="10" r="3" />
-				</svg>
-				<span>Items will be added to:</span>
-				<span class="font-semibold text-neutral-200"
+			<div
+				class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"
+			>
+				<div class="flex items-center gap-2">
+					<svg
+						class="w-4 h-4 shrink-0"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+					>
+						<path
+							d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
+						/>
+						<circle cx="12" cy="10" r="3" />
+					</svg>
+					<span>Items will be added to:</span>
+				</div>
+				<span class="font-semibold text-neutral-200 pl-6 sm:pl-0"
 					>{locationPath}</span
 				>
 			</div>
 
 			<!-- Parent item block (if present) -->
 			{#if parentItemName}
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-2 pl-6 sm:pl-0">
 					<span class="text-neutral-500">Inside:</span>
 					<span class="font-semibold text-primary-400"
 						>{parentItemName}</span

@@ -165,7 +165,8 @@ class LocationNavigator {
                 'Loaded location details, children:',
                 details.children?.length ?? 0,
             );
-            locationStore.pushPath({ id: location.id, name: location.name });
+            // Use API-fresh name in case the location was renamed
+            locationStore.pushPath({ id: details.id, name: details.name });
             locationStore.setCurrentLevel(details.children || []);
             // Store the current location with all its data including itemCount
             this._currentLocation = {
