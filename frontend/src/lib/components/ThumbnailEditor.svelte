@@ -86,22 +86,21 @@
 		ctx.fillStyle = "#0a0a0f";
 		ctx.fillRect(0, 0, canvasSize, canvasSize);
 
-		// Scale factor from crop area to canvas size
+		// Scale from crop-space to canvas-space (apply ONCE at the start)
 		const renderScale = canvasSize / cropAreaSize;
 
 		ctx.save();
 
-		// Move origin to center of canvas
+		// Center in canvas
 		ctx.translate(canvasSize / 2, canvasSize / 2);
 
-		// Apply user offset (scaled to canvas)
-		ctx.translate(offsetX * renderScale, offsetY * renderScale);
+		// Apply renderScale to convert crop-space → canvas-space
+		ctx.scale(renderScale, renderScale);
 
-		// Apply rotation
+		// Now work in crop-space coordinates:
+		ctx.translate(offsetX, offsetY); // Offset in crop-space pixels
 		ctx.rotate((rotation * Math.PI) / 180);
-
-		// Apply scale (displayScale already includes baseScale)
-		ctx.scale(displayScale * renderScale, displayScale * renderScale);
+		ctx.scale(displayScale, displayScale); // Image scale (relative to crop)
 
 		// Draw image centered at origin
 		ctx.drawImage(
