@@ -2,8 +2,11 @@
   "name": "Homebox Companion",
   "short_name": "Homebox",
   "description": "AI-powered inventory management companion for Homebox",
+  "id": "/",
+  "scope": "/",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#1a1025",
   "theme_color": "#1a1025",
   "icons": [

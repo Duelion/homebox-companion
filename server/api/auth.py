@@ -111,9 +111,6 @@ async def login(request: LoginRequest) -> LoginResponse:
     client = get_client()
     try:
         response_data = await client.login(request.username, request.password)
-        # #region agent log
-        import json;open(r'c:\Users\fsoza\PycharmProjects\homebox-companion\.cursor\debug.log','a').write(json.dumps({'location':'auth.py:113','message':'Production auth endpoint got login response','data':{'response_type':type(response_data).__name__,'response_keys':list(response_data.keys()) if isinstance(response_data, dict) else 'not_a_dict','extracted_token':response_data.get("token") if isinstance(response_data, dict) else 'cannot_extract'},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'initial','hypothesisId':'E'})+'\n')
-        # #endregion
         logger.info("Login successful")
         return LoginResponse(
             token=response_data.get("token"),
