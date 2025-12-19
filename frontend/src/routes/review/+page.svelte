@@ -273,10 +273,15 @@
 	}
 
 	// Handle thumbnail save from editor
-	function handleThumbnailSave(dataUrl: string, sourceImageIndex: number) {
+	function handleThumbnailSave(
+		dataUrl: string,
+		sourceImageIndex: number,
+		transform: import("$lib/types").ThumbnailTransform,
+	) {
 		if (!editedItem) return;
 
 		editedItem.customThumbnail = dataUrl;
+		editedItem.thumbnailTransform = transform;
 
 		// If thumbnail was created from a non-primary image, reorder so it becomes primary
 		if (sourceImageIndex > 0 && sourceImageIndex < allImages.length) {
@@ -287,6 +292,8 @@
 				...allImages.slice(sourceImageIndex + 1),
 			];
 			allImages = reorderedImages;
+			// Update transform's sourceImageIndex since we reordered
+			editedItem.thumbnailTransform.sourceImageIndex = 0;
 		}
 
 		showThumbnailEditor = false;
@@ -501,6 +508,7 @@
 		<ThumbnailEditor
 			images={availableImages}
 			currentThumbnail={editedItem.customThumbnail}
+			initialTransform={editedItem.thumbnailTransform}
 			onSave={handleThumbnailSave}
 			onClose={() => (showThumbnailEditor = false)}
 		/>
