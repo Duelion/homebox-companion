@@ -55,5 +55,17 @@ export const items = {
 	 */
 	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal): Promise<BlobUrlResult> =>
 		requestBlobUrl(`/items/${itemId}/attachments/${attachmentId}`, signal),
+
+	/**
+	 * Delete an item from Homebox.
+	 * Used for cleanup when item creation succeeds but attachment upload fails.
+	 */
+	delete: (itemId: string, signal?: AbortSignal) => {
+		log.debug(`Deleting item: ${itemId}`);
+		return request<{ message: string }>(`/items/${itemId}`, {
+			method: 'DELETE',
+			signal,
+		});
+	},
 };
 
