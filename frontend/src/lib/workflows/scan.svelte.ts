@@ -345,7 +345,7 @@ class ScanWorkflow {
 	/** Start image analysis - coordinates with AnalysisService */
 	async startAnalysis(): Promise<void> {
 		log.info('ScanWorkflow.startAnalysis() called');
-		
+
 		// Prevent starting a new analysis if one is already in progress
 		if (this._status === 'analyzing') {
 			log.warn('Analysis already in progress (status check), ignoring duplicate request');
@@ -477,8 +477,17 @@ class ScanWorkflow {
 		}
 	}
 
-	/** Go back to add more images */
+	/** 
+	 * Go back to capture more images.
+	 * Clears all current scan state (images, confirmed items, submission state)
+	 * while preserving the location for a fresh scan session.
+	 */
 	addMoreImages(): void {
+		// Clear images, review state, and submission state for a fresh start
+		this.captureService.clear();
+		this.reviewService.reset();
+		this.submissionService.reset();
+		this._error = null;
 		this._status = 'capturing';
 	}
 
