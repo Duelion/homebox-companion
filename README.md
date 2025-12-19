@@ -156,32 +156,6 @@ cp .env.example .env
 uv run python -m server.app
 ```
 
-#### Windows (PowerShell)
-
-```powershell
-# Clone and install
-git clone https://github.com/Duelion/homebox-companion.git
-cd homebox-companion
-uv sync
-
-# Build frontend
-cd frontend
-npm install
-npm run build
-cd ..
-
-# Copy frontend build to server static
-New-Item -ItemType Directory -Force -Path server\static
-Copy-Item -Path frontend\build\* -Destination server\static\ -Recurse -Force
-
-# Configure - copy example and edit
-Copy-Item .env.example .env
-# Edit .env and set your HBC_LLM_API_KEY
-
-# Run
-uv run python -m server.app
-```
-
 Open `http://localhost:8000` in your browser.
 
 > **Note:** See `.env.example` for all available configuration options including AI customization settings.
