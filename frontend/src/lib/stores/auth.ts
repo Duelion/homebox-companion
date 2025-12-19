@@ -1,104 +1,151 @@
 /**
  * Authentication store
  */
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
+import { stopRefreshTimer } from '../services/tokenRefresh';
+import { authLogger as log } from '../utils/logger';
 
-// Token stored in sessionStorage
-const storedToken = browser ? sessionStorage.getItem('hbc_token') : null;
+// Note: scheduleRefresh is imported dynamically in setAuthenticatedState to avoid circular dependency
+
+// Storage keys
+const TOKEN_KEY = 'hbc_token';
+const EXPIRES_KEY = 'hbc_token_expires';
+
+// Load from localStorage
+const storedToken = browser ? localStorage.getItem(TOKEN_KEY) : null;
+const storedExpires = browser ? localStorage.getItem(EXPIRES_KEY) : null;
 
 export const token = writable<string | null>(storedToken);
+export const tokenExpiresAt = writable<Date | null>(
+	storedExpires ? new Date(storedExpires) : null
+);
 
-// Persist token to sessionStorage with proper HMR cleanup
+// Persist token to localStorage with proper HMR cleanup
 let tokenUnsubscribe: (() => void) | undefined;
+let expiresUnsubscribe: (() => void) | undefined;
 
 if (browser) {
-	// Clean up any existing subscription (handles HMR)
+	// Clean up any existing subscriptions (handles HMR)
 	tokenUnsubscribe?.();
+	expiresUnsubscribe?.();
 
 	tokenUnsubscribe = token.subscribe((value) => {
 		if (value) {
-			sessionStorage.setItem('hbc_token', value);
+			localStorage.setItem(TOKEN_KEY, value);
 		} else {
-			sessionStorage.removeItem('hbc_token');
+			localStorage.removeItem(TOKEN_KEY);
+		}
+	});
+
+	expiresUnsubscribe = tokenExpiresAt.subscribe((value) => {
+		if (value) {
+			localStorage.setItem(EXPIRES_KEY, value.toISOString());
+		} else {
+			localStorage.removeItem(EXPIRES_KEY);
 		}
 	});
 }
 
-// Clean up subscription during Vite HMR
+// Clean up subscriptions during Vite HMR
 if (import.meta.hot) {
 	import.meta.hot.dispose(() => {
 		tokenUnsubscribe?.();
+		expiresUnsubscribe?.();
 	});
 }
 
 export const isAuthenticated = derived(token, ($token) => !!$token);
 
 /**
- * Reason for session expiry - helps show appropriate UI feedback
+ * Tracks whether initial auth check has completed.
+ * Used to prevent race conditions between layout's initializeAuth and page-level auth checks.
  */
-export type SessionExpiredReason = 
-	| 'expired'      // Token expired (401 from server)
-	| 'network'      // Network error (couldn't reach server)
-	| 'server_error' // Server error (5xx response)
-	| 'unknown';     // Unknown error
+export const authInitialized = writable<boolean>(false);
+
+/** Token refresh threshold in milliseconds (5 minutes) */
+const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+
+/**
+ * Check if token needs refresh (< 5 minutes remaining)
+ */
+export function tokenNeedsRefresh(): boolean {
+	const expires = get(tokenExpiresAt);
+	if (!expires) return false;
+	const remaining = expires.getTime() - Date.now();
+	return remaining < TOKEN_REFRESH_THRESHOLD_MS;
+}
+
+/**
+ * Check if token is expired
+ */
+export function tokenIsExpired(): boolean {
+	const expires = get(tokenExpiresAt);
+	if (!expires) return true;
+	return expires.getTime() < Date.now();
+}
 
 // Session expiry state
 export const sessionExpired = writable<boolean>(false);
 
-// Reason for session expiry (for differentiated UI feedback)
-export const sessionExpiredReason = writable<SessionExpiredReason | null>(null);
-
-// Queue of callbacks to retry after re-auth
-let pendingRequests: Array<() => void> = [];
-
 /**
- * Clear all pending retry callbacks.
- * Call this when the session expired modal is dismissed without re-auth,
- * or during cleanup to prevent memory leaks.
+ * Mark the session as expired and show re-auth modal
  */
-export function clearPendingRequests(): void {
-	pendingRequests = [];
-}
-
-// Clean up pending requests during Vite HMR
-if (import.meta.hot) {
-	import.meta.hot.dispose(() => {
-		clearPendingRequests();
-	});
-}
-
-export function markSessionExpired(reason: SessionExpiredReason = 'expired', retryCallback?: () => void) {
-	if (retryCallback) pendingRequests.push(retryCallback);
-	sessionExpiredReason.set(reason);
+export function markSessionExpired(): void {
+	log.info('Session expired, showing re-auth modal');
 	sessionExpired.set(true);
 }
 
-export function onReauthSuccess(newToken: string) {
+/**
+ * Set authenticated state atomically with all required side effects.
+ * This is the canonical way to update auth state - use this instead of
+ * manually setting token/expiry/scheduling refresh.
+ * 
+ * @param newToken - The new auth token
+ * @param expiresAt - The token expiration date
+ */
+export function setAuthenticatedState(newToken: string, expiresAt: Date): void {
+	log.debug('Setting authenticated state, expires:', expiresAt.toISOString());
 	token.set(newToken);
+	tokenExpiresAt.set(expiresAt);
 	sessionExpired.set(false);
-	sessionExpiredReason.set(null);
-	// Retry all pending requests
-	const callbacks = pendingRequests;
-	pendingRequests = [];
-	callbacks.forEach((cb) => cb());
+
+	// Import scheduleRefresh dynamically to avoid circular dependency
+	import('../services/tokenRefresh')
+		.then(({ scheduleRefresh }) => {
+			scheduleRefresh();
+		})
+		.catch((err) => {
+			// Log prominently as this means token refresh won't be scheduled
+			log.warn('Failed to schedule token refresh - session may expire unexpectedly:', err);
+		});
 }
 
 /**
- * Dismiss the session expired modal without re-authenticating.
- * Clears any pending retry callbacks to prevent memory leaks.
+ * Called after successful re-authentication
+ * @param newToken - The new auth token
+ * @param expiresAt - The token expiration date
  */
-export function dismissSessionExpired(): void {
-	sessionExpired.set(false);
-	sessionExpiredReason.set(null);
-	clearPendingRequests();
+export function onReauthSuccess(newToken: string, expiresAt: Date): void {
+	setAuthenticatedState(newToken, expiresAt);
 }
 
-export function logout() {
+/**
+ * Logout and clear all auth state
+ */
+export function logout(): void {
+	log.info('User logout');
+	stopRefreshTimer();
 	token.set(null);
+	tokenExpiresAt.set(null);
 	sessionExpired.set(false);
-	sessionExpiredReason.set(null);
-	clearPendingRequests();
+
+	// Clear location state on logout (using dynamic import to avoid circular dependency)
+	import('./locations.svelte').then(({ locationStore }) => {
+		locationStore.clear();
+	}).catch((err) => {
+		log.warn('Failed to clear location state on logout:', err);
+	});
 }
 
 

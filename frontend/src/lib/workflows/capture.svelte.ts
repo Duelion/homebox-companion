@@ -7,6 +7,7 @@
  * - Image options (separateItems, extraInstructions)
  */
 
+import { workflowLogger as log } from '$lib/utils/logger';
 import type { CapturedImage } from '$lib/types';
 
 // =============================================================================
@@ -23,12 +24,19 @@ export class CaptureService {
 
 	/** Add a captured image */
 	addImage(image: CapturedImage): void {
+		log.debug(`Adding image: file="${image.file.name}", size=${image.file.size} bytes`);
 		this.images = [...this.images, image];
+		log.info(`Image added. Total images: ${this.images.length}`);
 	}
 
 	/** Remove an image by index */
 	removeImage(index: number): void {
+		const removedImage = this.images[index];
+		if (removedImage) {
+			log.debug(`Removing image at index ${index}: file="${removedImage.file.name}"`);
+		}
 		this.images = this.images.filter((_, i) => i !== index);
+		log.info(`Image removed. Total images: ${this.images.length}`);
 	}
 
 	/** Update image options (separateItems, extraInstructions) */
@@ -36,13 +44,17 @@ export class CaptureService {
 		index: number,
 		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions'>>
 	): void {
+		log.debug(`Updating options for image ${index}:`, options);
 		this.images = this.images.map((img, i) => (i === index ? { ...img, ...options } : img));
 	}
 
 	/** Add additional images to a captured image (multi-angle shots) */
 	addAdditionalImages(imageIndex: number, files: File[], dataUrls: string[]): void {
+		log.debug(`Adding ${files.length} additional image(s) to image ${imageIndex}`);
 		this.images = this.images.map((img, i) => {
 			if (i !== imageIndex) return img;
+			const newAdditionalCount = (img.additionalFiles?.length ?? 0) + files.length;
+			log.info(`Image ${imageIndex} now has ${newAdditionalCount} additional image(s)`);
 			return {
 				...img,
 				additionalFiles: [...(img.additionalFiles || []), ...files],
@@ -53,6 +65,7 @@ export class CaptureService {
 
 	/** Remove an additional image from a captured image */
 	removeAdditionalImage(imageIndex: number, additionalIndex: number): void {
+		log.debug(`Removing additional image ${additionalIndex} from image ${imageIndex}`);
 		this.images = this.images.map((img, i) => {
 			if (i !== imageIndex) return img;
 			return {
@@ -65,6 +78,7 @@ export class CaptureService {
 
 	/** Clear all captured images */
 	clear(): void {
+		log.debug(`Clearing all images (was: ${this.images.length})`);
 		this.images = [];
 	}
 

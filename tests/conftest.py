@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -27,8 +29,15 @@ class TestSettings(BaseSettings):
         env_file_encoding="utf-8",
     )
 
+    # Legacy OpenAI config (kept for backwards compatibility in tests)
     openai_api_key: str = ""
     openai_model: str = "gpt-5-mini"
+
+    # New generic LLM config (preferred)
+    llm_api_key: str = ""
+    llm_model: str = ""
+    llm_api_base: str | None = None
+    llm_allow_unsafe_models: bool = False
     homebox_url: str = DEMO_HOMEBOX_URL
 
     @property
@@ -46,16 +55,47 @@ def test_settings() -> TestSettings:
 
 @pytest.fixture(scope="session")
 def api_key(test_settings: TestSettings) -> str:
-    """Provide OpenAI API key, skipping test if not set."""
-    if not test_settings.openai_api_key:
-        pytest.skip("HBC_OPENAI_API_KEY must be set for AI tests.")
-    return test_settings.openai_api_key
+    """Provide LLM API key, skipping test if not set."""
+    key = (test_settings.llm_api_key or test_settings.openai_api_key or "").strip()
+    if not key:
+        pytest.skip("HBC_LLM_API_KEY (or legacy HBC_OPENAI_API_KEY) must be set for AI tests.")
+    return key
 
 
 @pytest.fixture(scope="session")
 def model(test_settings: TestSettings) -> str:
+    """Provide LLM model name."""
+    return (test_settings.llm_model or test_settings.openai_model or "gpt-5-mini").strip()
+
+
+@pytest.fixture(scope="session")
+def openai_api_key() -> str:
+    """Provide OpenAI API key, skipping test if not set."""
+    key = os.environ.get("TEST_OPENAI_API_KEY", "").strip()
+    if not key:
+        pytest.skip("TEST_OPENAI_API_KEY must be set for OpenAI tests.")
+    return key
+
+
+@pytest.fixture(scope="session")
+def openai_model() -> str:
     """Provide OpenAI model name."""
-    return test_settings.openai_model
+    return os.environ.get("TEST_OPENAI_MODEL", "gpt-5-mini").strip()
+
+
+@pytest.fixture(scope="session")
+def claude_api_key() -> str:
+    """Provide Claude API key, skipping test if not set."""
+    key = os.environ.get("TEST_CLAUDE_API_KEY", "").strip()
+    if not key:
+        pytest.skip("TEST_CLAUDE_API_KEY must be set for Claude tests.")
+    return key
+
+
+@pytest.fixture(scope="session")
+def claude_model() -> str:
+    """Provide Claude model name."""
+    return os.environ.get("TEST_CLAUDE_MODEL", "claude-sonnet-4-5").strip()
 
 
 @pytest.fixture(scope="session")
@@ -68,6 +108,41 @@ def homebox_api_url(test_settings: TestSettings) -> str:
 def homebox_credentials() -> tuple[str, str]:
     """Provide Homebox demo credentials."""
     return DEMO_USERNAME, DEMO_PASSWORD
+
+
+# ---------------------------------------------------------------------------
+# Settings Override Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def allow_unsafe_models() -> Generator[None, None, None]:
+    """Enable HBC_LLM_ALLOW_UNSAFE_MODELS for the test module.
+
+    This fixture reloads the app settings after modifying the environment
+    variable. All modules access settings via config.settings, so updating
+    the config module is sufficient.
+    """
+    from homebox_companion.core import config
+    from homebox_companion.core.config import get_settings
+
+    # Store original value
+    original = os.environ.get("HBC_LLM_ALLOW_UNSAFE_MODELS")
+
+    # Set new value and reload settings
+    os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = "true"
+    get_settings.cache_clear()
+    config.settings = get_settings()
+
+    yield
+
+    # Restore original state
+    if original is None:
+        os.environ.pop("HBC_LLM_ALLOW_UNSAFE_MODELS", None)
+    else:
+        os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = original
+    get_settings.cache_clear()
+    config.settings = get_settings()
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +210,8 @@ async def cleanup_items(homebox_api_url: str, homebox_credentials: tuple[str, st
         username, password = homebox_credentials
         try:
             async with HomeboxClient(base_url=homebox_api_url) as client:
-                token = await client.login(username, password)
+                response = await client.login(username, password)
+                token = response["token"]
                 for item_id in created_ids:
                     try:
                         await client.delete_item(token, item_id)
@@ -166,7 +242,8 @@ async def cleanup_locations(homebox_api_url: str, homebox_credentials: tuple[str
         username, password = homebox_credentials
         try:
             async with HomeboxClient(base_url=homebox_api_url) as client:
-                token = await client.login(username, password)
+                response = await client.login(username, password)
+                token = response["token"]
                 for location_id in created_ids:
                     try:
                         # Homebox API typically uses DELETE /locations/{id}
