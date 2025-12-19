@@ -51,6 +51,12 @@
 	// Apply route guard: requires auth, location, and not in reviewing state
 	onMount(() => {
 		if (!routeGuards.capture()) return;
+
+		// If workflow is complete (just finished submission), reset for a new scan session
+		if (workflow.state.status === "complete") {
+			log.info("Workflow complete, resetting for new scan session");
+			workflow.startNew();
+		}
 	});
 
 	// Watch for workflow errors
