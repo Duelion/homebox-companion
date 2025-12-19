@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import warnings
+
 from loguru import logger
 
-from ...ai.openai import vision_completion
+from ...ai.llm import vision_completion
 from ...ai.prompts import (
     build_extended_fields_schema,
     build_item_schema,
@@ -15,7 +17,7 @@ from ...ai.prompts import (
 from ...core.config import settings
 
 
-async def correct_item_with_openai(
+async def correct_item(
     image_data_uri: str,
     current_item: dict,
     correction_instructions: str,
@@ -36,8 +38,8 @@ async def correct_item_with_openai(
         current_item: The current item dict with name, quantity, description.
         correction_instructions: User's correction text explaining what's wrong
             or how to fix the detection.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest for items.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -45,13 +47,16 @@ async def correct_item_with_openai(
     Returns:
         List of corrected item dictionaries.
     """
-    api_key = api_key or settings.openai_api_key
-    model = model or settings.openai_model
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
 
     logger.info(f"Correcting item '{current_item.get('name')}' with user instructions")
     logger.debug(f"User correction: {correction_instructions}")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
+
+    # Ensure field_preferences is a dict (empty dict if None)
+    field_preferences = field_preferences or {}
 
     # Build schemas with customizations
     language_instr = build_language_instruction(output_language)
@@ -101,6 +106,7 @@ async def correct_item_with_openai(
         image_data_uris=[image_data_uri],
         api_key=api_key,
         model=model,
+        expected_keys=["items"],
     )
 
     items = parsed_content.get("items", [])
@@ -114,3 +120,18 @@ async def correct_item_with_openai(
         logger.debug(f"  Corrected item: {item.get('name')}, qty: {item.get('quantity', 1)}")
 
     return items
+
+
+async def correct_item_with_openai(*args, **kwargs) -> list[dict]:
+    """Deprecated: Use correct_item() instead.
+
+    This function is kept for backwards compatibility but will be removed
+    in a future version. The new name reflects that we use LiteLLM for
+    multi-provider support, not just OpenAI.
+    """
+    warnings.warn(
+        "correct_item_with_openai() is deprecated, use correct_item() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return await correct_item(*args, **kwargs)

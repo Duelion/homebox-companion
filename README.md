@@ -1,7 +1,7 @@
 <h1 align="center" style="margin-top: -10px;"></h1>
 
 <div align="center">
-  <img src="frontend/static/icon-192.svg" height="200"/>
+  <img src=".github/assets/images/homebox-companion-icon.png" height="200"/>
 </div>
 
 <h1 align="center" style="margin-top: -10px;"> Homebox Companion </h1>
@@ -38,7 +38,7 @@ flowchart LR
 1. **Login** – Authenticate with your existing Homebox credentials
 2. **Select Location** – Browse the location tree, search, or scan a Homebox QR code
 3. **Capture Photos** – Take or upload photos of items (supports multiple photos per item)
-4. **AI Detection** – OpenAI vision identifies items, quantities, and metadata
+4. **AI Detection** – AI vision (via LiteLLM) identifies items, quantities, and metadata
 5. **Review & Edit** – Adjust AI suggestions, merge items, or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
@@ -99,7 +99,7 @@ Want to try it out without setting up Homebox? Use the public demo server:
 
 ```bash
 docker run -p 8000:8000 \
-  -e HBC_OPENAI_API_KEY=sk-your-key \
+  -e HBC_LLM_API_KEY=sk-your-key \
   -e HBC_HOMEBOX_URL=https://demo.homebox.software \
   ghcr.io/duelion/homebox-companion:latest
 ```
@@ -116,7 +116,7 @@ services:
     container_name: homebox-companion
     restart: always
     environment:
-      - HBC_OPENAI_API_KEY=sk-your-api-key-here
+      - HBC_LLM_API_KEY=sk-your-api-key-here
       - HBC_HOMEBOX_URL=http://your-homebox-ip:7745
     ports:
       - 8000:8000
@@ -150,33 +150,7 @@ mkdir -p server/static && cp -r frontend/build/* server/static/
 
 # Configure - copy example and edit
 cp .env.example .env
-# Edit .env and set your HBC_OPENAI_API_KEY
-
-# Run
-uv run python -m server.app
-```
-
-#### Windows (PowerShell)
-
-```powershell
-# Clone and install
-git clone https://github.com/Duelion/homebox-companion.git
-cd homebox-companion
-uv sync
-
-# Build frontend
-cd frontend
-npm install
-npm run build
-cd ..
-
-# Copy frontend build to server static
-New-Item -ItemType Directory -Force -Path server\static
-Copy-Item -Path frontend\build\* -Destination server\static\ -Recurse -Force
-
-# Configure - copy example and edit
-Copy-Item .env.example .env
-# Edit .env and set your HBC_OPENAI_API_KEY
+# Edit .env and set your HBC_LLM_API_KEY
 
 # Run
 uv run python -m server.app
@@ -211,6 +185,51 @@ Open `http://localhost:8000` in your browser.
 - Set a default label for all detected items
 - Export settings as environment variables for Docker persistence
 
+## 🤖 LLM Provider Support
+
+Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) for AI capabilities. While LiteLLM supports many providers (OpenAI, Anthropic, Google, OpenRouter, etc.), **we only officially support and test with OpenAI GPT models**.
+
+### Officially Supported Models
+
+- **GPT-5 mini** (default) – Recommended for best balance of speed and accuracy
+- **GPT-5 nano**
+
+### Using Other Providers (Experimental)
+
+You can try other LiteLLM-compatible providers at your own risk. The app checks if your chosen model supports the required capabilities using LiteLLM's API:
+
+**Required capabilities:**
+- **Vision** – Checked via `litellm.supports_vision(model)`
+- **Structured outputs** – Checked via `litellm.supports_response_schema(model)`
+
+**Finding model names:**
+
+Model names are passed directly to LiteLLM. Use the exact names from LiteLLM's documentation:
+- [LiteLLM Supported Models](https://docs.litellm.ai/docs/providers)
+
+Common examples:
+- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5-mini`
+- Anthropic: `claude-sonnet-4-5`, `claude-3-5-sonnet-20241022`
+
+> **Note:** Model names must exactly match LiteLLM's expected format. Typos or incorrect formats will cause errors. Check [LiteLLM's provider documentation](https://docs.litellm.ai/docs/providers) for the correct model names.
+
+**Running Local Models:**
+
+You can run models locally using tools like [Ollama](https://ollama.ai/), [LM Studio](https://lmstudio.ai/), or [vLLM](https://docs.vllm.ai/). See [LiteLLM's Local Server documentation](https://docs.litellm.ai/docs/providers/ollama) for setup instructions.
+
+Once your local server is running, configure the app:
+
+```bash
+HBC_LLM_API_KEY=any-value-works-for-local  # Just needs to be non-empty
+HBC_LLM_API_BASE=http://localhost:11434     # Your local server URL
+HBC_LLM_MODEL=ollama/llava:34b              # Your local model name
+HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
+```
+
+**Note:** Local models must support vision (e.g., llava, bakllava, moondream). Performance and accuracy vary widely.
+
+**⚠️ Important:** Other providers (Anthropic, Google, OpenRouter, local models, etc.) are **not officially supported**. If you encounter errors, we may not be able to help. Use at your own risk.
+
 ## ⚙️ Configuration
 
 > **📝 Full reference:** See [`.env.example`](.env.example) for all available environment variables with detailed explanations and examples.
@@ -219,10 +238,15 @@ Open `http://localhost:8000` in your browser.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `HBC_OPENAI_API_KEY` | **Yes** | – | Your OpenAI API key |
-| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox URL |
-| `HBC_OPENAI_MODEL` | No | `gpt-5-mini` | Model to use (`gpt-5-nano` for cheaper) |
+| `HBC_LLM_API_KEY` | **Yes** | – | Your OpenAI API key (or other provider key if experimenting) |
+| `HBC_LLM_MODEL` | No | `gpt-5-mini` | Model to use. Officially supported: `gpt-5-mini`, `gpt-5-nano`. See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for other models. |
+| `HBC_LLM_API_BASE` | No | – | Custom API base URL (for proxies or experimental providers) |
+| `HBC_LLM_ALLOW_UNSAFE_MODELS` | No | `false` | Skip capability validation for unrecognized models |
+| `HBC_LLM_TIMEOUT` | No | `120` | LLM request timeout in seconds |
+| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox instance URL |
 | `HBC_IMAGE_QUALITY` | No | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
+
+**Legacy variables:** `HBC_OPENAI_API_KEY` and `HBC_OPENAI_MODEL` still work but are deprecated.
 
 ### Advanced Settings
 
@@ -297,6 +321,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 ## 🙏 Acknowledgments
 
 - [Homebox](https://github.com/sysadminsmedia/homebox) – The inventory system this app extends
-- [OpenAI](https://openai.com) – Vision AI capabilities
+- [OpenAI](https://openai.com) – Vision AI capabilities (GPT models)
+- [LiteLLM](https://docs.litellm.ai/) – LLM provider abstraction layer
 - [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) – Backend & frontend frameworks
 <p align="center"> <a href="https://buymeacoffee.com/duelion" target="_blank" rel="noopener noreferrer"> <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="125"> </a> </p>

@@ -101,7 +101,9 @@ export class AnalysisService {
 			// Process images in parallel
 			const detectionPromises = images.map(async (image, index) => {
 				try {
-					log.debug(`Starting detection for image ${index + 1}/${images.length}`);
+					log.debug(`Starting detection for image ${index + 1}/${images.length}: file="${image.file.name}", size=${image.file.size} bytes`);
+					log.debug(`Image ${index + 1} options: separateItems=${image.separateItems}, additionalImages=${image.additionalFiles?.length ?? 0}`);
+					
 					const response = await vision.detect(image.file, {
 						singleItem: !image.separateItems,
 						extraInstructions: image.extraInstructions || undefined,

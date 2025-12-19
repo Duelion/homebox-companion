@@ -5,9 +5,17 @@ from .images import (
     encode_image_bytes_to_data_uri,
     encode_image_to_data_uri,
 )
-from .openai import chat_completion, cleanup_openai_clients, vision_completion
+from .llm import (
+    CapabilityNotSupportedError,
+    JSONRepairError,
+    LLMError,
+    chat_completion,
+    cleanup_llm_clients,
+    cleanup_openai_clients,
+    vision_completion,
+)
+from .model_capabilities import ModelCapabilities, get_model_capabilities
 from .prompts import (
-    FIELD_DEFAULTS,
     NAMING_FORMAT,
     build_critical_constraints,
     build_extended_fields_schema,
@@ -21,13 +29,20 @@ __all__ = [
     "encode_image_to_data_uri",
     "encode_image_bytes_to_data_uri",
     "encode_compressed_image_to_base64",
-    # OpenAI helpers
+    # LLM helpers
     "chat_completion",
     "vision_completion",
-    "cleanup_openai_clients",
+    "cleanup_llm_clients",
+    "cleanup_openai_clients",  # Deprecated alias
+    # LLM exceptions
+    "LLMError",
+    "CapabilityNotSupportedError",
+    "JSONRepairError",
+    # Model capabilities
+    "ModelCapabilities",
+    "get_model_capabilities",
     # Prompts
     "NAMING_FORMAT",
-    "FIELD_DEFAULTS",
     "build_label_prompt",
     "build_item_schema",
     "build_extended_fields_schema",

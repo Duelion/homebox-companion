@@ -6,8 +6,13 @@ clashes with other applications on the same system.
 Environment Variables:
     HBC_HOMEBOX_URL: Base URL of your Homebox instance (default: demo server).
         We automatically append /api/v1 to this URL.
-    HBC_OPENAI_API_KEY: Your OpenAI API key for vision detection
-    HBC_OPENAI_MODEL: OpenAI model to use (default: gpt-5-mini)
+    HBC_OPENAI_API_KEY: (Legacy) API key for LLM provider (use HBC_LLM_API_KEY instead)
+    HBC_OPENAI_MODEL: (Legacy) LLM model to use (use HBC_LLM_MODEL instead, default: gpt-5-mini)
+    HBC_LLM_API_KEY: API key for the configured LLM provider (preferred)
+    HBC_LLM_MODEL: LLM model identifier (preferred)
+    HBC_LLM_API_BASE: Optional API base URL for LLM-compatible gateways
+    HBC_LLM_ALLOW_UNSAFE_MODELS: If true, allow models not in the curated allowlist (best-effort)
+    HBC_LLM_TIMEOUT: LLM request timeout in seconds (default: 120)
     HBC_SERVER_HOST: Host to bind the web server to (default: 0.0.0.0)
     HBC_SERVER_PORT: Port for the web server (default: 8000). In production,
         this single port serves both the API and the static frontend.
@@ -67,9 +72,15 @@ class Settings(BaseSettings):
     # Homebox configuration - user provides base URL, we append /api/v1
     homebox_url: str = DEMO_HOMEBOX_URL
 
-    # OpenAI configuration
+    # Legacy LLM configuration (deprecated - use llm_* fields instead)
     openai_api_key: str = ""
     openai_model: str = "gpt-5-mini"
+
+    # LLM configuration (preferred)
+    llm_api_key: str = ""
+    llm_model: str = ""
+    llm_api_base: str | None = None
+    llm_allow_unsafe_models: bool = False
 
     # Web server configuration
     server_host: str = "0.0.0.0"
@@ -89,12 +100,33 @@ class Settings(BaseSettings):
     # Image processing configuration
     image_quality: ImageQuality = ImageQuality.MEDIUM
 
+    # LLM request timeout (in seconds)
+    llm_timeout: int = 120
+
     @computed_field
     @property
     def api_url(self) -> str:
         """Full Homebox API URL with /api/v1 path appended."""
         base = self.homebox_url.rstrip("/")
         return f"{base}/api/v1"
+
+    @computed_field
+    @property
+    def effective_llm_api_key(self) -> str:
+        """Effective LLM API key (HBC_LLM_API_KEY preferred, fallback to HBC_OPENAI_API_KEY)."""
+        return (self.llm_api_key or self.openai_api_key or "").strip()
+
+    @computed_field
+    @property
+    def effective_llm_model(self) -> str:
+        """Effective LLM model (HBC_LLM_MODEL preferred, fallback to HBC_OPENAI_MODEL)."""
+        return (self.llm_model or self.openai_model or "gpt-5-mini").strip()
+
+    @computed_field
+    @property
+    def using_legacy_openai_env(self) -> bool:
+        """True when the app is configured via legacy HBC_OPENAI_* variables."""
+        return not bool(self.llm_api_key or self.llm_model)
 
     @computed_field
     @property
@@ -136,10 +168,10 @@ class Settings(BaseSettings):
     def validate_config(self) -> list[str]:
         """Validate settings and return list of issues."""
         issues = []
-        if not self.openai_api_key:
+        if not self.effective_llm_api_key:
             issues.append(
-                "HBC_OPENAI_API_KEY is not set. "
-                "Vision detection will not work without an OpenAI API key."
+                "HBC_LLM_API_KEY is not set (and no legacy HBC_OPENAI_API_KEY fallback). "
+                "Vision detection will not work without an API key."
             )
         return issues
 

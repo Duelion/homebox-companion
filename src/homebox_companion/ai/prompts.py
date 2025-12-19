@@ -1,41 +1,17 @@
 """Shared prompt templates and constants for AI interactions.
 
 Note on customizations:
-    The `customizations` parameter in prompt builder functions should contain
+    The `customizations` parameter in prompt builder functions contains
     the effective values for all fields (user overrides merged with defaults).
 
-    The main source of truth for defaults is FieldPreferencesDefaults in
-    field_preferences.py, which handles env var overrides.
+    The source of truth for defaults is FieldPreferencesDefaults in
+    field_preferences.py, which handles env var overrides via HBC_AI_* variables.
 
-    FIELD_DEFAULTS below is a legacy fallback only used when customizations
-    is None. In normal operation, get_vision_context() and prompt preview
-    always pass effective customizations, so FIELD_DEFAULTS is not used.
+    All prompt builder functions require customizations to be passed explicitly
+    via get_effective_customizations() - there are no fallback defaults here.
 """
 
 from __future__ import annotations
-
-# Legacy fallback defaults - only used when customizations is None
-# The real defaults come from FieldPreferencesDefaults in field_preferences.py
-# which supports env var overrides via HBC_AI_* variables
-FIELD_DEFAULTS = {
-    "name": "Title Case, no quantity, max 255 characters",
-    "description": "max 1000 chars, condition/attributes only, NEVER mention quantity",
-    "quantity": ">= 1, count of identical items",
-    "manufacturer": "brand name from logo/label when clearly visible",
-    "model_number": "product code from label when clearly visible",
-    "serial_number": "S/N from sticker/label when clearly visible",
-    "purchase_price": "price from visible tag/receipt, just the number",
-    "purchase_from": "store name from visible packaging/receipt",
-    "notes": (
-        'ONLY for defects/damage/warnings - leave null for normal items. '
-        'GOOD: "Cracked lens", "Missing screws" | BAD: "Appears new", "Made in China"'
-    ),
-    "naming_examples": (
-        '"Ball Bearing 6900-2RS 10x22x6mm", '
-        '"Acrylic Paint Vallejo Game Color Bone White", '
-        '"LED Strip COB Green 5V 1M"'
-    ),
-}
 
 # Naming format structure (examples are configurable via naming_examples field)
 NAMING_FORMAT = """NAMING FORMAT:
@@ -69,22 +45,25 @@ def build_critical_constraints(single_item: bool = False) -> str:
     )
 
 
-def build_naming_rules(customizations: dict[str, str] | None = None) -> str:
+def build_naming_rules(customizations: dict[str, str]) -> str:
     """Build naming rules with configurable examples and optional user override.
 
     Args:
-        customizations: Dict with effective values for all fields. Should contain
-            'naming_examples' for examples. If 'name' is present and differs from
-            the default naming format, adds a user preference note.
-            Pass None only for legacy compatibility (will use FIELD_DEFAULTS).
+        customizations: Dict with effective values for all fields (required).
+            Must contain 'naming_examples' for examples. If 'name' differs from
+            the default format, adds a user preference note.
 
     Returns:
         Naming rules string with examples and optional user preference.
     """
-    # Get examples - use passed value or legacy fallback
-    examples = FIELD_DEFAULTS["naming_examples"]
-    if customizations and customizations.get("naming_examples"):
-        examples = customizations["naming_examples"].strip()
+    # Get examples from customizations
+    examples = customizations.get("naming_examples", "").strip()
+    if not examples:
+        examples = (
+            '"Ball Bearing 6900-2RS 10x22x6mm", '
+            '"Acrylic Paint Vallejo Game Color Bone White", '
+            '"LED Strip COB Green 5V 1M"'
+        )
 
     # Build base rules with examples
     result = f"""{NAMING_FORMAT}
@@ -92,12 +71,10 @@ def build_naming_rules(customizations: dict[str, str] | None = None) -> str:
 Examples: {examples}"""
 
     # Add user naming preference if it differs from the base format
-    # (indicates a custom instruction was set)
-    if customizations and customizations.get("name"):
-        name_instruction = customizations["name"].strip()
-        # Check if this looks like a custom user instruction (not the default format)
-        if not name_instruction.startswith("[Type]"):
-            result += f"""
+    name_instruction = customizations.get("name", "").strip()
+    if name_instruction and not name_instruction.startswith("[Type]"):
+        # This is a custom instruction, not the default format
+        result += f"""
 
 USER NAMING PREFERENCE (takes priority):
 {name_instruction}"""
@@ -105,47 +82,55 @@ USER NAMING PREFERENCE (takes priority):
     return result
 
 
-def build_item_schema(customizations: dict[str, str] | None = None) -> str:
+def build_item_schema(customizations: dict[str, str]) -> str:
     """Build item schema with field instructions integrated inline.
 
     Args:
         customizations: Dict with effective values for fields (name, quantity,
-            description). Should contain values for all fields - user overrides
-            merged with defaults. Pass None only for legacy compatibility.
+            description). Required - must contain values for all fields.
 
     Returns:
         Item schema string with field instructions.
     """
-    instr = {**FIELD_DEFAULTS, **(customizations or {})}
+    name_instr = customizations.get('name', 'Title Case, max 255 characters')
+    qty_instr = customizations.get('quantity', '>= 1, count of identical items')
+    desc_instr = customizations.get(
+        'description', 'max 1000 chars, condition/attributes only'
+    )
     return f"""OUTPUT SCHEMA - Each item must include:
-- name: string ({instr['name']})
-- quantity: integer ({instr['quantity']})
-- description: string ({instr['description']})
+- name: string ({name_instr})
+- quantity: integer ({qty_instr})
+- description: string ({desc_instr})
 - labelIds: array of matching label IDs"""
 
 
-def build_extended_fields_schema(customizations: dict[str, str] | None = None) -> str:
+def build_extended_fields_schema(customizations: dict[str, str]) -> str:
     """Build extended fields schema with field instructions integrated inline.
 
     Args:
         customizations: Dict with effective values for extended fields
             (manufacturer, model_number, serial_number, purchase_price,
-            purchase_from, notes). Should contain values for all fields.
-            Pass None only for legacy compatibility.
+            purchase_from, notes). Required - must contain values for all fields.
 
     Returns:
         Extended fields schema string with field instructions.
     """
-    instr = {**FIELD_DEFAULTS, **(customizations or {})}
-
+    mfr_instr = customizations.get('manufacturer', 'brand name when visible')
+    model_instr = customizations.get('model_number', 'product code when visible')
+    serial_instr = customizations.get('serial_number', 'S/N when visible')
+    price_instr = customizations.get(
+        'purchase_price', 'price from tag, just the number'
+    )
+    from_instr = customizations.get('purchase_from', 'store name when visible')
+    notes_instr = customizations.get('notes', 'ONLY for defects/damage')
     return f"""
 OPTIONAL FIELDS (include only when visible or user-provided):
-- manufacturer: string or null ({instr['manufacturer']})
-- modelNumber: string or null ({instr['model_number']})
-- serialNumber: string or null ({instr['serial_number']})
-- purchasePrice: number or null ({instr['purchase_price']})
-- purchaseFrom: string or null ({instr['purchase_from']})
-- notes: string or null ({instr['notes']})"""
+- manufacturer: string or null ({mfr_instr})
+- modelNumber: string or null ({model_instr})
+- serialNumber: string or null ({serial_instr})
+- purchasePrice: number or null ({price_instr})
+- purchaseFrom: string or null ({from_instr})
+- notes: string or null ({notes_instr})"""
 
 
 def build_label_prompt(labels: list[dict[str, str]] | None) -> str:

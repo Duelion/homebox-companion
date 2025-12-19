@@ -61,18 +61,38 @@ export class SubmissionService {
 
 	/** Convert data URL to File */
 	private async dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
+		// Validate data URL format
+		if (!dataUrl || !dataUrl.startsWith('data:')) {
+			log.warn(`Invalid data URL for ${filename}: missing or malformed`);
+			throw new Error(`Invalid data URL for ${filename}`);
+		}
+
 		const response = await fetch(dataUrl);
 		const blob = await response.blob();
+
+		// Validate blob has content
+		if (blob.size === 0) {
+			log.warn(`Empty blob created from data URL for ${filename}`);
+			throw new Error(`Empty image data for ${filename}`);
+		} else if (blob.size < 1000) {
+			log.warn(`Suspiciously small blob for ${filename}: ${blob.size} bytes`);
+		}
+
+		log.debug(`Converted data URL to file: ${filename}, size: ${blob.size} bytes`);
 		return new File([blob], filename, { type: blob.type || 'image/jpeg' });
 	}
 
-	/** Upload attachments for a created item. Returns true if all succeeded. */
+	/** 
+	 * Upload attachments for a created item. 
+	 * Returns status indicating what succeeded/failed.
+	 */
 	private async uploadAttachments(
 		itemId: string,
 		confirmedItem: ConfirmedItem,
 		signal?: AbortSignal
-	): Promise<boolean> {
-		let allSucceeded = true;
+	): Promise<{ primaryFailed: boolean; additionalFailed: boolean }> {
+		let primaryFailed = false;
+		let additionalFailed = false;
 
 		// Upload custom thumbnail (replaces original) or compressed/original image as primary
 		if (confirmedItem.customThumbnail) {
@@ -90,7 +110,7 @@ export class SubmissionService {
 					throw error;
 				}
 				log.error(`Failed to upload thumbnail for ${confirmedItem.name}`, error);
-				allSucceeded = false;
+				primaryFailed = true;
 			}
 		} else if (confirmedItem.compressedDataUrl) {
 			// Use compressed image if available (preferred)
@@ -111,7 +131,7 @@ export class SubmissionService {
 					throw error;
 				}
 				log.error(`Failed to upload compressed image for ${confirmedItem.name}`, error);
-				allSucceeded = false;
+				primaryFailed = true;
 			}
 		} else if (confirmedItem.originalFile) {
 			// Fallback to original file if no compressed version available
@@ -128,13 +148,19 @@ export class SubmissionService {
 					throw error;
 				}
 				log.error(`Failed to upload image for ${confirmedItem.name}`, error);
-				allSucceeded = false;
+				primaryFailed = true;
 			}
+		}
+
+		// If primary image failed, don't bother with additional images
+		// The item will be deleted anyway
+		if (primaryFailed) {
+			return { primaryFailed, additionalFailed: false };
 		}
 
 		// Upload additional images (prefer compressed versions)
 		const additionalToUpload: File[] = [];
-		
+
 		// Use compressed additional images if available
 		if (confirmedItem.compressedAdditionalDataUrls && confirmedItem.compressedAdditionalDataUrls.length > 0) {
 			for (let i = 0; i < confirmedItem.compressedAdditionalDataUrls.length; i++) {
@@ -146,13 +172,14 @@ export class SubmissionService {
 					additionalToUpload.push(additionalFile);
 				} catch (error) {
 					log.error(`Failed to convert compressed additional image ${i}`, error);
+					additionalFailed = true;
 				}
 			}
 		} else if (confirmedItem.additionalImages && confirmedItem.additionalImages.length > 0) {
 			// Fallback to original additional images
 			additionalToUpload.push(...confirmedItem.additionalImages);
 		}
-		
+
 		// Upload all additional images
 		for (const addImage of additionalToUpload) {
 			try {
@@ -165,15 +192,12 @@ export class SubmissionService {
 					throw error;
 				}
 				log.error(`Failed to upload additional image for ${confirmedItem.name}`, error);
-				allSucceeded = false;
+				additionalFailed = true;
 			}
 		}
 
-		return allSucceeded;
+		return { primaryFailed, additionalFailed };
 	}
-
-	/** Result of submitting a single item */
-	private submitItemResult: { status: ItemSubmissionStatus; error?: string } = { status: 'pending' };
 
 	/** Submit a single item. Updates itemStatuses. Returns status and any error message. */
 	private async submitItem(
@@ -226,8 +250,25 @@ export class SubmissionService {
 				const createdItem = response.created[0];
 
 				if (createdItem?.id) {
-					const attachmentsOk = await this.uploadAttachments(createdItem.id, confirmedItem, signal);
-					const status: ItemSubmissionStatus = attachmentsOk ? 'success' : 'partial_success';
+					const uploadResult = await this.uploadAttachments(createdItem.id, confirmedItem, signal);
+
+					// If primary image failed, delete the created item and mark as failed
+					if (uploadResult.primaryFailed) {
+						log.warn(`Primary image upload failed for ${confirmedItem.name}, deleting item ${createdItem.id}`);
+						try {
+							await itemsApi.delete(createdItem.id, signal);
+							log.info(`Deleted item ${createdItem.id} after image upload failure`);
+						} catch (deleteError) {
+							// Log but don't fail - the item might be orphaned but that's better than hiding the failure
+							log.error(`Failed to cleanup item ${createdItem.id} after upload failure`, deleteError);
+						}
+						this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
+						return { status: 'failed', error: `Failed to upload image for '${confirmedItem.name}'` };
+					}
+
+					// Primary succeeded - additional image failures are non-critical (still success)
+					// User can add more images later via Homebox UI
+					const status: ItemSubmissionStatus = 'success';
 					this.itemStatuses = { ...this.itemStatuses, [index]: status };
 					return { status };
 				}
