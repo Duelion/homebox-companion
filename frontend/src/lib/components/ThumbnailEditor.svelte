@@ -5,6 +5,7 @@
 
 	interface Props {
 		images: { file: File; dataUrl: string }[];
+		itemName: string;
 		currentThumbnail?: string;
 		initialTransform?: ThumbnailTransform;
 		onSave: (
@@ -15,8 +16,14 @@
 		onClose: () => void;
 	}
 
-	let { images, currentThumbnail, initialTransform, onSave, onClose }: Props =
-		$props();
+	let {
+		images,
+		itemName,
+		currentThumbnail,
+		initialTransform,
+		onSave,
+		onClose,
+	}: Props = $props();
 
 	// Track if we should apply initial transform on first load
 	let shouldApplyInitialTransform = $state(!!initialTransform);
@@ -72,8 +79,7 @@
 		return minScale * Math.pow(logBase, sliderValue);
 	}
 
-	// For slider display
-	let zoomPercent = $derived(Math.round(scale * 100));
+	// For zoom slider
 	let zoomSliderValue = $derived(scaleToSlider(scale));
 
 	// Convert screen-space delta to rotated-space delta (for panning)
@@ -451,13 +457,19 @@
 	<div
 		class="bg-neutral-900 rounded-2xl border border-neutral-700 max-w-lg w-full shadow-xl my-auto sm:my-8"
 	>
-		<!-- Header -->
 		<div
 			class="flex items-center justify-between p-4 border-b border-neutral-700"
 		>
-			<h3 class="text-body-lg font-semibold text-neutral-100">
-				Edit Thumbnail
-			</h3>
+			<div>
+				<h3 class="text-body-lg font-semibold text-neutral-100">
+					Edit Thumbnail
+				</h3>
+				<p
+					class="text-sm text-neutral-400 truncate max-w-[200px] sm:max-w-[300px]"
+				>
+					{itemName}
+				</p>
+			</div>
 			<button
 				type="button"
 				class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -564,10 +576,6 @@
 						</svg>
 						Zoom
 					</label>
-					<span
-						class="text-xs text-neutral-400 font-mono bg-neutral-800 px-2 py-0.5 rounded"
-						>{zoomPercent}%</span
-					>
 				</div>
 				<!-- Tick marks for zoom -->
 				<div class="relative mb-1">
@@ -575,8 +583,8 @@
 						class="flex justify-between text-[10px] text-neutral-600 px-0.5"
 					>
 						<span>Min</span>
-						<span>100%</span>
-						<span>500%</span>
+						<span>Mid</span>
+						<span>Max</span>
 					</div>
 				</div>
 				<input
@@ -613,10 +621,6 @@
 						</svg>
 						Rotation
 					</label>
-					<span
-						class="text-xs text-neutral-400 font-mono bg-neutral-800 px-2 py-0.5 rounded"
-						>{Math.round(rotation)}°</span
-					>
 				</div>
 				<!-- Tick marks for rotation -->
 				<div class="relative mb-1 px-11">
