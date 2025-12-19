@@ -143,6 +143,26 @@
 		@apply border-error-500 focus:border-error-500 focus:ring-error-500/20;
 	}
 	
+	/* Expandable input - shows truncated single line when unfocused, expands on focus */
+	.input-expandable {
+		@apply input;
+		field-sizing: content;
+		min-height: 48px;
+		max-height: 48px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		resize: none;
+		transition: max-height 0.2s ease, white-space 0s;
+	}
+	
+	.input-expandable:focus {
+		max-height: 200px;
+		overflow-y: auto;
+		white-space: pre-wrap;
+		word-wrap: break-word;
+	}
+	
 	/* Label styles */
 	.label {
 		@apply block text-body-sm font-medium text-neutral-300 mb-2;

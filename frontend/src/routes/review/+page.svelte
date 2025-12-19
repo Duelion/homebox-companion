@@ -409,12 +409,12 @@
 				<!-- Name field -->
 				<div>
 					<label for="itemName" class="label">Name</label>
-					<input
-						type="text"
+					<textarea
 						id="itemName"
 						bind:value={editedItem.name}
-						class="input"
-					/>
+						rows="1"
+						class="input-expandable"
+					></textarea>
 				</div>
 
 				<!-- Quantity field -->
@@ -437,8 +437,8 @@
 					<textarea
 						id="itemDescription"
 						bind:value={editedItem.description}
-						rows="2"
-						class="input resize-none"
+						rows="1"
+						class="input-expandable"
 					></textarea>
 				</div>
 
