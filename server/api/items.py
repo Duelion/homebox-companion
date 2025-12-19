@@ -188,6 +188,14 @@ async def upload_item_attachment(
     # Validate file size (raises HTTPException if too large)
     file_bytes = await validate_file_size(file)
 
+    # Log file size for diagnostics - helps identify empty/corrupted uploads
+    file_size = len(file_bytes)
+    logger.debug(f"Received file: {file.filename}, size: {file_size:,} bytes")
+    if file_size == 0:
+        logger.warning(f"Empty file received for item {item_id}: {file.filename}")
+    elif file_size < 1000:
+        logger.warning(f"Suspiciously small file for item {item_id}: {file.filename} ({file_size} bytes)")
+
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
 
