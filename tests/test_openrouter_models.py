@@ -1,12 +1,12 @@
 """Test all curated models via OpenRouter.
 
-These tests require TEST_LLM_API_KEY to be set with an OpenRouter API key.
+These tests require TEST_OPENROUTER_API_KEY to be set with an OpenRouter API key.
 Each test validates single-item detection works correctly for each model.
 
 The HBC_LLM_ALLOW_UNSAFE_MODELS flag is automatically enabled via the
 allow_unsafe_models fixture from conftest.py.
 
-Run with: TEST_LLM_API_KEY=your-key uv run pytest tests/test_openrouter_models.py -v
+Run with: TEST_OPENROUTER_API_KEY=your-key uv run pytest tests/test_openrouter_models.py -v
 """
 
 from __future__ import annotations
@@ -33,9 +33,9 @@ pytestmark = pytest.mark.usefixtures("allow_unsafe_models")
 @pytest.fixture(scope="module")
 def openrouter_api_key() -> str:
     """Provide OpenRouter API key, skipping test if not set."""
-    key = os.environ.get("TEST_LLM_API_KEY", "").strip()
+    key = os.environ.get("TEST_OPENROUTER_API_KEY", "").strip()
     if not key:
-        pytest.skip("TEST_LLM_API_KEY must be set for OpenRouter tests.")
+        pytest.skip("TEST_OPENROUTER_API_KEY must be set for OpenRouter tests.")
     return key
 
 
