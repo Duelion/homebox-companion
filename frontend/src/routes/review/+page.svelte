@@ -16,6 +16,7 @@
 	import AiCorrectionPanel from "$lib/components/AiCorrectionPanel.svelte";
 	import BackLink from "$lib/components/BackLink.svelte";
 	import { workflowLogger as log } from "$lib/utils/logger";
+	import { expandable } from "$lib/actions/expandable";
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -414,6 +415,7 @@
 						bind:value={editedItem.name}
 						rows="1"
 						class="input-expandable"
+						use:expandable
 					></textarea>
 				</div>
 
@@ -439,6 +441,7 @@
 						bind:value={editedItem.description}
 						rows="1"
 						class="input-expandable"
+						use:expandable
 					></textarea>
 				</div>
 
