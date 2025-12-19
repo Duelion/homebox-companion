@@ -34,16 +34,12 @@ Run with:
 
 from __future__ import annotations
 
-import base64
 import os
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from homebox_companion.ai.llm import CapabilityNotSupportedError, LLMError, vision_completion
-from homebox_companion.ai.model_capabilities import ModelCapabilities, get_model_capabilities
-
+from homebox_companion.ai.model_capabilities import get_model_capabilities
 
 # Use a tiny 1x1 pixel image for testing
 TINY_IMAGE_BASE64 = (
@@ -65,25 +61,25 @@ def openai_api_key() -> str:
 def reset_config():
     """Reset config to default state before each test."""
     from homebox_companion.core import config
-    
+
     # Store original value
     original_env = os.environ.get("HBC_LLM_ALLOW_UNSAFE_MODELS")
-    
+
     # Ensure unsafe models flag is OFF for tests
     if "HBC_LLM_ALLOW_UNSAFE_MODELS" in os.environ:
         del os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"]
-    
+
     # Reload config
     config.settings = config.Settings()
-    
+
     yield
-    
+
     # Restore original value
     if original_env is not None:
         os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = original_env
     elif "HBC_LLM_ALLOW_UNSAFE_MODELS" in os.environ:
         del os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"]
-    
+
     # Reload config again
     config.settings = config.Settings()
 
@@ -139,7 +135,7 @@ class TestVisionValidation:
         """Test that unsafe models flag skips validation."""
         # Set the unsafe models flag
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
-        
+
         # Force reload config
         from homebox_companion.core import config
         config.settings = config.Settings()
@@ -167,7 +163,7 @@ class TestVisionValidation:
     @pytest.mark.asyncio
     async def test_old_vision_model_without_json_schema(self, openai_api_key):
         """Test vision model without JSON schema support still works.
-        
+
         The app should work with vision models that don't support structured
         outputs by falling back to prompt-based JSON.
         """
@@ -237,26 +233,28 @@ class TestErrorMessages:
 
 class TestUnsafeFlagBehavior:
     """Test what happens when unsafe flag is enabled with incompatible models.
-    
+
     These tests verify that users get clear LiteLLM/provider errors when they
     bypass our safety checks and try to use models that don't actually support
     the required capabilities.
     """
 
     @pytest.mark.asyncio
-    async def test_text_only_model_with_unsafe_flag_gets_litellm_error(self, openai_api_key, monkeypatch):
+    async def test_text_only_model_with_unsafe_flag_gets_litellm_error(
+        self, openai_api_key, monkeypatch
+    ):
         """Test that text-only models fail at LiteLLM level with unsafe flag.
-        
+
         When users bypass our checks with HBC_LLM_ALLOW_UNSAFE_MODELS=true,
         they should get a clear error from LiteLLM or the provider about
         vision not being supported.
-        
+
         Expected: LLMError wrapping litellm.BadRequestError
         Message: "Invalid content type. image_url is only supported by certain models"
         """
         # Enable unsafe models flag
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
-        
+
         # Force reload config
         from homebox_companion.core import config
         config.settings = config.Settings()
@@ -275,7 +273,7 @@ class TestUnsafeFlagBehavior:
         # Should be LLMError (wrapping LiteLLM's BadRequestError)
         assert isinstance(exc_info.value, LLMError)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
-        
+
         # Error message should mention vision/image support
         error_msg = str(exc_info.value).lower()
         assert any(
@@ -284,18 +282,20 @@ class TestUnsafeFlagBehavior:
         ), f"Expected error about vision support, got: {exc_info.value}"
 
     @pytest.mark.asyncio
-    async def test_legacy_text_model_with_unsafe_flag_gets_provider_error(self, openai_api_key, monkeypatch):
+    async def test_legacy_text_model_with_unsafe_flag_gets_provider_error(
+        self, openai_api_key, monkeypatch
+    ):
         """Test that legacy text models fail with provider errors.
-        
+
         Models like gpt-4 (non-vision) should fail when images are provided,
         even with the unsafe flag enabled.
-        
+
         Expected: LLMError wrapping litellm.UnsupportedParamsError
         Message: "openai does not support parameters: ['response_format'], for model=gpt-4"
         """
         # Enable unsafe models flag
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
-        
+
         # Force reload config
         from homebox_companion.core import config
         config.settings = config.Settings()
@@ -312,7 +312,7 @@ class TestUnsafeFlagBehavior:
         # Should be LLMError (wrapping LiteLLM's UnsupportedParamsError)
         assert isinstance(exc_info.value, LLMError)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
-        
+
         # Error message should mention unsupported parameters
         error_msg = str(exc_info.value).lower()
         assert any(
@@ -321,22 +321,26 @@ class TestUnsafeFlagBehavior:
         ), f"Expected error about unsupported parameters, got: {exc_info.value}"
 
     @pytest.mark.asyncio
-    async def test_vision_model_without_schema_works_with_unsafe_flag(self, openai_api_key, monkeypatch):
+    async def test_vision_model_without_schema_works_with_unsafe_flag(
+        self, openai_api_key, monkeypatch
+    ):
         """Test that vision models without JSON schema still work.
-        
+
         Models with vision but without JSON schema support should work fine
         (they'll use prompt-based JSON instead of structured outputs).
         """
         # Enable unsafe models flag
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
-        
+
         # Force reload config
         from homebox_companion.core import config
         config.settings = config.Settings()
 
         try:
             result = await vision_completion(
-                system_prompt="Respond with valid JSON only: {\"color\": \"...\", \"description\": \"...\"}",
+                system_prompt=(
+                    'Respond with valid JSON only: {"color": "...", "description": "..."}'
+                ),
                 user_prompt="What color is this 1x1 pixel image? Respond with JSON.",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
                 api_key=openai_api_key,
@@ -356,10 +360,15 @@ class TestUnsafeFlagBehavior:
                 pytest.fail(
                     f"Should not raise CapabilityNotSupportedError for vision models. Got: {e}"
                 )
-            
+
             # Check if it's an auth/access error (acceptable) or something else
             error_msg = str(e).lower()
-            if any(keyword in error_msg for keyword in ["auth", "permission", "access", "api key", "not found", "rate limit"]):
+            if any(
+                keyword in error_msg
+                for keyword in [
+                    "auth", "permission", "access", "api key", "not found", "rate limit"
+                ]
+            ):
                 pytest.skip(f"Cannot test gpt-4-turbo due to auth/access: {e}")
             else:
                 # Re-raise if it's an unexpected error
@@ -372,19 +381,19 @@ class TestCapabilityCacheing:
     def test_capability_cache_works(self):
         """Test that repeated calls use cached results."""
         from homebox_companion.ai.model_capabilities import get_model_capabilities
-        
+
         # Clear cache
         get_model_capabilities.cache_clear()
-        
+
         # First call
         caps1 = get_model_capabilities("gpt-4o")
-        
+
         # Second call should be cached (same object)
         caps2 = get_model_capabilities("gpt-4o")
-        
+
         # Should be the exact same object (cached)
         assert caps1 is caps2
-        
+
         # Different model should not be cached
         caps3 = get_model_capabilities("gpt-4o-mini")
         assert caps3 is not caps1
