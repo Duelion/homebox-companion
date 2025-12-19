@@ -236,7 +236,6 @@ Model names are passed directly to LiteLLM. Use the exact names from LiteLLM's d
 Common examples:
 - OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5-mini`
 - Anthropic: `claude-sonnet-4-5`, `claude-3-5-sonnet-20241022`
-- OpenRouter: `openrouter/anthropic/claude-3.5-sonnet`
 
 > **Note:** Model names must exactly match LiteLLM's expected format. Typos or incorrect formats will cause errors. Check [LiteLLM's provider documentation](https://docs.litellm.ai/docs/providers) for the correct model names.
 
