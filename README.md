@@ -226,18 +226,19 @@ You can try other LiteLLM-compatible providers at your own risk. The app checks 
 
 **Required capabilities:**
 - **Vision** – Checked via `litellm.supports_vision(model)`
-- **JSON mode** – Checked via `litellm.supports_response_schema(model)`
+- **Structured outputs** – Checked via `litellm.supports_response_schema(model)`
 
-**Test your model before using it:**
+**Finding model names:**
 
-```python
-import litellm
+Model names are passed directly to LiteLLM. Use the exact names from LiteLLM's documentation:
+- [LiteLLM Supported Models](https://docs.litellm.ai/docs/providers)
 
-# Check if your model is recognized and has the required capabilities
-model = "your-model-name"
-has_vision = litellm.supports_vision(model)
-has_json = litellm.supports_response_schema(model)
-```
+Common examples:
+- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5-mini`
+- Anthropic: `claude-sonnet-4-5`, `claude-3-5-sonnet-20241022`
+- OpenRouter: `openrouter/anthropic/claude-3.5-sonnet`
+
+> **Note:** Model names must exactly match LiteLLM's expected format. Typos or incorrect formats will cause errors. Check [LiteLLM's provider documentation](https://docs.litellm.ai/docs/providers) for the correct model names.
 
 **Running Local Models:**
 
@@ -267,7 +268,7 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `HBC_LLM_API_KEY` | **Yes** | – | Your OpenAI API key (or other provider key if experimenting) |
-| `HBC_LLM_MODEL` | No | `gpt-5-mini` | Model identifier (officially: `gpt-5-mini`, `gpt-5-nano`, `gpt-4o`, `gpt-4o-mini`) |
+| `HBC_LLM_MODEL` | No | `gpt-5-mini` | Model to use. Officially supported: `gpt-5-mini`, `gpt-5-nano`. See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for other models. |
 | `HBC_LLM_API_BASE` | No | – | Custom API base URL (for proxies or experimental providers) |
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | No | `false` | Skip capability validation for unrecognized models |
 | `HBC_LLM_TIMEOUT` | No | `120` | LLM request timeout in seconds |
