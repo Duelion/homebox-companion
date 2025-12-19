@@ -1,15 +1,25 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import Button from "./Button.svelte";
+	import type { ThumbnailTransform } from "$lib/types";
 
 	interface Props {
 		images: { file: File; dataUrl: string }[];
 		currentThumbnail?: string;
-		onSave: (dataUrl: string, sourceImageIndex: number) => void;
+		initialTransform?: ThumbnailTransform;
+		onSave: (
+			dataUrl: string,
+			sourceImageIndex: number,
+			transform: ThumbnailTransform,
+		) => void;
 		onClose: () => void;
 	}
 
-	let { images, currentThumbnail, onSave, onClose }: Props = $props();
+	let { images, currentThumbnail, initialTransform, onSave, onClose }: Props =
+		$props();
+
+	// Track if we should apply initial transform on first load
+	let shouldApplyInitialTransform = $state(!!initialTransform);
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
@@ -81,7 +91,9 @@
 		// Wait for next tick to ensure canvas dimensions are set
 		requestAnimationFrame(() => {
 			ctx = canvas.getContext("2d");
-			loadImage(selectedImageIndex);
+			// Load from initial transform's image index if available, otherwise first image
+			const startIndex = initialTransform?.sourceImageIndex ?? 0;
+			loadImage(startIndex);
 		});
 	});
 
@@ -91,7 +103,30 @@
 		const img = new Image();
 		img.onload = () => {
 			loadedImage = img;
-			resetTransform();
+
+			// Calculate minScale first (needed for both paths)
+			const cropSize = CROP_SIZE;
+			minScale = cropSize / img.width;
+
+			// Apply initial transform if available and this is the first load
+			if (
+				shouldApplyInitialTransform &&
+				initialTransform &&
+				index === initialTransform.sourceImageIndex
+			) {
+				scale = initialTransform.scale;
+				rotation = initialTransform.rotation;
+				offsetX = initialTransform.offsetX;
+				offsetY = initialTransform.offsetY;
+				shouldApplyInitialTransform = false; // Only apply once
+			} else {
+				// Reset to default (full image width matches crop width)
+				scale = minScale;
+				rotation = 0;
+				offsetX = 0;
+				offsetY = 0;
+			}
+
 			requestAnimationFrame(() => render());
 		};
 		img.src = images[index].dataUrl;
@@ -390,8 +425,18 @@
 		);
 
 		const dataUrl = outputCanvas.toDataURL("image/jpeg", 0.9);
-		// Pass the selected image index so the caller can reorder images if needed
-		onSave(dataUrl, selectedImageIndex);
+
+		// Build transform state so it can be restored later
+		const transform: ThumbnailTransform = {
+			scale,
+			rotation,
+			offsetX,
+			offsetY,
+			sourceImageIndex: selectedImageIndex,
+			dataUrl,
+		};
+
+		onSave(dataUrl, selectedImageIndex, transform);
 	}
 </script>
 
