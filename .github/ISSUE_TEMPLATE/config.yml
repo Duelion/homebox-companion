@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/Duelion/homebox-companion#readme
+    about: Check the README for setup instructions and configuration options
+  - name: 💬 Discussions
+    url: https://github.com/Duelion/homebox-companion/discussions
+    about: Ask questions or discuss ideas with the community
+  - name: ☕ Buy Me a Coffee
+    url: https://buymeacoffee.com/duelion
+    about: Support the project's development
