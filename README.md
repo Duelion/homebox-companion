@@ -228,8 +228,6 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 
 **Note:** Local models must support vision (e.g., llava, bakllava, moondream). Performance and accuracy vary widely.
 
----
-
 **⚠️ Important:** Other providers (Anthropic, Google, OpenRouter, local models, etc.) are **not officially supported**. If you encounter errors, we may not be able to help. Use at your own risk.
 
 ## ⚙️ Configuration
