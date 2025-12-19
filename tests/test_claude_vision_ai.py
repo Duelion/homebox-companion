@@ -1,13 +1,13 @@
-"""AI tests for vision detection with real LLM API.
+"""AI tests for vision detection with Claude models.
 
-These tests require an LLM API key to be set and will be skipped
-if no key is available. They hit the real LLM API.
+These tests require TEST_CLAUDE_API_KEY to be set and will be skipped
+if no key is available. They hit the real Anthropic Claude API.
 
-Environment variables (in order of preference):
-    - HBC_LLM_API_KEY + HBC_LLM_MODEL (preferred)
-    - HBC_OPENAI_API_KEY + HBC_OPENAI_MODEL (legacy fallback)
+Environment variables:
+    - TEST_CLAUDE_API_KEY (required)
+    - TEST_CLAUDE_MODEL (optional, defaults to claude-sonnet-4-5)
 
-Run with: uv run pytest tests/test_vision_ai.py
+Run with: TEST_CLAUDE_API_KEY=your-key uv run pytest tests/test_claude_vision_ai.py
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from homebox_companion import detect_items_from_bytes
 
 @pytest.mark.asyncio
 async def test_single_item_detection_returns_one_item(
-    api_key: str,
-    model: str,
+    claude_api_key: str,
+    claude_model: str,
     single_item_single_image_path: Path,
 ) -> None:
     """Single item detection should return exactly 1 item with name and quantity."""
@@ -30,8 +30,8 @@ async def test_single_item_detection_returns_one_item(
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=api_key,
-        model=model,
+        api_key=claude_api_key,
+        model=claude_model,
         single_item=True,
     )
 
@@ -42,8 +42,8 @@ async def test_single_item_detection_returns_one_item(
 
 @pytest.mark.asyncio
 async def test_multi_item_detection_returns_multiple_items(
-    api_key: str,
-    model: str,
+    claude_api_key: str,
+    claude_model: str,
     multi_item_single_image_path: Path,
 ) -> None:
     """Multi-item detection should return multiple items with distinct names."""
@@ -51,8 +51,8 @@ async def test_multi_item_detection_returns_multiple_items(
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=api_key,
-        model=model,
+        api_key=claude_api_key,
+        model=claude_model,
         single_item=False,
     )
 
@@ -70,8 +70,8 @@ async def test_multi_item_detection_returns_multiple_items(
 
 @pytest.mark.asyncio
 async def test_detection_with_labels_assigns_valid_ids(
-    api_key: str,
-    model: str,
+    claude_api_key: str,
+    claude_model: str,
     single_item_single_image_path: Path,
 ) -> None:
     """Detection with labels should only assign label IDs from provided list."""
@@ -85,8 +85,8 @@ async def test_detection_with_labels_assigns_valid_ids(
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=api_key,
-        model=model,
+        api_key=claude_api_key,
+        model=claude_model,
         labels=labels,
     )
 
