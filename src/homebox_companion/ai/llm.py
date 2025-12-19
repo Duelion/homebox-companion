@@ -115,22 +115,22 @@ Return ONLY the corrected JSON object, nothing else."""
 
 def _strip_markdown_code_blocks(content: str) -> str:
     """Strip markdown code blocks from content.
-    
+
     Some LLMs (especially Claude) wrap JSON in markdown code blocks like:
     ```json
     {"key": "value"}
     ```
-    
+
     This function removes those wrappers to extract clean JSON.
-    
+
     Args:
         content: Raw content that may contain markdown code blocks.
-        
+
     Returns:
         Content with markdown code blocks stripped.
     """
     content = content.strip()
-    
+
     # Check if content starts with markdown code block
     if content.startswith("```"):
         lines = content.split("\n")
@@ -141,7 +141,7 @@ def _strip_markdown_code_blocks(content: str) -> str:
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         content = "\n".join(lines).strip()
-    
+
     return content
 
 
@@ -160,7 +160,7 @@ def _parse_json_response(
     """
     # Strip markdown code blocks if present (Claude often wraps JSON in ```json...```)
     raw_content = _strip_markdown_code_blocks(raw_content)
-    
+
     try:
         parsed = json.loads(raw_content)
     except json.JSONDecodeError as e:
