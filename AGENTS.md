@@ -173,7 +173,7 @@ homebox-companion/
 │       │   │   └── index.ts         # Exports
 │       │   ├── stores/              # Svelte stores
 │       │   │   ├── auth.ts          # Token + session expiry
-│       │   │   ├── locations.ts     # Location tree cache
+│       │   │   ├── locations.svelte.ts  # Location tree cache (Svelte 5)
 │       │   │   ├── labels.ts        # Labels cache
 │       │   │   └── ui.ts            # App version + UI state
 │       │   ├── components/          # Reusable components
