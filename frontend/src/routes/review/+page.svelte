@@ -507,6 +507,7 @@
 		{@const availableImages = getAvailableImages()}
 		<ThumbnailEditor
 			images={availableImages}
+			itemName={editedItem.name}
 			currentThumbnail={editedItem.customThumbnail}
 			initialTransform={editedItem.thumbnailTransform}
 			onSave={handleThumbnailSave}
