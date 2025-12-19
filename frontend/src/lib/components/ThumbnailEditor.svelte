@@ -23,7 +23,6 @@
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
-	let canvasContainer: HTMLDivElement;
 
 	// Selected image
 	let selectedImageIndex = $state(0);
@@ -77,6 +76,18 @@
 	let zoomPercent = $derived(Math.round(scale * 100));
 	let zoomSliderValue = $derived(scaleToSlider(scale));
 
+	// Convert screen-space delta to rotated-space delta (for panning)
+	function screenToRotatedSpace(
+		dx: number,
+		dy: number,
+	): { rdx: number; rdy: number } {
+		const rad = (-rotation * Math.PI) / 180;
+		return {
+			rdx: dx * Math.cos(rad) - dy * Math.sin(rad),
+			rdy: dx * Math.sin(rad) + dy * Math.cos(rad),
+		};
+	}
+
 	onMount(() => {
 		// Calculate responsive canvas size based on viewport width
 		// Use most of the available width for a larger working area
@@ -120,7 +131,7 @@
 				offsetY = initialTransform.offsetY;
 				shouldApplyInitialTransform = false; // Only apply once
 			} else {
-				// Reset to default (full image width matches crop width)
+				// Reset to default using shared function
 				scale = minScale;
 				rotation = 0;
 				offsetX = 0;
@@ -266,12 +277,9 @@
 		const dy = e.clientY - lastY;
 
 		// Convert screen delta to rotated space
-		const rad = (-rotation * Math.PI) / 180;
-		const rotatedDx = dx * Math.cos(rad) - dy * Math.sin(rad);
-		const rotatedDy = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-		offsetX += rotatedDx;
-		offsetY += rotatedDy;
+		const { rdx, rdy } = screenToRotatedSpace(dx, dy);
+		offsetX += rdx;
+		offsetY += rdy;
 
 		lastX = e.clientX;
 		lastY = e.clientY;
@@ -312,13 +320,10 @@
 			const dx = e.touches[0].clientX - lastX;
 			const dy = e.touches[0].clientY - lastY;
 
-			// Convert to rotated space
-			const rad = (-rotation * Math.PI) / 180;
-			const rotatedDx = dx * Math.cos(rad) - dy * Math.sin(rad);
-			const rotatedDy = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-			offsetX += rotatedDx;
-			offsetY += rotatedDy;
+			// Convert to rotated space using shared helper
+			const { rdx, rdy } = screenToRotatedSpace(dx, dy);
+			offsetX += rdx;
+			offsetY += rdy;
 
 			lastX = e.touches[0].clientX;
 			lastY = e.touches[0].clientY;
@@ -519,10 +524,7 @@
 		{/if}
 
 		<!-- Canvas area with cursor states -->
-		<div
-			bind:this={canvasContainer}
-			class="flex items-center justify-center p-4 touch-none"
-		>
+		<div class="flex items-center justify-center p-4 touch-none">
 			<canvas
 				bind:this={canvas}
 				width={canvasSize}
