@@ -209,6 +209,15 @@ async def lifespan(app: FastAPI):
     logger.info(f"LLM Model: {settings.effective_llm_model}")
     logger.info(f"Log level: {settings.log_level}")
 
+    if settings.using_legacy_openai_env:
+        logger.warning(
+            "DEPRECATION WARNING: You are using legacy environment variables "
+            "(HBC_OPENAI_API_KEY and/or HBC_OPENAI_MODEL). "
+            "Please migrate to HBC_LLM_API_KEY and HBC_LLM_MODEL. "
+            "The legacy variables are supported for backward compatibility but may be "
+            "removed in a future version."
+        )
+
     if settings.is_demo_mode:
         logger.warning("Using demo server - set HBC_HOMEBOX_URL for your own instance")
 
