@@ -194,7 +194,9 @@ async def upload_item_attachment(
     if file_size == 0:
         logger.warning(f"Empty file received for item {item_id}: {file.filename}")
     elif file_size < 1000:
-        logger.warning(f"Suspiciously small file for item {item_id}: {file.filename} ({file_size} bytes)")
+        logger.warning(
+            f"Suspiciously small file for item {item_id}: {file.filename} ({file_size} bytes)"
+        )
 
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
@@ -244,3 +246,27 @@ async def get_item_attachment(
     except Exception as e:
         logger.error(f"Failed to fetch attachment: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch attachment") from e
+
+
+@router.delete("/items/{item_id}")
+async def delete_item(
+    item_id: str,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+) -> dict[str, str]:
+    """Delete an item from Homebox.
+
+    Used for cleanup when item creation succeeds but attachment upload fails.
+    """
+    logger.info(f"Deleting item: {item_id}")
+
+    try:
+        await client.delete_item(token, item_id)
+        logger.info(f"Successfully deleted item {item_id}")
+        return {"message": "Item deleted"}
+    except AuthenticationError as e:
+        logger.exception("Auth error deleting item")
+        raise HTTPException(status_code=401, detail="Authentication failed") from e
+    except Exception as e:
+        logger.exception(f"Error deleting item {item_id}")
+        raise HTTPException(status_code=500, detail="Failed to delete item") from e

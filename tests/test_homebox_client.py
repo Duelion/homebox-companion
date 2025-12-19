@@ -317,3 +317,106 @@ async def test_client_context_manager_closes_properly(homebox_api_url: str) -> N
     # After context exit, client should be closed
     # (no direct way to test this, but it shouldn't raise errors)
 
+
+@pytest.mark.asyncio
+async def test_delete_item_removes_item(
+    homebox_api_url: str, homebox_credentials: tuple[str, str]
+) -> None:
+    """Delete item should remove the item from Homebox."""
+    username, password = homebox_credentials
+
+    async with HomeboxClient(base_url=homebox_api_url) as client:
+        response = await client.login(username, password)
+        token = response["token"]
+        locations = await client.list_locations(token)
+
+        assert locations
+        location_id = locations[0]["id"]
+
+        # Create an item
+        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+        item_name = f"Delete Test Item {timestamp}"
+
+        item = ItemCreate(
+            name=item_name,
+            quantity=1,
+            description="Item to be deleted",
+            location_id=location_id,
+        )
+
+        created = await client.create_item(token, item)
+        item_id = created["id"]
+
+        # Verify item exists
+        fetched = await client.get_item(token, item_id)
+        assert fetched["id"] == item_id
+
+        # Delete the item
+        await client.delete_item(token, item_id)
+
+        # Verify item is gone (should raise 404)
+        with pytest.raises(RuntimeError) as exc_info:
+            await client.get_item(token, item_id)
+
+        # Check it's a 404 error
+        assert "404" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_delete_nonexistent_item_is_idempotent(
+    homebox_api_url: str, homebox_credentials: tuple[str, str]
+) -> None:
+    """Delete non-existent item should succeed (idempotent delete).
+
+    Homebox returns 204 for deleting items that don't exist,
+    which is correct REST API behavior for idempotent DELETE.
+    """
+    username, password = homebox_credentials
+
+    async with HomeboxClient(base_url=homebox_api_url) as client:
+        response = await client.login(username, password)
+        token = response["token"]
+
+        # Try to delete a non-existent item - should not raise
+        fake_id = "00000000-0000-0000-0000-000000000000"
+        await client.delete_item(token, fake_id)  # Should not raise
+
+
+@pytest.mark.asyncio
+async def test_create_and_delete_item_cleanup_workflow(
+    homebox_api_url: str, homebox_credentials: tuple[str, str]
+) -> None:
+    """Test the create-then-delete workflow for failed upload cleanup.
+
+    This simulates what happens when an item is created but image upload fails:
+    1. Create item
+    2. (Image upload would fail here)
+    3. Delete item to clean up
+    """
+    username, password = homebox_credentials
+
+    async with HomeboxClient(base_url=homebox_api_url) as client:
+        response = await client.login(username, password)
+        token = response["token"]
+        locations = await client.list_locations(token)
+
+        assert locations
+        location_id = locations[0]["id"]
+
+        # Create item
+        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+        item = ItemCreate(
+            name=f"Cleanup Test {timestamp}",
+            quantity=1,
+            location_id=location_id,
+        )
+        created = await client.create_item(token, item)
+        item_id = created["id"]
+
+        # Simulate upload failure by immediately deleting
+        # (In real scenario, this happens after upload retries fail)
+        await client.delete_item(token, item_id)
+
+        # Confirm deletion
+        with pytest.raises(RuntimeError):
+            await client.get_item(token, item_id)
