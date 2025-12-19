@@ -262,6 +262,8 @@
 
 	function cancelAnalysis() {
 		workflow.cancelAnalysis();
+		// Reset the starting flag in case cancel happened during startup
+		isStartingAnalysis = false;
 	}
 </script>
 
