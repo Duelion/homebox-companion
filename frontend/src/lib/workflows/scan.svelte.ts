@@ -477,20 +477,6 @@ class ScanWorkflow {
 		}
 	}
 
-	/** 
-	 * Go back to capture more images.
-	 * Clears all current scan state (images, confirmed items, submission state)
-	 * while preserving the location for a fresh scan session.
-	 */
-	addMoreImages(): void {
-		// Clear images, review state, and submission state for a fresh start
-		this.captureService.clear();
-		this.reviewService.reset();
-		this.submissionService.reset();
-		this._error = null;
-		this._status = 'capturing';
-	}
-
 	// =========================================================================
 	// SUBMISSION (delegated to SubmissionService)
 	// =========================================================================
