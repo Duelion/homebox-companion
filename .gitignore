@@ -35,6 +35,7 @@ server/static/
 # OS files
 .DS_Store
 Thumbs.db
+core
 homebox_api.json
 litellm_docs.txt
 litellm_relevant_docs.md
