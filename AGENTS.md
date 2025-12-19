@@ -300,6 +300,33 @@ export { getVersion, getConfig, getLogs, downloadLogs }
 - Emit events via callback props (e.g., `onScan`, `onClose`)
 - Use `$effect()` for side effects (e.g., auto-scroll logs)
 
+### Svelte 5 Features Philosophy
+
+When working with the frontend, keep Svelte 5 features (runes) in mind, but **use them pragmatically**:
+
+- **Not mandatory**: Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`) should only be used when they provide the **simplest and clearest solution**
+- **Consider alternatives**: Traditional Svelte stores, regular variables, or other patterns may be more appropriate depending on context
+- **Use when beneficial**:
+  - `$state()` for local component state that needs fine-grained reactivity
+  - `$derived()` for computed values that depend on reactive state
+  - `$effect()` for side effects that should run when dependencies change
+  - `$props()` for typed component props with defaults
+- **Avoid over-engineering**: Don't force runes where simpler approaches work fine
+- **Consistency**: If a pattern works well in existing code, prefer consistency over switching to runes
+
+**Example of appropriate usage:**
+```typescript
+// Good: Using runes for complex state management in workflows
+class AnalysisService {
+    progress = $state<AnalysisProgress | null>(null);
+    defaultLabel = $state<Label | null>(null);
+}
+
+// Also good: Using stores for global shared state
+export const token = writable<string | null>(null);
+export const sessionExpired = writable(false);
+```
+
 ---
 
 ## Backend Patterns
