@@ -4,6 +4,7 @@ import asyncio
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException
+from loguru import logger
 
 from homebox_companion import AuthenticationError
 
@@ -56,8 +57,9 @@ async def get_locations_tree(
                     "itemCount": loc.get("itemCount", 0),
                     "children": details.get("children", []),
                 })
-            except Exception:
+            except Exception as e:
                 # If we can't get details, include basic info without children
+                logger.warning(f"Failed to get details for location {loc.get('id')}: {e}")
                 enriched.append({
                     "id": loc.get("id"),
                     "name": loc.get("name"),
@@ -105,8 +107,10 @@ async def get_location(
                         "itemCount": itemcount_lookup.get(child["id"], 0),
                         "children": child_details.get("children", []),
                     }
-                except Exception:
+                except Exception as e:
                     # If we can't get details, include basic info without children
+                    child_id = child.get("id")
+                    logger.warning(f"Failed to get details for child location {child_id}: {e}")
                     return {
                         "id": child.get("id"),
                         "name": child.get("name"),

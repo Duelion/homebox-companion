@@ -3,6 +3,7 @@
  */
 
 import { request, requestFormData, requestBlobUrl, type BlobUrlResult } from './client';
+import { apiLogger as log } from '../utils/logger';
 import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
 
 export type { BlobUrlResult };
@@ -16,8 +17,8 @@ export interface UploadOptions {
 }
 
 export const items = {
-	list: (locationId?: string) =>
-		request<ItemSummary[]>(`/items${locationId ? `?location_id=${locationId}` : ''}`),
+	list: (locationId?: string, signal?: AbortSignal) =>
+		request<ItemSummary[]>(`/items${locationId ? `?location_id=${locationId}` : ''}`, { signal }),
 
 	create: (data: BatchCreateRequest, options: CreateOptions = {}) =>
 		request<BatchCreateResponse>('/items', {
@@ -27,6 +28,14 @@ export const items = {
 		}),
 
 	uploadAttachment: (itemId: string, file: File, options: UploadOptions = {}) => {
+		// Log file details for diagnostics - helps identify empty/corrupted uploads
+		log.debug(`Uploading attachment: item=${itemId}, file="${file.name}", size=${file.size} bytes`);
+		if (file.size === 0) {
+			log.warn(`Empty file being uploaded to item ${itemId}: ${file.name}`);
+		} else if (file.size < 1000) {
+			log.warn(`Suspiciously small file being uploaded to item ${itemId}: ${file.name} (${file.size} bytes)`);
+		}
+
 		const formData = new FormData();
 		formData.append('file', file);
 		return requestFormData<unknown>(
@@ -46,5 +55,17 @@ export const items = {
 	 */
 	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal): Promise<BlobUrlResult> =>
 		requestBlobUrl(`/items/${itemId}/attachments/${attachmentId}`, signal),
+
+	/**
+	 * Delete an item from Homebox.
+	 * Used for cleanup when item creation succeeds but attachment upload fails.
+	 */
+	delete: (itemId: string, signal?: AbortSignal) => {
+		log.debug(`Deleting item: ${itemId}`);
+		return request<{ message: string }>(`/items/${itemId}`, {
+			method: 'DELETE',
+			signal,
+		});
+	},
 };
 

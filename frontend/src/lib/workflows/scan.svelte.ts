@@ -344,38 +344,44 @@ class ScanWorkflow {
 
 	/** Start image analysis - coordinates with AnalysisService */
 	async startAnalysis(): Promise<void> {
+		log.info('ScanWorkflow.startAnalysis() called');
+
 		// Prevent starting a new analysis if one is already in progress
 		if (this._status === 'analyzing') {
-			log.warn('Analysis already in progress, ignoring duplicate request');
+			log.warn('Analysis already in progress (status check), ignoring duplicate request');
 			this._error = 'Analysis already in progress';
 			return;
 		}
 
 		if (!this.captureService.hasImages) {
+			log.warn('No images to analyze, returning early');
 			this._error = 'Please add at least one image';
 			return;
 		}
 
-		log.debug(`Starting analysis for ${this.captureService.count} image(s)`);
+		log.info(`Starting analysis for ${this.captureService.count} image(s)`);
 
 		// Set status BEFORE any async operations to prevent duplicate triggers
 		this._status = 'analyzing';
 		this._error = null;
+		log.debug('Status set to "analyzing", delegating to AnalysisService');
 
 		const result = await this.analysisService.analyze(this.captureService.images);
 
 		// Check if cancelled (status may have changed)
 		if (this._status !== 'analyzing') {
+			log.debug('Analysis was cancelled or status changed during processing');
 			return;
 		}
 
 		if (result.success) {
 			this.reviewService.setDetectedItems(result.items);
 			this._status = 'reviewing';
-			log.debug(`Analysis complete! Detected ${result.items.length} item(s)`);
+			log.info(`Analysis complete! Detected ${result.items.length} item(s), transitioning to review`);
 		} else {
 			this._error = result.error || 'Analysis failed';
 			this._status = 'capturing';
+			log.error(`Analysis failed: ${this._error}, returning to capture mode`);
 		}
 	}
 
@@ -469,11 +475,6 @@ class ScanWorkflow {
 		if (item) {
 			this._status = 'reviewing';
 		}
-	}
-
-	/** Go back to add more images */
-	addMoreImages(): void {
-		this._status = 'capturing';
 	}
 
 	// =========================================================================

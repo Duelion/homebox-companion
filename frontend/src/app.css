@@ -7,10 +7,12 @@
 	html {
 		font-family: 'Inter', 'Outfit', system-ui, sans-serif;
 	}
-	
+
 	body {
 		min-height: 100vh;
 		min-height: 100dvh;
+		/* Disable native pull-to-refresh on mobile Chrome */
+		overscroll-behavior-y: none;
 	}
 
 	/* Custom scrollbar */
@@ -18,16 +20,16 @@
 		width: 6px;
 		height: 6px;
 	}
-	
+
 	::-webkit-scrollbar-track {
 		background: transparent;
 	}
-	
+
 	::-webkit-scrollbar-thumb {
 		background: rgba(255, 255, 255, 0.2);
 		border-radius: 3px;
 	}
-	
+
 	::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.3);
 	}
@@ -35,129 +37,95 @@
 
 /* Component utilities */
 @layer components {
+
 	/* Base button styles */
 	.btn {
-		@apply inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium 
-		       transition-all duration-150
-		       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950;
+		@apply inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950;
 	}
-	
+
 	/* Primary button - main CTA */
 	.btn-primary {
-		@apply bg-primary-600 text-white 
-		       hover:bg-primary-500 
-		       active:bg-primary-700 active:scale-[0.98]
-		       disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed
-		       focus:ring-primary-500/50;
+		@apply bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700 active:scale-[0.98] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed focus:ring-primary-500/50;
 	}
-	
+
 	/* Secondary button - alternative actions */
 	.btn-secondary {
-		@apply bg-neutral-800 text-neutral-200 
-		       hover:bg-neutral-700 hover:border-neutral-600
-		       active:bg-neutral-900 active:scale-[0.98]
-		       disabled:bg-neutral-900 disabled:text-neutral-600 disabled:border-neutral-800 disabled:cursor-not-allowed
-		       border border-neutral-700
-		       focus:ring-neutral-500/50;
+		@apply bg-neutral-800 text-neutral-200 hover:bg-neutral-700 hover:border-neutral-600 active:bg-neutral-900 active:scale-[0.98] disabled:bg-neutral-900 disabled:text-neutral-600 disabled:border-neutral-800 disabled:cursor-not-allowed border border-neutral-700 focus:ring-neutral-500/50;
 	}
-	
+
 	/* Ghost button - minimal appearance */
 	.btn-ghost {
-		@apply bg-transparent text-neutral-400 
-		       hover:text-neutral-200 hover:bg-neutral-800
-		       active:bg-neutral-700 active:scale-[0.98]
-		       disabled:text-neutral-600 disabled:cursor-not-allowed
-		       focus:ring-neutral-500/50;
+		@apply bg-transparent text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 active:bg-neutral-700 active:scale-[0.98] disabled:text-neutral-600 disabled:cursor-not-allowed focus:ring-neutral-500/50;
 	}
-	
+
 	/* Danger button - destructive actions */
 	.btn-danger {
-		@apply bg-error-600 text-white 
-		       hover:bg-error-500
-		       active:bg-error-700 active:scale-[0.98]
-		       disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed
-		       focus:ring-error-500/50;
+		@apply bg-error-600 text-white hover:bg-error-500 active:bg-error-700 active:scale-[0.98] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed focus:ring-error-500/50;
 	}
-	
+
 	/* Warning button */
 	.btn-warning {
-		@apply bg-warning-500 text-white 
-		       hover:bg-warning-600
-		       active:bg-warning-700 active:scale-[0.98]
-		       disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed
-		       focus:ring-warning-500/50;
+		@apply bg-warning-500 text-white hover:bg-warning-600 active:bg-warning-700 active:scale-[0.98] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed focus:ring-warning-500/50;
 	}
-	
+
 	/* Icon button - compact */
 	.btn-icon {
-		@apply p-2 rounded-lg text-neutral-400 
-		       hover:text-neutral-200 hover:bg-neutral-800 
-		       active:bg-neutral-700
-		       transition-colors duration-150
-		       focus:outline-none focus:ring-2 focus:ring-primary-500/50;
+		@apply p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 active:bg-neutral-700 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500/50;
 	}
-	
+
 	/* Full width modifier */
 	.btn-full {
 		@apply w-full;
 	}
-	
+
 	/* Card styles */
 	.card {
-		@apply bg-neutral-900 rounded-2xl border border-neutral-700 shadow-sm p-4
-		       transition-all duration-200;
+		@apply bg-neutral-900 rounded-2xl border border-neutral-700 shadow-sm p-4 transition-all duration-200;
 	}
-	
+
 	/* Elevated card - higher visual level */
 	.card-elevated {
 		@apply bg-neutral-800 border-neutral-600 shadow-md;
 	}
-	
+
 	/* Interactive card - clickable */
 	.card-interactive {
-		@apply card cursor-pointer
-		       hover:bg-neutral-800 hover:border-neutral-600 hover:shadow-md
-		       active:scale-[0.99];
+		@apply card cursor-pointer hover:bg-neutral-800 hover:border-neutral-600 hover:shadow-md active:scale-[0.99];
 	}
-	
+
 	/* Selected card state */
 	.card-selected {
 		@apply card ring-2 ring-primary-500/50 border-primary-600;
 	}
-	
+
 	/* Input styles */
 	.input {
-		@apply w-full px-4 py-3 
-		       bg-neutral-900 border border-neutral-700 rounded-xl 
-		       text-neutral-200 placeholder:text-neutral-500
-		       transition-all duration-150
-		       focus:outline-none focus:bg-neutral-800 
-		       focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20
-		       disabled:bg-neutral-950 disabled:text-neutral-600 disabled:border-neutral-800 disabled:cursor-not-allowed;
+		@apply w-full px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-xl text-neutral-200 placeholder:text-neutral-500 transition-all duration-150 focus:outline-none focus:bg-neutral-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:bg-neutral-950 disabled:text-neutral-600 disabled:border-neutral-800 disabled:cursor-not-allowed;
 	}
-	
+
 	/* Input error state */
 	.input-error {
 		@apply border-error-500 focus:border-error-500 focus:ring-error-500/20;
 	}
-	
+
+	/* Expandable input - base styles for use with expandable action */
+	.input-expandable {
+		@apply input;
+		resize: none;
+	}
+
 	/* Label styles */
 	.label {
 		@apply block text-body-sm font-medium text-neutral-300 mb-2;
 	}
-	
+
 	/* Label chip / badge styles */
 	.label-chip {
-		@apply px-3 py-1.5 rounded-lg border border-neutral-700 
-		       bg-neutral-900 text-neutral-300 text-sm
-		       hover:border-neutral-600 hover:bg-neutral-800
-		       transition-all duration-150 cursor-pointer;
+		@apply px-3 py-1.5 rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-300 text-sm hover:border-neutral-600 hover:bg-neutral-800 transition-all duration-150 cursor-pointer;
 	}
-	
+
 	.label-chip-selected {
-		@apply px-3 py-1.5 rounded-lg border-2 border-primary-500 
-		       bg-primary-500/20 text-primary-300 text-sm font-medium
-		       shadow-sm ring-2 ring-primary-500/20;
+		@apply px-3 py-1.5 rounded-lg border-2 border-primary-500 bg-primary-500/20 text-primary-300 text-sm font-medium shadow-sm ring-2 ring-primary-500/20;
 	}
 }
 
@@ -166,9 +134,10 @@
 	.animate-in {
 		animation: fadeIn 0.25s ease-out, slideUp 0.25s ease-out;
 	}
-	
+
 	/* Prevent ghost touches during page transitions on touch devices */
 	@media (hover: none) and (pointer: coarse) {
+
 		.animate-in button,
 		.animate-in [type="button"],
 		.animate-in a {
@@ -176,16 +145,19 @@
 			animation: enablePointerEvents 0.3s ease-out forwards;
 		}
 	}
-	
+
 	@keyframes enablePointerEvents {
-		0%, 99% {
+
+		0%,
+		99% {
 			pointer-events: none;
 		}
+
 		100% {
 			pointer-events: auto;
 		}
 	}
-	
+
 	.glass {
 		@apply bg-neutral-900/80 backdrop-blur-lg;
 	}
@@ -194,53 +166,80 @@
 	.pb-safe {
 		padding-bottom: env(safe-area-inset-bottom, 0px);
 	}
-	
+
 	/* iOS safe area padding for top status bar */
 	.pt-safe {
 		padding-top: env(safe-area-inset-top, 0px);
 	}
-	
+
 	/* Position above bottom navigation with safe area */
 	.bottom-nav-offset {
+		/* Height of bottom nav (h-16 = 4rem) + iOS safe area */
 		bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+		/* Ensure proper stacking and prevent layout shifts on iOS Safari */
+		transform: translateZ(0);
+		-webkit-transform: translateZ(0);
 	}
-	
+
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply bg-neutral-800 rounded animate-shimmer;
 		background: linear-gradient(90deg, theme('colors.neutral.800') 25%, theme('colors.neutral.700') 50%, theme('colors.neutral.800') 75%);
 		background-size: 200% 100%;
 	}
-	
+
 	/* Stagger animation delays for lists */
-	.stagger-1 { animation-delay: 0.05s; }
-	.stagger-2 { animation-delay: 0.1s; }
-	.stagger-3 { animation-delay: 0.15s; }
-	.stagger-4 { animation-delay: 0.2s; }
-	.stagger-5 { animation-delay: 0.25s; }
-	.stagger-6 { animation-delay: 0.3s; }
-	.stagger-7 { animation-delay: 0.35s; }
-	.stagger-8 { animation-delay: 0.4s; }
-	
+	.stagger-1 {
+		animation-delay: 0.05s;
+	}
+
+	.stagger-2 {
+		animation-delay: 0.1s;
+	}
+
+	.stagger-3 {
+		animation-delay: 0.15s;
+	}
+
+	.stagger-4 {
+		animation-delay: 0.2s;
+	}
+
+	.stagger-5 {
+		animation-delay: 0.25s;
+	}
+
+	.stagger-6 {
+		animation-delay: 0.3s;
+	}
+
+	.stagger-7 {
+		animation-delay: 0.35s;
+	}
+
+	.stagger-8 {
+		animation-delay: 0.4s;
+	}
+
 	/* Stagger animation with fade in */
 	.animate-stagger {
 		opacity: 0;
 		animation: fadeSlideIn 0.3s ease-out forwards;
 	}
-	
+
 	/* Checkmark draw animation for success pages */
 	.checkmark-draw {
 		stroke-dasharray: 50;
 		stroke-dashoffset: 50;
 		animation: drawCheck 0.4s ease-out 0.2s forwards;
 	}
-	
+
 	/* Success circle scale in */
 	.success-scale {
 		transform: scale(0);
 		animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 	}
-	
+
 	/* Success badge animation */
 	.success-badge {
 		animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -254,6 +253,7 @@
 		opacity: 0;
 		transform: translateY(10px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0);

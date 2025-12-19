@@ -3,77 +3,21 @@
  */
 
 import { get } from 'svelte/store';
-import { token, markSessionExpired, type SessionExpiredReason } from '../stores/auth';
-import { auth } from '../api/auth';
-import { ApiError, NetworkError } from '../api/client';
-import { createLogger } from './logger';
-
-const log = createLogger({ prefix: 'Auth' });
+import { token, markSessionExpired } from '../stores/auth';
 
 /**
- * Determine the session expiry reason from an error.
+ * Check if the current auth token exists locally.
+ * 
+ * Note: This does NOT validate against the server. If the token is invalid,
+ * any subsequent API call will trigger a 401 → automatic refresh → retry flow.
+ * 
+ * The caller should handle missing tokens appropriately (e.g., show error, redirect).
+ * The session expired modal is automatically triggered by 401 responses from the API.
+ * 
+ * @returns true if token exists locally, false if no token
  */
-function getErrorReason(error: unknown): SessionExpiredReason {
-	if (error instanceof ApiError) {
-		if (error.status >= 500) {
-			return 'server_error';
-		}
-		return 'expired'; // Other API errors treated as expired
-	}
-	
-	// Network errors (connection refused, DNS failure, timeout, etc.)
-	if (error instanceof NetworkError) {
-		return 'network';
-	}
-	
-	// Legacy: raw TypeError from fetch (shouldn't happen with new client, but kept for safety)
-	if (error instanceof TypeError || 
-		(error instanceof Error && error.message.includes('fetch'))) {
-		return 'network';
-	}
-	
-	return 'unknown';
-}
-
-/**
- * Check if the current auth token is valid by validating with the server.
- * If invalid/expired, triggers the session expired modal with appropriate reason.
- * @returns true if token is valid, false if expired/invalid
- */
-export async function checkAuth(): Promise<boolean> {
+export function checkAuth(): boolean {
 	const currentToken = get(token);
-	
-	// No token means not authenticated
-	if (!currentToken) {
-		markSessionExpired('expired');
-		return false;
-	}
-	
-	try {
-		// Validate token against the server
-		const response = await auth.validate();
-		
-		// Handle edge case where server returns valid: false instead of 401
-		if (!response.valid) {
-			markSessionExpired('expired');
-			return false;
-		}
-		
-		return true;
-	} catch (error) {
-		// 401 error means token is invalid/expired
-		if (error instanceof ApiError && error.status === 401) {
-			// markSessionExpired() is already called by the API client's handleUnauthorized
-			return false;
-		}
-		
-		// Other errors (network issues, 5xx, etc.) - treat as invalid to avoid
-		// sending users to protected routes with unverified credentials.
-		// This prevents confusing loops and stale token usage.
-		const reason = getErrorReason(error);
-		log.warn(`Token validation failed (${reason}):`, error);
-		markSessionExpired(reason);
-		return false;
-	}
+	return !!currentToken;
 }
 

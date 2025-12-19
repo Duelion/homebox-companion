@@ -13,15 +13,18 @@ Quick Start:
     >>>
     >>> # Create items in Homebox
     >>> async with HomeboxClient() as client:
-    ...     token = await client.login("user@example.com", "password")
+    ...     response = await client.login("user@example.com", "password")
+    ...     token = response["token"]
     ...     for item in items:
     ...         item.location_id = "your-location-id"
     ...         await client.create_item(token, item.to_create_payload())
 
 Environment Variables:
-    HBC_API_URL: Your Homebox API URL
-    HBC_OPENAI_API_KEY: Your OpenAI API key
-    HBC_OPENAI_MODEL: OpenAI model (default: gpt-5-mini)
+    HBC_LLM_API_KEY: API key for the LLM provider (preferred)
+    HBC_LLM_MODEL: LLM model identifier (preferred)
+    HBC_LLM_API_BASE: Optional custom API base URL
+    HBC_OPENAI_API_KEY: Legacy fallback for API key
+    HBC_OPENAI_MODEL: Legacy fallback for model (default: gpt-5-mini)
     HBC_SERVER_HOST: Server host (default: 0.0.0.0)
     HBC_SERVER_PORT: Server port (default: 8000)
     HBC_LOG_LEVEL: Logging level (default: INFO)
@@ -38,6 +41,10 @@ except PackageNotFoundError:
 # Core
 # AI utilities
 from .ai import (
+    CapabilityNotSupportedError,
+    JSONRepairError,
+    LLMError,
+    cleanup_llm_clients,
     cleanup_openai_clients,
     encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
@@ -66,9 +73,11 @@ from .homebox import (
 from .tools.vision import (
     DetectedItem,
     analyze_item_details_from_images,
+    correct_item,
     correct_item_with_openai,
     detect_items_from_bytes,
     discriminatory_detect_items,
+    merge_items,
     merge_items_with_openai,
 )
 
@@ -81,6 +90,10 @@ __all__ = [
     "logger",
     "setup_logging",
     "AuthenticationError",
+    # LLM exceptions
+    "LLMError",
+    "CapabilityNotSupportedError",
+    "JSONRepairError",
     # Homebox client
     "HomeboxClient",
     "Location",
@@ -94,13 +107,16 @@ __all__ = [
     "detect_items_from_bytes",
     "discriminatory_detect_items",
     "analyze_item_details_from_images",
-    "merge_items_with_openai",
-    "correct_item_with_openai",
+    "merge_items",
+    "merge_items_with_openai",  # Deprecated alias
+    "correct_item",
+    "correct_item_with_openai",  # Deprecated alias
     # Image utilities
     "encode_image_to_data_uri",
     "encode_image_bytes_to_data_uri",
     "encode_compressed_image_to_base64",
-    "cleanup_openai_clients",
+    "cleanup_llm_clients",
+    "cleanup_openai_clients",  # Deprecated alias
 ]
 
 

@@ -13,9 +13,10 @@ class ConfigResponse(BaseModel):
 
     is_demo_mode: bool
     homebox_url: str
-    openai_model: str
+    llm_model: str
     update_check_enabled: bool
     image_quality: str
+    log_level: str
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -28,8 +29,9 @@ async def get_config() -> ConfigResponse:
     return ConfigResponse(
         is_demo_mode=settings.is_demo_mode,
         homebox_url=settings.homebox_url,
-        openai_model=settings.openai_model,
+        llm_model=settings.effective_llm_model,
         update_check_enabled=not settings.disable_update_check,
         image_quality=settings.image_quality.value,
+        log_level=settings.log_level,
     )
 

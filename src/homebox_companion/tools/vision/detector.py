@@ -1,11 +1,11 @@
-"""Item detection from images using OpenAI vision."""
+"""Item detection from images using LLM vision."""
 
 from __future__ import annotations
 
 from loguru import logger
 
 from ...ai.images import encode_image_bytes_to_data_uri
-from ...ai.openai import vision_completion
+from ...ai.llm import vision_completion
 from ...core.config import settings
 from .models import DetectedItem
 from .prompts import (
@@ -30,13 +30,13 @@ async def detect_items_from_bytes(
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
 ) -> list[DetectedItem]:
-    """Use OpenAI vision model to detect items from raw image bytes.
+    """Use LLM vision model to detect items from raw image bytes.
 
     Args:
         image_bytes: Raw image data for the primary image.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
         mime_type: MIME type of the primary image.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest for items.
         single_item: If True, treat everything in the image as a single item.
         extra_instructions: Optional user hint about what's in the image.
@@ -59,8 +59,8 @@ async def detect_items_from_bytes(
 
     return await _detect_items_from_data_uris(
         image_data_uris,
-        api_key or settings.openai_api_key,
-        model or settings.openai_model,
+        api_key or settings.effective_llm_api_key,
+        model or settings.effective_llm_model,
         labels,
         single_item=single_item,
         extra_instructions=extra_instructions,
@@ -85,8 +85,8 @@ async def _detect_items_from_data_uris(
 
     Args:
         image_data_uris: List of base64-encoded image data URIs.
-        api_key: OpenAI API key.
-        model: OpenAI model name.
+        api_key: LLM API key.
+        model: LLM model name.
         labels: Optional list of Homebox labels for item tagging.
         single_item: If True, treat everything as a single item.
         extra_instructions: User-provided hint about image contents.
@@ -120,13 +120,14 @@ async def _detect_items_from_data_uris(
         extra_instructions, extract_extended_fields, multi_image, single_item
     )
 
-    # Call OpenAI
+    # Call LLM
     parsed_content = await vision_completion(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         image_data_uris=image_data_uris,
         api_key=api_key,
         model=model,
+        expected_keys=["items"],
     )
 
     items = DetectedItem.from_raw_items(parsed_content.get("items", []))
@@ -162,8 +163,8 @@ async def discriminatory_detect_items(
     Args:
         image_data_uris: List of data URI strings for each image.
         previous_merged_item: The previously merged item dict for context.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest for items.
         extract_extended_fields: If True, also extract extended fields.
         field_preferences: Optional dict of field customization instructions.
@@ -172,8 +173,8 @@ async def discriminatory_detect_items(
     Returns:
         List of detected items, ideally more specific/separated than before.
     """
-    api_key = api_key or settings.openai_api_key
-    model = model or settings.openai_model
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
 
     logger.info(f"Discriminatory detection with {len(image_data_uris)} images")
     logger.debug(f"Extract extended fields: {extract_extended_fields}")
@@ -191,6 +192,7 @@ async def discriminatory_detect_items(
         image_data_uris=image_data_uris,
         api_key=api_key,
         model=model,
+        expected_keys=["items"],
     )
 
     items = DetectedItem.from_raw_items(parsed_content.get("items", []))

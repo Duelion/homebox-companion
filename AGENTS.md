@@ -8,7 +8,7 @@ Instructions for AI/LLM agents working on this codebase.
 
 ## Overview
 
-**Homebox Companion** is an AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management. Users take photos of items, and OpenAI GPT-5 vision automatically identifies and catalogs them.
+**Homebox Companion** is an AI-powered companion app for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management. Users take photos of items, and AI vision models automatically identify and catalog them.
 
 ---
 
@@ -19,22 +19,58 @@ Instructions for AI/LLM agents working on this codebase.
 - **Python**: Use `uv` for package management (`uv sync`, `uv add`, `uv run`)
 - **Frontend**: Use `npm` in the `frontend/` directory
 - **Linting**: Run `uv run ruff check .` before commits
-- **Testing**: Use real APIs (demo Homebox + OpenAI), not mocks
+- **Testing**: Use real APIs (demo Homebox + LLM provider), not mocks
 
 ### Required Environment Variables
 
 ```bash
-HBC_OPENAI_API_KEY=sk-your-key          # Required
+HBC_LLM_API_KEY=sk-your-key             # Required (replaces HBC_OPENAI_API_KEY)
+HBC_LLM_MODEL=gpt-5-mini                # Optional, defaults to gpt-5-mini
+HBC_LLM_API_BASE=https://...            # Optional, for OpenRouter/proxies
 HBC_HOMEBOX_URL=https://demo.homebox.software  # Optional, defaults to demo
 ```
 
+Legacy variables (`HBC_OPENAI_API_KEY`, `HBC_OPENAI_MODEL`) still work but are deprecated.
+
 Demo credentials: `demo@example.com` / `demo`
 
-### OpenAI Model Policy
+### LLM Provider Policy
 
-**Use GPT-5 models only**: `gpt-5-mini` (default) or `gpt-5-nano` (faster/cheaper).
+**This app uses LiteLLM** for multi-provider support. Any vision-capable model is supported:
+- OpenAI: `gpt-5-mini` (default), `gpt-5-nano`, `gpt-4o`, `gpt-4o-mini`
+- Anthropic: `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229`
+- Google: `gemini-2.0-flash`, `gemini-1.5-pro`
+- OpenRouter: `openrouter/provider/model` (requires `HBC_LLM_API_BASE`)
 
-Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are deprecated for this project.
+Model names are passed directly to LiteLLM - do not modify or extract base names.
+
+#### Officially Supported Models
+
+Only `gpt-5-mini` and `gpt-5-nano` are officially tested and supported:
+- **gpt-5-mini** (default, recommended): Balanced performance and cost
+- **gpt-5-nano**: Lower cost per token, but generates significantly more tokens to complete the same task, offsetting any apparent speed advantage
+
+**Important**: While LiteLLM supports many vision models, this app is tested and optimized only for gpt-5 series. Other models may work via `HBC_LLM_ALLOW_UNSAFE_MODELS=true` but are not officially supported.
+
+#### Guidelines for Error Messages and User Communication
+
+When writing error messages, documentation, or responding to users about model selection:
+
+1. **Only suggest officially supported models**: Recommend `gpt-5-mini` and `gpt-5-nano` exclusively in error messages and solutions
+2. **Do not suggest other models**: Don't recommend GPT-4o, Claude, Gemini, or other models as alternatives, even though LiteLLM supports them
+3. **Acknowledge but don't discourage experimentation**: It's fine to mention that other vision models exist and may work, but make it clear:
+   - They are not officially supported
+   - Users experiment at their own risk
+   - No guarantees on quality, reliability, or compatibility
+   - The bypass flag (`HBC_LLM_ALLOW_UNSAFE_MODELS=true`) is available for advanced users
+4. **Be accurate about gpt-5-nano**: Never claim it's "faster" - it generates more tokens, offsetting per-token speed benefits (see README.md token analysis)
+
+**Example of correct messaging:**
+> "Officially supported models: gpt-5-mini (recommended), gpt-5-nano. While other vision-capable models may work, they are not officially supported. Advanced users can experiment by setting HBC_LLM_ALLOW_UNSAFE_MODELS=true."
+
+**Example of incorrect messaging:**
+> ❌ "Try gpt-4o or claude-3-5-sonnet for better results"
+> ❌ "Use gpt-5-nano for faster processing"
 
 ---
 
@@ -65,8 +101,8 @@ Do NOT use or reference GPT-4 models (gpt-4o, gpt-4o-mini, etc.) - they are depr
               ┌───────────────┴───────────────┐
               ▼                               ▼
 ┌─────────────────────────────┐     ┌─────────────────────────────┐
-│   Homebox Instance          │     │     OpenAI API              │
-│   (Self-hosted or demo)     │     │     (GPT-5 Vision)          │
+│   Homebox Instance          │     │   LLM Provider API          │
+│   (Self-hosted or demo)     │     │   (Vision-capable models)   │
 └─────────────────────────────┘     └─────────────────────────────┘
 ```
 
@@ -88,13 +124,14 @@ homebox-companion/
 │   │   └── models.py                # Location, Item, Label, ItemCreate, ItemUpdate
 │   ├── ai/
 │   │   ├── images.py                # Image encoding utilities
-│   │   ├── openai.py                # OpenAI client wrapper
+│   │   ├── llm.py                   # LiteLLM client wrapper (multi-provider)
+│   │   ├── model_capabilities.py    # Runtime capability checking via LiteLLM
 │   │   └── prompts.py               # Shared prompt templates
 │   └── tools/vision/
 │       ├── detector.py              # detect_items_from_bytes
 │       ├── analyzer.py              # analyze_item_details
-│       ├── merger.py                # merge_items_with_openai
-│       ├── corrector.py             # correct_item_with_openai
+│       ├── merger.py                # merge_items (LLM-based)
+│       ├── corrector.py             # correct_item (LLM-based)
 │       ├── models.py                # DetectedItem dataclass
 │       └── prompts.py               # Detection prompts
 │
@@ -136,7 +173,7 @@ homebox-companion/
 │       │   │   └── index.ts         # Exports
 │       │   ├── stores/              # Svelte stores
 │       │   │   ├── auth.ts          # Token + session expiry
-│       │   │   ├── locations.ts     # Location tree cache
+│       │   │   ├── locations.svelte.ts  # Location tree cache (Svelte 5)
 │       │   │   ├── labels.ts        # Labels cache
 │       │   │   └── ui.ts            # App version + UI state
 │       │   ├── components/          # Reusable components
@@ -263,6 +300,33 @@ export { getVersion, getConfig, getLogs, downloadLogs }
 - Emit events via callback props (e.g., `onScan`, `onClose`)
 - Use `$effect()` for side effects (e.g., auto-scroll logs)
 
+### Svelte 5 Features Philosophy
+
+When working with the frontend, keep Svelte 5 features (runes) in mind, but **use them pragmatically**:
+
+- **Not mandatory**: Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`) should only be used when they provide the **simplest and clearest solution**
+- **Consider alternatives**: Traditional Svelte stores, regular variables, or other patterns may be more appropriate depending on context
+- **Use when beneficial**:
+  - `$state()` for local component state that needs fine-grained reactivity
+  - `$derived()` for computed values that depend on reactive state
+  - `$effect()` for side effects that should run when dependencies change
+  - `$props()` for typed component props with defaults
+- **Avoid over-engineering**: Don't force runes where simpler approaches work fine
+- **Consistency**: If a pattern works well in existing code, prefer consistency over switching to runes
+
+**Example of appropriate usage:**
+```typescript
+// Good: Using runes for complex state management in workflows
+class AnalysisService {
+    progress = $state<AnalysisProgress | null>(null);
+    defaultLabel = $state<Label | null>(null);
+}
+
+// Also good: Using stores for global shared state
+export const token = writable<string | null>(null);
+export const sessionExpired = writable(false);
+```
+
 ---
 
 ## Backend Patterns
@@ -283,6 +347,23 @@ class VisionContext:
 async def get_vision_context(...) -> VisionContext:
     # Extracts token, fetches labels, loads preferences in one place
 ```
+
+### Model Capability Checking
+
+LiteLLM provides runtime capability checking:
+
+```python
+from homebox_companion.ai.model_capabilities import get_model_capabilities
+
+caps = get_model_capabilities("gpt-4o")
+# Returns: ModelCapabilities(model="gpt-4o", vision=True, multi_image=True, json_mode=True)
+
+caps = get_model_capabilities("openrouter/anthropic/claude-3.5-sonnet")
+# LiteLLM handles provider routing automatically
+```
+
+Models are validated via `litellm.supports_vision()` and `litellm.supports_response_schema()`. 
+Set `HBC_LLM_ALLOW_UNSAFE_MODELS=true` to skip validation for unrecognized models.
 
 ### Field Preferences
 
@@ -384,11 +465,11 @@ These fields require a PUT after item creation (Homebox API limitation):
 # Unit tests
 uv run pytest
 
-# Integration tests (requires HBC_OPENAI_API_KEY)
+# Integration tests (requires HBC_LLM_API_KEY or HBC_OPENAI_API_KEY)
 uv run pytest -m integration
 ```
 
-Integration tests hit the real Homebox demo server and OpenAI API.
+Integration tests hit the real Homebox demo server and LLM provider API.
 
 ---
 
@@ -514,11 +595,11 @@ from homebox_companion import (
     
     # Vision
     DetectedItem, detect_items_from_bytes, discriminatory_detect_items,
-    analyze_item_details_from_images, correct_item_with_openai, merge_items_with_openai,
+    analyze_item_details_from_images, correct_item, merge_items,
     
     # Utilities
     encode_image_to_data_uri, encode_image_bytes_to_data_uri,
-    cleanup_openai_clients,
+    cleanup_llm_clients,
 )
 ```
 

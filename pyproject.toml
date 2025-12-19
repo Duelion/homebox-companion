@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "1.21.2"
+version = "2.0.0"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "openai>=2.8.1",
+    "litellm>=1.72.0",
     "httpx>=0.27.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",

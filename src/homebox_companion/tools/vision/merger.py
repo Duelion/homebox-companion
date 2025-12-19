@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import warnings
+
 from loguru import logger
 
-from ...ai.openai import vision_completion
+from ...ai.llm import vision_completion
 from ...ai.prompts import build_label_prompt, build_language_instruction, build_naming_rules
 from ...core.config import settings
 
 
-async def merge_items_with_openai(
+async def merge_items(
     items: list[dict],
     image_data_uris: list[str] | None = None,
     api_key: str | None = None,
@@ -23,8 +25,8 @@ async def merge_items_with_openai(
     Args:
         items: List of item dictionaries with name, quantity, description fields.
         image_data_uris: Optional list of image data URIs for context.
-        api_key: OpenAI API key. Defaults to HBC_OPENAI_API_KEY.
-        model: Model name. Defaults to HBC_OPENAI_MODEL.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -32,12 +34,15 @@ async def merge_items_with_openai(
     Returns:
         Dictionary with merged item fields: name, quantity, description, labelIds.
     """
-    api_key = api_key or settings.openai_api_key
-    model = model or settings.openai_model
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
 
     logger.info(f"Merging {len(items)} items with AI")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
+
+    # Ensure field_preferences is a dict (empty dict if None)
+    field_preferences = field_preferences or {}
 
     # Format items compactly
     items_text = ", ".join(
@@ -52,12 +57,12 @@ async def merge_items_with_openai(
     # Get field customizations or defaults
     name_instr = (
         field_preferences.get("name")
-        if field_preferences and field_preferences.get("name")
+        if field_preferences.get("name")
         else "Title Case, consolidated name"
     )
     desc_instr = (
         field_preferences.get("description")
-        if field_preferences and field_preferences.get("description")
+        if field_preferences.get("description")
         else "list variants included, no quantities"
     )
 
@@ -94,7 +99,7 @@ async def merge_items_with_openai(
         )
     else:
         # No images - use text-only completion
-        from ...ai.openai import chat_completion
+        from ...ai.llm import chat_completion
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -110,3 +115,18 @@ async def merge_items_with_openai(
     logger.info(f"Merge complete: {parsed_content.get('name', 'Unknown')}")
 
     return parsed_content
+
+
+async def merge_items_with_openai(*args, **kwargs) -> dict:
+    """Deprecated: Use merge_items() instead.
+
+    This function is kept for backwards compatibility but will be removed
+    in a future version. The new name reflects that we use LiteLLM for
+    multi-provider support, not just OpenAI.
+    """
+    warnings.warn(
+        "merge_items_with_openai() is deprecated, use merge_items() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return await merge_items(*args, **kwargs)

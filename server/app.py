@@ -19,7 +19,6 @@ from starlette.responses import Response
 from homebox_companion import (
     AuthenticationError,
     HomeboxClient,
-    cleanup_openai_clients,
     settings,
     setup_logging,
 )
@@ -179,10 +178,10 @@ async def _test_homebox_connectivity() -> None:
 
 class CachedStaticFiles(StaticFiles):
     """StaticFiles with proper cache control headers for cache busting."""
-    
+
     async def get_response(self, path: str, scope) -> Response:
         response = await super().get_response(path, scope)
-        
+
         # index.html and root: always revalidate
         if path in ("", "index.html") or path.endswith("/index.html"):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -194,7 +193,7 @@ class CachedStaticFiles(StaticFiles):
         # Other static assets (icons, manifest, etc.): cache for 1 hour
         else:
             response.headers["Cache-Control"] = "public, max-age=3600"
-        
+
         return response
 
 
@@ -207,8 +206,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"Version: {__version__}")
     logger.info(f"Homebox URL (HBC_HOMEBOX_URL): {settings.homebox_url}")
     logger.info(f"Full API endpoint: {settings.api_url}")
-    logger.info(f"OpenAI Model: {settings.openai_model}")
+    logger.info(f"LLM Model: {settings.effective_llm_model}")
     logger.info(f"Log level: {settings.log_level}")
+
+    if settings.using_legacy_openai_env:
+        logger.warning(
+            "DEPRECATION WARNING: You are using legacy environment variables "
+            "(HBC_OPENAI_API_KEY and/or HBC_OPENAI_MODEL). "
+            "Please migrate to HBC_LLM_API_KEY and HBC_LLM_MODEL. "
+            "The legacy variables are supported for backward compatibility but may be "
+            "removed in a future version."
+        )
 
     if settings.is_demo_mode:
         logger.warning("Using demo server - set HBC_HOMEBOX_URL for your own instance")
@@ -229,7 +237,7 @@ async def lifespan(app: FastAPI):
     # Cleanup
     logger.info("Shutting down Homebox Companion API")
     await client_holder.close()
-    await cleanup_openai_clients()
+    # Note: cleanup_llm_clients() is now a no-op with LiteLLM
     logger.info("Shutdown complete")
 
 

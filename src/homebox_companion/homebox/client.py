@@ -43,7 +43,8 @@ class HomeboxClient:
 
     Example:
         >>> async with HomeboxClient() as client:
-        ...     token = await client.login("user@example.com", "password")
+        ...     response = await client.login("user@example.com", "password")
+        ...     token = response["token"]
         ...     locations = await client.list_locations(token)
     """
 
@@ -71,15 +72,15 @@ class HomeboxClient:
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
 
-    async def login(self, username: str, password: str) -> str:
-        """Authenticate with Homebox and return the bearer token.
+    async def login(self, username: str, password: str) -> dict[str, Any]:
+        """Authenticate with Homebox and return the login response.
 
         Args:
             username: The user's email address.
             password: The user's password.
 
         Returns:
-            The bearer token for subsequent API calls.
+            Dictionary containing token, expiresAt, and other login response fields.
 
         Raises:
             AuthenticationError: If authentication fails.
@@ -147,7 +148,7 @@ class HomeboxClient:
             raise AuthenticationError("Login response did not include a token field.")
 
         logger.debug("Login: Successfully obtained authentication token")
-        return token
+        return data
 
     async def list_locations(
         self, token: str, *, filter_children: bool | None = None

@@ -1,9 +1,9 @@
 """Vision tool - AI-powered item detection from images."""
 
 from .analyzer import analyze_item_details_from_images
-from .corrector import correct_item_with_openai
+from .corrector import correct_item, correct_item_with_openai
 from .detector import detect_items_from_bytes, discriminatory_detect_items
-from .merger import merge_items_with_openai
+from .merger import merge_items, merge_items_with_openai
 from .models import DetectedItem
 
 __all__ = [
@@ -15,9 +15,11 @@ __all__ = [
     # Analysis
     "analyze_item_details_from_images",
     # Merging
-    "merge_items_with_openai",
+    "merge_items",
+    "merge_items_with_openai",  # Deprecated alias
     # Correction
-    "correct_item_with_openai",
+    "correct_item",
+    "correct_item_with_openai",  # Deprecated alias
 ]
 
 
