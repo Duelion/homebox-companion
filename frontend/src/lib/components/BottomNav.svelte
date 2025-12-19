@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { page } from "$app/stores";
+	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 
 	/**
 	 * Bottom navigation item configuration.
@@ -10,7 +10,7 @@
 		id: string;
 		label: string;
 		href: string;
-		icon: 'scan' | 'settings' | 'home' | 'history' | 'help';
+		icon: "scan" | "settings" | "home" | "history" | "help";
 		/** Routes that should highlight this nav item as active */
 		activeRoutes: string[];
 	}
@@ -22,33 +22,39 @@
 	let scanHref = $derived.by(() => {
 		const status = scanWorkflow.state.status;
 		switch (status) {
-			case 'reviewing':
-				return '/review';
-			case 'confirming':
-				return '/summary';
-			case 'capturing':
-			case 'analyzing':
-				return '/capture';
+			case "reviewing":
+				return "/review";
+			case "confirming":
+				return "/summary";
+			case "capturing":
+			case "analyzing":
+				return "/capture";
 			default:
-				return '/location';
+				return "/location";
 		}
 	});
 
 	// Navigation items - easily extendable for future tabs (max 5 recommended)
 	let navItems = $derived<NavItem[]>([
 		{
-			id: 'scan',
-			label: 'Scan',
+			id: "scan",
+			label: "Scan",
 			href: scanHref,
-			icon: 'scan',
-			activeRoutes: ['/location', '/capture', '/review', '/summary', '/success'],
+			icon: "scan",
+			activeRoutes: [
+				"/location",
+				"/capture",
+				"/review",
+				"/summary",
+				"/success",
+			],
 		},
 		{
-			id: 'settings',
-			label: 'Settings',
-			href: '/settings',
-			icon: 'settings',
-			activeRoutes: ['/settings'],
+			id: "settings",
+			label: "Settings",
+			href: "/settings",
+			icon: "settings",
+			activeRoutes: ["/settings"],
 		},
 	]);
 
@@ -60,6 +66,7 @@
 
 <nav
 	class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border pb-safe"
+	style="transform: translateZ(0); -webkit-transform: translateZ(0);"
 	aria-label="Main navigation"
 >
 	<div class="max-w-lg mx-auto px-2">
@@ -70,7 +77,7 @@
 					<a
 						href={item.href}
 						role="menuitem"
-						aria-current={active ? 'page' : undefined}
+						aria-current={active ? "page" : undefined}
 						class="flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-xl transition-all duration-200
 							{active
 							? 'text-primary bg-primary/10'
@@ -78,7 +85,7 @@
 					>
 						<!-- Icon -->
 						<span class="w-6 h-6 flex items-center justify-center">
-							{#if item.icon === 'scan'}
+							{#if item.icon === "scan"}
 								<svg
 									class="w-6 h-6"
 									fill="none"
@@ -92,7 +99,7 @@
 									<circle cx="12" cy="12" r="3" />
 									<path d="M12 9v-1M12 16v1M9 12H8M16 12h1" />
 								</svg>
-							{:else if item.icon === 'settings'}
+							{:else if item.icon === "settings"}
 								<svg
 									class="w-6 h-6"
 									fill="none"
@@ -105,7 +112,7 @@
 										d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
 									/>
 								</svg>
-							{:else if item.icon === 'home'}
+							{:else if item.icon === "home"}
 								<svg
 									class="w-6 h-6"
 									fill="none"
@@ -113,10 +120,12 @@
 									viewBox="0 0 24 24"
 									stroke-width="1.75"
 								>
-									<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+									<path
+										d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+									/>
 									<polyline points="9 22 9 12 15 12 15 22" />
 								</svg>
-							{:else if item.icon === 'history'}
+							{:else if item.icon === "history"}
 								<svg
 									class="w-6 h-6"
 									fill="none"
@@ -127,7 +136,7 @@
 									<circle cx="12" cy="12" r="10" />
 									<polyline points="12 6 12 12 16 14" />
 								</svg>
-							{:else if item.icon === 'help'}
+							{:else if item.icon === "help"}
 								<svg
 									class="w-6 h-6"
 									fill="none"
@@ -136,7 +145,9 @@
 									stroke-width="1.75"
 								>
 									<circle cx="12" cy="12" r="10" />
-									<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+									<path
+										d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
+									/>
 									<line x1="12" y1="17" x2="12.01" y2="17" />
 								</svg>
 							{/if}
@@ -150,4 +161,3 @@
 		</ul>
 	</div>
 </nav>
-
