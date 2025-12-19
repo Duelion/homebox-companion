@@ -69,6 +69,36 @@ def model(test_settings: TestSettings) -> str:
 
 
 @pytest.fixture(scope="session")
+def openai_api_key() -> str:
+    """Provide OpenAI API key, skipping test if not set."""
+    key = os.environ.get("TEST_OPENAI_API_KEY", "").strip()
+    if not key:
+        pytest.skip("TEST_OPENAI_API_KEY must be set for OpenAI tests.")
+    return key
+
+
+@pytest.fixture(scope="session")
+def openai_model() -> str:
+    """Provide OpenAI model name."""
+    return os.environ.get("TEST_OPENAI_MODEL", "gpt-5-mini").strip()
+
+
+@pytest.fixture(scope="session")
+def claude_api_key() -> str:
+    """Provide Claude API key, skipping test if not set."""
+    key = os.environ.get("TEST_CLAUDE_API_KEY", "").strip()
+    if not key:
+        pytest.skip("TEST_CLAUDE_API_KEY must be set for Claude tests.")
+    return key
+
+
+@pytest.fixture(scope="session")
+def claude_model() -> str:
+    """Provide Claude model name."""
+    return os.environ.get("TEST_CLAUDE_MODEL", "claude-sonnet-4-5").strip()
+
+
+@pytest.fixture(scope="session")
 def homebox_api_url(test_settings: TestSettings) -> str:
     """Provide Homebox API URL."""
     return test_settings.api_url
