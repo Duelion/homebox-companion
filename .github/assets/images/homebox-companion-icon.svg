@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Gradient definitions -->
+  <defs>
+    <!-- Very subtle gloss overlay (top half only) -->
+    <linearGradient id="glossGradientIOS" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.05);stop-opacity:1" />
+      <stop offset="40%" style="stop-color:rgba(255,255,255,0);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(255,255,255,0);stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Clip path for rounded corners (iOS style ~22% radius) -->
+    <clipPath id="roundedCorners">
+      <rect x="0" y="0" width="512" height="512" rx="113" ry="113"/>
+    </clipPath>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect x="0" y="0" width="512" height="512" rx="113" ry="113" fill="#282653"/>
+  
+  <!-- Content with clip path -->
+  <g clip-path="url(#roundedCorners)">
+    <!-- Icon scaled down to fit maskable safe zone -->
+    <g transform="translate(256, 256) scale(11) translate(-12, -12)">
+      <!-- Main icon -->
+      <g
+        fill="none"
+        stroke="#818cf8"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+      </g>
+    </g>
+    
+    <!-- Very subtle gloss overlay -->
+    <rect x="0" y="0" width="512" height="512" fill="url(#glossGradientIOS)"/>
+  </g>
+  
+  <!-- Thin outline border -->
+  <rect x="1" y="1" width="510" height="510" rx="113" ry="113" 
+        fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+</svg>
+
