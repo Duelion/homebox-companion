@@ -1,0 +1,47 @@
+# Demo Deployment - Docker Compose
+#
+# This compose file runs the combined demo container with both
+# Homebox and Homebox Companion, with auto-reset every 30 minutes.
+#
+# Usage:
+#   docker compose -f docker-compose.demo.yml up --build
+#
+# For Railway deployment, use the Dockerfile.demo directly.
+
+services:
+  homebox-companion-demo:
+    build:
+      context: .
+      dockerfile: demo/Dockerfile.demo
+    container_name: homebox-companion-demo
+    restart: unless-stopped
+    environment:
+      # Required: Your LLM API key
+      - HBC_LLM_API_KEY=${HBC_LLM_API_KEY}
+      
+      # Optional: Model configuration
+      - HBC_LLM_MODEL=${HBC_LLM_MODEL:-gpt-4o-mini}
+      
+      # Demo configuration (defaults are fine)
+      - HBC_DEMO_MODE=true
+      - HBC_LOG_LEVEL=INFO
+      
+      # Demo user credentials
+      - DEMO_EMAIL=demo@example.com
+      - DEMO_PASSWORD=demo
+    ports:
+      - "7745:7745"  # Homebox direct access
+      - "8000:8000"  # Homebox Companion
+    volumes:
+      # Persist data between container restarts (optional for demo)
+      # Comment out for ephemeral demo that resets on restart
+      - demo-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  demo-data:

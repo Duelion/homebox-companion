@@ -1,0 +1,2 @@
+PLACEHOLDER: photo_albums.png
+Replace this file with an actual image of photo albums.
