@@ -1,2 +1,0 @@
-PLACEHOLDER: smart_tv.png
-Replace this file with an actual image of a smart TV.

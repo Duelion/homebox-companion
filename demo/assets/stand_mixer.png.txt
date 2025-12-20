@@ -1,2 +1,0 @@
-PLACEHOLDER: stand_mixer.png
-Replace this file with an actual image of a stand mixer.

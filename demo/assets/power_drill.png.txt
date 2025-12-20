@@ -1,2 +1,0 @@
-PLACEHOLDER: power_drill.png
-Replace this file with an actual image of a power drill.

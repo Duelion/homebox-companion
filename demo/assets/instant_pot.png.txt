@@ -1,2 +1,0 @@
-PLACEHOLDER: instant_pot.png
-Replace this file with an actual image of an Instant Pot.
