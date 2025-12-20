@@ -21,7 +21,12 @@ COPY frontend/ ./
 RUN npm run build --silent 2>/dev/null
 
 # =============================================================================
-# Stage 2: Final image with s6-overlay, Homebox, and homebox-companion
+# Stage 2: Get Homebox binary from official image
+# =============================================================================
+FROM ghcr.io/sysadminsmedia/homebox:latest AS homebox-source
+
+# =============================================================================
+# Stage 3: Final image with s6-overlay, Homebox, and homebox-companion
 # =============================================================================
 FROM python:3.12-alpine
 
@@ -45,13 +50,9 @@ RUN apk add --no-cache \
     bash \
     supercronic
 
-# Download Homebox binary from latest release
-ARG HOMEBOX_VERSION=0.16.1
-RUN wget -q "https://github.com/sysadminsmedia/homebox/releases/download/v${HOMEBOX_VERSION}/homebox_Linux_x86_64.tar.gz" -O /tmp/homebox.tar.gz \
-    && tar -xzf /tmp/homebox.tar.gz -C /tmp \
-    && mv /tmp/homebox /usr/local/bin/homebox \
-    && chmod +x /usr/local/bin/homebox \
-    && rm /tmp/homebox.tar.gz
+# Copy Homebox binary from official image
+COPY --from=homebox-source /app/api /usr/local/bin/homebox
+RUN chmod +x /usr/local/bin/homebox
 
 # Create directories
 RUN mkdir -p /app /data /var/log/services
