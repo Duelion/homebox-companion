@@ -11,10 +11,10 @@
  */
 
 // Re-export client utilities
-export { 
+export {
 	ApiError,
 	NetworkError,
-	request, 
+	request,
 	requestFormData,
 	requestBlobUrl,
 	DEFAULT_REQUEST_TIMEOUT_MS,
@@ -31,12 +31,13 @@ export { items, type BlobUrlResult } from './items';
 export { vision } from './vision';
 
 // Re-export settings APIs
-export { 
-	getVersion, 
-	getConfig, 
+export {
+	getVersion,
+	getConfig,
 	getLogs,
 	downloadLogs,
 	fieldPreferences,
+	setDemoMode,
 	type VersionResponse,
 	type ConfigResponse,
 	type LogsResponse,

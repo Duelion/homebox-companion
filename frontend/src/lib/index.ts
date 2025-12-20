@@ -41,4 +41,4 @@ export {
 // =============================================================================
 // API - HTTP client (to be split into modules)
 // =============================================================================
-export { auth, locations, labels as labelsApi, items, vision, getVersion, getConfig, getLogs, fieldPreferences, ApiError, NetworkError } from './api';
+export { auth, locations, labels as labelsApi, items, vision, getVersion, getConfig, getLogs, fieldPreferences, setDemoMode, ApiError, NetworkError } from './api';

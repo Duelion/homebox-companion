@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import { auth, getConfig } from "$lib/api";
+	import { auth, getConfig, setDemoMode } from "$lib/api";
 	import {
 		setAuthenticatedState,
 		isAuthenticated,
@@ -56,6 +56,7 @@
 			// Check if in demo mode and auto-fill credentials
 			try {
 				const config = await getConfig();
+				setDemoMode(config.is_demo_mode);
 				if (config.is_demo_mode) {
 					email = "demo@example.com";
 					password = "demo";

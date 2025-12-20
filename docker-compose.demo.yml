@@ -25,6 +25,7 @@ services:
       # Demo configuration (defaults are fine)
       - HBC_DEMO_MODE=true
       - HBC_LOG_LEVEL=INFO
+      - HBOX_DEMO=true
       
       # Demo user credentials
       - DEMO_EMAIL=demo@example.com

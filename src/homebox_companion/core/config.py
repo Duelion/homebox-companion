@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     # LLM request timeout (in seconds)
     llm_timeout: int = 120
 
+    # Demo mode - enables pre-filled credentials for demo deployments
+    demo_mode: bool = False
+
     @computed_field
     @property
     def api_url(self) -> str:
@@ -131,8 +134,16 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def is_demo_mode(self) -> bool:
-        """Check if using the demo server."""
-        return self.homebox_url.rstrip("/") == DEMO_HOMEBOX_URL
+        """Check if demo mode is enabled.
+
+        Demo mode is enabled when:
+        - HBC_DEMO_MODE=true environment variable is set, OR
+        - The Homebox URL points to the official demo server (demo.homebox.software)
+        """
+        if self.demo_mode:
+            return True
+        # Auto-detect demo mode when connected to the official demo server
+        return "demo.homebox.software" in self.homebox_url.lower()
 
     @computed_field
     @property

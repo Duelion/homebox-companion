@@ -12,6 +12,7 @@
 		getVersion,
 		labels as labelsApi,
 		fieldPreferences,
+		setDemoMode,
 		type ConfigResponse,
 		type LogsResponse,
 		type FieldPreferences,
@@ -171,6 +172,7 @@
 				]);
 
 			config = configResult;
+			setDemoMode(configResult.is_demo_mode);
 			availableLabels = labelsResult; // Cache for later use
 
 			// Set update info

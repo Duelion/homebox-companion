@@ -135,6 +135,7 @@ ENV HBOX_STORAGE_PREFIX_PATH=data
 ENV HBOX_DATABASE_SQLITE_PATH=/data/homebox.db?_pragma=busy_timeout=2000&_pragma=journal_mode=WAL&_fk=1&_time_format=sqlite
 ENV HBOX_WEB_PORT=7745
 ENV HBOX_OPTIONS_ALLOW_REGISTRATION=true
+ENV HBOX_DEMO=true
 
 # Homebox Companion config
 ENV HBC_SERVER_HOST=0.0.0.0
