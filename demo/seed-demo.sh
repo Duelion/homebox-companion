@@ -19,7 +19,7 @@ log() {
 wait_for_homebox() {
     log "Waiting for Homebox API to be ready..."
     for i in $(seq 1 30); do
-        if wget -q --spider "http://localhost:7745/api/v1/status" 2>/dev/null; then
+        if wget -q -O /dev/null "http://localhost:7745/api/v1/status" 2>/dev/null; then
             log "Homebox API is ready!"
             return 0
         fi
