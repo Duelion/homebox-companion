@@ -63,9 +63,19 @@ async def login(client: httpx.AsyncClient) -> str | None:
         )
         if response.status_code == 200:
             data = response.json()
-            token = data.get("token")
-            print("[seed] Login successful")
-            return token
+            # Debug: print response structure
+            print(f"[seed] Login response keys: {list(data.keys())}")
+            # Try different possible token field names
+            token = data.get("token") or data.get("accessToken") or data.get("access_token")
+            if not token and "attachmentToken" in data:
+                # Homebox v0.10+ uses this structure
+                token = data.get("token")
+            if token:
+                print(f"[seed] Login successful, token length: {len(token)}")
+                return token
+            else:
+                print(f"[seed] Login response missing token field: {data}")
+                return None
         else:
             print(f"[seed] Login failed: {response.status_code} - {response.text}")
             return None
