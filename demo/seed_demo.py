@@ -54,11 +54,14 @@ async def login(client: httpx.AsyncClient) -> str | None:
     """Login and return the auth token."""
     print(f"[seed] Logging in as {DEMO_EMAIL}")
     try:
+        # Homebox expects form-encoded data, not JSON
         response = await client.post(
             f"{HOMEBOX_URL}/api/v1/users/login",
-            json={
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
                 "username": DEMO_EMAIL,
                 "password": DEMO_PASSWORD,
+                "stayLoggedIn": True,
             },
         )
         if response.status_code == 200:
@@ -67,9 +70,6 @@ async def login(client: httpx.AsyncClient) -> str | None:
             print(f"[seed] Login response keys: {list(data.keys())}")
             # Try different possible token field names
             token = data.get("token") or data.get("accessToken") or data.get("access_token")
-            if not token and "attachmentToken" in data:
-                # Homebox v0.10+ uses this structure
-                token = data.get("token")
             if token:
                 print(f"[seed] Login successful, token length: {len(token)}")
                 return token
