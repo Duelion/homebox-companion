@@ -3,6 +3,7 @@
  */
 
 import { request, requestFormData } from './client';
+import { getIsDemoMode, fieldPreferences } from './settings';
 import { apiLogger as log } from '../utils/logger';
 import type {
 	DetectionResponse,
@@ -39,11 +40,33 @@ export interface CorrectOptions {
 	signal?: AbortSignal;
 }
 
+/**
+ * Build headers for vision API requests.
+ * In demo mode, includes field preferences for AI customization.
+ */
+async function buildVisionHeaders(): Promise<Record<string, string>> {
+	const headers: Record<string, string> = {};
+
+	// Add field preferences header in demo mode
+	if (getIsDemoMode()) {
+		try {
+			const prefs = await fieldPreferences.get();
+			headers['X-Field-Preferences'] = JSON.stringify(prefs);
+			log.debug('Added field preferences header for demo mode');
+		} catch (error) {
+			// Silently ignore - preferences are optional
+			log.debug('Failed to load field preferences for header:', error);
+		}
+	}
+
+	return headers;
+}
+
 export const vision = {
 	/**
 	 * Detect items from a single image
 	 */
-	detect: (image: File, options: DetectOptions = {}): Promise<DetectionResponse> => {
+	detect: async (image: File, options: DetectOptions = {}): Promise<DetectionResponse> => {
 		log.debug(`Preparing detection request: file=${image.name}, size=${image.size} bytes`);
 		log.debug(`Options: singleItem=${options.singleItem ?? false}, extractExtendedFields=${options.extractExtendedFields ?? true}, additionalImages=${options.additionalImages?.length ?? 0}`);
 		
@@ -66,11 +89,12 @@ export const vision = {
 			}
 		}
 
+		const headers = await buildVisionHeaders();
 		log.info('Sending vision/detect request to backend');
 		return requestFormData<DetectionResponse>(
 			'/tools/vision/detect',
 			formData,
-			{ errorMessage: 'Detection failed', signal: options.signal }
+			{ errorMessage: 'Detection failed', signal: options.signal, headers }
 		);
 	},
 
@@ -78,7 +102,7 @@ export const vision = {
 	 * Detect items from multiple images in parallel on the server.
 	 * More efficient than calling detect() multiple times.
 	 */
-	detectBatch: (images: File[], options: BatchDetectOptions = {}): Promise<BatchDetectionResponse> => {
+	detectBatch: async (images: File[], options: BatchDetectOptions = {}): Promise<BatchDetectionResponse> => {
 		log.debug(`Preparing batch detection request: ${images.length} images`);
 		log.debug(`Total size: ${images.reduce((sum, img) => sum + img.size, 0)} bytes`);
 		
@@ -95,18 +119,19 @@ export const vision = {
 			formData.append('extract_extended_fields', String(options.extractExtendedFields));
 		}
 
+		const headers = await buildVisionHeaders();
 		log.info(`Sending vision/detect-batch request for ${images.length} images to backend`);
 		return requestFormData<BatchDetectionResponse>(
 			'/tools/vision/detect-batch',
 			formData,
-			{ errorMessage: 'Batch detection failed', signal: options.signal }
+			{ errorMessage: 'Batch detection failed', signal: options.signal, headers }
 		);
 	},
 
 	/**
 	 * Analyze multiple images to extract detailed item information
 	 */
-	analyze: (
+	analyze: async (
 		images: File[],
 		itemName: string,
 		itemDescription?: string,
@@ -123,31 +148,35 @@ export const vision = {
 			formData.append('item_description', itemDescription);
 		}
 
+		const headers = await buildVisionHeaders();
 		log.info(`Sending vision/analyze request for "${itemName}" to backend`);
 		return requestFormData<AdvancedItemDetails>(
 			'/tools/vision/analyze',
 			formData,
-			{ errorMessage: 'Analysis failed', signal: options.signal }
+			{ errorMessage: 'Analysis failed', signal: options.signal, headers }
 		);
 	},
 
 	/**
 	 * Merge multiple items into a single consolidated item using AI
 	 */
-	merge: (itemsToMerge: MergeItem[], options: MergeOptions = {}) => {
+	merge: async (itemsToMerge: MergeItem[], options: MergeOptions = {}): Promise<MergedItemResponse> => {
 		log.debug(`Preparing merge request: ${itemsToMerge.length} items`);
+		
+		const headers = await buildVisionHeaders();
 		log.info(`Sending vision/merge request for ${itemsToMerge.length} items to backend`);
 		return request<MergedItemResponse>('/tools/vision/merge', {
 			method: 'POST',
 			body: JSON.stringify({ items: itemsToMerge }),
 			signal: options.signal,
+			headers,
 		});
 	},
 
 	/**
 	 * Correct an item based on user feedback
 	 */
-	correct: (
+	correct: async (
 		image: File,
 		currentItem: MergeItem,
 		correctionInstructions: string,
@@ -161,12 +190,12 @@ export const vision = {
 		formData.append('current_item', JSON.stringify(currentItem));
 		formData.append('correction_instructions', correctionInstructions);
 
+		const headers = await buildVisionHeaders();
 		log.info(`Sending vision/correct request for "${currentItem.name}" to backend`);
 		return requestFormData<CorrectionResponse>(
 			'/tools/vision/correct',
 			formData,
-			{ errorMessage: 'Correction failed', signal: options.signal }
+			{ errorMessage: 'Correction failed', signal: options.signal, headers }
 		);
 	},
 };
-

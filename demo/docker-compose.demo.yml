@@ -1,0 +1,74 @@
+# Demo Deployment - Two-Service Architecture
+#
+# This compose file runs two separate containers:
+#   - Homebox: Official image with HBOX_DEMO=true for auto-populated demo data
+#   - Homebox Companion: Built from production Dockerfile
+#
+# Usage:
+#   cd demo
+#   docker compose -f docker-compose.demo.yml up --build
+#
+# For Railway deployment, you can use the production Dockerfile directly
+# and point HBC_HOMEBOX_URL to an external Homebox instance.
+
+services:
+  # Official Homebox instance with demo mode enabled
+  homebox:
+    image: ghcr.io/sysadminsmedia/homebox:latest
+    container_name: demo-homebox
+    restart: unless-stopped
+    environment:
+      - HBOX_MODE=production
+      - HBOX_DEMO=true
+      - HBOX_OPTIONS_ALLOW_REGISTRATION=true
+      - HBOX_WEB_PORT=7745
+      - HBOX_STORAGE_DATA=/data
+      - HBOX_STORAGE_SQLITE_URL=/data/homebox.db?_pragma=busy_timeout=2000&_pragma=journal_mode=WAL&_fk=1
+    ports:
+      - "7745:7745"
+    volumes:
+      - homebox-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7745/api/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Homebox Companion service
+  homebox-companion:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: demo-homebox-companion
+    restart: unless-stopped
+    environment:
+      # Required: Your LLM API key
+      - HBC_LLM_API_KEY=${HBC_LLM_API_KEY}
+      
+      # Optional: Model configuration
+      - HBC_LLM_MODEL=${HBC_LLM_MODEL:-gpt-4o-mini}
+      - HBC_LLM_API_BASE=${HBC_LLM_API_BASE:-}
+      
+      # Homebox connection (using Docker Compose service name)
+      - HBC_HOMEBOX_URL=http://homebox:7745
+      
+      # Demo mode configuration
+      - HBC_DEMO_MODE=true
+      - HBC_LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      homebox:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  homebox-data:
+    driver: local
+

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -10,7 +11,7 @@ from fastapi import Header, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import AuthenticationError, HomeboxClient, settings
-from homebox_companion.core.field_preferences import load_field_preferences
+from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
 
 
 class ClientHolder:
@@ -226,22 +227,35 @@ class VisionContext:
 
 async def get_vision_context(
     authorization: Annotated[str | None, Header()] = None,
+    x_field_preferences: Annotated[str | None, Header()] = None,
 ) -> VisionContext:
     """FastAPI dependency that loads all vision endpoint context.
 
     This dependency:
     1. Extracts and validates the auth token
     2. Fetches labels for AI context
-    3. Loads field preferences once (instead of 3 separate reads)
+    3. Loads field preferences (from header in demo mode, or from file/env)
 
     Args:
         authorization: The Authorization header value.
+        x_field_preferences: Optional JSON-encoded field preferences (for demo mode).
 
     Returns:
         VisionContext with all required data for vision endpoints.
     """
     token = get_token(authorization)
-    prefs = load_field_preferences()
+
+    # Load field preferences from header if provided (demo mode), otherwise from file
+    if x_field_preferences:
+        logger.debug("Using field preferences from X-Field-Preferences header (demo mode)")
+        try:
+            prefs_dict = json.loads(x_field_preferences)
+            prefs = FieldPreferences.model_validate(prefs_dict)
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"Invalid field preferences in header, ignoring: {e}")
+            prefs = load_field_preferences()
+    else:
+        prefs = load_field_preferences()
 
     # Determine output language (None means use default English)
     lang = prefs.get_output_language()

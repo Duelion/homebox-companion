@@ -342,6 +342,11 @@ export interface FormDataRequestOptions {
 	 * Set to 0 or Infinity to disable timeout.
 	 */
 	timeout?: number;
+	/**
+	 * Additional headers to include in the request.
+	 * Authorization header is automatically added if a token exists.
+	 */
+	headers?: Record<string, string>;
 }
 
 /**
@@ -500,10 +505,21 @@ export async function requestFormData<T>(
 	const errorMessage = opts.errorMessage ?? 'Request failed';
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
-	// Helper to build headers with current token
+	// Helper to build headers with current token and any additional headers
 	const buildHeaders = (): HeadersInit => {
 		const authToken = get(token);
-		return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+		const headers: Record<string, string> = {};
+		
+		if (authToken) {
+			headers['Authorization'] = `Bearer ${authToken}`;
+		}
+		
+		// Merge any additional headers from options
+		if (opts.headers) {
+			Object.assign(headers, opts.headers);
+		}
+		
+		return headers;
 	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
@@ -567,4 +583,3 @@ export async function requestFormData<T>(
 
 	return parseResponseBody<T>(response);
 }
-
