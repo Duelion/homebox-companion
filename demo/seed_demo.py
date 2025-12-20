@@ -187,9 +187,9 @@ DEMO_ITEMS = [
     # Garage items
     {"name": "DeWalt Power Drill", "location": "Garage", "description": "20V cordless drill with battery", "image": "power_drill.png"},
     {"name": "Craftsman Toolbox", "location": "Garage", "description": "Red metal toolbox with assorted tools", "image": "toolbox.png"},
-    # Storage items
-    {"name": "Holiday Decorations", "location": "Boxes", "description": "Christmas lights and ornaments", "image": "decorations.png"},
-    {"name": "Old Photo Albums", "location": "Boxes", "description": "Family photos from the 90s", "image": "photo_albums.png"},
+    # IoT Sensors
+    {"name": "Zigbee Temperature Sensor", "location": "Living Room", "description": "Aqara temperature and humidity sensor", "image": "temp_sensor.png"},
+    {"name": "Smart Motion Sensor", "location": "Bedroom", "description": "Philips Hue motion sensor with light detection", "image": "motion_sensor.png"},
 ]
 
 

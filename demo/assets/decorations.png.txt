@@ -1,2 +1,0 @@
-PLACEHOLDER: decorations.png
-Replace this file with an actual image of holiday decorations.

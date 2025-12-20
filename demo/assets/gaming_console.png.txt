@@ -1,2 +1,0 @@
-PLACEHOLDER: gaming_console.png
-Replace this file with an actual image of a gaming console.

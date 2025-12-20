@@ -1,2 +1,0 @@
-PLACEHOLDER: toolbox.png
-Replace this file with an actual image of a toolbox.
