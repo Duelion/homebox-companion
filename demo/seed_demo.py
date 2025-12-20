@@ -55,7 +55,6 @@ async def login(client: httpx.AsyncClient) -> str | None:
     print(f"[seed] Logging in as {DEMO_EMAIL}")
     try:
         # Homebox API accepts both JSON and form-encoded (per OpenAPI spec)
-        # Using JSON for proper boolean handling
         response = await client.post(
             f"{HOMEBOX_URL}/api/v1/users/login",
             json={
@@ -66,37 +65,16 @@ async def login(client: httpx.AsyncClient) -> str | None:
         )
         if response.status_code == 200:
             data = response.json()
-            # Debug: print response structure
-            print(f"[seed] Login response keys: {list(data.keys())}")
-            # Try different possible token field names
             token = data.get("token") or data.get("accessToken") or data.get("access_token")
             if token:
-                # Debug: show raw token to detect any prefix issues
-                print(f"[seed] Raw token repr: {repr(token[:20])}... (len={len(token)})")
-                
-                # Strip "Bearer " prefix if Homebox already included it
+                # Strip "Bearer " prefix if Homebox includes it
                 if token.startswith("Bearer "):
-                    print("[seed] Token has 'Bearer ' prefix - stripping it")
-                    token = token[7:]  # Remove "Bearer " (7 chars)
+                    token = token[7:]
                 
-                print(f"[seed] Using token: {token[:8]}...{token[-4:]} (len={len(token)})")
-                
-                # Also show attachmentToken for comparison
-                att_token = data.get("attachmentToken", "")
-                print(f"[seed] Attachment token length: {len(att_token)}")
-                
-                # Validate token works by calling /users/self
-                validation = await client.get(
-                    f"{HOMEBOX_URL}/api/v1/users/self",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-                print(f"[seed] Token validation (/users/self): {validation.status_code}")
-                if validation.status_code != 200:
-                    print(f"[seed] Token validation failed: {validation.text[:200]}")
-                
+                print(f"[seed] Login successful, token length: {len(token)}")
                 return token
             else:
-                print(f"[seed] Login response missing token field: {data}")
+                print(f"[seed] Login response missing token field: {list(data.keys())}")
                 return None
         else:
             print(f"[seed] Login failed: {response.status_code} - {response.text}")
@@ -118,10 +96,9 @@ async def create_location(
     if parent_id:
         payload["parentId"] = parent_id
 
-    headers = {"Authorization": f"Bearer {token}"}
     response = await client.post(
         f"{HOMEBOX_URL}/api/v1/locations",
-        headers=headers,
+        headers={"Authorization": f"Bearer {token}"},
         json=payload,
     )
     if response.status_code in (200, 201):
@@ -129,10 +106,7 @@ async def create_location(
         print(f"[seed] Created location: {name} (ID: {loc['id']})")
         return loc["id"]
     else:
-        # Debug: show more details on failure
         print(f"[seed] Failed to create location {name}: {response.status_code}")
-        print(f"[seed] Response: {response.text[:200] if response.text else 'empty'}")
-        print(f"[seed] Token prefix: {token[:10]}... (len={len(token)})")
         return None
 
 
@@ -175,8 +149,11 @@ async def upload_item_attachment(
         print(f"[seed] Image not found: {image_path}")
         return False
 
+    # Determine MIME type from file extension
+    mime_type = "image/jpeg" if image_path.suffix.lower() in (".jpg", ".jpeg") else "image/png"
+
     with open(image_path, "rb") as f:
-        files = {"file": (image_path.name, f, "image/png")}
+        files = {"file": (image_path.name, f, mime_type)}
         response = await client.post(
             f"{HOMEBOX_URL}/api/v1/items/{item_id}/attachments",
             headers={"Authorization": f"Bearer {token}"},
@@ -216,17 +193,17 @@ DEMO_LOCATIONS = [
 
 DEMO_ITEMS = [
     # Living Room items
-    {"name": "Samsung Smart TV", "location": "Living Room", "description": "55-inch 4K Smart TV", "image": "smart_tv.png"},
-    {"name": "PlayStation 5", "location": "Living Room", "description": "Gaming console with controllers", "image": "gaming_console.png"},
+    {"name": "Samsung Smart TV", "location": "Living Room", "description": "55-inch 4K Smart TV", "image": "smart_tv.jpg"},
+    {"name": "PlayStation 5", "location": "Living Room", "description": "Gaming console with controllers", "image": "gaming_console.jpg"},
     # Kitchen items
-    {"name": "KitchenAid Mixer", "location": "Kitchen", "description": "Stand mixer, red color", "image": "stand_mixer.png"},
-    {"name": "Instant Pot", "location": "Kitchen", "description": "6-quart pressure cooker", "image": "instant_pot.png"},
+    {"name": "KitchenAid Mixer", "location": "Kitchen", "description": "Stand mixer, red color", "image": "stand_mixer.jpg"},
+    {"name": "Instant Pot", "location": "Kitchen", "description": "6-quart pressure cooker", "image": "instant_pot.jpg"},
     # Garage items
-    {"name": "DeWalt Power Drill", "location": "Garage", "description": "20V cordless drill with battery", "image": "power_drill.png"},
-    {"name": "Craftsman Toolbox", "location": "Garage", "description": "Red metal toolbox with assorted tools", "image": "toolbox.png"},
+    {"name": "DeWalt Power Drill", "location": "Garage", "description": "20V cordless drill with battery", "image": "power_drill.jpg"},
+    {"name": "Craftsman Toolbox", "location": "Garage", "description": "Red metal toolbox with assorted tools", "image": "toolbox.jpg"},
     # IoT Sensors
-    {"name": "Zigbee Temperature Sensor", "location": "Living Room", "description": "Aqara temperature and humidity sensor", "image": "temp_sensor.png"},
-    {"name": "Smart Motion Sensor", "location": "Bedroom", "description": "Philips Hue motion sensor with light detection", "image": "motion_sensor.png"},
+    {"name": "Zigbee Temperature Sensor", "location": "Living Room", "description": "Aqara temperature and humidity sensor", "image": "temp_sensor.jpg"},
+    {"name": "Smart Motion Sensor", "location": "Bedroom", "description": "Philips Hue motion sensor with light detection", "image": "motion_sensor.jpg"},
 ]
 
 
