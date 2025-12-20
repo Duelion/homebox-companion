@@ -78,9 +78,10 @@ COPY --from=frontend-builder /app/frontend/build ./server/static/
 # =============================================================================
 
 # --- Homebox Service ---
+# Note: with-contenv loads container environment variables into the service
 RUN mkdir -p /etc/s6-overlay/s6-rc.d/homebox \
     && echo "longrun" > /etc/s6-overlay/s6-rc.d/homebox/type \
-    && printf '#!/command/execlineb -P\nforeground { mkdir -p /data }\n/usr/local/bin/homebox /data/config.yml\n' > /etc/s6-overlay/s6-rc.d/homebox/run \
+    && printf '#!/command/execlineb -P\nwith-contenv\nforeground { mkdir -p /data }\n/usr/local/bin/homebox /data/config.yml\n' > /etc/s6-overlay/s6-rc.d/homebox/run \
     && chmod +x /etc/s6-overlay/s6-rc.d/homebox/run
 
 # --- Homebox Companion Service ---
@@ -88,7 +89,7 @@ RUN mkdir -p /etc/s6-overlay/s6-rc.d/homebox-companion \
     && mkdir -p /etc/s6-overlay/s6-rc.d/homebox-companion/dependencies.d \
     && touch /etc/s6-overlay/s6-rc.d/homebox-companion/dependencies.d/homebox \
     && echo "longrun" > /etc/s6-overlay/s6-rc.d/homebox-companion/type \
-    && printf '#!/command/execlineb -P\ncd /app\n/app/.venv/bin/python -m server.app\n' > /etc/s6-overlay/s6-rc.d/homebox-companion/run \
+    && printf '#!/command/execlineb -P\nwith-contenv\ncd /app\n/app/.venv/bin/python -m server.app\n' > /etc/s6-overlay/s6-rc.d/homebox-companion/run \
     && chmod +x /etc/s6-overlay/s6-rc.d/homebox-companion/run
 
 # --- Reset Cron Service ---
@@ -100,16 +101,17 @@ RUN mkdir -p /etc/s6-overlay/s6-rc.d/reset-cron \
 # Create crontab for 30-minute reset
 RUN echo "*/30 * * * * /app/demo/reset-homebox.sh >> /var/log/services/reset.log 2>&1" > /etc/crontab.demo
 
-# Reset cron run script
-RUN printf '#!/command/execlineb -P\nsupercronic /etc/crontab.demo\n' > /etc/s6-overlay/s6-rc.d/reset-cron/run \
+# Reset cron run script (supercronic inherits env from with-contenv)
+RUN printf '#!/command/execlineb -P\nwith-contenv\nsupercronic /etc/crontab.demo\n' > /etc/s6-overlay/s6-rc.d/reset-cron/run \
     && chmod +x /etc/s6-overlay/s6-rc.d/reset-cron/run
 
 # --- Init script to seed demo data on first boot ---
+# For oneshot services, we create a wrapper script to load environment
 RUN mkdir -p /etc/s6-overlay/s6-rc.d/init-seed \
     && mkdir -p /etc/s6-overlay/s6-rc.d/init-seed/dependencies.d \
     && touch /etc/s6-overlay/s6-rc.d/init-seed/dependencies.d/homebox \
     && echo "oneshot" > /etc/s6-overlay/s6-rc.d/init-seed/type \
-    && printf '/app/demo/seed-demo.sh\n' > /etc/s6-overlay/s6-rc.d/init-seed/up \
+    && printf '#!/command/execlineb -P\nwith-contenv\n/app/demo/seed-demo.sh\n' > /etc/s6-overlay/s6-rc.d/init-seed/up \
     && chmod +x /etc/s6-overlay/s6-rc.d/init-seed/up
 
 # Register services with s6
