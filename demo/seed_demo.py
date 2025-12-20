@@ -71,8 +71,16 @@ async def login(client: httpx.AsyncClient) -> str | None:
             # Try different possible token field names
             token = data.get("token") or data.get("accessToken") or data.get("access_token")
             if token:
-                # Show token details for debugging (safe prefix/suffix only)
-                print(f"[seed] Login successful, token: {token[:10]}...{token[-5:]} (len={len(token)})")
+                # Debug: show raw token to detect any prefix issues
+                print(f"[seed] Raw token repr: {repr(token[:20])}... (len={len(token)})")
+                
+                # Strip "Bearer " prefix if Homebox already included it
+                if token.startswith("Bearer "):
+                    print("[seed] Token has 'Bearer ' prefix - stripping it")
+                    token = token[7:]  # Remove "Bearer " (7 chars)
+                
+                print(f"[seed] Using token: {token[:8]}...{token[-4:]} (len={len(token)})")
+                
                 # Also show attachmentToken for comparison
                 att_token = data.get("attachmentToken", "")
                 print(f"[seed] Attachment token length: {len(att_token)}")
