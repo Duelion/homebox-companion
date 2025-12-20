@@ -54,11 +54,11 @@ async def login(client: httpx.AsyncClient) -> str | None:
     """Login and return the auth token."""
     print(f"[seed] Logging in as {DEMO_EMAIL}")
     try:
-        # Homebox expects form-encoded data, not JSON
+        # Homebox API accepts both JSON and form-encoded (per OpenAPI spec)
+        # Using JSON for proper boolean handling
         response = await client.post(
             f"{HOMEBOX_URL}/api/v1/users/login",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data={
+            json={
                 "username": DEMO_EMAIL,
                 "password": DEMO_PASSWORD,
                 "stayLoggedIn": True,
@@ -71,7 +71,21 @@ async def login(client: httpx.AsyncClient) -> str | None:
             # Try different possible token field names
             token = data.get("token") or data.get("accessToken") or data.get("access_token")
             if token:
-                print(f"[seed] Login successful, token length: {len(token)}")
+                # Show token details for debugging (safe prefix/suffix only)
+                print(f"[seed] Login successful, token: {token[:10]}...{token[-5:]} (len={len(token)})")
+                # Also show attachmentToken for comparison
+                att_token = data.get("attachmentToken", "")
+                print(f"[seed] Attachment token length: {len(att_token)}")
+                
+                # Validate token works by calling /users/self
+                validation = await client.get(
+                    f"{HOMEBOX_URL}/api/v1/users/self",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                print(f"[seed] Token validation (/users/self): {validation.status_code}")
+                if validation.status_code != 200:
+                    print(f"[seed] Token validation failed: {validation.text[:200]}")
+                
                 return token
             else:
                 print(f"[seed] Login response missing token field: {data}")
@@ -96,9 +110,10 @@ async def create_location(
     if parent_id:
         payload["parentId"] = parent_id
 
+    headers = {"Authorization": f"Bearer {token}"}
     response = await client.post(
         f"{HOMEBOX_URL}/api/v1/locations",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=headers,
         json=payload,
     )
     if response.status_code in (200, 201):
@@ -106,7 +121,10 @@ async def create_location(
         print(f"[seed] Created location: {name} (ID: {loc['id']})")
         return loc["id"]
     else:
+        # Debug: show more details on failure
         print(f"[seed] Failed to create location {name}: {response.status_code}")
+        print(f"[seed] Response: {response.text[:200] if response.text else 'empty'}")
+        print(f"[seed] Token prefix: {token[:10]}... (len={len(token)})")
         return None
 
 
