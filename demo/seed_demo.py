@@ -35,7 +35,8 @@ async def register_user(client: httpx.AsyncClient) -> bool:
                 "name": DEMO_NAME,
             },
         )
-        if response.status_code == 201:
+        # Homebox returns 204 No Content for successful registration
+        if response.status_code in (200, 201, 204):
             print("[seed] Demo user registered successfully")
             return True
         elif response.status_code == 409:
