@@ -52,6 +52,7 @@ dev = [
     "pytest>=9.0.1",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.14.7",
+    "ty>=0.0.5",
 ]
 
 [tool.ruff]
@@ -75,3 +76,29 @@ addopts = "-m 'not integration'"
 markers = [
     "integration: tests that hit the real Homebox demo API and OpenAI API.",
 ]
+
+[tool.ty]
+# Ty type checker configuration
+# See: https://github.com/astral-sh/ty
+
+[tool.ty.rules]
+# Suppress false positives for intentional patterns:
+
+# FastAPI Depends() pattern: `param: Annotated[T, Depends(fn)] = None` is idiomatic
+# The None is never actually used - FastAPI's DI system injects the value
+invalid-parameter-default = "warn"
+
+# Third-party library type stubs are sometimes incomplete or overly strict
+# CORSMiddleware and litellm.suppress_debug_info have stub issues
+invalid-assignment = "warn"
+
+[[tool.ty.overrides]]
+# Test files use dynamic dict access where ty can't infer the value type
+include = ["tests/**"]
+rules = { invalid-argument-type = "warn" }
+
+[[tool.ty.overrides]]
+# Server has Starlette type stub issues (CORSMiddleware) and FastAPI DI patterns
+include = ["server/**"]
+rules = { invalid-argument-type = "warn" }
+

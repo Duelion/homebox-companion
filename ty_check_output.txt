@@ -1,0 +1,23 @@
+﻿uv :    Building homebox-companion @ file:///C:/Users/fsoza/PycharmProjects/homebox-companion
+At line:1 char:1
++ uv run ty check 2>&1 | Out-File -FilePath ty_check_output.txt -Encodi ...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Building hom...mebox-companion:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+      Built homebox-companion @ file:///C:/Users/fsoza/PycharmProjects/homebox-companion
+Uninstalled 1 package in 3ms
+Installed 1 package in 68ms
+ty failed
+  Cause: C:\Users\fsoza\PycharmProjects\homebox-companion\pyproject.toml is not a valid `pyproject.toml`: TOML parse error at line 95, column 1
+   |
+95 | [tool.ty.overrides]
+   | ^^^^^^^^^^^^^^^^^^^
+invalid type: map, expected a sequence
+
+  Cause: TOML parse error at line 95, column 1
+   |
+95 | [tool.ty.overrides]
+   | ^^^^^^^^^^^^^^^^^^^
+invalid type: map, expected a sequence
+

@@ -71,7 +71,7 @@ def _get_friendly_error_message(error: Exception) -> str:
     return str(error)
 
 
-def _log_exception_chain(error: Exception, prefix: str = "") -> None:
+def _log_exception_chain(error: BaseException, prefix: str = "") -> None:
     """Log essential exception information for debugging."""
     logger.debug(f"{prefix}Exception: {type(error).__name__}: {error}")
 
@@ -113,7 +113,7 @@ async def login(request: LoginRequest) -> LoginResponse:
         response_data = await client.login(request.username, request.password)
         logger.info("Login successful")
         return LoginResponse(
-            token=response_data.get("token"),
+            token=response_data.get("token", ""),
             expires_at=response_data.get("expiresAt", ""),
         )
     except httpx.ConnectError as e:
@@ -218,7 +218,7 @@ async def refresh_token(
         data = response.json()
         logger.info("Token refresh successful")
         return LoginResponse(
-            token=data.get("token"),
+            token=data.get("token", ""),
             expires_at=data.get("expiresAt", ""),
         )
     except httpx.TimeoutException as e:

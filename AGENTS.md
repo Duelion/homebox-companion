@@ -19,6 +19,7 @@ Instructions for AI/LLM agents working on this codebase.
 - **Python**: Use `uv` for package management (`uv sync`, `uv add`, `uv run`)
 - **Frontend**: Use `npm` in the `frontend/` directory
 - **Linting**: Run `uv run ruff check .` before commits
+- **Type Checking**: Run `uv run ty check` to verify type safety
 - **Testing**: Use real APIs (demo Homebox + LLM provider), not mocks
 
 ### Required Environment Variables
@@ -476,7 +477,8 @@ Integration tests hit the real Homebox demo server and LLM provider API.
 ## Pre-Commit Checklist
 
 1. **Lint**: `uv run ruff check .`
-2. **Frontend types**: `cd frontend && npm run check` (runs svelte-check for TypeScript errors)
+2. **Type Check**: `uv run ty check`
+3. **Frontend types**: `cd frontend && npm run check` (runs svelte-check for TypeScript errors)
 3. **Frontend deps**: If `package.json` changed, run `npm install` and commit both files
 4. **Version**: Increment in `pyproject.toml` for releases
 
