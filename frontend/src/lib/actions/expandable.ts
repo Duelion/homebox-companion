@@ -39,7 +39,11 @@ export function expandable(node: HTMLTextAreaElement, options: ExpandableOptions
     }
 
     function expand() {
+        // Get current height before measuring
+        const currentHeight = node.offsetHeight;
+
         // Temporarily remove height constraints to measure content
+        node.style.transition = 'none';
         node.style.height = 'auto';
         node.style.minHeight = '0';
         node.style.maxHeight = 'none';
@@ -50,7 +54,14 @@ export function expandable(node: HTMLTextAreaElement, options: ExpandableOptions
         // Clamp to max height
         const expandedHeight = Math.min(contentHeight, maxHeight);
 
-        // Apply the clamped height
+        // Restore current height immediately (no transition)
+        node.style.height = `${currentHeight}px`;
+
+        // Force reflow to ensure the browser registers the current height
+        node.offsetHeight;
+
+        // Re-enable transition and animate to new height
+        node.style.transition = 'height 0.2s ease-out';
         node.style.height = `${expandedHeight}px`;
         node.style.minHeight = `${collapsedHeight}px`;
         node.style.maxHeight = `${maxHeight}px`;
