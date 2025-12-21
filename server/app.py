@@ -73,9 +73,11 @@ async def _get_latest_github_version() -> str | None:
     async with _version_cache_lock:
         # Check if cache is still valid
         now = time.time()
+        last_check = _version_cache["last_check"]
         if (
             _version_cache["latest_version"] is not None
-            and now - float(_version_cache["last_check"]) < VERSION_CACHE_TTL
+            and isinstance(last_check, (int, float))
+            and now - last_check < VERSION_CACHE_TTL
         ):
             return str(_version_cache["latest_version"])
 
