@@ -39,7 +39,7 @@ services:
   homebox-companion:
     build:
       context: ..
-      dockerfile: demo/Dockerfile.demo
+      dockerfile: Dockerfile
     container_name: demo-homebox-companion
     restart: unless-stopped
     environment:

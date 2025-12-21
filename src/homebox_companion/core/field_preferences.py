@@ -63,7 +63,10 @@ class FieldPreferencesDefaults(BaseSettings):
     )
 
     # Description instructions - env var: HBC_AI_DESCRIPTION
-    description: str = "Condition/attributes only, max 1000 chars, NEVER mention quantity"
+    description: str = (
+        "Product features and specifications - what IS this item. "
+        "Max 1000 chars, NEVER mention quantity"
+    )
 
     # Quantity counting instructions - env var: HBC_AI_QUANTITY
     quantity: str = "Count identical items together, separate different variants"
@@ -85,8 +88,8 @@ class FieldPreferencesDefaults(BaseSettings):
 
     # Notes instructions - env var: HBC_AI_NOTES
     notes: str = (
-        'ONLY for defects/damage/warnings - leave null for normal items. '
-        'GOOD: "Cracked lens", "Missing screws" | BAD: "Appears new", "Made in China"'
+        "Only for visible issues: damage, missing parts, safety hazards. "
+        "Also note if sealed/new-in-box. Leave null for normal items."
     )
 
 

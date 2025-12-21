@@ -34,7 +34,7 @@ def _normalize_image(img: Image.Image) -> Image.Image:
             if ExifTags.TAGS[orientation] == "Orientation":
                 break
 
-        exif = img._getexif()
+        exif = img.getexif()
         if exif is not None:
             orientation_value = exif.get(orientation)
             if orientation_value == 3:
