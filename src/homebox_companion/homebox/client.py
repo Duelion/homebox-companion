@@ -629,12 +629,14 @@ class HomeboxClient:
         except ValueError:
             detail = response.text
 
+        # Raise AuthenticationError for 401 so callers can handle session expiry
+        # Don't log 401s as errors - they're expected when session expires
+        if response.status_code == 401:
+            logger.debug(f"{context}: {request_info}-> 401 (unauthenticated)")
+            raise AuthenticationError(f"{context} failed: {detail}")
+
         logger.error(f"{context} failed: {request_info}-> {response.status_code}")
         logger.debug(f"Response detail: {detail}")
-
-        # Raise AuthenticationError for 401 so callers can handle session expiry
-        if response.status_code == 401:
-            raise AuthenticationError(f"{context} failed: {detail}")
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
 
 

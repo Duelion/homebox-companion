@@ -220,8 +220,12 @@ async def lifespan(app: FastAPI):
             "removed in a future version."
         )
 
-    if settings.is_demo_mode:
+    # Check for demo conditions and log appropriately
+    is_using_demo_server = "demo.homebox.software" in settings.homebox_url.lower()
+    if is_using_demo_server:
         logger.warning("Using demo server - set HBC_HOMEBOX_URL for your own instance")
+    elif settings.demo_mode:
+        logger.info("Demo mode enabled (HBC_DEMO_MODE=true)")
 
     # Validate settings on startup
     for issue in settings.validate_config():
