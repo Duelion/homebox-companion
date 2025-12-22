@@ -31,6 +31,21 @@ DEFAULT_HEADERS: dict[str, str] = {
 }
 
 
+def _normalize_token(token: str) -> str:
+    """Remove 'Bearer ' prefix from token if present.
+
+    Homebox v0.22.0+ returns tokens with 'Bearer ' prefix built-in.
+    We strip it to maintain consistent behavior when adding
+    'Bearer ' prefix in Authorization headers.
+
+    This is backward compatible - older Homebox versions that return
+    tokens without the prefix will work unchanged.
+    """
+    if token.startswith("Bearer "):
+        return token[7:]  # len("Bearer ") == 7
+    return token
+
+
 class HomeboxClient:
     """Async client for the Homebox API using HTTPX AsyncClient.
 
@@ -146,6 +161,14 @@ class HomeboxClient:
                 f"Login: Response JSON missing token field. Keys present: {list(data.keys())}"
             )
             raise AuthenticationError("Login response did not include a token field.")
+
+        # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix
+        # Strip it for consistent handling (we add it back in request headers)
+        original_token = token
+        token = _normalize_token(token)
+        if token != original_token:
+            logger.debug("Login: Stripped 'Bearer ' prefix from token (Homebox v0.22+ format)")
+            data["token"] = token
 
         logger.debug("Login: Successfully obtained authentication token")
         return data
