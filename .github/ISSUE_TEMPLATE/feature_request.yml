@@ -1,21 +1,14 @@
 name: ✨ Feature Request
-description: Suggest a new feature or enhancement for Homebox Companion
+description: Suggest a new feature or enhancement
 title: "[Feature]: "
 labels: ["enhancement", "needs-triage"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for suggesting an improvement! Please describe your idea in detail.
-
   - type: textarea
     id: problem
     attributes:
       label: Problem or Use Case
-      description: |
-        Is your feature request related to a problem you're experiencing?
-        Describe what you're trying to accomplish or what's frustrating you.
-      placeholder: I'm always frustrated when...
+      description: What are you trying to accomplish?
+      placeholder: I want to be able to...
     validations:
       required: true
 
@@ -23,62 +16,37 @@ body:
     id: solution
     attributes:
       label: Proposed Solution
-      description: A clear and concise description of what you want to happen.
-      placeholder: I would like to be able to...
+      placeholder: It would be great if...
     validations:
       required: true
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives Considered
-      description: Have you considered any alternative solutions or workarounds?
-      placeholder: I tried... but it doesn't work because...
-    validations:
-      required: false
 
   - type: dropdown
     id: area
     attributes:
       label: Feature Area
-      description: What area of the app does this feature relate to?
       options:
-        - AI/Detection (item recognition, LLM processing)
-        - UI/UX (design, navigation, accessibility)
-        - Capture Workflow (photos, scanning)
+        - AI/Detection
+        - UI/UX
+        - Capture Workflow
         - Location Management
-        - Settings/Configuration
-        - Integration (Homebox API, other services)
-        - Performance
-        - Documentation
+        - Settings
+        - Integration
         - Other
     validations:
       required: true
 
   - type: textarea
-    id: screenshots
-    attributes:
-      label: Mockups or Screenshots
-      description: If you have any mockups, screenshots, or visual examples of what you're proposing, add them here.
-      placeholder: Drag and drop images here...
-    validations:
-      required: false
-
-  - type: textarea
     id: additional
     attributes:
       label: Additional Context
-      description: Add any other context, links, or references that might help explain your request.
-      placeholder: Any other relevant information...
+      description: Screenshots, mockups, or any other relevant info
     validations:
       required: false
 
   - type: checkboxes
     id: checklist
     attributes:
-      label: Pre-submission Checklist
+      label: Checklist
       options:
-        - label: I have searched existing issues to ensure this feature hasn't already been requested
+        - label: I searched existing issues first
           required: true
-        - label: I have read the README and documentation to confirm this isn't already supported
-          required: false
