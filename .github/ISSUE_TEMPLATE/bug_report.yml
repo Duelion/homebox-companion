@@ -1,28 +1,14 @@
 name: 🐛 Bug Report
-description: Report a bug or unexpected behavior in Homebox Companion
+description: Report a bug or unexpected behavior
 title: "[Bug]: "
 labels: ["bug", "needs-triage"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for taking the time to report a bug! Please fill out as much information as possible to help us investigate.
-
   - type: textarea
     id: description
     attributes:
-      label: Bug Description
-      description: A clear and concise description of what the bug is.
-      placeholder: Describe what happened...
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected Behavior
-      description: What did you expect to happen?
-      placeholder: I expected...
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: Describe the issue...
     validations:
       required: true
 
@@ -30,7 +16,6 @@ body:
     id: steps
     attributes:
       label: Steps to Reproduce
-      description: List the steps to reproduce the bug.
       placeholder: |
         1. Go to '...'
         2. Click on '...'
@@ -38,34 +23,12 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots
-      description: If applicable, add screenshots to help explain your problem.
-      placeholder: Drag and drop images here...
-    validations:
-      required: false
-
-  - type: dropdown
-    id: deployment
-    attributes:
-      label: Deployment Method
-      description: How are you running Homebox Companion?
-      options:
-        - Docker (docker-compose)
-        - Docker (standalone)
-        - From Source
-        - Other
-    validations:
-      required: true
-
   - type: input
     id: version
     attributes:
       label: Version
-      description: What version of Homebox Companion are you running? (Check Settings page)
-      placeholder: e.g., v1.2.0 or latest
+      description: Check the Settings page for version info
+      placeholder: e.g., v2.0.0
     validations:
       required: true
 
@@ -73,95 +36,23 @@ body:
     id: browser
     attributes:
       label: Browser & Device
-      description: What browser and device are you using?
-      placeholder: e.g., Chrome 120 on Android / Safari on iPhone 15
-    validations:
-      required: true
-
-  - type: input
-    id: llm-model
-    attributes:
-      label: LLM Model
-      description: What LLM model are you using?
-      placeholder: e.g., gpt-5-mini (default), claude-sonnet-4-5, ollama/llava
+      placeholder: e.g., Chrome on Android / Safari on iPhone
     validations:
       required: false
 
-  - type: markdown
-    attributes:
-      value: |
-        ---
-        ## 📝 Logs
-        
-        Logs are essential for debugging. You can access them in **Settings → Backend Logs / Frontend Logs**.
-        
-        - **Backend Logs**: Server-side logs (API calls, LLM requests, errors)
-        - **Frontend Logs**: Browser-side logs (UI events, API responses)
-        
-        **How to get logs:**
-        1. Go to the **Settings** page in the app
-        2. Scroll down to find the **Backend Logs** and **Frontend Logs** sections
-        3. Click **Download** to get the full log files, or expand and copy the relevant sections
-
   - type: textarea
-    id: backend-logs
+    id: logs
     attributes:
-      label: Backend Logs
-      description: |
-        Paste relevant backend logs here. These help us understand server-side issues.
-        You can download full logs from Settings → Backend Logs → Download.
+      label: Logs (if relevant)
+      description: Logs can be found in Settings → Backend/Frontend Logs
       render: text
-      placeholder: |
-        2024-12-19 15:30:45 | ERROR    | server.api.items:create_item:123 - Failed to create item
-        2024-12-19 15:30:45 | DEBUG    | src.detection:analyze:45 - LLM request timeout
-    validations:
-      required: false
-
-  - type: textarea
-    id: frontend-logs
-    attributes:
-      label: Frontend Logs
-      description: |
-        Paste relevant frontend logs here. These help us understand browser-side issues.
-        You can export logs from Settings → Frontend Logs → Export.
-      render: text
-      placeholder: |
-        [2024-12-19T15:30:45.123Z] [ERROR] [API] - Request failed: 500 Internal Server Error
-        [2024-12-19T15:30:44.000Z] [DEBUG] [ScanWorkflow] - Starting image analysis
-    validations:
-      required: false
-
-  - type: textarea
-    id: browser-console
-    attributes:
-      label: Browser Console Errors
-      description: |
-        If the logs above don't capture the issue, check your browser's developer console (F12 → Console tab).
-        Paste any error messages you see.
-      render: text
-      placeholder: |
-        Uncaught TypeError: Cannot read properties of undefined (reading 'items')
-            at processResponse (api.js:45)
-    validations:
-      required: false
-
-  - type: textarea
-    id: additional
-    attributes:
-      label: Additional Context
-      description: Add any other context about the problem here.
-      placeholder: Any other relevant information...
     validations:
       required: false
 
   - type: checkboxes
     id: checklist
     attributes:
-      label: Pre-submission Checklist
+      label: Checklist
       options:
-        - label: I have searched existing issues to ensure this bug hasn't already been reported
+        - label: I searched existing issues first
           required: true
-        - label: I have included the version information
-          required: true
-        - label: I have tried to reproduce the issue with the latest version
-          required: false
