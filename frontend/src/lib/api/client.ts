@@ -3,7 +3,7 @@
  */
 
 import { get } from 'svelte/store';
-import { token, markSessionExpired, logout } from '../stores/auth';
+import { token, markSessionExpired } from '../stores/auth';
 import { apiLogger as log } from '../utils/logger';
 import { refreshToken } from '../services/tokenRefresh';
 
@@ -95,7 +95,7 @@ async function attemptRefreshOnce(): Promise<boolean> {
 /**
  * Handle 401 response with automatic token refresh and retry.
  * 
- * - If no token exists: calls logout() to clear stale state
+ * - If no token exists: returns false (user not logged in)
  * - If token exists: attempts refresh and signals whether to retry
  * - If refresh fails: shows re-auth modal
  * 
@@ -109,8 +109,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 
 	const authToken = get(token);
 	if (!authToken) {
-		// No token but got 401 - likely login failure or stale state
-		logout();
+		// No token - user isn't logged in, nothing to do
 		return false;
 	}
 
