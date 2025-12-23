@@ -135,6 +135,11 @@
 		animation: fadeIn 0.25s ease-out, slideUp 0.25s ease-out;
 	}
 
+	/* Avoid double-animations: disable per-page animate-in when View Transitions are enabled */
+	.vt-enabled .animate-in {
+		animation: none !important;
+	}
+
 	/* Prevent ghost touches during page transitions on touch devices */
 	@media (hover: none) and (pointer: coarse) {
 
@@ -269,5 +274,49 @@
 @keyframes scaleIn {
 	to {
 		transform: scale(1);
+	}
+}
+
+/* ==========================================================================
+   Page transitions (View Transitions API)
+   Progressive enhancement: only used by browsers that implement the API.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	::view-transition-old(root) {
+		animation: vt-fade-out 180ms ease-out both;
+	}
+
+	::view-transition-new(root) {
+		animation: vt-fade-in 180ms ease-out both;
+	}
+}
+
+@keyframes vt-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes vt-fade-out {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-6px);
 	}
 }
