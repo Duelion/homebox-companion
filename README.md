@@ -50,9 +50,12 @@ flowchart LR
 5. **Review & Edit** – Adjust AI suggestions, merge items, or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
-https://github.com/user-attachments/assets/fcaae316-f4fa-462e-8ed2-d0d7e82145fd
-
 ## 💰 OpenAI Cost Estimates
+
+**GPT-5 mini** (default) offers the best accuracy. **GPT-5 nano** is 3x cheaper but may need more corrections. Typical cost: **~$0.30 per 100 items** (mini) or **~$0.10 per 100 items** (nano).
+
+<details>
+<summary>📊 Detailed Pricing Breakdown</summary>
 
 Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.   
 
@@ -90,7 +93,7 @@ All estimates below are based on measured token usage from this app’s producti
 | 4 | **$0.0014** | **$0.1386** | **$0.6929** | **$1.3858** |
 | 5 | **$0.0013** | **$0.1264** | **$0.6320** | **$1.2639** |
 
-> Although gpt-5-nano may be smaller and faster on a per-token basis, our testing shows that it generates significantly more tokens to complete the same task, ultimately offsetting any apparent speed advantage.
+</details>
 
 ## 📋 Requirements
 
@@ -98,6 +101,8 @@ Before you start, you'll need:
 
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
 - **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test
+
+> **Compatibility:** Tested with Homebox v0.21+. Earlier versions may have different authentication behavior.
 
 ## 🚀 Quick Start
 
@@ -138,36 +143,6 @@ Open `http://localhost:8000` in your browser.
 
 > **Tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
 
-### Run from Source
-
-Alternative to Docker if you prefer running directly on your system.
-
-**Prerequisites:** Python 3.12+, Node.js 20+, [uv](https://docs.astral.sh/uv/)
-
-#### Linux / macOS
-
-```bash
-# Clone and install
-git clone https://github.com/Duelion/homebox-companion.git
-cd homebox-companion
-uv sync
-
-# Build frontend
-cd frontend && npm install && npm run build && cd ..
-mkdir -p server/static && cp -r frontend/build/* server/static/
-
-# Configure - copy example and edit
-cp .env.example .env
-# Edit .env and set your HBC_LLM_API_KEY
-
-# Run
-uv run python -m server.app
-```
-
-Open `http://localhost:8000` in your browser.
-
-> **Note:** See `.env.example` for all available configuration options including AI customization settings.
-
 ## ✨ Features
 
 ### AI-Powered Detection
@@ -195,14 +170,18 @@ Open `http://localhost:8000` in your browser.
 
 ## 🤖 LLM Provider Support
 
-Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) for AI capabilities. While LiteLLM supports many providers (OpenAI, Anthropic, Google, OpenRouter, etc.), **we only officially support and test with OpenAI GPT models**.
+Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library to call AI providers. **You don't need to self-host anything** – just get an OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys) and you're ready to go. We officially support and test with OpenAI GPT models only.
 
-### Officially Supported Models
+<details>
+<summary>Officially Supported Models</summary>
 
 - **GPT-5 mini** (default) – Recommended for best balance of speed and accuracy
 - **GPT-5 nano**
 
-### Using Other Providers (Experimental)
+</details>
+
+<details>
+<summary>Using Other Providers (Experimental)</summary>
 
 You can try other LiteLLM-compatible providers at your own risk. The app checks if your chosen model supports the required capabilities using LiteLLM's API:
 
@@ -238,6 +217,8 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 
 **⚠️ Important:** Other providers (Anthropic, Google, OpenRouter, local models, etc.) are **not officially supported**. If you encounter errors, we may not be able to help. Use at your own risk.
 
+</details>
+
 ## ⚙️ Configuration
 
 > **📝 Full reference:** See [`.env.example`](.env.example) for all available environment variables with detailed explanations and examples.
@@ -253,8 +234,6 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 | `HBC_LLM_TIMEOUT` | No | `120` | LLM request timeout in seconds |
 | `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox instance URL |
 | `HBC_IMAGE_QUALITY` | No | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
-
-**Legacy variables:** `HBC_OPENAI_API_KEY` and `HBC_OPENAI_MODEL` still work but are deprecated.
 
 ### Advanced Settings
 
@@ -319,8 +298,11 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 ## 💡 Tips
 
-- **HTTPS recommended for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
-- **Multiple photos = better results** – Include close-ups of labels, serial numbers, or receipts for more accurate detection.
+- **Batch more items for faster uploads** – Images are analyzed by AI in parallel, so adding more items actually feels faster than one at a time.
+- **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
+- **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
+- **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
+- **Use the Settings page** – Customize AI behavior without restarting, then export settings as environment variables for Docker.
 
 ## 📄 License
 
