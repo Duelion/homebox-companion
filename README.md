@@ -1,7 +1,7 @@
 <h1 align="center" style="margin-top: -10px;"></h1>
 
 <div align="center">
-  <img src=".github/assets/images/homebox-companion-icon.png" height="200"/>
+  <a href="#"><img src=".github/assets/images/homebox-companion-icon.png" height="200"/></a>
 </div>
 
 <h1 align="center" style="margin-top: -10px;"> Homebox Companion </h1>
