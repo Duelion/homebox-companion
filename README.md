@@ -22,7 +22,7 @@ Take a photo of your stuff, and let AI identify and catalog items directly into 
 
 <div align="center">
   <a href="https://demo.hbcompanion.duelion.com/" target="_blank">
-    <img src="https://img.shields.io/badge/Try_Live_Demo-4CAF50?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Try Live Demo">
+    <img src=".github/assets/images/demo_button.png" alt="Try Live Demo">
   </a>
   <br>
   <sub><i>View results in the <a href="https://demo.hb.duelion.com/">Homebox demo instance</a></i></sub>
