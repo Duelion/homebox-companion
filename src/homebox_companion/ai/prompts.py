@@ -13,10 +13,6 @@ Note on customizations:
 
 from __future__ import annotations
 
-# Naming format structure (examples are configurable via naming_examples field)
-NAMING_FORMAT = """NAMING FORMAT:
-Structure: [Item Type] [Brand] [Model] [Specs] - Item type FIRST for searchability."""
-
 
 def build_critical_constraints(single_item: bool = False) -> str:
     """Build critical constraints that MUST appear early in prompt.
@@ -32,8 +28,8 @@ def build_critical_constraints(single_item: bool = False) -> str:
     """
     if single_item:
         return (
-            "CRITICAL: Treat EVERYTHING in this image as ONE item. "
-            "Do NOT separate into multiple items. Set quantity to 1.\n"
+            "CRITICAL: Treat EVERYTHING in this image as ONE item type. "
+            "Do NOT separate into multiple entries. Count how many are visible.\n"
             "Do NOT guess or infer - only use what's visible or user-stated."
         )
     return (
@@ -45,16 +41,16 @@ def build_critical_constraints(single_item: bool = False) -> str:
     )
 
 
-def build_naming_rules(customizations: dict[str, str]) -> str:
-    """Build naming rules with configurable examples and optional user override.
+def build_naming_examples(customizations: dict[str, str]) -> str:
+    """Build naming examples with optional user override.
 
     Args:
         customizations: Dict with effective values for all fields (required).
-            Must contain 'naming_examples' for examples. If 'name' differs from
-            the default format, adds a user preference note.
+            Must contain 'naming_examples' for examples. If 'name' contains
+            a custom instruction, adds a user preference note.
 
     Returns:
-        Naming rules string with examples and optional user preference.
+        Naming examples string with optional user preference.
     """
     # Get examples from customizations
     examples = customizations.get("naming_examples", "").strip()
@@ -65,12 +61,10 @@ def build_naming_rules(customizations: dict[str, str]) -> str:
             '"LED Strip COB Green 5V 1M"'
         )
 
-    # Build base rules with examples
-    result = f"""{NAMING_FORMAT}
+    # Build base with examples
+    result = f"""Examples: {examples}"""
 
-Examples: {examples}"""
-
-    # Add user naming preference if it differs from the base format
+    # Add user naming preference if it's a custom instruction
     name_instruction = customizations.get("name", "").strip()
     if name_instruction and not name_instruction.startswith("[Type]"):
         # This is a custom instruction, not the default format

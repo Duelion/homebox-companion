@@ -7,7 +7,7 @@ import warnings
 from loguru import logger
 
 from ...ai.llm import vision_completion
-from ...ai.prompts import build_label_prompt, build_language_instruction, build_naming_rules
+from ...ai.prompts import build_label_prompt, build_language_instruction, build_naming_examples
 from ...core.config import settings
 
 
@@ -52,7 +52,7 @@ async def merge_items(
 
     language_instr = build_language_instruction(output_language)
     label_prompt = build_label_prompt(labels)
-    naming_rules = build_naming_rules(field_preferences)
+    naming_examples = build_naming_examples(field_preferences)
 
     # Get field customizations or defaults
     name_instr = (
@@ -78,7 +78,7 @@ async def merge_items(
         f"- description: string ({desc_instr})\n"
         "- labelIds: array of applicable label IDs\n\n"
         # 4. Naming
-        f"{naming_rules}\n\n"
+        f"{naming_examples}\n\n"
         # 5. Labels
         f"{label_prompt}"
     )
