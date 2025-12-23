@@ -42,13 +42,12 @@
 	// Uses the native View Transitions API when available.
 	onNavigate((navigation) => {
 		if (!browser) return;
-		const startViewTransition = (
-			document as Document & {
-				startViewTransition?: (
-					cb: () => void | Promise<void>,
-				) => unknown;
-			}
-		).startViewTransition;
+		const doc = document as Document & {
+			startViewTransition?: (cb: () => void | Promise<void>) => unknown;
+		};
+		// IMPORTANT: bind to `document` — some browsers throw if the method is called unbound
+		// (e.g. "called on an object that does not implement interface Document").
+		const startViewTransition = doc.startViewTransition?.bind(doc);
 		if (!startViewTransition) return;
 
 		// Wrap the navigation in a view transition.
