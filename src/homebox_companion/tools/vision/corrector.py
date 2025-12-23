@@ -12,7 +12,7 @@ from ...ai.prompts import (
     build_item_schema,
     build_label_prompt,
     build_language_instruction,
-    build_naming_rules,
+    build_naming_examples,
 )
 from ...core.config import settings
 
@@ -62,7 +62,7 @@ async def correct_item(
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences)
-    naming_rules = build_naming_rules(field_preferences)
+    naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     system_prompt = (
@@ -81,7 +81,7 @@ async def correct_item(
         f"{item_schema}\n"
         f"{extended_schema}\n\n"
         # 5. Naming
-        f"{naming_rules}\n\n"
+        f"{naming_examples}\n\n"
         # 6. Labels
         f"{label_prompt}"
     )

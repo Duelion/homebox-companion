@@ -16,12 +16,11 @@ from .llm import (
 )
 from .model_capabilities import ModelCapabilities, get_model_capabilities
 from .prompts import (
-    NAMING_FORMAT,
     build_critical_constraints,
     build_extended_fields_schema,
     build_item_schema,
     build_label_prompt,
-    build_naming_rules,
+    build_naming_examples,
 )
 
 __all__ = [
@@ -42,10 +41,9 @@ __all__ = [
     "ModelCapabilities",
     "get_model_capabilities",
     # Prompts
-    "NAMING_FORMAT",
     "build_label_prompt",
     "build_item_schema",
     "build_extended_fields_schema",
-    "build_naming_rules",
+    "build_naming_examples",
     "build_critical_constraints",
 ]

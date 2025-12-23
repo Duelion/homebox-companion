@@ -5,13 +5,12 @@ from __future__ import annotations
 import pytest
 
 from homebox_companion.ai.prompts import (
-    NAMING_FORMAT,
     build_critical_constraints,
     build_extended_fields_schema,
     build_item_schema,
     build_label_prompt,
     build_language_instruction,
-    build_naming_rules,
+    build_naming_examples,
 )
 from homebox_companion.core.field_preferences import get_defaults
 
@@ -74,20 +73,14 @@ class TestBuildItemSchema:
         assert "max 1000" in result or "condition" in result.lower()
 
 
-class TestBuildNamingRules:
-    """Test naming rules generation."""
+class TestBuildNamingExamples:
+    """Test naming examples generation."""
 
-    def test_default_contains_naming_format(self) -> None:
-        """Should contain the NAMING_FORMAT constant."""
-        result = build_naming_rules({})
 
-        assert NAMING_FORMAT in result
-        assert "[Item Type]" in result or "[Type]" in result
-        assert "[Brand]" in result
 
     def test_default_contains_examples(self) -> None:
         """Should contain naming examples."""
-        result = build_naming_rules({})
+        result = build_naming_examples({})
 
         assert "Examples:" in result
         assert "Ball Bearing" in result or "LED Strip" in result
@@ -98,7 +91,7 @@ class TestBuildNamingRules:
             "name": "Always put brand name first",
         }
 
-        result = build_naming_rules(customizations)
+        result = build_naming_examples(customizations)
 
         assert "USER NAMING PREFERENCE" in result
         assert "takes priority" in result
@@ -111,7 +104,7 @@ class TestBuildNamingRules:
             "naming_examples": custom_examples,
         }
 
-        result = build_naming_rules(customizations)
+        result = build_naming_examples(customizations)
 
         assert "Example One" in result
         assert "Example Two" in result
@@ -119,7 +112,7 @@ class TestBuildNamingRules:
 
     def test_default_format_no_override_section(self) -> None:
         """Without user customization, should not have override section."""
-        result = build_naming_rules({})
+        result = build_naming_examples({})
 
         assert "USER NAMING PREFERENCE" not in result
 
@@ -307,7 +300,7 @@ class TestPromptStructureProperties:
         """All schema builders should return non-empty strings."""
         assert build_item_schema({})
         assert build_extended_fields_schema({})
-        assert build_naming_rules({})
+        assert build_naming_examples({})
 
     def test_customizations_empty_dict_safe(self) -> None:
         """All builders should handle empty dict gracefully."""
@@ -316,5 +309,5 @@ class TestPromptStructureProperties:
         # Should not raise errors with empty dict
         build_item_schema(empty_customizations)
         build_extended_fields_schema(empty_customizations)
-        build_naming_rules(empty_customizations)
+        build_naming_examples(empty_customizations)
 
