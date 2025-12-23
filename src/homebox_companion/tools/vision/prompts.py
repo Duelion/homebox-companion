@@ -8,7 +8,7 @@ from ...ai.prompts import (
     build_item_schema,
     build_label_prompt,
     build_language_instruction,
-    build_naming_rules,
+    build_naming_examples,
 )
 
 
@@ -51,7 +51,7 @@ def build_detection_system_prompt(
         if extract_extended_fields
         else ""
     )
-    naming_rules = build_naming_rules(field_preferences)
+    naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     return (
@@ -65,8 +65,8 @@ def build_detection_system_prompt(
         # 4. Schema
         f"{item_schema}"
         f"{extended_schema}\n\n"
-        # 5. Naming guidelines
-        f"{naming_rules}\n\n"
+        # 5. Naming examples
+        f"{naming_examples}\n\n"
         # 6. Labels
         f"{label_prompt}"
     )
@@ -155,7 +155,7 @@ def build_multi_image_system_prompt(
         if extract_extended_fields
         else ""
     )
-    naming_rules = build_naming_rules(field_preferences)
+    naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     multi_note = (
@@ -175,8 +175,8 @@ def build_multi_image_system_prompt(
         # 4. Schema
         f"{item_schema}"
         f"{extended_schema}\n\n"
-        # 5. Naming guidelines
-        f"{naming_rules}\n\n"
+        # 5. Naming examples
+        f"{naming_examples}\n\n"
         # 6. Labels
         f"{label_prompt}"
     )
@@ -212,7 +212,7 @@ def build_discriminatory_system_prompt(
         if extract_extended_fields
         else ""
     )
-    naming_rules = build_naming_rules(field_preferences)
+    naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     return (
@@ -229,8 +229,8 @@ def build_discriminatory_system_prompt(
         # 4. Schema
         f"{item_schema}"
         f"{extended_schema}\n\n"
-        # 5. Naming guidelines
-        f"{naming_rules}\n\n"
+        # 5. Naming examples
+        f"{naming_examples}\n\n"
         # 6. Labels
         f"{label_prompt}"
     )
@@ -288,7 +288,7 @@ def build_analysis_system_prompt(
     # Build components with customizations (with safe defaults if None)
     field_preferences = field_preferences or {}
     language_instr = build_language_instruction(output_language)
-    naming_rules = build_naming_rules(field_preferences)
+    naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 
     # Build item context
@@ -324,7 +324,7 @@ def build_analysis_system_prompt(
         f"- notes: string or null ({notes_instr})\n"
         "- labelIds: array of applicable label IDs\n\n"
         # 5. Naming
-        f"{naming_rules}\n\n"
+        f"{naming_examples}\n\n"
         # 6. Labels
         f"{label_prompt}"
     )
