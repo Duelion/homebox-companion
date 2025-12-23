@@ -140,28 +140,11 @@
 		animation: none !important;
 	}
 
-	/* Prevent ghost touches during page transitions on touch devices */
-	@media (hover: none) and (pointer: coarse) {
-
-		.animate-in button,
-		.animate-in [type="button"],
-		.animate-in a {
-			pointer-events: none;
-			animation: enablePointerEvents 0.3s ease-out forwards;
-		}
-	}
-
-	@keyframes enablePointerEvents {
-
-		0%,
-		99% {
-			pointer-events: none;
-		}
-
-		100% {
-			pointer-events: auto;
-		}
-	}
+	/*
+	 * Note: View Transitions already block interaction during page transitions,
+	 * so we don't need additional pointer-events manipulation here.
+	 * The previous implementation was blocking button clicks on touch devices.
+	 */
 
 	.glass {
 		@apply bg-neutral-900/80 backdrop-blur-lg;
@@ -283,6 +266,7 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
+
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;
@@ -304,6 +288,7 @@
 		opacity: 0;
 		transform: translateY(6px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0);
@@ -315,6 +300,7 @@
 		opacity: 1;
 		transform: translateY(0);
 	}
+
 	to {
 		opacity: 0;
 		transform: translateY(-6px);
