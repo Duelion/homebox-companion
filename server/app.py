@@ -185,7 +185,15 @@ class CachedStaticFiles(StaticFiles):
         response = await super().get_response(path, scope)
 
         # index.html and root: always revalidate
-        if path in ("", "index.html") or path.endswith("/index.html"):
+        #
+        # service-worker.js must also always revalidate:
+        # - browsers may cache the SW script itself
+        # - if cached, clients can stay stuck on old SW logic for up to the TTL
+        #
+        # manifest.json is also frequently cached by browsers/PWA install flows.
+        if path in ("", "index.html", "service-worker.js", "manifest.json") or path.endswith(
+            "/index.html"
+        ):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
