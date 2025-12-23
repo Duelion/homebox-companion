@@ -15,7 +15,7 @@
 	import { initializeAuth } from "$lib/services/tokenRefresh";
 	import { onMount, onDestroy } from "svelte";
 	import { browser } from "$app/environment";
-	import { afterNavigate } from "$app/navigation";
+	import { afterNavigate, onNavigate } from "$app/navigation";
 
 	function dismissUpdate() {
 		updateDismissed.set(true);
@@ -38,9 +38,38 @@
 		}
 	});
 
+	// Global page transitions (progressive enhancement)
+	// Uses the native View Transitions API when available.
+	onNavigate((navigation) => {
+		if (!browser) return;
+		const startViewTransition = (
+			document as Document & {
+				startViewTransition?: (
+					cb: () => void | Promise<void>,
+				) => unknown;
+			}
+		).startViewTransition;
+		if (!startViewTransition) return;
+
+		// Wrap the navigation in a view transition.
+		// SvelteKit will wait for the returned promise before completing the navigation.
+		return new Promise<void>((resolve) => {
+			startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
+
 	// Fetch version on mount and register event listeners
 	onMount(async () => {
 		if (browser) {
+			// Disable per-page "animate-in" when View Transitions are supported
+			// (prevents double-animations on modern browsers; falls back cleanly elsewhere)
+			if ("startViewTransition" in document) {
+				document.documentElement.classList.add("vt-enabled");
+			}
+
 			// Initialize auth (check token, refresh if needed)
 			await initializeAuth();
 
