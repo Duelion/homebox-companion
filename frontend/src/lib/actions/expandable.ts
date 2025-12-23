@@ -56,16 +56,19 @@ export function expandable(node: HTMLTextAreaElement, options: ExpandableOptions
 
         // Restore current height immediately (no transition)
         node.style.height = `${currentHeight}px`;
-
-        // Force reflow to ensure the browser registers the current height
-        node.offsetHeight;
-
-        // Re-enable transition and animate to new height
-        node.style.transition = 'height 0.2s ease-out';
-        node.style.height = `${expandedHeight}px`;
         node.style.minHeight = `${collapsedHeight}px`;
-        node.style.maxHeight = `${maxHeight}px`;
-        node.style.overflow = contentHeight > maxHeight ? 'auto' : 'hidden';
+        node.style.maxHeight = `${currentHeight}px`;
+
+        // Use requestAnimationFrame to ensure the browser paints the initial state
+        // before we apply the transition and final state
+        requestAnimationFrame(() => {
+            // Re-enable transition and animate to new height
+            node.style.transition = 'height 0.2s ease-out, min-height 0.2s ease-out, max-height 0.2s ease-out';
+            node.style.height = `${expandedHeight}px`;
+            node.style.minHeight = `${collapsedHeight}px`;
+            node.style.maxHeight = `${maxHeight}px`;
+            node.style.overflow = contentHeight > maxHeight ? 'auto' : 'hidden';
+        });
     }
 
     function handleFocus() {
