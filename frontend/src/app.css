@@ -281,6 +281,16 @@
 	::view-transition-new(root) {
 		animation: vt-fade-in 180ms ease-out both;
 	}
+
+	/* Keep fixed UI elements stable during page transitions - no animation */
+	::view-transition-old(header),
+	::view-transition-new(header),
+	::view-transition-old(bottom-nav),
+	::view-transition-new(bottom-nav) {
+		animation: none;
+		/* Ensure proper layering during transition */
+		mix-blend-mode: normal;
+	}
 }
 
 @keyframes vt-fade-in {

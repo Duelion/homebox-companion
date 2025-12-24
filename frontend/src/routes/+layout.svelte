@@ -112,7 +112,11 @@
 
 <div class="min-h-screen min-h-dvh flex flex-col bg-background">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
-	<div class="fixed top-0 left-0 right-0 z-40 glass border-b border-border">
+	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
+	<div
+		class="fixed top-0 left-0 right-0 z-40 glass border-b border-border"
+		style="view-transition-name: header;"
+	>
 		<div class="pt-safe">
 			<div
 				class="max-w-lg mx-auto px-4 h-14 flex items-center justify-center"
