@@ -129,6 +129,9 @@ export type ScanStatus =
 /** Status of individual item submission */
 export type ItemSubmissionStatus = 'pending' | 'creating' | 'success' | 'partial_success' | 'failed';
 
+/** Status of individual image analysis */
+export type ImageAnalysisStatus = 'pending' | 'analyzing' | 'success' | 'failed';
+
 /** Progress for async operations */
 export interface Progress {
 	current: number;
@@ -160,6 +163,8 @@ export interface ScanState {
 	images: CapturedImage[];
 	// Analysis
 	analysisProgress: Progress | null;
+	/** Per-image analysis status for UI feedback */
+	imageStatuses: Record<number, ImageAnalysisStatus>;
 	// Review
 	detectedItems: ReviewItem[];
 	currentReviewIndex: number;
@@ -209,7 +214,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses
@@ -229,7 +234,7 @@ export interface DetectionResponse {
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
-export interface DetectedItem extends ItemCore, ItemExtended {}
+export interface DetectedItem extends ItemCore, ItemExtended { }
 
 /** Single image result in batch detection */
 export interface BatchDetectionResult {

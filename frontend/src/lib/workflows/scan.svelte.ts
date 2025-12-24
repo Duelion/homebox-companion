@@ -90,6 +90,7 @@ class ScanWorkflow {
 		'parentItemName',
 		'images',
 		'analysisProgress',
+		'imageStatuses',
 		'detectedItems',
 		'currentReviewIndex',
 		'confirmedItems',
@@ -159,6 +160,8 @@ class ScanWorkflow {
 							return workflow.captureService.images;
 						case 'analysisProgress':
 							return workflow.analysisService.progress;
+						case 'imageStatuses':
+							return workflow.analysisService.imageStatuses;
 						case 'detectedItems':
 							return workflow.reviewService.detectedItems;
 						case 'currentReviewIndex':

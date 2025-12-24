@@ -149,11 +149,11 @@ async def detect_items(
 
     # Run AI detection and image compression in parallel
     async def compress_all_images() -> list[CompressedImage]:
-        """Compress all images (primary + additional) for Homebox upload."""
+        """Compress all images (primary + additional) for Homebox upload in parallel."""
         all_images_to_compress = [(image_bytes, content_type)] + additional_image_data
-        compressed = []
-
-        for img_bytes, _ in all_images_to_compress:
+        
+        async def compress_one(img_bytes: bytes, _mime: str) -> CompressedImage:
+            """Compress a single image."""
             # Run compression in executor to avoid blocking
             base64_data, mime = await asyncio.to_thread(
                 encode_compressed_image_to_base64,
@@ -161,9 +161,13 @@ async def detect_items(
                 max_dimension,
                 jpeg_quality
             )
-            compressed.append(CompressedImage(data=base64_data, mime_type=mime))
-
-        return compressed
+            return CompressedImage(data=base64_data, mime_type=mime)
+        
+        # Compress all images in parallel
+        return await asyncio.gather(*[
+            compress_one(img_bytes, mime) 
+            for img_bytes, mime in all_images_to_compress
+        ])
 
     # Detect items
     try:
