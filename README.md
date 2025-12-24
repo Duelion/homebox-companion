@@ -22,7 +22,7 @@ Take a photo of your stuff, and let AI identify and catalog items directly into 
 
 <div align="center">
   <a href="https://demo.hbcompanion.duelion.com/" target="_blank">
-    <img src=".github/assets/images/demo_button.png" alt="Try Live Demo" width="300">
+    <img src=".github/assets/images/demo_button.png" alt="Try Live Demo" width="280">
   </a>
   <br>
   <sub><i>View results in the <a href="https://demo.hb.duelion.com/">Homebox demo instance</a></i></sub>
@@ -56,46 +56,7 @@ flowchart LR
 
 **GPT-5 mini** (default) offers the best accuracy. **GPT-5 nano** is 3x cheaper but may need more corrections. Typical cost: **~$0.30 per 100 items** (mini) or **~$0.10 per 100 items** (nano).
 
-<details>
-<summary>📊 Detailed Pricing Breakdown</summary>
-
-Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.   
-
-**Per-token pricing (per 1M tokens):**
-
-- **GPT-5 nano**
-  - Input: **$0.0500 / 1M tokens**
-  - Output: **$0.4000 / 1M tokens**
-
-- **GPT-5 mini**
-  - Input: **$0.2500 / 1M tokens**
-  - Output: **$2.0000 / 1M tokens**
-
-All estimates below are based on measured token usage from this app’s production prompt with 1–5 images per call.
-
-### Estimated API cost for Homebox Companion
-
-#### GPT-5 mini
-
-| Images per call | Cost / 1 call | Cost / 100 calls | Cost / 500 calls | Cost / 1,000 calls |
-|----------------:|--------------:|-----------------:|-----------------:|-------------------:|
-| 1 | **$0.0026** | **$0.2580** | **$1.2900** | **$2.5800** |
-| 2 | **$0.0032** | **$0.3236** | **$1.6180** | **$3.2360** |
-| 3 | **$0.0031** | **$0.3130** | **$1.5650** | **$3.1300** |
-| 4 | **$0.0037** | **$0.3672** | **$1.8360** | **$3.6720** |
-| 5 | **$0.0041** | **$0.4108** | **$2.0540** | **$4.1080** |
-
-#### GPT-5 nano
-
-| Images per call | Cost / 1 call | Cost / 100 calls | Cost / 500 calls | Cost / 1,000 calls |
-|----------------:|--------------:|-----------------:|-----------------:|-------------------:|
-| 1 | **$0.0008** | **$0.0801** | **$0.4005** | **$0.8010** |
-| 2 | **$0.0008** | **$0.0781** | **$0.3907** | **$0.7815** |
-| 3 | **$0.0010** | **$0.0958** | **$0.4788** | **$0.9577** |
-| 4 | **$0.0014** | **$0.1386** | **$0.6929** | **$1.3858** |
-| 5 | **$0.0013** | **$0.1264** | **$0.6320** | **$1.2639** |
-
-</details>
+*Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.*
 
 ## 📋 Requirements
 
@@ -227,15 +188,25 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 
 ### Essential Settings
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `HBC_LLM_API_KEY` | **Yes** | – | Your OpenAI API key (or other provider key if experimenting) |
-| `HBC_LLM_MODEL` | No | `gpt-5-mini` | Model to use. Officially supported: `gpt-5-mini`, `gpt-5-nano`. See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for other models. |
-| `HBC_LLM_API_BASE` | No | – | Custom API base URL (for proxies or experimental providers) |
-| `HBC_LLM_ALLOW_UNSAFE_MODELS` | No | `false` | Skip capability validation for unrecognized models |
-| `HBC_LLM_TIMEOUT` | No | `120` | LLM request timeout in seconds |
-| `HBC_HOMEBOX_URL` | No | Demo server | Your Homebox instance URL |
-| `HBC_IMAGE_QUALITY` | No | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
+For a quick setup, you only need to provide your OpenAI API key. All other settings have sensible defaults.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `HBC_LLM_API_KEY` | **Yes** | Your OpenAI API key |
+| `HBC_HOMEBOX_URL` | No | Your Homebox instance URL (defaults to demo server) |
+
+<details>
+<summary>⚙️ Full Configuration Reference</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_LLM_MODEL` | `gpt-5-mini` | Model to use. Supported: `gpt-5-mini`, `gpt-5-nano`. |
+| `HBC_LLM_API_BASE` | – | Custom API base URL (for proxies or experimental providers) |
+| `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
+| `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
+| `HBC_IMAGE_QUALITY` | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
+
+</details>
 
 ### Advanced Settings
 
