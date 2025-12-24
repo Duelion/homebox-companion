@@ -173,6 +173,46 @@ class HomeboxClient:
         logger.debug("Login: Successfully obtained authentication token")
         return data
 
+    async def refresh_token(self, token: str) -> dict[str, Any]:
+        """Refresh the access token.
+
+        Exchanges the current valid token for a new one with extended expiry.
+
+        Args:
+            token: The current bearer token.
+
+        Returns:
+            Dictionary containing token, expiresAt, and other response fields.
+
+        Raises:
+            AuthenticationError: If the token is expired or invalid.
+            RuntimeError: If the refresh fails for other reasons.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/users/refresh",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Token refresh")
+
+        data = response.json()
+
+        # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix
+        new_token = data.get("token", "")
+        if new_token:
+            original_token = new_token
+            new_token = _normalize_token(new_token)
+            if new_token != original_token:
+                logger.debug(
+                    "Token refresh: Stripped 'Bearer ' prefix from token (Homebox v0.22+ format)"
+                )
+                data["token"] = new_token
+
+        logger.debug("Token refresh: Successfully obtained new token")
+        return data
+
     async def list_locations(
         self, token: str, *, filter_children: bool | None = None
     ) -> list[dict[str, Any]]:

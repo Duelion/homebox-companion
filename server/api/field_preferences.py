@@ -2,10 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel
 
+from homebox_companion import HomeboxClient
 from homebox_companion.core.field_preferences import (
     FieldPreferences,
     get_defaults,
@@ -15,7 +16,7 @@ from homebox_companion.core.field_preferences import (
 )
 from homebox_companion.tools.vision.prompts import build_detection_system_prompt
 
-from ..dependencies import get_token
+from ..dependencies import get_client, get_token
 
 router = APIRouter()
 
@@ -56,7 +57,8 @@ class FieldPreferencesUpdate(BaseModel):
 
 @router.get("/settings/field-preferences", response_model=FieldPreferencesResponse)
 async def get_field_preferences(
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> FieldPreferencesResponse:
     """Get current field preferences.
 
@@ -64,7 +66,8 @@ async def get_field_preferences(
     Empty/null values indicate default behavior should be used.
     Requires authentication.
     """
-    get_token(authorization)  # Validate auth
+    # Token/client validated by Depends - no additional action needed
+    _ = token, client  # Silence unused variable warnings
     prefs = load_field_preferences()
     return FieldPreferencesResponse(
         output_language=prefs.output_language,
@@ -85,7 +88,8 @@ async def get_field_preferences(
 @router.put("/settings/field-preferences", response_model=FieldPreferencesResponse)
 async def update_field_preferences(
     update: FieldPreferencesUpdate,
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> FieldPreferencesResponse:
     """Update field preferences.
 
@@ -93,7 +97,8 @@ async def update_field_preferences(
     Set a field to null or empty string to use default behavior.
     Requires authentication.
     """
-    get_token(authorization)  # Validate auth
+    # Token/client validated by Depends - no additional action needed
+    _ = token, client  # Silence unused variable warnings
 
     logger.info("Updating field preferences")
 
@@ -146,14 +151,16 @@ async def update_field_preferences(
 
 @router.delete("/settings/field-preferences", response_model=FieldPreferencesResponse)
 async def delete_field_preferences(
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> FieldPreferencesResponse:
     """Reset field preferences to defaults.
 
     Clears all custom field instructions and restores default behavior.
     Requires authentication.
     """
-    get_token(authorization)  # Validate auth
+    # Token/client validated by Depends - no additional action needed
+    _ = token, client  # Silence unused variable warnings
 
     logger.info("Resetting field preferences to defaults")
     prefs = reset_field_preferences()
@@ -194,7 +201,8 @@ class EffectiveDefaultsResponse(BaseModel):
 
 @router.get("/settings/effective-defaults", response_model=EffectiveDefaultsResponse)
 async def get_effective_defaults(
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> EffectiveDefaultsResponse:
     """Get effective defaults for field preferences.
 
@@ -203,7 +211,8 @@ async def get_effective_defaults(
     actually be used when a field is left empty.
     Requires authentication.
     """
-    get_token(authorization)  # Validate auth
+    # Token/client validated by Depends - no additional action needed
+    _ = token, client  # Silence unused variable warnings
 
     # get_defaults() returns a FieldPreferencesDefaults instance with
     # env vars applied over hardcoded defaults - all handled by pydantic_settings
@@ -250,7 +259,8 @@ class PromptPreviewResponse(BaseModel):
 @router.post("/settings/prompt-preview", response_model=PromptPreviewResponse)
 async def get_prompt_preview(
     request: PromptPreviewRequest,
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> PromptPreviewResponse:
     """Generate a preview of the AI system prompt.
 
@@ -261,7 +271,8 @@ async def get_prompt_preview(
     (from env var or hardcoded fallback) so the preview accurately reflects
     what the AI will actually see.
     """
-    get_token(authorization)  # Validate auth
+    # Token/client validated by Depends - no additional action needed
+    _ = token, client  # Silence unused variable warnings
 
     # Get effective defaults (env vars with hardcoded fallbacks)
     defaults = get_defaults()

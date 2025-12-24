@@ -3,10 +3,10 @@
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
-from homebox_companion import AuthenticationError
+from homebox_companion import AuthenticationError, HomeboxClient
 
 from ..dependencies import get_client, get_token
 from ..schemas.locations import LocationCreate, LocationUpdate
@@ -16,16 +16,15 @@ router = APIRouter()
 
 @router.get("/locations")
 async def get_locations(
-    authorization: Annotated[str | None, Header()] = None,
-    filter_children: bool | None = None,
+    filter_children: bool | None = Query(None),
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> list[dict[str, Any]]:
     """Fetch all available locations.
 
     Args:
         filter_children: If true, returns only top-level locations.
     """
-    token = get_token(authorization)
-    client = get_client()
     try:
         return await client.list_locations(token, filter_children=filter_children)
     except AuthenticationError as e:
@@ -36,11 +35,10 @@ async def get_locations(
 
 @router.get("/locations/tree")
 async def get_locations_tree(
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> list[dict[str, Any]]:
     """Fetch top-level locations with children info for hierarchical navigation."""
-    token = get_token(authorization)
-    client = get_client()
     try:
         # Get only top-level locations
         top_level = await client.list_locations(token, filter_children=True)
@@ -78,11 +76,10 @@ async def get_locations_tree(
 @router.get("/locations/{location_id}")
 async def get_location(
     location_id: str,
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> dict[str, Any]:
     """Fetch a specific location by ID with its children enriched with their own children info."""
-    token = get_token(authorization)
-    client = get_client()
     try:
         location = await client.get_location(token, location_id)
 
@@ -134,11 +131,10 @@ async def get_location(
 @router.post("/locations")
 async def create_location(
     data: LocationCreate,
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> dict[str, Any]:
     """Create a new location."""
-    token = get_token(authorization)
-    client = get_client()
     try:
         return await client.create_location(
             token,
@@ -156,11 +152,10 @@ async def create_location(
 async def update_location(
     location_id: str,
     data: LocationUpdate,
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> dict[str, Any]:
     """Update an existing location."""
-    token = get_token(authorization)
-    client = get_client()
     try:
         return await client.update_location(
             token,
@@ -173,8 +168,3 @@ async def update_location(
         raise HTTPException(status_code=401, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-
-
-

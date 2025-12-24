@@ -193,34 +193,18 @@ async def refresh_token(
     client = get_client()
 
     try:
-        response = await client.client.get(
-            f"{client.base_url}/users/refresh",
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {token}",
-            },
-        )
-
-        if response.status_code == 401:
-            logger.info("Token refresh failed: token expired or invalid")
-            raise HTTPException(
-                status_code=401,
-                detail="Token expired, please re-login",
-            )
-
-        if not response.is_success:
-            logger.error(f"Token refresh failed with status {response.status_code}")
-            raise HTTPException(
-                status_code=502,
-                detail="Failed to refresh token",
-            )
-
-        data = response.json()
+        data = await client.refresh_token(token)
         logger.info("Token refresh successful")
         return LoginResponse(
             token=data.get("token", ""),
             expires_at=data.get("expiresAt", ""),
         )
+    except AuthenticationError:
+        logger.info("Token refresh failed: token expired or invalid")
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired, please re-login",
+        ) from None
     except httpx.TimeoutException as e:
         logger.error("Token refresh timed out")
         raise HTTPException(
@@ -233,9 +217,6 @@ async def refresh_token(
             status_code=503,
             detail="Cannot reach token refresh service. Please check your connection.",
         ) from e
-    except HTTPException:
-        # Re-raise HTTPExceptions we created above
-        raise
     except Exception as e:
         logger.error(f"Unexpected error during token refresh: {e}", exc_info=True)
         raise HTTPException(

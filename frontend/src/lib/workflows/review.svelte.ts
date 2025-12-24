@@ -129,8 +129,18 @@ export class ReviewService {
 	}
 
 	/**
-	 * Edit a confirmed item - removes from confirmed list and adds to detected for re-review
-	 * @returns The item to be edited
+	 * Edit a confirmed item by moving it back to review mode.
+	 *
+	 * This method is called from the confirmation screen, after the user has already
+	 * completed reviewing all detected items (confirming or skipping each one).
+	 * It removes the item from the confirmed list and creates a single-item review
+	 * session for focused re-editing.
+	 *
+	 * Note: This replaces the detectedItems array with only the item being edited.
+	 * This is intentional—at the confirmation stage, all original detected items have
+	 * already been processed, so no unreviewed items are lost.
+	 *
+	 * @returns The item converted to a ReviewItem for editing, or null if index is invalid
 	 */
 	editConfirmedItem(index: number): ReviewItem | null {
 		const item = this.confirmedItems[index];

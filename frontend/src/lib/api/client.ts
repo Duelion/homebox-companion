@@ -508,16 +508,16 @@ export async function requestFormData<T>(
 	const buildHeaders = (): HeadersInit => {
 		const authToken = get(token);
 		const headers: Record<string, string> = {};
-		
+
 		if (authToken) {
 			headers['Authorization'] = `Bearer ${authToken}`;
 		}
-		
+
 		// Merge any additional headers from options
 		if (opts.headers) {
 			Object.assign(headers, opts.headers);
 		}
-		
+
 		return headers;
 	};
 
@@ -573,10 +573,18 @@ export async function requestFormData<T>(
 
 	// Handle other errors
 	if (!response.ok) {
-		const error = await response.json().catch(() => ({}));
+		let errorData: unknown;
+		try {
+			errorData = await response.json();
+		} catch {
+			errorData = await response.text();
+		}
 		throw new ApiError(
 			response.status,
-			(error as { detail?: string }).detail || errorMessage
+			typeof errorData === 'object' && errorData !== null && 'detail' in errorData
+				? String((errorData as { detail: unknown }).detail)
+				: errorMessage,
+			errorData
 		);
 	}
 

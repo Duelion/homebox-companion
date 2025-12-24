@@ -29,6 +29,7 @@ from homebox_companion import (
 from ...dependencies import (
     VisionContext,
     get_vision_context,
+    require_llm_configured,
     validate_file_size,
     validate_files_size,
 )
@@ -103,6 +104,7 @@ def filter_default_label(label_ids: list[str] | None, default_label_id: str | No
 async def detect_items(
     image: Annotated[UploadFile, File(description="Primary image file to analyze")],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
     single_item: Annotated[bool, Form()] = False,
     extra_instructions: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
@@ -115,6 +117,7 @@ async def detect_items(
     Args:
         image: The primary image file to analyze.
         ctx: Vision context with auth token, labels, and preferences.
+        api_key: LLM API key (validated by dependency).
         single_item: If True, treat everything as a single item.
         extra_instructions: Optional user hint about what's in the image.
         extract_extended_fields: If True, also extract extended fields.
@@ -124,13 +127,6 @@ async def detect_items(
     logger.info(f"Detecting items from image: {image.filename} (+ {additional_count} additional)")
     logger.info(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
     logger.info(f"Extract extended fields: {extract_extended_fields}")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
 
     # Read and validate primary image
     image_bytes = await validate_file_size(image)
@@ -176,7 +172,7 @@ async def detect_items(
         # Run detection and compression in parallel
         detection_task = detect_items_from_bytes(
             image_bytes=image_bytes,
-            api_key=settings.effective_llm_api_key,
+            api_key=api_key,
             mime_type=content_type,
             model=settings.effective_llm_model,
             labels=ctx.labels,
@@ -224,6 +220,7 @@ async def detect_items(
 async def detect_items_batch(
     images: Annotated[list[UploadFile], File(description="Multiple images to analyze in parallel")],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
     configs: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
 ) -> BatchDetectionResponse:
@@ -235,18 +232,12 @@ async def detect_items_batch(
     Args:
         images: List of image files to analyze (each treated as separate item(s)).
         ctx: Vision context with auth token, labels, and preferences.
+        api_key: LLM API key (validated by dependency).
         configs: Optional JSON string with per-image configs.
             Format: [{"single_item": bool, "extra_instructions": str}, ...]
         extract_extended_fields: If True, also extract extended fields for all images.
     """
     logger.info(f"Batch detection for {len(images)} images")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
 
     if not images:
         raise HTTPException(status_code=400, detail="At least one image is required")
@@ -288,7 +279,7 @@ async def detect_items_batch(
         try:
             detected = await detect_items_from_bytes(
                 image_bytes=image_bytes,
-                api_key=settings.effective_llm_api_key,
+                api_key=api_key,
                 mime_type=mime_type,
                 model=settings.effective_llm_model,
                 labels=ctx.labels,
@@ -385,19 +376,13 @@ async def analyze_item_advanced(
     images: Annotated[list[UploadFile], File(description="Images to analyze")],
     item_name: Annotated[str, Form()],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
     item_description: Annotated[str | None, Form()] = None,
 ) -> AdvancedItemDetails:
     """Analyze multiple images to extract detailed item information."""
     logger.info(f"Advanced analysis for item: {item_name}")
     logger.debug(f"Description: {item_description}")
     logger.debug(f"Number of images: {len(images) if images else 0}")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
 
     if not images:
         logger.warning("No images provided for analysis")
@@ -417,7 +402,7 @@ async def analyze_item_advanced(
             image_data_uris=image_data_uris,
             item_name=item_name,
             item_description=item_description,
-            api_key=settings.effective_llm_api_key,
+            api_key=api_key,
             model=settings.effective_llm_model,
             labels=ctx.labels,
             field_preferences=ctx.field_preferences,
@@ -448,16 +433,10 @@ async def analyze_item_advanced(
 async def merge_items(
     request: MergeItemsRequest,
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
 ) -> MergedItemResponse:
     """Merge multiple items into a single consolidated item using AI."""
     logger.info(f"Merging {len(request.items)} items")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
 
     if len(request.items) < 2:
         raise HTTPException(status_code=400, detail="At least 2 items are required to merge")
@@ -469,7 +448,7 @@ async def merge_items(
         logger.info("Calling LLM for item merge...")
         merged = await llm_merge_items(
             items=items_as_dicts,
-            api_key=settings.effective_llm_api_key,
+            api_key=api_key,
             model=settings.effective_llm_model,
             labels=ctx.labels,
             field_preferences=ctx.field_preferences,
@@ -502,6 +481,7 @@ async def correct_item(
     current_item: Annotated[str, Form(description="JSON string of current item")],
     correction_instructions: Annotated[str, Form(description="User's correction feedback")],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
 ) -> CorrectionResponse:
     """Correct an item based on user feedback.
 
@@ -528,13 +508,6 @@ async def correct_item(
     preview = correction_instructions[:100]
     logger.debug(f"Correction instructions ({len(correction_instructions)} chars): {preview}...")
 
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
-
     # Parse current item from JSON string
     try:
         current_item_dict = json.loads(current_item)
@@ -558,7 +531,7 @@ async def correct_item(
             image_data_uri=image_data_uri,
             current_item=current_item_dict,
             correction_instructions=correction_instructions,
-            api_key=settings.effective_llm_api_key,
+            api_key=api_key,
             model=settings.effective_llm_model,
             labels=ctx.labels,
             field_preferences=ctx.field_preferences,

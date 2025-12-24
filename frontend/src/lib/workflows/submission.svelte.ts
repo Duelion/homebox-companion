@@ -542,8 +542,8 @@ export class SubmissionService {
 		const itemNames = successfulItems.map((item) => item.name);
 		const photoCount = successfulItems.reduce((count, item) => {
 			let photos = 0;
-			// Custom thumbnail replaces original, so count as one primary image
-			if (item.originalFile || item.customThumbnail) photos++;
+			// Count primary image (compressed preferred, or custom thumbnail, or original file)
+			if (item.compressedDataUrl || item.customThumbnail || item.originalFile) photos++;
 			if (item.additionalImages) photos += item.additionalImages.length;
 			return count + photos;
 		}, 0);
