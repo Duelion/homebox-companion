@@ -13,6 +13,7 @@
 	import StepIndicator from "$lib/components/StepIndicator.svelte";
 	import BackLink from "$lib/components/BackLink.svelte";
 	import AnalysisProgressBar from "$lib/components/AnalysisProgressBar.svelte";
+	import StatusIcon from "$lib/components/StatusIcon.svelte";
 
 	const log = createLogger({ prefix: "Capture" });
 
@@ -38,6 +39,7 @@
 	let status = $derived(workflow.state.status);
 	let isAnalyzing = $derived(status === "analyzing");
 	let progress = $derived(workflow.state.analysisProgress);
+	let imageStatuses = $derived(workflow.state.imageStatuses);
 	let locationName = $derived(workflow.state.locationName);
 	let locationPath = $derived(workflow.state.locationPath);
 	let parentItemName = $derived(workflow.state.parentItemName);
@@ -249,6 +251,8 @@
 			analysisAnimationComplete = false;
 			// Collapse all expanded cards when analysis starts
 			expandedImages = new Set();
+			// Scroll to top so user can see the progress bar
+			window.scrollTo({ top: 0, behavior: "smooth" });
 			await workflow.startAnalysis();
 			log.debug("Workflow.startAnalysis() completed");
 		} catch (error) {
@@ -278,6 +282,20 @@
 	<p class="text-body-sm text-neutral-400 mb-6">
 		Add photos and configure detection options
 	</p>
+
+	<!-- Analysis progress bar (at top for visibility) -->
+	{#if progress && showAnalyzingUI}
+		<div class="mb-4">
+			<AnalysisProgressBar
+				current={progress.current}
+				total={progress.total}
+				message={status === "reviewing"
+					? "Analysis complete!"
+					: progress.message || "Analyzing..."}
+				onComplete={handleAnalysisComplete}
+			/>
+		</div>
+	{/if}
 
 	<!-- Current location display -->
 	{#if locationPath}
@@ -371,49 +389,57 @@
 							</p>
 						</div>
 
-						<!-- Action buttons -->
+						<!-- Action buttons / status -->
 						<div class="flex items-center gap-1">
-							<button
-								type="button"
-								class="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
-								aria-label={expandedImages.has(index)
-									? "Collapse options"
-									: "Expand options"}
-								onclick={() => toggleImageExpanded(index)}
-								disabled={isAnalyzing}
-							>
-								<svg
-									class="w-5 h-5 transition-transform duration-200 {expandedImages.has(
-										index,
-									)
-										? 'rotate-180'
-										: ''}"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
+							{#if showAnalyzingUI && imageStatuses[index]}
+								<!-- Show status icon during analysis -->
+								<StatusIcon
+									status={imageStatuses[index]}
+									size="sm"
+								/>
+							{:else}
+								<button
+									type="button"
+									class="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
+									aria-label={expandedImages.has(index)
+										? "Collapse options"
+										: "Expand options"}
+									onclick={() => toggleImageExpanded(index)}
+									disabled={isAnalyzing}
 								>
-									<polyline points="6 9 12 15 18 9" />
-								</svg>
-							</button>
-							<button
-								type="button"
-								class="p-2 text-neutral-400 hover:text-error-400 hover:bg-error-500/10 rounded-lg transition-colors"
-								aria-label="Remove image"
-								onclick={() => removeImage(index)}
-								disabled={isAnalyzing}
-							>
-								<svg
-									class="w-5 h-5"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
+									<svg
+										class="w-5 h-5 transition-transform duration-200 {expandedImages.has(
+											index,
+										)
+											? 'rotate-180'
+											: ''}"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+									>
+										<polyline points="6 9 12 15 18 9" />
+									</svg>
+								</button>
+								<button
+									type="button"
+									class="p-2 text-neutral-400 hover:text-error-400 hover:bg-error-500/10 rounded-lg transition-colors"
+									aria-label="Remove image"
+									onclick={() => removeImage(index)}
+									disabled={isAnalyzing}
 								>
-									<line x1="18" y1="6" x2="6" y2="18" />
-									<line x1="6" y1="6" x2="18" y2="18" />
-								</svg>
-							</button>
+									<svg
+										class="w-5 h-5"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+									>
+										<line x1="18" y1="6" x2="6" y2="18" />
+										<line x1="6" y1="6" x2="18" y2="18" />
+									</svg>
+								</button>
+							{/if}
 						</div>
 					</div>
 
@@ -902,20 +928,6 @@
 		onchange={handleFileSelect}
 		class="hidden"
 	/>
-
-	<!-- Analysis progress (inline, not in footer) -->
-	{#if progress && showAnalyzingUI}
-		<div class="mb-4">
-			<AnalysisProgressBar
-				current={progress.current}
-				total={progress.total}
-				message={status === "reviewing"
-					? "Analysis complete!"
-					: progress.message || "Analyzing..."}
-				onComplete={handleAnalysisComplete}
-			/>
-		</div>
-	{/if}
 </div>
 
 <!-- Sticky Analyze button at bottom - above navigation bar -->

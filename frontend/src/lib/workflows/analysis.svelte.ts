@@ -12,7 +12,7 @@ import { vision, fieldPreferences } from '$lib/api/index';
 import { labels as labelsStore } from '$lib/stores/labels';
 import { workflowLogger as log } from '$lib/utils/logger';
 import { get } from 'svelte/store';
-import type { CapturedImage, ReviewItem, Progress } from '$lib/types';
+import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus } from '$lib/types';
 
 // =============================================================================
 // TYPES
@@ -33,6 +33,9 @@ export interface AnalysisResult {
 export class AnalysisService {
 	/** Progress of current analysis operation */
 	progress = $state<Progress | null>(null);
+
+	/** Per-image analysis status for UI feedback */
+	imageStatuses = $state<Record<number, ImageAnalysisStatus>>({});
 
 	/** Abort controller for cancellable operations */
 	private abortController: AbortController | null = null;
@@ -83,6 +86,13 @@ export class AnalysisService {
 			message: 'Loading preferences...'
 		};
 
+		// Initialize all images as pending
+		const initialStatuses: Record<number, ImageAnalysisStatus> = {};
+		for (let i = 0; i < images.length; i++) {
+			initialStatuses[i] = 'pending';
+		}
+		this.imageStatuses = initialStatuses;
+
 		try {
 			// Load default label first
 			await this.loadDefaultLabel();
@@ -100,6 +110,9 @@ export class AnalysisService {
 
 			// Process images in parallel
 			const detectionPromises = images.map(async (image, index) => {
+				// Mark this image as analyzing
+				this.imageStatuses = { ...this.imageStatuses, [index]: 'analyzing' };
+
 				try {
 					log.debug(`Starting detection for image ${index + 1}/${images.length}: file="${image.file.name}", size=${image.file.size} bytes`);
 					log.debug(`Image ${index + 1} options: separateItems=${image.separateItems}, additionalImages=${image.additionalFiles?.length ?? 0}`);
@@ -123,6 +136,9 @@ export class AnalysisService {
 						message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
 					};
 
+					// Mark this image as success
+					this.imageStatuses = { ...this.imageStatuses, [index]: 'success' };
+
 					return {
 						success: true as const,
 						imageIndex: index,
@@ -143,6 +159,9 @@ export class AnalysisService {
 						total: images.length,
 						message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
 					};
+
+					// Mark this image as failed
+					this.imageStatuses = { ...this.imageStatuses, [index]: 'failed' };
 
 					log.error(`Failed to analyze image ${index + 1}`, error);
 					return {
@@ -274,6 +293,7 @@ export class AnalysisService {
 	/** Clear progress state */
 	clearProgress(): void {
 		this.progress = null;
+		this.imageStatuses = {};
 	}
 
 	// =========================================================================

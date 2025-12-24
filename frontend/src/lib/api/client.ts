@@ -16,6 +16,13 @@ const BASE_URL = '/api';
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 /**
+ * WeakSet to track AbortSignals created for timeout purposes.
+ * This allows us to reliably distinguish timeout aborts from user-initiated cancellations
+ * without relying on browser-specific error messages.
+ */
+const timeoutSignals = new WeakSet<AbortSignal>();
+
+/**
  * Create a combined AbortSignal that aborts when either:
  * - The caller's signal aborts (if provided)
  * - The default timeout elapses
@@ -26,6 +33,8 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
  */
 function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): AbortSignal {
 	const timeoutSignal = AbortSignal.timeout(timeoutMs);
+	// Track this signal as a timeout signal for reliable detection later
+	timeoutSignals.add(timeoutSignal);
 
 	if (!callerSignal) {
 		return timeoutSignal;
@@ -33,7 +42,10 @@ function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEF
 
 	// Combine caller signal with timeout signal
 	// AbortSignal.any() combines multiple signals - aborts when any one aborts
-	return AbortSignal.any([callerSignal, timeoutSignal]);
+	const combinedSignal = AbortSignal.any([callerSignal, timeoutSignal]);
+	// Mark the combined signal as timeout-capable
+	timeoutSignals.add(combinedSignal);
+	return combinedSignal;
 }
 
 /**
@@ -135,16 +147,17 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
  * 
  * @param error - The error from a failed fetch call
  * @param endpoint - The endpoint that was being fetched (for error message)
+ * @param signal - The AbortSignal used in the request (to check if it was a timeout signal)
  * @returns A NetworkError with appropriate type flags set
  * @throws The original error if it's a user-initiated abort
  */
-function wrapFetchError(error: unknown, endpoint: string): NetworkError {
+function wrapFetchError(error: unknown, endpoint: string, signal?: AbortSignal): NetworkError {
 	if (error instanceof Error) {
 		// Check for abort errors (user cancellation or timeout)
 		if (error.name === 'AbortError') {
-			// Timeouts from AbortSignal.timeout() also throw AbortError
-			// Check if the message contains "timeout" to distinguish
-			const isTimeout = error.message.toLowerCase().includes('timeout');
+			// Check if this was a timeout abort by seeing if the signal is tracked
+			// in our timeoutSignals WeakSet (more reliable than checking error message)
+			const isTimeout = signal ? timeoutSignals.has(signal) : false;
 			if (isTimeout) {
 				return new NetworkError(
 					`Request to ${endpoint} timed out`,
@@ -281,7 +294,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 			signal,
 		});
 	} catch (error) {
-		const networkError = wrapFetchError(error, endpoint);
+		const networkError = wrapFetchError(error, endpoint, signal);
 		log.error(`Network error for ${endpoint}`, networkError);
 		throw networkError;
 	}
@@ -305,7 +318,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 					signal: retrySignal,
 				});
 			} catch (error) {
-				const networkError = wrapFetchError(error, endpoint);
+				const networkError = wrapFetchError(error, endpoint, retrySignal);
 				log.error(`Network error on retry for ${endpoint}`, networkError);
 				throw networkError;
 			}
@@ -434,7 +447,7 @@ export async function requestBlobUrl(
 			signal,
 		});
 	} catch (error) {
-		const networkError = wrapFetchError(error, endpoint);
+		const networkError = wrapFetchError(error, endpoint, signal);
 		log.debug(`Blob request network error for ${endpoint}:`, networkError.message);
 		throw networkError;
 	}
@@ -456,7 +469,7 @@ export async function requestBlobUrl(
 					signal: retrySignal,
 				});
 			} catch (error) {
-				const networkError = wrapFetchError(error, endpoint);
+				const networkError = wrapFetchError(error, endpoint, retrySignal);
 				log.debug(`Blob request network error on retry for ${endpoint}:`, networkError.message);
 				throw networkError;
 			}
@@ -537,7 +550,7 @@ export async function requestFormData<T>(
 			signal,
 		});
 	} catch (error) {
-		const networkError = wrapFetchError(error, endpoint);
+		const networkError = wrapFetchError(error, endpoint, signal);
 		log.error(`Network error for ${endpoint}`, networkError);
 		throw networkError;
 	}
@@ -564,7 +577,7 @@ export async function requestFormData<T>(
 				});
 				log.debug(`Retry response from ${endpoint}:`, response.status, response.statusText);
 			} catch (error) {
-				const networkError = wrapFetchError(error, endpoint);
+				const networkError = wrapFetchError(error, endpoint, retrySignal);
 				log.error(`Network error on retry for ${endpoint}`, networkError);
 				throw networkError;
 			}

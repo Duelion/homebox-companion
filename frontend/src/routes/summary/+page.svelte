@@ -10,6 +10,7 @@
 	import type { ConfirmedItem } from "$lib/types";
 	import Button from "$lib/components/Button.svelte";
 	import StepIndicator from "$lib/components/StepIndicator.svelte";
+	import StatusIcon from "$lib/components/StatusIcon.svelte";
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -284,60 +285,9 @@
 				<div
 					class="flex flex-col gap-1 items-center justify-start min-w-[44px]"
 				>
-					{#if itemStatuses[index] === "creating"}
-						<div class="w-10 h-10 flex items-center justify-center">
-							<div
-								class="w-6 h-6 rounded-full border-2 border-primary-500/30 border-t-primary-500 animate-spin"
-							></div>
-						</div>
-					{:else if itemStatuses[index] === "success"}
-						<div
-							class="w-10 h-10 flex items-center justify-center bg-success-500/20 rounded-full"
-						>
-							<svg
-								class="w-6 h-6 text-success-500"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-						</div>
-					{:else if itemStatuses[index] === "partial_success"}
-						<div
-							class="w-10 h-10 flex items-center justify-center bg-warning-500/20 rounded-full"
-							title="Item created but some attachments failed"
-						>
-							<svg
-								class="w-6 h-6 text-warning-500"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<path
-									d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-								/>
-								<line x1="12" y1="9" x2="12" y2="13" />
-								<line x1="12" y1="17" x2="12.01" y2="17" />
-							</svg>
-						</div>
-					{:else if itemStatuses[index] === "failed"}
-						<div
-							class="w-10 h-10 flex items-center justify-center bg-error-500/20 rounded-full"
-						>
-							<svg
-								class="w-6 h-6 text-error-500"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
-						</div>
+					{#if itemStatuses[index] && itemStatuses[index] !== "pending"}
+						<!-- Show status icon during/after submission -->
+						<StatusIcon status={itemStatuses[index]} />
 					{:else}
 						<button
 							type="button"
