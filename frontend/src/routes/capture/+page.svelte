@@ -29,7 +29,7 @@
 	let additionalCameraInputs: { [key: number]: HTMLInputElement } = {};
 	let analysisAnimationComplete = $state(false);
 	let isStartingAnalysis = $state(false);
-	let progressBarRef: HTMLDivElement | null = null;
+	let progressBarRef = $state<HTMLDivElement | null>(null);
 
 	// Get workflow state for reading
 	const workflow = scanWorkflow;

@@ -9,7 +9,8 @@
  * - Submission result tracking
  */
 
-import { items as itemsApi, ApiError } from '$lib/api/index';
+import { items as itemsApi } from '$lib/api/index';
+import { ApiError } from '$lib/api/client';
 import { withRetry } from '$lib/utils/retry';
 import { workflowLogger as log } from '$lib/utils/logger';
 import { checkAuth } from '$lib/utils/token';

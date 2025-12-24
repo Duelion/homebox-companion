@@ -29,7 +29,7 @@
 
 	// Local UI state
 	let isSubmitting = $state(false);
-	let progressBarRef: HTMLDivElement | null = null;
+	let progressBarRef = $state<HTMLDivElement | null>(null);
 
 	// Calculate summary statistics
 	const totalPhotos = $derived(
