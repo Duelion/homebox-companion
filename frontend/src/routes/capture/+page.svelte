@@ -29,6 +29,7 @@
 	let additionalCameraInputs: { [key: number]: HTMLInputElement } = {};
 	let analysisAnimationComplete = $state(false);
 	let isStartingAnalysis = $state(false);
+	let progressBarRef: HTMLDivElement | null = null;
 
 	// Get workflow state for reading
 	const workflow = scanWorkflow;
@@ -251,8 +252,13 @@
 			analysisAnimationComplete = false;
 			// Collapse all expanded cards when analysis starts
 			expandedImages = new Set();
-			// Scroll to top so user can see the progress bar
-			window.scrollTo({ top: 0, behavior: "smooth" });
+			// Scroll to progress bar after it renders
+			setTimeout(() => {
+				progressBarRef?.scrollIntoView({
+					behavior: "smooth",
+					block: "start",
+				});
+			}, 100);
 			await workflow.startAnalysis();
 			log.debug("Workflow.startAnalysis() completed");
 		} catch (error) {
@@ -282,20 +288,6 @@
 	<p class="text-body-sm text-neutral-400 mb-6">
 		Add photos and configure detection options
 	</p>
-
-	<!-- Analysis progress bar (at top for visibility) -->
-	{#if progress && showAnalyzingUI}
-		<div class="mb-4">
-			<AnalysisProgressBar
-				current={progress.current}
-				total={progress.total}
-				message={status === "reviewing"
-					? "Analysis complete!"
-					: progress.message || "Analyzing..."}
-				onComplete={handleAnalysisComplete}
-			/>
-		</div>
-	{/if}
 
 	<!-- Current location display -->
 	{#if locationPath}
@@ -340,6 +332,20 @@
 					>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Analysis progress bar (above images for context) -->
+	{#if progress && showAnalyzingUI}
+		<div class="mb-4" bind:this={progressBarRef}>
+			<AnalysisProgressBar
+				current={progress.current}
+				total={progress.total}
+				message={status === "reviewing"
+					? "Analysis complete!"
+					: progress.message || "Analyzing..."}
+				onComplete={handleAnalysisComplete}
+			/>
 		</div>
 	{/if}
 

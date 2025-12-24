@@ -11,6 +11,7 @@
 	import Button from "$lib/components/Button.svelte";
 	import StepIndicator from "$lib/components/StepIndicator.svelte";
 	import StatusIcon from "$lib/components/StatusIcon.svelte";
+	import AnalysisProgressBar from "$lib/components/AnalysisProgressBar.svelte";
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -23,10 +24,12 @@
 	const locationPath = $derived(workflow.state.locationPath);
 	const parentItemName = $derived(workflow.state.parentItemName);
 	const itemStatuses = $derived(workflow.state.itemStatuses);
+	const submissionProgress = $derived(workflow.state.submissionProgress);
 	const submissionErrors = $derived(workflow.state.submissionErrors);
 
 	// Local UI state
 	let isSubmitting = $state(false);
+	let progressBarRef: HTMLDivElement | null = null;
 
 	// Calculate summary statistics
 	const totalPhotos = $derived(
@@ -86,6 +89,13 @@
 		}
 
 		isSubmitting = true;
+		// Scroll to progress bar
+		setTimeout(() => {
+			progressBarRef?.scrollIntoView({
+				behavior: "smooth",
+				block: "start",
+			});
+		}, 100);
 		const result = await workflow.submitAll();
 		isSubmitting = false;
 
@@ -197,6 +207,17 @@
 					>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Submission progress bar -->
+	{#if submissionProgress && isSubmitting}
+		<div class="mb-4" bind:this={progressBarRef}>
+			<AnalysisProgressBar
+				current={submissionProgress.current}
+				total={submissionProgress.total}
+				message={submissionProgress.message || "Submitting..."}
+			/>
 		</div>
 	{/if}
 
