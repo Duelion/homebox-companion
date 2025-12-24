@@ -283,13 +283,16 @@
 	}
 
 	/* Keep fixed UI elements stable during page transitions - no animation */
+	/* We hide the old snapshot entirely because backdrop-blur effects can't be 
+	   captured properly in View Transition snapshots, causing a "white flash" */
 	::view-transition-old(header),
+	::view-transition-old(bottom-nav) {
+		display: none;
+	}
+
 	::view-transition-new(header),
-	::view-transition-old(bottom-nav),
 	::view-transition-new(bottom-nav) {
 		animation: none;
-		/* Ensure proper layering during transition */
-		mix-blend-mode: normal;
 	}
 }
 
