@@ -30,7 +30,7 @@
 
 	// Selected image
 	let selectedImageIndex = $state(0);
-	let loadedImage: HTMLImageElement | null = null;
+	let loadedImage = $state<HTMLImageElement | null>(null);
 
 	// Transform state
 	// Offset is in the ROTATED coordinate space (relative to crop center after rotation)
