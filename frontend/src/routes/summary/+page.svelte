@@ -89,12 +89,9 @@
 		}
 
 		isSubmitting = true;
-		// Scroll to progress bar
+		// Scroll to top of app
 		setTimeout(() => {
-			progressBarRef?.scrollIntoView({
-				behavior: "smooth",
-				block: "start",
-			});
+			window.scrollTo({ top: 0, behavior: "smooth" });
 		}, 100);
 		const result = await workflow.submitAll();
 		isSubmitting = false;

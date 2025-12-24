@@ -113,6 +113,8 @@
 					separateItems: false,
 					extraInstructions: "",
 				});
+				// Collapse all expanded accordions when a new image is added
+				expandedImages = new Set();
 			};
 			reader.readAsDataURL(file);
 		}
@@ -252,12 +254,9 @@
 			analysisAnimationComplete = false;
 			// Collapse all expanded cards when analysis starts
 			expandedImages = new Set();
-			// Scroll to progress bar after it renders
+			// Scroll to top of app after analysis starts
 			setTimeout(() => {
-				progressBarRef?.scrollIntoView({
-					behavior: "smooth",
-					block: "start",
-				});
+				window.scrollTo({ top: 0, behavior: "smooth" });
 			}, 100);
 			await workflow.startAnalysis();
 			log.debug("Workflow.startAnalysis() completed");
