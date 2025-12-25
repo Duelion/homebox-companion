@@ -6,14 +6,50 @@ The sync client has been removed - use async/await throughout.
 
 from __future__ import annotations
 
-from typing import Any
+import functools
+from collections.abc import Callable
+from functools import lru_cache
+from typing import Any, cast
 
 import httpx
 from loguru import logger
+from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store
 
 from ..core.config import settings
 from ..core.exceptions import AuthenticationError
 from .models import Attachment, Item, ItemCreate, Label, Location
+
+
+@lru_cache
+def _get_homebox_rate_limiter() -> Throttled:
+    """Get or create the shared Homebox API rate limiter.
+
+    Uses Token Bucket algorithm with 30 req/sec, burst of 10.
+    This prevents overwhelming the Homebox server during bulk operations.
+    """
+    logger.debug("Initialized Homebox API rate limiter: 30 req/sec, burst 10")
+    return Throttled(
+        using=RateLimiterType.TOKEN_BUCKET.value,
+        quota=rate_limiter.per_sec(30, burst=10),
+        store=store.MemoryStore(),
+        timeout=30,  # Wait up to 30s for capacity
+    )
+
+
+def _rate_limited[F: Callable[..., Any]](func: F) -> F:
+    """Decorator that applies rate limiting to Homebox mutation methods.
+
+    This decorator ensures write operations (creates, updates, deletes) are
+    throttled to prevent overwhelming the Homebox server during bulk operations.
+    """
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        await _get_homebox_rate_limiter().limit("homebox_write", cost=1)
+        return await func(self, *args, **kwargs)
+
+    return cast(F, wrapper)
+
 
 # Default timeout configuration
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
@@ -288,6 +324,7 @@ class HomeboxClient:
         raw = await self.get_location(token, location_id)
         return Location.from_api(raw)
 
+    @_rate_limited
     async def create_location(
         self,
         token: str,
@@ -325,6 +362,7 @@ class HomeboxClient:
         self._ensure_success(response, "Create location")
         return response.json()
 
+    @_rate_limited
     async def update_location(
         self,
         token: str,
@@ -396,6 +434,7 @@ class HomeboxClient:
         raw = await self.list_labels(token)
         return [Label.from_api(label) for label in raw]
 
+    @_rate_limited
     async def create_item(self, token: str, item: ItemCreate) -> dict[str, Any]:
         """Create a single item in Homebox.
 
@@ -431,6 +470,7 @@ class HomeboxClient:
         raw = await self.create_item(token, item)
         return Item.from_api(raw)
 
+    @_rate_limited
     async def update_item(
         self, token: str, item_id: str, item_data: dict[str, Any]
     ) -> dict[str, Any]:
@@ -534,6 +574,7 @@ class HomeboxClient:
         raw = await self.get_item(token, item_id)
         return Item.from_api(raw)
 
+    @_rate_limited
     async def delete_item(self, token: str, item_id: str) -> None:
         """Delete an item by ID.
 
@@ -587,6 +628,7 @@ class HomeboxClient:
         content_type = response.headers.get("content-type", "application/octet-stream")
         return response.content, content_type
 
+    @_rate_limited
     async def upload_attachment(
         self,
         token: str,
@@ -647,6 +689,7 @@ class HomeboxClient:
         )
         return Attachment.from_api(raw)
 
+    @_rate_limited
     async def ensure_asset_ids(self, token: str) -> int:
         """Ensure all items have asset IDs assigned.
 
