@@ -164,7 +164,7 @@
 	<title>Review & Submit - Homebox Companion</title>
 </svelte:head>
 
-<div class="animate-in">
+<div class="animate-in pb-28">
 	<StepIndicator currentStep={4} />
 
 	<h2 class="text-h2 text-neutral-100 mb-1">Review & Submit</h2>
@@ -447,9 +447,13 @@
 			</div>
 		</div>
 	{/if}
+</div>
 
-	<!-- Actions -->
-	<div class="space-y-3">
+<!-- Sticky Submit button at bottom - above navigation bar -->
+<div
+	class="fixed bottom-nav-offset left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 p-4 z-40"
+>
+	<div class="max-w-lg mx-auto space-y-3">
 		{#if !workflow.hasFailedItems() && !workflow.allItemsSuccessful()}
 			<Button
 				variant="primary"
