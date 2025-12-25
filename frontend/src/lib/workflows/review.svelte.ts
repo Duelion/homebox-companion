@@ -34,6 +34,29 @@ export class ReviewService {
 		this.currentReviewIndex = 0;
 	}
 
+	/**
+	 * Update sourceImageIndex for all detected items after images are removed.
+	 * Each removed index causes all higher indices to shift down by 1.
+	 * @param removedIndices - Array of image indices that were removed (must be sorted ascending)
+	 */
+	updateSourceImageIndices(removedIndices: number[]): void {
+		if (removedIndices.length === 0) return;
+
+		this.detectedItems = this.detectedItems.map(item => {
+			let newIndex = item.sourceImageIndex;
+			// For each removed index that was below or equal to this item's source,
+			// decrement the index (but only if the source wasn't the removed index itself)
+			for (const removed of removedIndices) {
+				if (removed < item.sourceImageIndex) {
+					newIndex--;
+				}
+			}
+			return newIndex !== item.sourceImageIndex
+				? { ...item, sourceImageIndex: newIndex }
+				: item;
+		});
+	}
+
 	/** Clear detected items */
 	clearDetectedItems(): void {
 		this.detectedItems = [];
