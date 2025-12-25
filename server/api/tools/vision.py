@@ -151,7 +151,7 @@ async def detect_items(
     async def compress_all_images() -> list[CompressedImage]:
         """Compress all images (primary + additional) for Homebox upload in parallel."""
         all_images_to_compress = [(image_bytes, content_type)] + additional_image_data
-        
+
         async def compress_one(img_bytes: bytes, _mime: str) -> CompressedImage:
             """Compress a single image."""
             # Run compression in executor to avoid blocking
@@ -162,10 +162,10 @@ async def detect_items(
                 jpeg_quality
             )
             return CompressedImage(data=base64_data, mime_type=mime)
-        
+
         # Compress all images in parallel
         return await asyncio.gather(*[
-            compress_one(img_bytes, mime) 
+            compress_one(img_bytes, mime)
             for img_bytes, mime in all_images_to_compress
         ])
 

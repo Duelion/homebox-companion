@@ -69,7 +69,7 @@ def _is_newer_version(latest: str, current: str) -> bool:
 
 async def _get_latest_github_version() -> str | None:
     """Fetch the latest release version from GitHub with caching and proper error handling.
-    
+
     Implements both positive caching (1 hour for successful checks) and negative caching
     (5 minutes for failed checks) to prevent hammering the GitHub API during outages.
     """

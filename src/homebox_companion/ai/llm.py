@@ -15,6 +15,7 @@ import litellm
 from loguru import logger
 
 from ..core import config
+from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
 from .model_capabilities import get_model_capabilities
 
 # Silence LiteLLM's verbose logging (we use loguru)
@@ -223,6 +224,21 @@ async def _acompletion_with_repair(
         f"\n{'='*60}"
     )
 
+    # Acquire rate limit before making API call
+    if is_rate_limiting_enabled():
+        estimated_tokens = estimate_tokens(messages)
+        logger.debug(f"Rate limiting: estimated {estimated_tokens} tokens for this request")
+        try:
+            await acquire_rate_limit(estimated_tokens)
+        except Exception as e:
+            logger.warning(f"Rate limit wait timeout: {e}")
+            raise LLMError(
+                "Rate limit wait timeout exceeded. The API rate limit is being hit too frequently. "
+                "Consider increasing HBC_RATE_LIMIT_RPM/HBC_RATE_LIMIT_TPM, reducing batch sizes, "
+                "or disabling rate limiting with HBC_RATE_LIMIT_ENABLED=false if you have higher "
+                "tier limits."
+            ) from e
+
     try:
         completion = await litellm.acompletion(**kwargs)
     except litellm.AuthenticationError as e:
@@ -288,6 +304,21 @@ async def _acompletion_with_repair(
     repair_messages.append({"role": "user", "content": repair_prompt})
 
     logger.debug("Sending repair request to LLM...")
+
+    # Apply rate limiting to repair request as well
+    if is_rate_limiting_enabled():
+        estimated_tokens = estimate_tokens(repair_messages)
+        logger.debug(f"Rate limiting repair request: estimated {estimated_tokens} tokens")
+        try:
+            await acquire_rate_limit(estimated_tokens)
+        except Exception as e:
+            logger.warning(f"Rate limit wait timeout on repair request: {e}")
+            raise LLMError(
+                "Rate limit wait timeout exceeded during JSON repair. "
+                "Consider increasing HBC_RATE_LIMIT_RPM/HBC_RATE_LIMIT_TPM, reducing batch sizes, "
+                "or disabling rate limiting with HBC_RATE_LIMIT_ENABLED=false."
+            ) from e
+
     try:
         repair_completion = await litellm.acompletion(
             model=model,
