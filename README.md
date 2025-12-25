@@ -232,6 +232,36 @@ HBC_IMAGE_QUALITY=high
 </details>
 
 <details>
+<summary>Capture Limits</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_CAPTURE_MAX_IMAGES` | `30` | Maximum photos per capture session |
+| `HBC_CAPTURE_MAX_FILE_SIZE_MB` | `10` | Maximum file size per image in MB |
+
+**Note:** These are experimental settings. It's advisable to keep the default values to minimize data loss risk during capture sessions.
+
+</details>
+
+<details>
+<summary>Rate Limiting</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_RATE_LIMIT_ENABLED` | `true` | Enable/disable API rate limiting |
+| `HBC_RATE_LIMIT_RPM` | `400` | Requests per minute (80% of Tier 1 limit) |
+| `HBC_RATE_LIMIT_TPM` | `400000` | Tokens per minute (80% of Tier 1 limit) |
+| `HBC_RATE_LIMIT_BURST_MULTIPLIER` | `1.5` | Burst capacity multiplier |
+
+**Note:** Default settings are conservative (80% of OpenAI Tier 1 limits). Only configure if you have a higher-tier account or need to adjust limits.
+
+**Examples for different OpenAI tiers:**
+- Tier 2: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=1600000`
+- Tier 3: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=3200000`
+
+</details>
+
+<details>
 <summary>Server & Logging</summary>
 
 | Variable | Default | Description |
@@ -271,11 +301,12 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 ## 💡 Tips
 
-- **Batch more items for faster uploads** – Images are analyzed by AI in parallel, so adding more items actually feels faster than one at a time.
+- **Batch more items for faster uploads** – Images are analyzed by AI in parallel (up to 30 simultaneously), so adding more items actually feels faster than one at a time.
 - **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
 - **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
 - **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
 - **Use the Settings page** – Customize AI behavior without restarting, then export settings as environment variables for Docker.
+- **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.
 
 ## 📄 License
 
