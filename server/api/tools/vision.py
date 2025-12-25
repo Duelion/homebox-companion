@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -47,6 +48,18 @@ from ...schemas.vision import (
 )
 
 router = APIRouter()
+
+# Limit concurrent CPU-intensive compression to available cores.
+# This prevents 100+ parallel requests from overwhelming the CPU.
+_COMPRESSION_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _get_compression_semaphore() -> asyncio.Semaphore:
+    """Get or create the compression semaphore (lazy init for correct event loop)."""
+    global _COMPRESSION_SEMAPHORE
+    if _COMPRESSION_SEMAPHORE is None:
+        _COMPRESSION_SEMAPHORE = asyncio.Semaphore(os.cpu_count() or 4)
+    return _COMPRESSION_SEMAPHORE
 
 
 def _llm_error_to_http(e: Exception) -> HTTPException:
@@ -153,15 +166,16 @@ async def detect_items(
         all_images_to_compress = [(image_bytes, content_type)] + additional_image_data
 
         async def compress_one(img_bytes: bytes, _mime: str) -> CompressedImage:
-            """Compress a single image."""
-            # Run compression in executor to avoid blocking
-            base64_data, mime = await asyncio.to_thread(
-                encode_compressed_image_to_base64,
-                img_bytes,
-                max_dimension,
-                jpeg_quality
-            )
-            return CompressedImage(data=base64_data, mime_type=mime)
+            """Compress a single image with concurrency limiting."""
+            # Limit concurrent compressions to prevent CPU overload
+            async with _get_compression_semaphore():
+                base64_data, mime = await asyncio.to_thread(
+                    encode_compressed_image_to_base64,
+                    img_bytes,
+                    max_dimension,
+                    jpeg_quality
+                )
+                return CompressedImage(data=base64_data, mime_type=mime)
 
         # Compress all images in parallel
         return await asyncio.gather(*[
