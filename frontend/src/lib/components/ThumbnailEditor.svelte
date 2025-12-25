@@ -25,15 +25,12 @@
 		onClose,
 	}: Props = $props();
 
-	// Track if we should apply initial transform on first load
-	let shouldApplyInitialTransform = $state(!!initialTransform);
-
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
 
 	// Selected image
 	let selectedImageIndex = $state(0);
-	let loadedImage: HTMLImageElement | null = null;
+	let loadedImage = $state<HTMLImageElement | null>(null);
 
 	// Transform state
 	// Offset is in the ROTATED coordinate space (relative to crop center after rotation)
@@ -117,6 +114,9 @@
 	function loadImage(index: number) {
 		if (index < 0 || index >= images.length) return;
 
+		// Track if this is the first load (before loadedImage is set)
+		const isFirstLoad = loadedImage === null;
+
 		const img = new Image();
 		img.onload = () => {
 			loadedImage = img;
@@ -127,7 +127,7 @@
 
 			// Apply initial transform if available and this is the first load
 			if (
-				shouldApplyInitialTransform &&
+				isFirstLoad &&
 				initialTransform &&
 				index === initialTransform.sourceImageIndex
 			) {
@@ -135,7 +135,6 @@
 				rotation = initialTransform.rotation;
 				offsetX = initialTransform.offsetX;
 				offsetY = initialTransform.offsetY;
-				shouldApplyInitialTransform = false; // Only apply once
 			} else {
 				// Reset to default using shared function
 				scale = minScale;

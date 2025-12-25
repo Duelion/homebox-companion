@@ -9,15 +9,19 @@
 	import { checkAuth } from "$lib/utils/token";
 	import { routeGuards } from "$lib/utils/routeGuard";
 	import { createLogger } from "$lib/utils/logger";
+	import { getConfig } from "$lib/api/settings";
 	import Button from "$lib/components/Button.svelte";
 	import StepIndicator from "$lib/components/StepIndicator.svelte";
 	import BackLink from "$lib/components/BackLink.svelte";
 	import AnalysisProgressBar from "$lib/components/AnalysisProgressBar.svelte";
+	import StatusIcon from "$lib/components/StatusIcon.svelte";
 
 	const log = createLogger({ prefix: "Capture" });
 
-	const MAX_IMAGES = 30;
-	const MAX_FILE_SIZE_MB = 10;
+	// Capture limits (loaded from config, with safe defaults)
+	let maxImages = $state(30);
+	let maxFileSizeMb = $state(10);
+	let configLoaded = $state(false);
 
 	let fileInput: HTMLInputElement;
 	let cameraInput: HTMLInputElement;
@@ -28,6 +32,41 @@
 	let additionalCameraInputs: { [key: number]: HTMLInputElement } = {};
 	let analysisAnimationComplete = $state(false);
 	let isStartingAnalysis = $state(false);
+	let progressBarRef = $state<HTMLDivElement | null>(null);
+
+	// Track object URLs for cleanup (prevents memory leaks)
+	// Note: We only revoke URLs when images are explicitly removed, NOT on component
+	// destroy. This is because the workflow state persists across navigation, and
+	// we need the URLs to remain valid if the user navigates back to this page.
+	// The browser automatically cleans up Object URLs when the page/tab is closed.
+	const createdObjectUrls = new Set<string>();
+
+	/** Create an object URL and track it for cleanup */
+	function createTrackedObjectUrl(file: File): string {
+		const url = URL.createObjectURL(file);
+		createdObjectUrls.add(url);
+		return url;
+	}
+
+	/** Revoke an object URL and remove from tracking */
+	function revokeObjectUrl(url: string): void {
+		// Only revoke if we created this URL (it's in our tracking set)
+		// This handles the case where user navigates back and URLs were
+		// created in a previous component instance
+		if (createdObjectUrls.has(url)) {
+			URL.revokeObjectURL(url);
+			createdObjectUrls.delete(url);
+			log.debug(`Revoked object URL (${createdObjectUrls.size} remaining)`);
+		} else {
+			// URL was created by a previous component instance - still try to revoke
+			// to free memory, but don't log errors since this is expected behavior
+			try {
+				URL.revokeObjectURL(url);
+			} catch {
+				// Ignore - URL may have already been revoked or is invalid
+			}
+		}
+	}
 
 	// Get workflow state for reading
 	const workflow = scanWorkflow;
@@ -38,9 +77,27 @@
 	let status = $derived(workflow.state.status);
 	let isAnalyzing = $derived(status === "analyzing");
 	let progress = $derived(workflow.state.analysisProgress);
+	let imageStatuses = $derived(workflow.state.imageStatuses);
 	let locationName = $derived(workflow.state.locationName);
 	let locationPath = $derived(workflow.state.locationPath);
 	let parentItemName = $derived(workflow.state.parentItemName);
+
+	// Analysis status counts (computed once for efficiency)
+	let failedImageCount = $derived(
+		Object.values(imageStatuses).filter((s) => s === "failed").length,
+	);
+	let succeededImageCount = $derived(
+		Object.values(imageStatuses).filter((s) => s === "success").length,
+	);
+	let detectedItemCount = $derived(workflow.state.detectedItems.length);
+
+	// Total image count including additional images (for limit enforcement)
+	let totalImageCount = $derived(
+		images.reduce(
+			(count, img) => count + 1 + (img.additionalFiles?.length || 0),
+			0,
+		),
+	);
 
 	// True while analyzing OR while the completion animation is playing
 	// This prevents UI elements from appearing/disappearing during animation
@@ -48,9 +105,36 @@
 		isAnalyzing || (status === "reviewing" && !analysisAnimationComplete),
 	);
 
+	// Cleanup orphaned Object URLs when workflow is reset (images array becomes empty)
+	// This handles cases like workflow.startNew() or workflow.reset()
+	let previousImageCount = 0;
+	$effect(() => {
+		const currentCount = images.length;
+		// If images were cleared (went to 0 from non-zero), revoke all tracked URLs
+		if (previousImageCount > 0 && currentCount === 0) {
+			log.debug(`Workflow reset detected, revoking ${createdObjectUrls.size} orphaned URLs`);
+			for (const url of createdObjectUrls) {
+				URL.revokeObjectURL(url);
+			}
+			createdObjectUrls.clear();
+		}
+		previousImageCount = currentCount;
+	});
+
 	// Apply route guard: requires auth, location, and not in reviewing state
-	onMount(() => {
+	onMount(async () => {
 		if (!routeGuards.capture()) return;
+
+		// Load capture limits from config
+		try {
+			const config = await getConfig();
+			maxImages = config.capture_max_images;
+			maxFileSizeMb = config.capture_max_file_size_mb;
+		} catch (error) {
+			log.warn("Failed to load capture config, using defaults", error);
+		} finally {
+			configLoaded = true;
+		}
 
 		// If workflow is complete (just finished submission), reset for a new scan session
 		if (workflow.state.status === "complete") {
@@ -83,35 +167,48 @@
 	// FILE HANDLING
 	// ==========================================================================
 
+	/** Check if file exceeds size limit and show toast if so */
+	function isFileTooLarge(file: File): boolean {
+		if (file.size > maxFileSizeMb * 1024 * 1024) {
+			showToast(
+				`File ${file.name} is too large (max ${maxFileSizeMb}MB)`,
+				"warning",
+			);
+			return true;
+		}
+		return false;
+	}
+
 	function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (!input.files) return;
 
+		// Track count locally for limit enforcement
+		let currentCount = totalImageCount;
+
 		for (const file of Array.from(input.files)) {
-			if (images.length >= MAX_IMAGES) {
-				showToast(`Maximum ${MAX_IMAGES} images allowed`, "warning");
+			if (currentCount >= maxImages) {
+				showToast(`Maximum ${maxImages} images allowed`, "warning");
 				break;
 			}
 
-			if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-				showToast(
-					`File ${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`,
-					"warning",
-				);
-				continue;
-			}
+			if (isFileTooLarge(file)) continue;
 
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				const dataUrl = e.target?.result as string;
-				workflow.addImage({
-					file,
-					dataUrl,
-					separateItems: false,
-					extraInstructions: "",
-				});
-			};
-			reader.readAsDataURL(file);
+			currentCount++;
+			
+			// Use Object URL instead of base64 data URL - much more memory efficient
+			// Object URLs are tiny strings that reference the File blob in memory
+			// instead of duplicating the entire file as a base64 string
+			const previewUrl = createTrackedObjectUrl(file);
+			
+			workflow.addImage({
+				file,
+				dataUrl: previewUrl,
+				separateItems: false,
+				extraInstructions: "",
+			});
+			// Collapse all expanded accordions when a new image is added
+			expandedImages = new Set();
 		}
 
 		input.value = "";
@@ -122,36 +219,29 @@
 		if (!input.files) return;
 
 		const newFiles: File[] = [];
-		const newDataUrls: string[] = [];
-		let processedCount = 0;
-		const totalFiles = input.files.length;
+		const newPreviewUrls: string[] = [];
+
+		// Track how many more we can accept
+		const remainingSlots = maxImages - totalImageCount;
 
 		for (const file of Array.from(input.files)) {
-			if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-				showToast(
-					`File ${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`,
-					"warning",
-				);
-				processedCount++;
-				continue;
+			// Check total image limit (including additional images)
+			if (newFiles.length >= remainingSlots) {
+				showToast(`Maximum ${maxImages} images allowed`, "warning");
+				break;
 			}
 
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				const dataUrl = e.target?.result as string;
-				newFiles.push(file);
-				newDataUrls.push(dataUrl);
-				processedCount++;
+			if (isFileTooLarge(file)) continue;
 
-				if (processedCount === totalFiles && newFiles.length > 0) {
-					workflow.addAdditionalImages(
-						imageIndex,
-						newFiles,
-						newDataUrls,
-					);
-				}
-			};
-			reader.readAsDataURL(file);
+			// Use Object URL instead of base64 - much more memory efficient
+			const previewUrl = createTrackedObjectUrl(file);
+			newFiles.push(file);
+			newPreviewUrls.push(previewUrl);
+		}
+
+		// Add all valid files at once (synchronous, no FileReader needed)
+		if (newFiles.length > 0) {
+			workflow.addAdditionalImages(imageIndex, newFiles, newPreviewUrls);
 		}
 
 		input.value = "";
@@ -172,6 +262,18 @@
 	}
 
 	function removeImage(index: number) {
+		// Revoke object URLs before removing to free memory
+		const imageToRemove = images[index];
+		if (imageToRemove) {
+			revokeObjectUrl(imageToRemove.dataUrl);
+			// Also revoke any additional image URLs
+			if (imageToRemove.additionalDataUrls) {
+				for (const url of imageToRemove.additionalDataUrls) {
+					revokeObjectUrl(url);
+				}
+			}
+		}
+		
 		workflow.removeImage(index);
 		expandedImages = new Set(
 			[...expandedImages]
@@ -192,6 +294,12 @@
 		imageIndex: number,
 		additionalIndex: number,
 	) {
+		// Revoke object URL before removing to free memory
+		const image = images[imageIndex];
+		if (image?.additionalDataUrls?.[additionalIndex]) {
+			revokeObjectUrl(image.additionalDataUrls[additionalIndex]);
+		}
+		
 		workflow.removeAdditionalImage(imageIndex, additionalIndex);
 	}
 
@@ -249,6 +357,10 @@
 			analysisAnimationComplete = false;
 			// Collapse all expanded cards when analysis starts
 			expandedImages = new Set();
+			// Scroll to top of app after analysis starts
+			setTimeout(() => {
+				window.scrollTo({ top: 0, behavior: "smooth" });
+			}, 100);
 			await workflow.startAnalysis();
 			log.debug("Workflow.startAnalysis() completed");
 		} catch (error) {
@@ -325,6 +437,146 @@
 		</div>
 	{/if}
 
+	<!-- Analysis progress bar (above images for context) -->
+	{#if progress && showAnalyzingUI}
+		<div class="mb-4" bind:this={progressBarRef}>
+			<AnalysisProgressBar
+				current={progress.current}
+				total={progress.total}
+				message={status === "reviewing"
+					? "Analysis complete!"
+					: progress.message || "Analyzing..."}
+				onComplete={handleAnalysisComplete}
+			/>
+		</div>
+	{/if}
+
+	<!-- Partial failure panel (when some images failed analysis) -->
+	{#if status === "partial_analysis"}
+		<div
+			class="bg-warning-500/10 border border-warning-500/30 rounded-xl p-4 mb-4"
+			transition:slide={{ duration: 200 }}
+		>
+			<div class="flex items-start gap-3 mb-4">
+				<!-- Warning icon -->
+				<svg
+					class="w-6 h-6 text-warning-400 shrink-0 mt-0.5"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path
+						d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+					/>
+				</svg>
+
+				<div class="flex-1">
+					<h3 class="text-body font-semibold text-warning-100 mb-1">
+						Some Images Failed to Analyze
+					</h3>
+					<p class="text-body-sm text-warning-200/80 mb-3">
+						{failedImageCount} of {images.length} image(s)
+						could not be processed. You can retry the failed images, continue
+						with the successful ones, or remove the failed images.
+					</p>
+
+					<!-- Stats -->
+					<div class="flex gap-4 text-caption mb-4">
+						<div class="flex items-center gap-1.5">
+							<div
+								class="w-2 h-2 rounded-full bg-success-400"
+							></div>
+							<span class="text-neutral-300"
+								>{succeededImageCount} succeeded</span
+							>
+						</div>
+						<div class="flex items-center gap-1.5">
+							<div class="w-2 h-2 rounded-full bg-error-400"></div>
+							<span class="text-neutral-300"
+								>{failedImageCount} failed</span
+							>
+						</div>
+						<div class="flex items-center gap-1.5">
+							<div
+								class="w-2 h-2 rounded-full bg-primary-400"
+							></div>
+							<span class="text-neutral-300"
+								>{detectedItemCount} items detected</span
+							>
+						</div>
+					</div>
+
+					<!-- Action buttons -->
+					<div class="flex flex-col sm:flex-row gap-2">
+						<Button
+							variant="warning"
+							onclick={async () => {
+								// Reset animation flag so progress bar works correctly
+								analysisAnimationComplete = false;
+								await workflow.retryFailedAnalysis();
+							}}
+							disabled={isStartingAnalysis}
+						>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<path
+									d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+								/>
+							</svg>
+							<span>Retry Failed Images</span>
+						</Button>
+						<Button
+							variant="primary"
+							onclick={() => {
+								workflow.continueWithSuccessful();
+								goto("/review");
+							}}
+							disabled={isStartingAnalysis}
+						>
+							<span>Continue with Successful</span>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<polyline points="9 18 15 12 9 6" />
+							</svg>
+						</Button>
+						<Button
+							variant="secondary"
+							onclick={() => {
+								workflow.removeFailedImages();
+								goto("/review");
+							}}
+							disabled={isStartingAnalysis}
+						>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<path
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+							<span>Remove Failed</span>
+						</Button>
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Image list with collapsible cards -->
 	{#if images.length > 0}
 		<div class="space-y-3 mb-4">
@@ -371,49 +623,57 @@
 							</p>
 						</div>
 
-						<!-- Action buttons -->
+						<!-- Action buttons / status -->
 						<div class="flex items-center gap-1">
-							<button
-								type="button"
-								class="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
-								aria-label={expandedImages.has(index)
-									? "Collapse options"
-									: "Expand options"}
-								onclick={() => toggleImageExpanded(index)}
-								disabled={isAnalyzing}
-							>
-								<svg
-									class="w-5 h-5 transition-transform duration-200 {expandedImages.has(
-										index,
-									)
-										? 'rotate-180'
-										: ''}"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
+							{#if showAnalyzingUI && imageStatuses[index]}
+								<!-- Show status icon during analysis -->
+								<StatusIcon
+									status={imageStatuses[index]}
+									size="sm"
+								/>
+							{:else}
+								<button
+									type="button"
+									class="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
+									aria-label={expandedImages.has(index)
+										? "Collapse options"
+										: "Expand options"}
+									onclick={() => toggleImageExpanded(index)}
+									disabled={isAnalyzing}
 								>
-									<polyline points="6 9 12 15 18 9" />
-								</svg>
-							</button>
-							<button
-								type="button"
-								class="p-2 text-neutral-400 hover:text-error-400 hover:bg-error-500/10 rounded-lg transition-colors"
-								aria-label="Remove image"
-								onclick={() => removeImage(index)}
-								disabled={isAnalyzing}
-							>
-								<svg
-									class="w-5 h-5"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
+									<svg
+										class="w-5 h-5 transition-transform duration-200 {expandedImages.has(
+											index,
+										)
+											? 'rotate-180'
+											: ''}"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+									>
+										<polyline points="6 9 12 15 18 9" />
+									</svg>
+								</button>
+								<button
+									type="button"
+									class="p-2 text-neutral-400 hover:text-error-400 hover:bg-error-500/10 rounded-lg transition-colors"
+									aria-label="Remove image"
+									onclick={() => removeImage(index)}
+									disabled={isAnalyzing}
 								>
-									<line x1="18" y1="6" x2="6" y2="18" />
-									<line x1="6" y1="6" x2="18" y2="18" />
-								</svg>
-							</button>
+									<svg
+										class="w-5 h-5"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+									>
+										<line x1="18" y1="6" x2="6" y2="18" />
+										<line x1="6" y1="6" x2="18" y2="18" />
+									</svg>
+								</button>
+							{/if}
 						</div>
 					</div>
 
@@ -729,7 +989,7 @@
 			{/each}
 
 			<!-- Add more images button -->
-			{#if images.length < MAX_IMAGES && !showAnalyzingUI}
+			{#if totalImageCount < maxImages && !showAnalyzingUI}
 				<div class="flex gap-3">
 					<button
 						type="button"
@@ -880,7 +1140,8 @@
 			</div>
 
 			<p class="text-caption text-neutral-500 mt-6">
-				Max {MAX_IMAGES} images · {MAX_FILE_SIZE_MB}MB per file
+				{totalImageCount} / {maxImages} images · {maxFileSizeMb}MB per
+				file
 			</p>
 		</div>
 	{/if}
@@ -902,20 +1163,6 @@
 		onchange={handleFileSelect}
 		class="hidden"
 	/>
-
-	<!-- Analysis progress (inline, not in footer) -->
-	{#if progress && showAnalyzingUI}
-		<div class="mb-4">
-			<AnalysisProgressBar
-				current={progress.current}
-				total={progress.total}
-				message={status === "reviewing"
-					? "Analysis complete!"
-					: progress.message || "Analyzing..."}
-				onComplete={handleAnalysisComplete}
-			/>
-		</div>
-	{/if}
 </div>
 
 <!-- Sticky Analyze button at bottom - above navigation bar -->

@@ -39,9 +39,14 @@
 			// Check if token exists and validate it before redirecting
 			if (get(isAuthenticated)) {
 				log.debug("Token found, validating before redirect...");
-				const isValid = await auth.validateToken();
-				if (isValid) {
+				const result = await auth.validateToken();
+				if (result.valid) {
 					log.debug("Token valid, redirecting to /location");
+					goto("/location");
+					return;
+				} else if (result.reason === 'network_error') {
+					// Network error - token might still be valid, proceed anyway
+					log.debug("Network error during validation, redirecting to /location anyway");
 					goto("/location");
 					return;
 				} else {

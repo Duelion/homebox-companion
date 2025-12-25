@@ -15,7 +15,7 @@
 	import { initializeAuth } from "$lib/services/tokenRefresh";
 	import { onMount, onDestroy } from "svelte";
 	import { browser } from "$app/environment";
-	import { afterNavigate } from "$app/navigation";
+	import { afterNavigate, onNavigate } from "$app/navigation";
 
 	function dismissUpdate() {
 		updateDismissed.set(true);
@@ -38,9 +38,37 @@
 		}
 	});
 
+	// Global page transitions (progressive enhancement)
+	// Uses the native View Transitions API when available.
+	onNavigate((navigation) => {
+		if (!browser) return;
+		const doc = document as Document & {
+			startViewTransition?: (cb: () => void | Promise<void>) => unknown;
+		};
+		// IMPORTANT: bind to `document` — some browsers throw if the method is called unbound
+		// (e.g. "called on an object that does not implement interface Document").
+		const startViewTransition = doc.startViewTransition?.bind(doc);
+		if (!startViewTransition) return;
+
+		// Wrap the navigation in a view transition.
+		// SvelteKit will wait for the returned promise before completing the navigation.
+		return new Promise<void>((resolve) => {
+			startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
+
 	// Fetch version on mount and register event listeners
 	onMount(async () => {
 		if (browser) {
+			// Disable per-page "animate-in" when View Transitions are supported
+			// (prevents double-animations on modern browsers; falls back cleanly elsewhere)
+			if ("startViewTransition" in document) {
+				document.documentElement.classList.add("vt-enabled");
+			}
+
 			// Initialize auth (check token, refresh if needed)
 			await initializeAuth();
 
@@ -84,7 +112,11 @@
 
 <div class="min-h-screen min-h-dvh flex flex-col bg-background">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
-	<div class="fixed top-0 left-0 right-0 z-40 glass border-b border-border">
+	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
+	<div
+		class="fixed top-0 left-0 right-0 z-40 glass border-b border-border"
+		style="view-transition-name: header;"
+	>
 		<div class="pt-safe">
 			<div
 				class="max-w-lg mx-auto px-4 h-14 flex items-center justify-center"

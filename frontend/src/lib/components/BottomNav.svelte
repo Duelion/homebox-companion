@@ -64,9 +64,10 @@
 	}
 </script>
 
+<!-- view-transition-name excludes this from the root page transition, preventing jitter -->
 <nav
 	class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border pb-safe"
-	style="transform: translateZ(0); -webkit-transform: translateZ(0);"
+	style="view-transition-name: bottom-nav; transform: translateZ(0); -webkit-transform: translateZ(0);"
 	aria-label="Main navigation"
 >
 	<div class="max-w-lg mx-auto px-2">

@@ -15,7 +15,7 @@ interface ExpandableOptions {
 }
 
 export function expandable(node: HTMLTextAreaElement, options: ExpandableOptions = {}) {
-    const { collapsedHeight = 48, maxHeight = 300 } = options;
+    let { collapsedHeight = 48, maxHeight = 300 } = options;
 
     // Store original styles to restore on destroy
     const originalStyles = {
@@ -97,8 +97,11 @@ export function expandable(node: HTMLTextAreaElement, options: ExpandableOptions
     return {
         // Called when options change
         update(newOptions: ExpandableOptions) {
-            // Re-apply with new options if needed
-            const { collapsedHeight: newCollapsed = 48, maxHeight: newMax = 300 } = newOptions;
+            // Update closure variables with new options
+            collapsedHeight = newOptions.collapsedHeight ?? 48;
+            maxHeight = newOptions.maxHeight ?? 300;
+
+            // Re-apply state with new values
             if (document.activeElement === node) {
                 expand();
             } else {

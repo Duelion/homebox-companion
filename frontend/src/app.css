@@ -135,28 +135,16 @@
 		animation: fadeIn 0.25s ease-out, slideUp 0.25s ease-out;
 	}
 
-	/* Prevent ghost touches during page transitions on touch devices */
-	@media (hover: none) and (pointer: coarse) {
-
-		.animate-in button,
-		.animate-in [type="button"],
-		.animate-in a {
-			pointer-events: none;
-			animation: enablePointerEvents 0.3s ease-out forwards;
-		}
+	/* Avoid double-animations: disable per-page animate-in when View Transitions are enabled */
+	.vt-enabled .animate-in {
+		animation: none !important;
 	}
 
-	@keyframes enablePointerEvents {
-
-		0%,
-		99% {
-			pointer-events: none;
-		}
-
-		100% {
-			pointer-events: auto;
-		}
-	}
+	/*
+	 * Note: View Transitions already block interaction during page transitions,
+	 * so we don't need additional pointer-events manipulation here.
+	 * The previous implementation was blocking button clicks on touch devices.
+	 */
 
 	.glass {
 		@apply bg-neutral-900/80 backdrop-blur-lg;
@@ -269,5 +257,65 @@
 @keyframes scaleIn {
 	to {
 		transform: scale(1);
+	}
+}
+
+/* ==========================================================================
+   Page transitions (View Transitions API)
+   Progressive enhancement: only used by browsers that implement the API.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	::view-transition-old(root) {
+		animation: vt-fade-out 180ms ease-out both;
+	}
+
+	::view-transition-new(root) {
+		animation: vt-fade-in 180ms ease-out both;
+	}
+
+	/* Keep fixed UI elements stable during page transitions - no animation */
+	/* We hide the old snapshot entirely because backdrop-blur effects can't be 
+	   captured properly in View Transition snapshots, causing a "white flash" */
+	::view-transition-old(header),
+	::view-transition-old(bottom-nav) {
+		display: none;
+	}
+
+	::view-transition-new(header),
+	::view-transition-new(bottom-nav) {
+		animation: none;
+	}
+}
+
+@keyframes vt-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes vt-fade-out {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+
+	to {
+		opacity: 0;
+		transform: translateY(-6px);
 	}
 }

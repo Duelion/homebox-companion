@@ -9,7 +9,8 @@
  * - Submission result tracking
  */
 
-import { items as itemsApi, ApiError } from '$lib/api/index';
+import { items as itemsApi } from '$lib/api/index';
+import { ApiError } from '$lib/api/client';
 import { withRetry } from '$lib/utils/retry';
 import { workflowLogger as log } from '$lib/utils/logger';
 import { checkAuth } from '$lib/utils/token';
@@ -542,8 +543,8 @@ export class SubmissionService {
 		const itemNames = successfulItems.map((item) => item.name);
 		const photoCount = successfulItems.reduce((count, item) => {
 			let photos = 0;
-			// Custom thumbnail replaces original, so count as one primary image
-			if (item.originalFile || item.customThumbnail) photos++;
+			// Count primary image (compressed preferred, or custom thumbnail, or original file)
+			if (item.compressedDataUrl || item.customThumbnail || item.originalFile) photos++;
 			if (item.additionalImages) photos += item.additionalImages.length;
 			return count + photos;
 		}, 0);

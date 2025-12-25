@@ -113,6 +113,27 @@ def get_token(authorization: Annotated[str | None, Header()] = None) -> str:
     return authorization[7:]
 
 
+def require_llm_configured() -> str:
+    """Dependency that ensures LLM API key is configured.
+
+    Use this as a FastAPI dependency in endpoints that require LLM access.
+    The returned key can be used directly or ignored if only validation is needed.
+
+    Returns:
+        The configured LLM API key.
+
+    Raises:
+        HTTPException: 500 if LLM API key is not configured.
+    """
+    if not settings.effective_llm_api_key:
+        logger.error("LLM API key not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
+        )
+    return settings.effective_llm_api_key
+
+
 async def validate_file_size(file: UploadFile) -> bytes:
     """Read and validate file size against configured limit.
 
