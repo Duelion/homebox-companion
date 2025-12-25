@@ -103,3 +103,8 @@ rules = { invalid-argument-type = "warn" }
 include = ["server/**"]
 rules = { invalid-argument-type = "warn" }
 
+[[tool.ty.overrides]]
+# src has throttled-py type stub issues (MemoryStore Protocol mismatch)
+include = ["src/**"]
+rules = { invalid-argument-type = "warn" }
+

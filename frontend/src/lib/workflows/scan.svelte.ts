@@ -444,6 +444,13 @@ class ScanWorkflow {
 		}
 	}
 
+	/** Confirm all remaining items from current index onwards */
+	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
+		const count = this.reviewService.confirmAllRemainingItems(currentItemOverride);
+		this.finishReview();
+		return count;
+	}
+
 	/** Finish review and move to confirmation */
 	finishReview(): void {
 		if (!this.reviewService.hasConfirmedItems) {

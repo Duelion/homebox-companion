@@ -103,6 +103,26 @@ export class ReviewService {
 	}
 
 	/**
+	 * Confirm all remaining items from the current index onwards
+	 * @param currentItemOverride - Optional edited version of the current item to use instead of the detected item
+	 * @returns The number of items confirmed
+	 */
+	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
+		let count = 0;
+		for (let i = this.currentReviewIndex; i < this.detectedItems.length; i++) {
+			// Use the override for the current item (index matches currentReviewIndex), 
+			// otherwise use the detected item as-is
+			const item = (i === this.currentReviewIndex && currentItemOverride) 
+				? currentItemOverride 
+				: this.detectedItems[i];
+			const confirmed: ConfirmedItem = { ...item, confirmed: true };
+			this.confirmedItems = [...this.confirmedItems, confirmed];
+			count++;
+		}
+		return count;
+	}
+
+	/**
 	 * Skip current item and advance to next
 	 * @returns 'next' if moved to next item, 'complete' if no more items, 'empty' if nothing confirmed
 	 */
