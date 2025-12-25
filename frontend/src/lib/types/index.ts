@@ -125,14 +125,15 @@ export interface ConfirmedItem extends ReviewItem {
 
 /** Status of the scan workflow */
 export type ScanStatus =
-	| 'idle'        // No active scan
-	| 'location'    // Selecting location
-	| 'capturing'   // Adding/configuring images
-	| 'analyzing'   // AI processing (async)
-	| 'reviewing'   // Editing detected items
-	| 'confirming'  // Summary before submit
-	| 'submitting'  // Creating items in Homebox
-	| 'complete';   // Success
+	| 'idle'             // No active scan
+	| 'location'         // Selecting location
+	| 'capturing'        // Adding/configuring images
+	| 'analyzing'        // AI processing (async)
+	| 'partial_analysis' // Analysis complete with some failures
+	| 'reviewing'        // Editing detected items
+	| 'confirming'       // Summary before submit
+	| 'submitting'       // Creating items in Homebox
+	| 'complete';        // Success
 
 /** Status of individual item submission */
 export type ItemSubmissionStatus = 'pending' | 'creating' | 'success' | 'partial_success' | 'failed';

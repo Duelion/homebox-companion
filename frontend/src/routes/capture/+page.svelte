@@ -82,6 +82,15 @@
 	let locationPath = $derived(workflow.state.locationPath);
 	let parentItemName = $derived(workflow.state.parentItemName);
 
+	// Analysis status counts (computed once for efficiency)
+	let failedImageCount = $derived(
+		Object.values(imageStatuses).filter((s) => s === "failed").length,
+	);
+	let succeededImageCount = $derived(
+		Object.values(imageStatuses).filter((s) => s === "success").length,
+	);
+	let detectedItemCount = $derived(workflow.state.detectedItems.length);
+
 	// Total image count including additional images (for limit enforcement)
 	let totalImageCount = $derived(
 		images.reduce(
@@ -439,6 +448,132 @@
 					: progress.message || "Analyzing..."}
 				onComplete={handleAnalysisComplete}
 			/>
+		</div>
+	{/if}
+
+	<!-- Partial failure panel (when some images failed analysis) -->
+	{#if status === "partial_analysis"}
+		<div
+			class="bg-warning-500/10 border border-warning-500/30 rounded-xl p-4 mb-4"
+			transition:slide={{ duration: 200 }}
+		>
+			<div class="flex items-start gap-3 mb-4">
+				<!-- Warning icon -->
+				<svg
+					class="w-6 h-6 text-warning-400 shrink-0 mt-0.5"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path
+						d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+					/>
+				</svg>
+
+				<div class="flex-1">
+					<h3 class="text-body font-semibold text-warning-100 mb-1">
+						Some Images Failed to Analyze
+					</h3>
+					<p class="text-body-sm text-warning-200/80 mb-3">
+						{failedImageCount} of {images.length} image(s)
+						could not be processed. You can retry the failed images, continue
+						with the successful ones, or remove the failed images.
+					</p>
+
+					<!-- Stats -->
+					<div class="flex gap-4 text-caption mb-4">
+						<div class="flex items-center gap-1.5">
+							<div
+								class="w-2 h-2 rounded-full bg-success-400"
+							></div>
+							<span class="text-neutral-300"
+								>{succeededImageCount} succeeded</span
+							>
+						</div>
+						<div class="flex items-center gap-1.5">
+							<div class="w-2 h-2 rounded-full bg-error-400"></div>
+							<span class="text-neutral-300"
+								>{failedImageCount} failed</span
+							>
+						</div>
+						<div class="flex items-center gap-1.5">
+							<div
+								class="w-2 h-2 rounded-full bg-primary-400"
+							></div>
+							<span class="text-neutral-300"
+								>{detectedItemCount} items detected</span
+							>
+						</div>
+					</div>
+
+					<!-- Action buttons -->
+					<div class="flex flex-col sm:flex-row gap-2">
+						<Button
+							variant="warning"
+							onclick={async () => {
+								// Reset animation flag so progress bar works correctly
+								analysisAnimationComplete = false;
+								await workflow.retryFailedAnalysis();
+							}}
+							disabled={isStartingAnalysis}
+						>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<path
+									d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+								/>
+							</svg>
+							<span>Retry Failed Images</span>
+						</Button>
+						<Button
+							variant="primary"
+							onclick={() => {
+								workflow.continueWithSuccessful();
+								goto("/review");
+							}}
+							disabled={isStartingAnalysis}
+						>
+							<span>Continue with Successful</span>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<polyline points="9 18 15 12 9 6" />
+							</svg>
+						</Button>
+						<Button
+							variant="secondary"
+							onclick={() => {
+								workflow.removeFailedImages();
+								goto("/review");
+							}}
+							disabled={isStartingAnalysis}
+						>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<path
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+							<span>Remove Failed</span>
+						</Button>
+					</div>
+				</div>
+			</div>
 		</div>
 	{/if}
 
