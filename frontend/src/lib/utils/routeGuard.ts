@@ -41,6 +41,7 @@ const STATUS_TO_ROUTE: Record<ScanStatus, string> = {
 	location: '/location',
 	capturing: '/capture',
 	analyzing: '/capture',
+	partial_analysis: '/capture',
 	reviewing: '/review',
 	confirming: '/summary',
 	submitting: '/summary',
@@ -118,7 +119,7 @@ export const routeGuards = {
 	/**
 	 * Guard for the location selection page
 	 * - Requires authentication
-	 * - If workflow is in capturing/analyzing, redirect to capture
+	 * - If workflow is in capturing/analyzing/partial_analysis, redirect to capture
 	 */
 	location: (): boolean => {
 		const result = checkRouteAccess({ auth: true });
@@ -127,11 +128,11 @@ export const routeGuards = {
 			return false;
 		}
 
-		// If workflow already has a location and is in capturing/analyzing state
+		// If workflow already has a location and is in capturing/analyzing/partial_analysis state
 		const workflow = scanWorkflow;
 		if (workflow.state.locationId) {
 			const status = workflow.state.status;
-			if (status === 'capturing' || status === 'analyzing') {
+			if (status === 'capturing' || status === 'analyzing' || status === 'partial_analysis') {
 				goto('/capture');
 				return false;
 			}

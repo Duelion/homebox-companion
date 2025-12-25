@@ -36,6 +36,7 @@ _version_cache: dict[str, str | float | None] = {
 }
 _version_cache_lock = asyncio.Lock()
 VERSION_CACHE_TTL = 3600  # 1 hour in seconds
+VERSION_CACHE_NEGATIVE_TTL = 300  # 5 minutes for failed checks
 
 # Get version
 try:
@@ -67,19 +68,27 @@ def _is_newer_version(latest: str, current: str) -> bool:
 
 
 async def _get_latest_github_version() -> str | None:
-    """Fetch the latest release version from GitHub with caching and proper error handling."""
+    """Fetch the latest release version from GitHub with caching and proper error handling.
+
+    Implements both positive caching (1 hour for successful checks) and negative caching
+    (5 minutes for failed checks) to prevent hammering the GitHub API during outages.
+    """
 
     # Use lock to prevent race conditions in multi-worker setups
     async with _version_cache_lock:
         # Check if cache is still valid
         now = time.time()
         last_check = _version_cache["last_check"]
-        if (
-            _version_cache["latest_version"] is not None
-            and isinstance(last_check, (int, float))
-            and now - last_check < VERSION_CACHE_TTL
-        ):
-            return str(_version_cache["latest_version"])
+        if isinstance(last_check, (int, float)) and last_check > 0:
+            # If we have a cached version, use positive TTL
+            if _version_cache["latest_version"] is not None:
+                if now - last_check < VERSION_CACHE_TTL:
+                    return str(_version_cache["latest_version"])
+            # If last check failed (no version), use negative TTL
+            else:
+                if now - last_check < VERSION_CACHE_NEGATIVE_TTL:
+                    logger.debug("Using negative cache for version check")
+                    return None
 
         # Fetch from GitHub with specific error handling
         try:
@@ -96,27 +105,38 @@ async def _get_latest_github_version() -> str | None:
                     _version_cache["last_check"] = now
                     logger.debug(f"Fetched latest version from GitHub: {latest_version}")
                     return latest_version
-                elif response.status_code == 404:
-                    logger.warning(
-                        f"GitHub repository {settings.github_repo} not found "
-                        "or no releases available"
-                    )
-                elif response.status_code == 403:
-                    logger.warning(
-                        "GitHub API rate limit exceeded. Update check will retry later."
-                    )
                 else:
-                    logger.warning(
-                        f"GitHub API returned unexpected status {response.status_code}"
-                    )
+                    # Non-200 status: update last_check for negative caching
+                    _version_cache["last_check"] = now
+                    if response.status_code == 404:
+                        logger.warning(
+                            f"GitHub repository {settings.github_repo} not found "
+                            "or no releases available"
+                        )
+                    elif response.status_code == 403:
+                        logger.warning(
+                            "GitHub API rate limit exceeded. Update check will retry later."
+                        )
+                    else:
+                        logger.warning(
+                            f"GitHub API returned unexpected status {response.status_code}"
+                        )
         except httpx.TimeoutException:
+            # Update last_check for negative caching
+            _version_cache["last_check"] = now
             logger.warning("GitHub version check timed out. Update check will retry later.")
         except httpx.NetworkError as e:
+            # Update last_check for negative caching
+            _version_cache["last_check"] = now
             logger.warning(f"Network error checking for updates: {e}")
         except (ValueError, KeyError) as e:
+            # Update last_check for negative caching
+            _version_cache["last_check"] = now
             logger.warning(f"Invalid response from GitHub API: {e}")
         except Exception as e:
             # Catch-all for unexpected errors, but still log prominently
+            # Update last_check for negative caching
+            _version_cache["last_check"] = now
             logger.error(f"Unexpected error checking for updates: {e}", exc_info=True)
 
         return None
@@ -185,7 +205,15 @@ class CachedStaticFiles(StaticFiles):
         response = await super().get_response(path, scope)
 
         # index.html and root: always revalidate
-        if path in ("", "index.html") or path.endswith("/index.html"):
+        #
+        # service-worker.js must also always revalidate:
+        # - browsers may cache the SW script itself
+        # - if cached, clients can stay stuck on old SW logic for up to the TTL
+        #
+        # manifest.json is also frequently cached by browsers/PWA install flows.
+        if path in ("", "index.html", "service-worker.js", "manifest.json") or path.endswith(
+            "/index.html"
+        ):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"

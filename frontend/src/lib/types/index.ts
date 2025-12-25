@@ -72,6 +72,13 @@ export interface Item extends ItemCore, ItemExtended {
 /** Image captured for analysis */
 export interface CapturedImage {
 	file: File;
+	/** 
+	 * URL for displaying preview thumbnail in UI.
+	 * This is typically an Object URL (blob:...) for memory efficiency.
+	 * Object URLs are much smaller than base64 data URLs since they
+	 * reference the existing File blob instead of duplicating it.
+	 * Note: This is NOT used for submission - we use compressedDataUrl or originalFile instead.
+	 */
 	dataUrl: string;
 	/** If true, AI should detect multiple items in this image */
 	separateItems: boolean;
@@ -79,6 +86,7 @@ export interface CapturedImage {
 	extraInstructions: string;
 	/** Additional images showing the same item from different angles */
 	additionalFiles?: File[];
+	/** Object URLs for displaying additional image previews in UI */
 	additionalDataUrls?: string[];
 }
 
@@ -117,17 +125,21 @@ export interface ConfirmedItem extends ReviewItem {
 
 /** Status of the scan workflow */
 export type ScanStatus =
-	| 'idle'        // No active scan
-	| 'location'    // Selecting location
-	| 'capturing'   // Adding/configuring images
-	| 'analyzing'   // AI processing (async)
-	| 'reviewing'   // Editing detected items
-	| 'confirming'  // Summary before submit
-	| 'submitting'  // Creating items in Homebox
-	| 'complete';   // Success
+	| 'idle'             // No active scan
+	| 'location'         // Selecting location
+	| 'capturing'        // Adding/configuring images
+	| 'analyzing'        // AI processing (async)
+	| 'partial_analysis' // Analysis complete with some failures
+	| 'reviewing'        // Editing detected items
+	| 'confirming'       // Summary before submit
+	| 'submitting'       // Creating items in Homebox
+	| 'complete';        // Success
 
 /** Status of individual item submission */
 export type ItemSubmissionStatus = 'pending' | 'creating' | 'success' | 'partial_success' | 'failed';
+
+/** Status of individual image analysis */
+export type ImageAnalysisStatus = 'pending' | 'analyzing' | 'success' | 'failed';
 
 /** Progress for async operations */
 export interface Progress {
@@ -160,6 +172,8 @@ export interface ScanState {
 	images: CapturedImage[];
 	// Analysis
 	analysisProgress: Progress | null;
+	/** Per-image analysis status for UI feedback */
+	imageStatuses: Record<number, ImageAnalysisStatus>;
 	// Review
 	detectedItems: ReviewItem[];
 	currentReviewIndex: number;
@@ -209,7 +223,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses
@@ -229,7 +243,7 @@ export interface DetectionResponse {
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
-export interface DetectedItem extends ItemCore, ItemExtended {}
+export interface DetectedItem extends ItemCore, ItemExtended { }
 
 /** Single image result in batch detection */
 export interface BatchDetectionResult {

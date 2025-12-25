@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "2.0.1"
+version = "2.1.0"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -30,6 +30,7 @@ dependencies = [
     "loguru>=0.7.3",
     "pillow>=10.0.0",
     "pydantic-settings>=2.0.0",
+    "throttled-py>=1.3.0",
 ]
 
 [project.urls]
@@ -100,5 +101,10 @@ rules = { invalid-argument-type = "warn" }
 [[tool.ty.overrides]]
 # Server has Starlette type stub issues (CORSMiddleware) and FastAPI DI patterns
 include = ["server/**"]
+rules = { invalid-argument-type = "warn" }
+
+[[tool.ty.overrides]]
+# src has throttled-py type stub issues (MemoryStore Protocol mismatch)
+include = ["src/**"]
 rules = { invalid-argument-type = "warn" }
 

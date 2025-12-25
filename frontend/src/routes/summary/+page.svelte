@@ -10,6 +10,8 @@
 	import type { ConfirmedItem } from "$lib/types";
 	import Button from "$lib/components/Button.svelte";
 	import StepIndicator from "$lib/components/StepIndicator.svelte";
+	import StatusIcon from "$lib/components/StatusIcon.svelte";
+	import AnalysisProgressBar from "$lib/components/AnalysisProgressBar.svelte";
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -22,10 +24,12 @@
 	const locationPath = $derived(workflow.state.locationPath);
 	const parentItemName = $derived(workflow.state.parentItemName);
 	const itemStatuses = $derived(workflow.state.itemStatuses);
+	const submissionProgress = $derived(workflow.state.submissionProgress);
 	const submissionErrors = $derived(workflow.state.submissionErrors);
 
 	// Local UI state
 	let isSubmitting = $state(false);
+	let progressBarRef = $state<HTMLDivElement | null>(null);
 
 	// Calculate summary statistics
 	const totalPhotos = $derived(
@@ -85,6 +89,10 @@
 		}
 
 		isSubmitting = true;
+		// Scroll to top of app
+		setTimeout(() => {
+			window.scrollTo({ top: 0, behavior: "smooth" });
+		}, 100);
 		const result = await workflow.submitAll();
 		isSubmitting = false;
 
@@ -156,7 +164,7 @@
 	<title>Review & Submit - Homebox Companion</title>
 </svelte:head>
 
-<div class="animate-in">
+<div class="animate-in pb-28">
 	<StepIndicator currentStep={4} />
 
 	<h2 class="text-h2 text-neutral-100 mb-1">Review & Submit</h2>
@@ -196,6 +204,17 @@
 					>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Submission progress bar -->
+	{#if submissionProgress && isSubmitting}
+		<div class="mb-4" bind:this={progressBarRef}>
+			<AnalysisProgressBar
+				current={submissionProgress.current}
+				total={submissionProgress.total}
+				message={submissionProgress.message || "Submitting..."}
+			/>
 		</div>
 	{/if}
 
@@ -284,60 +303,9 @@
 				<div
 					class="flex flex-col gap-1 items-center justify-start min-w-[44px]"
 				>
-					{#if itemStatuses[index] === "creating"}
-						<div class="w-10 h-10 flex items-center justify-center">
-							<div
-								class="w-6 h-6 rounded-full border-2 border-primary-500/30 border-t-primary-500 animate-spin"
-							></div>
-						</div>
-					{:else if itemStatuses[index] === "success"}
-						<div
-							class="w-10 h-10 flex items-center justify-center bg-success-500/20 rounded-full"
-						>
-							<svg
-								class="w-6 h-6 text-success-500"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-						</div>
-					{:else if itemStatuses[index] === "partial_success"}
-						<div
-							class="w-10 h-10 flex items-center justify-center bg-warning-500/20 rounded-full"
-							title="Item created but some attachments failed"
-						>
-							<svg
-								class="w-6 h-6 text-warning-500"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<path
-									d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-								/>
-								<line x1="12" y1="9" x2="12" y2="13" />
-								<line x1="12" y1="17" x2="12.01" y2="17" />
-							</svg>
-						</div>
-					{:else if itemStatuses[index] === "failed"}
-						<div
-							class="w-10 h-10 flex items-center justify-center bg-error-500/20 rounded-full"
-						>
-							<svg
-								class="w-6 h-6 text-error-500"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
-						</div>
+					{#if itemStatuses[index] && itemStatuses[index] !== "pending"}
+						<!-- Show status icon during/after submission -->
+						<StatusIcon status={itemStatuses[index]} />
 					{:else}
 						<button
 							type="button"
@@ -479,9 +447,13 @@
 			</div>
 		</div>
 	{/if}
+</div>
 
-	<!-- Actions -->
-	<div class="space-y-3">
+<!-- Sticky Submit button at bottom - above navigation bar -->
+<div
+	class="fixed bottom-nav-offset left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 p-4 z-40"
+>
+	<div class="max-w-lg mx-auto space-y-3">
 		{#if !workflow.hasFailedItems() && !workflow.allItemsSuccessful()}
 			<Button
 				variant="primary"

@@ -34,6 +34,29 @@ export class ReviewService {
 		this.currentReviewIndex = 0;
 	}
 
+	/**
+	 * Update sourceImageIndex for all detected items after images are removed.
+	 * Each removed index causes all higher indices to shift down by 1.
+	 * @param removedIndices - Array of image indices that were removed (must be sorted ascending)
+	 */
+	updateSourceImageIndices(removedIndices: number[]): void {
+		if (removedIndices.length === 0) return;
+
+		this.detectedItems = this.detectedItems.map(item => {
+			let newIndex = item.sourceImageIndex;
+			// For each removed index that was below or equal to this item's source,
+			// decrement the index (but only if the source wasn't the removed index itself)
+			for (const removed of removedIndices) {
+				if (removed < item.sourceImageIndex) {
+					newIndex--;
+				}
+			}
+			return newIndex !== item.sourceImageIndex
+				? { ...item, sourceImageIndex: newIndex }
+				: item;
+		});
+	}
+
 	/** Clear detected items */
 	clearDetectedItems(): void {
 		this.detectedItems = [];
@@ -103,6 +126,26 @@ export class ReviewService {
 	}
 
 	/**
+	 * Confirm all remaining items from the current index onwards
+	 * @param currentItemOverride - Optional edited version of the current item to use instead of the detected item
+	 * @returns The number of items confirmed
+	 */
+	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
+		let count = 0;
+		for (let i = this.currentReviewIndex; i < this.detectedItems.length; i++) {
+			// Use the override for the current item (index matches currentReviewIndex), 
+			// otherwise use the detected item as-is
+			const item = (i === this.currentReviewIndex && currentItemOverride) 
+				? currentItemOverride 
+				: this.detectedItems[i];
+			const confirmed: ConfirmedItem = { ...item, confirmed: true };
+			this.confirmedItems = [...this.confirmedItems, confirmed];
+			count++;
+		}
+		return count;
+	}
+
+	/**
 	 * Skip current item and advance to next
 	 * @returns 'next' if moved to next item, 'complete' if no more items, 'empty' if nothing confirmed
 	 */
@@ -129,8 +172,18 @@ export class ReviewService {
 	}
 
 	/**
-	 * Edit a confirmed item - removes from confirmed list and adds to detected for re-review
-	 * @returns The item to be edited
+	 * Edit a confirmed item by moving it back to review mode.
+	 *
+	 * This method is called from the confirmation screen, after the user has already
+	 * completed reviewing all detected items (confirming or skipping each one).
+	 * It removes the item from the confirmed list and creates a single-item review
+	 * session for focused re-editing.
+	 *
+	 * Note: This replaces the detectedItems array with only the item being edited.
+	 * This is intentional—at the confirmation stage, all original detected items have
+	 * already been processed, so no unreviewed items are lost.
+	 *
+	 * @returns The item converted to a ReviewItem for editing, or null if index is invalid
 	 */
 	editConfirmedItem(index: number): ReviewItem | null {
 		const item = this.confirmedItems[index];

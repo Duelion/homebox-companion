@@ -33,20 +33,27 @@ export const auth = {
 	/**
 	 * Validate if the current token is still valid.
 	 * Makes a lightweight request to /locations to test the token.
-	 * Returns true if valid, false if expired/invalid.
+	 * Returns a result object indicating validity and the reason.
 	 * 
 	 * Note: Uses skipAuthRetry to avoid triggering session expired modal during validation.
 	 */
-	validateToken: async (): Promise<boolean> => {
+	validateToken: async (): Promise<{ valid: boolean; reason: 'ok' | 'invalid' | 'network_error' }> => {
 		try {
 			await request('/locations', {
 				method: 'GET',
 				skipAuthRetry: true,
 			});
-			return true;
-		} catch {
-			// Any error (401, network, etc.) means token is not valid
-			return false;
+			return { valid: true, reason: 'ok' };
+		} catch (error) {
+			// Check if it's a network error (no response) vs auth error (401)
+			if (error instanceof Error) {
+				// Network errors typically have no status or are TypeError/fetch errors
+				if (error.name === 'TypeError' || error.message.includes('fetch') || error.message.includes('network')) {
+					return { valid: false, reason: 'network_error' };
+				}
+			}
+			// ApiError with status, or unknown error - treat as invalid token
+			return { valid: false, reason: 'invalid' };
 		}
 	},
 };
