@@ -15,6 +15,55 @@ import { get } from 'svelte/store';
 import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus } from '$lib/types';
 
 // =============================================================================
+// CONCURRENCY CONTROL
+// =============================================================================
+
+/**
+ * Maximum concurrent API requests to prevent overwhelming browser/server.
+ * - Browser HTTP/2 multiplexing allows many requests over fewer connections
+ * - Backend rate limiter handles 400 req/min with burst capacity
+ * - 30 concurrent keeps UI responsive while maximizing throughput
+ */
+const MAX_CONCURRENT_REQUESTS = 30;
+
+/**
+ * Process items with limited concurrency using a worker pool pattern.
+ *
+ * Creates N worker "threads" that pull items from a shared queue.
+ * Safe in JavaScript because index increment is synchronous before each await.
+ *
+ * @param items - Array of items to process
+ * @param processor - Async function to process each item (may throw to abort all)
+ * @param concurrency - Maximum concurrent operations
+ * @returns Array of results in original order
+ * @throws If any processor throws (other workers will complete their current task)
+ */
+async function mapWithConcurrency<T, R>(
+	items: T[],
+	processor: (item: T, index: number) => Promise<R>,
+	concurrency: number
+): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let nextIndex = 0;
+
+	async function worker(): Promise<void> {
+		// Each iteration: grab next index synchronously, then await processing
+		// This is safe because nextIndex++ completes before any await yields
+		while (nextIndex < items.length) {
+			const index = nextIndex++;
+			results[index] = await processor(items[index], index);
+		}
+	}
+
+	// Start worker pool (capped at item count for small batches)
+	const workerCount = Math.min(concurrency, items.length);
+	const workers = Array.from({ length: workerCount }, () => worker());
+
+	await Promise.all(workers);
+	return results;
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -108,73 +157,81 @@ export class AnalysisService {
 			let completedCount = 0;
 			const signal = this.abortController?.signal;
 
-			// Process images in parallel
-			const detectionPromises = images.map(async (image, index) => {
-				// Mark this image as analyzing
-				this.imageStatuses = { ...this.imageStatuses, [index]: 'analyzing' };
+			// Process images with limited concurrency to prevent overwhelming browser/server
+			log.debug(`Processing ${images.length} images with max ${MAX_CONCURRENT_REQUESTS} concurrent requests`);
 
-				try {
-					log.debug(`Starting detection for image ${index + 1}/${images.length}: file="${image.file.name}", size=${image.file.size} bytes`);
-					log.debug(`Image ${index + 1} options: separateItems=${image.separateItems}, additionalImages=${image.additionalFiles?.length ?? 0}`);
-
-					const response = await vision.detect(image.file, {
-						singleItem: !image.separateItems,
-						extraInstructions: image.extraInstructions || undefined,
-						extractExtendedFields: true,
-						additionalImages: image.additionalFiles,
-						signal
-					});
-
-					log.debug(
-						`Detection complete for image ${index + 1}, found ${response.items.length} item(s)`
-					);
-
-					completedCount++;
-					this.progress = {
-						current: completedCount,
-						total: images.length,
-						message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
-					};
-
-					// Mark this image as success
-					this.imageStatuses = { ...this.imageStatuses, [index]: 'success' };
-
-					return {
-						success: true as const,
-						imageIndex: index,
-						image,
-						items: response.items,
-						compressedImages: response.compressed_images || []
-					};
-				} catch (error) {
-					// Re-throw abort errors to be handled at the top level
-					if (error instanceof Error && error.name === 'AbortError') {
-						log.debug(`Analysis aborted for image ${index + 1}`);
-						throw error;
+			const results = await mapWithConcurrency(
+				images,
+				async (image, index) => {
+					// Check if cancelled before starting
+					if (signal?.aborted) {
+						throw new DOMException('Aborted', 'AbortError');
 					}
 
-					completedCount++;
-					this.progress = {
-						current: completedCount,
-						total: images.length,
-						message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
-					};
+					// Mark this image as analyzing
+					this.imageStatuses = { ...this.imageStatuses, [index]: 'analyzing' };
 
-					// Mark this image as failed
-					this.imageStatuses = { ...this.imageStatuses, [index]: 'failed' };
+					try {
+						log.debug(`Starting detection for image ${index + 1}/${images.length}: file="${image.file.name}", size=${image.file.size} bytes`);
+						log.debug(`Image ${index + 1} options: separateItems=${image.separateItems}, additionalImages=${image.additionalFiles?.length ?? 0}`);
 
-					log.error(`Failed to analyze image ${index + 1}`, error);
-					return {
-						success: false as const,
-						imageIndex: index,
-						image,
-						error: error instanceof Error ? error.message : 'Unknown error'
-					};
-				}
-			});
+						const response = await vision.detect(image.file, {
+							singleItem: !image.separateItems,
+							extraInstructions: image.extraInstructions || undefined,
+							extractExtendedFields: true,
+							additionalImages: image.additionalFiles,
+							signal
+						});
 
-			log.debug('Waiting for all detections to complete...');
-			const results = await Promise.all(detectionPromises);
+						log.debug(
+							`Detection complete for image ${index + 1}, found ${response.items.length} item(s)`
+						);
+
+						completedCount++;
+						this.progress = {
+							current: completedCount,
+							total: images.length,
+							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+						};
+
+						// Mark this image as success
+						this.imageStatuses = { ...this.imageStatuses, [index]: 'success' };
+
+						return {
+							success: true as const,
+							imageIndex: index,
+							image,
+							items: response.items,
+							compressedImages: response.compressed_images || []
+						};
+					} catch (error) {
+						// Re-throw abort errors to be handled at the top level
+						if (error instanceof Error && error.name === 'AbortError') {
+							log.debug(`Analysis aborted for image ${index + 1}`);
+							throw error;
+						}
+
+						completedCount++;
+						this.progress = {
+							current: completedCount,
+							total: images.length,
+							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+						};
+
+						// Mark this image as failed
+						this.imageStatuses = { ...this.imageStatuses, [index]: 'failed' };
+
+						log.error(`Failed to analyze image ${index + 1}`, error);
+						return {
+							success: false as const,
+							imageIndex: index,
+							image,
+							error: error instanceof Error ? error.message : 'Unknown error'
+						};
+					}
+				},
+				MAX_CONCURRENT_REQUESTS
+			);
 
 			log.debug(`All detections complete. Processing ${results.length} result(s)...`);
 
