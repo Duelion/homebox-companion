@@ -72,6 +72,13 @@ export interface Item extends ItemCore, ItemExtended {
 /** Image captured for analysis */
 export interface CapturedImage {
 	file: File;
+	/** 
+	 * URL for displaying preview thumbnail in UI.
+	 * This is typically an Object URL (blob:...) for memory efficiency.
+	 * Object URLs are much smaller than base64 data URLs since they
+	 * reference the existing File blob instead of duplicating it.
+	 * Note: This is NOT used for submission - we use compressedDataUrl or originalFile instead.
+	 */
 	dataUrl: string;
 	/** If true, AI should detect multiple items in this image */
 	separateItems: boolean;
@@ -79,6 +86,7 @@ export interface CapturedImage {
 	extraInstructions: string;
 	/** Additional images showing the same item from different angles */
 	additionalFiles?: File[];
+	/** Object URLs for displaying additional image previews in UI */
 	additionalDataUrls?: string[];
 }
 

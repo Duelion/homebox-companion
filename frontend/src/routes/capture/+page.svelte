@@ -34,6 +34,40 @@
 	let isStartingAnalysis = $state(false);
 	let progressBarRef = $state<HTMLDivElement | null>(null);
 
+	// Track object URLs for cleanup (prevents memory leaks)
+	// Note: We only revoke URLs when images are explicitly removed, NOT on component
+	// destroy. This is because the workflow state persists across navigation, and
+	// we need the URLs to remain valid if the user navigates back to this page.
+	// The browser automatically cleans up Object URLs when the page/tab is closed.
+	const createdObjectUrls = new Set<string>();
+
+	/** Create an object URL and track it for cleanup */
+	function createTrackedObjectUrl(file: File): string {
+		const url = URL.createObjectURL(file);
+		createdObjectUrls.add(url);
+		return url;
+	}
+
+	/** Revoke an object URL and remove from tracking */
+	function revokeObjectUrl(url: string): void {
+		// Only revoke if we created this URL (it's in our tracking set)
+		// This handles the case where user navigates back and URLs were
+		// created in a previous component instance
+		if (createdObjectUrls.has(url)) {
+			URL.revokeObjectURL(url);
+			createdObjectUrls.delete(url);
+			log.debug(`Revoked object URL (${createdObjectUrls.size} remaining)`);
+		} else {
+			// URL was created by a previous component instance - still try to revoke
+			// to free memory, but don't log errors since this is expected behavior
+			try {
+				URL.revokeObjectURL(url);
+			} catch {
+				// Ignore - URL may have already been revoked or is invalid
+			}
+		}
+	}
+
 	// Get workflow state for reading
 	const workflow = scanWorkflow;
 
@@ -61,6 +95,22 @@
 	let showAnalyzingUI = $derived(
 		isAnalyzing || (status === "reviewing" && !analysisAnimationComplete),
 	);
+
+	// Cleanup orphaned Object URLs when workflow is reset (images array becomes empty)
+	// This handles cases like workflow.startNew() or workflow.reset()
+	let previousImageCount = 0;
+	$effect(() => {
+		const currentCount = images.length;
+		// If images were cleared (went to 0 from non-zero), revoke all tracked URLs
+		if (previousImageCount > 0 && currentCount === 0) {
+			log.debug(`Workflow reset detected, revoking ${createdObjectUrls.size} orphaned URLs`);
+			for (const url of createdObjectUrls) {
+				URL.revokeObjectURL(url);
+			}
+			createdObjectUrls.clear();
+		}
+		previousImageCount = currentCount;
+	});
 
 	// Apply route guard: requires auth, location, and not in reviewing state
 	onMount(async () => {
@@ -124,7 +174,7 @@
 		const input = e.target as HTMLInputElement;
 		if (!input.files) return;
 
-		// Track count locally since totalImageCount won't update until readers complete
+		// Track count locally for limit enforcement
 		let currentCount = totalImageCount;
 
 		for (const file of Array.from(input.files)) {
@@ -136,19 +186,20 @@
 			if (isFileTooLarge(file)) continue;
 
 			currentCount++;
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				const dataUrl = e.target?.result as string;
-				workflow.addImage({
-					file,
-					dataUrl,
-					separateItems: false,
-					extraInstructions: "",
-				});
-				// Collapse all expanded accordions when a new image is added
-				expandedImages = new Set();
-			};
-			reader.readAsDataURL(file);
+			
+			// Use Object URL instead of base64 data URL - much more memory efficient
+			// Object URLs are tiny strings that reference the File blob in memory
+			// instead of duplicating the entire file as a base64 string
+			const previewUrl = createTrackedObjectUrl(file);
+			
+			workflow.addImage({
+				file,
+				dataUrl: previewUrl,
+				separateItems: false,
+				extraInstructions: "",
+			});
+			// Collapse all expanded accordions when a new image is added
+			expandedImages = new Set();
 		}
 
 		input.value = "";
@@ -159,43 +210,29 @@
 		if (!input.files) return;
 
 		const newFiles: File[] = [];
-		const newDataUrls: string[] = [];
-		let processedCount = 0;
-		let acceptedCount = 0;
-		const totalFiles = input.files.length;
+		const newPreviewUrls: string[] = [];
 
 		// Track how many more we can accept
 		const remainingSlots = maxImages - totalImageCount;
 
 		for (const file of Array.from(input.files)) {
 			// Check total image limit (including additional images)
-			if (acceptedCount >= remainingSlots) {
+			if (newFiles.length >= remainingSlots) {
 				showToast(`Maximum ${maxImages} images allowed`, "warning");
 				break;
 			}
 
-			if (isFileTooLarge(file)) {
-				processedCount++;
-				continue;
-			}
+			if (isFileTooLarge(file)) continue;
 
-			acceptedCount++;
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				const dataUrl = e.target?.result as string;
-				newFiles.push(file);
-				newDataUrls.push(dataUrl);
-				processedCount++;
+			// Use Object URL instead of base64 - much more memory efficient
+			const previewUrl = createTrackedObjectUrl(file);
+			newFiles.push(file);
+			newPreviewUrls.push(previewUrl);
+		}
 
-				if (processedCount === totalFiles && newFiles.length > 0) {
-					workflow.addAdditionalImages(
-						imageIndex,
-						newFiles,
-						newDataUrls,
-					);
-				}
-			};
-			reader.readAsDataURL(file);
+		// Add all valid files at once (synchronous, no FileReader needed)
+		if (newFiles.length > 0) {
+			workflow.addAdditionalImages(imageIndex, newFiles, newPreviewUrls);
 		}
 
 		input.value = "";
@@ -216,6 +253,18 @@
 	}
 
 	function removeImage(index: number) {
+		// Revoke object URLs before removing to free memory
+		const imageToRemove = images[index];
+		if (imageToRemove) {
+			revokeObjectUrl(imageToRemove.dataUrl);
+			// Also revoke any additional image URLs
+			if (imageToRemove.additionalDataUrls) {
+				for (const url of imageToRemove.additionalDataUrls) {
+					revokeObjectUrl(url);
+				}
+			}
+		}
+		
 		workflow.removeImage(index);
 		expandedImages = new Set(
 			[...expandedImages]
@@ -236,6 +285,12 @@
 		imageIndex: number,
 		additionalIndex: number,
 	) {
+		// Revoke object URL before removing to free memory
+		const image = images[imageIndex];
+		if (image?.additionalDataUrls?.[additionalIndex]) {
+			revokeObjectUrl(image.additionalDataUrls[additionalIndex]);
+		}
+		
 		workflow.removeAdditionalImage(imageIndex, additionalIndex);
 	}
 
