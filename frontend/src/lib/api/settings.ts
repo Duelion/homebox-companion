@@ -94,6 +94,8 @@ export interface ConfigResponse {
 	update_check_enabled: boolean;
 	image_quality: string;
 	log_level: string;
+	capture_max_images: number;
+	capture_max_file_size_mb: number;
 }
 
 export const getConfig = () => request<ConfigResponse>('/config');

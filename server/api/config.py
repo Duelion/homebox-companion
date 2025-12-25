@@ -17,6 +17,8 @@ class ConfigResponse(BaseModel):
     update_check_enabled: bool
     image_quality: str
     log_level: str
+    capture_max_images: int
+    capture_max_file_size_mb: int
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -33,5 +35,7 @@ async def get_config() -> ConfigResponse:
         update_check_enabled=not settings.disable_update_check,
         image_quality=settings.image_quality.value,
         log_level=settings.log_level,
+        capture_max_images=settings.capture_max_images,
+        capture_max_file_size_mb=settings.capture_max_file_size_mb,
     )
 

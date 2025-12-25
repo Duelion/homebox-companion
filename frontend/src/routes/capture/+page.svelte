@@ -9,6 +9,7 @@
 	import { checkAuth } from "$lib/utils/token";
 	import { routeGuards } from "$lib/utils/routeGuard";
 	import { createLogger } from "$lib/utils/logger";
+	import { getConfig } from "$lib/api/settings";
 	import Button from "$lib/components/Button.svelte";
 	import StepIndicator from "$lib/components/StepIndicator.svelte";
 	import BackLink from "$lib/components/BackLink.svelte";
@@ -17,8 +18,10 @@
 
 	const log = createLogger({ prefix: "Capture" });
 
-	const MAX_IMAGES = 30;
-	const MAX_FILE_SIZE_MB = 10;
+	// Capture limits (loaded from config, with safe defaults)
+	let maxImages = $state(30);
+	let maxFileSizeMb = $state(10);
+	let configLoaded = $state(false);
 
 	let fileInput: HTMLInputElement;
 	let cameraInput: HTMLInputElement;
@@ -45,6 +48,14 @@
 	let locationPath = $derived(workflow.state.locationPath);
 	let parentItemName = $derived(workflow.state.parentItemName);
 
+	// Total image count including additional images (for limit enforcement)
+	let totalImageCount = $derived(
+		images.reduce(
+			(count, img) => count + 1 + (img.additionalFiles?.length || 0),
+			0,
+		),
+	);
+
 	// True while analyzing OR while the completion animation is playing
 	// This prevents UI elements from appearing/disappearing during animation
 	let showAnalyzingUI = $derived(
@@ -52,8 +63,19 @@
 	);
 
 	// Apply route guard: requires auth, location, and not in reviewing state
-	onMount(() => {
+	onMount(async () => {
 		if (!routeGuards.capture()) return;
+
+		// Load capture limits from config
+		try {
+			const config = await getConfig();
+			maxImages = config.capture_max_images;
+			maxFileSizeMb = config.capture_max_file_size_mb;
+		} catch (error) {
+			log.warn("Failed to load capture config, using defaults", error);
+		} finally {
+			configLoaded = true;
+		}
 
 		// If workflow is complete (just finished submission), reset for a new scan session
 		if (workflow.state.status === "complete") {
@@ -86,24 +108,34 @@
 	// FILE HANDLING
 	// ==========================================================================
 
+	/** Check if file exceeds size limit and show toast if so */
+	function isFileTooLarge(file: File): boolean {
+		if (file.size > maxFileSizeMb * 1024 * 1024) {
+			showToast(
+				`File ${file.name} is too large (max ${maxFileSizeMb}MB)`,
+				"warning",
+			);
+			return true;
+		}
+		return false;
+	}
+
 	function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (!input.files) return;
 
+		// Track count locally since totalImageCount won't update until readers complete
+		let currentCount = totalImageCount;
+
 		for (const file of Array.from(input.files)) {
-			if (images.length >= MAX_IMAGES) {
-				showToast(`Maximum ${MAX_IMAGES} images allowed`, "warning");
+			if (currentCount >= maxImages) {
+				showToast(`Maximum ${maxImages} images allowed`, "warning");
 				break;
 			}
 
-			if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-				showToast(
-					`File ${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`,
-					"warning",
-				);
-				continue;
-			}
+			if (isFileTooLarge(file)) continue;
 
+			currentCount++;
 			const reader = new FileReader();
 			reader.onload = (e) => {
 				const dataUrl = e.target?.result as string;
@@ -129,18 +161,25 @@
 		const newFiles: File[] = [];
 		const newDataUrls: string[] = [];
 		let processedCount = 0;
+		let acceptedCount = 0;
 		const totalFiles = input.files.length;
 
+		// Track how many more we can accept
+		const remainingSlots = maxImages - totalImageCount;
+
 		for (const file of Array.from(input.files)) {
-			if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-				showToast(
-					`File ${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`,
-					"warning",
-				);
+			// Check total image limit (including additional images)
+			if (acceptedCount >= remainingSlots) {
+				showToast(`Maximum ${maxImages} images allowed`, "warning");
+				break;
+			}
+
+			if (isFileTooLarge(file)) {
 				processedCount++;
 				continue;
 			}
 
+			acceptedCount++;
 			const reader = new FileReader();
 			reader.onload = (e) => {
 				const dataUrl = e.target?.result as string;
@@ -760,7 +799,7 @@
 			{/each}
 
 			<!-- Add more images button -->
-			{#if images.length < MAX_IMAGES && !showAnalyzingUI}
+			{#if totalImageCount < maxImages && !showAnalyzingUI}
 				<div class="flex gap-3">
 					<button
 						type="button"
@@ -911,7 +950,8 @@
 			</div>
 
 			<p class="text-caption text-neutral-500 mt-6">
-				Max {MAX_IMAGES} images · {MAX_FILE_SIZE_MB}MB per file
+				{totalImageCount} / {maxImages} images · {maxFileSizeMb}MB per
+				file
 			</p>
 		</div>
 	{/if}

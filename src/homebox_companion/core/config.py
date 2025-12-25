@@ -106,6 +106,10 @@ class Settings(BaseSettings):
     # Demo mode - enables pre-filled credentials for demo deployments
     demo_mode: bool = False
 
+    # Capture limits (frontend-enforced, configurable for users who want to risk larger sessions)
+    capture_max_images: int = 30  # Max images per capture session
+    capture_max_file_size_mb: int = 10  # Max file size per image in MB
+
     @computed_field
     @property
     def api_url(self) -> str:
