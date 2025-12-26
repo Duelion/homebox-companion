@@ -19,12 +19,14 @@ from starlette.responses import Response
 from homebox_companion import (
     AuthenticationError,
     HomeboxClient,
+    HomeboxCompanionError,
     settings,
     setup_logging,
 )
 
 from .api import api_router
 from .dependencies import client_holder
+from .middleware import RequestIDMiddleware, request_id_var
 
 # GitHub version check cache with async lock for thread safety within a single worker.
 # NOTE: This cache is per-worker. When running with multiple workers (e.g., uvicorn --workers N),
@@ -284,6 +286,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Request-ID middleware (must be added first to wrap all requests)
+    app.add_middleware(RequestIDMiddleware)
+
     # CORS middleware for browser access
     # Use HBC_CORS_ORIGINS to restrict origins in production
     app.add_middleware(
@@ -303,14 +308,30 @@ def create_app() -> FastAPI:
     # Include API routes
     app.include_router(api_router)
 
-    # Exception handler for AuthenticationError
-    # Routes can raise AuthenticationError directly without wrapping in HTTPException
-    @app.exception_handler(AuthenticationError)
-    async def auth_error_handler(request, exc: AuthenticationError):
-        """Convert AuthenticationError to 401 response."""
+    # Unified exception handler for all domain exceptions
+    # Routes can raise domain exceptions directly without wrapping in HTTPException
+    @app.exception_handler(HomeboxCompanionError)
+    async def domain_error_handler(request, exc: HomeboxCompanionError):
+        """Convert domain exceptions to appropriate HTTP responses.
+
+        - Logs with appropriate level and exception chain
+        - Returns structured JSON with error code and user message
+        - Includes request-ID in response header for correlation
+        """
+        # Log with appropriate level and include exception chain
+        log_method = getattr(logger, exc.log_level, logger.error)
+        log_method(
+            f"{exc.error_code}: {exc.to_dict()}",
+            exc_info=exc if exc.log_level == "error" else None,
+        )
+
         return JSONResponse(
-            status_code=401,
-            content={"detail": str(exc)},
+            status_code=exc.status_code,
+            content={
+                "detail": exc.user_message,
+                "code": exc.error_code,
+            },
+            headers={"X-Request-ID": request_id_var.get()},
         )
 
     # Version endpoint

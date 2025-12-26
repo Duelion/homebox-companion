@@ -7,6 +7,7 @@ The sync client has been removed - use async/await throughout.
 from __future__ import annotations
 
 import functools
+import socket
 from collections.abc import Callable
 from functools import lru_cache
 from typing import Any, cast
@@ -16,7 +17,11 @@ from loguru import logger
 from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store
 
 from ..core.config import settings
-from ..core.exceptions import AuthenticationError
+from ..core.exceptions import (
+    AuthenticationError,
+    HomeboxConnectionError,
+    HomeboxTimeoutError,
+)
 from .models import Attachment, Item, ItemCreate, Label, Location
 
 
@@ -123,6 +128,39 @@ class HomeboxClient:
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
 
+    @staticmethod
+    def _classify_connection_error(e: Exception) -> str:
+        """Classify connection errors into user-friendly messages.
+
+        Moves friendly error logic from routes into the client layer where
+        httpx exceptions are wrapped into domain exceptions.
+        """
+        error_str = str(e).lower()
+
+        # DNS resolution failure
+        if "getaddrinfo failed" in error_str or isinstance(
+            getattr(e, "__cause__", None), socket.gaierror
+        ):
+            return (
+                "Cannot connect to Homebox server. The server address could not be resolved. "
+                "Please verify the HBC_HOMEBOX_URL is correct."
+            )
+
+        # Connection refused
+        if "connection refused" in error_str or "actively refused" in error_str:
+            return "Connection refused. Please check if Homebox is running and the port is correct."
+
+        # SSL/TLS errors
+        if "ssl" in error_str or "certificate" in error_str:
+            return "SSL/TLS error. Please check if the server URL protocol (http/https) is correct."
+
+        # Network unreachable
+        if "network is unreachable" in error_str or "no route to host" in error_str:
+            return "Network unreachable. Please check your network connection and server address."
+
+        # Default
+        return "Cannot connect to Homebox server. Please check your network and server configuration."
+
     async def login(self, username: str, password: str) -> dict[str, Any]:
         """Authenticate with Homebox and return the login response.
 
@@ -152,14 +190,20 @@ class HomeboxClient:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 data=payload,
             )
-        except Exception as e:
-            # Log connection error information
-            logger.debug(f"Login: Connection failed to {login_url}")
-            logger.debug(f"Login: {type(e).__name__}: {e}")
-            if hasattr(e, "__cause__") and e.__cause__:
-                cause = e.__cause__
-                logger.debug(f"Login: Caused by: {type(cause).__name__}: {cause}")
-            raise
+        except httpx.TimeoutException as e:
+            logger.debug(f"Login: Timeout connecting to {login_url}")
+            raise HomeboxTimeoutError(
+                message=str(e),
+                user_message="Connection timed out. Check if server is reachable.",
+                context={"url": login_url},
+            ) from e
+        except httpx.ConnectError as e:
+            logger.debug(f"Login: Connection failed to {login_url}: {e}")
+            raise HomeboxConnectionError(
+                message=str(e),
+                user_message=self._classify_connection_error(e),
+                context={"url": login_url},
+            ) from e
 
         # Log response status for debugging
         logger.debug(f"Login: Response status: {response.status_code}")

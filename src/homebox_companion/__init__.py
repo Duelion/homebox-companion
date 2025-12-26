@@ -52,6 +52,10 @@ from .ai import (
 )
 from .core import (
     AuthenticationError,
+    HomeboxAuthError,
+    HomeboxCompanionError,
+    HomeboxConnectionError,
+    HomeboxTimeoutError,
     Settings,
     logger,
     settings,
@@ -89,7 +93,12 @@ __all__ = [
     "Settings",
     "logger",
     "setup_logging",
-    "AuthenticationError",
+    # Domain exceptions
+    "HomeboxCompanionError",
+    "HomeboxAuthError",
+    "HomeboxConnectionError",
+    "HomeboxTimeoutError",
+    "AuthenticationError",  # Legacy alias
     # LLM exceptions
     "LLMError",
     "CapabilityNotSupportedError",

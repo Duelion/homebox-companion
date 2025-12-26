@@ -15,6 +15,11 @@ import litellm
 from loguru import logger
 
 from ..core import config
+from ..core.exceptions import (
+    CapabilityNotSupportedError,
+    JSONRepairError,
+    LLMServiceError,
+)
 from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
 from .model_capabilities import get_model_capabilities
 
@@ -24,23 +29,8 @@ litellm.suppress_debug_info = True
 # Maximum characters to include from malformed response in repair prompt
 MAX_REPAIR_CONTEXT_LENGTH = 2000
 
-
-class LLMError(Exception):
-    """Base exception for LLM-related errors."""
-
-    pass
-
-
-class CapabilityNotSupportedError(LLMError):
-    """Raised when a model lacks a required capability."""
-
-    pass
-
-
-class JSONRepairError(LLMError):
-    """Raised when JSON parsing fails even after repair attempt."""
-
-    pass
+# Re-export exceptions for backward compatibility (they're now defined in core.exceptions)
+LLMError = LLMServiceError  # Alias for backward compatibility
 
 
 def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
