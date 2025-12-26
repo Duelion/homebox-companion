@@ -28,13 +28,7 @@ async def list_items(
     """
     logger.debug(f"Fetching items for location_id={location_id}")
 
-    try:
-        items = await client.list_items(token, location_id=location_id)
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail="Session expired") from e
-    except Exception as e:
-        logger.error(f"Failed to fetch items: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch items") from e
+    items = await client.list_items(token, location_id=location_id)
 
     # Return simplified item data
     result = [
@@ -201,24 +195,16 @@ async def upload_item_attachment(
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
 
-    try:
-        result = await client.upload_attachment(
-            token=token,
-            item_id=item_id,
-            file_bytes=file_bytes,
-            filename=filename,
-            mime_type=mime_type,
-            attachment_type="photo",
-        )
-        logger.info(f"Successfully uploaded attachment to item {item_id}")
-        return result
-    except AuthenticationError as e:
-        logger.exception("Auth error uploading attachment")
-        raise HTTPException(status_code=401, detail="Authentication failed") from e
-    except Exception as e:
-        # Log full error but return generic message
-        logger.exception(f"Error uploading attachment to item {item_id}")
-        raise HTTPException(status_code=500, detail="Failed to upload attachment") from e
+    result = await client.upload_attachment(
+        token=token,
+        item_id=item_id,
+        file_bytes=file_bytes,
+        filename=filename,
+        mime_type=mime_type,
+        attachment_type="photo",
+    )
+    logger.info(f"Successfully uploaded attachment to item {item_id}")
+    return result
 
 
 @router.get("/items/{item_id}/attachments/{attachment_id}")
@@ -239,13 +225,9 @@ async def get_item_attachment(
     try:
         content, content_type = await client.get_attachment(token, item_id, attachment_id)
         return Response(content=content, media_type=content_type)
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail="Session expired") from e
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail="Attachment not found") from e
-    except Exception as e:
-        logger.error(f"Failed to fetch attachment: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch attachment") from e
+    except FileNotFoundError:
+        # Route-specific: 404 for missing attachments
+        raise HTTPException(status_code=404, detail="Attachment not found")
 
 
 @router.delete("/items/{item_id}")
@@ -260,13 +242,6 @@ async def delete_item(
     """
     logger.info(f"Deleting item: {item_id}")
 
-    try:
-        await client.delete_item(token, item_id)
-        logger.info(f"Successfully deleted item {item_id}")
-        return {"message": "Item deleted"}
-    except AuthenticationError as e:
-        logger.exception("Auth error deleting item")
-        raise HTTPException(status_code=401, detail="Authentication failed") from e
-    except Exception as e:
-        logger.exception(f"Error deleting item {item_id}")
-        raise HTTPException(status_code=500, detail="Failed to delete item") from e
+    await client.delete_item(token, item_id)
+    logger.info(f"Successfully deleted item {item_id}")
+    return {"message": "Item deleted"}

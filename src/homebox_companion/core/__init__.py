@@ -4,9 +4,16 @@ from .config import Settings, settings
 from .exceptions import (
     APIError,
     AuthenticationError,
+    CapabilityNotSupportedError,
     ConfigurationError,
     DetectionError,
+    HomeboxAPIError,
+    HomeboxAuthError,
     HomeboxCompanionError,
+    HomeboxConnectionError,
+    HomeboxTimeoutError,
+    JSONRepairError,
+    LLMServiceError,
 )
 from .field_preferences import (
     FieldPreferences,
@@ -27,7 +34,14 @@ __all__ = [
     "reset_field_preferences",
     # Exceptions
     "HomeboxCompanionError",
-    "AuthenticationError",
+    "HomeboxAuthError",
+    "HomeboxConnectionError",
+    "HomeboxTimeoutError",
+    "HomeboxAPIError",
+    "LLMServiceError",
+    "CapabilityNotSupportedError",
+    "JSONRepairError",
+    "AuthenticationError",  # Legacy alias for HomeboxAuthError
     "APIError",
     "ConfigurationError",
     "DetectionError",
