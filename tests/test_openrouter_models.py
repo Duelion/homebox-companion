@@ -24,8 +24,11 @@ OPENROUTER_MODELS = [
     "openrouter/google/gemini-2.5-flash",
 ]
 
-# Apply allow_unsafe_models fixture to all tests in this module
-pytestmark = pytest.mark.usefixtures("allow_unsafe_models")
+# All tests in this module hit the real OpenRouter API
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.usefixtures("allow_unsafe_models"),
+]
 
 
 @pytest.fixture(scope="module")

@@ -110,6 +110,7 @@ class TestCapabilityChecking:
         assert caps.multi_image is True
 
 
+@pytest.mark.integration
 class TestVisionValidation:
     """Test that vision_completion validates vision support."""
 
@@ -194,6 +195,7 @@ class TestVisionValidation:
             pytest.skip(f"Cannot test gpt-4-turbo: {e}")
 
 
+@pytest.mark.integration
 class TestErrorMessages:
     """Test that error messages are helpful."""
 
@@ -231,6 +233,7 @@ class TestErrorMessages:
         assert "bypass" in error_msg.lower()
 
 
+@pytest.mark.integration
 class TestUnsafeFlagBehavior:
     """Test what happens when unsafe flag is enabled with incompatible models.
 
