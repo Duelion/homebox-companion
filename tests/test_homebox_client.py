@@ -12,6 +12,9 @@ import pytest
 
 from homebox_companion import AuthenticationError, HomeboxClient, ItemCreate
 
+# All tests in this module hit the real Homebox demo server
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio
 async def test_login_with_valid_credentials_returns_token(

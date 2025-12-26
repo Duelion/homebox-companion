@@ -18,6 +18,9 @@ import pytest
 
 from homebox_companion import detect_items_from_bytes
 
+# All tests in this module hit the real OpenAI API
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio
 async def test_single_item_detection_returns_one_item(
