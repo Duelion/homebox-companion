@@ -22,12 +22,3 @@ async def get_labels(
     the centralized domain_error_handler in app.py.
     """
     return await client.list_labels(token)
-
-
-
-
-
-
-
-
-

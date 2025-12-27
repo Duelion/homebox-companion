@@ -17,7 +17,6 @@ from loguru import logger
 from starlette.responses import Response
 
 from homebox_companion import (
-    AuthenticationError,
     HomeboxClient,
     HomeboxCompanionError,
     settings,
@@ -190,7 +189,7 @@ async def _test_homebox_connectivity() -> None:
                 f"Connectivity test: HEAD {settings.homebox_url} -> {response.status_code}"
             )
             if response.status_code in (301, 302, 307, 308):
-                redirect_location = response.headers.get('location')
+                redirect_location = response.headers.get("location")
                 logger.debug(f"Connectivity test: Redirect to: {redirect_location}")
     except httpx.ConnectError as e:
         logger.warning(f"Connectivity test: Connection failed: {e}")
@@ -350,9 +349,7 @@ def create_app() -> FastAPI:
             latest_version = await _get_latest_github_version()
             result["latest_version"] = latest_version
             result["update_available"] = (
-                _is_newer_version(latest_version, __version__)
-                if latest_version
-                else False
+                _is_newer_version(latest_version, __version__) if latest_version else False
             )
         else:
             result["latest_version"] = None
@@ -376,10 +373,7 @@ def create_app() -> FastAPI:
         """Serve index.html for client-side routing (SPA fallback)."""
         # Don't fallback for API routes - let them 404 normally
         if request.url.path.startswith("/api/"):
-            return JSONResponse(
-                status_code=404,
-                content={"detail": "Not Found"}
-            )
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
         # Serve index.html for all other 404s (SPA client-side routing)
         index_path = os.path.join(static_dir, "index.html")
         if os.path.isfile(index_path):
@@ -389,12 +383,14 @@ def create_app() -> FastAPI:
             response.headers["Expires"] = "0"
             return response
         # No frontend built yet
-        return JSONResponse({
-            "name": "Homebox Companion API",
-            "version": __version__,
-            "docs": "/docs",
-            "note": "Frontend not built. Run: cd frontend && npm run build"
-        })
+        return JSONResponse(
+            {
+                "name": "Homebox Companion API",
+                "version": __version__,
+                "docs": "/docs",
+                "note": "Frontend not built. Run: cd frontend && npm run build",
+            }
+        )
 
     return app
 
@@ -416,4 +412,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

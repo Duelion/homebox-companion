@@ -135,7 +135,7 @@ class TestVisionValidation:
     @pytest.mark.asyncio
     async def test_text_only_model_with_unsafe_flag(self, openai_api_key, monkeypatch):
         """Test that unsafe models flag bypasses our validation.
-        
+
         With HBC_LLM_ALLOW_UNSAFE_MODELS=true, we skip capability validation.
         The model will still fail at LiteLLM/provider level since it truly
         doesn't support vision - but that's the expected behavior.
@@ -145,6 +145,7 @@ class TestVisionValidation:
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
         # Should raise LLMError (from provider), NOT CapabilityNotSupportedError
@@ -169,7 +170,7 @@ class TestVisionValidation:
         """
         try:
             result = await vision_completion(
-                system_prompt="Respond with valid JSON only: {\"description\": \"...\"}",
+                system_prompt='Respond with valid JSON only: {"description": "..."}',
                 user_prompt="Describe this tiny 1x1 pixel image briefly.",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
                 api_key=openai_api_key,
@@ -259,6 +260,7 @@ class TestUnsafeFlagBehavior:
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
         # This should NOT raise CapabilityNotSupportedError
@@ -294,6 +296,7 @@ class TestUnsafeFlagBehavior:
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
         with pytest.raises(LLMError) as exc_info:
@@ -324,6 +327,7 @@ class TestUnsafeFlagBehavior:
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
         try:
@@ -356,7 +360,12 @@ class TestUnsafeFlagBehavior:
             if any(
                 keyword in error_msg
                 for keyword in [
-                    "auth", "permission", "access", "api key", "not found", "rate limit"
+                    "auth",
+                    "permission",
+                    "access",
+                    "api key",
+                    "not found",
+                    "rate limit",
                 ]
             ):
                 pytest.skip(f"Cannot test gpt-4-turbo due to auth/access: {e}")
@@ -388,4 +397,3 @@ class TestCapabilityCacheing:
         # Different model should not be cached
         caps3 = get_model_capabilities("gpt-4o-mini")
         assert caps3 is not caps1
-

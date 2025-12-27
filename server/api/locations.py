@@ -42,23 +42,27 @@ async def get_locations_tree(
     for loc in top_level:
         try:
             details = await client.get_location(token, loc["id"])
-            enriched.append({
-                "id": details.get("id"),
-                "name": details.get("name"),
-                "description": details.get("description", ""),
-                "itemCount": loc.get("itemCount", 0),
-                "children": details.get("children", []),
-            })
+            enriched.append(
+                {
+                    "id": details.get("id"),
+                    "name": details.get("name"),
+                    "description": details.get("description", ""),
+                    "itemCount": loc.get("itemCount", 0),
+                    "children": details.get("children", []),
+                }
+            )
         except Exception as e:
             # Graceful degradation: if we can't get details, include basic info
             logger.warning(f"Failed to get details for location {loc.get('id')}: {e}")
-            enriched.append({
-                "id": loc.get("id"),
-                "name": loc.get("name"),
-                "description": loc.get("description", ""),
-                "itemCount": loc.get("itemCount", 0),
-                "children": [],
-            })
+            enriched.append(
+                {
+                    "id": loc.get("id"),
+                    "name": loc.get("name"),
+                    "description": loc.get("description", ""),
+                    "itemCount": loc.get("itemCount", 0),
+                    "children": [],
+                }
+            )
 
     return enriched
 

@@ -43,8 +43,7 @@ class DetectionResponse(BaseModel):
     items: list[DetectedItemResponse]
     message: str = "Detection complete"
     compressed_images: list[CompressedImage] = Field(
-        default_factory=list,
-        description="Compressed versions of images for Homebox upload"
+        default_factory=list, description="Compressed versions of images for Homebox upload"
     )
 
 
@@ -89,4 +88,3 @@ class BatchDetectionResponse(BaseModel):
     successful_images: int
     failed_images: int
     message: str = "Batch detection complete"
-

@@ -15,9 +15,7 @@ pytestmark = pytest.mark.unit
 class TestConfigurationPriority:
     """Test the two-tier priority: file overrides > defaults (env + hardcoded)."""
 
-    def test_load_with_no_file_no_env_returns_hardcoded(
-        self, monkeypatch, tmp_path
-    ) -> None:
+    def test_load_with_no_file_no_env_returns_hardcoded(self, monkeypatch, tmp_path) -> None:
         """With no file and no env vars, should return hardcoded defaults."""
         # Clear all HBC_AI_* env vars
         import os

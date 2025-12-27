@@ -281,4 +281,3 @@ class TestHasExtendedFields:
         item = DetectedItem(name="Tool", quantity=1, **fields)
 
         assert item.has_extended_fields() is expected
-

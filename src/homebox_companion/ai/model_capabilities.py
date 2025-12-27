@@ -75,9 +75,7 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
     # Warn if model string looks like it might be a vision model but doesn't
     # have vision support. This helps catch misconfigured model names
     # (e.g., missing provider prefix)
-    vision_keywords = [
-        'vision', 'gpt-4o', 'gpt-5', 'claude-3', 'gemini', 'llava'
-    ]
+    vision_keywords = ["vision", "gpt-4o", "gpt-5", "claude-3", "gemini", "llava"]
     if not vision and any(keyword in model.lower() for keyword in vision_keywords):
         logger.warning(
             f"Model '{model}' appears to be a vision model based on its name, "
@@ -93,4 +91,3 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
         multi_image=multi_image,
         json_mode=json_mode,
     )
-

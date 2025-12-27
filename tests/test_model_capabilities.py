@@ -12,6 +12,7 @@ from homebox_companion.ai.model_capabilities import (
 # All tests in this module are pure unit tests
 pytestmark = pytest.mark.unit
 
+
 class TestModelCapabilities:
     """Tests for the ModelCapabilities dataclass."""
 
@@ -88,4 +89,3 @@ class TestGetModelCapabilities:
         assert caps.vision is False
         assert caps.multi_image is False
         assert caps.json_mode is False
-

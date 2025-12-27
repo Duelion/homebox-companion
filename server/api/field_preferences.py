@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from loguru import logger
+from pydantic import BaseModel
 
 from homebox_companion import HomeboxClient
 from homebox_companion.core.field_preferences import (
@@ -55,9 +56,7 @@ async def update_field_preferences(
     # Log which fields differ from defaults
     defaults = get_defaults()
     customized_fields = [
-        field
-        for field in prefs.model_fields
-        if getattr(prefs, field) != getattr(defaults, field)
+        field for field in prefs.model_fields if getattr(prefs, field) != getattr(defaults, field)
     ]
 
     logger.info(f"Field preferences saved: {len(customized_fields)} fields customized")

@@ -50,10 +50,7 @@ class FieldPreferences(BaseSettings):
     default_label_id: str | None = None
 
     # Item naming instructions - env var: HBC_AI_NAME
-    name: str = (
-        "[Type] [Brand] [Model] [Specs], Title Case, "
-        "item type first for searchability"
-    )
+    name: str = "[Type] [Brand] [Model] [Specs], Title Case, item type first for searchability"
 
     # Naming examples - env var: HBC_AI_NAMING_EXAMPLES
     naming_examples: str = (
@@ -135,9 +132,7 @@ def load_field_preferences() -> FieldPreferences:
     try:
         file_data = json.loads(PREFERENCES_FILE.read_text(encoding="utf-8"))
         # User overrides on top of defaults
-        merged = defaults.model_dump() | {
-            k: v for k, v in file_data.items() if v is not None
-        }
+        merged = defaults.model_dump() | {k: v for k, v in file_data.items() if v is not None}
         return FieldPreferences.model_validate(merged)
     except (json.JSONDecodeError, ValidationError) as e:
         logger.warning(f"Invalid field preferences config file, using defaults: {e}")

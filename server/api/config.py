@@ -38,4 +38,3 @@ async def get_config() -> ConfigResponse:
         capture_max_images=settings.capture_max_images,
         capture_max_file_size_mb=settings.capture_max_file_size_mb,
     )
-

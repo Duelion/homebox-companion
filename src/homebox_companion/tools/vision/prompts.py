@@ -47,9 +47,7 @@ def build_detection_system_prompt(
     critical = build_critical_constraints(single_item)
     item_schema = build_item_schema(field_preferences)
     extended_schema = (
-        build_extended_fields_schema(field_preferences)
-        if extract_extended_fields
-        else ""
+        build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     )
     naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
@@ -119,8 +117,7 @@ def build_detection_user_prompt(
         "Example: "
         '{"items":[{"name":"Claw Hammer","quantity":2,'
         f'"description":"Steel claw hammer","labelIds":["id1"]{extended_example}'
-        "}]}."
-        + user_hint
+        "}]}." + user_hint
     )
 
 
@@ -151,9 +148,7 @@ def build_multi_image_system_prompt(
     critical = build_critical_constraints(single_item)
     item_schema = build_item_schema(field_preferences)
     extended_schema = (
-        build_extended_fields_schema(field_preferences)
-        if extract_extended_fields
-        else ""
+        build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     )
     naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
@@ -208,9 +203,7 @@ def build_discriminatory_system_prompt(
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
     extended_schema = (
-        build_extended_fields_schema(field_preferences)
-        if extract_extended_fields
-        else ""
+        build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     )
     naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)

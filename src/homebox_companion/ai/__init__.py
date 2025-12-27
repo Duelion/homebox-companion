@@ -1,5 +1,10 @@
 """AI/LLM integration module."""
 
+# Import LLM exceptions from core.exceptions (canonical location)
+from ..core.exceptions import (
+    CapabilityNotSupportedError,
+    JSONRepairError,
+)
 from .images import (
     encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
@@ -11,12 +16,6 @@ from .llm import (
     cleanup_llm_clients,
     cleanup_openai_clients,
     vision_completion,
-)
-
-# Import LLM exceptions from core.exceptions (canonical location)
-from ..core.exceptions import (
-    CapabilityNotSupportedError,
-    JSONRepairError,
 )
 from .model_capabilities import ModelCapabilities, get_model_capabilities
 from .prompts import (

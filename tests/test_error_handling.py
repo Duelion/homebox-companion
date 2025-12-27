@@ -19,6 +19,7 @@ from homebox_companion.tools.vision.models import DetectedItem
 # All tests in this module are unit tests (mocked httpx, tmp_path for files)
 pytestmark = pytest.mark.unit
 
+
 class TestHomeboxClientErrorHandling:
     """Test HTTP error handling in HomeboxClient."""
 
@@ -229,4 +230,3 @@ class TestVisionDetectionErrorHandling:
         items = DetectedItem.from_raw_items(raw_response.get("items", []))
 
         assert items == []
-

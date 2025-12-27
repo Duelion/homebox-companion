@@ -67,12 +67,3 @@ class BaseTool(ABC):
             Tool-specific result data.
         """
         pass
-
-
-
-
-
-
-
-
-

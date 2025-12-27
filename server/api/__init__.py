@@ -25,12 +25,3 @@ api_router.include_router(logs_router, tags=["logs"])
 api_router.include_router(vision_router, prefix="/tools/vision", tags=["vision"])
 
 __all__ = ["api_router"]
-
-
-
-
-
-
-
-
-

@@ -86,11 +86,9 @@ def build_item_schema(customizations: dict[str, str]) -> str:
     Returns:
         Item schema string with field instructions.
     """
-    name_instr = customizations.get('name', 'Title Case, max 255 characters')
-    qty_instr = customizations.get('quantity', '>= 1, count of identical items')
-    desc_instr = customizations.get(
-        'description', 'max 1000 chars, condition/attributes only'
-    )
+    name_instr = customizations.get("name", "Title Case, max 255 characters")
+    qty_instr = customizations.get("quantity", ">= 1, count of identical items")
+    desc_instr = customizations.get("description", "max 1000 chars, condition/attributes only")
     return f"""OUTPUT SCHEMA - Each item must include:
 - name: string ({name_instr})
 - quantity: integer ({qty_instr})
@@ -109,14 +107,12 @@ def build_extended_fields_schema(customizations: dict[str, str]) -> str:
     Returns:
         Extended fields schema string with field instructions.
     """
-    mfr_instr = customizations.get('manufacturer', 'brand name when visible')
-    model_instr = customizations.get('model_number', 'product code when visible')
-    serial_instr = customizations.get('serial_number', 'S/N when visible')
-    price_instr = customizations.get(
-        'purchase_price', 'price from tag, just the number'
-    )
-    from_instr = customizations.get('purchase_from', 'store name when visible')
-    notes_instr = customizations.get('notes', 'ONLY for defects/damage')
+    mfr_instr = customizations.get("manufacturer", "brand name when visible")
+    model_instr = customizations.get("model_number", "product code when visible")
+    serial_instr = customizations.get("serial_number", "S/N when visible")
+    price_instr = customizations.get("purchase_price", "price from tag, just the number")
+    from_instr = customizations.get("purchase_from", "store name when visible")
+    notes_instr = customizations.get("notes", "ONLY for defects/damage")
     return f"""
 OPTIONAL FIELDS (include only when visible or user-provided):
 - manufacturer: string or null ({mfr_instr})
@@ -148,10 +144,7 @@ def build_label_prompt(labels: list[dict[str, str]] | None) -> str:
     if not label_lines:
         return "No labels available; omit labelIds."
 
-    return (
-        "LABELS - Assign matching IDs to each item:\n"
-        + "\n".join(label_lines)
-    )
+    return "LABELS - Assign matching IDs to each item:\n" + "\n".join(label_lines)
 
 
 def build_language_instruction(output_language: str | None) -> str:

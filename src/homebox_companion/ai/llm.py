@@ -48,7 +48,7 @@ def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
         content = msg.get("content", "")
 
         if isinstance(content, str):
-            output_lines.append(f"\n{'='*60}\n[{role}]\n{'='*60}\n{content}")
+            output_lines.append(f"\n{'=' * 60}\n[{role}]\n{'=' * 60}\n{content}")
         elif isinstance(content, list):
             # Handle vision messages with mixed content
             text_parts = []
@@ -60,9 +60,7 @@ def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
                     image_count += 1
             text_content = "\n".join(text_parts)
             image_note = f"\n[+ {image_count} image(s) attached]" if image_count else ""
-            output_lines.append(
-                f"\n{'='*60}\n[{role}]{image_note}\n{'='*60}\n{text_content}"
-            )
+            output_lines.append(f"\n{'=' * 60}\n[{role}]{image_note}\n{'=' * 60}\n{text_content}")
 
     return "".join(output_lines)
 
@@ -209,9 +207,7 @@ async def _acompletion_with_repair(
     # First attempt
     logger.debug(f"Calling LiteLLM with model: {model}")
     logger.trace(
-        f">>> PROMPT SENT TO LLM ({model}) >>>"
-        f"{_format_messages_for_logging(messages)}"
-        f"\n{'='*60}"
+        f">>> PROMPT SENT TO LLM ({model}) >>>{_format_messages_for_logging(messages)}\n{'=' * 60}"
     )
 
     # Acquire rate limit before making API call
@@ -258,12 +254,7 @@ async def _acompletion_with_repair(
         logger.warning("LLM returned None content, defaulting to empty JSON object")
         raw_content = "{}"
 
-    logger.trace(
-        f"<<< RESPONSE FROM LLM ({model}) <<<"
-        f"\n{'='*60}\n"
-        f"{raw_content}"
-        f"\n{'='*60}"
-    )
+    logger.trace(f"<<< RESPONSE FROM LLM ({model}) <<<\n{'=' * 60}\n{raw_content}\n{'=' * 60}")
 
     # Log token usage
     if completion.usage:
@@ -333,10 +324,7 @@ async def _acompletion_with_repair(
         repaired_content = "{}"
 
     logger.trace(
-        f"<<< REPAIR RESPONSE FROM LLM ({model}) <<<"
-        f"\n{'='*60}\n"
-        f"{repaired_content}"
-        f"\n{'='*60}"
+        f"<<< REPAIR RESPONSE FROM LLM ({model}) <<<\n{'=' * 60}\n{repaired_content}\n{'=' * 60}"
     )
 
     repaired_parsed, repaired_error = _parse_json_response(repaired_content, expected_keys)
@@ -437,8 +425,7 @@ async def vision_completion(
         # Without validation, try json_mode by default and let LiteLLM handle it
         response_format = {"type": "json_object"}
         logger.debug(
-            f"Skipping capability validation for model '{model}' "
-            f"(HBC_LLM_ALLOW_UNSAFE_MODELS=true)"
+            f"Skipping capability validation for model '{model}' (HBC_LLM_ALLOW_UNSAFE_MODELS=true)"
         )
     else:
         # Validate model capabilities
@@ -458,18 +445,18 @@ async def vision_completion(
                 f"  • The model name is incorrect or misspelled\n"
                 f"  • The model doesn't support image inputs (text-only model)\n"
                 f"  • The provider prefix is missing (e.g., 'openai/' or 'openrouter/')\n\n"
-            f"Officially supported models:\n"
-            f"  • gpt-5-mini (default, recommended)\n"
-            f"  • gpt-5-nano (lower cost per token, but generates more tokens)\n\n"
-            f"Note: While LiteLLM supports many vision models "
-            f"(GPT-4o, Claude 3, Gemini, etc.), "
-            f"this app is tested and optimized for gpt-5 series models. "
-            f"Other models may work but are not officially supported.\n\n"
-            f"If you're using a different vision-capable model and want to "
-            f"bypass this check, "
-            f"set HBC_LLM_ALLOW_UNSAFE_MODELS=true "
-            f"(use with caution - the model must actually support vision).\n\n"
-            f"Configure your model via the HBC_LLM_MODEL environment variable."
+                f"Officially supported models:\n"
+                f"  • gpt-5-mini (default, recommended)\n"
+                f"  • gpt-5-nano (lower cost per token, but generates more tokens)\n\n"
+                f"Note: While LiteLLM supports many vision models "
+                f"(GPT-4o, Claude 3, Gemini, etc.), "
+                f"this app is tested and optimized for gpt-5 series models. "
+                f"Other models may work but are not officially supported.\n\n"
+                f"If you're using a different vision-capable model and want to "
+                f"bypass this check, "
+                f"set HBC_LLM_ALLOW_UNSAFE_MODELS=true "
+                f"(use with caution - the model must actually support vision).\n\n"
+                f"Configure your model via the HBC_LLM_MODEL environment variable."
             )
 
         if len(image_data_uris) > 1 and not caps.multi_image:
@@ -534,6 +521,7 @@ def cleanup_openai_clients() -> None:
     This function is deprecated and will be removed in a future version.
     """
     import warnings
+
     warnings.warn(
         "cleanup_openai_clients() is deprecated, use cleanup_llm_clients() instead. "
         "Note: Both are no-ops as LiteLLM manages HTTP clients internally.",

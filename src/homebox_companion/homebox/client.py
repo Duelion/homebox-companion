@@ -159,7 +159,9 @@ class HomeboxClient:
             return "Network unreachable. Please check your network connection and server address."
 
         # Default
-        return "Cannot connect to Homebox server. Please check your network and server configuration."
+        return (
+            "Cannot connect to Homebox server. Please check your network and server configuration."
+        )
 
     async def login(self, username: str, password: str) -> dict[str, Any]:
         """Authenticate with Homebox and return the login response.
@@ -540,9 +542,7 @@ class HomeboxClient:
         self._ensure_success(response, "Update item")
         return response.json()
 
-    async def update_item_typed(
-        self, token: str, item_id: str, item_data: dict[str, Any]
-    ) -> Item:
+    async def update_item_typed(self, token: str, item_id: str, item_data: dict[str, Any]) -> Item:
         """Update a single item by ID and return as typed Item object.
 
         Args:
@@ -665,9 +665,7 @@ class HomeboxClient:
         )
         # Handle 404 explicitly with a specific exception type
         if response.status_code == 404:
-            raise FileNotFoundError(
-                f"Attachment {attachment_id} not found for item {item_id}"
-            )
+            raise FileNotFoundError(f"Attachment {attachment_id} not found for item {item_id}")
         self._ensure_success(response, "Get attachment")
         content_type = response.headers.get("content-type", "application/octet-stream")
         return response.content, content_type
@@ -788,8 +786,3 @@ class HomeboxClient:
         logger.error(f"{context} failed: {request_info}-> {response.status_code}")
         logger.debug(f"Response detail: {detail}")
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
-
-
-
-
-

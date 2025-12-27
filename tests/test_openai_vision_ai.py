@@ -100,7 +100,4 @@ async def test_detection_with_labels_assigns_valid_ids(
     for item in detected_items:
         if item.label_ids:
             for label_id in item.label_ids:
-                assert (
-                    label_id in valid_label_ids
-                ), f"Label {label_id} not in provided labels"
-
+                assert label_id in valid_label_ids, f"Label {label_id} not in provided labels"

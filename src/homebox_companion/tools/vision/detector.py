@@ -199,4 +199,3 @@ async def discriminatory_detect_items(
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
 
     return items
-

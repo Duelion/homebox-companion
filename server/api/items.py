@@ -225,9 +225,9 @@ async def get_item_attachment(
     try:
         content, content_type = await client.get_attachment(token, item_id, attachment_id)
         return Response(content=content, media_type=content_type)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         # Route-specific: 404 for missing attachments
-        raise HTTPException(status_code=404, detail="Attachment not found")
+        raise HTTPException(status_code=404, detail="Attachment not found") from e
 
 
 @router.delete("/items/{item_id}")

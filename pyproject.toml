@@ -91,21 +91,24 @@ markers = [
 
 # FastAPI Depends() pattern: `param: Annotated[T, Depends(fn)] = None` is idiomatic
 # The None is never actually used - FastAPI's DI system injects the value
-invalid-parameter-default = "warn"
+invalid-parameter-default = "ignore"
 
 # Third-party library type stubs are sometimes incomplete or overly strict
 # CORSMiddleware and litellm.suppress_debug_info have stub issues
-invalid-assignment = "warn"
+invalid-assignment = "ignore"
+
+# Suppress unresolved-attribute for throttled-py's LimitResult which has dynamic attributes
+unresolved-attribute = "warn"
 
 [[tool.ty.overrides]]
 # Test files use dynamic dict access where ty can't infer the value type
 include = ["tests/**"]
-rules = { invalid-argument-type = "warn" }
+rules = { invalid-argument-type = "warn", invalid-parameter-default = "ignore" }
 
 [[tool.ty.overrides]]
 # Server has Starlette type stub issues (CORSMiddleware) and FastAPI DI patterns
 include = ["server/**"]
-rules = { invalid-argument-type = "warn" }
+rules = { invalid-argument-type = "warn", invalid-parameter-default = "ignore" }
 
 [[tool.ty.overrides]]
 # src has throttled-py type stub issues (MemoryStore Protocol mismatch)

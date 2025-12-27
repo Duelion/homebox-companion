@@ -134,18 +134,14 @@ async def detect_items(
             # Limit concurrent compressions to prevent CPU overload
             async with _get_compression_semaphore():
                 base64_data, mime = await asyncio.to_thread(
-                    encode_compressed_image_to_base64,
-                    img_bytes,
-                    max_dimension,
-                    jpeg_quality
+                    encode_compressed_image_to_base64, img_bytes, max_dimension, jpeg_quality
                 )
                 return CompressedImage(data=base64_data, mime_type=mime)
 
         # Compress all images in parallel
-        return await asyncio.gather(*[
-            compress_one(img_bytes, mime)
-            for img_bytes, mime in all_images_to_compress
-        ])
+        return await asyncio.gather(
+            *[compress_one(img_bytes, mime) for img_bytes, mime in all_images_to_compress]
+        )
 
     # Detect items
     logger.info("Starting LLM vision detection and image compression...")
@@ -319,8 +315,7 @@ async def detect_items_batch(
     # Process all images in parallel
     logger.info(f"Starting parallel detection for {len(images)} images...")
     detection_tasks = [
-        detect_single(index, img_bytes, mime_type)
-        for index, img_bytes, mime_type in image_data
+        detect_single(index, img_bytes, mime_type) for index, img_bytes, mime_type in image_data
     ]
     results = await asyncio.gather(*detection_tasks)
 
@@ -395,7 +390,6 @@ async def analyze_item_advanced(
         notes=details.get("notes"),
         label_ids=filter_default_label(details.get("labelIds"), ctx.default_label_id),
     )
-
 
 
 # Maximum length for correction instructions to prevent abuse

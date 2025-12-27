@@ -46,10 +46,10 @@ class ImageQuality(str, Enum):
     Compression happens server-side during AI analysis to avoid slowing down mobile devices.
     """
 
-    RAW = "raw"        # No compression, original file
-    HIGH = "high"      # 2560px max, 85% JPEG quality
+    RAW = "raw"  # No compression, original file
+    HIGH = "high"  # 2560px max, 85% JPEG quality
     MEDIUM = "medium"  # 1920px max, 75% JPEG quality (default)
-    LOW = "low"        # 1280px max, 60% JPEG quality
+    LOW = "low"  # 1280px max, 60% JPEG quality
 
 
 class Settings(BaseSettings):
