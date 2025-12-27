@@ -11,9 +11,6 @@ from .vision import (
     DetectionResponse,
     ItemBaseMixin,
     ItemExtendedFieldsMixin,
-    MergedItemResponse,
-    MergeItemInput,
-    MergeItemsRequest,
 )
 
 __all__ = [
@@ -33,11 +30,8 @@ __all__ = [
     "DetectedItemResponse",
     "DetectionResponse",
     "AdvancedItemDetails",
-    # Vision - Merge
-    "MergeItemInput",
-    "MergeItemsRequest",
-    "MergedItemResponse",
     # Vision - Correction
     "CorrectedItemResponse",
     "CorrectionResponse",
 ]
+

@@ -54,6 +54,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "ruff>=0.14.7",
     "ty>=0.0.5",
+    "vulture>=2.14",
 ]
 
 [tool.ruff]
@@ -110,4 +111,23 @@ rules = { invalid-argument-type = "warn" }
 # src has throttled-py type stub issues (MemoryStore Protocol mismatch)
 include = ["src/**"]
 rules = { invalid-argument-type = "warn" }
+
+[tool.vulture]
+# Find dead code with confidence threshold to reduce false positives
+min_confidence = 80
+paths = ["src/", "server/", "tests/"]
+exclude = ["*/.venv/*", "*/__pycache__/*"]
+# Ignore common patterns that may appear unused but are intentional:
+# - __version__: Package version metadata
+# - cleanup_*: Cleanup functions (may be called externally)
+# - pytestmark: Pytest test markers
+# - model_config: Pydantic v2 configuration
+# - *_typed: Typed wrapper methods (may be used by library consumers)
+ignore_names = [
+    "__version__",
+    "cleanup_*",
+    "pytestmark",
+    "model_config",
+    "*_typed",
+]
 

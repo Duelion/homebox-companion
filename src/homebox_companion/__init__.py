@@ -81,8 +81,6 @@ from .tools.vision import (
     correct_item_with_openai,
     detect_items_from_bytes,
     discriminatory_detect_items,
-    merge_items,
-    merge_items_with_openai,
 )
 
 __all__ = [
@@ -116,8 +114,6 @@ __all__ = [
     "detect_items_from_bytes",
     "discriminatory_detect_items",
     "analyze_item_details_from_images",
-    "merge_items",
-    "merge_items_with_openai",  # Deprecated alias
     "correct_item",
     "correct_item_with_openai",  # Deprecated alias
     # Image utilities
