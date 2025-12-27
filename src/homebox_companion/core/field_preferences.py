@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 from loguru import logger
 from pydantic import ValidationError
@@ -176,12 +175,3 @@ def reset_field_preferences() -> FieldPreferences:
     if PREFERENCES_FILE.exists():
         PREFERENCES_FILE.unlink()
     return get_defaults()
-
-
-def get_preferences_as_dict() -> dict[str, Any]:
-    """Get field preferences as a dictionary.
-
-    Returns:
-        Dict representation of current preferences.
-    """
-    return load_field_preferences().model_dump()

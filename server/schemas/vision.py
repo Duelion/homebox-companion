@@ -59,32 +59,6 @@ class AdvancedItemDetails(ItemExtendedFieldsMixin):
     label_ids: list[str] | None = None
 
 
-class MergeItemInput(BaseModel):
-    """Input item for merge request with typed fields."""
-
-    name: str
-    quantity: int = 1
-    description: str | None = None
-    manufacturer: str | None = None
-    model_number: str | None = None
-    serial_number: str | None = None
-    purchase_price: float | None = None
-    purchase_from: str | None = None
-    notes: str | None = None
-
-
-class MergeItemsRequest(BaseModel):
-    """Request to merge multiple items into one."""
-
-    items: list[MergeItemInput]
-
-
-class MergedItemResponse(ItemBaseMixin):
-    """Response with merged item data."""
-
-    pass
-
-
 class CorrectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
     """A corrected item from AI analysis."""
 
@@ -96,13 +70,6 @@ class CorrectionResponse(BaseModel):
 
     items: list[CorrectedItemResponse]
     message: str = "Correction complete"
-
-
-class BatchImageConfig(BaseModel):
-    """Configuration for a single image in batch detection."""
-
-    single_item: bool = False
-    extra_instructions: str | None = None
 
 
 class BatchDetectionResult(BaseModel):

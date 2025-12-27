@@ -236,30 +236,18 @@ def build_discriminatory_system_prompt(
     )
 
 
-def build_discriminatory_user_prompt(previous_merged_item: dict | None = None) -> str:
+def build_discriminatory_user_prompt() -> str:
     """Build user prompt for discriminatory detection.
 
-    Args:
-        previous_merged_item: Optional dict of the previously merged item for context.
-
     Returns:
-        User prompt string.
+        User prompt string for detailed item separation.
     """
-    context = ""
-    if previous_merged_item:
-        context = (
-            f"\n\nPreviously grouped as: '{previous_merged_item.get('name', 'unknown')}' "
-            f"(qty: {previous_merged_item.get('quantity', 1)}). "
-            "User wants these as SEPARATE items."
-        )
-
     return (
         "Identify ALL DISTINCT items. Be MORE DISCRIMINATORY - "
         "different sizes/colors/brands/grits = separate items.\n"
         "Examples: '80 Grit Sandpaper' + '120 Grit Sandpaper', "
         "'M3 Phillips Screw' + 'M5 Phillips Screw'."
-        + context
-        + "\nReturn only JSON."
+        "\nReturn only JSON."
     )
 
 

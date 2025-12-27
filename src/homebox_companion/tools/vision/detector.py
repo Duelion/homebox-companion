@@ -146,7 +146,6 @@ async def _detect_items_from_data_uris(
 
 async def discriminatory_detect_items(
     image_data_uris: list[str],
-    previous_merged_item: dict | None = None,
     api_key: str | None = None,
     model: str | None = None,
     labels: list[dict[str, str]] | None = None,
@@ -156,13 +155,11 @@ async def discriminatory_detect_items(
 ) -> list[DetectedItem]:
     """Re-detect items from images with more discriminatory instructions.
 
-    This function is used when a user "unmerges" items - it re-analyzes
-    the images with specific instructions to be more discriminatory and
-    separate items that might have been grouped together previously.
+    This function re-analyzes images with specific instructions to be more
+    discriminatory and separate items that might have been grouped together.
 
     Args:
         image_data_uris: List of data URI strings for each image.
-        previous_merged_item: The previously merged item dict for context.
         api_key: LLM API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest for items.
@@ -184,7 +181,7 @@ async def discriminatory_detect_items(
     system_prompt = build_discriminatory_system_prompt(
         labels, extract_extended_fields, field_preferences, output_language
     )
-    user_prompt = build_discriminatory_user_prompt(previous_merged_item)
+    user_prompt = build_discriminatory_user_prompt()
 
     parsed_content = await vision_completion(
         system_prompt=system_prompt,
@@ -202,3 +199,4 @@ async def discriminatory_detect_items(
         logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
 
     return items
+

@@ -7,7 +7,7 @@ import json
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import (
@@ -22,9 +22,6 @@ from homebox_companion import (
 )
 from homebox_companion import (
     correct_item as llm_correct_item,
-)
-from homebox_companion import (
-    merge_items as llm_merge_items,
 )
 
 from ...dependencies import (
@@ -43,8 +40,6 @@ from ...schemas.vision import (
     CorrectionResponse,
     DetectedItemResponse,
     DetectionResponse,
-    MergedItemResponse,
-    MergeItemsRequest,
 )
 
 router = APIRouter()
@@ -401,40 +396,6 @@ async def analyze_item_advanced(
         label_ids=filter_default_label(details.get("labelIds"), ctx.default_label_id),
     )
 
-
-@router.post("/merge", response_model=MergedItemResponse)
-async def merge_items(
-    request: MergeItemsRequest,
-    ctx: Annotated[VisionContext, Depends(get_vision_context)],
-    api_key: Annotated[str, Depends(require_llm_configured)],
-) -> MergedItemResponse:
-    """Merge multiple items into a single consolidated item using AI."""
-    logger.info(f"Merging {len(request.items)} items")
-
-    if len(request.items) < 2:
-        raise HTTPException(status_code=400, detail="At least 2 items are required to merge")
-
-    # Convert typed items to dicts for the LLM function
-    items_as_dicts = [item.model_dump(exclude_none=True) for item in request.items]
-
-    logger.info("Calling LLM for item merge...")
-    merged = await llm_merge_items(
-        items=items_as_dicts,
-        api_key=api_key,
-        model=settings.effective_llm_model,
-        labels=ctx.labels,
-        field_preferences=ctx.field_preferences,
-        output_language=ctx.output_language,
-    )
-    logger.info(f"Merge complete: {merged.get('name')}")
-
-    # Filter out default label from AI suggestions (frontend will auto-add it)
-    return MergedItemResponse(
-        name=merged.get("name", "Merged Item"),
-        quantity=merged.get("quantity", sum(item.quantity for item in request.items)),
-        description=merged.get("description"),
-        label_ids=filter_default_label(merged.get("labelIds"), ctx.default_label_id),
-    )
 
 
 # Maximum length for correction instructions to prevent abuse
