@@ -279,14 +279,12 @@ async def get_vision_context(
         prefs = load_field_preferences()
 
     # Determine output language (None means use default English)
-    lang = prefs.get_output_language()
-    output_language = None if lang.lower() == "english" else lang
+    output_language = None if prefs.output_language.lower() == "english" else prefs.output_language
 
     return VisionContext(
         token=token,
         labels=await get_labels_for_context(token),
-        # Always pass effective customizations (user values merged with defaults)
-        # This ensures prompt builders don't need their own fallback defaults
+        # get_effective_customizations returns all prompt fields
         field_preferences=prefs.get_effective_customizations(),
         output_language=output_language,
         default_label_id=prefs.default_label_id,
