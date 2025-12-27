@@ -9,6 +9,8 @@ from homebox_companion.ai.model_capabilities import (
     get_model_capabilities,
 )
 
+# All tests in this module are pure unit tests
+pytestmark = pytest.mark.unit
 
 class TestModelCapabilities:
     """Tests for the ModelCapabilities dataclass."""

@@ -14,6 +14,9 @@ from homebox_companion.ai.prompts import (
 )
 from homebox_companion.core.field_preferences import get_defaults
 
+# All tests in this module are pure unit tests
+pytestmark = pytest.mark.unit
+
 # Get default values for tests
 DEFAULTS = get_defaults()
 

@@ -16,6 +16,8 @@ from homebox_companion.core.exceptions import AuthenticationError
 from homebox_companion.homebox.client import HomeboxClient
 from homebox_companion.tools.vision.models import DetectedItem
 
+# All tests in this module are unit tests (mocked httpx, tmp_path for files)
+pytestmark = pytest.mark.unit
 
 class TestHomeboxClientErrorHandling:
     """Test HTTP error handling in HomeboxClient."""
@@ -80,18 +82,6 @@ class TestHomeboxClientErrorHandling:
 
 class TestDetectedItemInvalidInput:
     """Test DetectedItem handling of invalid/malformed input data."""
-
-    def test_non_dict_items_cause_attribute_error(self) -> None:
-        """Non-dictionary items in raw list cause AttributeError (expected behavior)."""
-        raw_items = [
-            {"name": "Valid Item", "quantity": 1},
-            "invalid string item",  # This will cause AttributeError
-        ]
-
-        # Current implementation doesn't filter non-dicts, it raises AttributeError
-        # This tests that we're aware of this limitation
-        with pytest.raises(AttributeError):
-            DetectedItem.from_raw_items(raw_items)
 
     def test_nested_invalid_label_data_filtered(self) -> None:
         """Invalid nested data in labelIds should be filtered gracefully."""

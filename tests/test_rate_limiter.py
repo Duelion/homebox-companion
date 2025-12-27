@@ -17,6 +17,8 @@ from homebox_companion.core.rate_limiter import (
     is_rate_limiting_enabled,
 )
 
+# Most tests are unit tests; timing-sensitive tests marked with @pytest.mark.integration
+pytestmark = pytest.mark.unit
 
 class TestEstimateTokens:
     """Tests for token estimation."""

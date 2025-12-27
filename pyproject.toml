@@ -71,11 +71,14 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-# Skip integration tests by default - they hit real APIs (demo.homebox.software, OpenAI)
-# Run them explicitly with: uv run pytest -m integration
-addopts = "-m 'not integration'"
+# Default: run unit + integration tests (fast, reliable)
+# Exclude live tests (require real APIs and credentials)
+# Run live tests explicitly with: uv run pytest -m "live" or uv run pytest -m ""
+addopts = "-v -m 'not live' --strict-markers"
 markers = [
-    "integration: tests that hit the real Homebox demo API and OpenAI API.",
+    "unit: fast tests with no I/O or external dependencies",
+    "integration: tests with mocked external services or temp files",
+    "live: tests requiring real external services (OpenAI, Homebox demo)",
 ]
 
 [tool.ty]

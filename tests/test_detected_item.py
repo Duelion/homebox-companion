@@ -6,6 +6,9 @@ import pytest
 
 from homebox_companion.tools.vision.models import DetectedItem
 
+# All tests in this module are pure unit tests
+pytestmark = pytest.mark.unit
+
 
 class TestFromRawItems:
     """Test DetectedItem.from_raw_items() parsing behavior."""

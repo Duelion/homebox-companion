@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from homebox_companion.core import field_preferences
+
+# All tests in this module are unit tests (use tmp_path, no external services)
+pytestmark = pytest.mark.unit
 
 
 class TestConfigurationPriority:

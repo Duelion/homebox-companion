@@ -19,7 +19,7 @@ import pytest
 from homebox_companion import detect_items_from_bytes
 
 # All tests in this module hit the real Anthropic Claude API
-pytestmark = pytest.mark.integration
+pytestmark = pytest.mark.live
 
 
 @pytest.mark.asyncio

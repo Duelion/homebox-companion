@@ -26,7 +26,7 @@ OPENROUTER_MODELS = [
 
 # All tests in this module hit the real OpenRouter API
 pytestmark = [
-    pytest.mark.integration,
+    pytest.mark.live,
     pytest.mark.usefixtures("allow_unsafe_models"),
 ]
 
