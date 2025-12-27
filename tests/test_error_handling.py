@@ -174,7 +174,7 @@ class TestFieldPreferencesFileCorruption:
     """Test field preferences handling of corrupted/invalid files."""
 
     def test_corrupted_json_falls_back_to_defaults(self, monkeypatch, tmp_path) -> None:
-        """Corrupted JSON file should fall back to environment defaults."""
+        """Corrupted JSON file should fall back to defaults with warning."""
         from homebox_companion.core import field_preferences
 
         config_dir = tmp_path / "config"
@@ -186,19 +186,17 @@ class TestFieldPreferencesFileCorruption:
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
         monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
+        field_preferences.get_defaults.cache_clear()
 
-        # Should not crash - corrupted file is ignored
+        # Should not crash - corrupted file triggers warning + defaults
         prefs = field_preferences.load_field_preferences()
 
-        # Returns empty preferences (file ignored, no env vars set)
+        # Returns defaults (no env vars set in this test)
         assert isinstance(prefs, field_preferences.FieldPreferences)
-        # The implementation returns None values when no env vars set
-        assert prefs.output_language is None or prefs.output_language == "English"
+        assert prefs.output_language == "English"
 
-    def test_invalid_data_types_raises_validation_error(self, monkeypatch, tmp_path) -> None:
-        """Invalid data types in JSON should raise Pydantic ValidationError."""
-        from pydantic import ValidationError
-
+    def test_invalid_data_types_falls_back_to_defaults(self, monkeypatch, tmp_path) -> None:
+        """Invalid data types in JSON should trigger warning and fallback."""
         from homebox_companion.core import field_preferences
 
         config_dir = tmp_path / "config"
@@ -215,10 +213,12 @@ class TestFieldPreferencesFileCorruption:
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
         monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
+        field_preferences.get_defaults.cache_clear()
 
-        # Pydantic validates and raises ValidationError for wrong types
-        with pytest.raises(ValidationError):
-            field_preferences.load_field_preferences()
+        # Should not crash - returns defaults with warning
+        prefs = field_preferences.load_field_preferences()
+        assert isinstance(prefs, field_preferences.FieldPreferences)
+        assert prefs.output_language == "English"
 
 
 class TestVisionDetectionErrorHandling:

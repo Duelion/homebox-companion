@@ -4,7 +4,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from loguru import logger
-from pydantic import BaseModel
 
 from homebox_companion import HomeboxClient
 from homebox_companion.core.field_preferences import (
@@ -21,139 +20,58 @@ from ..dependencies import get_client, get_token
 router = APIRouter()
 
 
-class FieldPreferencesResponse(BaseModel):
-    """Response model for field preferences."""
-
-    output_language: str | None = None
-    default_label_id: str | None = None
-    name: str | None = None
-    description: str | None = None
-    quantity: str | None = None
-    manufacturer: str | None = None
-    model_number: str | None = None
-    serial_number: str | None = None
-    purchase_price: str | None = None
-    purchase_from: str | None = None
-    notes: str | None = None
-    naming_examples: str | None = None
-
-
-class FieldPreferencesUpdate(BaseModel):
-    """Request model for updating field preferences."""
-
-    output_language: str | None = None
-    default_label_id: str | None = None
-    name: str | None = None
-    description: str | None = None
-    quantity: str | None = None
-    manufacturer: str | None = None
-    model_number: str | None = None
-    serial_number: str | None = None
-    purchase_price: str | None = None
-    purchase_from: str | None = None
-    notes: str | None = None
-    naming_examples: str | None = None
-
-
-@router.get("/settings/field-preferences", response_model=FieldPreferencesResponse)
+@router.get("/settings/field-preferences", response_model=FieldPreferences)
 async def get_field_preferences(
     token: Annotated[str, Depends(get_token)] = None,
     client: Annotated[HomeboxClient, Depends(get_client)] = None,
-) -> FieldPreferencesResponse:
+) -> FieldPreferences:
     """Get current field preferences.
 
     Returns the user-defined instructions for each AI output field.
-    Empty/null values indicate default behavior should be used.
     Requires authentication.
     """
     # Token/client validated by Depends - no additional action needed
     _ = token, client  # Silence unused variable warnings
-    prefs = load_field_preferences()
-    return FieldPreferencesResponse(
-        output_language=prefs.output_language,
-        default_label_id=prefs.default_label_id,
-        name=prefs.name,
-        description=prefs.description,
-        quantity=prefs.quantity,
-        manufacturer=prefs.manufacturer,
-        model_number=prefs.model_number,
-        serial_number=prefs.serial_number,
-        purchase_price=prefs.purchase_price,
-        purchase_from=prefs.purchase_from,
-        notes=prefs.notes,
-        naming_examples=prefs.naming_examples,
-    )
+    return load_field_preferences()
 
 
-@router.put("/settings/field-preferences", response_model=FieldPreferencesResponse)
+@router.put("/settings/field-preferences", response_model=FieldPreferences)
 async def update_field_preferences(
-    update: FieldPreferencesUpdate,
+    prefs: FieldPreferences,
     token: Annotated[str, Depends(get_token)] = None,
     client: Annotated[HomeboxClient, Depends(get_client)] = None,
-) -> FieldPreferencesResponse:
+) -> FieldPreferences:
     """Update field preferences.
 
     Saves the user-defined instructions for AI output fields.
-    Set a field to null or empty string to use default behavior.
     Requires authentication.
     """
     # Token/client validated by Depends - no additional action needed
     _ = token, client  # Silence unused variable warnings
 
     logger.info("Updating field preferences")
-
-    prefs = FieldPreferences(
-        output_language=update.output_language,
-        default_label_id=update.default_label_id,
-        name=update.name,
-        description=update.description,
-        quantity=update.quantity,
-        manufacturer=update.manufacturer,
-        model_number=update.model_number,
-        serial_number=update.serial_number,
-        purchase_price=update.purchase_price,
-        purchase_from=update.purchase_from,
-        notes=update.notes,
-        naming_examples=update.naming_examples,
-    )
     save_field_preferences(prefs)
 
-    # Log which fields were customized
-    customized_fields = []
-    if update.output_language:
-        customized_fields.append(f"output_language={update.output_language}")
-    if update.default_label_id:
-        customized_fields.append("default_label_id")
-    for field in ["name", "description", "quantity", "manufacturer", "model_number",
-                  "serial_number", "purchase_price", "purchase_from", "notes", "naming_examples"]:
-        if getattr(update, field):
-            customized_fields.append(field)
+    # Log which fields differ from defaults
+    defaults = get_defaults()
+    customized_fields = [
+        field
+        for field in prefs.model_fields
+        if getattr(prefs, field) != getattr(defaults, field)
+    ]
 
     logger.info(f"Field preferences saved: {len(customized_fields)} fields customized")
-    fields_list = ", ".join(customized_fields) if customized_fields else "none"
-    logger.debug(f"Customized fields: {fields_list}")
+    if customized_fields:
+        logger.debug(f"Customized fields: {', '.join(customized_fields)}")
 
-    return FieldPreferencesResponse(
-        output_language=prefs.output_language,
-        default_label_id=prefs.default_label_id,
-        name=prefs.name,
-        description=prefs.description,
-        quantity=prefs.quantity,
-        manufacturer=prefs.manufacturer,
-        model_number=prefs.model_number,
-        serial_number=prefs.serial_number,
-        purchase_price=prefs.purchase_price,
-        purchase_from=prefs.purchase_from,
-        notes=prefs.notes,
-        naming_examples=prefs.naming_examples,
-    )
+    return prefs
 
 
-@router.delete("/settings/field-preferences", response_model=FieldPreferencesResponse)
+@router.delete("/settings/field-preferences", response_model=FieldPreferences)
 async def delete_field_preferences(
     token: Annotated[str, Depends(get_token)] = None,
     client: Annotated[HomeboxClient, Depends(get_client)] = None,
-) -> FieldPreferencesResponse:
+) -> FieldPreferences:
     """Reset field preferences to defaults.
 
     Clears all custom field instructions and restores default behavior.
@@ -166,88 +84,29 @@ async def delete_field_preferences(
     prefs = reset_field_preferences()
     logger.info("Field preferences reset complete")
 
-    return FieldPreferencesResponse(
-        output_language=prefs.output_language,
-        default_label_id=prefs.default_label_id,
-        name=prefs.name,
-        description=prefs.description,
-        quantity=prefs.quantity,
-        manufacturer=prefs.manufacturer,
-        model_number=prefs.model_number,
-        serial_number=prefs.serial_number,
-        purchase_price=prefs.purchase_price,
-        purchase_from=prefs.purchase_from,
-        notes=prefs.notes,
-        naming_examples=prefs.naming_examples,
-    )
+    return prefs
 
 
-class EffectiveDefaultsResponse(BaseModel):
-    """Response model for effective defaults (env var or hardcoded fallback)."""
-
-    output_language: str
-    default_label_id: str | None = None
-    name: str
-    description: str
-    quantity: str
-    manufacturer: str
-    model_number: str
-    serial_number: str
-    purchase_price: str
-    purchase_from: str
-    notes: str
-    naming_examples: str
+# EffectiveDefaultsResponse reuses FieldPreferences
 
 
-@router.get("/settings/effective-defaults", response_model=EffectiveDefaultsResponse)
+@router.get("/settings/effective-defaults", response_model=FieldPreferences)
 async def get_effective_defaults(
     token: Annotated[str, Depends(get_token)] = None,
     client: Annotated[HomeboxClient, Depends(get_client)] = None,
-) -> EffectiveDefaultsResponse:
+) -> FieldPreferences:
     """Get effective defaults for field preferences.
 
-    Returns env var values (HBC_AI_*) if set, otherwise falls back to
-    hardcoded defaults. Used by the UI to display what defaults will
-    actually be used when a field is left empty.
+    Returns the resolved defaults (env vars + hardcoded fallbacks).
+    Used by the UI to display what defaults will be used when a field is reset.
     Requires authentication.
     """
     # Token/client validated by Depends - no additional action needed
     _ = token, client  # Silence unused variable warnings
-
-    # get_defaults() returns a FieldPreferencesDefaults instance with
-    # env vars applied over hardcoded defaults - all handled by pydantic_settings
-    defaults = get_defaults()
-
-    return EffectiveDefaultsResponse(
-        output_language=defaults.output_language,
-        default_label_id=defaults.default_label_id,
-        name=defaults.name,
-        description=defaults.description,
-        quantity=defaults.quantity,
-        manufacturer=defaults.manufacturer,
-        model_number=defaults.model_number,
-        serial_number=defaults.serial_number,
-        purchase_price=defaults.purchase_price,
-        purchase_from=defaults.purchase_from,
-        notes=defaults.notes,
-        naming_examples=defaults.naming_examples,
-    )
+    return get_defaults()
 
 
-class PromptPreviewRequest(BaseModel):
-    """Request model for prompt preview."""
-
-    output_language: str | None = None
-    name: str | None = None
-    description: str | None = None
-    quantity: str | None = None
-    manufacturer: str | None = None
-    model_number: str | None = None
-    serial_number: str | None = None
-    purchase_price: str | None = None
-    purchase_from: str | None = None
-    notes: str | None = None
-    naming_examples: str | None = None
+# PromptPreviewRequest reuses FieldPreferences for consistency
 
 
 class PromptPreviewResponse(BaseModel):
@@ -258,7 +117,7 @@ class PromptPreviewResponse(BaseModel):
 
 @router.post("/settings/prompt-preview", response_model=PromptPreviewResponse)
 async def get_prompt_preview(
-    request: PromptPreviewRequest,
+    prefs: FieldPreferences,
     token: Annotated[str, Depends(get_token)] = None,
     client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> PromptPreviewResponse:
@@ -266,34 +125,13 @@ async def get_prompt_preview(
 
     Shows what the LLM will see based on the provided field preferences.
     Uses example labels for illustration purposes.
-
-    When a field is empty/null in the request, uses the effective default
-    (from env var or hardcoded fallback) so the preview accurately reflects
-    what the AI will actually see.
     """
     # Token/client validated by Depends - no additional action needed
     _ = token, client  # Silence unused variable warnings
 
-    # Get effective defaults (env vars with hardcoded fallbacks)
-    defaults = get_defaults()
-
-    # Merge request values with effective defaults
-    # Request value takes priority if set, otherwise use default
-    field_prefs = {
-        "name": request.name or defaults.name,
-        "description": request.description or defaults.description,
-        "quantity": request.quantity or defaults.quantity,
-        "manufacturer": request.manufacturer or defaults.manufacturer,
-        "model_number": request.model_number or defaults.model_number,
-        "serial_number": request.serial_number or defaults.serial_number,
-        "purchase_price": request.purchase_price or defaults.purchase_price,
-        "purchase_from": request.purchase_from or defaults.purchase_from,
-        "notes": request.notes or defaults.notes,
-        "naming_examples": request.naming_examples or defaults.naming_examples,
-    }
-
-    # Output language: request value or default
-    output_language = request.output_language or defaults.output_language
+    # Use provided preferences directly - they already have defaults baked in
+    field_prefs = prefs.get_effective_customizations()
+    output_language = prefs.output_language
     # None means "use default English" for the prompt builder
     if output_language.lower() == "english":
         output_language = None
