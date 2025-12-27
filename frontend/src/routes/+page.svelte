@@ -44,13 +44,8 @@
 					log.debug("Token valid, redirecting to /location");
 					goto("/location");
 					return;
-				} else if (result.reason === 'network_error') {
-					// Network error - token might still be valid, proceed anyway
-					log.debug("Network error during validation, redirecting to /location anyway");
-					goto("/location");
-					return;
 				} else {
-					log.debug("Token invalid or expired, clearing auth state");
+					log.debug("Token invalid, expired, or validation failed - clearing auth state");
 					// Token is invalid - clear it so user can log in
 					// Import logout dynamically to avoid circular dependency issues
 					const { logout } = await import("$lib/stores/auth");
