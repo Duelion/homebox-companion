@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Annotated
 
 import httpx
-from fastapi import Header, HTTPException, UploadFile
+from fastapi import Depends, Header, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import AuthenticationError, HomeboxClient, settings
@@ -111,6 +111,21 @@ def get_token(authorization: Annotated[str | None, Header()] = None) -> str:
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization format")
     return authorization[7:]
+
+
+def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
+    """Dependency that validates authentication without returning the token.
+
+    Use this when a route needs authentication but doesn't use the token directly.
+    This avoids injecting unused dependencies and makes intent clear.
+
+    Usage:
+        @router.get("/protected", dependencies=[Depends(require_auth)])
+        async def protected_route() -> dict:
+            return {"status": "authenticated"}
+    """
+    # Token validation happens in get_token; nothing more needed here
+    pass
 
 
 def require_llm_configured() -> str:

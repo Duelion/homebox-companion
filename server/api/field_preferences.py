@@ -1,12 +1,9 @@
 """Field preferences API routes."""
 
-from typing import Annotated
-
 from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel
 
-from homebox_companion import HomeboxClient
 from homebox_companion.core.field_preferences import (
     FieldPreferences,
     get_defaults,
@@ -16,40 +13,32 @@ from homebox_companion.core.field_preferences import (
 )
 from homebox_companion.tools.vision.prompts import build_detection_system_prompt
 
-from ..dependencies import get_client, get_token
+from ..dependencies import require_auth
 
-router = APIRouter()
+# Router with authentication required for all routes
+# Uses FastAPI's dependencies parameter to apply auth at router level
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 @router.get("/settings/field-preferences", response_model=FieldPreferences)
-async def get_field_preferences(
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
-) -> FieldPreferences:
+async def get_field_preferences() -> FieldPreferences:
     """Get current field preferences.
 
     Returns the user-defined instructions for each AI output field.
-    Requires authentication.
+    Authentication is enforced at router level.
     """
-    # Token/client validated by Depends - no additional action needed
-    _ = token, client  # Silence unused variable warnings
     return load_field_preferences()
 
 
 @router.put("/settings/field-preferences", response_model=FieldPreferences)
 async def update_field_preferences(
     prefs: FieldPreferences,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> FieldPreferences:
     """Update field preferences.
 
     Saves the user-defined instructions for AI output fields.
-    Requires authentication.
+    Authentication is enforced at router level.
     """
-    # Token/client validated by Depends - no additional action needed
-    _ = token, client  # Silence unused variable warnings
-
     logger.info("Updating field preferences")
     save_field_preferences(prefs)
 
@@ -67,18 +56,12 @@ async def update_field_preferences(
 
 
 @router.delete("/settings/field-preferences", response_model=FieldPreferences)
-async def delete_field_preferences(
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
-) -> FieldPreferences:
+async def delete_field_preferences() -> FieldPreferences:
     """Reset field preferences to defaults.
 
     Clears all custom field instructions and restores default behavior.
-    Requires authentication.
+    Authentication is enforced at router level.
     """
-    # Token/client validated by Depends - no additional action needed
-    _ = token, client  # Silence unused variable warnings
-
     logger.info("Resetting field preferences to defaults")
     prefs = reset_field_preferences()
     logger.info("Field preferences reset complete")
@@ -90,18 +73,13 @@ async def delete_field_preferences(
 
 
 @router.get("/settings/effective-defaults", response_model=FieldPreferences)
-async def get_effective_defaults(
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
-) -> FieldPreferences:
+async def get_effective_defaults() -> FieldPreferences:
     """Get effective defaults for field preferences.
 
     Returns the resolved defaults (env vars + hardcoded fallbacks).
     Used by the UI to display what defaults will be used when a field is reset.
-    Requires authentication.
+    Authentication is enforced at router level.
     """
-    # Token/client validated by Depends - no additional action needed
-    _ = token, client  # Silence unused variable warnings
     return get_defaults()
 
 
@@ -117,17 +95,13 @@ class PromptPreviewResponse(BaseModel):
 @router.post("/settings/prompt-preview", response_model=PromptPreviewResponse)
 async def get_prompt_preview(
     prefs: FieldPreferences,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> PromptPreviewResponse:
     """Generate a preview of the AI system prompt.
 
     Shows what the LLM will see based on the provided field preferences.
     Uses example labels for illustration purposes.
+    Authentication is enforced at router level.
     """
-    # Token/client validated by Depends - no additional action needed
-    _ = token, client  # Silence unused variable warnings
-
     # Use provided preferences directly - they already have defaults baked in
     field_prefs = prefs.get_effective_customizations()
     output_language = prefs.output_language

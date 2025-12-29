@@ -17,9 +17,9 @@ router = APIRouter()
 
 @router.get("/items")
 async def list_items(
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
     location_id: str | None = Query(None, alias="location_id"),
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> list[dict]:
     """
     List items, optionally filtered by location.
@@ -48,8 +48,8 @@ async def list_items(
 @router.post("/items")
 async def create_items(
     request: BatchCreateRequest,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> JSONResponse:
     """Create multiple items in Homebox.
 
@@ -172,8 +172,8 @@ async def create_items(
 async def upload_item_attachment(
     item_id: str,
     file: Annotated[UploadFile, File(description="Image file to upload")],
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, Any]:
     """Upload an attachment (image) to an existing item."""
     logger.info(f"Uploading attachment to item: {item_id}")
@@ -211,8 +211,8 @@ async def upload_item_attachment(
 async def get_item_attachment(
     item_id: str,
     attachment_id: str,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> Response:
     """Proxy attachment requests to Homebox with proper auth.
 
@@ -233,8 +233,8 @@ async def get_item_attachment(
 @router.delete("/items/{item_id}")
 async def delete_item(
     item_id: str,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, str]:
     """Delete an item from Homebox.
 

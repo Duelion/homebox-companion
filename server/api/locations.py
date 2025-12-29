@@ -16,9 +16,9 @@ router = APIRouter()
 
 @router.get("/locations")
 async def get_locations(
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
     filter_children: bool | None = Query(None),
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> list[dict[str, Any]]:
     """Fetch all available locations.
 
@@ -30,8 +30,8 @@ async def get_locations(
 
 @router.get("/locations/tree")
 async def get_locations_tree(
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> list[dict[str, Any]]:
     """Fetch top-level locations with children info for hierarchical navigation."""
     # Get only top-level locations
@@ -70,8 +70,8 @@ async def get_locations_tree(
 @router.get("/locations/{location_id}")
 async def get_location(
     location_id: str,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, Any]:
     """Fetch a specific location by ID with its children enriched with their own children info."""
     location = await client.get_location(token, location_id)
@@ -120,8 +120,8 @@ async def get_location(
 @router.post("/locations")
 async def create_location(
     data: LocationCreate,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, Any]:
     """Create a new location."""
     return await client.create_location(
@@ -136,8 +136,8 @@ async def create_location(
 async def update_location(
     location_id: str,
     data: LocationUpdate,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, Any]:
     """Update an existing location."""
     return await client.update_location(

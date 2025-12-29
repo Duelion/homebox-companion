@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from contextvars import ContextVar
 
+from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -30,9 +31,6 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         # Store on request.state for access in routes if needed
         request.state.request_id = request_id
-
-        # Import here to avoid circular imports at module load
-        from loguru import logger
 
         # Bind request_id to all logs within this request context
         with logger.contextualize(request_id=request_id):

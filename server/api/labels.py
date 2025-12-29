@@ -13,8 +13,8 @@ router = APIRouter()
 
 @router.get("/labels")
 async def get_labels(
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> list[dict[str, Any]]:
     """Fetch all available labels.
 

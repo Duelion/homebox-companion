@@ -73,25 +73,41 @@ async def _get_latest_github_version() -> str | None:
 
     Implements both positive caching (1 hour for successful checks) and negative caching
     (5 minutes for failed checks) to prevent hammering the GitHub API during outages.
-    """
 
-    # Use lock to prevent race conditions in multi-worker setups
+    Uses double-checked locking to minimize lock hold time: first checks cache without
+    lock, then acquires lock only when refresh is needed and re-checks to avoid
+    thundering herd.
+    """
+    now = time.time()
+
+    # Quick cache check without lock (cache reads are safe)
+    last_check = _version_cache["last_check"]
+    if isinstance(last_check, (int, float)) and last_check > 0:
+        # If we have a cached version, use positive TTL
+        if _version_cache["latest_version"] is not None:
+            if now - last_check < VERSION_CACHE_TTL:
+                return str(_version_cache["latest_version"])
+        # If last check failed (no version), use negative TTL
+        else:
+            if now - last_check < VERSION_CACHE_NEGATIVE_TTL:
+                logger.debug("Using negative cache for version check")
+                return None
+
+    # Cache miss or expired - acquire lock for refresh
     async with _version_cache_lock:
-        # Check if cache is still valid
-        now = time.time()
+        # Double-check after acquiring lock (another request may have refreshed)
+        now = time.time()  # Refresh timestamp
         last_check = _version_cache["last_check"]
         if isinstance(last_check, (int, float)) and last_check > 0:
-            # If we have a cached version, use positive TTL
             if _version_cache["latest_version"] is not None:
                 if now - last_check < VERSION_CACHE_TTL:
                     return str(_version_cache["latest_version"])
-            # If last check failed (no version), use negative TTL
             else:
                 if now - last_check < VERSION_CACHE_NEGATIVE_TTL:
-                    logger.debug("Using negative cache for version check")
                     return None
 
-        # Fetch from GitHub with specific error handling
+        # Still need to refresh - do the fetch while holding lock
+        # (This serializes refreshes but is acceptable since they're infrequent)
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(
@@ -109,6 +125,7 @@ async def _get_latest_github_version() -> str | None:
                 else:
                     # Non-200 status: update last_check for negative caching
                     _version_cache["last_check"] = now
+                    _version_cache["latest_version"] = None
                     if response.status_code == 404:
                         logger.warning(
                             f"GitHub repository {settings.github_repo} not found "
@@ -123,21 +140,21 @@ async def _get_latest_github_version() -> str | None:
                             f"GitHub API returned unexpected status {response.status_code}"
                         )
         except httpx.TimeoutException:
-            # Update last_check for negative caching
             _version_cache["last_check"] = now
+            _version_cache["latest_version"] = None
             logger.warning("GitHub version check timed out. Update check will retry later.")
         except httpx.NetworkError as e:
-            # Update last_check for negative caching
             _version_cache["last_check"] = now
+            _version_cache["latest_version"] = None
             logger.warning(f"Network error checking for updates: {e}")
         except (ValueError, KeyError) as e:
-            # Update last_check for negative caching
             _version_cache["last_check"] = now
+            _version_cache["latest_version"] = None
             logger.warning(f"Invalid response from GitHub API: {e}")
         except Exception as e:
             # Catch-all for unexpected errors, but still log prominently
-            # Update last_check for negative caching
             _version_cache["last_check"] = now
+            _version_cache["latest_version"] = None
             logger.error(f"Unexpected error checking for updates: {e}", exc_info=True)
 
         return None

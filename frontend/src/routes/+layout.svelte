@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from "svelte";
 	import "../app.css";
 	import Toast from "$lib/components/Toast.svelte";
 	import SessionExpiredModal from "$lib/components/SessionExpiredModal.svelte";
@@ -16,6 +17,8 @@
 	import { onMount, onDestroy } from "svelte";
 	import { browser } from "$app/environment";
 	import { afterNavigate, onNavigate } from "$app/navigation";
+
+	let { children }: { children: Snippet } = $props();
 
 	function dismissUpdate() {
 		updateDismissed.set(true);
@@ -205,7 +208,7 @@
 			? 'pb-24'
 			: ''}"
 	>
-		<slot />
+		{@render children()}
 	</main>
 
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
