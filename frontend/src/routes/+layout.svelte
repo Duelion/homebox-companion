@@ -4,7 +4,7 @@
 	import Toast from "$lib/components/Toast.svelte";
 	import SessionExpiredModal from "$lib/components/SessionExpiredModal.svelte";
 	import BottomNav from "$lib/components/BottomNav.svelte";
-	import { isAuthenticated } from "$lib/stores/auth";
+	import { authStore } from "$lib/stores/auth.svelte";
 	import {
 		isOnline,
 		appVersion,
@@ -19,6 +19,9 @@
 	import { afterNavigate, onNavigate } from "$app/navigation";
 
 	let { children }: { children: Snippet } = $props();
+
+	// Derive isAuthenticated from authStore for reactive template usage
+	let isAuthenticated = $derived(authStore.isAuthenticated);
 
 	function dismissUpdate() {
 		updateDismissed.set(true);
@@ -126,7 +129,7 @@
 			>
 				<!-- Center: Logo and title -->
 				<a
-					href={$isAuthenticated ? "/location" : "/"}
+					href={isAuthenticated ? "/location" : "/"}
 					class="flex items-center justify-center gap-2 text-text font-semibold overflow-visible"
 				>
 					<svg
@@ -154,7 +157,7 @@
 	<div class="h-14 pt-safe shrink-0"></div>
 
 	<!-- Update available banner - sticky at top, only on login page -->
-	{#if !$isAuthenticated && $latestVersion && !$updateDismissed}
+	{#if !isAuthenticated && $latestVersion && !$updateDismissed}
 		<div
 			class="sticky top-14 z-30 bg-amber-500/20 border-b border-amber-500/40 px-4 py-2.5 flex items-center justify-center gap-3 text-amber-300 text-sm"
 		>
@@ -204,7 +207,7 @@
 
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main
-		class="flex-1 max-w-lg mx-auto w-full px-4 py-6 {$isAuthenticated
+		class="flex-1 max-w-lg mx-auto w-full px-4 py-6 {isAuthenticated
 			? 'pb-24'
 			: ''}"
 	>
@@ -214,7 +217,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !$isOnline}
 		<div
-			class="fixed left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-40 {$isAuthenticated
+			class="fixed left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-40 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
@@ -237,7 +240,7 @@
 	{/if}
 
 	<!-- Footer with version - only shown on login page (not authenticated) -->
-	{#if !$isAuthenticated}
+	{#if !isAuthenticated}
 		<footer
 			class="sticky bottom-0 mt-auto text-center py-3 text-text-dim text-xs flex items-center justify-center gap-3 bg-background"
 		>
@@ -293,7 +296,7 @@
 	{/if}
 
 	<!-- Bottom Navigation - only when authenticated -->
-	{#if $isAuthenticated}
+	{#if isAuthenticated}
 		<BottomNav />
 	{/if}
 

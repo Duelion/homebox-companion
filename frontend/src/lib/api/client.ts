@@ -2,8 +2,7 @@
  * Base API client with error handling and authentication
  */
 
-import { get } from 'svelte/store';
-import { token, markSessionExpired } from '../stores/auth';
+import { authStore } from '../stores/auth.svelte';
 import { apiLogger as log } from '../utils/logger';
 import { refreshToken } from '../services/tokenRefresh';
 
@@ -86,6 +85,22 @@ export class NetworkError extends Error {
 	}
 }
 
+// =============================================================================
+// TOKEN REFRESH DEDUPLICATION (Module-level Singleton)
+// =============================================================================
+//
+// These module-scoped variables implement a singleton pattern to deduplicate
+// concurrent token refresh attempts. When multiple API requests receive 401s
+// simultaneously, only one refresh is performed and the result is shared.
+//
+// This is intentional global state for the SPA lifecycle. The variables are:
+// - isRefreshing: Guards against concurrent refresh attempts
+// - refreshPromise: Allows waiters to share the same refresh result
+//
+// Testing note: This state persists across test cases unless the module is
+// reloaded. Consider this when writing integration tests.
+// =============================================================================
+
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 
@@ -107,6 +122,10 @@ async function attemptRefreshOnce(): Promise<boolean> {
 /**
  * Handle 401 response with automatic token refresh and retry.
  * 
+ * NOTE: This function reads authStore.token imperatively (not reactively).
+ * This is intentional - we need the current value at call time, not a
+ * reactive subscription. Changes to the token won't trigger re-execution.
+ * 
  * - If no token exists: returns false (user not logged in)
  * - If token exists: attempts refresh and signals whether to retry
  * - If refresh fails: shows re-auth modal
@@ -119,8 +138,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 		return false;
 	}
 
-	const authToken = get(token);
-	if (!authToken) {
+	if (!authStore.token) {
 		// No token - user isn't logged in, nothing to do
 		return false;
 	}
@@ -129,7 +147,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 	const refreshSucceeded = await attemptRefreshOnce();
 	if (!refreshSucceeded) {
 		// Refresh failed - show re-auth modal
-		markSessionExpired();
+		authStore.markSessionExpired();
 		return false;
 	}
 
@@ -264,7 +282,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 
 	// Helper to build headers with current token
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		const headers: HeadersInit = {
 			...options.headers,
 		};
@@ -430,7 +448,7 @@ export async function requestBlobUrl(
 
 	// Helper to build headers with current token
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		return authToken ? { Authorization: `Bearer ${authToken}` } : {};
 	};
 
@@ -519,7 +537,7 @@ export async function requestFormData<T>(
 
 	// Helper to build headers with current token and any additional headers
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		const headers: Record<string, string> = {};
 
 		if (authToken) {

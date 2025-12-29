@@ -2,8 +2,7 @@
  * Token validation utilities
  */
 
-import { get } from 'svelte/store';
-import { token, markSessionExpired } from '../stores/auth';
+import { authStore } from '../stores/auth.svelte';
 
 /**
  * Check if the current auth token exists locally.
@@ -17,7 +16,7 @@ import { token, markSessionExpired } from '../stores/auth';
  * @returns true if token exists locally, false if no token
  */
 export function checkAuth(): boolean {
-	const currentToken = get(token);
-	return !!currentToken;
+	return !!authStore.token;
 }
+
 

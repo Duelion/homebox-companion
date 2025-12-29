@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
-	import { isAuthenticated, logout } from "$lib/stores/auth";
+	import { authStore } from "$lib/stores/auth.svelte";
 	import { resetLocationState } from "$lib/stores/locations.svelte";
 	import { appVersion } from "$lib/stores/ui";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
@@ -156,7 +156,7 @@
 
 	// Redirect if not authenticated
 	onMount(async () => {
-		if (!$isAuthenticated) {
+		if (!authStore.isAuthenticated) {
 			goto("/");
 			return;
 		}
@@ -459,7 +459,7 @@
 	function handleLogout() {
 		scanWorkflow.reset();
 		resetLocationState();
-		logout();
+		authStore.logout();
 		goto("/");
 	}
 

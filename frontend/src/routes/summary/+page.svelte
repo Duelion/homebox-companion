@@ -3,7 +3,7 @@
 	import { onMount } from "svelte";
 	import { labels } from "$lib/stores/labels";
 	import { showToast } from "$lib/stores/ui";
-	import { markSessionExpired } from "$lib/stores/auth";
+	import { markSessionExpired } from "$lib/stores/auth.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { createObjectUrlManager } from "$lib/utils/objectUrl";
 	import { routeGuards } from "$lib/utils/routeGuard";

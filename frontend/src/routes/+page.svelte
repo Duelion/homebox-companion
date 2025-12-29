@@ -1,16 +1,12 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { auth, getConfig, setDemoMode } from "$lib/api";
-	import {
-		setAuthenticatedState,
-		isAuthenticated,
-		authInitialized,
-	} from "$lib/stores/auth";
+	import { authStore } from "$lib/stores/auth.svelte";
 	import { showToast, setLoading } from "$lib/stores/ui";
 	import { authLogger as log } from "$lib/utils/logger";
+	import { getInitPromise } from "$lib/services/tokenRefresh";
 	import Button from "$lib/components/Button.svelte";
 	import { onMount } from "svelte";
-	import { get } from "svelte/store";
 
 	let email = $state("");
 	let password = $state("");
@@ -23,21 +19,10 @@
 		try {
 			// Wait for auth initialization to complete to avoid race conditions
 			// where we check isAuthenticated before initializeAuth clears expired tokens
-			if (!get(authInitialized)) {
-				await new Promise<void>((resolve) => {
-					const unsubscribe = authInitialized.subscribe(
-						(initialized) => {
-							if (initialized) {
-								unsubscribe();
-								resolve();
-							}
-						},
-					);
-				});
-			}
+			await getInitPromise();
 
 			// Check if token exists and validate it before redirecting
-			if (get(isAuthenticated)) {
+			if (authStore.isAuthenticated) {
 				log.debug("Token found, validating before redirect...");
 				const result = await auth.validateToken();
 				if (result.valid) {
@@ -45,11 +30,11 @@
 					goto("/location");
 					return;
 				} else {
-					log.debug("Token invalid, expired, or validation failed - clearing auth state");
+					log.debug(
+						"Token invalid, expired, or validation failed - clearing auth state",
+					);
 					// Token is invalid - clear it so user can log in
-					// Import logout dynamically to avoid circular dependency issues
-					const { logout } = await import("$lib/stores/auth");
-					logout();
+					authStore.logout();
 				}
 			}
 
@@ -84,7 +69,7 @@
 
 		try {
 			const response = await auth.login(email, password);
-			setAuthenticatedState(
+			authStore.setAuthenticatedState(
 				response.token,
 				new Date(response.expires_at),
 			);

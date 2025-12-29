@@ -2,11 +2,10 @@
  * Labels store with caching
  * 
  * Labels are cached after the first fetch to avoid redundant API calls.
- * The cache is cleared on logout or can be manually refreshed.
+ * The cache is cleared on logout via the auth store calling clearLabelsCache.
  */
 import { writable, derived, get } from 'svelte/store';
 import { labels as labelsApi, type LabelData } from '$lib/api';
-import { token } from './auth';
 
 // Cached labels data
 const labelsData = writable<LabelData[]>([]);
@@ -90,23 +89,4 @@ export function clearLabelsCache(): void {
 export function getLabelName(labelId: string): string | undefined {
 	return get(labelsById).get(labelId)?.name;
 }
-
-// Clear cache when user logs out
-const tokenUnsubscribe = token.subscribe((value) => {
-	if (!value) {
-		clearLabelsCache();
-	}
-});
-
-// Clean up subscription during Vite HMR
-if (import.meta.hot) {
-	import.meta.hot.dispose(() => {
-		tokenUnsubscribe();
-	});
-}
-
-
-
-
-
 

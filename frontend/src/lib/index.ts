@@ -17,7 +17,7 @@ export { scanWorkflow } from './workflows/scan.svelte';
 // =============================================================================
 // STORES - Data stores (to be migrated gradually)
 // =============================================================================
-export { token, isAuthenticated, sessionExpired, logout, markSessionExpired, onReauthSuccess } from './stores/auth';
+export { authStore, logout, markSessionExpired, setAuthenticatedState } from './stores/auth.svelte';
 export { labels, labelsById, fetchLabels, clearLabelsCache, getLabelName, isLabelsLoading } from './stores/labels';
 export {
 	locationStore,

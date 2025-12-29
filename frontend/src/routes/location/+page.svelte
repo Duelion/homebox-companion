@@ -3,7 +3,7 @@
 	import { onMount } from "svelte";
 	import { locations as locationsApi } from "$lib/api";
 	import { ApiError } from "$lib/api/client";
-	import { sessionExpired } from "$lib/stores/auth";
+	import { authStore } from "$lib/stores/auth.svelte";
 	import { locationStore } from "$lib/stores/locations.svelte";
 	import { locationNavigator } from "$lib/services/locationNavigator.svelte";
 	import { fetchLabels } from "$lib/stores/labels";
@@ -62,7 +62,7 @@
 	let prevSessionExpired = false;
 
 	$effect(() => {
-		const currentExpired = $sessionExpired;
+		const currentExpired = authStore.sessionExpired;
 		// Detect transition from expired -> restored
 		if (prevSessionExpired && !currentExpired) {
 			locationNavigator.loadTree();
