@@ -6,8 +6,8 @@
 	import { authStore } from "$lib/stores/auth.svelte";
 	import { locationStore } from "$lib/stores/locations.svelte";
 	import { locationNavigator } from "$lib/services/locationNavigator.svelte";
-	import { fetchLabels } from "$lib/stores/labels";
-	import { showToast } from "$lib/stores/ui";
+	import { fetchLabels } from "$lib/stores/labels.svelte";
+	import { showToast } from "$lib/stores/ui.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { routeGuards } from "$lib/utils/routeGuard";
 	import { createLogger } from "$lib/utils/logger";

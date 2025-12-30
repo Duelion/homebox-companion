@@ -89,34 +89,35 @@ export class NetworkError extends Error {
 // TOKEN REFRESH DEDUPLICATION (Module-level Singleton)
 // =============================================================================
 //
-// These module-scoped variables implement a singleton pattern to deduplicate
+// This module-scoped promise implements a singleton pattern to deduplicate
 // concurrent token refresh attempts. When multiple API requests receive 401s
 // simultaneously, only one refresh is performed and the result is shared.
 //
-// This is intentional global state for the SPA lifecycle. The variables are:
-// - isRefreshing: Guards against concurrent refresh attempts
-// - refreshPromise: Allows waiters to share the same refresh result
+// This is intentional global state for the SPA lifecycle.
 //
 // Testing note: This state persists across test cases unless the module is
 // reloaded. Consider this when writing integration tests.
 // =============================================================================
 
-let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 
 /**
- * Attempt to refresh the token once, preventing concurrent refresh attempts
+ * Attempt to refresh the token once, preventing concurrent refresh attempts.
+ * Uses a single promise reference with .finally() cleanup for atomic state management.
  */
 async function attemptRefreshOnce(): Promise<boolean> {
-	if (isRefreshing && refreshPromise) {
+	// If a refresh is already in progress, return the existing promise
+	if (refreshPromise) {
 		return refreshPromise;
 	}
-	isRefreshing = true;
-	refreshPromise = refreshToken();
-	const result = await refreshPromise;
-	isRefreshing = false;
-	refreshPromise = null;
-	return result;
+
+	// Start a new refresh and store the promise
+	// Use .finally() to ensure cleanup happens atomically after the promise settles
+	refreshPromise = refreshToken().finally(() => {
+		refreshPromise = null;
+	});
+
+	return refreshPromise;
 }
 
 /**

@@ -3,7 +3,7 @@
 	import { onMount } from "svelte";
 	import { slide } from "svelte/transition";
 	import { resetLocationState } from "$lib/stores/locations.svelte";
-	import { showToast } from "$lib/stores/ui";
+	import { showToast } from "$lib/stores/ui.svelte";
 	import { markSessionExpired } from "$lib/stores/auth.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { hasToken } from "$lib/utils/token";

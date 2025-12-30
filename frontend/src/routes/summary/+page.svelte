@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
-	import { labels } from "$lib/stores/labels";
-	import { showToast } from "$lib/stores/ui";
+	import { labelStore } from "$lib/stores/labels.svelte";
+	import { showToast } from "$lib/stores/ui.svelte";
 	import { markSessionExpired } from "$lib/stores/auth.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { createObjectUrlManager } from "$lib/utils/objectUrl";
@@ -43,7 +43,7 @@
 	);
 
 	function getLabelName(labelId: string): string {
-		const label = $labels.find((l) => l.id === labelId);
+		const label = labelStore.labels.find((l) => l.id === labelId);
 		return label?.name ?? labelId;
 	}
 

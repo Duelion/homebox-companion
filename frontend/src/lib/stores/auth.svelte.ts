@@ -47,6 +47,9 @@ class AuthStore {
     /** Whether the session has expired (shows re-auth modal) */
     private _sessionExpired = $state(false);
 
+    /** Whether user is authenticated - derived from token presence */
+    private _isAuthenticated = $derived.by(() => !!this._token);
+
     // =========================================================================
     // GETTERS (read-only access to state)
     // =========================================================================
@@ -61,9 +64,9 @@ class AuthStore {
         return this._expiresAt;
     }
 
-    /** Check if user is authenticated */
+    /** Check if user is authenticated (reactive via $derived) */
     get isAuthenticated(): boolean {
-        return !!this._token;
+        return this._isAuthenticated;
     }
 
     /** Check if auth has been initialized */
@@ -157,6 +160,10 @@ class AuthStore {
      * Logout and clear all auth state.
      * Note: Store cleanup uses dynamic imports to avoid circular dependencies.
      * Cleanup failures are logged but do not block logout completion.
+     *
+     * @remarks This method is intentionally synchronous (returns void, not Promise).
+     * Callers should not need to await logout completion. Related store cleanup
+     * happens asynchronously in the background via cleanupRelatedStores().
      */
     logout(): void {
         log.info('User logout');
@@ -182,10 +189,10 @@ class AuthStore {
      */
     private async cleanupRelatedStores(): Promise<void> {
         const cleanupTasks = [
-            import('./locations.svelte')
+            import('./locations.svelte.ts')
                 .then(({ locationStore }) => locationStore.clear())
                 .catch((err) => log.warn('Failed to clear location state:', err)),
-            import('./labels')
+            import('./labels.svelte.ts')
                 .then(({ clearLabelsCache }) => clearLabelsCache())
                 .catch((err) => log.warn('Failed to clear labels cache:', err)),
         ];
