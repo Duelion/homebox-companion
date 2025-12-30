@@ -2,8 +2,8 @@
 	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
 	import { vision } from "$lib/api/vision";
-	import { labels } from "$lib/stores/labels";
-	import { showToast } from "$lib/stores/ui";
+	import { labelStore } from "$lib/stores/labels.svelte";
+	import { showToast } from "$lib/stores/ui.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { createObjectUrlManager } from "$lib/utils/objectUrl";
 	import { routeGuards } from "$lib/utils/routeGuard";
@@ -169,7 +169,8 @@
 			}
 			// Check if order changed (first image determines primary compressed URL)
 			const originalPrimary = currentItem?.originalFile;
-			if (originalPrimary && allImages[0] !== originalPrimary) return true;
+			if (originalPrimary && allImages[0] !== originalPrimary)
+				return true;
 			return false;
 		})();
 
@@ -211,11 +212,11 @@
 	function handleConfirmAll() {
 		// Prepare the current item with any user edits
 		const preparedItem = prepareItemForConfirmation();
-		
+
 		// Use the workflow method that handles confirming all items including the current one
 		workflow.confirmAllRemainingItems(preparedItem ?? undefined);
 		showConfirmAllDialog = false;
-		
+
 		// Navigate to summary
 		goto("/summary");
 	}
@@ -478,7 +479,7 @@
 				</div>
 
 				<!-- Labels with chip selection -->
-				{#if $labels.length > 0}
+				{#if labelStore.labels.length > 0}
 					<div>
 						<span class="label">Labels</span>
 						<div
@@ -486,7 +487,7 @@
 							role="group"
 							aria-label="Select labels"
 						>
-							{#each $labels as label}
+							{#each labelStore.labels as label}
 								{@const isSelected =
 									editedItem.label_ids?.includes(label.id)}
 								<button
@@ -615,7 +616,9 @@
 <ConfirmDialog
 	open={showConfirmAllDialog}
 	title="Confirm All Remaining Items"
-	message="Confirm all {remainingCount} remaining {remainingCount === 1 ? 'item' : 'items'} and proceed to review & submit?"
+	message="Confirm all {remainingCount} remaining {remainingCount === 1
+		? 'item'
+		: 'items'} and proceed to review & submit?"
 	confirmLabel="Confirm All"
 	cancelLabel="Cancel"
 	onConfirm={handleConfirmAll}

@@ -15,14 +15,37 @@ import type { ReviewItem, ConfirmedItem } from '$lib/types';
 // =============================================================================
 
 export class ReviewService {
+	// =========================================================================
+	// STATE (private with getters for controlled access)
+	// =========================================================================
+
 	/** Items detected by AI, awaiting review */
-	detectedItems = $state<ReviewItem[]>([]);
+	private _detectedItems = $state<ReviewItem[]>([]);
 
 	/** Current index in the detected items list */
-	currentReviewIndex = $state(0);
+	private _currentReviewIndex = $state(0);
 
 	/** Items confirmed by user, ready for submission */
-	confirmedItems = $state<ConfirmedItem[]>([]);
+	private _confirmedItems = $state<ConfirmedItem[]>([]);
+
+	// =========================================================================
+	// GETTERS (read-only access to state)
+	// =========================================================================
+
+	/** Get detected items */
+	get detectedItems(): ReviewItem[] {
+		return this._detectedItems;
+	}
+
+	/** Get current review index */
+	get currentReviewIndex(): number {
+		return this._currentReviewIndex;
+	}
+
+	/** Get confirmed items */
+	get confirmedItems(): ConfirmedItem[] {
+		return this._confirmedItems;
+	}
 
 	// =========================================================================
 	// DETECTED ITEMS MANAGEMENT
@@ -30,8 +53,8 @@ export class ReviewService {
 
 	/** Set detected items from analysis results */
 	setDetectedItems(items: ReviewItem[]): void {
-		this.detectedItems = items;
-		this.currentReviewIndex = 0;
+		this._detectedItems = items;
+		this._currentReviewIndex = 0;
 	}
 
 	/**
@@ -42,7 +65,7 @@ export class ReviewService {
 	updateSourceImageIndices(removedIndices: number[]): void {
 		if (removedIndices.length === 0) return;
 
-		this.detectedItems = this.detectedItems.map(item => {
+		this._detectedItems = this._detectedItems.map(item => {
 			let newIndex = item.sourceImageIndex;
 			// For each removed index that was below or equal to this item's source,
 			// decrement the index (but only if the source wasn't the removed index itself)
@@ -59,16 +82,16 @@ export class ReviewService {
 
 	/** Clear detected items */
 	clearDetectedItems(): void {
-		this.detectedItems = [];
-		this.currentReviewIndex = 0;
+		this._detectedItems = [];
+		this._currentReviewIndex = 0;
 	}
 
 	/** Update the current item being reviewed */
 	updateCurrentItem(updates: Partial<ReviewItem>): void {
-		const index = this.currentReviewIndex;
-		if (index < 0 || index >= this.detectedItems.length) return;
+		const index = this._currentReviewIndex;
+		if (index < 0 || index >= this._detectedItems.length) return;
 
-		this.detectedItems = this.detectedItems.map((item, i) =>
+		this._detectedItems = this._detectedItems.map((item, i) =>
 			i === index ? { ...item, ...updates } : item
 		);
 	}
@@ -79,31 +102,31 @@ export class ReviewService {
 
 	/** Navigate to previous item */
 	previousItem(): void {
-		if (this.currentReviewIndex > 0) {
-			this.currentReviewIndex--;
+		if (this._currentReviewIndex > 0) {
+			this._currentReviewIndex--;
 		}
 	}
 
 	/** Navigate to next item */
 	nextItem(): void {
-		if (this.currentReviewIndex < this.detectedItems.length - 1) {
-			this.currentReviewIndex++;
+		if (this._currentReviewIndex < this._detectedItems.length - 1) {
+			this._currentReviewIndex++;
 		}
 	}
 
 	/** Check if there's a previous item */
 	get hasPrevious(): boolean {
-		return this.currentReviewIndex > 0;
+		return this._currentReviewIndex > 0;
 	}
 
 	/** Check if there's a next item */
 	get hasNext(): boolean {
-		return this.currentReviewIndex < this.detectedItems.length - 1;
+		return this._currentReviewIndex < this._detectedItems.length - 1;
 	}
 
 	/** Check if this is the last item */
 	get isLastItem(): boolean {
-		return this.currentReviewIndex === this.detectedItems.length - 1;
+		return this._currentReviewIndex === this._detectedItems.length - 1;
 	}
 
 	// =========================================================================
@@ -116,7 +139,7 @@ export class ReviewService {
 	 */
 	confirmCurrentItem(item: ReviewItem): boolean {
 		const confirmed: ConfirmedItem = { ...item, confirmed: true };
-		this.confirmedItems = [...this.confirmedItems, confirmed];
+		this._confirmedItems = [...this._confirmedItems, confirmed];
 
 		if (this.hasNext) {
 			this.nextItem();
@@ -132,14 +155,14 @@ export class ReviewService {
 	 */
 	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
 		let count = 0;
-		for (let i = this.currentReviewIndex; i < this.detectedItems.length; i++) {
+		for (let i = this._currentReviewIndex; i < this._detectedItems.length; i++) {
 			// Use the override for the current item (index matches currentReviewIndex), 
 			// otherwise use the detected item as-is
-			const item = (i === this.currentReviewIndex && currentItemOverride) 
-				? currentItemOverride 
-				: this.detectedItems[i];
+			const item = (i === this._currentReviewIndex && currentItemOverride)
+				? currentItemOverride
+				: this._detectedItems[i];
 			const confirmed: ConfirmedItem = { ...item, confirmed: true };
-			this.confirmedItems = [...this.confirmedItems, confirmed];
+			this._confirmedItems = [...this._confirmedItems, confirmed];
 			count++;
 		}
 		return count;
@@ -156,7 +179,7 @@ export class ReviewService {
 		}
 
 		// Last item - check if anything was confirmed
-		if (this.confirmedItems.length === 0) {
+		if (this._confirmedItems.length === 0) {
 			return 'empty';
 		}
 		return 'complete';
@@ -168,7 +191,7 @@ export class ReviewService {
 
 	/** Remove a confirmed item by index */
 	removeConfirmedItem(index: number): void {
-		this.confirmedItems = this.confirmedItems.filter((_, i) => i !== index);
+		this._confirmedItems = this._confirmedItems.filter((_, i) => i !== index);
 	}
 
 	/**
@@ -186,11 +209,11 @@ export class ReviewService {
 	 * @returns The item converted to a ReviewItem for editing, or null if index is invalid
 	 */
 	editConfirmedItem(index: number): ReviewItem | null {
-		const item = this.confirmedItems[index];
+		const item = this._confirmedItems[index];
 		if (!item) return null;
 
 		// Remove from confirmed
-		this.confirmedItems = this.confirmedItems.filter((_, i) => i !== index);
+		this._confirmedItems = this._confirmedItems.filter((_, i) => i !== index);
 
 		// Create review item from confirmed item (preserve all fields including compressed URLs)
 		const reviewItem: ReviewItem = {
@@ -213,15 +236,15 @@ export class ReviewService {
 		};
 
 		// Add to detected items for re-review
-		this.detectedItems = [reviewItem];
-		this.currentReviewIndex = 0;
+		this._detectedItems = [reviewItem];
+		this._currentReviewIndex = 0;
 
 		return reviewItem;
 	}
 
 	/** Clear all confirmed items */
 	clearConfirmedItems(): void {
-		this.confirmedItems = [];
+		this._confirmedItems = [];
 	}
 
 	// =========================================================================
@@ -230,9 +253,9 @@ export class ReviewService {
 
 	/** Reset all review state */
 	reset(): void {
-		this.detectedItems = [];
-		this.currentReviewIndex = 0;
-		this.confirmedItems = [];
+		this._detectedItems = [];
+		this._currentReviewIndex = 0;
+		this._confirmedItems = [];
 	}
 
 	// =========================================================================
@@ -241,21 +264,21 @@ export class ReviewService {
 
 	/** Get current item being reviewed */
 	get currentItem(): ReviewItem | null {
-		return this.detectedItems[this.currentReviewIndex] ?? null;
+		return this._detectedItems[this._currentReviewIndex] ?? null;
 	}
 
 	/** Check if review has confirmed items */
 	get hasConfirmedItems(): boolean {
-		return this.confirmedItems.length > 0;
+		return this._confirmedItems.length > 0;
 	}
 
 	/** Get count of confirmed items */
 	get confirmedCount(): number {
-		return this.confirmedItems.length;
+		return this._confirmedItems.length;
 	}
 
 	/** Get count of detected items */
 	get detectedCount(): number {
-		return this.detectedItems.length;
+		return this._detectedItems.length;
 	}
 }

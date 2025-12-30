@@ -9,9 +9,8 @@
  */
 
 import { vision, fieldPreferences } from '$lib/api/index';
-import { labels as labelsStore } from '$lib/stores/labels';
+import { labelStore } from '$lib/stores/labels.svelte';
 import { workflowLogger as log } from '$lib/utils/logger';
-import { get } from 'svelte/store';
 import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus } from '$lib/types';
 
 // =============================================================================
@@ -242,7 +241,7 @@ export class AnalysisService {
 			}
 
 			// Validate default label exists in current Homebox instance
-			const currentLabels = get(labelsStore);
+			const currentLabels = labelStore.labels;
 			const validDefaultLabelId =
 				this.defaultLabelId && currentLabels.some((l) => l.id === this.defaultLabelId)
 					? this.defaultLabelId
@@ -361,7 +360,7 @@ export class AnalysisService {
 	 */
 	async retryFailed(images: CapturedImage[], existingItems: ReviewItem[]): Promise<AnalysisResult> {
 		const failedIndices = this.getFailedIndices();
-		
+
 		if (failedIndices.length === 0) {
 			log.debug('No failed images to retry');
 			return {
@@ -372,14 +371,14 @@ export class AnalysisService {
 		}
 
 		log.info(`Retrying analysis for ${failedIndices.length} failed image(s)`);
-		
+
 		// Analyze only failed images
 		const failedImages = failedIndices.map(idx => images[idx]);
 		const result = await this.analyzeSubset(failedImages, failedIndices);
 
 		// Merge with existing items
 		const allItems = [...existingItems, ...result.items];
-		
+
 		return {
 			success: result.success || allItems.length > 0,
 			items: allItems,
@@ -444,7 +443,7 @@ export class AnalysisService {
 				images,
 				async (image, subsetIndex) => {
 					const originalIndex = originalIndices[subsetIndex];
-					
+
 					// Check if cancelled before starting
 					if (signal?.aborted) {
 						throw new DOMException('Aborted', 'AbortError');
@@ -523,7 +522,7 @@ export class AnalysisService {
 			}
 
 			// Validate default label exists in current Homebox instance
-			const currentLabels = get(labelsStore);
+			const currentLabels = labelStore.labels;
 			const validDefaultLabelId =
 				this.defaultLabelId && currentLabels.some((l) => l.id === this.defaultLabelId)
 					? this.defaultLabelId

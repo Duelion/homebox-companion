@@ -12,7 +12,7 @@
 import { locations as locationsApi } from '$lib/api';
 import { locationStore, type PathItem } from '$lib/stores/locations.svelte';
 import { scanWorkflow } from '$lib/workflows/scan.svelte';
-import { showToast } from '$lib/stores/ui';
+import { showToast } from '$lib/stores/ui.svelte';
 import { createLogger } from '$lib/utils/logger';
 import type { Location } from '$lib/types';
 

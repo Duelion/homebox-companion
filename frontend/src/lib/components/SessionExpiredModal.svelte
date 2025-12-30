@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { auth } from "$lib/api";
 	import { authStore } from "$lib/stores/auth.svelte";
 	import { resetLocationState } from "$lib/stores/locations.svelte";
@@ -49,7 +50,7 @@
 		scanWorkflow.reset();
 		resetLocationState();
 		authStore.logout();
-		window.location.href = "/";
+		goto("/");
 	}
 </script>
 

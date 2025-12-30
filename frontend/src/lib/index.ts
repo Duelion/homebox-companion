@@ -15,16 +15,17 @@ export * from './types';
 export { scanWorkflow } from './workflows/scan.svelte';
 
 // =============================================================================
-// STORES - Data stores (to be migrated gradually)
+// STORES - Svelte 5 class-based stores
 // =============================================================================
 export { authStore, logout, markSessionExpired, setAuthenticatedState } from './stores/auth.svelte';
-export { labels, labelsById, fetchLabels, clearLabelsCache, getLabelName, isLabelsLoading } from './stores/labels';
+export { labelStore, labels, labelsById, fetchLabels, clearLabelsCache, getLabelName, isLabelsLoading } from './stores/labels.svelte';
 export {
 	locationStore,
 	type PathItem,
 	type FlatLocation,
 } from './stores/locations.svelte';
 export {
+	uiStore,
 	isLoading,
 	loadingMessage,
 	toasts,
@@ -35,8 +36,10 @@ export {
 	latestVersion,
 	updateDismissed,
 	setLoading,
+	clearAllToasts,
+	TOAST_DURATION_MS,
 	type Toast,
-} from './stores/ui';
+} from './stores/ui.svelte';
 
 // =============================================================================
 // API - HTTP client (to be split into modules)

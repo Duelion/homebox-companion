@@ -5,12 +5,7 @@
 	import SessionExpiredModal from "$lib/components/SessionExpiredModal.svelte";
 	import BottomNav from "$lib/components/BottomNav.svelte";
 	import { authStore } from "$lib/stores/auth.svelte";
-	import {
-		isOnline,
-		appVersion,
-		latestVersion,
-		updateDismissed,
-	} from "$lib/stores/ui";
+	import { uiStore } from "$lib/stores/ui.svelte";
 	import { getVersion, getConfig } from "$lib/api";
 	import { setLogLevel } from "$lib/utils/logger";
 	import { initializeAuth } from "$lib/services/tokenRefresh";
@@ -20,20 +15,24 @@
 
 	let { children }: { children: Snippet } = $props();
 
-	// Derive isAuthenticated from authStore for reactive template usage
+	// Derive reactive values from stores for template usage
 	let isAuthenticated = $derived(authStore.isAuthenticated);
+	let isOnline = $derived(uiStore.isOnline);
+	let appVersion = $derived(uiStore.appVersion);
+	let latestVersion = $derived(uiStore.latestVersion);
+	let updateDismissed = $derived(uiStore.updateDismissed);
 
 	function dismissUpdate() {
-		updateDismissed.set(true);
+		uiStore.setUpdateDismissed(true);
 	}
 
 	// Event handlers (stable references for cleanup)
 	function handleOnline() {
-		isOnline.set(true);
+		uiStore.setOnline(true);
 	}
 
 	function handleOffline() {
-		isOnline.set(false);
+		uiStore.setOnline(false);
 	}
 
 	// Scroll to top after each navigation
@@ -79,7 +78,7 @@
 			await initializeAuth();
 
 			// Check online status and register listeners
-			isOnline.set(navigator.onLine);
+			uiStore.setOnline(navigator.onLine);
 			window.addEventListener("online", handleOnline);
 			window.addEventListener("offline", handleOffline);
 
@@ -94,15 +93,15 @@
 			// Fetch app version and check for updates
 			try {
 				const versionInfo = await getVersion();
-				appVersion.set(versionInfo.version);
+				uiStore.setAppVersion(versionInfo.version);
 				if (
 					versionInfo.update_available &&
 					versionInfo.latest_version
 				) {
-					latestVersion.set(versionInfo.latest_version);
+					uiStore.setLatestVersion(versionInfo.latest_version);
 				}
 			} catch {
-				appVersion.set("unknown");
+				uiStore.setAppVersion("unknown");
 			}
 		}
 	});
@@ -157,7 +156,7 @@
 	<div class="h-14 pt-safe shrink-0"></div>
 
 	<!-- Update available banner - sticky at top, only on login page -->
-	{#if !isAuthenticated && $latestVersion && !$updateDismissed}
+	{#if !isAuthenticated && latestVersion && !updateDismissed}
 		<div
 			class="sticky top-14 z-30 bg-amber-500/20 border-b border-amber-500/40 px-4 py-2.5 flex items-center justify-center gap-3 text-amber-300 text-sm"
 		>
@@ -174,7 +173,7 @@
 			</svg>
 			<span>
 				Update available: <strong class="text-amber-200"
-					>v{$latestVersion}</strong
+					>v{latestVersion}</strong
 				>
 			</span>
 			<a
@@ -215,7 +214,7 @@
 	</main>
 
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
-	{#if !$isOnline}
+	{#if !isOnline}
 		<div
 			class="fixed left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-40 {isAuthenticated
 				? 'bottom-nav-offset'
@@ -244,10 +243,10 @@
 		<footer
 			class="sticky bottom-0 mt-auto text-center py-3 text-text-dim text-xs flex items-center justify-center gap-3 bg-background"
 		>
-			{#if $appVersion}
-				<span>v{$appVersion}</span>
+			{#if appVersion}
+				<span>v{appVersion}</span>
 			{/if}
-			{#if $latestVersion}
+			{#if latestVersion}
 				<a
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
@@ -266,7 +265,7 @@
 						<polyline points="7 10 12 15 17 10" />
 						<line x1="12" y1="15" x2="12" y2="3" />
 					</svg>
-					<span>v{$latestVersion}</span>
+					<span>v{latestVersion}</span>
 				</a>
 			{/if}
 			<a

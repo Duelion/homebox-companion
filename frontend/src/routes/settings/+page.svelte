@@ -3,7 +3,7 @@
 	import { onMount } from "svelte";
 	import { authStore } from "$lib/stores/auth.svelte";
 	import { resetLocationState } from "$lib/stores/locations.svelte";
-	import { appVersion } from "$lib/stores/ui";
+	import { uiStore } from "$lib/stores/ui.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import {
 		getConfig,
@@ -726,7 +726,7 @@
 				<span class="text-neutral-400">Version</span>
 				<div class="flex items-center gap-2">
 					<span class="text-neutral-100 font-mono"
-						>{$appVersion || "Loading..."}</span
+						>{uiStore.appVersion || "Loading..."}</span
 					>
 					{#if updateAvailable && latestVersionNumber}
 						<a

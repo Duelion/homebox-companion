@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import { auth, getConfig, setDemoMode } from "$lib/api";
 	import { authStore } from "$lib/stores/auth.svelte";
-	import { showToast, setLoading } from "$lib/stores/ui";
+	import { showToast, setLoading } from "$lib/stores/ui.svelte";
 	import { authLogger as log } from "$lib/utils/logger";
 	import { getInitPromise } from "$lib/services/tokenRefresh";
 	import Button from "$lib/components/Button.svelte";

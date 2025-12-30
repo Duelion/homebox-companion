@@ -15,8 +15,18 @@ const urlCache = new WeakMap<File, string>();
 /**
  * Registry for tracking fetched blob URLs by their endpoint/key.
  * Unlike File-based URLs, fetched URLs need explicit key management.
+ * 
+ * Uses a Map with LRU eviction to prevent unbounded memory growth
+ * in long-running sessions. When the registry exceeds MAX_REGISTRY_SIZE,
+ * the oldest entries are revoked and removed.
  */
 const fetchedUrlRegistry = new Map<string, string>();
+
+/** Maximum number of entries in the fetched URL registry before LRU eviction */
+const MAX_REGISTRY_SIZE = 100;
+
+/** Number of entries to evict when registry is full (batch eviction for efficiency) */
+const EVICTION_BATCH_SIZE = 20;
 
 /**
  * Get or create an object URL for a File.
@@ -125,6 +135,9 @@ export function createObjectUrlManager() {
 /**
  * Register a fetched blob URL for a given key (typically an API endpoint).
  * If there's an existing URL for this key, it will be revoked first.
+ * 
+ * Implements LRU eviction: when the registry exceeds MAX_REGISTRY_SIZE,
+ * the oldest entries are revoked and removed to prevent memory leaks.
  *
  * @param key - Unique identifier for this URL (e.g., API endpoint)
  * @param url - The blob URL to register
@@ -134,7 +147,21 @@ export function registerFetchedBlobUrl(key: string, url: string): void {
 	const existingUrl = fetchedUrlRegistry.get(key);
 	if (existingUrl) {
 		URL.revokeObjectURL(existingUrl);
+		// Delete and re-add to move to end (most recently used)
+		fetchedUrlRegistry.delete(key);
 	}
+
+	// LRU eviction: if registry is at capacity, evict oldest entries
+	if (fetchedUrlRegistry.size >= MAX_REGISTRY_SIZE) {
+		let evicted = 0;
+		for (const [oldKey, oldUrl] of fetchedUrlRegistry) {
+			if (evicted >= EVICTION_BATCH_SIZE) break;
+			URL.revokeObjectURL(oldUrl);
+			fetchedUrlRegistry.delete(oldKey);
+			evicted++;
+		}
+	}
+
 	fetchedUrlRegistry.set(key, url);
 }
 
