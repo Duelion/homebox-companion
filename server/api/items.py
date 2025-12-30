@@ -17,9 +17,9 @@ router = APIRouter()
 
 @router.get("/items")
 async def list_items(
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
     location_id: str | None = Query(None, alias="location_id"),
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> list[dict]:
     """
     List items, optionally filtered by location.
@@ -28,13 +28,7 @@ async def list_items(
     """
     logger.debug(f"Fetching items for location_id={location_id}")
 
-    try:
-        items = await client.list_items(token, location_id=location_id)
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail="Session expired") from e
-    except Exception as e:
-        logger.error(f"Failed to fetch items: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch items") from e
+    items = await client.list_items(token, location_id=location_id)
 
     # Return simplified item data
     result = [
@@ -54,8 +48,8 @@ async def list_items(
 @router.post("/items")
 async def create_items(
     request: BatchCreateRequest,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> JSONResponse:
     """Create multiple items in Homebox.
 
@@ -178,8 +172,8 @@ async def create_items(
 async def upload_item_attachment(
     item_id: str,
     file: Annotated[UploadFile, File(description="Image file to upload")],
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, Any]:
     """Upload an attachment (image) to an existing item."""
     logger.info(f"Uploading attachment to item: {item_id}")
@@ -201,32 +195,24 @@ async def upload_item_attachment(
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
 
-    try:
-        result = await client.upload_attachment(
-            token=token,
-            item_id=item_id,
-            file_bytes=file_bytes,
-            filename=filename,
-            mime_type=mime_type,
-            attachment_type="photo",
-        )
-        logger.info(f"Successfully uploaded attachment to item {item_id}")
-        return result
-    except AuthenticationError as e:
-        logger.exception("Auth error uploading attachment")
-        raise HTTPException(status_code=401, detail="Authentication failed") from e
-    except Exception as e:
-        # Log full error but return generic message
-        logger.exception(f"Error uploading attachment to item {item_id}")
-        raise HTTPException(status_code=500, detail="Failed to upload attachment") from e
+    result = await client.upload_attachment(
+        token=token,
+        item_id=item_id,
+        file_bytes=file_bytes,
+        filename=filename,
+        mime_type=mime_type,
+        attachment_type="photo",
+    )
+    logger.info(f"Successfully uploaded attachment to item {item_id}")
+    return result
 
 
 @router.get("/items/{item_id}/attachments/{attachment_id}")
 async def get_item_attachment(
     item_id: str,
     attachment_id: str,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> Response:
     """Proxy attachment requests to Homebox with proper auth.
 
@@ -239,20 +225,16 @@ async def get_item_attachment(
     try:
         content, content_type = await client.get_attachment(token, item_id, attachment_id)
         return Response(content=content, media_type=content_type)
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail="Session expired") from e
     except FileNotFoundError as e:
+        # Route-specific: 404 for missing attachments
         raise HTTPException(status_code=404, detail="Attachment not found") from e
-    except Exception as e:
-        logger.error(f"Failed to fetch attachment: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch attachment") from e
 
 
 @router.delete("/items/{item_id}")
 async def delete_item(
     item_id: str,
-    token: Annotated[str, Depends(get_token)] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, str]:
     """Delete an item from Homebox.
 
@@ -260,13 +242,6 @@ async def delete_item(
     """
     logger.info(f"Deleting item: {item_id}")
 
-    try:
-        await client.delete_item(token, item_id)
-        logger.info(f"Successfully deleted item {item_id}")
-        return {"message": "Item deleted"}
-    except AuthenticationError as e:
-        logger.exception("Auth error deleting item")
-        raise HTTPException(status_code=401, detail="Authentication failed") from e
-    except Exception as e:
-        logger.exception(f"Error deleting item {item_id}")
-        raise HTTPException(status_code=500, detail="Failed to delete item") from e
+    await client.delete_item(token, item_id)
+    logger.info(f"Successfully deleted item {item_id}")
+    return {"message": "Item deleted"}

@@ -6,8 +6,7 @@
  */
 
 import { goto } from '$app/navigation';
-import { get } from 'svelte/store';
-import { isAuthenticated } from '$lib/stores/auth';
+import { authStore } from '$lib/stores/auth.svelte';
 import { scanWorkflow } from '$lib/workflows/scan.svelte';
 import type { ScanStatus } from '$lib/types';
 
@@ -58,7 +57,7 @@ export function checkRouteAccess(requirements: RouteRequirements): GuardResult {
 	const { auth = true, requireLocation = false, allowedStatuses } = requirements;
 
 	// Check authentication
-	if (auth && !get(isAuthenticated)) {
+	if (auth && !authStore.isAuthenticated) {
 		return { allowed: false, redirectTo: '/' };
 	}
 

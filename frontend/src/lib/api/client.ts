@@ -2,8 +2,7 @@
  * Base API client with error handling and authentication
  */
 
-import { get } from 'svelte/store';
-import { token, markSessionExpired } from '../stores/auth';
+import { authStore } from '../stores/auth.svelte';
 import { apiLogger as log } from '../utils/logger';
 import { refreshToken } from '../services/tokenRefresh';
 
@@ -86,26 +85,47 @@ export class NetworkError extends Error {
 	}
 }
 
-let isRefreshing = false;
+// =============================================================================
+// TOKEN REFRESH DEDUPLICATION (Module-level Singleton)
+// =============================================================================
+//
+// This module-scoped promise implements a singleton pattern to deduplicate
+// concurrent token refresh attempts. When multiple API requests receive 401s
+// simultaneously, only one refresh is performed and the result is shared.
+//
+// This is intentional global state for the SPA lifecycle.
+//
+// Testing note: This state persists across test cases unless the module is
+// reloaded. Consider this when writing integration tests.
+// =============================================================================
+
 let refreshPromise: Promise<boolean> | null = null;
 
 /**
- * Attempt to refresh the token once, preventing concurrent refresh attempts
+ * Attempt to refresh the token once, preventing concurrent refresh attempts.
+ * Uses a single promise reference with .finally() cleanup for atomic state management.
  */
 async function attemptRefreshOnce(): Promise<boolean> {
-	if (isRefreshing && refreshPromise) {
+	// If a refresh is already in progress, return the existing promise
+	if (refreshPromise) {
 		return refreshPromise;
 	}
-	isRefreshing = true;
-	refreshPromise = refreshToken();
-	const result = await refreshPromise;
-	isRefreshing = false;
-	refreshPromise = null;
-	return result;
+
+	// Start a new refresh and store the promise
+	// Use .finally() to ensure cleanup happens atomically after the promise settles
+	refreshPromise = refreshToken().finally(() => {
+		refreshPromise = null;
+	});
+
+	return refreshPromise;
 }
 
 /**
  * Handle 401 response with automatic token refresh and retry.
+ * 
+ * NOTE: This function reads authStore.token imperatively (not reactively).
+ * This is intentional - we need the current value at call time, not a
+ * reactive subscription. Changes to the token won't trigger re-execution.
  * 
  * - If no token exists: returns false (user not logged in)
  * - If token exists: attempts refresh and signals whether to retry
@@ -119,8 +139,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 		return false;
 	}
 
-	const authToken = get(token);
-	if (!authToken) {
+	if (!authStore.token) {
 		// No token - user isn't logged in, nothing to do
 		return false;
 	}
@@ -129,7 +148,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 	const refreshSucceeded = await attemptRefreshOnce();
 	if (!refreshSucceeded) {
 		// Refresh failed - show re-auth modal
-		markSessionExpired();
+		authStore.markSessionExpired();
 		return false;
 	}
 
@@ -264,7 +283,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 
 	// Helper to build headers with current token
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		const headers: HeadersInit = {
 			...options.headers,
 		};
@@ -430,7 +449,7 @@ export async function requestBlobUrl(
 
 	// Helper to build headers with current token
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		return authToken ? { Authorization: `Bearer ${authToken}` } : {};
 	};
 
@@ -519,7 +538,7 @@ export async function requestFormData<T>(
 
 	// Helper to build headers with current token and any additional headers
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		const headers: Record<string, string> = {};
 
 		if (authToken) {

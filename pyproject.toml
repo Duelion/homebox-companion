@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "2.1.0"
+version = "2.1.1"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -54,6 +54,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "ruff>=0.14.7",
     "ty>=0.0.5",
+    "vulture>=2.14",
 ]
 
 [tool.ruff]
@@ -71,11 +72,14 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-# Skip integration tests by default - they hit real APIs (demo.homebox.software, OpenAI)
-# Run them explicitly with: uv run pytest -m integration
-addopts = "-m 'not integration'"
+# Default: run unit + integration tests (fast, reliable)
+# Exclude live tests (require real APIs and credentials)
+# Run live tests explicitly with: uv run pytest -m "live" or uv run pytest -m ""
+addopts = "-v -m 'not live' --strict-markers"
 markers = [
-    "integration: tests that hit the real Homebox demo API and OpenAI API.",
+    "unit: fast tests with no I/O or external dependencies",
+    "integration: tests with mocked external services or temp files",
+    "live: tests requiring real external services (OpenAI, Homebox demo)",
 ]
 
 [tool.ty]
@@ -87,24 +91,46 @@ markers = [
 
 # FastAPI Depends() pattern: `param: Annotated[T, Depends(fn)] = None` is idiomatic
 # The None is never actually used - FastAPI's DI system injects the value
-invalid-parameter-default = "warn"
+invalid-parameter-default = "ignore"
 
 # Third-party library type stubs are sometimes incomplete or overly strict
 # CORSMiddleware and litellm.suppress_debug_info have stub issues
-invalid-assignment = "warn"
+invalid-assignment = "ignore"
+
+# Suppress unresolved-attribute for throttled-py's LimitResult which has dynamic attributes
+unresolved-attribute = "warn"
 
 [[tool.ty.overrides]]
 # Test files use dynamic dict access where ty can't infer the value type
 include = ["tests/**"]
-rules = { invalid-argument-type = "warn" }
+rules = { invalid-argument-type = "warn", invalid-parameter-default = "ignore" }
 
 [[tool.ty.overrides]]
 # Server has Starlette type stub issues (CORSMiddleware) and FastAPI DI patterns
 include = ["server/**"]
-rules = { invalid-argument-type = "warn" }
+rules = { invalid-argument-type = "warn", invalid-parameter-default = "ignore" }
 
 [[tool.ty.overrides]]
 # src has throttled-py type stub issues (MemoryStore Protocol mismatch)
 include = ["src/**"]
 rules = { invalid-argument-type = "warn" }
+
+[tool.vulture]
+# Find dead code with confidence threshold to reduce false positives
+min_confidence = 80
+paths = ["src/", "server/", "tests/"]
+exclude = ["*/.venv/*", "*/__pycache__/*"]
+# Ignore common patterns that may appear unused but are intentional:
+# - __version__: Package version metadata
+# - cleanup_*: Cleanup functions (may be called externally)
+# - pytestmark: Pytest test markers
+# - model_config: Pydantic v2 configuration
+# - *_typed: Typed wrapper methods (may be used by library consumers)
+ignore_names = [
+    "__version__",
+    "cleanup_*",
+    "pytestmark",
+    "model_config",
+    "*_typed",
+]
 

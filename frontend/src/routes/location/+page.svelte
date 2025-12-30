@@ -2,11 +2,12 @@
 	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
 	import { locations as locationsApi } from "$lib/api";
-	import { sessionExpired } from "$lib/stores/auth";
+	import { ApiError } from "$lib/api/client";
+	import { authStore } from "$lib/stores/auth.svelte";
 	import { locationStore } from "$lib/stores/locations.svelte";
 	import { locationNavigator } from "$lib/services/locationNavigator.svelte";
-	import { fetchLabels } from "$lib/stores/labels";
-	import { showToast } from "$lib/stores/ui";
+	import { fetchLabels } from "$lib/stores/labels.svelte";
+	import { showToast } from "$lib/stores/ui.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { routeGuards } from "$lib/utils/routeGuard";
 	import { createLogger } from "$lib/utils/logger";
@@ -61,7 +62,7 @@
 	let prevSessionExpired = false;
 
 	$effect(() => {
-		const currentExpired = $sessionExpired;
+		const currentExpired = authStore.sessionExpired;
 		// Detect transition from expired -> restored
 		if (prevSessionExpired && !currentExpired) {
 			locationNavigator.loadTree();
@@ -270,13 +271,17 @@
 			locationNavigator.selectLocation(locationData, locationPath);
 		} catch (error) {
 			log.error("QR scan error", error);
-			if (error instanceof Error && error.message.includes("401")) {
-				showToast("Session expired. Please log in again.", "error");
-			} else if (
-				error instanceof Error &&
-				error.message.includes("404")
-			) {
-				showToast("Location not found in your Homebox.", "error");
+			if (error instanceof ApiError) {
+				if (error.status === 401) {
+					showToast("Session expired. Please log in again.", "error");
+				} else if (error.status === 404) {
+					showToast("Location not found in your Homebox.", "error");
+				} else {
+					showToast(
+						"Failed to load location. Please try again.",
+						"error",
+					);
+				}
 			} else {
 				showToast(
 					"Failed to load location. Please try again.",

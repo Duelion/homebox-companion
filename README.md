@@ -47,7 +47,7 @@ flowchart LR
 2. **Select Location** – Browse the location tree, search, or scan a Homebox QR code
 3. **Capture Photos** – Take or upload photos of items (supports multiple photos per item)
 4. **AI Detection** – AI vision (via LiteLLM*) identifies items, quantities, and metadata
-5. **Review & Edit** – Adjust AI suggestions, merge items, or ask AI to correct mistakes
+5. **Review & Edit** – Adjust AI suggestions or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
 > *LiteLLM is a Python adaptor library we use to call OpenAI directly, no Local AI model required (unless you want to), just your API key.

@@ -3,10 +3,10 @@
 	import { onMount } from "svelte";
 	import { slide } from "svelte/transition";
 	import { resetLocationState } from "$lib/stores/locations.svelte";
-	import { showToast } from "$lib/stores/ui";
-	import { markSessionExpired } from "$lib/stores/auth";
+	import { showToast } from "$lib/stores/ui.svelte";
+	import { markSessionExpired } from "$lib/stores/auth.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
-	import { checkAuth } from "$lib/utils/token";
+	import { hasToken } from "$lib/utils/token";
 	import { routeGuards } from "$lib/utils/routeGuard";
 	import { createLogger } from "$lib/utils/logger";
 	import { getConfig } from "$lib/api/settings";
@@ -56,7 +56,9 @@
 		if (createdObjectUrls.has(url)) {
 			URL.revokeObjectURL(url);
 			createdObjectUrls.delete(url);
-			log.debug(`Revoked object URL (${createdObjectUrls.size} remaining)`);
+			log.debug(
+				`Revoked object URL (${createdObjectUrls.size} remaining)`,
+			);
 		} else {
 			// URL was created by a previous component instance - still try to revoke
 			// to free memory, but don't log errors since this is expected behavior
@@ -112,7 +114,9 @@
 		const currentCount = images.length;
 		// If images were cleared (went to 0 from non-zero), revoke all tracked URLs
 		if (previousImageCount > 0 && currentCount === 0) {
-			log.debug(`Workflow reset detected, revoking ${createdObjectUrls.size} orphaned URLs`);
+			log.debug(
+				`Workflow reset detected, revoking ${createdObjectUrls.size} orphaned URLs`,
+			);
 			for (const url of createdObjectUrls) {
 				URL.revokeObjectURL(url);
 			}
@@ -195,12 +199,12 @@
 			if (isFileTooLarge(file)) continue;
 
 			currentCount++;
-			
+
 			// Use Object URL instead of base64 data URL - much more memory efficient
 			// Object URLs are tiny strings that reference the File blob in memory
 			// instead of duplicating the entire file as a base64 string
 			const previewUrl = createTrackedObjectUrl(file);
-			
+
 			workflow.addImage({
 				file,
 				dataUrl: previewUrl,
@@ -273,7 +277,7 @@
 				}
 			}
 		}
-		
+
 		workflow.removeImage(index);
 		expandedImages = new Set(
 			[...expandedImages]
@@ -299,7 +303,7 @@
 		if (image?.additionalDataUrls?.[additionalIndex]) {
 			revokeObjectUrl(image.additionalDataUrls[additionalIndex]);
 		}
-		
+
 		workflow.removeAdditionalImage(imageIndex, additionalIndex);
 	}
 
@@ -341,8 +345,7 @@
 		try {
 			// Check token validity before starting analysis
 			log.debug("Checking authentication...");
-			const isValid = await checkAuth();
-			if (!isValid) {
+			if (!hasToken()) {
 				// Token missing - trigger re-auth modal
 				log.warn("Auth check failed, marking session expired");
 				markSessionExpired();
@@ -476,9 +479,9 @@
 						Some Images Failed to Analyze
 					</h3>
 					<p class="text-body-sm text-warning-200/80 mb-3">
-						{failedImageCount} of {images.length} image(s)
-						could not be processed. You can retry the failed images, continue
-						with the successful ones, or remove the failed images.
+						{failedImageCount} of {images.length} image(s) could not
+						be processed. You can retry the failed images, continue with
+						the successful ones, or remove the failed images.
 					</p>
 
 					<!-- Stats -->
@@ -492,7 +495,9 @@
 							>
 						</div>
 						<div class="flex items-center gap-1.5">
-							<div class="w-2 h-2 rounded-full bg-error-400"></div>
+							<div
+								class="w-2 h-2 rounded-full bg-error-400"
+							></div>
 							<span class="text-neutral-300"
 								>{failedImageCount} failed</span
 							>

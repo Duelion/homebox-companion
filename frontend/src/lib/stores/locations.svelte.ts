@@ -2,10 +2,9 @@
  * Location Store - Svelte 5 Class-based State
  *
  * Manages location tree navigation state using Svelte 5 runes for fine-grained reactivity.
- * This replaces the previous Svelte 4 writable/derived store implementation.
  *
  * Note: Auth cleanup (clearing location state on logout) is handled explicitly
- * in the auth.ts logout() function to avoid memory leaks from unsubscribed listeners.
+ * in the auth.svelte.ts logout() function to avoid memory leaks from unsubscribed listeners.
  */
 import type { Location, LocationTreeNode } from '$lib/types';
 

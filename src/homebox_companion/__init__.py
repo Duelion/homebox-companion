@@ -52,6 +52,10 @@ from .ai import (
 )
 from .core import (
     AuthenticationError,
+    HomeboxAuthError,
+    HomeboxCompanionError,
+    HomeboxConnectionError,
+    HomeboxTimeoutError,
     Settings,
     logger,
     settings,
@@ -77,8 +81,6 @@ from .tools.vision import (
     correct_item_with_openai,
     detect_items_from_bytes,
     discriminatory_detect_items,
-    merge_items,
-    merge_items_with_openai,
 )
 
 __all__ = [
@@ -89,7 +91,12 @@ __all__ = [
     "Settings",
     "logger",
     "setup_logging",
-    "AuthenticationError",
+    # Domain exceptions
+    "HomeboxCompanionError",
+    "HomeboxAuthError",
+    "HomeboxConnectionError",
+    "HomeboxTimeoutError",
+    "AuthenticationError",  # Legacy alias
     # LLM exceptions
     "LLMError",
     "CapabilityNotSupportedError",
@@ -107,8 +114,6 @@ __all__ = [
     "detect_items_from_bytes",
     "discriminatory_detect_items",
     "analyze_item_details_from_images",
-    "merge_items",
-    "merge_items_with_openai",  # Deprecated alias
     "correct_item",
     "correct_item_with_openai",  # Deprecated alias
     # Image utilities
@@ -118,8 +123,3 @@ __all__ = [
     "cleanup_llm_clients",
     "cleanup_openai_clients",  # Deprecated alias
 ]
-
-
-
-
-

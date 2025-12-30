@@ -2,7 +2,7 @@
  * Authentication API endpoints
  */
 
-import { request } from './client';
+import { request, NetworkError } from './client';
 
 export interface LoginResponse {
 	token: string;
@@ -45,14 +45,11 @@ export const auth = {
 			});
 			return { valid: true, reason: 'ok' };
 		} catch (error) {
-			// Check if it's a network error (no response) vs auth error (401)
-			if (error instanceof Error) {
-				// Network errors typically have no status or are TypeError/fetch errors
-				if (error.name === 'TypeError' || error.message.includes('fetch') || error.message.includes('network')) {
-					return { valid: false, reason: 'network_error' };
-				}
+			// Use proper NetworkError class for reliable detection
+			if (error instanceof NetworkError) {
+				return { valid: false, reason: 'network_error' };
 			}
-			// ApiError with status, or unknown error - treat as invalid token
+			// ApiError (401, 403, etc.) or unknown error - treat as invalid token
 			return { valid: false, reason: 'invalid' };
 		}
 	},

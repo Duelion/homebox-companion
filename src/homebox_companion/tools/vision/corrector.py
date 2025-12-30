@@ -88,10 +88,9 @@ async def correct_item(
 
     # Build current item summary
     current_summary = (
-        f"Current: {current_item.get('name', 'Unknown')} "
-        f"(qty: {current_item.get('quantity', 1)})"
+        f"Current: {current_item.get('name', 'Unknown')} (qty: {current_item.get('quantity', 1)})"
     )
-    if current_item.get('manufacturer'):
+    if current_item.get("manufacturer"):
         current_summary += f", mfr: {current_item.get('manufacturer')}"
 
     user_prompt = (

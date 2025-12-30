@@ -109,4 +109,3 @@ async def download_logs(
         filename=filename,
         media_type="text/plain",
     )
-
