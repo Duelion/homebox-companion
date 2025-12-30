@@ -6,7 +6,7 @@
 	import { showToast } from "$lib/stores/ui";
 	import { markSessionExpired } from "$lib/stores/auth.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
-	import { checkAuth } from "$lib/utils/token";
+	import { hasToken } from "$lib/utils/token";
 	import { routeGuards } from "$lib/utils/routeGuard";
 	import { createLogger } from "$lib/utils/logger";
 	import { getConfig } from "$lib/api/settings";
@@ -345,8 +345,7 @@
 		try {
 			// Check token validity before starting analysis
 			log.debug("Checking authentication...");
-			const isValid = await checkAuth();
-			if (!isValid) {
+			if (!hasToken()) {
 				// Token missing - trigger re-auth modal
 				log.warn("Auth check failed, marking session expired");
 				markSessionExpired();

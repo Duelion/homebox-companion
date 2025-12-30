@@ -2,7 +2,6 @@
  * Authentication Store - Svelte 5 Class-based State
  *
  * Manages authentication state using Svelte 5 runes for fine-grained reactivity.
- * Replaces the previous Svelte 4 writable/derived store implementation.
  */
 import { browser } from '$app/environment';
 import { stopRefreshTimer } from '../services/tokenRefresh';
@@ -136,27 +135,21 @@ class AuthStore {
             localStorage.setItem(EXPIRES_KEY, expiresAt.toISOString());
         }
 
-        // Schedule token refresh with retry for reliability
-        // Uses dynamic import to avoid circular dependency with tokenRefresh.ts
-        this.scheduleRefreshWithRetry();
+        // Schedule token refresh
+        this.scheduleRefresh();
     }
 
     /**
-     * Schedule token refresh with a single retry on import failure.
+     * Schedule token refresh via dynamic import.
      * Dynamic import avoids circular dependency with tokenRefresh.ts.
      */
-    private async scheduleRefreshWithRetry(attempt = 1): Promise<void> {
-        const MAX_ATTEMPTS = 2;
+    private async scheduleRefresh(): Promise<void> {
         try {
             const { scheduleRefresh } = await import('../services/tokenRefresh');
             scheduleRefresh();
         } catch (err) {
-            if (attempt < MAX_ATTEMPTS) {
-                log.debug(`Retry ${attempt} for scheduleRefresh import`);
-                await this.scheduleRefreshWithRetry(attempt + 1);
-            } else {
-                log.error('Failed to schedule token refresh after retries - session may expire unexpectedly:', err);
-            }
+            // Dynamic imports rarely fail; log and continue (session may expire unexpectedly)
+            log.error('Failed to schedule token refresh - session may expire unexpectedly:', err);
         }
     }
 
@@ -207,11 +200,11 @@ class AuthStore {
 export const authStore = new AuthStore();
 
 // =============================================================================
-// FUNCTION EXPORTS (for convenience)
+// FUNCTION EXPORTS (backward compatibility)
 // =============================================================================
 
-// These re-export methods as standalone functions for convenience.
-// For reactive access to state, use authStore properties directly.
+// These re-export methods as standalone functions for backward compatibility.
+// Prefer using authStore.method() directly in new code.
 
 export const tokenNeedsRefresh = () => authStore.tokenNeedsRefresh();
 export const tokenIsExpired = () => authStore.tokenIsExpired();

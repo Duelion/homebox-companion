@@ -13,7 +13,7 @@ import { items as itemsApi } from '$lib/api/index';
 import { ApiError } from '$lib/api/client';
 import { withRetry } from '$lib/utils/retry';
 import { workflowLogger as log } from '$lib/utils/logger';
-import { checkAuth } from '$lib/utils/token';
+import { hasToken } from '$lib/utils/token';
 import type {
 	ConfirmedItem,
 	Progress,
@@ -331,8 +331,7 @@ export class SubmissionService {
 
 		// Validate auth token if requested (default: true)
 		if (options?.validateAuth !== false) {
-			const isValid = await checkAuth();
-			if (!isValid) {
+			if (!hasToken()) {
 				result.sessionExpired = true;
 				return result;
 			}
@@ -449,8 +448,7 @@ export class SubmissionService {
 		}
 
 		// Validate auth token before retrying
-		const isValid = await checkAuth();
-		if (!isValid) {
+		if (!hasToken()) {
 			result.sessionExpired = true;
 			return result;
 		}

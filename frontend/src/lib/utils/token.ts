@@ -5,18 +5,22 @@
 import { authStore } from '../stores/auth.svelte';
 
 /**
- * Check if the current auth token exists locally.
+ * Check if an auth token exists locally.
  * 
- * Note: This does NOT validate against the server. If the token is invalid,
- * any subsequent API call will trigger a 401 → automatic refresh → retry flow.
- * 
- * The caller should handle missing tokens appropriately (e.g., show error, redirect).
- * The session expired modal is automatically triggered by 401 responses from the API.
+ * This is a SYNCHRONOUS check - it does NOT validate against the server.
+ * If the token is invalid/expired, any subsequent API call will trigger
+ * a 401 → automatic refresh → retry flow.
  * 
  * @returns true if token exists locally, false if no token
  */
-export function checkAuth(): boolean {
+export function hasToken(): boolean {
 	return !!authStore.token;
 }
+
+/**
+ * @deprecated Use hasToken() instead. This alias exists for backward compatibility.
+ */
+export const checkAuth = hasToken;
+
 
 
