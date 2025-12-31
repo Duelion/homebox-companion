@@ -5,6 +5,7 @@ These tests verify the chat module implementations using mocked dependencies.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -427,3 +428,144 @@ class TestChatOrchestrator:
         error_events = [e for e in events if e.type == ChatEventType.ERROR]
         assert len(error_events) == 1
         assert "API Error" in error_events[0].data["message"]
+
+    @pytest.mark.asyncio
+    async def test_process_message_handles_chained_tool_calls(
+        self, mock_client: MagicMock, session: ChatSession
+    ):
+        """Orchestrator should handle multiple sequential tool calls correctly.
+
+        This tests the exact scenario that triggered the original bug:
+        1. User asks a question
+        2. LLM makes a search_items call
+        3. LLM receives results and makes a get_item call
+        4. LLM provides final response
+
+        The key assertion is that the session message sequence is valid:
+        each tool message must be preceded by an assistant message with tool_calls.
+        """
+        orchestrator = ChatOrchestrator(mock_client, session)
+
+        # Mock search_items tool
+        mock_client.search_items = AsyncMock(return_value=[
+            {"id": "item-123", "name": "Picture Hanging Wire"}
+        ])
+        # Mock get_item tool
+        mock_client.get_item = AsyncMock(return_value={
+            "id": "item-123",
+            "name": "Picture Hanging Wire",
+            "description": "Steel wire for hanging pictures"
+        })
+
+        def create_tool_call(name: str, args: dict):
+            """Helper to create mock tool calls."""
+            tc = MagicMock()
+            tc.id = f"call_{name}"
+            tc.function.name = name
+            tc.function.arguments = json.dumps(args)
+            return tc
+
+        # First LLM response: search_items call
+        first_response = MagicMock()
+        first_response.choices = [MagicMock()]
+        first_response.choices[0].message.content = ""
+        first_response.choices[0].message.tool_calls = [
+            create_tool_call("search_items", {"query": "wire", "compact": True})
+        ]
+
+        # Second LLM response: get_item call based on search results
+        second_response = MagicMock()
+        second_response.choices = [MagicMock()]
+        second_response.choices[0].message.content = ""
+        second_response.choices[0].message.tool_calls = [
+            create_tool_call("get_item", {"item_id": "item-123"})
+        ]
+
+        # Final LLM response: text response
+        final_response = MagicMock()
+        final_response.choices = [MagicMock()]
+        final_response.choices[0].message.content = (
+            "Based on my search, you have Picture Hanging Wire."
+        )
+        final_response.choices[0].message.tool_calls = None
+
+        with patch(
+            "homebox_companion.chat.orchestrator.litellm.acompletion",
+            new=AsyncMock(side_effect=[first_response, second_response, final_response])
+        ):
+            events = []
+            async for event in orchestrator.process_message("What wire do I have?", "token"):
+                events.append(event)
+
+        # Verify we got the expected events
+        tool_start_events = [e for e in events if e.type == ChatEventType.TOOL_START]
+        tool_result_events = [e for e in events if e.type == ChatEventType.TOOL_RESULT]
+        text_events = [e for e in events if e.type == ChatEventType.TEXT]
+
+        assert len(tool_start_events) == 2, "Should have 2 tool start events"
+        assert len(tool_result_events) == 2, "Should have 2 tool result events"
+        assert len(text_events) == 1, "Should have 1 text event"
+        assert "Picture Hanging Wire" in text_events[0].data["content"]
+
+        # Verify message sequence in session is valid
+        # Each tool message must be preceded by an assistant message whose tool_calls
+        # contains the matching tool_call_id
+        messages = session.messages
+        for i, msg in enumerate(messages):
+            if msg.role == "tool":
+                # Find the most recent assistant message with tool_calls containing this ID
+                found_matching_assistant = False
+                for j in range(i - 1, -1, -1):
+                    prev_msg = messages[j]
+                    if prev_msg.role == "assistant" and prev_msg.tool_calls:
+                        assistant_call_ids = [tc.id for tc in prev_msg.tool_calls]
+                        if msg.tool_call_id in assistant_call_ids:
+                            found_matching_assistant = True
+                            break
+
+                assert found_matching_assistant, (
+                    f"Tool message at index {i} with tool_call_id={msg.tool_call_id} "
+                    f"has no preceding assistant message with matching tool_calls"
+                )
+
+    @pytest.mark.asyncio
+    async def test_recursion_depth_limit(
+        self, mock_client: MagicMock, session: ChatSession
+    ):
+        """Orchestrator should stop after MAX_TOOL_RECURSION_DEPTH iterations."""
+        from homebox_companion.chat.orchestrator import MAX_TOOL_RECURSION_DEPTH
+
+        orchestrator = ChatOrchestrator(mock_client, session)
+
+        # Mock a tool that always exists
+        mock_client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test"}])
+
+        def create_tool_call():
+            tc = MagicMock()
+            tc.id = "call_list_locations"
+            tc.function.name = "list_locations"
+            tc.function.arguments = "{}"
+            return tc
+
+        # Create a response that always calls list_locations (infinite loop scenario)
+        tool_response = MagicMock()
+        tool_response.choices = [MagicMock()]
+        tool_response.choices[0].message.content = ""
+        tool_response.choices[0].message.tool_calls = [create_tool_call()]
+
+        # Create enough responses to trigger the limit
+        responses = [tool_response] * (MAX_TOOL_RECURSION_DEPTH + 5)
+
+        with patch(
+            "homebox_companion.chat.orchestrator.litellm.acompletion",
+            new=AsyncMock(side_effect=responses)
+        ):
+            events = []
+            async for event in orchestrator.process_message("Test", "token"):
+                events.append(event)
+
+        # Should have an error about max recursion depth
+        error_events = [e for e in events if e.type == ChatEventType.ERROR]
+        assert any("recursion" in e.data.get("message", "").lower() for e in error_events), (
+            "Should have error about max recursion depth"
+        )

@@ -111,6 +111,10 @@ For write operations (creating, updating, deleting items), you will need to \
 propose actions that the user must approve before they execute. This is not \
 yet implemented - let users know if they ask for modifications."""
 
+# Maximum recursion depth for tool call continuations
+# Prevents infinite loops if LLM keeps making tool calls
+MAX_TOOL_RECURSION_DEPTH = 10
+
 
 def _build_tool_descriptions() -> str:
     """Build tool descriptions for the system prompt."""
@@ -166,6 +170,106 @@ class ChatOrchestrator:
         self.session = session
         self.tools = HomeboxMCPTools(client)
         self.tool_metadata = HomeboxMCPTools.get_tool_metadata()
+
+    def _parse_tool_calls(self, tool_calls: list[Any]) -> list[ToolCall]:
+        """Parse raw LLM tool calls into ToolCall objects.
+
+        This centralizes JSON argument parsing to avoid duplication.
+
+        Args:
+            tool_calls: Raw tool calls from LLM response
+
+        Returns:
+            List of parsed ToolCall objects
+        """
+        parsed = []
+        for tc in tool_calls:
+            tool_name = tc.function.name
+            try:
+                tool_args = json.loads(tc.function.arguments)
+            except json.JSONDecodeError:
+                tool_args = {}
+
+            parsed.append(ToolCall(
+                id=tc.id,
+                name=tool_name,
+                arguments=tool_args,
+            ))
+        return parsed
+
+    async def _handle_tool_calls(
+        self,
+        content: str,
+        tool_calls: list[Any],
+        token: str,
+        tools: list[dict[str, Any]],
+        depth: int = 0,
+    ) -> AsyncGenerator[ChatEvent, None]:
+        """Unified handler for LLM responses with tool calls.
+
+        This method centralizes all tool handling logic:
+        1. Parses tool calls
+        2. Adds assistant message with tool_calls to session
+        3. Executes tools (yielding events)
+        4. Continues conversation with tool results (recursive)
+
+        Args:
+            content: The assistant message content
+            tool_calls: Raw tool calls from LLM response
+            token: Homebox auth token
+            tools: Tool definitions for recursive LLM calls
+            depth: Current recursion depth (for safety limit)
+
+        Yields:
+            ChatEvent objects for SSE streaming
+        """
+        # Safety check: prevent infinite recursion
+        if depth >= MAX_TOOL_RECURSION_DEPTH:
+            logger.warning(
+                f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached"
+            )
+            yield ChatEvent(
+                type=ChatEventType.ERROR,
+                data={"message": "Max tool recursion depth reached. Please try a simpler query."}
+            )
+            return
+
+        # Parse tool calls once
+        parsed_tool_calls = self._parse_tool_calls(tool_calls)
+
+        # IMPORTANT: Add assistant message with tool_calls BEFORE executing tools
+        # OpenAI API requires tool messages to follow an assistant message with tool_calls
+        self.session.add_message(ChatMessage(
+            role="assistant",
+            content=content,
+            tool_calls=parsed_tool_calls,
+        ))
+
+        # Execute tools using already-parsed tool calls (no redundant JSON parsing)
+        for parsed_tc in parsed_tool_calls:
+            # Check tool permission
+            meta = self.tool_metadata.get(parsed_tc.name)
+            if not meta:
+                yield ChatEvent(
+                    type=ChatEventType.ERROR,
+                    data={"message": f"Unknown tool: {parsed_tc.name}"}
+                )
+                continue
+
+            if meta["permission"] == ToolPermission.READ:
+                # Auto-execute read-only tools
+                async for event in self._execute_tool(
+                    parsed_tc.id, parsed_tc.name, parsed_tc.arguments, token
+                ):
+                    yield event
+            else:
+                # Queue write tools for approval
+                async for event in self._queue_approval(parsed_tc.name, parsed_tc.arguments):
+                    yield event
+
+        # Continue conversation with tool results
+        async for event in self._continue_with_tool_results(token, tools, depth + 1):
+            yield event
 
     async def process_message(
         self,
@@ -251,56 +355,10 @@ class ChatOrchestrator:
         if content:
             yield ChatEvent(type=ChatEventType.TEXT, data={"content": content})
 
-        # Handle tool calls
-        parsed_tool_calls = []
+        # Handle tool calls using unified method, or store simple assistant message
         if tool_calls:
-            # First, parse all tool calls
-            for tc in tool_calls:
-                tool_name = tc.function.name
-                try:
-                    tool_args = json.loads(tc.function.arguments)
-                except json.JSONDecodeError:
-                    tool_args = {}
-
-                parsed_tool_calls.append(ToolCall(
-                    id=tc.id,
-                    name=tool_name,
-                    arguments=tool_args,
-                ))
-
-            # IMPORTANT: Add assistant message with tool_calls BEFORE executing tools
-            # OpenAI API requires tool messages to follow an assistant message with tool_calls
-            self.session.add_message(ChatMessage(
-                role="assistant",
-                content=content,
-                tool_calls=parsed_tool_calls,
-            ))
-
-            # Now execute tools (which will add tool result messages)
-            for tc in tool_calls:
-                tool_name = tc.function.name
-                try:
-                    tool_args = json.loads(tc.function.arguments)
-                except json.JSONDecodeError:
-                    tool_args = {}
-
-                # Check tool permission
-                meta = self.tool_metadata.get(tool_name)
-                if not meta:
-                    yield ChatEvent(
-                        type=ChatEventType.ERROR,
-                        data={"message": f"Unknown tool: {tool_name}"}
-                    )
-                    continue
-
-                if meta["permission"] == ToolPermission.READ:
-                    # Auto-execute read-only tools
-                    async for event in self._execute_tool(tc.id, tool_name, tool_args, token):
-                        yield event
-                else:
-                    # Queue write tools for approval
-                    async for event in self._queue_approval(tool_name, tool_args):
-                        yield event
+            async for event in self._handle_tool_calls(content, tool_calls, token, tools):
+                yield event
         else:
             # No tool calls - just store the assistant message
             self.session.add_message(ChatMessage(
@@ -308,11 +366,6 @@ class ChatOrchestrator:
                 content=content,
                 tool_calls=None,
             ))
-
-        # If we had tool calls, we need to call LLM again to get final response
-        if tool_calls:
-            async for event in self._continue_with_tool_results(token, tools):
-                yield event
 
         yield ChatEvent(type=ChatEventType.DONE, data={})
 
@@ -498,14 +551,17 @@ class ChatOrchestrator:
         self,
         token: str,
         tools: list[dict[str, Any]],
+        depth: int = 0,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Continue conversation after tool execution.
 
         This calls the LLM again with tool results to get a final response.
+        Uses the unified _handle_tool_calls method for consistent handling.
 
         Args:
             token: Auth token
             tools: Tool definitions
+            depth: Current recursion depth (passed to _handle_tool_calls)
 
         Yields:
             Additional chat events
@@ -529,26 +585,21 @@ class ChatOrchestrator:
 
         assistant_message = response.choices[0].message
         content = assistant_message.content or ""
+        tool_calls = assistant_message.tool_calls
 
         if content:
-            self.session.add_message(ChatMessage(role="assistant", content=content))
             yield ChatEvent(type=ChatEventType.TEXT, data={"content": content})
 
-        # Handle any additional tool calls (recursive, but limited by LLM behavior)
-        if assistant_message.tool_calls:
-            # Process additional tool calls
-            for tc in assistant_message.tool_calls:
-                tool_name = tc.function.name
-                try:
-                    tool_args = json.loads(tc.function.arguments)
-                except json.JSONDecodeError:
-                    tool_args = {}
-
-                meta = self.tool_metadata.get(tool_name)
-                if meta and meta["permission"] == ToolPermission.READ:
-                    async for event in self._execute_tool(tc.id, tool_name, tool_args, token):
-                        yield event
-
-            # Continue again if there were tool calls
-            async for event in self._continue_with_tool_results(token, tools):
+        # Handle tool calls using unified method, or store simple assistant message
+        if tool_calls:
+            async for event in self._handle_tool_calls(
+                content, tool_calls, token, tools, depth
+            ):
                 yield event
+        else:
+            # No tool calls - just store the assistant message
+            self.session.add_message(ChatMessage(
+                role="assistant",
+                content=content,
+                tool_calls=None,
+            ))

@@ -16,6 +16,7 @@ import base64
 import binascii
 from dataclasses import dataclass
 from enum import Enum
+from functools import wraps
 from typing import Any
 
 from loguru import logger
@@ -84,6 +85,66 @@ class ToolResult:
         if self.success:
             return {"success": True, "data": self.data}
         return {"success": False, "error": self.error}
+
+
+@dataclass
+class ToolMetadata:
+    """Metadata for a tool, attached by the @tool decorator.
+
+    Attributes:
+        description: Human-readable description of the tool
+        permission: Permission level required (READ, WRITE, DESTRUCTIVE)
+        parameters: JSON schema for the tool's parameters
+    """
+    description: str
+    permission: ToolPermission
+    parameters: dict[str, Any]
+
+
+def tool(
+    description: str,
+    permission: ToolPermission,
+    parameters: dict[str, Any] | None = None,
+):
+    """Decorator to register a method as an MCP tool with metadata.
+
+    This decorator attaches metadata directly to the method, which is then
+    collected by HomeboxMCPTools.get_tool_metadata(). This co-locates the
+    tool definition with its implementation for better maintainability.
+
+    Args:
+        description: Human-readable description of what the tool does
+        permission: Permission level (READ, WRITE, DESTRUCTIVE)
+        parameters: JSON schema for parameters. If None, uses empty object.
+
+    Example:
+        @tool(
+            description="List all locations in Homebox",
+            permission=ToolPermission.READ,
+            parameters={
+                "type": "object",
+                "properties": {
+                    "filter_children": {
+                        "type": "boolean",
+                        "description": "If true, only return top-level locations",
+                    }
+                }
+            }
+        )
+        async def list_locations(self, token: str, *, filter_children: bool = False):
+            ...
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        wrapper._tool_metadata = ToolMetadata(
+            description=description,
+            permission=permission,
+            parameters=parameters or {"type": "object", "properties": {}},
+        )
+        return wrapper
+    return decorator
 
 
 class HomeboxMCPTools:
@@ -608,7 +669,11 @@ class HomeboxMCPTools:
                 token,
                 location_id=location_id,
                 name=name if name is not None else current.get("name", ""),
-                description=description if description is not None else current.get("description", ""),
+                description=(
+                    description
+                    if description is not None
+                    else current.get("description", "")
+                ),
                 parent_id=resolved_parent_id,
             )
             logger.info(f"update_location updated location: {result.get('name', 'unknown')}")
@@ -726,8 +791,12 @@ class HomeboxMCPTools:
     def get_tool_metadata(cls) -> dict[str, dict[str, Any]]:
         """Return metadata for all available tools.
 
-        This metadata is used by the MCP server to register tools and
-        by the approval system to determine permission requirements.
+        This method collects metadata from two sources:
+        1. Methods decorated with @tool (preferred, co-located with implementation)
+        2. Static dictionary below (legacy, for gradual migration)
+
+        The decorator-based approach is preferred as it co-locates metadata
+        with the implementation, making it easier to keep them in sync.
 
         Returns:
             Dict mapping tool names to their metadata including:
@@ -735,7 +804,23 @@ class HomeboxMCPTools:
             - permission: ToolPermission level
             - parameters: JSON schema for tool parameters
         """
-        return {
+        # Collect from decorated methods
+        metadata: dict[str, dict[str, Any]] = {}
+        for name in dir(cls):
+            if name.startswith("_"):
+                continue
+            method = getattr(cls, name, None)
+            if method and hasattr(method, "_tool_metadata"):
+                meta: ToolMetadata = method._tool_metadata
+                metadata[name] = {
+                    "description": meta.description,
+                    "permission": meta.permission,
+                    "parameters": meta.parameters,
+                }
+
+        # Add/override with static definitions for non-decorated methods
+        # This allows gradual migration from static dict to decorators
+        static_metadata = {
             "list_locations": {
                 "description": "List all locations in Homebox inventory",
                 "permission": ToolPermission.READ,
@@ -1046,7 +1131,8 @@ class HomeboxMCPTools:
             "update_location": {
                 "description": (
                     "Update an existing location's name, description, or parent. "
-                    "Use this to rename locations, add/edit descriptions, or reorganize the location hierarchy."
+                    "Use this to rename locations, add/edit descriptions, "
+                    "or reorganize the location hierarchy."
                 ),
                 "permission": ToolPermission.WRITE,
                 "parameters": {
@@ -1122,7 +1208,10 @@ class HomeboxMCPTools:
                         },
                         "attachment_type": {
                             "type": "string",
-                            "description": "Type of attachment: 'photo', 'manual', 'warranty', 'receipt', 'attachment'",
+                            "description": (
+                                "Type of attachment: 'photo', 'manual', "
+                                "'warranty', 'receipt', 'attachment'"
+                            ),
                             "default": "photo",
                         },
                     },
@@ -1144,3 +1233,10 @@ class HomeboxMCPTools:
             },
         }
 
+        # Merge: static_metadata fills gaps for non-decorated methods
+        # Decorated methods take precedence (already in metadata)
+        for name, meta in static_metadata.items():
+            if name not in metadata:
+                metadata[name] = meta
+
+        return metadata
