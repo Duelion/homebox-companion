@@ -5,12 +5,16 @@ These tests verify the chat module implementations using mocked dependencies.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from homebox_companion.chat.orchestrator import (
+    ChatEvent,
+    ChatEventType,
+    ChatOrchestrator,
+)
 from homebox_companion.chat.session import (
     ChatMessage,
     ChatSession,
@@ -20,12 +24,6 @@ from homebox_companion.chat.session import (
     create_approval_id,
     get_session,
 )
-from homebox_companion.chat.orchestrator import (
-    ChatEventType,
-    ChatEvent,
-    ChatOrchestrator,
-)
-
 
 # =============================================================================
 # ChatMessage Tests
@@ -39,7 +37,7 @@ class TestChatMessage:
         """User message should convert to basic format."""
         msg = ChatMessage(role="user", content="Hello")
         result = msg.to_llm_format()
-        
+
         assert result == {"role": "user", "content": "Hello"}
 
     def test_assistant_message_with_tool_calls(self):
@@ -52,7 +50,7 @@ class TestChatMessage:
             ],
         )
         result = msg.to_llm_format()
-        
+
         assert result["role"] == "assistant"
         assert result["content"] == "Let me check that."
         assert len(result["tool_calls"]) == 1
@@ -66,7 +64,7 @@ class TestChatMessage:
             tool_call_id="tc1",
         )
         result = msg.to_llm_format()
-        
+
         assert result["role"] == "tool"
         assert result["tool_call_id"] == "tc1"
 
@@ -86,7 +84,7 @@ class TestPendingApproval:
             tool_name="create_item",
             parameters={"name": "Test"},
         )
-        
+
         assert approval.expires_at is not None
         assert approval.expires_at > approval.created_at
 
@@ -97,7 +95,7 @@ class TestPendingApproval:
             tool_name="create_item",
             parameters={},
         )
-        
+
         assert not approval.is_expired
 
     def test_is_expired_true_when_past_expiry(self):
@@ -108,7 +106,7 @@ class TestPendingApproval:
             parameters={},
             expires_at=datetime.now(UTC) - timedelta(seconds=1),
         )
-        
+
         assert approval.is_expired
 
     def test_to_dict_includes_all_fields(self):
@@ -119,7 +117,7 @@ class TestPendingApproval:
             parameters={"name": "Test"},
         )
         result = approval.to_dict()
-        
+
         assert result["id"] == "ap1"
         assert result["tool_name"] == "create_item"
         assert result["parameters"] == {"name": "Test"}
@@ -141,7 +139,7 @@ class TestChatSession:
         session = ChatSession()
         session.add_message(ChatMessage(role="user", content="Hello"))
         session.add_message(ChatMessage(role="assistant", content="Hi there!"))
-        
+
         assert len(session.messages) == 2
         assert session.messages[0].content == "Hello"
         assert session.messages[1].content == "Hi there!"
@@ -150,9 +148,9 @@ class TestChatSession:
         """get_history should return messages in LLM format."""
         session = ChatSession()
         session.add_message(ChatMessage(role="user", content="Hello"))
-        
+
         history = session.get_history()
-        
+
         assert len(history) == 1
         assert history[0] == {"role": "user", "content": "Hello"}
 
@@ -161,9 +159,9 @@ class TestChatSession:
         session = ChatSession()
         for i in range(10):
             session.add_message(ChatMessage(role="user", content=f"Message {i}"))
-        
+
         history = session.get_history(max_messages=3)
-        
+
         assert len(history) == 3
         # Should get the most recent 3
         assert history[0]["content"] == "Message 7"
@@ -173,9 +171,9 @@ class TestChatSession:
         """Approvals should be added to pending dict."""
         session = ChatSession()
         approval = PendingApproval(id="ap1", tool_name="test", parameters={})
-        
+
         session.add_pending_approval(approval)
-        
+
         assert "ap1" in session.pending_approvals
         assert session.pending_approvals["ap1"] == approval
 
@@ -184,9 +182,9 @@ class TestChatSession:
         session = ChatSession()
         approval = PendingApproval(id="ap1", tool_name="test", parameters={})
         session.add_pending_approval(approval)
-        
+
         result = session.get_pending_approval("ap1")
-        
+
         assert result == approval
 
     def test_get_pending_approval_removes_expired(self):
@@ -199,9 +197,9 @@ class TestChatSession:
             expires_at=datetime.now(UTC) - timedelta(seconds=1),
         )
         session.pending_approvals["ap1"] = approval
-        
+
         result = session.get_pending_approval("ap1")
-        
+
         assert result is None
         assert "ap1" not in session.pending_approvals
 
@@ -209,18 +207,18 @@ class TestChatSession:
         """remove_approval should return True when approval exists."""
         session = ChatSession()
         session.pending_approvals["ap1"] = PendingApproval(id="ap1", tool_name="t", parameters={})
-        
+
         result = session.remove_approval("ap1")
-        
+
         assert result is True
         assert "ap1" not in session.pending_approvals
 
     def test_remove_approval_returns_false_when_not_found(self):
         """remove_approval should return False when approval doesn't exist."""
         session = ChatSession()
-        
+
         result = session.remove_approval("nonexistent")
-        
+
         assert result is False
 
     def test_cleanup_expired_removes_old_approvals(self):
@@ -238,9 +236,9 @@ class TestChatSession:
             id="expired2", tool_name="t", parameters={},
             expires_at=datetime.now(UTC) - timedelta(seconds=10)
         )
-        
+
         removed = session.cleanup_expired()
-        
+
         assert removed == 2
         assert "valid" in session.pending_approvals
         assert "expired1" not in session.pending_approvals
@@ -251,9 +249,9 @@ class TestChatSession:
         session = ChatSession()
         session.add_message(ChatMessage(role="user", content="Hello"))
         session.pending_approvals["ap1"] = PendingApproval(id="ap1", tool_name="t", parameters={})
-        
+
         session.clear()
-        
+
         assert len(session.messages) == 0
         assert len(session.pending_approvals) == 0
 
@@ -271,32 +269,32 @@ class TestSessionManagement:
         # Clear any existing sessions
         from homebox_companion.chat.session import _sessions
         _sessions.clear()
-        
+
         session = get_session("test-token-123")
-        
+
         assert isinstance(session, ChatSession)
 
     def test_get_session_returns_same_session(self):
         """get_session should return same session for same token."""
         session1 = get_session("test-token-456")
         session2 = get_session("test-token-456")
-        
+
         assert session1 is session2
 
     def test_clear_session_removes_session(self):
         """clear_session should remove the session."""
         from homebox_companion.chat.session import _sessions
-        
+
         get_session("test-token-789")  # Create session
         result = clear_session("test-token-789")
-        
+
         assert result is True
         assert str(hash("test-token-789")) not in _sessions
 
     def test_create_approval_id_is_unique(self):
         """create_approval_id should generate unique IDs."""
         ids = {create_approval_id() for _ in range(100)}
-        
+
         assert len(ids) == 100  # All unique
 
 
@@ -314,9 +312,9 @@ class TestChatEvent:
             type=ChatEventType.TEXT,
             data={"content": "Hello"},
         )
-        
+
         result = event.to_sse()
-        
+
         assert "event: text\n" in result
         assert 'data: {"content": "Hello"}' in result
 
@@ -359,7 +357,10 @@ class TestChatOrchestrator:
         mock_response.choices[0].message.content = "Hello!"
         mock_response.choices[0].message.tool_calls = None
 
-        with patch("homebox_companion.chat.orchestrator.litellm.acompletion", new=AsyncMock(return_value=mock_response)):
+        with patch(
+            "homebox_companion.chat.orchestrator.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response)
+        ):
             events = []
             async for event in orchestrator.process_message("Hi", "token"):
                 events.append(event)
@@ -378,7 +379,10 @@ class TestChatOrchestrator:
         mock_response.choices[0].message.content = "I can help with that!"
         mock_response.choices[0].message.tool_calls = None
 
-        with patch("homebox_companion.chat.orchestrator.litellm.acompletion", new=AsyncMock(return_value=mock_response)):
+        with patch(
+            "homebox_companion.chat.orchestrator.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response)
+        ):
             events = []
             async for event in orchestrator.process_message("Help me", "token"):
                 events.append(event)
@@ -397,7 +401,10 @@ class TestChatOrchestrator:
         mock_response.choices[0].message.content = "Done"
         mock_response.choices[0].message.tool_calls = None
 
-        with patch("homebox_companion.chat.orchestrator.litellm.acompletion", new=AsyncMock(return_value=mock_response)):
+        with patch(
+            "homebox_companion.chat.orchestrator.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response)
+        ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
                 events.append(event)
@@ -409,7 +416,10 @@ class TestChatOrchestrator:
         self, orchestrator: ChatOrchestrator
     ):
         """process_message should yield error event on LLM failure."""
-        with patch("homebox_companion.chat.orchestrator.litellm.acompletion", new=AsyncMock(side_effect=Exception("API Error"))):
+        with patch(
+            "homebox_companion.chat.orchestrator.litellm.acompletion",
+            new=AsyncMock(side_effect=Exception("API Error"))
+        ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
                 events.append(event)

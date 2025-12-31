@@ -370,6 +370,33 @@ class HomeboxClient:
         raw = await self.get_location(token, location_id)
         return Location.from_api(raw)
 
+    async def get_location_tree(
+        self, token: str, *, with_items: bool = False
+    ) -> list[dict[str, Any]]:
+        """Get hierarchical location tree.
+
+        Args:
+            token: The bearer token from login.
+            with_items: If True, include items in the tree.
+
+        Returns:
+            List of tree item dictionaries with nested children.
+        """
+        params = {}
+        if with_items:
+            params["withItems"] = "true"
+
+        response = await self.client.get(
+            f"{self.base_url}/locations/tree",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            params=params or None,
+        )
+        self._ensure_success(response, "Get location tree")
+        return response.json()
+
     @_rate_limited
     async def create_location(
         self,
@@ -557,13 +584,24 @@ class HomeboxClient:
         return Item.from_api(raw)
 
     async def list_items(
-        self, token: str, *, location_id: str | None = None
+        self,
+        token: str,
+        *,
+        location_id: str | None = None,
+        label_ids: list[str] | None = None,
+        query: str | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
     ) -> list[dict[str, Any]]:
-        """List items, optionally filtered by location.
+        """List items with optional filtering, search, and pagination.
 
         Args:
             token: The bearer token from login.
             location_id: Optional location ID to filter items.
+            label_ids: Optional list of label IDs to filter items.
+            query: Optional search query string.
+            page: Optional page number (1-indexed).
+            page_size: Optional number of items per page.
 
         Returns:
             List of item dictionaries from the paginated response.
@@ -571,6 +609,15 @@ class HomeboxClient:
         params = {}
         if location_id:
             params["locations"] = location_id
+        if label_ids:
+            # API expects comma-separated list for array params
+            params["labels"] = label_ids
+        if query:
+            params["q"] = query
+        if page is not None:
+            params["page"] = page
+        if page_size is not None:
+            params["pageSize"] = page_size
 
         response = await self.client.get(
             f"{self.base_url}/items",
@@ -584,6 +631,32 @@ class HomeboxClient:
         data = response.json()
         # Homebox returns paginated response with items in "items" field
         return data.get("items", [])
+
+    async def search_items(
+        self,
+        token: str,
+        *,
+        query: str,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Search items by text query with optional limit.
+
+        This is a convenience wrapper around list_items that defaults to
+        a reasonable page size for search results.
+
+        Args:
+            token: The bearer token from login.
+            query: Search query string.
+            limit: Maximum number of items to return (default 50).
+
+        Returns:
+            List of item dictionaries matching the search query.
+        """
+        return await self.list_items(
+            token,
+            query=query,
+            page_size=limit,
+        )
 
     async def get_item(self, token: str, item_id: str) -> dict[str, Any]:
         """Get full item details by ID.
@@ -604,6 +677,120 @@ class HomeboxClient:
         )
         self._ensure_success(response, "Get item")
         return response.json()
+
+    async def get_item_path(self, token: str, item_id: str) -> list[dict[str, Any]]:
+        """Get the full hierarchical path of an item.
+
+        Returns the location chain from root to the item's location.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The ID of the item.
+
+        Returns:
+            List of path elements (each with id, name, type).
+        """
+        response = await self.client.get(
+            f"{self.base_url}/items/{item_id}/path",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Get item path")
+        return response.json()
+
+    async def get_statistics(self, token: str) -> dict[str, Any]:
+        """Get group statistics overview.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            Statistics dict containing:
+            - totalItems: Count of all items
+            - totalLocations: Count of locations
+            - totalLabels: Count of labels
+            - totalItemPrice: Sum of item prices
+            - totalWithWarranty: Count of items with warranty
+            - totalUsers: Count of users
+        """
+        response = await self.client.get(
+            f"{self.base_url}/groups/statistics",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Get statistics")
+        return response.json()
+
+    async def get_statistics_by_location(self, token: str) -> list[dict[str, Any]]:
+        """Get statistics grouped by location.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            List of dicts with id, name, and total (item count) for each location.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/groups/statistics/locations",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Get statistics by location")
+        return response.json()
+
+    async def get_statistics_by_label(self, token: str) -> list[dict[str, Any]]:
+        """Get statistics grouped by label.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            List of dicts with id, name, and total (item count) for each label.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/groups/statistics/labels",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Get statistics by label")
+        return response.json()
+
+    async def get_item_by_asset_id(self, token: str, asset_id: str) -> dict[str, Any]:
+        """Get item by asset ID.
+
+        Args:
+            token: The bearer token from login.
+            asset_id: The asset ID (e.g., "000-085").
+
+        Returns:
+            The first item dictionary from the paginated result.
+            Note: The API returns a pagination result, we return the first item.
+
+        Raises:
+            Exception if no item found with the given asset ID.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/assets/{asset_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Get item by asset ID")
+        data = response.json()
+        # API returns paginated result, get first item
+        items = data.get("items", [])
+        if not items:
+            raise ValueError(f"No item found with asset ID: {asset_id}")
+        return items[0]
 
     async def get_item_typed(self, token: str, item_id: str) -> Item:
         """Get full item details by ID as typed Item object.

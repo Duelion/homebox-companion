@@ -72,6 +72,9 @@ select = [
     "UP",
     "I",
 ]
+ignore = [
+    "B008",  # FastAPI Depends() in function defaults is idiomatic
+]
 
 [tool.pytest.ini_options]
 # Default: run unit + integration tests (fast, reliable)

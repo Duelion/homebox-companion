@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import json
 import time
-import uuid
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, AsyncGenerator
+from typing import Any
 
 import litellm
 from loguru import logger
@@ -36,7 +36,7 @@ class ChatEventType(str, Enum):
 @dataclass
 class ChatEvent:
     """A streaming event from the orchestrator.
-    
+
     Attributes:
         type: The event type
         data: Event data (varies by type)
@@ -50,7 +50,8 @@ class ChatEvent:
 
 
 # System prompt for the assistant
-SYSTEM_PROMPT = """You are an intelligent assistant for Homebox Companion, a home inventory management application.
+SYSTEM_PROMPT = """You are an intelligent assistant for Homebox Companion, \
+a home inventory management application.
 
 Your role is to help users manage their inventory by:
 - Answering questions about their items, locations, and labels
@@ -68,7 +69,32 @@ IMPORTANT GUIDELINES:
 4. If you don't have enough information, ask clarifying questions
 5. Never make up inventory data - always use tools to check
 
-For write operations (creating, updating, deleting items), you will need to propose actions that the user must approve before they execute. This is not yet implemented - let users know if they ask for modifications."""
+TOOL USAGE BEST PRACTICES:
+- For keyword/semantic searches (e.g., "find rope", "items for building X"),
+  always use search_items with a descriptive query
+- Use list_items only when you need to browse all items or filter by specific
+  location/labels
+- When dealing with large inventories, consider using compact=true to reduce
+  response size if full details aren't needed
+- Use get_item only when you need complete details about a specific item
+- If search_items returns many results, you can refine the query or ask the
+  user to narrow down their request
+
+EFFICIENT QUERIES:
+- For overview questions ("how many items?", "total value?"), use
+  get_statistics instead of loading all items
+- When given an asset ID (e.g., "000-085"), use get_item_by_asset_id for
+  direct lookup
+- To understand location hierarchy, use get_location_tree instead of multiple
+  get_location calls
+- For analytics ("which location has most items?"), use
+  get_statistics_by_location or get_statistics_by_label
+- To tell users exactly where an item is located, use get_item_path to get the
+  full location chain
+
+For write operations (creating, updating, deleting items), you will need to \
+propose actions that the user must approve before they execute. This is not \
+yet implemented - let users know if they ask for modifications."""
 
 
 def _build_tool_descriptions() -> str:
@@ -85,12 +111,12 @@ def _build_litellm_tools() -> list[dict[str, Any]]:
     """Build tool definitions in Litellm/OpenAI format."""
     metadata = HomeboxMCPTools.get_tool_metadata()
     tools = []
-    
+
     for name, meta in metadata.items():
         # Only expose read-only tools for now
         if meta["permission"] != ToolPermission.READ:
             continue
-        
+
         tools.append({
             "type": "function",
             "function": {
@@ -99,13 +125,13 @@ def _build_litellm_tools() -> list[dict[str, Any]]:
                 "parameters": meta["parameters"],
             },
         })
-    
+
     return tools
 
 
 class ChatOrchestrator:
     """Orchestrates LLM calls with MCP tool integration.
-    
+
     This class manages the conversation flow, including:
     - Building prompts with conversation history
     - Calling the LLM with tool definitions
@@ -116,7 +142,7 @@ class ChatOrchestrator:
 
     def __init__(self, client: HomeboxClient, session: ChatSession):
         """Initialize the orchestrator.
-        
+
         Args:
             client: HomeboxClient for tool execution
             session: ChatSession for conversation state
@@ -132,17 +158,17 @@ class ChatOrchestrator:
         token: str,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Process a user message and yield streaming events.
-        
+
         This method:
         1. Adds the user message to history
         2. Calls the LLM with tools
         3. Handles tool calls (auto-execute READ, queue WRITE for approval)
         4. Yields streaming events
-        
+
         Args:
             user_message: The user's message content
             token: Homebox auth token for tool execution
-            
+
         Yields:
             ChatEvent objects for SSE streaming
         """
@@ -164,14 +190,14 @@ class ChatOrchestrator:
         # Build messages for LLM
         system_prompt = SYSTEM_PROMPT.format(tool_descriptions=_build_tool_descriptions())
         messages = [{"role": "system", "content": system_prompt}]
-        
+
         # TRACE: Log the full system prompt
         logger.trace(f"[CHAT] System prompt:\n{system_prompt}")
-        
+
         # Get conversation history
         history = self.session.get_history()
         messages.extend(history)
-        
+
         # TRACE: Log conversation history being sent to LLM
         logger.trace(f"[CHAT] Sending {len(history)} history messages to LLM")
         for i, msg in enumerate(history):
@@ -278,11 +304,11 @@ class ChatOrchestrator:
         tools: list[dict[str, Any]],
     ) -> Any:
         """Call the LLM with the given messages and tools.
-        
+
         Args:
             messages: Conversation messages
             tools: Tool definitions
-            
+
         Returns:
             LLM response object
         """
@@ -303,14 +329,14 @@ class ChatOrchestrator:
         # TRACE: Log available tools
         tool_names = [t['function']['name'] for t in tools] if tools else []
         logger.trace(f"[CHAT] Available tools: {tool_names}")
-        
+
         logger.debug(f"Calling LLM with {len(messages)} messages, {len(tools)} tools")
-        
+
         # TRACE: Time the LLM call
         start_time = time.perf_counter()
         response = await litellm.acompletion(**kwargs)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-        
+
         # TRACE: Log token usage if available
         if hasattr(response, 'usage') and response.usage:
             logger.trace(
@@ -321,7 +347,7 @@ class ChatOrchestrator:
             )
         else:
             logger.trace(f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms")
-        
+
         # TRACE: Log full response content
         assistant_message = response.choices[0].message
         content = assistant_message.content or ""
@@ -329,7 +355,7 @@ class ChatOrchestrator:
             logger.trace(f"[CHAT] LLM response content:\n{content}")
         else:
             logger.trace("[CHAT] LLM response content: (empty)")
-        
+
         # TRACE: Log tool call decisions
         tool_calls = assistant_message.tool_calls
         if tool_calls:
@@ -337,7 +363,7 @@ class ChatOrchestrator:
                 logger.trace(f"[CHAT] LLM tool call: {tc.function.name}({tc.function.arguments})")
         else:
             logger.trace("[CHAT] LLM made no tool calls")
-        
+
         return response
 
     async def _execute_tool(
@@ -348,20 +374,20 @@ class ChatOrchestrator:
         token: str,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Execute a read-only tool and yield events.
-        
+
         Args:
             tool_call_id: ID of the tool call
             tool_name: Name of the tool
             tool_args: Tool arguments
             token: Auth token for Homebox
-            
+
         Yields:
             Tool execution events
         """
         # TRACE: Log tool execution start
         logger.trace(f"[CHAT] Executing tool: {tool_name}")
         logger.trace(f"[CHAT] Tool arguments: {json.dumps(tool_args, indent=2)}")
-        
+
         yield ChatEvent(
             type=ChatEventType.TOOL_START,
             data={"tool": tool_name, "params": tool_args}
@@ -386,19 +412,22 @@ class ChatOrchestrator:
             start_time = time.perf_counter()
             result = await tool_method(token, **tool_args)
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            
+
             result_dict = result.to_dict()
-            
+
             # TRACE: Log full tool result (may be large for list operations)
             result_json = json.dumps(result_dict, indent=2)
             if len(result_json) > 2000:
                 logger.trace(
-                    f"[CHAT] Tool '{tool_name}' result ({elapsed_ms:.0f}ms, {len(result_json)} chars):\n"
+                    f"[CHAT] Tool '{tool_name}' result "
+                    f"({elapsed_ms:.0f}ms, {len(result_json)} chars):\n"
                     f"{result_json[:2000]}...[truncated]"
                 )
             else:
-                logger.trace(f"[CHAT] Tool '{tool_name}' result ({elapsed_ms:.0f}ms):\n{result_json}")
-            
+                logger.trace(
+                    f"[CHAT] Tool '{tool_name}' result ({elapsed_ms:.0f}ms):\n{result_json}"
+                )
+
         except Exception as e:
             logger.exception(f"Tool {tool_name} failed")
             result_dict = {"success": False, "error": str(e)}
@@ -421,11 +450,11 @@ class ChatOrchestrator:
         tool_args: dict[str, Any],
     ) -> AsyncGenerator[ChatEvent, None]:
         """Queue a write tool for approval.
-        
+
         Args:
             tool_name: Name of the tool
             tool_args: Tool arguments
-            
+
         Yields:
             Approval required event
         """
@@ -453,13 +482,13 @@ class ChatOrchestrator:
         tools: list[dict[str, Any]],
     ) -> AsyncGenerator[ChatEvent, None]:
         """Continue conversation after tool execution.
-        
+
         This calls the LLM again with tool results to get a final response.
-        
+
         Args:
             token: Auth token
             tools: Tool definitions
-            
+
         Yields:
             Additional chat events
         """

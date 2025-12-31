@@ -20,7 +20,7 @@ from ..core.config import settings
 @dataclass
 class ToolCall:
     """Represents a tool call from the LLM.
-    
+
     Attributes:
         id: Unique identifier for this tool call
         name: Name of the tool to call
@@ -34,7 +34,7 @@ class ToolCall:
 @dataclass
 class ChatMessage:
     """A single message in the conversation.
-    
+
     Attributes:
         role: The role of the message sender
         content: The message content
@@ -51,7 +51,7 @@ class ChatMessage:
     def to_llm_format(self) -> dict[str, Any]:
         """Convert to the format expected by LLM APIs."""
         msg: dict[str, Any] = {"role": self.role, "content": self.content}
-        
+
         if self.tool_calls:
             msg["tool_calls"] = [
                 {
@@ -64,17 +64,17 @@ class ChatMessage:
                 }
                 for tc in self.tool_calls
             ]
-        
+
         if self.tool_call_id:
             msg["tool_call_id"] = self.tool_call_id
-        
+
         return msg
 
 
 @dataclass
 class PendingApproval:
     """A pending action awaiting user approval.
-    
+
     Attributes:
         id: Unique identifier for this approval request
         tool_name: Name of the tool to execute
@@ -97,6 +97,8 @@ class PendingApproval:
     @property
     def is_expired(self) -> bool:
         """Check if this approval has expired."""
+        if self.expires_at is None:
+            return False
         return datetime.now(UTC) > self.expires_at
 
     def to_dict(self) -> dict[str, Any]:
@@ -113,10 +115,10 @@ class PendingApproval:
 
 class ChatSession:
     """Manages conversation state for a user session.
-    
+
     This class tracks message history and pending approvals for a single
     conversation session. Sessions are identified by the user's auth token.
-    
+
     Attributes:
         messages: List of messages in the conversation
         pending_approvals: Dict mapping approval ID to PendingApproval
@@ -130,36 +132,49 @@ class ChatSession:
 
     def add_message(self, message: ChatMessage) -> None:
         """Add a message to the conversation history.
-        
+
         Args:
             message: The message to add
         """
         self.messages.append(message)
         logger.debug(f"Added {message.role} message, total: {len(self.messages)}")
-        
+
         # TRACE: Log actual message content
         if message.role == "tool":
             # Tool results can be large, truncate for readability
-            content_preview = message.content[:500] + "..." if len(message.content) > 500 else message.content
-            logger.trace(f"[SESSION] Tool result (call_id={message.tool_call_id}): {content_preview}")
+            content_preview = (
+                message.content[:500] + "..."
+                if len(message.content) > 500
+                else message.content
+            )
+            logger.trace(
+                f"[SESSION] Tool result (call_id={message.tool_call_id}): {content_preview}"
+            )
         elif message.role == "assistant" and message.tool_calls:
             # Assistant message with tool calls
             tool_names = [tc.name for tc in message.tool_calls]
-            logger.trace(f"[SESSION] Assistant message with {len(message.tool_calls)} tool calls: {tool_names}")
+            logger.trace(
+                f"[SESSION] Assistant message with {len(message.tool_calls)} "
+                f"tool calls: {tool_names}"
+            )
             if message.content:
                 logger.trace(f"[SESSION] Assistant message content: {message.content[:300]}...")
         else:
             # Regular user or assistant message
-            content_preview = message.content[:300] + "..." if len(message.content) > 300 else message.content
+            content_preview = (
+                message.content[:300] + "..."
+                if len(message.content) > 300
+                else message.content
+            )
             logger.trace(f"[SESSION] {message.role} message: {content_preview}")
 
     def get_history(self, max_messages: int | None = None) -> list[dict[str, Any]]:
         """Get conversation history in LLM format.
-        
+
         Args:
             max_messages: Maximum number of messages to return.
                          If None, uses settings.chat_max_history.
-        
+
         Returns:
             List of message dicts in LLM API format
         """
@@ -169,7 +184,7 @@ class ChatSession:
 
     def add_pending_approval(self, approval: PendingApproval) -> None:
         """Add a pending approval request.
-        
+
         Args:
             approval: The approval to add
         """
@@ -178,10 +193,10 @@ class ChatSession:
 
     def get_pending_approval(self, approval_id: str) -> PendingApproval | None:
         """Get a pending approval by ID.
-        
+
         Args:
             approval_id: The approval ID to look up
-            
+
         Returns:
             The PendingApproval or None if not found
         """
@@ -194,10 +209,10 @@ class ChatSession:
 
     def remove_approval(self, approval_id: str) -> bool:
         """Remove an approval (after execution or rejection).
-        
+
         Args:
             approval_id: The approval ID to remove
-            
+
         Returns:
             True if removed, False if not found
         """
@@ -209,7 +224,7 @@ class ChatSession:
 
     def list_pending_approvals(self) -> list[PendingApproval]:
         """List all non-expired pending approvals.
-        
+
         Returns:
             List of valid PendingApproval objects
         """
@@ -218,7 +233,7 @@ class ChatSession:
 
     def cleanup_expired(self) -> int:
         """Remove all expired approvals.
-        
+
         Returns:
             Number of approvals removed
         """
@@ -228,10 +243,10 @@ class ChatSession:
         ]
         for aid in expired_ids:
             del self.pending_approvals[aid]
-        
+
         if expired_ids:
             logger.debug(f"Cleaned up {len(expired_ids)} expired approvals")
-        
+
         return len(expired_ids)
 
     def clear(self) -> None:
@@ -248,29 +263,29 @@ _sessions: dict[str, ChatSession] = {}
 
 def get_session(token: str) -> ChatSession:
     """Get or create a session for the given token.
-    
+
     Args:
         token: The user's auth token (used as session key)
-        
+
     Returns:
         The ChatSession for this user
     """
     # Use a hash of the token for privacy in logs
     session_key = str(hash(token))
-    
+
     if session_key not in _sessions:
         _sessions[session_key] = ChatSession()
         logger.debug(f"Created new session for key {session_key[:8]}...")
-    
+
     return _sessions[session_key]
 
 
 def clear_session(token: str) -> bool:
     """Clear and remove a session.
-    
+
     Args:
         token: The user's auth token
-        
+
     Returns:
         True if session existed and was removed
     """
