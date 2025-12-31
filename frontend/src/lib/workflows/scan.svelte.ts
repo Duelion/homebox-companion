@@ -90,6 +90,7 @@ class ScanWorkflow {
 		'parentItemName',
 		'images',
 		'analysisProgress',
+		'imageStatuses',
 		'detectedItems',
 		'currentReviewIndex',
 		'confirmedItems',
@@ -159,6 +160,8 @@ class ScanWorkflow {
 							return workflow.captureService.images;
 						case 'analysisProgress':
 							return workflow.analysisService.progress;
+						case 'imageStatuses':
+							return workflow.analysisService.imageStatuses;
 						case 'detectedItems':
 							return workflow.reviewService.detectedItems;
 						case 'currentReviewIndex':
@@ -376,8 +379,15 @@ class ScanWorkflow {
 
 		if (result.success) {
 			this.reviewService.setDetectedItems(result.items);
-			this._status = 'reviewing';
-			log.info(`Analysis complete! Detected ${result.items.length} item(s), transitioning to review`);
+			
+			// Check if there were partial failures
+			if (result.failedCount > 0) {
+				this._status = 'partial_analysis';
+				log.warn(`Analysis complete with partial failures: ${result.items.length} items detected, ${result.failedCount} image(s) failed`);
+			} else {
+				this._status = 'reviewing';
+				log.info(`Analysis complete! Detected ${result.items.length} item(s), transitioning to review`);
+			}
 		} else {
 			this._error = result.error || 'Analysis failed';
 			this._status = 'capturing';
@@ -385,11 +395,149 @@ class ScanWorkflow {
 		}
 	}
 
+	/** Retry analysis for failed images only */
+	async retryFailedAnalysis(): Promise<void> {
+		log.info('ScanWorkflow.retryFailedAnalysis() called');
+
+		if (this._status !== 'partial_analysis') {
+			log.warn('Not in partial_analysis state, ignoring retry request');
+			return;
+		}
+
+		if (!this.analysisService.hasFailedImages()) {
+			log.warn('No failed images to retry');
+			this.continueWithSuccessful();
+			return;
+		}
+
+		log.info(`Retrying ${this.analysisService.failedCount} failed image(s)`);
+
+		// Set status to analyzing
+		this._status = 'analyzing';
+		this._error = null;
+
+		// Get existing items
+		const existingItems = this.reviewService.detectedItems;
+
+		// Retry failed images
+		const result = await this.analysisService.retryFailed(
+			this.captureService.images,
+			existingItems
+		);
+
+		// Check if cancelled (status may have changed)
+		if (this._status !== 'analyzing') {
+			log.debug('Retry was cancelled or status changed during processing');
+			return;
+		}
+
+		if (result.success) {
+			this.reviewService.setDetectedItems(result.items);
+			
+			// Check if there are still failures
+			if (result.failedCount > 0) {
+				this._status = 'partial_analysis';
+				log.warn(`Retry complete with remaining failures: ${result.items.length} total items, ${result.failedCount} image(s) still failed`);
+			} else {
+				this._status = 'reviewing';
+				log.info(`Retry complete! All images successfully analyzed, ${result.items.length} total item(s)`);
+			}
+		} else {
+			// If retry completely failed, go back to partial_analysis state
+			this._error = result.error || 'Retry failed';
+			this._status = 'partial_analysis';
+			log.error(`Retry failed: ${this._error}`);
+		}
+	}
+
+	/** Continue to review with only successfully analyzed items */
+	continueWithSuccessful(): void {
+		log.info('ScanWorkflow.continueWithSuccessful() called');
+
+		if (this._status !== 'partial_analysis') {
+			log.warn('Not in partial_analysis state, ignoring continue request');
+			return;
+		}
+
+		const itemCount = this.reviewService.detectedItems.length;
+		if (itemCount === 0) {
+			log.warn('No items to review, returning to capture');
+			this._error = 'No items were successfully detected';
+			this._status = 'capturing';
+			return;
+		}
+
+		log.info(`Continuing with ${itemCount} successfully detected item(s)`);
+		this._status = 'reviewing';
+		this._error = null;
+	}
+
+	/** Remove failed images and continue with successful ones */
+	removeFailedImages(): void {
+		log.info('ScanWorkflow.removeFailedImages() called');
+
+		if (this._status !== 'partial_analysis') {
+			log.warn('Not in partial_analysis state, ignoring remove request');
+			return;
+		}
+
+		const failedIndices = this.analysisService.getFailedIndices();
+		if (failedIndices.length === 0) {
+			log.warn('No failed images to remove');
+			this.continueWithSuccessful();
+			return;
+		}
+
+		log.info(`Removing ${failedIndices.length} failed image(s)`);
+
+		// Update sourceImageIndex on detected items before removing images
+		// This adjusts indices so they point to the correct images after removal
+		this.reviewService.updateSourceImageIndices(failedIndices);
+
+		// Remove images in reverse order to preserve indices during removal
+		for (let i = failedIndices.length - 1; i >= 0; i--) {
+			const index = failedIndices[i];
+			this.captureService.removeImage(index);
+		}
+
+		// Re-index imageStatuses to match new image array positions
+		const oldStatuses = this.analysisService.imageStatuses;
+		const newStatuses: Record<number, typeof oldStatuses[number]> = {};
+		
+		// Build mapping: for each old index, calculate new index after removals
+		const sortedRemovedIndices = [...failedIndices].sort((a, b) => a - b);
+		for (const [oldIndexStr, status] of Object.entries(oldStatuses)) {
+			const oldIndex = parseInt(oldIndexStr, 10);
+			
+			// Skip failed indices (they're being removed)
+			if (sortedRemovedIndices.includes(oldIndex)) continue;
+			
+			// Calculate new index: subtract count of removed indices below this one
+			let newIndex = oldIndex;
+			for (const removed of sortedRemovedIndices) {
+				if (removed < oldIndex) {
+					newIndex--;
+				}
+			}
+			newStatuses[newIndex] = status;
+		}
+		this.analysisService.imageStatuses = newStatuses;
+
+		log.info(`Removed ${failedIndices.length} failed image(s), continuing with successful items`);
+		this.continueWithSuccessful();
+	}
+
 	/** Cancel ongoing analysis */
 	cancelAnalysis(): void {
 		this.analysisService.cancel();
 		if (this._status === 'analyzing') {
-			this._status = 'capturing';
+			// If we had some successful items before cancellation, go to partial_analysis
+			// Otherwise go back to capturing
+			if (this.reviewService.detectedItems.length > 0) {
+				this._status = 'partial_analysis';
+			} else {
+				this._status = 'capturing';
+			}
 			this.analysisService.clearProgress();
 		}
 	}
@@ -439,6 +587,13 @@ class ScanWorkflow {
 		if (!hasMore) {
 			this.finishReview();
 		}
+	}
+
+	/** Confirm all remaining items from current index onwards */
+	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
+		const count = this.reviewService.confirmAllRemainingItems(currentItemOverride);
+		this.finishReview();
+		return count;
 	}
 
 	/** Finish review and move to confirmation */

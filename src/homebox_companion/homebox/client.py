@@ -6,14 +6,55 @@ The sync client has been removed - use async/await throughout.
 
 from __future__ import annotations
 
-from typing import Any
+import functools
+import socket
+from collections.abc import Callable
+from functools import lru_cache
+from typing import Any, cast
 
 import httpx
 from loguru import logger
+from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store
 
 from ..core.config import settings
-from ..core.exceptions import AuthenticationError
+from ..core.exceptions import (
+    AuthenticationError,
+    HomeboxConnectionError,
+    HomeboxTimeoutError,
+)
 from .models import Attachment, Item, ItemCreate, Label, Location
+
+
+@lru_cache
+def _get_homebox_rate_limiter() -> Throttled:
+    """Get or create the shared Homebox API rate limiter.
+
+    Uses Token Bucket algorithm with 30 req/sec, burst of 10.
+    This prevents overwhelming the Homebox server during bulk operations.
+    """
+    logger.debug("Initialized Homebox API rate limiter: 30 req/sec, burst 10")
+    return Throttled(
+        using=RateLimiterType.TOKEN_BUCKET.value,
+        quota=rate_limiter.per_sec(30, burst=10),
+        store=store.MemoryStore(),
+        timeout=30,  # Wait up to 30s for capacity
+    )
+
+
+def _rate_limited[F: Callable[..., Any]](func: F) -> F:
+    """Decorator that applies rate limiting to Homebox mutation methods.
+
+    This decorator ensures write operations (creates, updates, deletes) are
+    throttled to prevent overwhelming the Homebox server during bulk operations.
+    """
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        await _get_homebox_rate_limiter().limit("homebox_write", cost=1)
+        return await func(self, *args, **kwargs)
+
+    return cast(F, wrapper)
+
 
 # Default timeout configuration
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
@@ -87,6 +128,41 @@ class HomeboxClient:
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
 
+    @staticmethod
+    def _classify_connection_error(e: Exception) -> str:
+        """Classify connection errors into user-friendly messages.
+
+        Moves friendly error logic from routes into the client layer where
+        httpx exceptions are wrapped into domain exceptions.
+        """
+        error_str = str(e).lower()
+
+        # DNS resolution failure
+        if "getaddrinfo failed" in error_str or isinstance(
+            getattr(e, "__cause__", None), socket.gaierror
+        ):
+            return (
+                "Cannot connect to Homebox server. The server address could not be resolved. "
+                "Please verify the HBC_HOMEBOX_URL is correct."
+            )
+
+        # Connection refused
+        if "connection refused" in error_str or "actively refused" in error_str:
+            return "Connection refused. Please check if Homebox is running and the port is correct."
+
+        # SSL/TLS errors
+        if "ssl" in error_str or "certificate" in error_str:
+            return "SSL/TLS error. Please check if the server URL protocol (http/https) is correct."
+
+        # Network unreachable
+        if "network is unreachable" in error_str or "no route to host" in error_str:
+            return "Network unreachable. Please check your network connection and server address."
+
+        # Default
+        return (
+            "Cannot connect to Homebox server. Please check your network and server configuration."
+        )
+
     async def login(self, username: str, password: str) -> dict[str, Any]:
         """Authenticate with Homebox and return the login response.
 
@@ -116,14 +192,20 @@ class HomeboxClient:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 data=payload,
             )
-        except Exception as e:
-            # Log connection error information
-            logger.debug(f"Login: Connection failed to {login_url}")
-            logger.debug(f"Login: {type(e).__name__}: {e}")
-            if hasattr(e, "__cause__") and e.__cause__:
-                cause = e.__cause__
-                logger.debug(f"Login: Caused by: {type(cause).__name__}: {cause}")
-            raise
+        except httpx.TimeoutException as e:
+            logger.debug(f"Login: Timeout connecting to {login_url}")
+            raise HomeboxTimeoutError(
+                message=str(e),
+                user_message="Connection timed out. Check if server is reachable.",
+                context={"url": login_url},
+            ) from e
+        except httpx.ConnectError as e:
+            logger.debug(f"Login: Connection failed to {login_url}: {e}")
+            raise HomeboxConnectionError(
+                message=str(e),
+                user_message=self._classify_connection_error(e),
+                context={"url": login_url},
+            ) from e
 
         # Log response status for debugging
         logger.debug(f"Login: Response status: {response.status_code}")
@@ -171,6 +253,46 @@ class HomeboxClient:
             data["token"] = token
 
         logger.debug("Login: Successfully obtained authentication token")
+        return data
+
+    async def refresh_token(self, token: str) -> dict[str, Any]:
+        """Refresh the access token.
+
+        Exchanges the current valid token for a new one with extended expiry.
+
+        Args:
+            token: The current bearer token.
+
+        Returns:
+            Dictionary containing token, expiresAt, and other response fields.
+
+        Raises:
+            AuthenticationError: If the token is expired or invalid.
+            RuntimeError: If the refresh fails for other reasons.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/users/refresh",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Token refresh")
+
+        data = response.json()
+
+        # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix
+        new_token = data.get("token", "")
+        if new_token:
+            original_token = new_token
+            new_token = _normalize_token(new_token)
+            if new_token != original_token:
+                logger.debug(
+                    "Token refresh: Stripped 'Bearer ' prefix from token (Homebox v0.22+ format)"
+                )
+                data["token"] = new_token
+
+        logger.debug("Token refresh: Successfully obtained new token")
         return data
 
     async def list_locations(
@@ -248,6 +370,7 @@ class HomeboxClient:
         raw = await self.get_location(token, location_id)
         return Location.from_api(raw)
 
+    @_rate_limited
     async def create_location(
         self,
         token: str,
@@ -285,6 +408,7 @@ class HomeboxClient:
         self._ensure_success(response, "Create location")
         return response.json()
 
+    @_rate_limited
     async def update_location(
         self,
         token: str,
@@ -356,6 +480,7 @@ class HomeboxClient:
         raw = await self.list_labels(token)
         return [Label.from_api(label) for label in raw]
 
+    @_rate_limited
     async def create_item(self, token: str, item: ItemCreate) -> dict[str, Any]:
         """Create a single item in Homebox.
 
@@ -391,6 +516,7 @@ class HomeboxClient:
         raw = await self.create_item(token, item)
         return Item.from_api(raw)
 
+    @_rate_limited
     async def update_item(
         self, token: str, item_id: str, item_data: dict[str, Any]
     ) -> dict[str, Any]:
@@ -416,9 +542,7 @@ class HomeboxClient:
         self._ensure_success(response, "Update item")
         return response.json()
 
-    async def update_item_typed(
-        self, token: str, item_id: str, item_data: dict[str, Any]
-    ) -> Item:
+    async def update_item_typed(self, token: str, item_id: str, item_data: dict[str, Any]) -> Item:
         """Update a single item by ID and return as typed Item object.
 
         Args:
@@ -494,6 +618,7 @@ class HomeboxClient:
         raw = await self.get_item(token, item_id)
         return Item.from_api(raw)
 
+    @_rate_limited
     async def delete_item(self, token: str, item_id: str) -> None:
         """Delete an item by ID.
 
@@ -540,13 +665,12 @@ class HomeboxClient:
         )
         # Handle 404 explicitly with a specific exception type
         if response.status_code == 404:
-            raise FileNotFoundError(
-                f"Attachment {attachment_id} not found for item {item_id}"
-            )
+            raise FileNotFoundError(f"Attachment {attachment_id} not found for item {item_id}")
         self._ensure_success(response, "Get attachment")
         content_type = response.headers.get("content-type", "application/octet-stream")
         return response.content, content_type
 
+    @_rate_limited
     async def upload_attachment(
         self,
         token: str,
@@ -607,6 +731,7 @@ class HomeboxClient:
         )
         return Attachment.from_api(raw)
 
+    @_rate_limited
     async def ensure_asset_ids(self, token: str) -> int:
         """Ensure all items have asset IDs assigned.
 
@@ -661,8 +786,3 @@ class HomeboxClient:
         logger.error(f"{context} failed: {request_info}-> {response.status_code}")
         logger.debug(f"Response detail: {detail}")
         raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
-
-
-
-
-

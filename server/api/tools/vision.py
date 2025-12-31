@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -22,13 +23,11 @@ from homebox_companion import (
 from homebox_companion import (
     correct_item as llm_correct_item,
 )
-from homebox_companion import (
-    merge_items as llm_merge_items,
-)
 
 from ...dependencies import (
     VisionContext,
     get_vision_context,
+    require_llm_configured,
     validate_file_size,
     validate_files_size,
 )
@@ -41,42 +40,21 @@ from ...schemas.vision import (
     CorrectionResponse,
     DetectedItemResponse,
     DetectionResponse,
-    MergedItemResponse,
-    MergeItemsRequest,
 )
 
 router = APIRouter()
 
+# Limit concurrent CPU-intensive compression to available cores.
+# This prevents 100+ parallel requests from overwhelming the CPU.
+_COMPRESSION_SEMAPHORE: asyncio.Semaphore | None = None
 
-def _llm_error_to_http(e: Exception) -> HTTPException:
-    """Convert LLM exceptions to appropriate HTTP exceptions.
 
-    Args:
-        e: The exception to convert.
-
-    Returns:
-        HTTPException with appropriate status code and detail message.
-    """
-    if isinstance(e, CapabilityNotSupportedError):
-        return HTTPException(
-            status_code=400,
-            detail=str(e),
-        )
-    if isinstance(e, JSONRepairError):
-        return HTTPException(
-            status_code=502,
-            detail=f"AI returned invalid response that could not be repaired: {e}",
-        )
-    if isinstance(e, LLMError):
-        return HTTPException(
-            status_code=502,
-            detail=f"LLM service error: {e}",
-        )
-    # Generic fallback
-    return HTTPException(
-        status_code=500,
-        detail=f"Detection failed: {e}",
-    )
+def _get_compression_semaphore() -> asyncio.Semaphore:
+    """Get or create the compression semaphore (lazy init for correct event loop)."""
+    global _COMPRESSION_SEMAPHORE
+    if _COMPRESSION_SEMAPHORE is None:
+        _COMPRESSION_SEMAPHORE = asyncio.Semaphore(os.cpu_count() or 4)
+    return _COMPRESSION_SEMAPHORE
 
 
 def filter_default_label(label_ids: list[str] | None, default_label_id: str | None) -> list[str]:
@@ -103,6 +81,7 @@ def filter_default_label(label_ids: list[str] | None, default_label_id: str | No
 async def detect_items(
     image: Annotated[UploadFile, File(description="Primary image file to analyze")],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
     single_item: Annotated[bool, Form()] = False,
     extra_instructions: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
@@ -115,6 +94,7 @@ async def detect_items(
     Args:
         image: The primary image file to analyze.
         ctx: Vision context with auth token, labels, and preferences.
+        api_key: LLM API key (validated by dependency).
         single_item: If True, treat everything as a single item.
         extra_instructions: Optional user hint about what's in the image.
         extract_extended_fields: If True, also extract extended fields.
@@ -124,13 +104,6 @@ async def detect_items(
     logger.info(f"Detecting items from image: {image.filename} (+ {additional_count} additional)")
     logger.info(f"Single item mode: {single_item}, Extra instructions: {extra_instructions}")
     logger.info(f"Extract extended fields: {extract_extended_fields}")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
 
     # Read and validate primary image
     image_bytes = await validate_file_size(image)
@@ -153,51 +126,45 @@ async def detect_items(
 
     # Run AI detection and image compression in parallel
     async def compress_all_images() -> list[CompressedImage]:
-        """Compress all images (primary + additional) for Homebox upload."""
+        """Compress all images (primary + additional) for Homebox upload in parallel."""
         all_images_to_compress = [(image_bytes, content_type)] + additional_image_data
-        compressed = []
 
-        for img_bytes, _ in all_images_to_compress:
-            # Run compression in executor to avoid blocking
-            base64_data, mime = await asyncio.to_thread(
-                encode_compressed_image_to_base64,
-                img_bytes,
-                max_dimension,
-                jpeg_quality
-            )
-            compressed.append(CompressedImage(data=base64_data, mime_type=mime))
+        async def compress_one(img_bytes: bytes, _mime: str) -> CompressedImage:
+            """Compress a single image with concurrency limiting."""
+            # Limit concurrent compressions to prevent CPU overload
+            async with _get_compression_semaphore():
+                base64_data, mime = await asyncio.to_thread(
+                    encode_compressed_image_to_base64, img_bytes, max_dimension, jpeg_quality
+                )
+                return CompressedImage(data=base64_data, mime_type=mime)
 
-        return compressed
+        # Compress all images in parallel
+        return await asyncio.gather(
+            *[compress_one(img_bytes, mime) for img_bytes, mime in all_images_to_compress]
+        )
 
     # Detect items
-    try:
-        logger.info("Starting LLM vision detection and image compression...")
+    logger.info("Starting LLM vision detection and image compression...")
 
-        # Run detection and compression in parallel
-        detection_task = detect_items_from_bytes(
-            image_bytes=image_bytes,
-            api_key=settings.effective_llm_api_key,
-            mime_type=content_type,
-            model=settings.effective_llm_model,
-            labels=ctx.labels,
-            single_item=single_item,
-            extra_instructions=extra_instructions,
-            extract_extended_fields=extract_extended_fields,
-            additional_images=additional_image_data,
-            field_preferences=ctx.field_preferences,
-            output_language=ctx.output_language,
-        )
-        compression_task = compress_all_images()
+    # Run detection and compression in parallel
+    detection_task = detect_items_from_bytes(
+        image_bytes=image_bytes,
+        api_key=api_key,
+        mime_type=content_type,
+        model=settings.effective_llm_model,
+        labels=ctx.labels,
+        single_item=single_item,
+        extra_instructions=extra_instructions,
+        extract_extended_fields=extract_extended_fields,
+        additional_images=additional_image_data,
+        field_preferences=ctx.field_preferences,
+        output_language=ctx.output_language,
+    )
+    compression_task = compress_all_images()
 
-        detected, compressed_images = await asyncio.gather(detection_task, compression_task)
+    detected, compressed_images = await asyncio.gather(detection_task, compression_task)
 
-        logger.info(f"Detected {len(detected)} items, compressed {len(compressed_images)} images")
-    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
-        logger.error(f"Detection failed: {e}")
-        raise _llm_error_to_http(e) from e
-    except Exception as e:
-        logger.exception("Detection failed unexpectedly")
-        raise HTTPException(status_code=500, detail="Detection failed") from e
+    logger.info(f"Detected {len(detected)} items, compressed {len(compressed_images)} images")
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return DetectionResponse(
@@ -224,6 +191,7 @@ async def detect_items(
 async def detect_items_batch(
     images: Annotated[list[UploadFile], File(description="Multiple images to analyze in parallel")],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
     configs: Annotated[str | None, Form()] = None,
     extract_extended_fields: Annotated[bool, Form()] = True,
 ) -> BatchDetectionResponse:
@@ -235,18 +203,12 @@ async def detect_items_batch(
     Args:
         images: List of image files to analyze (each treated as separate item(s)).
         ctx: Vision context with auth token, labels, and preferences.
+        api_key: LLM API key (validated by dependency).
         configs: Optional JSON string with per-image configs.
             Format: [{"single_item": bool, "extra_instructions": str}, ...]
         extract_extended_fields: If True, also extract extended fields for all images.
     """
     logger.info(f"Batch detection for {len(images)} images")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
 
     if not images:
         raise HTTPException(status_code=400, detail="At least one image is required")
@@ -288,7 +250,7 @@ async def detect_items_batch(
         try:
             detected = await detect_items_from_bytes(
                 image_bytes=image_bytes,
-                api_key=settings.effective_llm_api_key,
+                api_key=api_key,
                 mime_type=mime_type,
                 model=settings.effective_llm_model,
                 labels=ctx.labels,
@@ -353,8 +315,7 @@ async def detect_items_batch(
     # Process all images in parallel
     logger.info(f"Starting parallel detection for {len(images)} images...")
     detection_tasks = [
-        detect_single(index, img_bytes, mime_type)
-        for index, img_bytes, mime_type in image_data
+        detect_single(index, img_bytes, mime_type) for index, img_bytes, mime_type in image_data
     ]
     results = await asyncio.gather(*detection_tasks)
 
@@ -385,19 +346,13 @@ async def analyze_item_advanced(
     images: Annotated[list[UploadFile], File(description="Images to analyze")],
     item_name: Annotated[str, Form()],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
     item_description: Annotated[str | None, Form()] = None,
 ) -> AdvancedItemDetails:
     """Analyze multiple images to extract detailed item information."""
     logger.info(f"Advanced analysis for item: {item_name}")
     logger.debug(f"Description: {item_description}")
     logger.debug(f"Number of images: {len(images) if images else 0}")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
 
     if not images:
         logger.warning("No images provided for analysis")
@@ -411,25 +366,18 @@ async def analyze_item_advanced(
     ]
 
     # Analyze images
-    try:
-        logger.info(f"Analyzing {len(image_data_uris)} images with LLM...")
-        details = await analyze_item_details_from_images(
-            image_data_uris=image_data_uris,
-            item_name=item_name,
-            item_description=item_description,
-            api_key=settings.effective_llm_api_key,
-            model=settings.effective_llm_model,
-            labels=ctx.labels,
-            field_preferences=ctx.field_preferences,
-            output_language=ctx.output_language,
-        )
-        logger.info("Analysis complete")
-    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
-        logger.error(f"Analysis failed: {e}")
-        raise _llm_error_to_http(e) from e
-    except Exception as e:
-        logger.exception("Analysis failed unexpectedly")
-        raise HTTPException(status_code=500, detail="Analysis failed") from e
+    logger.info(f"Analyzing {len(image_data_uris)} images with LLM...")
+    details = await analyze_item_details_from_images(
+        image_data_uris=image_data_uris,
+        item_name=item_name,
+        item_description=item_description,
+        api_key=api_key,
+        model=settings.effective_llm_model,
+        labels=ctx.labels,
+        field_preferences=ctx.field_preferences,
+        output_language=ctx.output_language,
+    )
+    logger.info("Analysis complete")
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return AdvancedItemDetails(
@@ -444,54 +392,6 @@ async def analyze_item_advanced(
     )
 
 
-@router.post("/merge", response_model=MergedItemResponse)
-async def merge_items(
-    request: MergeItemsRequest,
-    ctx: Annotated[VisionContext, Depends(get_vision_context)],
-) -> MergedItemResponse:
-    """Merge multiple items into a single consolidated item using AI."""
-    logger.info(f"Merging {len(request.items)} items")
-
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
-
-    if len(request.items) < 2:
-        raise HTTPException(status_code=400, detail="At least 2 items are required to merge")
-
-    # Convert typed items to dicts for the LLM function
-    items_as_dicts = [item.model_dump(exclude_none=True) for item in request.items]
-
-    try:
-        logger.info("Calling LLM for item merge...")
-        merged = await llm_merge_items(
-            items=items_as_dicts,
-            api_key=settings.effective_llm_api_key,
-            model=settings.effective_llm_model,
-            labels=ctx.labels,
-            field_preferences=ctx.field_preferences,
-            output_language=ctx.output_language,
-        )
-        logger.info(f"Merge complete: {merged.get('name')}")
-    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
-        logger.error(f"Merge failed: {e}")
-        raise _llm_error_to_http(e) from e
-    except Exception as e:
-        logger.exception("Merge failed unexpectedly")
-        raise HTTPException(status_code=500, detail="Merge failed") from e
-
-    # Filter out default label from AI suggestions (frontend will auto-add it)
-    return MergedItemResponse(
-        name=merged.get("name", "Merged Item"),
-        quantity=merged.get("quantity", sum(item.quantity for item in request.items)),
-        description=merged.get("description"),
-        label_ids=filter_default_label(merged.get("labelIds"), ctx.default_label_id),
-    )
-
-
 # Maximum length for correction instructions to prevent abuse
 MAX_CORRECTION_INSTRUCTIONS_LENGTH = 2000
 
@@ -502,6 +402,7 @@ async def correct_item(
     current_item: Annotated[str, Form(description="JSON string of current item")],
     correction_instructions: Annotated[str, Form(description="User's correction feedback")],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    api_key: Annotated[str, Depends(require_llm_configured)],
 ) -> CorrectionResponse:
     """Correct an item based on user feedback.
 
@@ -528,13 +429,6 @@ async def correct_item(
     preview = correction_instructions[:100]
     logger.debug(f"Correction instructions ({len(correction_instructions)} chars): {preview}...")
 
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
-
     # Parse current item from JSON string
     try:
         current_item_dict = json.loads(current_item)
@@ -552,25 +446,18 @@ async def correct_item(
     logger.debug(f"Loaded {len(ctx.labels)} labels for context")
 
     # Call the correction function
-    try:
-        logger.info("Starting LLM item correction...")
-        corrected_items = await llm_correct_item(
-            image_data_uri=image_data_uri,
-            current_item=current_item_dict,
-            correction_instructions=correction_instructions,
-            api_key=settings.effective_llm_api_key,
-            model=settings.effective_llm_model,
-            labels=ctx.labels,
-            field_preferences=ctx.field_preferences,
-            output_language=ctx.output_language,
-        )
-        logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
-    except (CapabilityNotSupportedError, JSONRepairError, LLMError) as e:
-        logger.error(f"Correction failed: {e}")
-        raise _llm_error_to_http(e) from e
-    except Exception as e:
-        logger.exception("Item correction failed unexpectedly")
-        raise HTTPException(status_code=500, detail="Correction failed") from e
+    logger.info("Starting LLM item correction...")
+    corrected_items = await llm_correct_item(
+        image_data_uri=image_data_uri,
+        current_item=current_item_dict,
+        correction_instructions=correction_instructions,
+        api_key=api_key,
+        model=settings.effective_llm_model,
+        labels=ctx.labels,
+        field_preferences=ctx.field_preferences,
+        output_language=ctx.output_language,
+    )
+    logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return CorrectionResponse(

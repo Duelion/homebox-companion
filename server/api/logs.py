@@ -71,12 +71,10 @@ async def get_logs(
             truncated=truncated,
         )
     except Exception as e:
-        return LogsResponse(
-            logs=f"Error reading log file: {e}",
-            filename=filename,
-            total_lines=0,
-            truncated=False,
-        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error reading log file: {e}",
+        ) from e
 
 
 @router.get("/logs/download")
@@ -111,4 +109,3 @@ async def download_logs(
         filename=filename,
         media_type="text/plain",
     )
-

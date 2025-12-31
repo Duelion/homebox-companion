@@ -115,6 +115,25 @@ def homebox_credentials() -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(scope="function", autouse=True)
+def reset_settings() -> Generator[None, None, None]:
+    """Reset settings to clean state before each test (autouse).
+
+    This ensures test isolation by clearing the settings cache before and
+    after each test. All modules access settings via config.settings.
+    """
+    from homebox_companion.core import config
+    from homebox_companion.core.config import get_settings
+
+    get_settings.cache_clear()
+    config.settings = get_settings()
+
+    yield
+
+    get_settings.cache_clear()
+    config.settings = get_settings()
+
+
 @pytest.fixture(scope="module")
 def allow_unsafe_models() -> Generator[None, None, None]:
     """Enable HBC_LLM_ALLOW_UNSAFE_MODELS for the test module.

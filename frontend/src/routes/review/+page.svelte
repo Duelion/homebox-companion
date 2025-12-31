@@ -2,8 +2,8 @@
 	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
 	import { vision } from "$lib/api/vision";
-	import { labels } from "$lib/stores/labels";
-	import { showToast } from "$lib/stores/ui";
+	import { labelStore } from "$lib/stores/labels.svelte";
+	import { showToast } from "$lib/stores/ui.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { createObjectUrlManager } from "$lib/utils/objectUrl";
 	import { routeGuards } from "$lib/utils/routeGuard";
@@ -15,8 +15,10 @@
 	import ImagesPanel from "$lib/components/ImagesPanel.svelte";
 	import AiCorrectionPanel from "$lib/components/AiCorrectionPanel.svelte";
 	import BackLink from "$lib/components/BackLink.svelte";
+	import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 	import { workflowLogger as log } from "$lib/utils/logger";
 	import { expandable } from "$lib/actions/expandable";
+	import { longpress } from "$lib/actions/longpress";
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -39,6 +41,7 @@
 	let showThumbnailEditor = $state(false);
 	let isProcessing = $state(false);
 	let allImages = $state<File[]>([]);
+	let showConfirmAllDialog = $state(false);
 
 	// Track original images to detect modifications (for invalidating compressed URLs)
 	let originalImageSet = $state<Set<File>>(new Set());
@@ -148,8 +151,12 @@
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	}
 
-	function confirmItem() {
-		if (!editedItem) return;
+	/**
+	 * Prepare the edited item for confirmation by syncing images and clearing stale URLs.
+	 * Returns the prepared item ready for confirmation.
+	 */
+	function prepareItemForConfirmation(): ReviewItem | null {
+		if (!editedItem) return null;
 
 		// Check if images were modified (added, removed, or reordered)
 		// If so, compressed URLs are stale and must be cleared
@@ -185,11 +192,37 @@
 			editedItem.compressedAdditionalDataUrls = undefined;
 		}
 
-		workflow.confirmItem(editedItem);
+		return editedItem;
+	}
+
+	function confirmItem() {
+		const item = prepareItemForConfirmation();
+		if (!item) return;
+
+		workflow.confirmItem(item);
 
 		// Scroll to top for next item
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	}
+
+	function handleLongPressConfirm() {
+		showConfirmAllDialog = true;
+	}
+
+	function handleConfirmAll() {
+		// Prepare the current item with any user edits
+		const preparedItem = prepareItemForConfirmation();
+
+		// Use the workflow method that handles confirming all items including the current one
+		workflow.confirmAllRemainingItems(preparedItem ?? undefined);
+		showConfirmAllDialog = false;
+
+		// Navigate to summary
+		goto("/summary");
+	}
+
+	// Calculate remaining items count for dialog
+	const remainingCount = $derived(detectedItems.length - currentIndex);
 
 	function toggleLabel(labelId: string) {
 		if (!editedItem) return;
@@ -469,7 +502,7 @@
 				</div>
 
 				<!-- Labels with chip selection -->
-				{#if $labels.length > 0}
+				{#if labelStore.labels.length > 0}
 					<div>
 						<span class="label">Labels</span>
 						<div
@@ -477,7 +510,7 @@
 							role="group"
 							aria-label="Select labels"
 						>
-							{#each $labels as label}
+							{#each labelStore.labels as label}
 								{@const isSelected =
 									editedItem.label_ids?.includes(label.id)}
 								<button
@@ -557,41 +590,61 @@
 			</div>
 			<!-- Action buttons -->
 			<div class="flex gap-3 px-4 pb-4">
-				<Button
-					variant="secondary"
-					full
-					onclick={skipItem}
-					disabled={isProcessing}
-				>
-					<svg
-						class="w-5 h-5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
+				<div class="flex-1">
+					<Button
+						variant="secondary"
+						full
+						onclick={skipItem}
+						disabled={isProcessing}
 					>
-						<path d="M13 17l5-5-5-5M6 17l5-5-5-5" />
-					</svg>
-					<span>Skip</span>
-				</Button>
-				<Button
-					variant="primary"
-					full
-					onclick={confirmItem}
-					disabled={isProcessing}
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+						>
+							<path d="M13 17l5-5-5-5M6 17l5-5-5-5" />
+						</svg>
+						<span>Skip</span>
+					</Button>
+				</div>
+				<div
+					class="flex-1"
+					use:longpress={{ onLongPress: handleLongPressConfirm }}
 				>
-					<svg
-						class="w-5 h-5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="2"
+					<Button
+						variant="primary"
+						full
+						onclick={confirmItem}
+						disabled={isProcessing}
 					>
-						<polyline points="20 6 9 17 4 12" />
-					</svg>
-					<span>Confirm</span>
-				</Button>
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+						>
+							<polyline points="20 6 9 17 4 12" />
+						</svg>
+						<span>Confirm</span>
+					</Button>
+				</div>
 			</div>
 		</div>
 	</div>
 {/if}
+
+<!-- Confirm All Dialog -->
+<ConfirmDialog
+	open={showConfirmAllDialog}
+	title="Confirm All Remaining Items"
+	message="Confirm all {remainingCount} remaining {remainingCount === 1
+		? 'item'
+		: 'items'} and proceed to review & submit?"
+	confirmLabel="Confirm All"
+	cancelLabel="Cancel"
+	onConfirm={handleConfirmAll}
+	onCancel={() => (showConfirmAllDialog = false)}
+/>

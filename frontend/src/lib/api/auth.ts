@@ -2,7 +2,7 @@
  * Authentication API endpoints
  */
 
-import { request } from './client';
+import { request, NetworkError } from './client';
 
 export interface LoginResponse {
 	token: string;
@@ -33,20 +33,24 @@ export const auth = {
 	/**
 	 * Validate if the current token is still valid.
 	 * Makes a lightweight request to /locations to test the token.
-	 * Returns true if valid, false if expired/invalid.
+	 * Returns a result object indicating validity and the reason.
 	 * 
 	 * Note: Uses skipAuthRetry to avoid triggering session expired modal during validation.
 	 */
-	validateToken: async (): Promise<boolean> => {
+	validateToken: async (): Promise<{ valid: boolean; reason: 'ok' | 'invalid' | 'network_error' }> => {
 		try {
 			await request('/locations', {
 				method: 'GET',
 				skipAuthRetry: true,
 			});
-			return true;
-		} catch {
-			// Any error (401, network, etc.) means token is not valid
-			return false;
+			return { valid: true, reason: 'ok' };
+		} catch (error) {
+			// Use proper NetworkError class for reliable detection
+			if (error instanceof NetworkError) {
+				return { valid: false, reason: 'network_error' };
+			}
+			// ApiError (401, 403, etc.) or unknown error - treat as invalid token
+			return { valid: false, reason: 'invalid' };
 		}
 	},
 };

@@ -171,14 +171,16 @@ class ItemUpdate:
 
     def has_extended_fields(self) -> bool:
         """Check if any extended fields are set."""
-        return any([
-            self.manufacturer,
-            self.model_number,
-            self.serial_number,
-            self.purchase_price is not None and self.purchase_price > 0,
-            self.purchase_from,
-            self.notes,
-        ])
+        return any(
+            [
+                self.manufacturer,
+                self.model_number,
+                self.serial_number,
+                self.purchase_price is not None and self.purchase_price > 0,
+                self.purchase_from,
+                self.notes,
+            ]
+        )
 
 
 @dataclass

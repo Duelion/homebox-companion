@@ -1,33 +1,38 @@
 <script lang="ts">
+	import type { Snippet } from "svelte";
 	import "../app.css";
 	import Toast from "$lib/components/Toast.svelte";
 	import SessionExpiredModal from "$lib/components/SessionExpiredModal.svelte";
 	import BottomNav from "$lib/components/BottomNav.svelte";
-	import { isAuthenticated } from "$lib/stores/auth";
-	import {
-		isOnline,
-		appVersion,
-		latestVersion,
-		updateDismissed,
-	} from "$lib/stores/ui";
+	import { authStore } from "$lib/stores/auth.svelte";
+	import { uiStore } from "$lib/stores/ui.svelte";
 	import { getVersion, getConfig } from "$lib/api";
 	import { setLogLevel } from "$lib/utils/logger";
 	import { initializeAuth } from "$lib/services/tokenRefresh";
 	import { onMount, onDestroy } from "svelte";
 	import { browser } from "$app/environment";
-	import { afterNavigate } from "$app/navigation";
+	import { afterNavigate, onNavigate } from "$app/navigation";
+
+	let { children }: { children: Snippet } = $props();
+
+	// Derive reactive values from stores for template usage
+	let isAuthenticated = $derived(authStore.isAuthenticated);
+	let isOnline = $derived(uiStore.isOnline);
+	let appVersion = $derived(uiStore.appVersion);
+	let latestVersion = $derived(uiStore.latestVersion);
+	let updateDismissed = $derived(uiStore.updateDismissed);
 
 	function dismissUpdate() {
-		updateDismissed.set(true);
+		uiStore.setUpdateDismissed(true);
 	}
 
 	// Event handlers (stable references for cleanup)
 	function handleOnline() {
-		isOnline.set(true);
+		uiStore.setOnline(true);
 	}
 
 	function handleOffline() {
-		isOnline.set(false);
+		uiStore.setOnline(false);
 	}
 
 	// Scroll to top after each navigation
@@ -38,14 +43,42 @@
 		}
 	});
 
+	// Global page transitions (progressive enhancement)
+	// Uses the native View Transitions API when available.
+	onNavigate((navigation) => {
+		if (!browser) return;
+		const doc = document as Document & {
+			startViewTransition?: (cb: () => void | Promise<void>) => unknown;
+		};
+		// IMPORTANT: bind to `document` — some browsers throw if the method is called unbound
+		// (e.g. "called on an object that does not implement interface Document").
+		const startViewTransition = doc.startViewTransition?.bind(doc);
+		if (!startViewTransition) return;
+
+		// Wrap the navigation in a view transition.
+		// SvelteKit will wait for the returned promise before completing the navigation.
+		return new Promise<void>((resolve) => {
+			startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
+
 	// Fetch version on mount and register event listeners
 	onMount(async () => {
 		if (browser) {
+			// Disable per-page "animate-in" when View Transitions are supported
+			// (prevents double-animations on modern browsers; falls back cleanly elsewhere)
+			if ("startViewTransition" in document) {
+				document.documentElement.classList.add("vt-enabled");
+			}
+
 			// Initialize auth (check token, refresh if needed)
 			await initializeAuth();
 
 			// Check online status and register listeners
-			isOnline.set(navigator.onLine);
+			uiStore.setOnline(navigator.onLine);
 			window.addEventListener("online", handleOnline);
 			window.addEventListener("offline", handleOffline);
 
@@ -60,15 +93,15 @@
 			// Fetch app version and check for updates
 			try {
 				const versionInfo = await getVersion();
-				appVersion.set(versionInfo.version);
+				uiStore.setAppVersion(versionInfo.version);
 				if (
 					versionInfo.update_available &&
 					versionInfo.latest_version
 				) {
-					latestVersion.set(versionInfo.latest_version);
+					uiStore.setLatestVersion(versionInfo.latest_version);
 				}
 			} catch {
-				appVersion.set("unknown");
+				uiStore.setAppVersion("unknown");
 			}
 		}
 	});
@@ -84,14 +117,18 @@
 
 <div class="min-h-screen min-h-dvh flex flex-col bg-background">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
-	<div class="fixed top-0 left-0 right-0 z-40 glass border-b border-border">
+	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
+	<div
+		class="fixed top-0 left-0 right-0 z-40 glass border-b border-border"
+		style="view-transition-name: header;"
+	>
 		<div class="pt-safe">
 			<div
 				class="max-w-lg mx-auto px-4 h-14 flex items-center justify-center"
 			>
 				<!-- Center: Logo and title -->
 				<a
-					href={$isAuthenticated ? "/location" : "/"}
+					href={isAuthenticated ? "/location" : "/"}
 					class="flex items-center justify-center gap-2 text-text font-semibold overflow-visible"
 				>
 					<svg
@@ -119,7 +156,7 @@
 	<div class="h-14 pt-safe shrink-0"></div>
 
 	<!-- Update available banner - sticky at top, only on login page -->
-	{#if !$isAuthenticated && $latestVersion && !$updateDismissed}
+	{#if !isAuthenticated && latestVersion && !updateDismissed}
 		<div
 			class="sticky top-14 z-30 bg-amber-500/20 border-b border-amber-500/40 px-4 py-2.5 flex items-center justify-center gap-3 text-amber-300 text-sm"
 		>
@@ -136,7 +173,7 @@
 			</svg>
 			<span>
 				Update available: <strong class="text-amber-200"
-					>v{$latestVersion}</strong
+					>v{latestVersion}</strong
 				>
 			</span>
 			<a
@@ -169,17 +206,17 @@
 
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main
-		class="flex-1 max-w-lg mx-auto w-full px-4 py-6 {$isAuthenticated
+		class="flex-1 max-w-lg mx-auto w-full px-4 py-6 {isAuthenticated
 			? 'pb-24'
 			: ''}"
 	>
-		<slot />
+		{@render children()}
 	</main>
 
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
-	{#if !$isOnline}
+	{#if !isOnline}
 		<div
-			class="fixed left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-40 {$isAuthenticated
+			class="fixed left-0 right-0 bg-warning/20 border-t border-warning/30 px-4 py-3 flex items-center justify-center gap-2 text-yellow-300 text-sm z-40 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
@@ -202,14 +239,14 @@
 	{/if}
 
 	<!-- Footer with version - only shown on login page (not authenticated) -->
-	{#if !$isAuthenticated}
+	{#if !isAuthenticated}
 		<footer
 			class="sticky bottom-0 mt-auto text-center py-3 text-text-dim text-xs flex items-center justify-center gap-3 bg-background"
 		>
-			{#if $appVersion}
-				<span>v{$appVersion}</span>
+			{#if appVersion}
+				<span>v{appVersion}</span>
 			{/if}
-			{#if $latestVersion}
+			{#if latestVersion}
 				<a
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
@@ -228,7 +265,7 @@
 						<polyline points="7 10 12 15 17 10" />
 						<line x1="12" y1="15" x2="12" y2="3" />
 					</svg>
-					<span>v{$latestVersion}</span>
+					<span>v{latestVersion}</span>
 				</a>
 			{/if}
 			<a
@@ -258,7 +295,7 @@
 	{/if}
 
 	<!-- Bottom Navigation - only when authenticated -->
-	{#if $isAuthenticated}
+	{#if isAuthenticated}
 		<BottomNav />
 	{/if}
 

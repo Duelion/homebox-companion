@@ -18,6 +18,9 @@ import pytest
 
 from homebox_companion import detect_items_from_bytes
 
+# All tests in this module hit the real OpenAI API
+pytestmark = pytest.mark.live
+
 
 @pytest.mark.asyncio
 async def test_single_item_detection_returns_one_item(
@@ -97,7 +100,4 @@ async def test_detection_with_labels_assigns_valid_ids(
     for item in detected_items:
         if item.label_ids:
             for label_id in item.label_ids:
-                assert (
-                    label_id in valid_label_ids
-                ), f"Label {label_id} not in provided labels"
-
+                assert label_id in valid_label_ids, f"Label {label_id} not in provided labels"

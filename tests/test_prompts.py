@@ -14,6 +14,9 @@ from homebox_companion.ai.prompts import (
 )
 from homebox_companion.core.field_preferences import get_defaults
 
+# All tests in this module are pure unit tests
+pytestmark = pytest.mark.unit
+
 # Get default values for tests
 DEFAULTS = get_defaults()
 
@@ -75,8 +78,6 @@ class TestBuildItemSchema:
 
 class TestBuildNamingExamples:
     """Test naming examples generation."""
-
-
 
     def test_default_contains_examples(self) -> None:
         """Should contain naming examples."""
@@ -310,4 +311,3 @@ class TestPromptStructureProperties:
         build_item_schema(empty_customizations)
         build_extended_fields_schema(empty_customizations)
         build_naming_examples(empty_customizations)
-

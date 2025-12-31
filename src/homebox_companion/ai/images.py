@@ -93,9 +93,7 @@ def optimize_image_for_vision(
         needs_resize = max(img.size) > max_dimension
         if needs_resize:
             img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
-            logger.debug(
-                f"Resized image from {original_dimensions} to {img.size}"
-            )
+            logger.debug(f"Resized image from {original_dimensions} to {img.size}")
 
         # Compress to JPEG
         output = io.BytesIO()
@@ -202,9 +200,7 @@ def compress_image_for_upload(
         needs_resize = max(img.size) > max_dimension
         if needs_resize:
             img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
-            logger.debug(
-                f"Resized image for upload from {original_dimensions} to {img.size}"
-            )
+            logger.debug(f"Resized image for upload from {original_dimensions} to {img.size}")
 
         # Compress to JPEG
         output = io.BytesIO()
@@ -242,12 +238,6 @@ def encode_compressed_image_to_base64(
     Returns:
         Tuple of (base64_string, mime_type).
     """
-    compressed_bytes, mime_type = compress_image_for_upload(
-        image_bytes, max_dimension, quality
-    )
+    compressed_bytes, mime_type = compress_image_for_upload(image_bytes, max_dimension, quality)
     base64_str = base64.b64encode(compressed_bytes).decode("ascii")
     return base64_str, mime_type
-
-
-
-

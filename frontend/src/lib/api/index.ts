@@ -48,3 +48,20 @@ export {
 // Re-export types from vision for convenience
 export type { DetectOptions, BatchDetectOptions } from './vision';
 
+// Re-export domain types for consumers that import from '$lib/api'
+export type {
+	LocationData,
+	LocationTreeNode,
+	LocationCreateData,
+	LocationUpdateData,
+	LabelData,
+	DetectedItem,
+	DetectionResponse,
+	ItemInput,
+	BatchCreateRequest,
+	BatchCreateResponse,
+	AdvancedItemDetails,
+	CorrectionResponse,
+	BatchDetectionResult,
+	BatchDetectionResponse,
+} from '../types';

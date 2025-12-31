@@ -2,8 +2,7 @@
  * Base API client with error handling and authentication
  */
 
-import { get } from 'svelte/store';
-import { token, markSessionExpired } from '../stores/auth';
+import { authStore } from '../stores/auth.svelte';
 import { apiLogger as log } from '../utils/logger';
 import { refreshToken } from '../services/tokenRefresh';
 
@@ -16,6 +15,13 @@ const BASE_URL = '/api';
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 /**
+ * WeakSet to track AbortSignals created for timeout purposes.
+ * This allows us to reliably distinguish timeout aborts from user-initiated cancellations
+ * without relying on browser-specific error messages.
+ */
+const timeoutSignals = new WeakSet<AbortSignal>();
+
+/**
  * Create a combined AbortSignal that aborts when either:
  * - The caller's signal aborts (if provided)
  * - The default timeout elapses
@@ -26,6 +32,8 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
  */
 function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): AbortSignal {
 	const timeoutSignal = AbortSignal.timeout(timeoutMs);
+	// Track this signal as a timeout signal for reliable detection later
+	timeoutSignals.add(timeoutSignal);
 
 	if (!callerSignal) {
 		return timeoutSignal;
@@ -33,7 +41,10 @@ function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEF
 
 	// Combine caller signal with timeout signal
 	// AbortSignal.any() combines multiple signals - aborts when any one aborts
-	return AbortSignal.any([callerSignal, timeoutSignal]);
+	const combinedSignal = AbortSignal.any([callerSignal, timeoutSignal]);
+	// Mark the combined signal as timeout-capable
+	timeoutSignals.add(combinedSignal);
+	return combinedSignal;
 }
 
 /**
@@ -74,26 +85,47 @@ export class NetworkError extends Error {
 	}
 }
 
-let isRefreshing = false;
+// =============================================================================
+// TOKEN REFRESH DEDUPLICATION (Module-level Singleton)
+// =============================================================================
+//
+// This module-scoped promise implements a singleton pattern to deduplicate
+// concurrent token refresh attempts. When multiple API requests receive 401s
+// simultaneously, only one refresh is performed and the result is shared.
+//
+// This is intentional global state for the SPA lifecycle.
+//
+// Testing note: This state persists across test cases unless the module is
+// reloaded. Consider this when writing integration tests.
+// =============================================================================
+
 let refreshPromise: Promise<boolean> | null = null;
 
 /**
- * Attempt to refresh the token once, preventing concurrent refresh attempts
+ * Attempt to refresh the token once, preventing concurrent refresh attempts.
+ * Uses a single promise reference with .finally() cleanup for atomic state management.
  */
 async function attemptRefreshOnce(): Promise<boolean> {
-	if (isRefreshing && refreshPromise) {
+	// If a refresh is already in progress, return the existing promise
+	if (refreshPromise) {
 		return refreshPromise;
 	}
-	isRefreshing = true;
-	refreshPromise = refreshToken();
-	const result = await refreshPromise;
-	isRefreshing = false;
-	refreshPromise = null;
-	return result;
+
+	// Start a new refresh and store the promise
+	// Use .finally() to ensure cleanup happens atomically after the promise settles
+	refreshPromise = refreshToken().finally(() => {
+		refreshPromise = null;
+	});
+
+	return refreshPromise;
 }
 
 /**
  * Handle 401 response with automatic token refresh and retry.
+ * 
+ * NOTE: This function reads authStore.token imperatively (not reactively).
+ * This is intentional - we need the current value at call time, not a
+ * reactive subscription. Changes to the token won't trigger re-execution.
  * 
  * - If no token exists: returns false (user not logged in)
  * - If token exists: attempts refresh and signals whether to retry
@@ -107,8 +139,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 		return false;
 	}
 
-	const authToken = get(token);
-	if (!authToken) {
+	if (!authStore.token) {
 		// No token - user isn't logged in, nothing to do
 		return false;
 	}
@@ -117,7 +148,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 	const refreshSucceeded = await attemptRefreshOnce();
 	if (!refreshSucceeded) {
 		// Refresh failed - show re-auth modal
-		markSessionExpired();
+		authStore.markSessionExpired();
 		return false;
 	}
 
@@ -135,16 +166,17 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
  * 
  * @param error - The error from a failed fetch call
  * @param endpoint - The endpoint that was being fetched (for error message)
+ * @param signal - The AbortSignal used in the request (to check if it was a timeout signal)
  * @returns A NetworkError with appropriate type flags set
  * @throws The original error if it's a user-initiated abort
  */
-function wrapFetchError(error: unknown, endpoint: string): NetworkError {
+function wrapFetchError(error: unknown, endpoint: string, signal?: AbortSignal): NetworkError {
 	if (error instanceof Error) {
 		// Check for abort errors (user cancellation or timeout)
 		if (error.name === 'AbortError') {
-			// Timeouts from AbortSignal.timeout() also throw AbortError
-			// Check if the message contains "timeout" to distinguish
-			const isTimeout = error.message.toLowerCase().includes('timeout');
+			// Check if this was a timeout abort by seeing if the signal is tracked
+			// in our timeoutSignals WeakSet (more reliable than checking error message)
+			const isTimeout = signal ? timeoutSignals.has(signal) : false;
 			if (isTimeout) {
 				return new NetworkError(
 					`Request to ${endpoint} timed out`,
@@ -251,7 +283,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 
 	// Helper to build headers with current token
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		const headers: HeadersInit = {
 			...options.headers,
 		};
@@ -281,7 +313,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 			signal,
 		});
 	} catch (error) {
-		const networkError = wrapFetchError(error, endpoint);
+		const networkError = wrapFetchError(error, endpoint, signal);
 		log.error(`Network error for ${endpoint}`, networkError);
 		throw networkError;
 	}
@@ -305,7 +337,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 					signal: retrySignal,
 				});
 			} catch (error) {
-				const networkError = wrapFetchError(error, endpoint);
+				const networkError = wrapFetchError(error, endpoint, retrySignal);
 				log.error(`Network error on retry for ${endpoint}`, networkError);
 				throw networkError;
 			}
@@ -417,7 +449,7 @@ export async function requestBlobUrl(
 
 	// Helper to build headers with current token
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		return authToken ? { Authorization: `Bearer ${authToken}` } : {};
 	};
 
@@ -434,7 +466,7 @@ export async function requestBlobUrl(
 			signal,
 		});
 	} catch (error) {
-		const networkError = wrapFetchError(error, endpoint);
+		const networkError = wrapFetchError(error, endpoint, signal);
 		log.debug(`Blob request network error for ${endpoint}:`, networkError.message);
 		throw networkError;
 	}
@@ -456,7 +488,7 @@ export async function requestBlobUrl(
 					signal: retrySignal,
 				});
 			} catch (error) {
-				const networkError = wrapFetchError(error, endpoint);
+				const networkError = wrapFetchError(error, endpoint, retrySignal);
 				log.debug(`Blob request network error on retry for ${endpoint}:`, networkError.message);
 				throw networkError;
 			}
@@ -506,18 +538,18 @@ export async function requestFormData<T>(
 
 	// Helper to build headers with current token and any additional headers
 	const buildHeaders = (): HeadersInit => {
-		const authToken = get(token);
+		const authToken = authStore.token;
 		const headers: Record<string, string> = {};
-		
+
 		if (authToken) {
 			headers['Authorization'] = `Bearer ${authToken}`;
 		}
-		
+
 		// Merge any additional headers from options
 		if (opts.headers) {
 			Object.assign(headers, opts.headers);
 		}
-		
+
 		return headers;
 	};
 
@@ -537,7 +569,7 @@ export async function requestFormData<T>(
 			signal,
 		});
 	} catch (error) {
-		const networkError = wrapFetchError(error, endpoint);
+		const networkError = wrapFetchError(error, endpoint, signal);
 		log.error(`Network error for ${endpoint}`, networkError);
 		throw networkError;
 	}
@@ -564,7 +596,7 @@ export async function requestFormData<T>(
 				});
 				log.debug(`Retry response from ${endpoint}:`, response.status, response.statusText);
 			} catch (error) {
-				const networkError = wrapFetchError(error, endpoint);
+				const networkError = wrapFetchError(error, endpoint, retrySignal);
 				log.error(`Network error on retry for ${endpoint}`, networkError);
 				throw networkError;
 			}
@@ -573,10 +605,18 @@ export async function requestFormData<T>(
 
 	// Handle other errors
 	if (!response.ok) {
-		const error = await response.json().catch(() => ({}));
+		let errorData: unknown;
+		try {
+			errorData = await response.json();
+		} catch {
+			errorData = await response.text();
+		}
 		throw new ApiError(
 			response.status,
-			(error as { detail?: string }).detail || errorMessage
+			typeof errorData === 'object' && errorData !== null && 'detail' in errorData
+				? String((errorData as { detail: unknown }).detail)
+				: errorMessage,
+			errorData
 		);
 	}
 

@@ -2,9 +2,9 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends
 
-from homebox_companion import AuthenticationError
+from homebox_companion import HomeboxClient
 
 from ..dependencies import get_client, get_token
 
@@ -13,23 +13,12 @@ router = APIRouter()
 
 @router.get("/labels")
 async def get_labels(
-    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> list[dict[str, Any]]:
-    """Fetch all available labels."""
-    token = get_token(authorization)
-    client = get_client()
-    try:
-        return await client.list_labels(token)
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    """Fetch all available labels.
 
-
-
-
-
-
-
-
-
+    Exceptions (AuthenticationError, RuntimeError) are handled by
+    the centralized domain_error_handler in app.py.
+    """
+    return await client.list_labels(token)

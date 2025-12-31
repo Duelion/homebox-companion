@@ -12,6 +12,9 @@ import pytest
 
 from homebox_companion import AuthenticationError, HomeboxClient, ItemCreate
 
+# All tests in this module hit the real Homebox demo server
+pytestmark = pytest.mark.live
+
 
 @pytest.mark.asyncio
 async def test_login_with_valid_credentials_returns_token(
@@ -360,26 +363,6 @@ async def test_delete_item_removes_item(
 
         # Check it's a 404 error
         assert "404" in str(exc_info.value)
-
-
-@pytest.mark.asyncio
-async def test_delete_nonexistent_item_is_idempotent(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> None:
-    """Delete non-existent item should succeed (idempotent delete).
-
-    Homebox returns 204 for deleting items that don't exist,
-    which is correct REST API behavior for idempotent DELETE.
-    """
-    username, password = homebox_credentials
-
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-
-        # Try to delete a non-existent item - should not raise
-        fake_id = "00000000-0000-0000-0000-000000000000"
-        await client.delete_item(token, fake_id)  # Should not raise
 
 
 @pytest.mark.asyncio

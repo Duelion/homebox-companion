@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { auth } from "$lib/api";
-	import { sessionExpired, onReauthSuccess, logout } from "$lib/stores/auth";
+	import { authStore } from "$lib/stores/auth.svelte";
 	import { resetLocationState } from "$lib/stores/locations.svelte";
 	import { scanWorkflow } from "$lib/workflows/scan.svelte";
 	import { authLogger as log } from "$lib/utils/logger";
@@ -10,6 +11,9 @@
 	let password = $state("");
 	let isSubmitting = $state(false);
 	let errorMessage = $state("");
+
+	// Derive sessionExpired from authStore for reactive template usage
+	let sessionExpired = $derived(authStore.sessionExpired);
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -24,7 +28,10 @@
 
 		try {
 			const response = await auth.login(email, password);
-			onReauthSuccess(response.token, new Date(response.expires_at));
+			authStore.setAuthenticatedState(
+				response.token,
+				new Date(response.expires_at),
+			);
 			// Reset form
 			email = "";
 			password = "";
@@ -42,12 +49,12 @@
 	function handleLogout() {
 		scanWorkflow.reset();
 		resetLocationState();
-		logout();
-		window.location.href = "/";
+		authStore.logout();
+		goto("/");
 	}
 </script>
 
-{#if $sessionExpired}
+{#if sessionExpired}
 	<!-- Non-dismissable modal backdrop -->
 	<div
 		class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
@@ -102,6 +109,7 @@
 						placeholder="Enter your email"
 						required
 						disabled={isSubmitting}
+						autocomplete="email"
 						class="input"
 					/>
 				</div>
@@ -115,6 +123,7 @@
 						placeholder="Enter your password"
 						required
 						disabled={isSubmitting}
+						autocomplete="current-password"
 						class="input"
 					/>
 				</div>

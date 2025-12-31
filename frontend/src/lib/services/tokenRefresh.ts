@@ -2,12 +2,35 @@
  * Token refresh service
  * Handles automatic token refresh and scheduling
  */
-import { get } from 'svelte/store';
-import { token, tokenExpiresAt, tokenNeedsRefresh, tokenIsExpired, authInitialized } from '../stores/auth';
+import { authStore } from '../stores/auth.svelte';
 import { auth } from '../api';
 import { authLogger as log } from '../utils/logger';
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Promise that resolves when auth initialization completes.
+ * Used by components to await initialization instead of polling.
+ */
+let initPromise: Promise<void> | null = null;
+let initResolve: (() => void) | null = null;
+
+/**
+ * Get a promise that resolves when auth initialization completes.
+ * If already initialized, returns an immediately resolved promise.
+ * @returns Promise that resolves when init is done
+ */
+export function getInitPromise(): Promise<void> {
+	if (authStore.initialized) {
+		return Promise.resolve();
+	}
+	if (!initPromise) {
+		initPromise = new Promise((resolve) => {
+			initResolve = resolve;
+		});
+	}
+	return initPromise;
+}
 
 /**
  * Refresh the current token
@@ -17,8 +40,7 @@ export async function refreshToken(): Promise<boolean> {
 	try {
 		const response = await auth.refresh();
 		// Use setAuthenticatedState to ensure all state updates happen atomically
-		const { setAuthenticatedState } = await import('../stores/auth');
-		setAuthenticatedState(response.token, new Date(response.expires_at));
+		authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
 		return true;
 	} catch (error) {
 		// Log error for debugging (previously swallowed silently)
@@ -34,7 +56,7 @@ export async function refreshToken(): Promise<boolean> {
 export function scheduleRefresh(): void {
 	if (refreshTimer) clearTimeout(refreshTimer);
 
-	const expires = get(tokenExpiresAt);
+	const expires = authStore.expiresAt;
 	if (!expires) return;
 
 	// Refresh at 50% of remaining lifetime, minimum 1 minute
@@ -62,27 +84,25 @@ export function stopRefreshTimer(): void {
  */
 export async function initializeAuth(): Promise<void> {
 	try {
-		const currentToken = get(token);
+		const currentToken = authStore.token;
 		if (!currentToken) {
 			return;
 		}
 
 		// Check local expiry (no server call)
-		if (tokenIsExpired()) {
+		if (authStore.tokenIsExpired()) {
 			// Token expired locally - clear and require re-login
-			token.set(null);
-			tokenExpiresAt.set(null);
+			authStore.logout();
 			return;
 		}
 
 		// If token needs refresh (< 5 minutes remaining), refresh immediately
 		// Otherwise, just schedule the next refresh
-		if (tokenNeedsRefresh()) {
+		if (authStore.tokenNeedsRefresh()) {
 			const refreshed = await refreshToken();
 			if (!refreshed) {
 				// Refresh failed - token might be invalid, clear it
-				token.set(null);
-				tokenExpiresAt.set(null);
+				authStore.logout();
 			}
 			// scheduleRefresh() already called by refreshToken() via setAuthenticatedState
 		} else {
@@ -91,7 +111,12 @@ export async function initializeAuth(): Promise<void> {
 		}
 	} finally {
 		// Mark auth as initialized regardless of outcome
-		authInitialized.set(true);
+		authStore.setInitialized(true);
+		// Resolve the init promise for any waiters
+		if (initResolve) {
+			initResolve();
+			initResolve = null;
+		}
 	}
 }
 

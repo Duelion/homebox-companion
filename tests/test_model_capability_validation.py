@@ -84,6 +84,7 @@ def reset_config():
     config.settings = config.Settings()
 
 
+@pytest.mark.unit
 class TestCapabilityChecking:
     """Test LiteLLM capability detection."""
 
@@ -110,6 +111,7 @@ class TestCapabilityChecking:
         assert caps.multi_image is True
 
 
+@pytest.mark.live
 class TestVisionValidation:
     """Test that vision_completion validates vision support."""
 
@@ -132,17 +134,22 @@ class TestVisionValidation:
 
     @pytest.mark.asyncio
     async def test_text_only_model_with_unsafe_flag(self, openai_api_key, monkeypatch):
-        """Test that unsafe models flag skips validation."""
+        """Test that unsafe models flag bypasses our validation.
+
+        With HBC_LLM_ALLOW_UNSAFE_MODELS=true, we skip capability validation.
+        The model will still fail at LiteLLM/provider level since it truly
+        doesn't support vision - but that's the expected behavior.
+        """
         # Set the unsafe models flag
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
-        # This should NOT raise an error, but will fail at LiteLLM level
-        # since the model truly doesn't support vision
-        with pytest.raises(Exception) as exc_info:
+        # Should raise LLMError (from provider), NOT CapabilityNotSupportedError
+        with pytest.raises(LLMError) as exc_info:
             await vision_completion(
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
@@ -151,14 +158,8 @@ class TestVisionValidation:
                 model="gpt-3.5-turbo",
             )
 
-        # Should NOT be our CapabilityNotSupportedError
+        # Key assertion: bypassed OUR validation (got LLMError, not our custom error)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
-        # Should be a LiteLLM or provider error
-        error_msg = str(exc_info.value).lower()
-        assert any(
-            keyword in error_msg
-            for keyword in ["invalid", "not supported", "error", "unsupported"]
-        )
 
     @pytest.mark.asyncio
     async def test_old_vision_model_without_json_schema(self, openai_api_key):
@@ -169,7 +170,7 @@ class TestVisionValidation:
         """
         try:
             result = await vision_completion(
-                system_prompt="Respond with valid JSON only: {\"description\": \"...\"}",
+                system_prompt='Respond with valid JSON only: {"description": "..."}',
                 user_prompt="Describe this tiny 1x1 pixel image briefly.",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
                 api_key=openai_api_key,
@@ -194,6 +195,7 @@ class TestVisionValidation:
             pytest.skip(f"Cannot test gpt-4-turbo: {e}")
 
 
+@pytest.mark.live
 class TestErrorMessages:
     """Test that error messages are helpful."""
 
@@ -231,6 +233,7 @@ class TestErrorMessages:
         assert "bypass" in error_msg.lower()
 
 
+@pytest.mark.live
 class TestUnsafeFlagBehavior:
     """Test what happens when unsafe flag is enabled with incompatible models.
 
@@ -257,6 +260,7 @@ class TestUnsafeFlagBehavior:
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
         # This should NOT raise CapabilityNotSupportedError
@@ -273,13 +277,7 @@ class TestUnsafeFlagBehavior:
         # Should be LLMError (wrapping LiteLLM's BadRequestError)
         assert isinstance(exc_info.value, LLMError)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
-
-        # Error message should mention vision/image support
-        error_msg = str(exc_info.value).lower()
-        assert any(
-            keyword in error_msg
-            for keyword in ["image_url", "image", "vision", "content type"]
-        ), f"Expected error about vision support, got: {exc_info.value}"
+        # Note: We don't assert on error message content - third-party messages can change
 
     @pytest.mark.asyncio
     async def test_legacy_text_model_with_unsafe_flag_gets_provider_error(
@@ -298,6 +296,7 @@ class TestUnsafeFlagBehavior:
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
         with pytest.raises(LLMError) as exc_info:
@@ -309,16 +308,10 @@ class TestUnsafeFlagBehavior:
                 model="gpt-4",  # Text-only model
             )
 
-        # Should be LLMError (wrapping LiteLLM's UnsupportedParamsError)
+        # Should be LLMError (wrapping LiteLLM's error)
         assert isinstance(exc_info.value, LLMError)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
-
-        # Error message should mention unsupported parameters
-        error_msg = str(exc_info.value).lower()
-        assert any(
-            keyword in error_msg
-            for keyword in ["response_format", "unsupported", "not support", "parameters"]
-        ), f"Expected error about unsupported parameters, got: {exc_info.value}"
+        # Note: We don't assert on error message content - third-party messages can change
 
     @pytest.mark.asyncio
     async def test_vision_model_without_schema_works_with_unsafe_flag(
@@ -334,6 +327,7 @@ class TestUnsafeFlagBehavior:
 
         # Force reload config
         from homebox_companion.core import config
+
         config.settings = config.Settings()
 
         try:
@@ -366,7 +360,12 @@ class TestUnsafeFlagBehavior:
             if any(
                 keyword in error_msg
                 for keyword in [
-                    "auth", "permission", "access", "api key", "not found", "rate limit"
+                    "auth",
+                    "permission",
+                    "access",
+                    "api key",
+                    "not found",
+                    "rate limit",
                 ]
             ):
                 pytest.skip(f"Cannot test gpt-4-turbo due to auth/access: {e}")
@@ -375,6 +374,7 @@ class TestUnsafeFlagBehavior:
                 raise
 
 
+@pytest.mark.unit
 class TestCapabilityCacheing:
     """Test that capability checks are cached."""
 
@@ -397,4 +397,3 @@ class TestCapabilityCacheing:
         # Different model should not be cached
         caps3 = get_model_capabilities("gpt-4o-mini")
         assert caps3 is not caps1
-
