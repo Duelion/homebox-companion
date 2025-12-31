@@ -37,7 +37,7 @@
         : 'self-start items-start'}"
 >
     <div
-        class="py-3 px-4 rounded-2xl whitespace-pre-wrap break-words {isUser
+        class="py-2.5 px-3.5 rounded-2xl whitespace-pre-wrap break-words {isUser
             ? 'bg-gradient-to-br from-primary-600 to-primary-500 text-white rounded-br shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
             : 'bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-bl'} {message.isStreaming
             ? 'border-primary-500 shadow-[0_0_0_1px_rgba(99,102,241,0.3)]'
@@ -61,7 +61,7 @@
 
         {#if hasToolResults}
             <div
-                class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-white/10"
+                class="flex flex-wrap gap-1.5 {message.content ? 'mt-2 pt-2 border-t border-white/10' : ''}"
             >
                 {#each message.toolResults as result}
                     <div

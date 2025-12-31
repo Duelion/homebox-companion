@@ -414,36 +414,61 @@ class ChatOrchestrator:
                 chunk_count += 1
 
                 if not hasattr(chunk, 'choices') or not chunk.choices:
+                    # Some providers send usage-only chunks at the end
+                    if hasattr(chunk, 'usage') and chunk.usage:
+                        usage_info = chunk.usage
                     continue
 
-                delta = chunk.choices[0].delta
+                choice = chunk.choices[0]
+                
+                # Handle content from delta (standard streaming)
+                if hasattr(choice, 'delta') and choice.delta:
+                    delta = choice.delta
+                    if hasattr(delta, 'content') and delta.content:
+                        content_chunk = delta.content
+                        content_chunks.append(content_chunk)
+                        # Yield individual text chunk for real-time display
+                        yield ChatEvent(type=ChatEventType.TEXT, data={"content": content_chunk})
 
-                # Handle content streaming
-                if hasattr(delta, 'content') and delta.content:
-                    content_chunk = delta.content
-                    content_chunks.append(content_chunk)
-                    # Yield individual text chunk for real-time display
-                    yield ChatEvent(type=ChatEventType.TEXT, data={"content": content_chunk})
+                    # Handle tool call streaming (accumulate)
+                    if hasattr(delta, 'tool_calls') and delta.tool_calls:
+                        for tc_delta in delta.tool_calls:
+                            idx = tc_delta.index
+                            if idx not in tool_call_chunks:
+                                tool_call_chunks[idx] = {
+                                    "id": "",
+                                    "name": "",
+                                    "arguments": ""
+                                }
 
-                # Handle tool call streaming (accumulate)
-                if hasattr(delta, 'tool_calls') and delta.tool_calls:
-                    for tc_delta in delta.tool_calls:
-                        idx = tc_delta.index
-                        if idx not in tool_call_chunks:
-                            tool_call_chunks[idx] = {
-                                "id": "",
-                                "name": "",
-                                "arguments": ""
-                            }
+                            if tc_delta.id:
+                                tool_call_chunks[idx]["id"] = tc_delta.id
+                            if tc_delta.function and tc_delta.function.name:
+                                tool_call_chunks[idx]["name"] = tc_delta.function.name
+                            if tc_delta.function and tc_delta.function.arguments:
+                                tool_call_chunks[idx]["arguments"] += tc_delta.function.arguments
 
-                        if tc_delta.id:
-                            tool_call_chunks[idx]["id"] = tc_delta.id
-                        if tc_delta.function and tc_delta.function.name:
-                            tool_call_chunks[idx]["name"] = tc_delta.function.name
-                        if tc_delta.function and tc_delta.function.arguments:
-                            tool_call_chunks[idx]["arguments"] += tc_delta.function.arguments
+                # Handle content from message (non-incremental streaming / final chunk)
+                # Some providers send complete content in message field instead of delta
+                if hasattr(choice, 'message') and choice.message:
+                    message = choice.message
+                    if hasattr(message, 'content') and message.content:
+                        # Only add if we haven't seen this content yet (avoid duplicates)
+                        if message.content not in content_chunks:
+                            content_chunks.append(message.content)
+                            yield ChatEvent(type=ChatEventType.TEXT, data={"content": message.content})
+                    
+                    # Also check for tool calls in message
+                    if hasattr(message, 'tool_calls') and message.tool_calls:
+                        for idx, tc in enumerate(message.tool_calls):
+                            if idx not in tool_call_chunks:
+                                tool_call_chunks[idx] = {
+                                    "id": tc.id if hasattr(tc, 'id') else "",
+                                    "name": tc.function.name if hasattr(tc, 'function') and tc.function else "",
+                                    "arguments": tc.function.arguments if hasattr(tc, 'function') and tc.function else ""
+                                }
 
-                # Capture usage info from final chunk
+                # Capture usage info from chunk
                 if hasattr(chunk, 'usage') and chunk.usage:
                     usage_info = chunk.usage
 
@@ -486,6 +511,12 @@ class ChatOrchestrator:
 
         if full_content:
             logger.trace(f"[CHAT] Complete streamed content:\n{full_content}")
+        elif usage_info and usage_info.completion_tokens > 0 and not tool_call_chunks:
+            # We have completion tokens but no content and no tool calls - something is wrong
+            logger.warning(
+                f"[CHAT] No content captured despite {usage_info.completion_tokens} "
+                f"completion tokens. This may indicate a streaming format issue."
+            )
 
         # Reconstruct tool calls if any
         tool_calls = []
