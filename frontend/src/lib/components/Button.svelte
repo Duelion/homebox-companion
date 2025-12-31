@@ -23,37 +23,59 @@
 		children,
 	}: Props = $props();
 
-	// Track touch state to prevent double-firing (touchend + click)
+	// Track touch state to prevent double-firing (touchend + synthetic click)
 	let touchFired = $state(false);
 
-	// Handle touch events for iOS Safari
-	// touchend fires reliably even when dismissing keyboard, unlike click
+	/**
+	 * Handle touch events for iOS Safari keyboard dismissal edge case.
+	 * 
+	 * iOS Safari swallows the first click event after dismissing the virtual keyboard,
+	 * but touchend still fires reliably. This handler ensures buttons respond to taps
+	 * even when iOS would otherwise swallow the click.
+	 * 
+	 * See: https://github.com/Duelion/homebox-companion/issues/72
+	 */
 	function handleTouchEnd(e: TouchEvent) {
 		if (disabled || loading) return;
-		
-		// Prevent synthetic click event from firing
-		e.preventDefault();
-		
-		// Mark that touch fired so we don't double-fire on click
+
+		// Mark that touch fired so we don't double-fire on synthetic click
 		touchFired = true;
-		
-		// Call the onclick handler
+
+		// Call onclick handler if provided (matches native behavior order)
 		onclick?.();
-		
-		// Reset after click event would have fired (300ms is iOS click delay)
+
+		// Handle form button types explicitly since we're preventing the synthetic click
+		const button = e.currentTarget as HTMLButtonElement;
+		if (type === 'submit' && button.form) {
+			button.form.requestSubmit(button);
+		} else if (type === 'reset' && button.form) {
+			button.form.reset();
+		}
+
+		// Prevent the synthetic click event that would otherwise fire after touchend
+		e.preventDefault();
+
+		// Reset flag after the synthetic click would have fired
+		// 300ms matches iOS's legacy click delay (though modern iOS with 
+		// touch-action:manipulation is faster, we keep this for safety)
 		setTimeout(() => {
 			touchFired = false;
 		}, 300);
 	}
 
-	// Handle click events for desktop/keyboard interactions
+	/**
+	 * Handle click events for desktop, keyboard (Enter/Space), and assistive technology.
+	 * On touch devices, this may fire as a synthetic click after touchend - we use
+	 * touchFired flag to prevent double-firing in that case.
+	 */
 	function handleClick() {
 		if (disabled || loading) return;
-		
-		// Prevent double-fire if touch already triggered
+
+		// Prevent double-fire if touch already triggered this action
 		if (touchFired) return;
-		
+
 		onclick?.();
+		// Note: for submit/reset buttons, native form behavior handles submission
 	}
 
 	// Modernized variant classes with tonal colors
