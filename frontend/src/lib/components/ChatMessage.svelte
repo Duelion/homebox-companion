@@ -5,10 +5,9 @@
      * User messages are right-aligned with primary color.
      * Assistant messages are left-aligned with surface color.
      */
-    import type {
-        ChatMessage as ChatMessageType,
-        ToolResult,
-    } from "../stores/chat.svelte";
+    import type { ChatMessage as ChatMessageType } from "../stores/chat.svelte";
+    import snarkdown from "snarkdown";
+    import DOMPurify from "dompurify";
 
     interface Props {
         message: ChatMessageType;
@@ -20,41 +19,55 @@
     const hasToolResults = $derived(
         message.toolResults && message.toolResults.length > 0,
     );
+
+    // Memoized markdown rendering with XSS sanitization
+    const renderedContent = $derived.by(() => {
+        if (isUser || !message.content) return "";
+        // Convert markdown to HTML and sanitize to prevent XSS
+        const html = snarkdown(message.content);
+        return DOMPurify.sanitize(html);
+    });
 </script>
 
-<div class="message-container" class:user={isUser} class:assistant={!isUser}>
-    <div class="message-bubble" class:streaming={message.isStreaming}>
+<div class="flex flex-col max-w-[85%] {isUser ? 'self-end items-end' : 'self-start items-start'}">
+    <div class="py-3 px-4 rounded-2xl whitespace-pre-wrap break-words {isUser 
+        ? 'bg-gradient-to-br from-primary-600 to-primary-500 text-white rounded-br shadow-[0_2px_8px_rgba(99,102,241,0.3)]' 
+        : 'bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-bl'} {message.isStreaming ? 'border-primary-500 shadow-[0_0_0_1px_rgba(99,102,241,0.3)]' : ''}">
         {#if message.content}
-            <p class="content">{message.content}</p>
+            {#if isUser}
+                <p class="m-0 leading-relaxed">{message.content}</p>
+            {:else}
+                <div class="markdown-content">{@html renderedContent}</div>
+            {/if}
         {/if}
 
         {#if message.isStreaming && !message.content}
-            <div class="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+            <div class="flex gap-1 py-1">
+                <span class="typing-dot"></span>
+                <span class="typing-dot animation-delay-160"></span>
+                <span class="typing-dot animation-delay-320"></span>
             </div>
         {/if}
 
         {#if hasToolResults}
-            <div class="tool-results">
+            <div class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-white/10">
                 {#each message.toolResults as result}
                     <div
-                        class="tool-result"
-                        class:success={result.success}
-                        class:error={!result.success}
+                        class="inline-flex items-center gap-1 py-1 px-2 rounded-lg text-xs font-medium {result.success 
+                            ? 'bg-success-500/15 text-success-500 border border-success-500/30' 
+                            : 'bg-error-500/15 text-error-500 border border-error-500/30'}"
                     >
-                        <span class="tool-icon"
+                        <span class="font-bold"
                             >{result.success ? "✓" : "✗"}</span
                         >
-                        <span class="tool-name">{result.tool}</span>
+                        <span class="font-mono">{result.tool}</span>
                     </div>
                 {/each}
             </div>
         {/if}
     </div>
 
-    <time class="timestamp">
+    <time class="text-xs text-neutral-500 mt-1 px-2">
         {message.timestamp.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -63,85 +76,86 @@
 </div>
 
 <style>
-    .message-container {
-        display: flex;
-        flex-direction: column;
-        max-width: 85%;
-    }
-
-    .message-container.user {
-        align-self: flex-end;
-        align-items: flex-end;
-    }
-
-    .message-container.assistant {
-        align-self: flex-start;
-        align-items: flex-start;
-    }
-
-    .message-bubble {
-        padding: 0.75rem 1rem;
-        border-radius: 1rem;
-        word-wrap: break-word;
-        white-space: pre-wrap;
-    }
-
-    .user .message-bubble {
-        background: linear-gradient(
-            135deg,
-            #4f46e5,
-            #6366f1
-        ); /* primary gradient */
-        color: white;
-        border-bottom-right-radius: 0.25rem;
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
-    }
-
-    .assistant .message-bubble {
-        background: #1e1e2e; /* neutral-800 */
-        color: #e2e8f0; /* neutral-200 */
-        border-bottom-left-radius: 0.25rem;
-        border: 1px solid #2a2a3e; /* neutral-700 */
-    }
-
-    .message-bubble.streaming {
-        border-color: #6366f1; /* primary-500 */
-        box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
-    }
-
-    .content {
+    /* Markdown content styling */
+    .markdown-content {
         margin: 0;
         line-height: 1.5;
     }
 
-    .timestamp {
-        font-size: 0.75rem;
-        color: #64748b; /* neutral-500 */
-        margin-top: 0.25rem;
-        padding: 0 0.5rem;
+    .markdown-content :global(ul),
+    .markdown-content :global(ol) {
+        margin: 0.5rem 0;
+        padding-left: 1.5rem;
+    }
+
+    .markdown-content :global(li) {
+        margin: 0.25rem 0;
+    }
+
+    .markdown-content :global(p) {
+        margin: 0.5rem 0;
+    }
+
+    .markdown-content :global(p:first-child) {
+        margin-top: 0;
+    }
+
+    .markdown-content :global(p:last-child) {
+        margin-bottom: 0;
+    }
+
+    .markdown-content :global(strong) {
+        font-weight: 600;
+        @apply text-neutral-100;
+    }
+
+    .markdown-content :global(em) {
+        font-style: italic;
+    }
+
+    .markdown-content :global(code) {
+        @apply font-mono bg-primary-500/10 text-[0.875em] px-1.5 py-0.5 rounded;
+    }
+
+    .markdown-content :global(pre) {
+        @apply bg-black/30 p-3 rounded-lg overflow-x-auto my-2;
+    }
+
+    .markdown-content :global(pre code) {
+        @apply bg-transparent p-0;
+    }
+
+    .markdown-content :global(h1),
+    .markdown-content :global(h2),
+    .markdown-content :global(h3) {
+        @apply font-semibold text-neutral-100;
+        margin: 0.75rem 0 0.5rem;
+    }
+
+    .markdown-content :global(h1) {
+        @apply text-h3;
+    }
+
+    .markdown-content :global(h2) {
+        @apply text-h4;
+    }
+
+    .markdown-content :global(h3) {
+        @apply text-body;
     }
 
     /* Typing indicator animation */
-    .typing-indicator {
-        display: flex;
-        gap: 4px;
-        padding: 4px 0;
-    }
-
-    .typing-indicator span {
-        width: 8px;
-        height: 8px;
-        background: #6366f1; /* primary-500 */
-        border-radius: 50%;
+    .typing-dot {
+        @apply w-2 h-2 bg-primary-500 rounded-full;
         animation: bounce 1.4s infinite ease-in-out both;
     }
 
-    .typing-indicator span:nth-child(1) {
-        animation-delay: -0.32s;
+    .animation-delay-160 {
+        animation-delay: -0.16s;
     }
 
-    .typing-indicator span:nth-child(2) {
-        animation-delay: -0.16s;
+    .animation-delay-320 {
+        animation-delay: -0.32s;
     }
 
     @keyframes bounce {
@@ -153,45 +167,5 @@
         40% {
             transform: scale(1);
         }
-    }
-
-    /* Tool results */
-    .tool-results {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 0.5rem;
-        padding-top: 0.5rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .tool-result {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.5rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-
-    .tool-result.success {
-        background: rgba(16, 185, 129, 0.15);
-        color: #10b981; /* success-500 */
-        border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-
-    .tool-result.error {
-        background: rgba(239, 68, 68, 0.15);
-        color: #ef4444; /* error-500 */
-        border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-
-    .tool-icon {
-        font-weight: bold;
-    }
-
-    .tool-name {
-        font-family: "JetBrains Mono", monospace;
     }
 </style>

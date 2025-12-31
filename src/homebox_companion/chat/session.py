@@ -136,6 +136,22 @@ class ChatSession:
         """
         self.messages.append(message)
         logger.debug(f"Added {message.role} message, total: {len(self.messages)}")
+        
+        # TRACE: Log actual message content
+        if message.role == "tool":
+            # Tool results can be large, truncate for readability
+            content_preview = message.content[:500] + "..." if len(message.content) > 500 else message.content
+            logger.trace(f"[SESSION] Tool result (call_id={message.tool_call_id}): {content_preview}")
+        elif message.role == "assistant" and message.tool_calls:
+            # Assistant message with tool calls
+            tool_names = [tc.name for tc in message.tool_calls]
+            logger.trace(f"[SESSION] Assistant message with {len(message.tool_calls)} tool calls: {tool_names}")
+            if message.content:
+                logger.trace(f"[SESSION] Assistant message content: {message.content[:300]}...")
+        else:
+            # Regular user or assistant message
+            content_preview = message.content[:300] + "..." if len(message.content) > 300 else message.content
+            logger.trace(f"[SESSION] {message.role} message: {content_preview}")
 
     def get_history(self, max_messages: int | None = None) -> list[dict[str, Any]]:
         """Get conversation history in LLM format.

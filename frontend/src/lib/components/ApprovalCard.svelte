@@ -159,11 +159,7 @@
 
 <style>
     .loading-spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-top-color: white;
-        border-radius: 50%;
+        @apply w-4 h-4 border-2 border-white/30 border-t-white rounded-full;
         animation: spin 0.8s linear infinite;
     }
 

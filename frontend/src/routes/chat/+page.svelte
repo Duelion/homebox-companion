@@ -64,9 +64,10 @@
 <div class="animate-in pb-28">
     {#if !isEnabled}
         <!-- Disabled state -->
-        <div class="disabled-message">
-            <div class="disabled-icon">
+        <div class="flex flex-col items-center justify-center text-center px-6 py-12 min-h-[60vh]">
+            <div class="w-16 h-16 flex items-center justify-center rounded-2xl bg-error-500/10 mb-5">
                 <svg
+                    class="w-8 h-8 text-error-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -77,14 +78,14 @@
                     />
                 </svg>
             </div>
-            <h2>Chat Disabled</h2>
-            <p>The chat feature is currently disabled on the server.</p>
-            <p>Enable it by setting <code>HBC_CHAT_ENABLED=true</code></p>
+            <h2 class="text-h3 text-neutral-100 mb-2">Chat Disabled</h2>
+            <p class="text-body-sm text-neutral-400 mb-1">The chat feature is currently disabled on the server.</p>
+            <p class="text-body-sm text-neutral-400 mb-1">Enable it by setting <code class="inline-block mt-3 bg-neutral-800 text-primary-300 px-3 py-1.5 rounded-lg text-[0.8125rem] font-mono border border-neutral-700">HBC_CHAT_ENABLED=true</code></p>
         </div>
     {:else}
         <!-- Pending approvals (if any) -->
         {#if chatStore.pendingApprovals.length > 0}
-            <div class="approvals">
+            <div class="py-3 px-4 bg-neutral-950 border-b border-white/[0.08] max-h-[30vh] overflow-y-auto">
                 {#each chatStore.pendingApprovals as approval (approval.id)}
                     <ApprovalCard {approval} />
                 {/each}
@@ -93,8 +94,9 @@
 
         <!-- Error banner -->
         {#if chatStore.error}
-            <div class="error-banner">
+            <div class="flex items-center gap-2 py-2.5 px-4 bg-error-500/10 text-error-400 text-body-sm border-b border-error-500/15">
                 <svg
+                    class="w-4 h-4 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -109,11 +111,12 @@
         {/if}
 
         <!-- Messages area -->
-        <div class="messages-area" bind:this={messagesContainer}>
+        <div class="min-h-[50vh]" bind:this={messagesContainer}>
             {#if chatStore.messages.length === 0}
-                <div class="empty-state">
-                    <div class="empty-icon">
+                <div class="flex flex-col items-center justify-center text-center px-6 py-12 min-h-[35vh]">
+                    <div class="w-16 h-16 flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500/15 to-purple-500/10 mb-5">
                         <svg
+                            class="w-8 h-8 text-primary-500"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -124,16 +127,18 @@
                             />
                         </svg>
                     </div>
-                    <h2>Start a conversation</h2>
-                    <p>Ask me about your inventory, locations, or items.</p>
-                    <div class="suggestions">
+                    <h2 class="text-h3 text-neutral-100 mb-1.5">Start a conversation</h2>
+                    <p class="text-body-sm text-neutral-400 mb-6">Ask me about your inventory, locations, or items.</p>
+                    <div class="flex flex-col gap-2 w-full max-w-80">
                         <button
+                            class="flex items-center gap-2.5 py-3 px-4 border border-neutral-700 rounded-xl bg-neutral-900 text-neutral-200 text-body-sm text-left cursor-pointer transition-all duration-fast hover:border-primary-500 hover:bg-neutral-800 hover:-translate-y-px active:scale-[0.98]"
                             onclick={() =>
                                 chatStore.sendMessage(
                                     "What locations do I have?",
                                 )}
                         >
                             <svg
+                                class="w-[1.125rem] h-[1.125rem] shrink-0 text-primary-500"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -144,13 +149,15 @@
                                     d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
                                 />
                             </svg>
-                            <span>What locations do I have?</span>
+                            <span class="flex-1">What locations do I have?</span>
                         </button>
                         <button
+                            class="flex items-center gap-2.5 py-3 px-4 border border-neutral-700 rounded-xl bg-neutral-900 text-neutral-200 text-body-sm text-left cursor-pointer transition-all duration-fast hover:border-primary-500 hover:bg-neutral-800 hover:-translate-y-px active:scale-[0.98]"
                             onclick={() =>
                                 chatStore.sendMessage("List my labels")}
                         >
                             <svg
+                                class="w-[1.125rem] h-[1.125rem] shrink-0 text-primary-500"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -161,15 +168,17 @@
                                 />
                                 <path d="M6 6h.008v.008H6V6z" />
                             </svg>
-                            <span>List my labels</span>
+                            <span class="flex-1">List my labels</span>
                         </button>
                         <button
+                            class="flex items-center gap-2.5 py-3 px-4 border border-neutral-700 rounded-xl bg-neutral-900 text-neutral-200 text-body-sm text-left cursor-pointer transition-all duration-fast hover:border-primary-500 hover:bg-neutral-800 hover:-translate-y-px active:scale-[0.98]"
                             onclick={() =>
                                 chatStore.sendMessage(
                                     "How many items are in my inventory?",
                                 )}
                         >
                             <svg
+                                class="w-[1.125rem] h-[1.125rem] shrink-0 text-primary-500"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -179,12 +188,12 @@
                                     d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
                                 />
                             </svg>
-                            <span>How many items are in my inventory?</span>
+                            <span class="flex-1">How many items are in my inventory?</span>
                         </button>
                     </div>
                 </div>
             {:else}
-                <div class="messages-list">
+                <div class="flex flex-col gap-3 p-4 max-w-2xl mx-auto lg:max-w-3xl">
                     {#each chatStore.messages as message (message.id)}
                         <ChatMessage {message} />
                     {/each}
@@ -208,189 +217,3 @@
     </div>
 {/if}
 
-<style>
-    /* Pending approvals */
-    .approvals {
-        padding: 0.75rem 1rem;
-        background: #0f0f18;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        max-height: 30vh;
-        overflow-y: auto;
-    }
-
-    /* Error banner */
-    .error-banner {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.625rem 1rem;
-        background: rgba(239, 68, 68, 0.1);
-        color: #f87171; /* error-400 */
-        font-size: 0.875rem;
-        border-bottom: 1px solid rgba(239, 68, 68, 0.15);
-    }
-
-    .error-banner svg {
-        width: 1rem;
-        height: 1rem;
-        flex-shrink: 0;
-    }
-
-    /* Messages area */
-    .messages-area {
-        min-height: 50vh;
-    }
-
-    .messages-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        padding: 1rem;
-        max-width: 32rem;
-        margin: 0 auto;
-    }
-
-    /* Empty state */
-    .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 3rem 1.5rem;
-        min-height: 50vh;
-    }
-
-    .empty-icon {
-        width: 4rem;
-        height: 4rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 1rem;
-        background: linear-gradient(
-            135deg,
-            rgba(99, 102, 241, 0.15),
-            rgba(139, 92, 246, 0.1)
-        );
-        margin-bottom: 1.25rem;
-    }
-
-    .empty-icon svg {
-        width: 2rem;
-        height: 2rem;
-        color: #6366f1; /* primary-500 */
-    }
-
-    .empty-state h2 {
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin: 0 0 0.375rem;
-        color: #f1f5f9; /* neutral-100 */
-    }
-
-    .empty-state > p {
-        margin: 0 0 1.5rem;
-        color: #94a3b8; /* neutral-400 */
-        font-size: 0.875rem;
-    }
-
-    /* Suggestion buttons */
-    .suggestions {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        width: 100%;
-        max-width: 20rem;
-    }
-
-    .suggestions button {
-        display: flex;
-        align-items: center;
-        gap: 0.625rem;
-        padding: 0.75rem 1rem;
-        border: 1px solid #2a2a3e; /* neutral-700 */
-        border-radius: 0.75rem;
-        background: #13131f; /* neutral-900 */
-        color: #e2e8f0; /* neutral-200 */
-        font-size: 0.875rem;
-        text-align: left;
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-
-    .suggestions button:hover {
-        border-color: #6366f1; /* primary-500 */
-        background: #1a1a2e;
-        transform: translateY(-1px);
-    }
-
-    .suggestions button:active {
-        transform: scale(0.98);
-    }
-
-    .suggestions button svg {
-        width: 1.125rem;
-        height: 1.125rem;
-        flex-shrink: 0;
-        color: #6366f1; /* primary-500 */
-    }
-
-    .suggestions button span {
-        flex: 1;
-    }
-
-    /* Disabled state */
-    .disabled-message {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 3rem 1.5rem;
-        min-height: 60vh;
-    }
-
-    .disabled-icon {
-        width: 4rem;
-        height: 4rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 1rem;
-        background: rgba(239, 68, 68, 0.1);
-        margin-bottom: 1.25rem;
-    }
-
-    .disabled-icon svg {
-        width: 2rem;
-        height: 2rem;
-        color: #ef4444; /* error-500 */
-    }
-
-    .disabled-message h2 {
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin: 0 0 0.5rem;
-        color: #f1f5f9; /* neutral-100 */
-    }
-
-    .disabled-message p {
-        margin: 0 0 0.25rem;
-        color: #94a3b8; /* neutral-400 */
-        font-size: 0.875rem;
-    }
-
-    .disabled-message code {
-        display: inline-block;
-        margin-top: 0.75rem;
-        background: #1e1e2e; /* neutral-800 */
-        color: #a5b4fc; /* primary-300 */
-        padding: 0.375rem 0.75rem;
-        border-radius: 0.5rem;
-        font-size: 0.8125rem;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-            monospace;
-        border: 1px solid #2a2a3e; /* neutral-700 */
-    }
-</style>

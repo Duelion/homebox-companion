@@ -187,6 +187,9 @@ class ChatStore {
             return;
         }
 
+        // TRACE: Log full message being sent
+        log.trace(`Sending message: "${content}"`);
+
         // Clear any previous error
         this._error = null;
 
@@ -295,16 +298,22 @@ class ChatStore {
     // =========================================================================
 
     private handleEvent(event: ChatEvent): void {
+        // TRACE: Log full event data
+        log.trace(`Event [${event.type}]:`, JSON.stringify(event.data, null, 2));
+        
         switch (event.type) {
             case 'text':
+                log.trace(`Text chunk received: "${event.data.content}"`);
                 this.appendContent(event.data.content);
                 break;
 
             case 'tool_start':
+                log.trace(`Tool starting: ${event.data.tool}`, event.data.params);
                 // Could show a loading indicator for the tool
                 break;
 
             case 'tool_result':
+                log.trace(`Tool ${event.data.tool} result:`, event.data.result);
                 this.addToolResult({
                     tool: event.data.tool,
                     success: event.data.result.success,
@@ -314,6 +323,7 @@ class ChatStore {
                 break;
 
             case 'approval_required':
+                log.trace(`Approval required for: ${event.data.tool}`, event.data.params);
                 this._pendingApprovals = [
                     ...this._pendingApprovals,
                     {
@@ -328,10 +338,12 @@ class ChatStore {
                 break;
 
             case 'error':
+                log.trace(`Error event: ${event.data.message}`);
                 this._error = event.data.message;
                 break;
 
             case 'done':
+                log.trace('Done event received');
                 // Handled by onComplete callback
                 break;
         }

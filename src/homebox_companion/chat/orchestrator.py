@@ -7,6 +7,7 @@ handles tool calling, and generates streaming events for the frontend.
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
@@ -152,13 +153,36 @@ class ChatOrchestrator:
             )
             return
 
+        # TRACE: Log the start of a new conversation turn
+        logger.trace("[CHAT] === NEW MESSAGE ===")
+        logger.trace(f"[CHAT] User message:\n{user_message}")
+        logger.trace(f"[CHAT] Session state: {len(self.session.messages)} messages in history")
+
         # Add user message to history
         self.session.add_message(ChatMessage(role="user", content=user_message))
 
         # Build messages for LLM
         system_prompt = SYSTEM_PROMPT.format(tool_descriptions=_build_tool_descriptions())
         messages = [{"role": "system", "content": system_prompt}]
-        messages.extend(self.session.get_history())
+        
+        # TRACE: Log the full system prompt
+        logger.trace(f"[CHAT] System prompt:\n{system_prompt}")
+        
+        # Get conversation history
+        history = self.session.get_history()
+        messages.extend(history)
+        
+        # TRACE: Log conversation history being sent to LLM
+        logger.trace(f"[CHAT] Sending {len(history)} history messages to LLM")
+        for i, msg in enumerate(history):
+            role = msg.get('role', 'unknown')
+            content = msg.get('content', '')
+            # Truncate very long tool results for readability
+            if len(content) > 500:
+                content_preview = content[:500] + '...'
+            else:
+                content_preview = content
+            logger.trace(f"[CHAT] History[{i}] {role}: {content_preview}")
 
         # Build tool definitions
         tools = _build_litellm_tools()
@@ -276,8 +300,45 @@ class ChatOrchestrator:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
 
+        # TRACE: Log available tools
+        tool_names = [t['function']['name'] for t in tools] if tools else []
+        logger.trace(f"[CHAT] Available tools: {tool_names}")
+        
         logger.debug(f"Calling LLM with {len(messages)} messages, {len(tools)} tools")
-        return await litellm.acompletion(**kwargs)
+        
+        # TRACE: Time the LLM call
+        start_time = time.perf_counter()
+        response = await litellm.acompletion(**kwargs)
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        
+        # TRACE: Log token usage if available
+        if hasattr(response, 'usage') and response.usage:
+            logger.trace(
+                f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms - "
+                f"tokens: prompt={response.usage.prompt_tokens}, "
+                f"completion={response.usage.completion_tokens}, "
+                f"total={response.usage.total_tokens}"
+            )
+        else:
+            logger.trace(f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms")
+        
+        # TRACE: Log full response content
+        assistant_message = response.choices[0].message
+        content = assistant_message.content or ""
+        if content:
+            logger.trace(f"[CHAT] LLM response content:\n{content}")
+        else:
+            logger.trace("[CHAT] LLM response content: (empty)")
+        
+        # TRACE: Log tool call decisions
+        tool_calls = assistant_message.tool_calls
+        if tool_calls:
+            for tc in tool_calls:
+                logger.trace(f"[CHAT] LLM tool call: {tc.function.name}({tc.function.arguments})")
+        else:
+            logger.trace("[CHAT] LLM made no tool calls")
+        
+        return response
 
     async def _execute_tool(
         self,
@@ -297,6 +358,10 @@ class ChatOrchestrator:
         Yields:
             Tool execution events
         """
+        # TRACE: Log tool execution start
+        logger.trace(f"[CHAT] Executing tool: {tool_name}")
+        logger.trace(f"[CHAT] Tool arguments: {json.dumps(tool_args, indent=2)}")
+        
         yield ChatEvent(
             type=ChatEventType.TOOL_START,
             data={"tool": tool_name, "params": tool_args}
@@ -317,8 +382,23 @@ class ChatOrchestrator:
             return
 
         try:
+            # TRACE: Time the tool execution
+            start_time = time.perf_counter()
             result = await tool_method(token, **tool_args)
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            
             result_dict = result.to_dict()
+            
+            # TRACE: Log full tool result (may be large for list operations)
+            result_json = json.dumps(result_dict, indent=2)
+            if len(result_json) > 2000:
+                logger.trace(
+                    f"[CHAT] Tool '{tool_name}' result ({elapsed_ms:.0f}ms, {len(result_json)} chars):\n"
+                    f"{result_json[:2000]}...[truncated]"
+                )
+            else:
+                logger.trace(f"[CHAT] Tool '{tool_name}' result ({elapsed_ms:.0f}ms):\n{result_json}")
+            
         except Exception as e:
             logger.exception(f"Tool {tool_name} failed")
             result_dict = {"success": False, "error": str(e)}

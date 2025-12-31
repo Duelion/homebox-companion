@@ -151,21 +151,21 @@
 </div>
 
 <style>
-	.complete-pop {
-		animation: pop 300ms ease-out;
-		box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
-	}
+    .complete-pop {
+        animation: pop 300ms ease-out;
+        @apply shadow-[0_0_12px_rgba(34,197,94,0.5)];
+    }
 
-	@keyframes pop {
-		0% {
-			transform: scale(1);
-		}
-		50% {
-			transform: scale(1.03);
-		}
-		100% {
-			transform: scale(1);
-		}
-	}
+    @keyframes pop {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.03);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
 </style>
 
