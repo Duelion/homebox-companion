@@ -6,6 +6,7 @@ including message history and pending approval tracking.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
@@ -270,8 +271,9 @@ def get_session(token: str) -> ChatSession:
     Returns:
         The ChatSession for this user
     """
-    # Use a hash of the token for privacy in logs
-    session_key = str(hash(token))
+    # Use a deterministic hash of the token for session key
+    # This ensures consistency across restarts (required for future persistence)
+    session_key = hashlib.sha256(token.encode()).hexdigest()[:16]
 
     if session_key not in _sessions:
         _sessions[session_key] = ChatSession()
@@ -289,7 +291,7 @@ def clear_session(token: str) -> bool:
     Returns:
         True if session existed and was removed
     """
-    session_key = str(hash(token))
+    session_key = hashlib.sha256(token.encode()).hexdigest()[:16]
     if session_key in _sessions:
         del _sessions[session_key]
         logger.info(f"Deleted session for key {session_key[:8]}...")
