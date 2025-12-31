@@ -29,6 +29,7 @@ export { locations } from './locations';
 export { labels } from './labels';
 export { items, type BlobUrlResult } from './items';
 export { vision } from './vision';
+export { chat, type ChatEvent, type PendingApproval, type ChatHealthResponse } from './chat';
 
 // Re-export settings APIs
 export {

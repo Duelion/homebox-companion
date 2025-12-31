@@ -10,7 +10,7 @@
 		id: string;
 		label: string;
 		href: string;
-		icon: "scan" | "settings" | "home" | "history" | "help";
+		icon: "scan" | "settings" | "home" | "history" | "help" | "chat";
 		/** Routes that should highlight this nav item as active */
 		activeRoutes: string[];
 	}
@@ -48,6 +48,13 @@
 				"/summary",
 				"/success",
 			],
+		},
+		{
+			id: "chat",
+			label: "Chat",
+			href: "/chat",
+			icon: "chat",
+			activeRoutes: ["/chat"],
 		},
 		{
 			id: "settings",
@@ -150,6 +157,18 @@
 										d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
 									/>
 									<line x1="12" y1="17" x2="12.01" y2="17" />
+								</svg>
+							{:else if item.icon === "chat"}
+								<svg
+									class="w-6 h-6"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									stroke-width="1.75"
+								>
+									<path
+										d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+									/>
 								</svg>
 							{/if}
 						</span>
