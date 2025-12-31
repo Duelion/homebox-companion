@@ -184,25 +184,25 @@ class ChatSession:
         """
         limit = max_messages or settings.chat_max_history
         recent_messages = self.messages[-limit:] if limit else self.messages
-        
+
         result = []
         for i, msg in enumerate(recent_messages):
             formatted = msg.to_llm_format()
-            
+
             # Compress tool results older than last 3 turns (6 messages: 3 user + 3 assistant)
             turns_from_end = (len(recent_messages) - i) // 2
             if msg.role == "tool" and turns_from_end > 3:
                 formatted["content"] = self._compress_tool_result(formatted["content"])
-            
+
             result.append(formatted)
         return result
 
     def _compress_tool_result(self, content: str) -> str:
         """Compress a tool result to a summary for older messages.
-        
+
         Args:
             content: The JSON-encoded tool result content
-            
+
         Returns:
             Compressed summary string
         """

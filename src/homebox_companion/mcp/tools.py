@@ -35,27 +35,37 @@ def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
     """Extract minimal fields from an item for compact responses.
 
     This reduces payload size significantly when full details aren't needed.
+    Includes a pre-computed URL field for markdown link generation.
 
     Args:
         item: Full item dictionary
 
     Returns:
-        Compact item with only essential fields
+        Compact item with only essential fields plus URL
     """
+    from ..core.config import settings
+
     location = item.get("location", {})
     location_name = location.get("name") if location else None
+    location_id = location.get("id") if location else None
 
     # Handle None or missing description safely
     description = item.get("description") or ""
     truncated_desc = description[:100] + ("..." if len(description) > 100 else "")
 
+    item_id = item.get("id")
+    base_url = settings.effective_link_base_url
+
     return {
-        "id": item.get("id"),
+        "id": item_id,
         "name": item.get("name"),
         "description": truncated_desc,
         "quantity": item.get("quantity"),
         "location": location_name,
+        "location_id": location_id,
+        "location_url": f"{base_url}/location/{location_id}" if location_id else None,
         "assetId": item.get("assetId"),
+        "url": f"{base_url}/item/{item_id}" if item_id else None,
     }
 
 

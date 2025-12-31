@@ -232,7 +232,8 @@ class TestListItems:
         ]
         mock_client.list_items.return_value = mock_items
 
-        result = await tools.list_items("test-token")
+        # Use compact=False to get raw items without transformation
+        result = await tools.list_items("test-token", compact=False)
 
         assert result.success is True
         assert result.data == mock_items

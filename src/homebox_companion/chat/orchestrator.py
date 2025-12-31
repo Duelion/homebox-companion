@@ -51,12 +51,22 @@ class ChatEvent:
 
 
 # System prompt for the assistant (compressed for token efficiency)
-SYSTEM_PROMPT = """Homebox inventory assistant. Base: {homebox_url}
+SYSTEM_PROMPT = """Homebox inventory assistant.
 
-TOOLS: search_items(simple queries) | list_items(compact: id,name,loc) | get_item(full details) | get_statistics(counts)
+TOOLS:
+- search_items(simple queries)
+- list_items(compact: id,name,loc)
+- get_item(full details)
+- get_statistics(counts)
+
 No tools for greetings/chitchat.
 
-FORMAT: [Name]({homebox_url}/item/ID) | Top 5 + count if many | Suggest simpler term if no results.
+FORMAT:
+- Present items as a bullet-point list, one item per line
+- Use markdown links: [Item Name](url) - where 'url' comes from the tool result
+- For locations: [Location Name](location_url) - use the location_url field
+- Show top 5 items + total count if there are many results
+- Suggest simpler search terms if no results found
 Be concise."""
 
 # Maximum recursion depth for tool call continuations
@@ -77,11 +87,11 @@ def invalidate_tool_cache() -> None:
 def _build_litellm_tools() -> list[dict[str, Any]]:
     """Build tool definitions in Litellm/OpenAI format with caching."""
     global _tool_cache
-    
+
     # Return cached tools if still valid
     if _tool_cache and (time.time() - _tool_cache[1]) < _TOOL_CACHE_TTL:
         return _tool_cache[0]
-    
+
     metadata = HomeboxMCPTools.get_tool_metadata()
     tools = []
 
@@ -263,13 +273,10 @@ class ChatOrchestrator:
         self.session.add_message(ChatMessage(role="user", content=user_message))
 
         # Build messages for LLM
-        system_prompt = SYSTEM_PROMPT.format(
-            homebox_url=settings.effective_link_base_url,
-        )
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
         # TRACE: Log the full system prompt
-        logger.trace(f"[CHAT] System prompt:\n{system_prompt}")
+        logger.trace(f"[CHAT] System prompt:\n{SYSTEM_PROMPT}")
 
         # Get conversation history
         history = self.session.get_history()
@@ -429,7 +436,7 @@ class ChatOrchestrator:
                     continue
 
                 choice = chunk.choices[0]
-                
+
                 # Handle content from delta (standard streaming)
                 if hasattr(choice, 'delta') and choice.delta:
                     delta = choice.delta
@@ -465,16 +472,27 @@ class ChatOrchestrator:
                         # Only add if we haven't seen this content yet (avoid duplicates)
                         if message.content not in content_chunks:
                             content_chunks.append(message.content)
-                            yield ChatEvent(type=ChatEventType.TEXT, data={"content": message.content})
-                    
+                            yield ChatEvent(
+                                type=ChatEventType.TEXT,
+                                data={"content": message.content}
+                            )
+
                     # Also check for tool calls in message
                     if hasattr(message, 'tool_calls') and message.tool_calls:
                         for idx, tc in enumerate(message.tool_calls):
                             if idx not in tool_call_chunks:
                                 tool_call_chunks[idx] = {
                                     "id": tc.id if hasattr(tc, 'id') else "",
-                                    "name": tc.function.name if hasattr(tc, 'function') and tc.function else "",
-                                    "arguments": tc.function.arguments if hasattr(tc, 'function') and tc.function else ""
+                                    "name": (
+                                        tc.function.name
+                                        if hasattr(tc, "function") and tc.function
+                                        else ""
+                                    ),
+                                    "arguments": (
+                                        tc.function.arguments
+                                        if hasattr(tc, "function") and tc.function
+                                        else ""
+                                    ),
                                 }
 
                 # Capture usage info from chunk
@@ -709,10 +727,7 @@ class ChatOrchestrator:
         Yields:
             Additional chat events
         """
-        system_prompt = SYSTEM_PROMPT.format(
-            homebox_url=settings.effective_link_base_url,
-        )
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         messages.extend(self.session.get_history())
 
         try:

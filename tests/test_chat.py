@@ -608,7 +608,6 @@ class TestChatOrchestrator:
         self, mock_client: MagicMock, session: ChatSession
     ):
         """Orchestrator should stop after MAX_TOOL_RECURSION_DEPTH iterations."""
-        from homebox_companion.chat.orchestrator import MAX_TOOL_RECURSION_DEPTH
 
         orchestrator = ChatOrchestrator(mock_client, session)
 

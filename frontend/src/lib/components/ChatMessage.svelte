@@ -158,17 +158,9 @@
             })}
         </time>
         {#if !isUser && message.tokenUsage}
-            <details class="inline text-xs text-neutral-500">
-                <summary
-                    class="cursor-pointer hover:text-neutral-400 select-none"
-                >
-                    📊 {message.tokenUsage.total} tokens
-                </summary>
-                <span class="text-neutral-600 ml-1">
-                    (prompt: {message.tokenUsage.prompt}, completion: {message
-                        .tokenUsage.completion})
-                </span>
-            </details>
+            <span class="text-xs text-neutral-500">
+                ▶ {message.tokenUsage.total} tokens
+            </span>
         {/if}
     </div>
 </div>
