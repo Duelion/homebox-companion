@@ -170,7 +170,10 @@ class ChatSession:
             logger.trace(f"[SESSION] {message.role} message: {content_preview}")
 
     def get_history(self, max_messages: int | None = None) -> list[dict[str, Any]]:
-        """Get conversation history in LLM format.
+        """Get conversation history in LLM format with compression for older messages.
+
+        Tool results older than 3 conversation turns are compressed to summaries
+        to reduce context window usage while preserving recent context fidelity.
 
         Args:
             max_messages: Maximum number of messages to return.
@@ -181,7 +184,41 @@ class ChatSession:
         """
         limit = max_messages or settings.chat_max_history
         recent_messages = self.messages[-limit:] if limit else self.messages
-        return [msg.to_llm_format() for msg in recent_messages]
+        
+        result = []
+        for i, msg in enumerate(recent_messages):
+            formatted = msg.to_llm_format()
+            
+            # Compress tool results older than last 3 turns (6 messages: 3 user + 3 assistant)
+            turns_from_end = (len(recent_messages) - i) // 2
+            if msg.role == "tool" and turns_from_end > 3:
+                formatted["content"] = self._compress_tool_result(formatted["content"])
+            
+            result.append(formatted)
+        return result
+
+    def _compress_tool_result(self, content: str) -> str:
+        """Compress a tool result to a summary for older messages.
+        
+        Args:
+            content: The JSON-encoded tool result content
+            
+        Returns:
+            Compressed summary string
+        """
+        try:
+            data = json.loads(content)
+            if data.get("success"):
+                result_data = data.get("data")
+                if isinstance(result_data, list):
+                    return json.dumps({"success": True, "_summary": f"{len(result_data)} items returned"})
+                elif isinstance(result_data, dict):
+                    # For single items, just note it was retrieved
+                    name = result_data.get("name", "item")
+                    return json.dumps({"success": True, "_summary": f"Retrieved: {name}"})
+            return content[:200] + "..." if len(content) > 200 else content
+        except (json.JSONDecodeError, TypeError):
+            return content[:200] + "..." if len(content) > 200 else content
 
     def add_pending_approval(self, approval: PendingApproval) -> None:
         """Add a pending approval request.

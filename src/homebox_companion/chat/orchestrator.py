@@ -50,36 +50,38 @@ class ChatEvent:
         return f"event: {self.type.value}\ndata: {json.dumps(self.data)}\n\n"
 
 
-# System prompt for the assistant
-SYSTEM_PROMPT = """You are a helpful inventory assistant for Homebox.
-Base URL: {homebox_url}
+# System prompt for the assistant (compressed for token efficiency)
+SYSTEM_PROMPT = """Homebox inventory assistant. Base: {homebox_url}
 
-WHEN TO USE TOOLS:
-- Greetings, thanks, chitchat → Respond directly (no tools)
-- "How many items/locations?" → Use get_statistics (fast)
-- Inventory questions → Use appropriate tool, then answer
+TOOLS: search_items(simple queries) | list_items(compact: id,name,loc) | get_item(full details) | get_statistics(counts)
+No tools for greetings/chitchat.
 
-TOOL TIPS:
-- search_items: Start with simple query like "wire" not complex OR queries
-- list_items/search_items: Results are compact by default (id, name, location)
-- Use get_item only when user needs full details
-
-FORMATTING:
-- Links: [ItemName]({homebox_url}/item/ID) or [Location]({homebox_url}/location/ID)
-- Many results: Show count + top 5, offer to show more
-- No results: Say so + suggest ONE simpler search term
-
-Keep responses concise but complete."""
+FORMAT: [Name]({homebox_url}/item/ID) | Top 5 + count if many | Suggest simpler term if no results.
+Be concise."""
 
 # Maximum recursion depth for tool call continuations
 # Prevents infinite loops if LLM keeps making tool calls
 MAX_TOOL_RECURSION_DEPTH = 10
 
+# Tool cache with TTL for performance
+_tool_cache: tuple[list[dict[str, Any]], float] | None = None
+_TOOL_CACHE_TTL = 300  # 5 minutes
 
+
+def invalidate_tool_cache() -> None:
+    """Invalidate the tool cache. Call after write operations."""
+    global _tool_cache
+    _tool_cache = None
 
 
 def _build_litellm_tools() -> list[dict[str, Any]]:
-    """Build tool definitions in Litellm/OpenAI format."""
+    """Build tool definitions in Litellm/OpenAI format with caching."""
+    global _tool_cache
+    
+    # Return cached tools if still valid
+    if _tool_cache and (time.time() - _tool_cache[1]) < _TOOL_CACHE_TTL:
+        return _tool_cache[0]
+    
     metadata = HomeboxMCPTools.get_tool_metadata()
     tools = []
 
@@ -97,6 +99,8 @@ def _build_litellm_tools() -> list[dict[str, Any]]:
             },
         })
 
+    _tool_cache = (tools, time.time())
+    logger.debug(f"Built and cached {len(tools)} tool definitions")
     return tools
 
 

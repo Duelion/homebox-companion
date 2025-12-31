@@ -26,6 +26,10 @@ from ..homebox.client import HomeboxClient
 # Sentinel value to distinguish "not provided" from "explicitly None"
 _UNSET: Any = object()
 
+# Truncation limits for tool results (reduces context window usage)
+MAX_RESULT_ITEMS = 10  # Maximum items in list results
+MAX_RESULT_CHARS = 4000  # Maximum characters for string data
+
 
 def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
     """Extract minimal fields from an item for compact responses.
@@ -81,10 +85,21 @@ class ToolResult:
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for MCP response."""
+        """Convert to dictionary for MCP response with truncation."""
         if self.success:
-            return {"success": True, "data": self.data}
+            return {"success": True, "data": self._truncate_data(self.data)}
         return {"success": False, "error": self.error}
+
+    def _truncate_data(self, data: Any) -> Any:
+        """Truncate large data to reduce context window usage."""
+        if isinstance(data, list) and len(data) > MAX_RESULT_ITEMS:
+            return {
+                "items": data[:MAX_RESULT_ITEMS],
+                "_truncated": True,
+                "_total": len(data),
+                "_showing": MAX_RESULT_ITEMS,
+            }
+        return data
 
 
 @dataclass
