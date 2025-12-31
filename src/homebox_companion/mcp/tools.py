@@ -12,6 +12,8 @@ Tool Classification:
 
 from __future__ import annotations
 
+import base64
+import binascii
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -19,6 +21,9 @@ from typing import Any
 from loguru import logger
 
 from ..homebox.client import HomeboxClient
+
+# Sentinel value to distinguish "not provided" from "explicitly None"
+_UNSET: Any = object()
 
 
 def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
@@ -535,6 +540,188 @@ class HomeboxMCPTools:
             logger.error(f"delete_item failed for {item_id}: {e}")
             return ToolResult(success=False, error=str(e))
 
+    async def create_location(
+        self,
+        token: str,
+        *,
+        name: str,
+        description: str = "",
+        parent_id: str | None = None,
+    ) -> ToolResult:
+        """Create a new location in Homebox.
+
+        Args:
+            token: Homebox auth token
+            name: Name of the location
+            description: Optional description
+            parent_id: Optional parent location ID for nesting
+
+        Returns:
+            ToolResult with created location data
+        """
+        try:
+            result = await self.client.create_location(
+                token,
+                name=name,
+                description=description,
+                parent_id=parent_id,
+            )
+            logger.info(f"create_location created location: {result.get('name', 'unknown')}")
+            return ToolResult(success=True, data=result)
+        except Exception as e:
+            logger.error(f"create_location failed: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    async def update_location(
+        self,
+        token: str,
+        *,
+        location_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        parent_id: str | None = _UNSET,
+    ) -> ToolResult:
+        """Update an existing location.
+
+        Args:
+            token: Homebox auth token
+            location_id: ID of the location to update
+            name: Optional new name
+            description: Optional new description
+            parent_id: New parent location ID, or None to make top-level
+
+        Returns:
+            ToolResult with updated location data
+        """
+        try:
+            # First get the current location to preserve fields
+            current = await self.client.get_location(token, location_id)
+
+            # Determine parent_id: use provided value, or keep current if unset
+            if parent_id is _UNSET:
+                resolved_parent_id = current.get("parent", {}).get("id")
+            else:
+                resolved_parent_id = parent_id  # Could be None (make top-level)
+
+            # Use current values for fields not being updated
+            result = await self.client.update_location(
+                token,
+                location_id=location_id,
+                name=name if name is not None else current.get("name", ""),
+                description=description if description is not None else current.get("description", ""),
+                parent_id=resolved_parent_id,
+            )
+            logger.info(f"update_location updated location: {result.get('name', 'unknown')}")
+            return ToolResult(success=True, data=result)
+        except Exception as e:
+            logger.error(f"update_location failed for {location_id}: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    async def get_attachment(
+        self,
+        token: str,
+        *,
+        item_id: str,
+        attachment_id: str,
+    ) -> ToolResult:
+        """Get an attachment's content by ID.
+
+        Args:
+            token: Homebox auth token
+            item_id: ID of the item the attachment belongs to
+            attachment_id: ID of the attachment to fetch
+
+        Returns:
+            ToolResult with attachment content (base64 encoded) and content type
+        """
+        try:
+            content_bytes, content_type = await self.client.get_attachment(
+                token, item_id, attachment_id
+            )
+            # Encode bytes as base64 for JSON transport
+            encoded = base64.b64encode(content_bytes).decode("utf-8")
+            logger.debug(f"get_attachment fetched {len(content_bytes)} bytes")
+            return ToolResult(
+                success=True,
+                data={
+                    "content_base64": encoded,
+                    "content_type": content_type,
+                    "size_bytes": len(content_bytes),
+                },
+            )
+        except FileNotFoundError:
+            return ToolResult(success=False, error="Attachment not found")
+        except Exception as e:
+            logger.error(f"get_attachment failed for {attachment_id}: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    async def upload_attachment(
+        self,
+        token: str,
+        *,
+        item_id: str,
+        file_base64: str,
+        filename: str,
+        mime_type: str = "image/jpeg",
+        attachment_type: str = "photo",
+    ) -> ToolResult:
+        """Upload an attachment to an item.
+
+        Args:
+            token: Homebox auth token
+            item_id: ID of the item to attach to
+            file_base64: File content as base64 encoded string
+            filename: Name for the uploaded file
+            mime_type: MIME type of the file (default: image/jpeg)
+            attachment_type: Type of attachment: 'photo', 'manual', 'warranty', etc.
+
+        Returns:
+            ToolResult with created attachment data
+        """
+        try:
+            file_bytes = base64.b64decode(file_base64)
+        except binascii.Error as e:
+            logger.error(f"upload_attachment invalid base64: {e}")
+            return ToolResult(success=False, error=f"Invalid base64 encoding: {e}")
+
+        try:
+            result = await self.client.upload_attachment(
+                token,
+                item_id=item_id,
+                file_bytes=file_bytes,
+                filename=filename,
+                mime_type=mime_type,
+                attachment_type=attachment_type,
+            )
+            logger.info(f"upload_attachment uploaded {filename} to item {item_id}")
+            return ToolResult(success=True, data=result)
+        except Exception as e:
+            logger.error(f"upload_attachment failed for item {item_id}: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    async def ensure_asset_ids(
+        self,
+        token: str,
+    ) -> ToolResult:
+        """Ensure all items have asset IDs assigned.
+
+        Assigns sequential asset IDs to all items that don't currently have one.
+        This is idempotent - items that already have asset IDs are not affected.
+
+        Args:
+            token: Homebox auth token
+
+        Returns:
+            ToolResult with count of items that were assigned asset IDs
+        """
+        try:
+            count = await self.client.ensure_asset_ids(token)
+            logger.info(f"ensure_asset_ids assigned IDs to {count} items")
+            return ToolResult(success=True, data={"items_updated": count})
+        except Exception as e:
+            logger.error(f"ensure_asset_ids failed: {e}")
+            return ToolResult(success=False, error=str(e))
+
     @classmethod
     def get_tool_metadata(cls) -> dict[str, dict[str, Any]]:
         """Return metadata for all available tools.
@@ -833,4 +1020,127 @@ class HomeboxMCPTools:
                     "required": ["item_id"],
                 },
             },
+            # Location write tools
+            "create_location": {
+                "description": "Create a new location in the inventory",
+                "permission": ToolPermission.WRITE,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Name of the location",
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Optional description of the location",
+                        },
+                        "parent_id": {
+                            "type": "string",
+                            "description": "Optional parent location ID for nesting",
+                        },
+                    },
+                    "required": ["name"],
+                },
+            },
+            "update_location": {
+                "description": (
+                    "Update an existing location's name, description, or parent. "
+                    "Use this to rename locations, add/edit descriptions, or reorganize the location hierarchy."
+                ),
+                "permission": ToolPermission.WRITE,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location_id": {
+                            "type": "string",
+                            "description": "ID of the location to update",
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "New name for the location",
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "New description for the location",
+                        },
+                        "parent_id": {
+                            "type": "string",
+                            "description": "New parent location ID (or null to make top-level)",
+                        },
+                    },
+                    "required": ["location_id"],
+                },
+            },
+            # Attachment tools
+            "get_attachment": {
+                "description": (
+                    "Get an attachment's content by ID. Returns the file as "
+                    "base64 encoded data along with content type."
+                ),
+                "permission": ToolPermission.READ,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "item_id": {
+                            "type": "string",
+                            "description": "ID of the item the attachment belongs to",
+                        },
+                        "attachment_id": {
+                            "type": "string",
+                            "description": "ID of the attachment to fetch",
+                        },
+                    },
+                    "required": ["item_id", "attachment_id"],
+                },
+            },
+            "upload_attachment": {
+                "description": (
+                    "Upload an attachment (image, manual, etc.) to an item. "
+                    "File content must be base64 encoded."
+                ),
+                "permission": ToolPermission.WRITE,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "item_id": {
+                            "type": "string",
+                            "description": "ID of the item to attach to",
+                        },
+                        "file_base64": {
+                            "type": "string",
+                            "description": "File content as base64 encoded string",
+                        },
+                        "filename": {
+                            "type": "string",
+                            "description": "Name for the uploaded file",
+                        },
+                        "mime_type": {
+                            "type": "string",
+                            "description": "MIME type of the file (default: image/jpeg)",
+                            "default": "image/jpeg",
+                        },
+                        "attachment_type": {
+                            "type": "string",
+                            "description": "Type of attachment: 'photo', 'manual', 'warranty', 'receipt', 'attachment'",
+                            "default": "photo",
+                        },
+                    },
+                    "required": ["item_id", "file_base64", "filename"],
+                },
+            },
+            # Action tools
+            "ensure_asset_ids": {
+                "description": (
+                    "Ensure all items have asset IDs assigned. Assigns sequential "
+                    "asset IDs to items that don't have one. Idempotent - existing "
+                    "asset IDs are not changed."
+                ),
+                "permission": ToolPermission.WRITE,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
         }
+
