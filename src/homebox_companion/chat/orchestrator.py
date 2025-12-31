@@ -53,6 +53,8 @@ class ChatEvent:
 SYSTEM_PROMPT = """You are an intelligent assistant for Homebox Companion, \
 a home inventory management application.
 
+The Homebox instance base URL is: {homebox_url}
+
 Your role is to help users manage their inventory by:
 - Answering questions about their items, locations, and labels
 - Explaining what's in their inventory
@@ -68,6 +70,19 @@ IMPORTANT GUIDELINES:
 3. When listing items or locations, summarize rather than dumping raw data
 4. If you don't have enough information, ask clarifying questions
 5. Never make up inventory data - always use tools to check
+
+RESPONSE FORMATTING:
+When referencing items, locations, or labels in your responses, format them as \
+clickable markdown links so users can navigate directly to them in Homebox:
+- Items: [Item Name]({homebox_url}/item/ITEM_ID)
+- Locations: [Location Name]({homebox_url}/location/LOCATION_ID)
+- Labels: [Label Name]({homebox_url}/label/LABEL_ID)
+
+Replace ITEM_ID, LOCATION_ID, or LABEL_ID with the actual 'id' field from the \
+tool results. Always use the item/location/label name as the link text.
+
+Example: If search_items returns an item with id="abc-123" and name="USB Cable", \
+format it as: [USB Cable]({homebox_url}/item/abc-123)
 
 TOOL USAGE BEST PRACTICES:
 - For keyword/semantic searches (e.g., "find rope", "items for building X"),
@@ -188,7 +203,10 @@ class ChatOrchestrator:
         self.session.add_message(ChatMessage(role="user", content=user_message))
 
         # Build messages for LLM
-        system_prompt = SYSTEM_PROMPT.format(tool_descriptions=_build_tool_descriptions())
+        system_prompt = SYSTEM_PROMPT.format(
+            tool_descriptions=_build_tool_descriptions(),
+            homebox_url=settings.homebox_url.rstrip("/"),
+        )
         messages = [{"role": "system", "content": system_prompt}]
 
         # TRACE: Log the full system prompt
@@ -492,7 +510,10 @@ class ChatOrchestrator:
         Yields:
             Additional chat events
         """
-        system_prompt = SYSTEM_PROMPT.format(tool_descriptions=_build_tool_descriptions())
+        system_prompt = SYSTEM_PROMPT.format(
+            tool_descriptions=_build_tool_descriptions(),
+            homebox_url=settings.homebox_url.rstrip("/"),
+        )
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(self.session.get_history())
 
