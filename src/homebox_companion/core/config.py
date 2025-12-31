@@ -124,7 +124,7 @@ class Settings(BaseSettings):
     chat_enabled: bool = True  # Enable the conversational assistant
     chat_max_history: int = 20  # Max messages in conversation context
     chat_approval_timeout: int = 300  # Seconds before pending approvals expire
-    chat_max_response_tokens: int = 500  # Limit LLM response length
+    chat_max_response_tokens: int = 0  # 0 = no limit (LLM decides naturally)
 
     @computed_field
     @property

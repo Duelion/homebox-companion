@@ -381,6 +381,8 @@ class TestChatOrchestrator:
             chunk1 = MagicMock()
             chunk1.choices = [MagicMock()]
             chunk1.choices[0].delta.content = "I can help "
+            chunk1.choices[0].delta.tool_calls = None
+            chunk1.choices[0].message = None  # No message field
             chunk1.usage = None
             yield chunk1
 
@@ -388,6 +390,8 @@ class TestChatOrchestrator:
             chunk2 = MagicMock()
             chunk2.choices = [MagicMock()]
             chunk2.choices[0].delta.content = "with that!"
+            chunk2.choices[0].delta.tool_calls = None
+            chunk2.choices[0].message = None  # No message field
             chunk2.usage = None
             yield chunk2
 
@@ -396,6 +400,7 @@ class TestChatOrchestrator:
             chunk3.choices = [MagicMock()]
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
+            chunk3.choices[0].message = None  # No message field
             chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk3
 
@@ -423,6 +428,7 @@ class TestChatOrchestrator:
             chunk.choices = [MagicMock()]
             chunk.choices[0].delta.content = "Done"
             chunk.choices[0].delta.tool_calls = None
+            chunk.choices[0].message = None  # No message field
             chunk.usage = None
             yield chunk
 
@@ -493,6 +499,7 @@ class TestChatOrchestrator:
             chunk1.choices[0].delta.tool_calls[0].function = MagicMock()
             chunk1.choices[0].delta.tool_calls[0].function.name = tool_name
             chunk1.choices[0].delta.tool_calls[0].function.arguments = ""
+            chunk1.choices[0].message = None
             chunk1.usage = None
             yield chunk1
 
@@ -506,6 +513,7 @@ class TestChatOrchestrator:
             chunk2.choices[0].delta.tool_calls[0].function = MagicMock()
             chunk2.choices[0].delta.tool_calls[0].function.name = None
             chunk2.choices[0].delta.tool_calls[0].function.arguments = json.dumps(tool_args)
+            chunk2.choices[0].message = None
             chunk2.usage = None
             yield chunk2
 
@@ -514,6 +522,7 @@ class TestChatOrchestrator:
             chunk3.choices = [MagicMock()]
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
+            chunk3.choices[0].message = None
             chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk3
 
@@ -524,6 +533,7 @@ class TestChatOrchestrator:
             chunk1.choices = [MagicMock()]
             chunk1.choices[0].delta.content = text
             chunk1.choices[0].delta.tool_calls = None
+            chunk1.choices[0].message = None
             chunk1.usage = None
             yield chunk1
 
@@ -532,6 +542,7 @@ class TestChatOrchestrator:
             chunk2.choices = [MagicMock()]
             chunk2.choices[0].delta.content = None
             chunk2.choices[0].delta.tool_calls = None
+            chunk2.choices[0].message = None
             chunk2.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk2
 
@@ -622,6 +633,7 @@ class TestChatOrchestrator:
             chunk1.choices[0].delta.tool_calls[0].function = MagicMock()
             chunk1.choices[0].delta.tool_calls[0].function.name = "list_locations"
             chunk1.choices[0].delta.tool_calls[0].function.arguments = ""
+            chunk1.choices[0].message = None
             chunk1.usage = None
             yield chunk1
 
@@ -635,6 +647,7 @@ class TestChatOrchestrator:
             chunk2.choices[0].delta.tool_calls[0].function = MagicMock()
             chunk2.choices[0].delta.tool_calls[0].function.name = None
             chunk2.choices[0].delta.tool_calls[0].function.arguments = "{}"
+            chunk2.choices[0].message = None
             chunk2.usage = None
             yield chunk2
 
@@ -643,6 +656,7 @@ class TestChatOrchestrator:
             chunk3.choices = [MagicMock()]
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
+            chunk3.choices[0].message = None
             chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk3
 

@@ -244,7 +244,7 @@ class HomeboxMCPTools:
         label_ids: list[str] | None = None,
         page: int | None = None,
         page_size: int = 50,
-        compact: bool = False,
+        compact: bool = True,
     ) -> ToolResult:
         """List items with optional filtering and pagination.
 
@@ -254,8 +254,8 @@ class HomeboxMCPTools:
             label_ids: Optional list of label IDs to filter by
             page: Optional page number (1-indexed)
             page_size: Number of items per page (default 50)
-            compact: If True, return only essential fields (id, name, location,
-                quantity) to reduce payload size
+            compact: Return only essential fields by default (id, name, location,
+                quantity). Set to False for full item details.
 
         Returns:
             ToolResult with list of item dicts
@@ -286,7 +286,7 @@ class HomeboxMCPTools:
         *,
         query: str,
         limit: int = 50,
-        compact: bool = False,
+        compact: bool = True,
     ) -> ToolResult:
         """Search items by text query.
 
@@ -297,8 +297,8 @@ class HomeboxMCPTools:
             token: Homebox auth token
             query: Search query string (searches name, description, etc.)
             limit: Maximum number of results to return (default 50)
-            compact: If True, return only essential fields (id, name, location,
-                quantity) to reduce payload size
+            compact: Return only essential fields by default (id, name, location,
+                quantity). Set to False for full item details.
 
         Returns:
             ToolResult with list of matching item dicts
@@ -895,7 +895,7 @@ class HomeboxMCPTools:
                                 "(id, name, location, quantity) to reduce payload "
                                 "size. Use when you don't need full item details."
                             ),
-                            "default": False,
+                            "default": True,
                         },
                     },
                 },
@@ -930,7 +930,7 @@ class HomeboxMCPTools:
                                 "(id, name, location, quantity) to reduce payload "
                                 "size. Use when you don't need full item details."
                             ),
-                            "default": False,
+                            "default": True,
                         },
                     },
                     "required": ["query"],
