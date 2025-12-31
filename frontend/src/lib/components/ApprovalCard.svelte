@@ -51,151 +51,125 @@
     });
 </script>
 
-<div class="approval-card" class:expired={approval.is_expired}>
-    <div class="header">
-        <span class="icon">⚠️</span>
-        <span class="title">Action Approval Required</span>
+<div
+    class="overflow-hidden rounded-2xl border backdrop-blur-lg shadow-lg my-2 transition-all duration-200
+        {approval.is_expired
+        ? 'bg-neutral-900/60 border-neutral-700/50 opacity-60'
+        : 'bg-warning-500/10 border-warning-500/30'}"
+>
+    <!-- Header -->
+    <div
+        class="flex items-center gap-3 px-4 py-3 border-b {approval.is_expired
+            ? 'border-neutral-700/50'
+            : 'border-warning-500/20'}"
+    >
+        <svg
+            class="w-5 h-5 shrink-0 {approval.is_expired
+                ? 'text-neutral-500'
+                : 'text-warning-500'}"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+        </svg>
+        <span
+            class="flex-1 text-sm font-semibold {approval.is_expired
+                ? 'text-neutral-400'
+                : 'text-warning-500'}"
+        >
+            Action Approval Required
+        </span>
+        {#if expiresInSeconds !== null}
+            <span
+                class="text-xs font-medium px-2 py-1 rounded-lg {approval.is_expired
+                    ? 'bg-neutral-800 text-neutral-500'
+                    : 'bg-warning-500/20 text-warning-500'}"
+            >
+                {expiresInSeconds > 0 ? `${expiresInSeconds}s` : "Expired"}
+            </span>
+        {/if}
     </div>
 
-    <div class="details">
-        <div class="tool-name">
-            <strong>Tool:</strong>
-            <code>{approval.tool_name}</code>
+    <!-- Details -->
+    <div class="px-4 py-3 space-y-3">
+        <div class="flex items-center gap-2">
+            <span
+                class="text-xs font-medium text-neutral-400 uppercase tracking-wide"
+                >Tool</span
+            >
+            <code
+                class="px-2 py-1 text-sm font-mono bg-neutral-800/80 text-neutral-200 rounded-lg border border-neutral-700/50"
+            >
+                {approval.tool_name}
+            </code>
         </div>
 
         {#if Object.keys(approval.parameters).length > 0}
-            <div class="parameters">
-                <strong>Parameters:</strong>
-                <pre>{JSON.stringify(approval.parameters, null, 2)}</pre>
-            </div>
-        {/if}
-
-        {#if expiresInSeconds !== null}
-            <div class="expiry">
-                {expiresInSeconds > 0
-                    ? `Expires in ${expiresInSeconds}s`
-                    : "Expired"}
+            <div class="space-y-1.5">
+                <span
+                    class="text-xs font-medium text-neutral-400 uppercase tracking-wide"
+                    >Parameters</span
+                >
+                <pre
+                    class="p-3 text-xs font-mono bg-neutral-900/80 text-neutral-300 rounded-xl border border-neutral-700/50 overflow-x-auto max-h-24">{JSON.stringify(
+                        approval.parameters,
+                        null,
+                        2,
+                    )}</pre>
             </div>
         {/if}
     </div>
 
-    <div class="actions">
+    <!-- Actions -->
+    <div
+        class="flex gap-2 px-4 py-3 border-t {approval.is_expired
+            ? 'border-neutral-700/50'
+            : 'border-warning-500/20'}"
+    >
         <button
-            class="reject"
+            class="flex-1 btn btn-secondary text-sm py-2"
             onclick={handleReject}
             disabled={isProcessing || approval.is_expired}
         >
-            Reject
+            {#if isProcessing}
+                <span class="loading-spinner"></span>
+            {:else}
+                Reject
+            {/if}
         </button>
         <button
-            class="approve"
+            class="flex-1 btn btn-warning text-sm py-2"
             onclick={handleApprove}
             disabled={isProcessing || approval.is_expired}
         >
-            Approve
+            {#if isProcessing}
+                <span class="loading-spinner"></span>
+            {:else}
+                Approve
+            {/if}
         </button>
     </div>
 </div>
 
 <style>
-    .approval-card {
-        background: var(--color-warning-bg, #fef3c7);
-        border: 1px solid var(--color-warning-border, #f59e0b);
-        border-radius: 0.75rem;
-        padding: 1rem;
-        margin: 0.5rem 0;
+    .loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
     }
 
-    .approval-card.expired {
-        opacity: 0.5;
-        background: var(--color-surface, #f3f4f6);
-        border-color: var(--color-border, #e5e7eb);
-    }
-
-    .header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .icon {
-        font-size: 1.25rem;
-    }
-
-    .title {
-        font-weight: 600;
-        color: var(--color-warning-text, #92400e);
-    }
-
-    .details {
-        font-size: 0.875rem;
-        color: var(--color-text, #1f2937);
-    }
-
-    .tool-name {
-        margin-bottom: 0.5rem;
-    }
-
-    code {
-        background: rgba(0, 0, 0, 0.1);
-        padding: 0.125rem 0.375rem;
-        border-radius: 0.25rem;
-        font-family: monospace;
-    }
-
-    .parameters pre {
-        background: rgba(0, 0, 0, 0.05);
-        padding: 0.5rem;
-        border-radius: 0.25rem;
-        margin: 0.25rem 0 0;
-        font-size: 0.75rem;
-        overflow-x: auto;
-        max-height: 100px;
-    }
-
-    .expiry {
-        color: var(--color-warning-text, #92400e);
-        font-size: 0.75rem;
-        margin-top: 0.5rem;
-    }
-
-    .actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 0.75rem;
-    }
-
-    button {
-        flex: 1;
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 0.5rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: opacity 0.2s;
-    }
-
-    button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .reject {
-        background: var(--color-surface, #f3f4f6);
-        color: var(--color-text, #1f2937);
-    }
-
-    .approve {
-        background: var(--color-primary, #3b82f6);
-        color: white;
-    }
-
-    .reject:hover:not(:disabled) {
-        background: var(--color-border, #e5e7eb);
-    }
-
-    .approve:hover:not(:disabled) {
-        background: var(--color-primary-dark, #2563eb);
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
     }
 </style>

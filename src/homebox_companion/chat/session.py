@@ -6,6 +6,7 @@ including message history and pending approval tracking.
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -58,7 +59,7 @@ class ChatMessage:
                     "type": "function",
                     "function": {
                         "name": tc.name,
-                        "arguments": str(tc.arguments),
+                        "arguments": json.dumps(tc.arguments),
                     },
                 }
                 for tc in self.tool_calls

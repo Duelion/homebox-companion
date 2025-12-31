@@ -186,6 +186,7 @@ class ChatOrchestrator:
         # Handle tool calls
         parsed_tool_calls = []
         if tool_calls:
+            # First, parse all tool calls
             for tc in tool_calls:
                 tool_name = tc.function.name
                 try:
@@ -198,6 +199,22 @@ class ChatOrchestrator:
                     name=tool_name,
                     arguments=tool_args,
                 ))
+
+            # IMPORTANT: Add assistant message with tool_calls BEFORE executing tools
+            # OpenAI API requires tool messages to follow an assistant message with tool_calls
+            self.session.add_message(ChatMessage(
+                role="assistant",
+                content=content,
+                tool_calls=parsed_tool_calls,
+            ))
+
+            # Now execute tools (which will add tool result messages)
+            for tc in tool_calls:
+                tool_name = tc.function.name
+                try:
+                    tool_args = json.loads(tc.function.arguments)
+                except json.JSONDecodeError:
+                    tool_args = {}
 
                 # Check tool permission
                 meta = self.tool_metadata.get(tool_name)
@@ -216,13 +233,13 @@ class ChatOrchestrator:
                     # Queue write tools for approval
                     async for event in self._queue_approval(tool_name, tool_args):
                         yield event
-
-        # Store assistant message with tool calls
-        self.session.add_message(ChatMessage(
-            role="assistant",
-            content=content,
-            tool_calls=parsed_tool_calls if parsed_tool_calls else None,
-        ))
+        else:
+            # No tool calls - just store the assistant message
+            self.session.add_message(ChatMessage(
+                role="assistant",
+                content=content,
+                tool_calls=None,
+            ))
 
         # If we had tool calls, we need to call LLM again to get final response
         if tool_calls:
