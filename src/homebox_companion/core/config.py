@@ -22,6 +22,9 @@ Environment Variables:
     HBC_CORS_ORIGINS: Allowed CORS origins, comma-separated or "*" for all (default: "*")
     HBC_IMAGE_QUALITY: Image quality for Homebox uploads (default: medium).
         Options: raw (original), high (2560px, 85%), medium (1920px, 75%), low (1280px, 60%)
+    HBC_CHAT_ENABLED: Enable the conversational assistant (default: true)
+    HBC_CHAT_MAX_HISTORY: Max messages in conversation context (default: 20)
+    HBC_CHAT_APPROVAL_TIMEOUT: Seconds before pending approvals expire (default: 300)
 
 AI Output Customization env vars (HBC_AI_*) are handled separately in
 field_preferences.py via FieldPreferencesDefaults.
@@ -116,6 +119,11 @@ class Settings(BaseSettings):
     rate_limit_rpm: int = 400  # Requests per minute (Tier 1 limit: 500)
     rate_limit_tpm: int = 400_000  # Tokens per minute (Tier 1 limit: 500k for gpt-5-mini)
     rate_limit_burst_multiplier: float = 1.5  # Burst capacity multiplier
+
+    # Chat/MCP configuration
+    chat_enabled: bool = True  # Enable the conversational assistant
+    chat_max_history: int = 20  # Max messages in conversation context
+    chat_approval_timeout: int = 300  # Seconds before pending approvals expire
 
     @computed_field
     @property
