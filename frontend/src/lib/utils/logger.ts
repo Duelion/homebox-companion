@@ -284,3 +284,4 @@ export const workflowLogger = createLogger({ prefix: 'ScanWorkflow' });
 export const settingsLogger = createLogger({ prefix: 'Settings' });
 export const authLogger = createLogger({ prefix: 'Auth' });
 export const qrLogger = createLogger({ prefix: 'QRScanner' });
+export const chatLogger = createLogger({ prefix: 'Chat' });

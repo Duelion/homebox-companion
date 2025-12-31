@@ -54,21 +54,24 @@ async def _event_generator(
     Yields:
         SSE formatted events
     """
+    import json
+    
     try:
         async for event in orchestrator.process_message(user_message, token):
+            # sse_starlette expects data as a string - must JSON-serialize dicts
             yield {
                 "event": event.type.value,
-                "data": event.data,
+                "data": json.dumps(event.data),
             }
     except Exception as e:
         logger.exception("Event generation failed")
         yield {
             "event": "error",
-            "data": {"message": str(e)},
+            "data": json.dumps({"message": str(e)}),
         }
         yield {
             "event": "done",
-            "data": {},
+            "data": json.dumps({}),
         }
 
 
