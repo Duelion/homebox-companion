@@ -66,7 +66,6 @@
     .message-container {
         display: flex;
         flex-direction: column;
-        margin-bottom: 1rem;
         max-width: 85%;
     }
 
@@ -88,19 +87,26 @@
     }
 
     .user .message-bubble {
-        background: var(--color-primary, #3b82f6);
+        background: linear-gradient(
+            135deg,
+            #4f46e5,
+            #6366f1
+        ); /* primary gradient */
         color: white;
         border-bottom-right-radius: 0.25rem;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
     }
 
     .assistant .message-bubble {
-        background: var(--color-surface, #f3f4f6);
-        color: var(--color-text, #1f2937);
+        background: #1e1e2e; /* neutral-800 */
+        color: #e2e8f0; /* neutral-200 */
         border-bottom-left-radius: 0.25rem;
+        border: 1px solid #2a2a3e; /* neutral-700 */
     }
 
     .message-bubble.streaming {
-        border: 1px solid var(--color-primary, #3b82f6);
+        border-color: #6366f1; /* primary-500 */
+        box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
     }
 
     .content {
@@ -110,7 +116,7 @@
 
     .timestamp {
         font-size: 0.75rem;
-        color: var(--color-text-muted, #6b7280);
+        color: #64748b; /* neutral-500 */
         margin-top: 0.25rem;
         padding: 0 0.5rem;
     }
@@ -125,7 +131,7 @@
     .typing-indicator span {
         width: 8px;
         height: 8px;
-        background: var(--color-text-muted, #6b7280);
+        background: #6366f1; /* primary-500 */
         border-radius: 50%;
         animation: bounce 1.4s infinite ease-in-out both;
     }
@@ -156,7 +162,7 @@
         gap: 0.5rem;
         margin-top: 0.5rem;
         padding-top: 0.5rem;
-        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .tool-result {
@@ -164,19 +170,21 @@
         align-items: center;
         gap: 0.25rem;
         padding: 0.25rem 0.5rem;
-        border-radius: 0.25rem;
+        border-radius: 0.5rem;
         font-size: 0.75rem;
         font-weight: 500;
     }
 
     .tool-result.success {
-        background: rgba(34, 197, 94, 0.2);
-        color: #16a34a;
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981; /* success-500 */
+        border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
     .tool-result.error {
-        background: rgba(239, 68, 68, 0.2);
-        color: #dc2626;
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444; /* error-500 */
+        border: 1px solid rgba(239, 68, 68, 0.3);
     }
 
     .tool-icon {
@@ -184,6 +192,6 @@
     }
 
     .tool-name {
-        font-family: monospace;
+        font-family: "JetBrains Mono", monospace;
     }
 </style>

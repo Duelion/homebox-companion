@@ -38,6 +38,29 @@ npm run check            # TypeScript validation
 
 ---
 
+## Build & Run Full App
+
+Build the frontend and run the server locally:
+
+```powershell
+# 1. Build frontend (from frontend/ directory)
+cd frontend
+npm ci
+npm run build
+
+# 2. Copy build to server static files
+Remove-Item -Recurse -Force ../server/static/*
+Copy-Item -Recurse -Force build/* ../server/static/
+
+# 3. Run the server (from project root)
+cd ..
+uv run python -m server.app
+```
+
+The app will be available at `http://localhost:8000`.
+
+---
+
 ## Environment Variables
 
 ```bash

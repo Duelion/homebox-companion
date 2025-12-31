@@ -6,7 +6,8 @@
  */
 
 import { authStore } from '../stores/auth.svelte';
-import { ApiError, NetworkError } from './client';
+import { ApiError, NetworkError, request } from './client';
+import { chatLogger as log } from '../utils/logger';
 
 const BASE_URL = '/api';
 
@@ -87,6 +88,9 @@ export interface SendMessageOptions {
  * Uses fetch with ReadableStream for SSE parsing instead of EventSource
  * because EventSource doesn't support POST or custom headers.
  * 
+ * Handles 401 responses and auth-related SSE errors by triggering the
+ * session expired modal.
+ * 
  * @param message - The user's message
  * @param options - Callbacks for events, errors, and completion
  * @returns AbortController to cancel the request
@@ -110,6 +114,13 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
                 signal,
             });
 
+            // Handle 401 - trigger session expired modal
+            if (response.status === 401) {
+                log.warn('Chat request received 401 - marking session as expired');
+                authStore.markSessionExpired();
+                throw new ApiError(401, 'Session expired. Please re-authenticate.');
+            }
+
             if (!response.ok) {
                 throw new ApiError(response.status, `Chat request failed: ${response.statusText}`);
             }
@@ -123,10 +134,12 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
             const decoder = new TextDecoder();
             let buffer = '';
 
+            log.debug('Starting SSE stream parsing');
             let receivedDone = false;
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
+                    log.debug('SSE stream ended', { receivedDone });
                     // Ensure onComplete is called even if no explicit 'done' event was received
                     if (!receivedDone) {
                         options.onComplete?.();
@@ -142,18 +155,36 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
                 for (const line of lines) {
                     if (line.startsWith('event: ')) {
                         currentEvent = line.slice(7).trim() as ChatEventType;
+                        log.trace('SSE event type:', currentEvent);
                     } else if (line.startsWith('data: ') && currentEvent) {
+                        const rawData = line.slice(6);
                         try {
-                            const data = JSON.parse(line.slice(6));
+                            const data = JSON.parse(rawData);
                             const event: ChatEvent = { type: currentEvent, data } as ChatEvent;
+                            log.debug('SSE event received:', { type: currentEvent, dataPreview: typeof data === 'object' ? Object.keys(data) : data });
+
+                            // Check for auth-related error events from the backend
+                            if (currentEvent === 'error' && data.message) {
+                                const errorMsg = String(data.message).toLowerCase();
+                                if (errorMsg.includes('authorization') ||
+                                    errorMsg.includes('authenticate') ||
+                                    errorMsg.includes('token') ||
+                                    errorMsg.includes('unauthorized') ||
+                                    errorMsg.includes('401')) {
+                                    log.warn('Chat SSE received auth error - marking session as expired');
+                                    authStore.markSessionExpired();
+                                }
+                            }
+
                             options.onEvent?.(event);
 
                             if (currentEvent === 'done') {
                                 receivedDone = true;
+                                log.debug('SSE done event received');
                                 options.onComplete?.();
                             }
                         } catch (e) {
-                            console.warn('Failed to parse SSE data:', line);
+                            log.warn('Failed to parse SSE data - raw data:', rawData);
                         }
                         currentEvent = null;
                     }
@@ -161,9 +192,11 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
             }
         } catch (error) {
             if (error instanceof Error && error.name === 'AbortError') {
+                log.debug('SSE request was cancelled');
                 // Request was cancelled, don't report as error
                 return;
             }
+            log.error('SSE stream error:', error instanceof Error ? error : new Error(String(error)));
             options.onError?.(error instanceof Error ? error : new Error(String(error)));
         }
     })();
@@ -179,20 +212,9 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
  * Get all pending approval requests.
  */
 export async function getPendingApprovals(): Promise<PendingApproval[]> {
-    const response = await fetch(`${BASE_URL}/chat/pending`, {
-        headers: {
-            'Authorization': `Bearer ${authStore.token}`,
-        },
-    });
-
-    if (!response.ok) {
-        if (response.status === 503) {
-            throw new ApiError(503, 'Chat feature is disabled');
-        }
-        throw new ApiError(response.status, `Failed to get pending approvals: ${response.statusText}`);
-    }
-
-    const data = await response.json();
+    log.debug('Fetching pending approvals');
+    const data = await request<{ approvals: PendingApproval[] }>('/chat/pending');
+    log.debug(`Received ${data.approvals.length} pending approvals`);
     return data.approvals;
 }
 
@@ -200,71 +222,39 @@ export async function getPendingApprovals(): Promise<PendingApproval[]> {
  * Approve a pending action.
  */
 export async function approveAction(approvalId: string): Promise<{ success: boolean; message?: string }> {
-    const response = await fetch(`${BASE_URL}/chat/approve/${approvalId}`, {
+    log.info(`Approving action: ${approvalId}`);
+    return request<{ success: boolean; message?: string }>(`/chat/approve/${approvalId}`, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${authStore.token}`,
-        },
     });
-
-    if (!response.ok) {
-        if (response.status === 404) {
-            throw new ApiError(404, 'Approval not found or expired');
-        }
-        throw new ApiError(response.status, `Failed to approve action: ${response.statusText}`);
-    }
-
-    return response.json();
 }
 
 /**
  * Reject a pending action.
  */
 export async function rejectAction(approvalId: string): Promise<{ success: boolean; message?: string }> {
-    const response = await fetch(`${BASE_URL}/chat/reject/${approvalId}`, {
+    log.info(`Rejecting action: ${approvalId}`);
+    return request<{ success: boolean; message?: string }>(`/chat/reject/${approvalId}`, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${authStore.token}`,
-        },
     });
-
-    if (!response.ok) {
-        if (response.status === 404) {
-            throw new ApiError(404, 'Approval not found or expired');
-        }
-        throw new ApiError(response.status, `Failed to reject action: ${response.statusText}`);
-    }
-
-    return response.json();
 }
 
 /**
  * Clear conversation history.
  */
 export async function clearHistory(): Promise<void> {
-    const response = await fetch(`${BASE_URL}/chat/history`, {
+    log.info('Clearing chat history');
+    await request<void>('/chat/history', {
         method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${authStore.token}`,
-        },
     });
-
-    if (!response.ok) {
-        throw new ApiError(response.status, `Failed to clear history: ${response.statusText}`);
-    }
+    log.success('Chat history cleared');
 }
 
 /**
  * Get chat health status.
  */
 export async function getChatHealth(): Promise<ChatHealthResponse> {
-    const response = await fetch(`${BASE_URL}/chat/health`);
-
-    if (!response.ok) {
-        throw new ApiError(response.status, `Failed to get chat health: ${response.statusText}`);
-    }
-
-    return response.json();
+    log.debug('Checking chat health');
+    return request<ChatHealthResponse>('/chat/health');
 }
 
 // =============================================================================

@@ -10,6 +10,7 @@ import {
     type ChatEvent,
     type PendingApproval,
 } from '../api/chat';
+import { chatLogger as log } from '../utils/logger';
 
 // =============================================================================
 // TYPES
@@ -178,7 +179,7 @@ class ChatStore {
      */
     sendMessage(content: string): void {
         if (this._isStreaming) {
-            console.warn('Already streaming, ignoring send');
+            log.warn('Already streaming, ignoring send request');
             return;
         }
 
@@ -271,7 +272,7 @@ class ChatStore {
         try {
             this._pendingApprovals = await chat.getPendingApprovals();
         } catch (error) {
-            console.error('Failed to refresh pending approvals:', error);
+            log.error('Failed to refresh pending approvals', error instanceof Error ? error : new Error(String(error)));
         }
     }
 
