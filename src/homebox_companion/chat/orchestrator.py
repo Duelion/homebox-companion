@@ -260,7 +260,7 @@ class ChatOrchestrator:
 
         # Build messages for LLM
         system_prompt = SYSTEM_PROMPT.format(
-            homebox_url=settings.homebox_url.rstrip("/"),
+            homebox_url=settings.effective_link_base_url,
         )
         messages = [{"role": "system", "content": system_prompt}]
 
@@ -706,7 +706,7 @@ class ChatOrchestrator:
             Additional chat events
         """
         system_prompt = SYSTEM_PROMPT.format(
-            homebox_url=settings.homebox_url.rstrip("/"),
+            homebox_url=settings.effective_link_base_url,
         )
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(self.session.get_history())
