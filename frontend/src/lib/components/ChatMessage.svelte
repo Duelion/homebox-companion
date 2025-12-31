@@ -65,13 +65,19 @@
             >
                 {#each message.toolResults as result}
                     <div
-                        class="inline-flex items-center gap-1 py-1 px-2 rounded-lg text-xs font-medium {result.success
-                            ? 'bg-success-500/15 text-success-500 border border-success-500/30'
-                            : 'bg-error-500/15 text-error-500 border border-error-500/30'}"
+                        class="inline-flex items-center gap-1 py-1 px-2 rounded-lg text-xs font-medium {result.isExecuting
+                            ? 'bg-primary-500/15 text-primary-500 border border-primary-500/30'
+                            : result.success
+                              ? 'bg-success-500/15 text-success-500 border border-success-500/30'
+                              : 'bg-error-500/15 text-error-500 border border-error-500/30'}"
                     >
-                        <span class="font-bold"
-                            >{result.success ? "✓" : "✗"}</span
-                        >
+                        {#if result.isExecuting}
+                            <span class="tool-spinner"></span>
+                        {:else}
+                            <span class="font-bold"
+                                >{result.success ? "✓" : "✗"}</span
+                            >
+                        {/if}
                         <span class="font-mono">{result.tool}</span>
                     </div>
                 {/each}
@@ -113,6 +119,10 @@
     }
 
     .markdown-content :global(p:last-child) {
+        margin-bottom: 0;
+    }
+
+    .markdown-content :global(*:last-child) {
         margin-bottom: 0;
     }
 
@@ -226,6 +236,21 @@
         }
         40% {
             transform: scale(1);
+        }
+    }
+
+    /* Tool execution spinner */
+    .tool-spinner {
+        @apply w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full inline-block;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
         }
     }
 </style>

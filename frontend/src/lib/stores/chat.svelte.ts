@@ -23,6 +23,7 @@ export interface ToolResult {
     success: boolean;
     data?: unknown;
     error?: string;
+    isExecuting?: boolean;  // NEW: Track if tool is currently executing
 }
 
 export interface ChatMessage {
@@ -149,15 +150,42 @@ class ChatStore {
         );
     }
 
-    /** Add a tool result to the streaming message */
-    private addToolResult(result: ToolResult): void {
+    /** Mark a tool as executing (without a result yet) */
+    private markToolExecuting(toolName: string): void {
         if (!this.streamingMessageId) return;
 
         this._messages = this._messages.map((msg) =>
             msg.id === this.streamingMessageId
-                ? { ...msg, toolResults: [...(msg.toolResults || []), result] }
+                ? {
+                      ...msg,
+                      toolResults: [
+                          ...(msg.toolResults || []),
+                          { tool: toolName, success: false, isExecuting: true },
+                      ],
+                  }
                 : msg
         );
+    }
+
+    /** Update an executing tool with its final result */
+    private updateToolResult(toolName: string, result: Omit<ToolResult, 'tool'>): void {
+        if (!this.streamingMessageId) return;
+
+        this._messages = this._messages.map((msg) => {
+            if (msg.id !== this.streamingMessageId) return msg;
+            
+            const toolResults = msg.toolResults || [];
+            const toolIndex = toolResults.findIndex(
+                (tr) => tr.tool === toolName && tr.isExecuting
+            );
+            
+            if (toolIndex === -1) return msg;
+            
+            const updatedResults = [...toolResults];
+            updatedResults[toolIndex] = { tool: toolName, ...result, isExecuting: false };
+            
+            return { ...msg, toolResults: updatedResults };
+        });
     }
 
     /** Add a system message */
@@ -309,13 +337,14 @@ class ChatStore {
 
             case 'tool_start':
                 log.trace(`Tool starting: ${event.data.tool}`, event.data.params);
-                // Could show a loading indicator for the tool
+                // Mark tool as executing to show loading indicator
+                this.markToolExecuting(event.data.tool);
                 break;
 
             case 'tool_result':
                 log.trace(`Tool ${event.data.tool} result:`, event.data.result);
-                this.addToolResult({
-                    tool: event.data.tool,
+                // Update the executing tool with final result
+                this.updateToolResult(event.data.tool, {
                     success: event.data.result.success,
                     data: event.data.result.data,
                     error: event.data.result.error,

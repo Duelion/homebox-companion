@@ -55,57 +55,57 @@ a home inventory management application.
 
 The Homebox instance base URL is: {homebox_url}
 
-Your role is to help users manage their inventory by:
-- Answering questions about their items, locations, and labels
-- Explaining what's in their inventory
-- Helping them find items
-- Suggesting organization improvements
+CORE PRINCIPLE: SEARCH FIRST, THEN RESPOND
+When users ask about items in their inventory, ALWAYS search the inventory FIRST \
+using the appropriate tool, then provide your answer based on the real data. \
+Do NOT provide general advice without checking their actual inventory.
 
-You have access to the following tools to query the Homebox inventory:
+Examples of when to SEARCH FIRST:
+- User: "find me the best wire to hang a painting"
+  → Call search_items(query="wire") or search_items(query="hanging wire") FIRST
+  → Then recommend from their actual inventory
+
+- User: "do I have any rope?"
+  → Call search_items(query="rope") FIRST
+  → Then answer based on results
+
+- User: "what screwdrivers do I own?"
+  → Call search_items(query="screwdriver") FIRST
+  → Then list what they have
+
+- User: "I need something to fix my bike"
+  → Call search_items(query="bike tool bicycle repair") FIRST
+  → Then suggest from their inventory
+
+Only provide general advice if:
+1. The user explicitly asks for general information (e.g., "how do I hang a painting?")
+2. You've already searched and found nothing relevant
+3. The question is clearly not about their inventory
+
+AVAILABLE TOOLS:
 {tool_descriptions}
 
-IMPORTANT GUIDELINES:
-1. Use tools to get accurate, up-to-date information from the inventory
-2. Be helpful and concise in your responses
-3. When listing items or locations, summarize rather than dumping raw data
-4. If you don't have enough information, ask clarifying questions
-5. Never make up inventory data - always use tools to check
+TOOL SELECTION GUIDE:
+- search_items: Use for ANY keyword or semantic search ("find X", "do I have Y", "items for Z")
+- list_items: Use only when browsing ALL items or filtering by specific location/labels
+- get_statistics: Use for counts/totals ("how many items?", "total value?")
+- get_item: Use when you already have an item ID and need full details
+- get_item_by_asset_id: Use when user provides an asset ID (e.g., "000-085")
+- get_location_tree: Use to understand location hierarchy
+- get_item_path: Use to tell users exactly where an item is located
+- compact=true: Use when you don't need full details (reduces token usage)
 
 RESPONSE FORMATTING:
-When referencing items, locations, or labels in your responses, format them as \
-clickable markdown links so users can navigate directly to them in Homebox:
+Format items, locations, and labels as clickable markdown links:
 - Items: [Item Name]({homebox_url}/item/ITEM_ID)
 - Locations: [Location Name]({homebox_url}/location/LOCATION_ID)
 - Labels: [Label Name]({homebox_url}/label/LABEL_ID)
 
-Replace ITEM_ID, LOCATION_ID, or LABEL_ID with the actual 'id' field from the \
-tool results. Always use the item/location/label name as the link text.
-
-Example: If search_items returns an item with id="abc-123" and name="USB Cable", \
-format it as: [USB Cable]({homebox_url}/item/abc-123)
-
-TOOL USAGE BEST PRACTICES:
-- For keyword/semantic searches (e.g., "find rope", "items for building X"),
-  always use search_items with a descriptive query
-- Use list_items only when you need to browse all items or filter by specific
-  location/labels
-- When dealing with large inventories, consider using compact=true to reduce
-  response size if full details aren't needed
-- Use get_item only when you need complete details about a specific item
-- If search_items returns many results, you can refine the query or ask the
-  user to narrow down their request
-
-EFFICIENT QUERIES:
-- For overview questions ("how many items?", "total value?"), use
-  get_statistics instead of loading all items
-- When given an asset ID (e.g., "000-085"), use get_item_by_asset_id for
-  direct lookup
-- To understand location hierarchy, use get_location_tree instead of multiple
-  get_location calls
-- For analytics ("which location has most items?"), use
-  get_statistics_by_location or get_statistics_by_label
-- To tell users exactly where an item is located, use get_item_path to get the
-  full location chain
+RESPONSE STYLE:
+- Be concise and helpful
+- Summarize results rather than dumping raw data
+- If many results, highlight the most relevant ones
+- If no results, say so clearly and offer alternatives
 
 For write operations (creating, updating, deleting items), you will need to \
 propose actions that the user must approve before they execute. This is not \
@@ -117,12 +117,36 @@ MAX_TOOL_RECURSION_DEPTH = 10
 
 
 def _build_tool_descriptions() -> str:
-    """Build tool descriptions for the system prompt."""
+    """Build COMPRESSED tool descriptions for the system prompt.
+
+    Only includes READ tools with shortened descriptions to reduce tokens.
+    Full descriptions are in the tool definitions sent to the LLM.
+    """
     metadata = HomeboxMCPTools.get_tool_metadata()
+
+    # Compressed descriptions - the full details are in tool parameters
+    compressed = {
+        "search_items": "Search items by keyword/semantic query",
+        "list_items": "List all items (with optional location/label filters)",
+        "get_item": "Get full item details by ID",
+        "get_item_by_asset_id": "Get item by asset ID (e.g., '000-085')",
+        "list_locations": "List all locations",
+        "get_location": "Get location details with children",
+        "get_location_tree": "Get full location hierarchy tree",
+        "list_labels": "List all labels",
+        "get_statistics": "Get inventory overview stats (counts/totals)",
+        "get_statistics_by_location": "Get item counts per location",
+        "get_statistics_by_label": "Get item counts per label",
+        "get_item_path": "Get item's full location path",
+        "get_attachment": "Get attachment content (base64)",
+    }
+
     lines = []
     for name, meta in metadata.items():
         if meta["permission"] == ToolPermission.READ:
-            lines.append(f"- {name}: {meta['description']}")
+            # Use compressed description if available, else full
+            desc = compressed.get(name, meta['description'])
+            lines.append(f"- {name}: {desc}")
     return "\n".join(lines)
 
 
@@ -280,7 +304,7 @@ class ChatOrchestrator:
 
         This method:
         1. Adds the user message to history
-        2. Calls the LLM with tools
+        2. Calls the LLM with tools (streaming)
         3. Handles tool calls (auto-execute READ, queue WRITE for approval)
         4. Yields streaming events
 
@@ -335,9 +359,9 @@ class ChatOrchestrator:
         # Build tool definitions
         tools = _build_litellm_tools()
 
-        # Call LLM
+        # Call LLM with streaming
         try:
-            response = await self._call_llm(messages, tools)
+            stream_response = await self._call_llm(messages, tools, stream=True)
         except Exception as e:
             logger.exception("LLM call failed")
             yield ChatEvent(
@@ -346,26 +370,9 @@ class ChatOrchestrator:
             )
             return
 
-        # Process response
-        assistant_message = response.choices[0].message
-        content = assistant_message.content or ""
-        tool_calls = assistant_message.tool_calls
-
-        # Yield text content if present
-        if content:
-            yield ChatEvent(type=ChatEventType.TEXT, data={"content": content})
-
-        # Handle tool calls using unified method, or store simple assistant message
-        if tool_calls:
-            async for event in self._handle_tool_calls(content, tool_calls, token, tools):
-                yield event
-        else:
-            # No tool calls - just store the assistant message
-            self.session.add_message(ChatMessage(
-                role="assistant",
-                content=content,
-                tool_calls=None,
-            ))
+        # Process streaming response
+        async for event in self._handle_streaming_response(stream_response, token, tools):
+            yield event
 
         yield ChatEvent(type=ChatEventType.DONE, data={})
 
@@ -373,21 +380,24 @@ class ChatOrchestrator:
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
+        stream: bool = True,
     ) -> Any:
         """Call the LLM with the given messages and tools.
 
         Args:
             messages: Conversation messages
             tools: Tool definitions
+            stream: If True, return streaming response; if False, return complete response
 
         Returns:
-            LLM response object
+            LLM response object (streaming or complete)
         """
         kwargs: dict[str, Any] = {
             "model": config.settings.effective_llm_model,
             "messages": messages,
             "api_key": config.settings.effective_llm_api_key,
             "timeout": config.settings.llm_timeout,
+            "stream": stream,
         }
 
         if config.settings.llm_api_base:
@@ -401,41 +411,199 @@ class ChatOrchestrator:
         tool_names = [t['function']['name'] for t in tools] if tools else []
         logger.trace(f"[CHAT] Available tools: {tool_names}")
 
-        logger.debug(f"Calling LLM with {len(messages)} messages, {len(tools)} tools")
+        logger.debug(
+            f"Calling LLM with {len(messages)} messages, {len(tools)} tools "
+            f"(streaming={stream})"
+        )
 
         # TRACE: Time the LLM call
         start_time = time.perf_counter()
         response = await litellm.acompletion(**kwargs)
+
+        if not stream:
+            # Non-streaming: log immediately
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+            # TRACE: Log token usage if available
+            if hasattr(response, 'usage') and response.usage:
+                logger.trace(
+                    f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms - "
+                    f"tokens: prompt={response.usage.prompt_tokens}, "
+                    f"completion={response.usage.completion_tokens}, "
+                    f"total={response.usage.total_tokens}"
+                )
+            else:
+                logger.trace(f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms")
+
+            # TRACE: Log full response content
+            assistant_message = response.choices[0].message
+            content = assistant_message.content or ""
+            if content:
+                logger.trace(f"[CHAT] LLM response content:\n{content}")
+            else:
+                logger.trace("[CHAT] LLM response content: (empty)")
+
+            # TRACE: Log tool call decisions
+            tool_calls = assistant_message.tool_calls
+            if tool_calls:
+                for tc in tool_calls:
+                    logger.trace(
+                        f"[CHAT] LLM tool call: "
+                        f"{tc.function.name}({tc.function.arguments})"
+                    )
+            else:
+                logger.trace("[CHAT] LLM made no tool calls")
+
+        return response
+
+    async def _handle_streaming_response(
+        self,
+        stream_response: Any,
+        token: str,
+        tools: list[dict[str, Any]],
+        depth: int = 0,
+    ) -> AsyncGenerator[ChatEvent, None]:
+        """Handle a streaming LLM response.
+
+        Accumulates chunks, yields text events, and handles tool calls when complete.
+
+        Args:
+            stream_response: Streaming response from LLM
+            token: Homebox auth token
+            tools: Tool definitions for recursive calls
+            depth: Current recursion depth
+
+        Yields:
+            ChatEvent objects for SSE streaming
+        """
+        content_chunks = []
+        tool_call_chunks: dict[int, dict[str, Any]] = {}  # idx -> {id, name, arguments}
+        usage_info = None  # Track token usage from final chunk
+
+        start_time = time.perf_counter()
+        chunk_count = 0
+
+        try:
+            async for chunk in stream_response:
+                chunk_count += 1
+
+                if not hasattr(chunk, 'choices') or not chunk.choices:
+                    continue
+
+                delta = chunk.choices[0].delta
+
+                # Handle content streaming
+                if hasattr(delta, 'content') and delta.content:
+                    content_chunk = delta.content
+                    content_chunks.append(content_chunk)
+                    # Yield individual text chunk for real-time display
+                    yield ChatEvent(type=ChatEventType.TEXT, data={"content": content_chunk})
+
+                # Handle tool call streaming (accumulate)
+                if hasattr(delta, 'tool_calls') and delta.tool_calls:
+                    for tc_delta in delta.tool_calls:
+                        idx = tc_delta.index
+                        if idx not in tool_call_chunks:
+                            tool_call_chunks[idx] = {
+                                "id": "",
+                                "name": "",
+                                "arguments": ""
+                            }
+
+                        if tc_delta.id:
+                            tool_call_chunks[idx]["id"] = tc_delta.id
+                        if tc_delta.function and tc_delta.function.name:
+                            tool_call_chunks[idx]["name"] = tc_delta.function.name
+                        if tc_delta.function and tc_delta.function.arguments:
+                            tool_call_chunks[idx]["arguments"] += tc_delta.function.arguments
+
+                # Capture usage info from final chunk
+                if hasattr(chunk, 'usage') and chunk.usage:
+                    usage_info = chunk.usage
+
+        except Exception as e:
+            logger.exception("[CHAT] Error during streaming")
+            yield ChatEvent(
+                type=ChatEventType.ERROR,
+                data={"message": f"Streaming error: {str(e)}"}
+            )
+            return
+
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
-        # TRACE: Log token usage if available
-        if hasattr(response, 'usage') and response.usage:
+        # Log completion with token usage if available
+        if usage_info:
             logger.trace(
-                f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms - "
-                f"tokens: prompt={response.usage.prompt_tokens}, "
-                f"completion={response.usage.completion_tokens}, "
-                f"total={response.usage.total_tokens}"
+                f"[CHAT] Streaming completed in {elapsed_ms:.0f}ms - "
+                f"{chunk_count} chunks received - "
+                f"tokens: prompt={usage_info.prompt_tokens}, "
+                f"completion={usage_info.completion_tokens}, "
+                f"total={usage_info.total_tokens}"
             )
         else:
-            logger.trace(f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms")
+            logger.trace(
+                f"[CHAT] Streaming completed in {elapsed_ms:.0f}ms - "
+                f"{chunk_count} chunks received"
+            )
 
-        # TRACE: Log full response content
-        assistant_message = response.choices[0].message
-        content = assistant_message.content or ""
-        if content:
-            logger.trace(f"[CHAT] LLM response content:\n{content}")
-        else:
-            logger.trace("[CHAT] LLM response content: (empty)")
+        # Reconstruct complete content
+        full_content = "".join(content_chunks)
 
-        # TRACE: Log tool call decisions
-        tool_calls = assistant_message.tool_calls
-        if tool_calls:
+        if full_content:
+            logger.trace(f"[CHAT] Complete streamed content:\n{full_content}")
+
+        # Reconstruct tool calls if any
+        tool_calls = []
+        if tool_call_chunks:
+            # Define mock classes outside loop (efficiency + cleaner code)
+            @dataclass
+            class MockFunction:
+                name: str
+                arguments: str
+
+            @dataclass
+            class MockToolCall:
+                id: str
+                function: MockFunction
+
+            for idx in sorted(tool_call_chunks.keys()):
+                tc_data = tool_call_chunks[idx]
+
+                # Validate tool call has required fields
+                if not tc_data["id"] or not tc_data["name"]:
+                    logger.warning(
+                        f"[CHAT] Skipping incomplete tool call: id={tc_data['id']}, "
+                        f"name={tc_data['name']}"
+                    )
+                    continue
+
+                tool_calls.append(MockToolCall(
+                    id=tc_data["id"],
+                    function=MockFunction(
+                        name=tc_data["name"],
+                        arguments=tc_data["arguments"]
+                    )
+                ))
+
+            # Log tool calls
             for tc in tool_calls:
                 logger.trace(f"[CHAT] LLM tool call: {tc.function.name}({tc.function.arguments})")
         else:
             logger.trace("[CHAT] LLM made no tool calls")
 
-        return response
+        # Handle tool calls if present
+        if tool_calls:
+            async for event in self._handle_tool_calls(
+                full_content, tool_calls, token, tools, depth
+            ):
+                yield event
+        else:
+            # No tool calls - just store the assistant message
+            self.session.add_message(ChatMessage(
+                role="assistant",
+                content=full_content,
+                tool_calls=None,
+            ))
 
     async def _execute_tool(
         self,
@@ -556,12 +724,12 @@ class ChatOrchestrator:
         """Continue conversation after tool execution.
 
         This calls the LLM again with tool results to get a final response.
-        Uses the unified _handle_tool_calls method for consistent handling.
+        Uses streaming for real-time feedback.
 
         Args:
             token: Auth token
             tools: Tool definitions
-            depth: Current recursion depth (passed to _handle_tool_calls)
+            depth: Current recursion depth (passed to _handle_streaming_response)
 
         Yields:
             Additional chat events
@@ -574,7 +742,7 @@ class ChatOrchestrator:
         messages.extend(self.session.get_history())
 
         try:
-            response = await self._call_llm(messages, tools)
+            stream_response = await self._call_llm(messages, tools, stream=True)
         except Exception as e:
             logger.exception("LLM continuation failed")
             yield ChatEvent(
@@ -583,23 +751,7 @@ class ChatOrchestrator:
             )
             return
 
-        assistant_message = response.choices[0].message
-        content = assistant_message.content or ""
-        tool_calls = assistant_message.tool_calls
-
-        if content:
-            yield ChatEvent(type=ChatEventType.TEXT, data={"content": content})
-
-        # Handle tool calls using unified method, or store simple assistant message
-        if tool_calls:
-            async for event in self._handle_tool_calls(
-                content, tool_calls, token, tools, depth
-            ):
-                yield event
-        else:
-            # No tool calls - just store the assistant message
-            self.session.add_message(ChatMessage(
-                role="assistant",
-                content=content,
-                tool_calls=None,
-            ))
+        async for event in self._handle_streaming_response(
+            stream_response, token, tools, depth
+        ):
+            yield event
