@@ -5,7 +5,10 @@ clashes with other applications on the same system.
 
 Environment Variables:
     HBC_HOMEBOX_URL: Base URL of your Homebox instance (default: demo server).
-        We automatically append /api/v1 to this URL.
+        We automatically append /api/v1 to this URL for API calls.
+    HBC_LINK_BASE_URL: Optional public-facing URL for Homebox links shown to users.
+        Defaults to HBC_HOMEBOX_URL if not set. Useful when the API is accessed
+        internally (e.g., 127.0.0.1) but users access via a public domain.
     HBC_OPENAI_API_KEY: (Legacy) API key for LLM provider (use HBC_LLM_API_KEY instead)
     HBC_OPENAI_MODEL: (Legacy) LLM model to use (use HBC_LLM_MODEL instead, default: gpt-5-mini)
     HBC_LLM_API_KEY: API key for the configured LLM provider (preferred)
@@ -74,6 +77,8 @@ class Settings(BaseSettings):
 
     # Homebox configuration - user provides base URL, we append /api/v1
     homebox_url: str = DEMO_HOMEBOX_URL
+    # Optional public-facing URL for links (defaults to homebox_url)
+    link_base_url: str = ""
 
     # Legacy LLM configuration (deprecated - use llm_* fields instead)
     openai_api_key: str = ""
@@ -132,6 +137,12 @@ class Settings(BaseSettings):
         """Full Homebox API URL with /api/v1 path appended."""
         base = self.homebox_url.rstrip("/")
         return f"{base}/api/v1"
+
+    @computed_field
+    @property
+    def effective_link_base_url(self) -> str:
+        """Public-facing URL for user links (HBC_LINK_BASE_URL or fallback to HBC_HOMEBOX_URL)."""
+        return (self.link_base_url or self.homebox_url).rstrip("/")
 
     @computed_field
     @property
