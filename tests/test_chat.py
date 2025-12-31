@@ -375,36 +375,60 @@ class TestChatOrchestrator:
         self, orchestrator: ChatOrchestrator
     ):
         """process_message should yield text event for LLM response."""
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "I can help with that!"
-        mock_response.choices[0].message.tool_calls = None
+        # Mock streaming response with chunks
+        async def mock_streaming_response():
+            # Chunk 1: content
+            chunk1 = MagicMock()
+            chunk1.choices = [MagicMock()]
+            chunk1.choices[0].delta.content = "I can help "
+            chunk1.usage = None
+            yield chunk1
+
+            # Chunk 2: more content
+            chunk2 = MagicMock()
+            chunk2.choices = [MagicMock()]
+            chunk2.choices[0].delta.content = "with that!"
+            chunk2.usage = None
+            yield chunk2
+
+            # Final chunk with usage
+            chunk3 = MagicMock()
+            chunk3.choices = [MagicMock()]
+            chunk3.choices[0].delta.content = None
+            chunk3.choices[0].delta.tool_calls = None
+            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            yield chunk3
 
         with patch(
             "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(return_value=mock_response)
+            new=AsyncMock(return_value=mock_streaming_response())
         ):
             events = []
             async for event in orchestrator.process_message("Help me", "token"):
                 events.append(event)
 
         text_events = [e for e in events if e.type == ChatEventType.TEXT]
-        assert len(text_events) == 1
-        assert text_events[0].data["content"] == "I can help with that!"
+        assert len(text_events) == 2  # Two text chunks
+        assert text_events[0].data["content"] == "I can help "
+        assert text_events[1].data["content"] == "with that!"
 
     @pytest.mark.asyncio
     async def test_process_message_yields_done_event(
         self, orchestrator: ChatOrchestrator
     ):
         """process_message should always yield done event at the end."""
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "Done"
-        mock_response.choices[0].message.tool_calls = None
+        # Mock streaming response
+        async def mock_streaming_response():
+            chunk = MagicMock()
+            chunk.choices = [MagicMock()]
+            chunk.choices[0].delta.content = "Done"
+            chunk.choices[0].delta.tool_calls = None
+            chunk.usage = None
+            yield chunk
 
         with patch(
             "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(return_value=mock_response)
+            new=AsyncMock(return_value=mock_streaming_response())
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
@@ -457,41 +481,81 @@ class TestChatOrchestrator:
             "description": "Steel wire for hanging pictures"
         })
 
-        def create_tool_call(name: str, args: dict):
-            """Helper to create mock tool calls."""
-            tc = MagicMock()
-            tc.id = f"call_{name}"
-            tc.function.name = name
-            tc.function.arguments = json.dumps(args)
-            return tc
+        async def create_streaming_tool_response(tool_name: str, tool_args: dict, call_id: str):
+            """Create a streaming response with a tool call."""
+            # First chunk: tool call start
+            chunk1 = MagicMock()
+            chunk1.choices = [MagicMock()]
+            chunk1.choices[0].delta.content = None
+            chunk1.choices[0].delta.tool_calls = [MagicMock()]
+            chunk1.choices[0].delta.tool_calls[0].index = 0
+            chunk1.choices[0].delta.tool_calls[0].id = call_id
+            chunk1.choices[0].delta.tool_calls[0].function = MagicMock()
+            chunk1.choices[0].delta.tool_calls[0].function.name = tool_name
+            chunk1.choices[0].delta.tool_calls[0].function.arguments = ""
+            chunk1.usage = None
+            yield chunk1
 
-        # First LLM response: search_items call
-        first_response = MagicMock()
-        first_response.choices = [MagicMock()]
-        first_response.choices[0].message.content = ""
-        first_response.choices[0].message.tool_calls = [
-            create_tool_call("search_items", {"query": "wire", "compact": True})
-        ]
+            # Second chunk: tool call arguments
+            chunk2 = MagicMock()
+            chunk2.choices = [MagicMock()]
+            chunk2.choices[0].delta.content = None
+            chunk2.choices[0].delta.tool_calls = [MagicMock()]
+            chunk2.choices[0].delta.tool_calls[0].index = 0
+            chunk2.choices[0].delta.tool_calls[0].id = None
+            chunk2.choices[0].delta.tool_calls[0].function = MagicMock()
+            chunk2.choices[0].delta.tool_calls[0].function.name = None
+            chunk2.choices[0].delta.tool_calls[0].function.arguments = json.dumps(tool_args)
+            chunk2.usage = None
+            yield chunk2
 
-        # Second LLM response: get_item call based on search results
-        second_response = MagicMock()
-        second_response.choices = [MagicMock()]
-        second_response.choices[0].message.content = ""
-        second_response.choices[0].message.tool_calls = [
-            create_tool_call("get_item", {"item_id": "item-123"})
-        ]
+            # Final chunk
+            chunk3 = MagicMock()
+            chunk3.choices = [MagicMock()]
+            chunk3.choices[0].delta.content = None
+            chunk3.choices[0].delta.tool_calls = None
+            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            yield chunk3
 
-        # Final LLM response: text response
-        final_response = MagicMock()
-        final_response.choices = [MagicMock()]
-        final_response.choices[0].message.content = (
-            "Based on my search, you have Picture Hanging Wire."
-        )
-        final_response.choices[0].message.tool_calls = None
+        async def create_streaming_text_response(text: str):
+            """Create a streaming response with text content."""
+            # Text chunk
+            chunk1 = MagicMock()
+            chunk1.choices = [MagicMock()]
+            chunk1.choices[0].delta.content = text
+            chunk1.choices[0].delta.tool_calls = None
+            chunk1.usage = None
+            yield chunk1
+
+            # Final chunk
+            chunk2 = MagicMock()
+            chunk2.choices = [MagicMock()]
+            chunk2.choices[0].delta.content = None
+            chunk2.choices[0].delta.tool_calls = None
+            chunk2.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            yield chunk2
+
+        call_sequence = 0
+
+        async def acompletion_side_effect(*args, **kwargs):
+            nonlocal call_sequence
+            call_sequence += 1
+            if call_sequence == 1:
+                return create_streaming_tool_response(
+                    "search_items", {"query": "wire", "compact": True}, "call_search_items"
+                )
+            elif call_sequence == 2:
+                return create_streaming_tool_response(
+                    "get_item", {"item_id": "item-123"}, "call_get_item"
+                )
+            else:
+                return create_streaming_text_response(
+                    "Based on my search, you have Picture Hanging Wire."
+                )
 
         with patch(
             "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(side_effect=[first_response, second_response, final_response])
+            new=AsyncMock(side_effect=acompletion_side_effect)
         ):
             events = []
             async for event in orchestrator.process_message("What wire do I have?", "token"):
@@ -502,9 +566,9 @@ class TestChatOrchestrator:
         tool_result_events = [e for e in events if e.type == ChatEventType.TOOL_RESULT]
         text_events = [e for e in events if e.type == ChatEventType.TEXT]
 
-        assert len(tool_start_events) == 2, "Should have 2 tool start events"
-        assert len(tool_result_events) == 2, "Should have 2 tool result events"
-        assert len(text_events) == 1, "Should have 1 text event"
+        assert len(tool_start_events) == 2, f"Should have 2 tool start events, got {len(tool_start_events)}"
+        assert len(tool_result_events) == 2, f"Should have 2 tool result events, got {len(tool_result_events)}"
+        assert len(text_events) == 1, f"Should have 1 text event, got {len(text_events)}"
         assert "Picture Hanging Wire" in text_events[0].data["content"]
 
         # Verify message sequence in session is valid
@@ -540,25 +604,55 @@ class TestChatOrchestrator:
         # Mock a tool that always exists
         mock_client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test"}])
 
-        def create_tool_call():
-            tc = MagicMock()
-            tc.id = "call_list_locations"
-            tc.function.name = "list_locations"
-            tc.function.arguments = "{}"
-            return tc
+        call_count = 0
 
-        # Create a response that always calls list_locations (infinite loop scenario)
-        tool_response = MagicMock()
-        tool_response.choices = [MagicMock()]
-        tool_response.choices[0].message.content = ""
-        tool_response.choices[0].message.tool_calls = [create_tool_call()]
+        async def create_streaming_tool_response():
+            """Create a streaming response that always calls list_locations."""
+            nonlocal call_count
+            call_count += 1
 
-        # Create enough responses to trigger the limit
-        responses = [tool_response] * (MAX_TOOL_RECURSION_DEPTH + 5)
+            # Simulate streaming chunks for a tool call
+            # First chunk: tool call start
+            chunk1 = MagicMock()
+            chunk1.choices = [MagicMock()]
+            chunk1.choices[0].delta.content = None
+            chunk1.choices[0].delta.tool_calls = [MagicMock()]
+            chunk1.choices[0].delta.tool_calls[0].index = 0
+            chunk1.choices[0].delta.tool_calls[0].id = f"call_list_locations_{call_count}"
+            chunk1.choices[0].delta.tool_calls[0].function = MagicMock()
+            chunk1.choices[0].delta.tool_calls[0].function.name = "list_locations"
+            chunk1.choices[0].delta.tool_calls[0].function.arguments = ""
+            chunk1.usage = None
+            yield chunk1
+
+            # Second chunk: tool call arguments
+            chunk2 = MagicMock()
+            chunk2.choices = [MagicMock()]
+            chunk2.choices[0].delta.content = None
+            chunk2.choices[0].delta.tool_calls = [MagicMock()]
+            chunk2.choices[0].delta.tool_calls[0].index = 0
+            chunk2.choices[0].delta.tool_calls[0].id = None
+            chunk2.choices[0].delta.tool_calls[0].function = MagicMock()
+            chunk2.choices[0].delta.tool_calls[0].function.name = None
+            chunk2.choices[0].delta.tool_calls[0].function.arguments = "{}"
+            chunk2.usage = None
+            yield chunk2
+
+            # Final chunk
+            chunk3 = MagicMock()
+            chunk3.choices = [MagicMock()]
+            chunk3.choices[0].delta.content = None
+            chunk3.choices[0].delta.tool_calls = None
+            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            yield chunk3
+
+        # Create enough streaming responses to trigger the limit
+        async def acompletion_side_effect(*args, **kwargs):
+            return create_streaming_tool_response()
 
         with patch(
             "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(side_effect=responses)
+            new=AsyncMock(side_effect=acompletion_side_effect)
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
@@ -567,5 +661,5 @@ class TestChatOrchestrator:
         # Should have an error about max recursion depth
         error_events = [e for e in events if e.type == ChatEventType.ERROR]
         assert any("recursion" in e.data.get("message", "").lower() for e in error_events), (
-            "Should have error about max recursion depth"
+            f"Should have error about max recursion depth. Got events: {[(e.type, e.data) for e in events]}"
         )
