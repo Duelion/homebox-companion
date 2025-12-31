@@ -20,8 +20,8 @@
 
 	let isLoading = $state(true);
 	let items = $state<ItemSummary[]>([]);
-	// Track user's selection, defaulting to any current parent item
-	let selectedItemId = $state(currentItemId);
+	// Track user's selection - use $derived to stay reactive to currentItemId changes
+	let selectedItemId = $state<string | null>(null);
 	let searchQuery = $state('');
 	// Store fetched thumbnail results with their revoke functions (itemId -> BlobUrlResult)
 	let thumbnailResults = $state<Map<string, BlobUrlResult>>(new Map());

@@ -26,7 +26,14 @@
 	}: Props = $props();
 
 	// Track if we should apply initial transform on first load
-	let shouldApplyInitialTransform = $state(!!initialTransform);
+	let shouldApplyInitialTransform = $state(false);
+	
+	// Set flag when initialTransform prop is provided
+	$effect(() => {
+		if (initialTransform) {
+			shouldApplyInitialTransform = true;
+		}
+	});
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;

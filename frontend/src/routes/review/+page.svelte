@@ -202,6 +202,29 @@
 		}
 	}
 
+	// Track touch state per label chip to prevent double-firing
+	let touchedLabelIds = $state<Set<string>>(new Set());
+
+	function handleLabelTouchEnd(e: TouchEvent, labelId: string) {
+		// Prevent synthetic click event from firing
+		e.preventDefault();
+		
+		// Mark this specific chip as touched
+		touchedLabelIds = new Set([...touchedLabelIds, labelId]);
+		toggleLabel(labelId);
+		
+		// Reset after click event would have fired (300ms is iOS click delay)
+		setTimeout(() => {
+			touchedLabelIds = new Set([...touchedLabelIds].filter(id => id !== labelId));
+		}, 300);
+	}
+
+	function handleLabelClick(labelId: string) {
+		// Prevent double-fire if this specific chip was just touched
+		if (touchedLabelIds.has(labelId)) return;
+		toggleLabel(labelId);
+	}
+
 	async function handleAiCorrection(correctionPrompt: string) {
 		if (!editedItem) return;
 
@@ -462,7 +485,8 @@
 									class={isSelected
 										? "label-chip-selected"
 										: "label-chip"}
-									onclick={() => toggleLabel(label.id)}
+									onclick={() => handleLabelClick(label.id)}
+									ontouchend={(e) => handleLabelTouchEnd(e, label.id)}
 								>
 									{label.name}
 								</button>
