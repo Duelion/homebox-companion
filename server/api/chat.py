@@ -102,6 +102,9 @@ async def send_message(
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
 
+    # TRACE: Log incoming chat message
+    logger.trace(f"[API] Incoming chat message: {request.message}")
+
     session = get_session(token)
     orchestrator = ChatOrchestrator(client, session)
 

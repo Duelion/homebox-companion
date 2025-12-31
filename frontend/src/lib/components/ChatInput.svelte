@@ -31,6 +31,10 @@
         }
     }
 
+    function handleCancel() {
+        chatStore.cancelStreaming();
+    }
+
     function handleKeydown(event: KeyboardEvent) {
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
@@ -49,13 +53,13 @@
 </script>
 
 <form
-    class="chat-input"
+    class="flex flex-col gap-1.5 py-2 px-4 pb-3 bg-neutral-950 border-t border-white/[0.08] max-w-2xl mx-auto w-full"
     onsubmit={(e) => {
         e.preventDefault();
         handleSubmit();
     }}
 >
-    <div class="input-container">
+    <div class="flex items-end gap-2.5 bg-neutral-900 border border-neutral-700 rounded-[1.25rem] p-1.5 transition-all duration-fast focus-within:border-primary-500 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.15)]">
         <textarea
             bind:this={textareaRef}
             bind:value={inputValue}
@@ -66,33 +70,52 @@
             disabled={chatStore.isStreaming}
             autocomplete="off"
             aria-label="Chat message input"
+            class="flex-1 resize-none border-0 rounded-[0.875rem] py-2.5 px-3.5 text-[0.9375rem] leading-relaxed max-h-[120px] outline-none bg-transparent text-neutral-200 placeholder:text-neutral-500 disabled:text-neutral-500 disabled:cursor-not-allowed"
         ></textarea>
 
-        <button type="submit" disabled={isDisabled} aria-label="Send message">
+        <button 
+            type="submit" 
+            disabled={isDisabled} 
+            aria-label="Send message"
+            class="flex items-center justify-center w-10 h-10 border-0 rounded-full text-white cursor-pointer transition-all duration-fast shrink-0 bg-gradient-to-br from-primary-500 to-primary-600 shadow-[0_2px_8px_rgba(99,102,241,0.3)] hover:scale-105 hover:shadow-[0_4px_12px_rgba(99,102,241,0.4)] active:scale-95 disabled:bg-neutral-700 disabled:text-neutral-600 disabled:cursor-not-allowed disabled:shadow-none"
+        >
             {#if chatStore.isStreaming}
                 <span class="loading-spinner"></span>
             {:else}
-                <svg viewBox="0 0 24 24" fill="currentColor">
+                <svg class="w-[1.125rem] h-[1.125rem]" viewBox="0 0 24 24" fill="currentColor">
                     <path
                         d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z"
                     />
                 </svg>
             {/if}
         </button>
+
+        {#if chatStore.isStreaming}
+            <button
+                type="button"
+                onclick={handleCancel}
+                aria-label="Stop generating"
+                class="flex items-center justify-center w-10 h-10 border-0 rounded-full text-white cursor-pointer transition-all duration-fast shrink-0 bg-error-500 shadow-[0_2px_8px_rgba(239,68,68,0.3)] hover:scale-105 hover:shadow-[0_4px_12px_rgba(239,68,68,0.4)] hover:bg-error-600 active:scale-95"
+            >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+            </button>
+        {/if}
     </div>
 
-    <div class="hint-container">
+    <div class="flex items-center justify-center gap-3 relative">
         {#if chatStore.isStreaming}
-            <p class="hint streaming">Assistant is typing...</p>
+            <p class="text-center text-[0.6875rem] text-primary-500 m-0 opacity-100">Assistant is typing...</p>
         {:else}
-            <p class="hint">Press Enter to send, Shift+Enter for new line</p>
+            <p class="text-center text-[0.6875rem] text-neutral-600 m-0 opacity-80">Press Enter to send, Shift+Enter for new line</p>
         {/if}
         {#if hasMessages && onClearHistory}
             <button
                 type="button"
-                class="clear-history-btn"
                 onclick={onClearHistory}
                 aria-label="Clear chat history"
+                class="absolute right-0 py-1 px-2 text-[0.6875rem] text-neutral-500 bg-transparent border-0 rounded-md cursor-pointer transition-all duration-fast opacity-80 hover:text-error-500 hover:bg-error-500/10 hover:opacity-100 active:scale-95"
             >
                 Clear
             </button>
@@ -101,152 +124,8 @@
 </form>
 
 <style>
-    .chat-input {
-        display: flex;
-        flex-direction: column;
-        gap: 0.375rem;
-        padding: 0.5rem 1rem 0.75rem;
-        background: #0a0a0f; /* neutral-950 */
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        max-width: 32rem;
-        margin: 0 auto;
-        width: 100%;
-    }
-
-    .input-container {
-        display: flex;
-        align-items: flex-end;
-        gap: 0.625rem;
-        background: #13131f; /* neutral-900 */
-        border: 1px solid #2a2a3e; /* neutral-700 */
-        border-radius: 1.25rem;
-        padding: 0.375rem;
-        transition:
-            border-color 0.15s,
-            box-shadow 0.15s;
-    }
-
-    .input-container:focus-within {
-        border-color: #6366f1; /* primary-500 */
-        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-    }
-
-    textarea {
-        flex: 1;
-        resize: none;
-        border: none;
-        border-radius: 0.875rem;
-        padding: 0.625rem 0.875rem;
-        font-size: 0.9375rem;
-        font-family: inherit;
-        line-height: 1.5;
-        max-height: 120px;
-        outline: none;
-        background: transparent;
-        color: #e2e8f0; /* neutral-200 */
-    }
-
-    textarea::placeholder {
-        color: #64748b; /* neutral-500 */
-    }
-
-    textarea:disabled {
-        color: #64748b; /* neutral-500 */
-        cursor: not-allowed;
-    }
-
-    button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 2.5rem;
-        height: 2.5rem;
-        border: none;
-        border-radius: 50%;
-        background: linear-gradient(
-            135deg,
-            #6366f1,
-            #4f46e5
-        ); /* primary gradient */
-        color: white;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        flex-shrink: 0;
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
-    }
-
-    button svg {
-        width: 1.125rem;
-        height: 1.125rem;
-    }
-
-    button:hover:not(:disabled) {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-    }
-
-    button:active:not(:disabled) {
-        transform: scale(0.95);
-    }
-
-    button:disabled {
-        background: #2a2a3e; /* neutral-700 */
-        color: #4b5563; /* neutral-600 */
-        cursor: not-allowed;
-        box-shadow: none;
-    }
-
-    .hint-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        position: relative;
-    }
-
-    .hint {
-        text-align: center;
-        font-size: 0.6875rem;
-        color: #475569; /* neutral-600 */
-        margin: 0;
-        opacity: 0.8;
-    }
-
-    .hint.streaming {
-        color: #6366f1; /* primary-500 */
-        opacity: 1;
-    }
-
-    .clear-history-btn {
-        position: absolute;
-        right: 0;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.6875rem;
-        color: #64748b; /* neutral-500 */
-        background: transparent;
-        border: none;
-        border-radius: 0.375rem;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        opacity: 0.8;
-    }
-
-    .clear-history-btn:hover {
-        color: #ef4444; /* error-500 */
-        background: rgba(239, 68, 68, 0.1);
-        opacity: 1;
-    }
-
-    .clear-history-btn:active {
-        transform: scale(0.95);
-    }
-
     .loading-spinner {
-        width: 1.125rem;
-        height: 1.125rem;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-top-color: white;
-        border-radius: 50%;
+        @apply w-[1.125rem] h-[1.125rem] border-2 border-white/30 border-t-white rounded-full;
         animation: spin 0.8s linear infinite;
     }
 

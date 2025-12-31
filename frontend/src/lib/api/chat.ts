@@ -103,6 +103,10 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 
     // Run async operation
     (async () => {
+        // TRACE: Log request start with timing
+        const startTime = performance.now();
+        log.trace(`Starting chat request for message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`);
+        
         try {
             const response = await fetch(`${BASE_URL}/chat/messages`, {
                 method: 'POST',
@@ -113,6 +117,9 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
                 body: JSON.stringify({ message }),
                 signal,
             });
+
+            // TRACE: Log response received
+            log.trace(`SSE stream started after ${(performance.now() - startTime).toFixed(0)}ms`);
 
             // Handle 401 - trigger session expired modal
             if (response.status === 401) {
@@ -158,6 +165,10 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
                         log.trace('SSE event type:', currentEvent);
                     } else if (line.startsWith('data: ') && currentEvent) {
                         const rawData = line.slice(6);
+                        
+                        // TRACE: Log raw SSE data
+                        log.trace(`SSE raw data for ${currentEvent}: ${rawData}`);
+                        
                         try {
                             const data = JSON.parse(rawData);
                             const event: ChatEvent = { type: currentEvent, data } as ChatEvent;
@@ -180,7 +191,9 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 
                             if (currentEvent === 'done') {
                                 receivedDone = true;
+                                const totalTime = (performance.now() - startTime).toFixed(0);
                                 log.debug('SSE done event received');
+                                log.trace(`Total chat request completed in ${totalTime}ms`);
                                 options.onComplete?.();
                             }
                         } catch (e) {
