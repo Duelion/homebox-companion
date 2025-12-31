@@ -30,6 +30,7 @@ class ChatEventType(str, Enum):
     TOOL_RESULT = "tool_result"
     APPROVAL_REQUIRED = "approval_required"
     ERROR = "error"
+    USAGE = "usage"
     DONE = "done"
 
 
@@ -50,104 +51,26 @@ class ChatEvent:
 
 
 # System prompt for the assistant
-SYSTEM_PROMPT = """You are an intelligent assistant for Homebox Companion, \
-a home inventory management application.
+SYSTEM_PROMPT = """You are a concise inventory assistant for Homebox.
+Base URL: {homebox_url}
 
-The Homebox instance base URL is: {homebox_url}
+RULE: Search inventory FIRST, then answer. Example: "find wire" -> search_items(query="wire")
 
-CORE PRINCIPLE: SEARCH FIRST, THEN RESPOND
-When users ask about items in their inventory, ALWAYS search the inventory FIRST \
-using the appropriate tool, then provide your answer based on the real data. \
-Do NOT provide general advice without checking their actual inventory.
+SEARCH TIPS:
+- Start with simple terms (e.g., "wire" not "picture hanging wire OR...")
+- Only use OR if first search returns nothing relevant
 
-Examples of when to SEARCH FIRST:
-- User: "find me the best wire to hang a painting"
-  → Call search_items(query="wire") or search_items(query="hanging wire") FIRST
-  → Then recommend from their actual inventory
+NO RESULTS: Say "No [item] found" + suggest ONE alternative term. No general advice.
 
-- User: "do I have any rope?"
-  → Call search_items(query="rope") FIRST
-  → Then answer based on results
+FORMAT: [Name]({homebox_url}/item/ID) for links. Summarize top 3-5 results.
 
-- User: "what screwdrivers do I own?"
-  → Call search_items(query="screwdriver") FIRST
-  → Then list what they have
-
-- User: "I need something to fix my bike"
-  → Call search_items(query="bike tool bicycle repair") FIRST
-  → Then suggest from their inventory
-
-Only provide general advice if:
-1. The user explicitly asks for general information (e.g., "how do I hang a painting?")
-2. You've already searched and found nothing relevant
-3. The question is clearly not about their inventory
-
-AVAILABLE TOOLS:
-{tool_descriptions}
-
-TOOL SELECTION GUIDE:
-- search_items: Use for ANY keyword or semantic search ("find X", "do I have Y", "items for Z")
-- list_items: Use only when browsing ALL items or filtering by specific location/labels
-- get_statistics: Use for counts/totals ("how many items?", "total value?")
-- get_item: Use when you already have an item ID and need full details
-- get_item_by_asset_id: Use when user provides an asset ID (e.g., "000-085")
-- get_location_tree: Use to understand location hierarchy
-- get_item_path: Use to tell users exactly where an item is located
-- compact=true: Use when you don't need full details (reduces token usage)
-
-RESPONSE FORMATTING:
-Format items, locations, and labels as clickable markdown links:
-- Items: [Item Name]({homebox_url}/item/ITEM_ID)
-- Locations: [Location Name]({homebox_url}/location/LOCATION_ID)
-- Labels: [Label Name]({homebox_url}/label/LABEL_ID)
-
-RESPONSE STYLE:
-- Be concise and helpful
-- Summarize results rather than dumping raw data
-- If many results, highlight the most relevant ones
-- If no results, say so clearly and offer alternatives
-
-For write operations (creating, updating, deleting items), you will need to \
-propose actions that the user must approve before they execute. This is not \
-yet implemented - let users know if they ask for modifications."""
+Write operations require user approval (not implemented)."""
 
 # Maximum recursion depth for tool call continuations
 # Prevents infinite loops if LLM keeps making tool calls
 MAX_TOOL_RECURSION_DEPTH = 10
 
 
-def _build_tool_descriptions() -> str:
-    """Build COMPRESSED tool descriptions for the system prompt.
-
-    Only includes READ tools with shortened descriptions to reduce tokens.
-    Full descriptions are in the tool definitions sent to the LLM.
-    """
-    metadata = HomeboxMCPTools.get_tool_metadata()
-
-    # Compressed descriptions - the full details are in tool parameters
-    compressed = {
-        "search_items": "Search items by keyword/semantic query",
-        "list_items": "List all items (with optional location/label filters)",
-        "get_item": "Get full item details by ID",
-        "get_item_by_asset_id": "Get item by asset ID (e.g., '000-085')",
-        "list_locations": "List all locations",
-        "get_location": "Get location details with children",
-        "get_location_tree": "Get full location hierarchy tree",
-        "list_labels": "List all labels",
-        "get_statistics": "Get inventory overview stats (counts/totals)",
-        "get_statistics_by_location": "Get item counts per location",
-        "get_statistics_by_label": "Get item counts per label",
-        "get_item_path": "Get item's full location path",
-        "get_attachment": "Get attachment content (base64)",
-    }
-
-    lines = []
-    for name, meta in metadata.items():
-        if meta["permission"] == ToolPermission.READ:
-            # Use compressed description if available, else full
-            desc = compressed.get(name, meta['description'])
-            lines.append(f"- {name}: {desc}")
-    return "\n".join(lines)
 
 
 def _build_litellm_tools() -> list[dict[str, Any]]:
@@ -332,7 +255,6 @@ class ChatOrchestrator:
 
         # Build messages for LLM
         system_prompt = SYSTEM_PROMPT.format(
-            tool_descriptions=_build_tool_descriptions(),
             homebox_url=settings.homebox_url.rstrip("/"),
         )
         messages = [{"role": "system", "content": system_prompt}]
@@ -402,6 +324,10 @@ class ChatOrchestrator:
 
         if config.settings.llm_api_base:
             kwargs["api_base"] = config.settings.llm_api_base
+
+        # Apply response length limit
+        if config.settings.chat_max_response_tokens > 0:
+            kwargs["max_tokens"] = config.settings.chat_max_response_tokens
 
         if tools:
             kwargs["tools"] = tools
@@ -539,6 +465,15 @@ class ChatOrchestrator:
                 f"tokens: prompt={usage_info.prompt_tokens}, "
                 f"completion={usage_info.completion_tokens}, "
                 f"total={usage_info.total_tokens}"
+            )
+            # Emit usage event for frontend
+            yield ChatEvent(
+                type=ChatEventType.USAGE,
+                data={
+                    "prompt_tokens": usage_info.prompt_tokens,
+                    "completion_tokens": usage_info.completion_tokens,
+                    "total_tokens": usage_info.total_tokens,
+                }
             )
         else:
             logger.trace(
@@ -735,7 +670,6 @@ class ChatOrchestrator:
             Additional chat events
         """
         system_prompt = SYSTEM_PROMPT.format(
-            tool_descriptions=_build_tool_descriptions(),
             homebox_url=settings.homebox_url.rstrip("/"),
         )
         messages = [{"role": "system", "content": system_prompt}]

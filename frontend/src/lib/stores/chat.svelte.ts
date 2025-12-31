@@ -33,6 +33,7 @@ export interface ChatMessage {
     timestamp: Date;
     isStreaming?: boolean;
     toolResults?: ToolResult[];
+    tokenUsage?: { prompt: number; completion: number; total: number };
 }
 
 // =============================================================================
@@ -369,6 +370,20 @@ class ChatStore {
             case 'error':
                 log.trace(`Error event: ${event.data.message}`);
                 this._error = event.data.message;
+                break;
+
+            case 'usage':
+                log.trace(`Token usage: ${event.data.total_tokens} total`, event.data);
+                // Update the streaming message with token usage
+                if (this.streamingMessageId) {
+                    this.updateMessage(this.streamingMessageId, {
+                        tokenUsage: {
+                            prompt: event.data.prompt_tokens,
+                            completion: event.data.completion_tokens,
+                            total: event.data.total_tokens,
+                        },
+                    });
+                }
                 break;
 
             case 'done':

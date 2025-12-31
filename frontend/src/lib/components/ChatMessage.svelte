@@ -85,12 +85,19 @@
         {/if}
     </div>
 
-    <time class="text-xs text-neutral-500 mt-1 px-2">
-        {message.timestamp.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-        })}
-    </time>
+    <div class="flex items-center gap-2 mt-1 px-2">
+        <time class="text-xs text-neutral-500">
+            {message.timestamp.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+            })}
+        </time>
+        {#if !isUser && message.tokenUsage}
+            <span class="text-xs text-neutral-500">
+                • {message.tokenUsage.total} tokens
+            </span>
+        {/if}
+    </div>
 </div>
 
 <style>

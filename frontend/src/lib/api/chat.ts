@@ -15,7 +15,7 @@ const BASE_URL = '/api';
 // TYPES
 // =============================================================================
 
-export type ChatEventType = 'text' | 'tool_start' | 'tool_result' | 'approval_required' | 'error' | 'done';
+export type ChatEventType = 'text' | 'tool_start' | 'tool_result' | 'approval_required' | 'error' | 'usage' | 'done';
 
 export interface ChatTextEvent {
     type: 'text';
@@ -42,6 +42,11 @@ export interface ChatErrorEvent {
     data: { message: string };
 }
 
+export interface ChatUsageEvent {
+    type: 'usage';
+    data: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+}
+
 export interface ChatDoneEvent {
     type: 'done';
     data: Record<string, never>;
@@ -53,6 +58,7 @@ export type ChatEvent =
     | ChatToolResultEvent
     | ChatApprovalEvent
     | ChatErrorEvent
+    | ChatUsageEvent
     | ChatDoneEvent;
 
 export interface PendingApproval {
@@ -106,7 +112,7 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
         // TRACE: Log request start with timing
         const startTime = performance.now();
         log.trace(`Starting chat request for message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`);
-        
+
         try {
             const response = await fetch(`${BASE_URL}/chat/messages`, {
                 method: 'POST',
@@ -162,17 +168,17 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
                 for (const line of lines) {
                     if (line.startsWith('event: ')) {
                         currentEvent = line.slice(7).trim() as ChatEventType;
-                        log.trace('SSE event type:', currentEvent);
                     } else if (line.startsWith('data: ') && currentEvent) {
                         const rawData = line.slice(6);
-                        
-                        // TRACE: Log raw SSE data
-                        log.trace(`SSE raw data for ${currentEvent}: ${rawData}`);
-                        
+
                         try {
                             const data = JSON.parse(rawData);
                             const event: ChatEvent = { type: currentEvent, data } as ChatEvent;
-                            log.debug('SSE event received:', { type: currentEvent, dataPreview: typeof data === 'object' ? Object.keys(data) : data });
+
+                            // Only log non-text events to avoid per-chunk spam
+                            if (currentEvent !== 'text') {
+                                log.debug('SSE event:', { type: currentEvent, dataPreview: typeof data === 'object' ? Object.keys(data) : data });
+                            }
 
                             // Check for auth-related error events from the backend
                             if (currentEvent === 'error' && data.message) {
