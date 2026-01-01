@@ -10,9 +10,10 @@ import rehypeSanitize from 'rehype-sanitize';
 import rehypeExternalLinks from 'rehype-external-links';
 import rehypeStringify from 'rehype-stringify';
 
-// Note: Order matters for security
-// 1. Sanitize first to remove malicious HTML
-// 2. Then add external link attributes (so they aren't stripped by sanitizer)
+// Pipeline order matters for security:
+// 1. Sanitize first - removes malicious HTML before any attribute injection
+// 2. Add external link attributes AFTER sanitization - these safe attributes
+//    bypass the sanitizer entirely since it already ran
 const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)

@@ -104,22 +104,19 @@ class ListLocationsTool:
             description="If true, only return top-level locations",
         )
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            locations = await client.list_locations(
-                token,
-                filter_children=params.filter_children if params.filter_children else None,
-            )
-            logger.debug(f"list_locations returned {len(locations)} locations")
-            return ToolResult(success=True, data=locations)
-        except Exception as e:
-            logger.error(f"list_locations failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        locations = await client.list_locations(
+            token,
+            filter_children=params.filter_children if params.filter_children else None,
+        )
+        logger.debug(f"list_locations returned {len(locations)} locations")
+        return ToolResult(success=True, data=locations)
 
 
 @dataclass(frozen=True)
@@ -133,19 +130,16 @@ class GetLocationTool:
     class Params(BaseModel):
         location_id: str = Field(description="The ID of the location to fetch")
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            location = await client.get_location(token, params.location_id)
-            logger.debug(f"get_location returned location: {location.get('name', 'unknown')}")
-            return ToolResult(success=True, data=location)
-        except Exception as e:
-            logger.error(f"get_location failed for {params.location_id}: {e}")
-            return ToolResult(success=False, error=str(e))
+        location = await client.get_location(token, params.location_id)
+        logger.debug(f"get_location returned location: {location.get('name', 'unknown')}")
+        return ToolResult(success=True, data=location)
 
 
 @dataclass(frozen=True)
@@ -159,19 +153,16 @@ class ListLabelsTool:
     class Params(BaseModel):
         pass  # No parameters needed
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            labels = await client.list_labels(token)
-            logger.debug(f"list_labels returned {len(labels)} labels")
-            return ToolResult(success=True, data=labels)
-        except Exception as e:
-            logger.error(f"list_labels failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        labels = await client.list_labels(token)
+        logger.debug(f"list_labels returned {len(labels)} labels")
+        return ToolResult(success=True, data=labels)
 
 
 @dataclass(frozen=True)
@@ -210,31 +201,28 @@ class ListItemsTool:
             ),
         )
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            items = await client.list_items(
-                token,
-                location_id=params.location_id,
-                label_ids=params.label_ids,
-                page=params.page,
-                page_size=params.page_size,
-            )
+        items = await client.list_items(
+            token,
+            location_id=params.location_id,
+            label_ids=params.label_ids,
+            page=params.page,
+            page_size=params.page_size,
+        )
 
-            if params.compact:
-                items = [_compact_item(item) for item in items]
-                logger.debug(f"list_items returned {len(items)} items (compact mode)")
-            else:
-                logger.debug(f"list_items returned {len(items)} items")
+        if params.compact:
+            items = [_compact_item(item) for item in items]
+            logger.debug(f"list_items returned {len(items)} items (compact mode)")
+        else:
+            logger.debug(f"list_items returned {len(items)} items")
 
-            return ToolResult(success=True, data=items)
-        except Exception as e:
-            logger.error(f"list_items failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        return ToolResult(success=True, data=items)
 
 
 @dataclass(frozen=True)
@@ -264,27 +252,24 @@ class SearchItemsTool:
             ),
         )
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            items = await client.search_items(token, query=params.query, limit=params.limit)
+        items = await client.search_items(token, query=params.query, limit=params.limit)
 
-            if params.compact:
-                items = [_compact_item(item) for item in items]
-                logger.debug(
-                    f"search_items('{params.query}') returned {len(items)} items (compact)"
-                )
-            else:
-                logger.debug(f"search_items('{params.query}') returned {len(items)} items")
+        if params.compact:
+            items = [_compact_item(item) for item in items]
+            logger.debug(
+                f"search_items('{params.query}') returned {len(items)} items (compact)"
+            )
+        else:
+            logger.debug(f"search_items('{params.query}') returned {len(items)} items")
 
-            return ToolResult(success=True, data=items)
-        except Exception as e:
-            logger.error(f"search_items failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        return ToolResult(success=True, data=items)
 
 
 @dataclass(frozen=True)
@@ -298,19 +283,16 @@ class GetItemTool:
     class Params(BaseModel):
         item_id: str = Field(description="ID of the item to fetch")
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            item = await client.get_item(token, params.item_id)
-            logger.debug(f"get_item returned item: {item.get('name', 'unknown')}")
-            return ToolResult(success=True, data=item)
-        except Exception as e:
-            logger.error(f"get_item failed for {params.item_id}: {e}")
-            return ToolResult(success=False, error=str(e))
+        item = await client.get_item(token, params.item_id)
+        logger.debug(f"get_item returned item: {item.get('name', 'unknown')}")
+        return ToolResult(success=True, data=item)
 
 
 @dataclass(frozen=True)
@@ -327,19 +309,16 @@ class GetStatisticsTool:
     class Params(BaseModel):
         pass  # No parameters needed
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            stats = await client.get_statistics(token)
-            logger.debug(f"get_statistics returned: {stats.get('totalItems', 0)} items")
-            return ToolResult(success=True, data=stats)
-        except Exception as e:
-            logger.error(f"get_statistics failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        stats = await client.get_statistics(token)
+        logger.debug(f"get_statistics returned: {stats.get('totalItems', 0)} items")
+        return ToolResult(success=True, data=stats)
 
 
 @dataclass(frozen=True)
@@ -356,19 +335,16 @@ class GetItemByAssetIdTool:
     class Params(BaseModel):
         asset_id: str = Field(description="The asset ID to look up (e.g., '000-085')")
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            item = await client.get_item_by_asset_id(token, params.asset_id)
-            logger.debug(f"get_item_by_asset_id({params.asset_id}) returned: {item.get('name', 'unknown')}")
-            return ToolResult(success=True, data=item)
-        except Exception as e:
-            logger.error(f"get_item_by_asset_id failed for {params.asset_id}: {e}")
-            return ToolResult(success=False, error=str(e))
+        item = await client.get_item_by_asset_id(token, params.asset_id)
+        logger.debug(f"get_item_by_asset_id({params.asset_id}) returned: {item.get('name', 'unknown')}")
+        return ToolResult(success=True, data=item)
 
 
 @dataclass(frozen=True)
@@ -388,19 +364,16 @@ class GetLocationTreeTool:
             description="If true, include items in the tree structure",
         )
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            tree = await client.get_location_tree(token, with_items=params.with_items)
-            logger.debug(f"get_location_tree returned {len(tree)} top-level nodes")
-            return ToolResult(success=True, data=tree)
-        except Exception as e:
-            logger.error(f"get_location_tree failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        tree = await client.get_location_tree(token, with_items=params.with_items)
+        logger.debug(f"get_location_tree returned {len(tree)} top-level nodes")
+        return ToolResult(success=True, data=tree)
 
 
 @dataclass(frozen=True)
@@ -417,19 +390,16 @@ class GetStatisticsByLocationTool:
     class Params(BaseModel):
         pass  # No parameters needed
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            stats = await client.get_statistics_by_location(token)
-            logger.debug(f"get_statistics_by_location returned {len(stats)} locations")
-            return ToolResult(success=True, data=stats)
-        except Exception as e:
-            logger.error(f"get_statistics_by_location failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        stats = await client.get_statistics_by_location(token)
+        logger.debug(f"get_statistics_by_location returned {len(stats)} locations")
+        return ToolResult(success=True, data=stats)
 
 
 @dataclass(frozen=True)
@@ -446,19 +416,16 @@ class GetStatisticsByLabelTool:
     class Params(BaseModel):
         pass  # No parameters needed
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            stats = await client.get_statistics_by_label(token)
-            logger.debug(f"get_statistics_by_label returned {len(stats)} labels")
-            return ToolResult(success=True, data=stats)
-        except Exception as e:
-            logger.error(f"get_statistics_by_label failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        stats = await client.get_statistics_by_label(token)
+        logger.debug(f"get_statistics_by_label returned {len(stats)} labels")
+        return ToolResult(success=True, data=stats)
 
 
 @dataclass(frozen=True)
@@ -475,19 +442,16 @@ class GetItemPathTool:
     class Params(BaseModel):
         item_id: str = Field(description="ID of the item")
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            path = await client.get_item_path(token, params.item_id)
-            logger.debug(f"get_item_path for {params.item_id} returned {len(path)} path elements")
-            return ToolResult(success=True, data=path)
-        except Exception as e:
-            logger.error(f"get_item_path failed for {params.item_id}: {e}")
-            return ToolResult(success=False, error=str(e))
+        path = await client.get_item_path(token, params.item_id)
+        logger.debug(f"get_item_path for {params.item_id} returned {len(path)} path elements")
+        return ToolResult(success=True, data=path)
 
 
 @dataclass(frozen=True)
@@ -502,6 +466,7 @@ class GetAttachmentTool:
         item_id: str = Field(description="ID of the item the attachment belongs to")
         attachment_id: str = Field(description="ID of the attachment to fetch")
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -525,9 +490,6 @@ class GetAttachmentTool:
             )
         except FileNotFoundError:
             return ToolResult(success=False, error="Attachment not found")
-        except Exception as e:
-            logger.error(f"get_attachment failed for {params.attachment_id}: {e}")
-            return ToolResult(success=False, error=str(e))
 
 
 # =============================================================================
@@ -552,27 +514,24 @@ class CreateItemTool:
             description="Optional list of label IDs to apply",
         )
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            from ..homebox.models import ItemCreate
+        from ..homebox.models import ItemCreate
 
-            item_data = ItemCreate(
-                name=params.name,
-                location_id=params.location_id,
-                description=params.description,
-                label_ids=params.label_ids or [],
-            )
-            result = await client.create_item(token, item_data)
-            logger.info(f"create_item created item: {result.get('name', 'unknown')}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"create_item failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        item_data = ItemCreate(
+            name=params.name,
+            location_id=params.location_id,
+            description=params.description,
+            label_ids=params.label_ids or [],
+        )
+        result = await client.create_item(token, item_data)
+        logger.info(f"create_item created item: {result.get('name', 'unknown')}")
+        return ToolResult(success=True, data=result)
 
 
 @dataclass(frozen=True)
@@ -589,31 +548,47 @@ class UpdateItemTool:
         description: str | None = Field(default=None, description="Optional new description")
         location_id: str | None = Field(default=None, description="Optional new location ID")
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            # First get the current item to preserve fields
-            current = await client.get_item(token, params.item_id)
+        # First get the current item to preserve unchanged fields
+        current = await client.get_item(token, params.item_id)
 
-            # Build update payload with only changed fields
-            update_data = dict(current)
-            if params.name is not None:
-                update_data["name"] = params.name
-            if params.description is not None:
-                update_data["description"] = params.description
-            if params.location_id is not None:
-                update_data["location"] = {"id": params.location_id}
+        # Build update payload with ONLY editable fields (avoid read-only fields
+        # like id, createdAt, updatedAt that the API may reject)
+        update_data = {
+            "name": params.name if params.name is not None else current.get("name"),
+            "description": (
+                params.description
+                if params.description is not None
+                else current.get("description", "")
+            ),
+            "quantity": current.get("quantity", 1),
+            "insured": current.get("insured", False),
+            "archived": current.get("archived", False),
+            "assetId": current.get("assetId", ""),
+            "notes": current.get("notes", ""),
+        }
 
-            result = await client.update_item(token, params.item_id, update_data)
-            logger.info(f"update_item updated item: {result.get('name', 'unknown')}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"update_item failed for {params.item_id}: {e}")
-            return ToolResult(success=False, error=str(e))
+        # Handle location - use new location_id if provided, else preserve current
+        if params.location_id is not None:
+            update_data["location"] = {"id": params.location_id}
+        elif current.get("location"):
+            update_data["location"] = {"id": current["location"].get("id")}
+
+        # Preserve labels if present
+        if current.get("labels"):
+            update_data["labels"] = [
+                {"id": label.get("id")} for label in current["labels"] if label.get("id")
+            ]
+
+        result = await client.update_item(token, params.item_id, update_data)
+        logger.info(f"update_item updated item: {result.get('name', 'unknown')}")
+        return ToolResult(success=True, data=result)
 
 
 @dataclass(frozen=True)
@@ -632,24 +607,21 @@ class CreateLocationTool:
             description="Optional parent location ID for nesting",
         )
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            result = await client.create_location(
-                token,
-                name=params.name,
-                description=params.description,
-                parent_id=params.parent_id,
-            )
-            logger.info(f"create_location created location: {result.get('name', 'unknown')}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"create_location failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        result = await client.create_location(
+            token,
+            name=params.name,
+            description=params.description,
+            parent_id=params.parent_id,
+        )
+        logger.info(f"create_location created location: {result.get('name', 'unknown')}")
+        return ToolResult(success=True, data=result)
 
 
 @dataclass(frozen=True)
@@ -727,6 +699,7 @@ class UploadAttachmentTool:
             description="Type of attachment: 'photo', 'manual', 'warranty', etc.",
         )
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -739,20 +712,16 @@ class UploadAttachmentTool:
             logger.error(f"upload_attachment invalid base64: {e}")
             return ToolResult(success=False, error=f"Invalid base64 encoding: {e}")
 
-        try:
-            result = await client.upload_attachment(
-                token,
-                item_id=params.item_id,
-                file_bytes=file_bytes,
-                filename=params.filename,
-                mime_type=params.mime_type,
-                attachment_type=params.attachment_type,
-            )
-            logger.info(f"upload_attachment uploaded {params.filename} to item {params.item_id}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"upload_attachment failed for item {params.item_id}: {e}")
-            return ToolResult(success=False, error=str(e))
+        result = await client.upload_attachment(
+            token,
+            item_id=params.item_id,
+            file_bytes=file_bytes,
+            filename=params.filename,
+            mime_type=params.mime_type,
+            attachment_type=params.attachment_type,
+        )
+        logger.info(f"upload_attachment uploaded {params.filename} to item {params.item_id}")
+        return ToolResult(success=True, data=result)
 
 
 @dataclass(frozen=True)
@@ -769,19 +738,16 @@ class EnsureAssetIdsTool:
     class Params(BaseModel):
         pass  # No parameters needed
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            count = await client.ensure_asset_ids(token)
-            logger.info(f"ensure_asset_ids assigned IDs to {count} items")
-            return ToolResult(success=True, data={"items_updated": count})
-        except Exception as e:
-            logger.error(f"ensure_asset_ids failed: {e}")
-            return ToolResult(success=False, error=str(e))
+        count = await client.ensure_asset_ids(token)
+        logger.info(f"ensure_asset_ids assigned IDs to {count} items")
+        return ToolResult(success=True, data={"items_updated": count})
 
 
 # =============================================================================
@@ -800,19 +766,16 @@ class DeleteItemTool:
     class Params(BaseModel):
         item_id: str = Field(description="ID of the item to delete")
 
+    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
         params: Params,
     ) -> ToolResult:
-        try:
-            await client.delete_item(token, params.item_id)
-            logger.info(f"delete_item deleted item: {params.item_id}")
-            return ToolResult(success=True, data={"deleted_id": params.item_id})
-        except Exception as e:
-            logger.error(f"delete_item failed for {params.item_id}: {e}")
-            return ToolResult(success=False, error=str(e))
+        await client.delete_item(token, params.item_id)
+        logger.info(f"delete_item deleted item: {params.item_id}")
+        return ToolResult(success=True, data={"deleted_id": params.item_id})
 
 
 # =============================================================================

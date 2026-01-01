@@ -79,10 +79,7 @@ _tool_cache: tuple[list[dict[str, Any]], float] | None = None
 _TOOL_CACHE_TTL = 300  # 5 minutes
 
 
-def invalidate_tool_cache() -> None:
-    """Invalidate the tool cache. Call after write operations."""
-    global _tool_cache
-    _tool_cache = None
+
 
 
 def _build_litellm_tools() -> list[dict[str, Any]]:

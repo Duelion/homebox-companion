@@ -20,10 +20,11 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 
 export interface ToolResult {
     tool: string;
+    executionId?: string;   // Unique ID for matching start/result events
     success: boolean;
     data?: unknown;
     error?: string;
-    isExecuting?: boolean;  // NEW: Track if tool is currently executing
+    isExecuting?: boolean;  // Track if tool is currently executing
 }
 
 export interface ChatMessage {
@@ -152,39 +153,40 @@ class ChatStore {
     }
 
     /** Mark a tool as executing (without a result yet) */
-    private markToolExecuting(toolName: string): void {
+    private markToolExecuting(toolName: string, executionId?: string): void {
         if (!this.streamingMessageId) return;
 
         this._messages = this._messages.map((msg) =>
             msg.id === this.streamingMessageId
                 ? {
-                      ...msg,
-                      toolResults: [
-                          ...(msg.toolResults || []),
-                          { tool: toolName, success: false, isExecuting: true },
-                      ],
-                  }
+                    ...msg,
+                    toolResults: [
+                        ...(msg.toolResults || []),
+                        { tool: toolName, executionId, success: false, isExecuting: true },
+                    ],
+                }
                 : msg
         );
     }
 
     /** Update an executing tool with its final result */
-    private updateToolResult(toolName: string, result: Omit<ToolResult, 'tool'>): void {
+    private updateToolResult(toolName: string, executionId: string | undefined, result: Omit<ToolResult, 'tool' | 'executionId'>): void {
         if (!this.streamingMessageId) return;
 
         this._messages = this._messages.map((msg) => {
             if (msg.id !== this.streamingMessageId) return msg;
-            
+
             const toolResults = msg.toolResults || [];
-            const toolIndex = toolResults.findIndex(
-                (tr) => tr.tool === toolName && tr.isExecuting
-            );
-            
+            // Match by executionId if available, otherwise fallback to name + isExecuting
+            const toolIndex = executionId
+                ? toolResults.findIndex((tr) => tr.executionId === executionId)
+                : toolResults.findIndex((tr) => tr.tool === toolName && tr.isExecuting);
+
             if (toolIndex === -1) return msg;
-            
+
             const updatedResults = [...toolResults];
-            updatedResults[toolIndex] = { tool: toolName, ...result, isExecuting: false };
-            
+            updatedResults[toolIndex] = { tool: toolName, executionId, ...result, isExecuting: false };
+
             return { ...msg, toolResults: updatedResults };
         });
     }
@@ -329,7 +331,7 @@ class ChatStore {
     private handleEvent(event: ChatEvent): void {
         // TRACE: Log full event data
         log.trace(`Event [${event.type}]:`, JSON.stringify(event.data, null, 2));
-        
+
         switch (event.type) {
             case 'text':
                 log.trace(`Text chunk received: "${event.data.content}"`);
@@ -339,13 +341,13 @@ class ChatStore {
             case 'tool_start':
                 log.trace(`Tool starting: ${event.data.tool}`, event.data.params);
                 // Mark tool as executing to show loading indicator
-                this.markToolExecuting(event.data.tool);
+                this.markToolExecuting(event.data.tool, event.data.execution_id);
                 break;
 
             case 'tool_result':
                 log.trace(`Tool ${event.data.tool} result:`, event.data.result);
                 // Update the executing tool with final result
-                this.updateToolResult(event.data.tool, {
+                this.updateToolResult(event.data.tool, event.data.execution_id, {
                     success: event.data.result.success,
                     data: event.data.result.data,
                     error: event.data.result.error,
@@ -395,6 +397,15 @@ class ChatStore {
 
     private handleError(error: Error): void {
         this._error = error.message;
+
+        // Remove empty assistant message on early failure
+        if (this.streamingMessageId) {
+            const msg = this._messages.find((m) => m.id === this.streamingMessageId);
+            if (msg && !msg.content && (!msg.toolResults || msg.toolResults.length === 0)) {
+                this._messages = this._messages.filter((m) => m.id !== this.streamingMessageId);
+            }
+        }
+
         this.handleComplete();
     }
 

@@ -24,12 +24,12 @@ export interface ChatTextEvent {
 
 export interface ChatToolStartEvent {
     type: 'tool_start';
-    data: { tool: string; params: Record<string, unknown> };
+    data: { tool: string; execution_id?: string; params: Record<string, unknown> };
 }
 
 export interface ChatToolResultEvent {
     type: 'tool_result';
-    data: { tool: string; result: { success: boolean; data?: unknown; error?: string } };
+    data: { tool: string; execution_id?: string; result: { success: boolean; data?: unknown; error?: string } };
 }
 
 export interface ChatApprovalEvent {
@@ -114,12 +114,16 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
         log.trace(`Starting chat request for message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`);
 
         try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (authStore.token) {
+                headers['Authorization'] = `Bearer ${authStore.token}`;
+            }
+
             const response = await fetch(`${BASE_URL}/chat/messages`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authStore.token}`,
-                },
+                headers,
                 body: JSON.stringify({ message }),
                 signal,
             });
