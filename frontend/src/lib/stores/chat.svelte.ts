@@ -333,12 +333,13 @@ class ChatStore {
 	// =========================================================================
 
 	private handleEvent(event: ChatEvent): void {
-		// TRACE: Log full event data
-		log.trace(`Event [${event.type}]:`, JSON.stringify(event.data, null, 2));
+		// TRACE: Log full event data (skip text events - they're logged on completion)
+		if (event.type !== 'text') {
+			log.trace(`Event [${event.type}]:`, JSON.stringify(event.data, null, 2));
+		}
 
 		switch (event.type) {
 			case 'text':
-				log.trace(`Text chunk received: "${event.data.content}"`);
 				this.appendContent(event.data.content);
 				break;
 
@@ -417,8 +418,12 @@ class ChatStore {
 		this._isStreaming = false;
 		this.abortController = null;
 
-		// Mark streaming message as complete
+		// Mark streaming message as complete and log the final message
 		if (this.streamingMessageId) {
+			const completedMessage = this._messages.find((m) => m.id === this.streamingMessageId);
+			if (completedMessage) {
+				log.trace(`Assistant response completed:`, completedMessage.content);
+			}
 			this.updateMessage(this.streamingMessageId, { isStreaming: false });
 			this.streamingMessageId = null;
 		}

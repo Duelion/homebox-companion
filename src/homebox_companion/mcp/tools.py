@@ -85,6 +85,29 @@ def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _compact_location(location: dict[str, Any]) -> dict[str, Any]:
+    """Extract location fields with pre-computed URL for markdown links.
+
+    Args:
+        location: Full location dictionary
+
+    Returns:
+        Compact location with essential fields plus URL
+    """
+    from ..core.config import settings
+
+    location_id = location.get("id")
+    base_url = settings.effective_link_base_url
+
+    return {
+        "id": location_id,
+        "name": location.get("name"),
+        "description": location.get("description", ""),
+        "itemCount": location.get("itemCount", 0),
+        "url": f"{base_url}/location/{location_id}" if location_id else None,
+    }
+
+
 # =============================================================================
 # READ-ONLY TOOLS
 # =============================================================================
@@ -95,7 +118,11 @@ class ListLocationsTool:
     """List all locations in Homebox inventory."""
 
     name: str = "list_locations"
-    description: str = "List all locations in Homebox inventory"
+    description: str = (
+        "List all locations in Homebox inventory. Returns name, id, itemCount, and url "
+        "for each location. Use this for listing/displaying locations - do NOT call "
+        "get_location for each result."
+    )
     permission: ToolPermission = ToolPermission.READ
 
     class Params(BaseModel):
@@ -115,6 +142,8 @@ class ListLocationsTool:
             token,
             filter_children=params.filter_children if params.filter_children else None,
         )
+        # Add URLs for markdown link generation
+        locations = [_compact_location(loc) for loc in locations]
         logger.debug(f"list_locations returned {len(locations)} locations")
         return ToolResult(success=True, data=locations)
 
@@ -124,7 +153,11 @@ class GetLocationTool:
     """Get a specific location with its child locations."""
 
     name: str = "get_location"
-    description: str = "Get a specific location with its child locations"
+    description: str = (
+        "Get a specific location's details including child locations. "
+        "Only use this when user asks about a location's children or hierarchy - "
+        "NOT needed for basic location listing."
+    )
     permission: ToolPermission = ToolPermission.READ
 
     class Params(BaseModel):
@@ -138,6 +171,9 @@ class GetLocationTool:
         params: Params,
     ) -> ToolResult:
         location = await client.get_location(token, params.location_id)
+        # Add URL for markdown link
+        from ..core.config import settings
+        location["url"] = f"{settings.effective_link_base_url}/location/{location.get('id')}"
         logger.debug(f"get_location returned location: {location.get('name', 'unknown')}")
         return ToolResult(success=True, data=location)
 

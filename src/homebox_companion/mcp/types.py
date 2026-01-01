@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 # Truncation limits for tool results (reduces context window usage)
 MAX_RESULT_ITEMS = 10  # Maximum items in list results
-MAX_RESULT_CHARS = 4000  # Maximum characters for string data
 
 
 class ToolPermission(str, Enum):
