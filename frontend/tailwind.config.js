@@ -154,7 +154,7 @@ export default {
         'pulse-slow': 'pulse 3s ease-in-out infinite',
         // Component-specific animations
         'pop': 'pop 300ms ease-out',
-        'typing-dot': 'bounce 1.4s infinite ease-in-out both',
+        'typing-dot': 'dotPulse 1.4s infinite ease-in-out both',
         'stream-glow': 'pulse-glow 2s ease-in-out infinite',
         'toast-in': 'toastSlideDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         'toast-out': 'toastFadeOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards',
@@ -191,7 +191,7 @@ export default {
           '50%': { transform: 'scale(1.03)' },
           '100%': { transform: 'scale(1)' },
         },
-        bounce: {
+        dotPulse: {
           '0%, 80%, 100%': { transform: 'scale(0)' },
           '40%': { transform: 'scale(1)' },
         },
