@@ -51,7 +51,10 @@ def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
     """Extract minimal fields from an item for compact responses.
 
     This reduces payload size significantly when full details aren't needed.
-    Includes a pre-computed URL field for markdown link generation.
+    Includes pre-computed URL fields for markdown link generation.
+
+    The location is returned as an object with its own 'url' field, normalizing
+    the structure so every entity has a 'url' pointing to itself.
 
     Args:
         item: Full item dictionary
@@ -72,14 +75,21 @@ def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
     item_id = item.get("id")
     base_url = settings.effective_link_base_url
 
+    # Build location object with its own URL (normalized structure)
+    location_obj = None
+    if location_id:
+        location_obj = {
+            "id": location_id,
+            "name": location_name,
+            "url": f"{base_url}/location/{location_id}",
+        }
+
     return {
         "id": item_id,
         "name": item.get("name"),
         "description": truncated_desc,
         "quantity": item.get("quantity"),
-        "location": location_name,
-        "location_id": location_id,
-        "location_url": f"{base_url}/location/{location_id}" if location_id else None,
+        "location": location_obj,
         "assetId": item.get("assetId"),
         "url": f"{base_url}/item/{item_id}" if item_id else None,
     }

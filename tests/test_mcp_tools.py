@@ -131,7 +131,15 @@ class TestListLocations:
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
-        assert result.data == mock_locations
+        # Tool returns compacted locations with additional fields
+        assert len(result.data) == 2
+        assert result.data[0]["id"] == "loc1"
+        assert result.data[0]["name"] == "Living Room"
+        assert result.data[1]["id"] == "loc2"
+        assert result.data[1]["name"] == "Kitchen"
+        # Verify compact format adds expected fields
+        assert "url" in result.data[0]
+        assert "itemCount" in result.data[0]
         mock_client.list_locations.assert_called_once_with("test-token", filter_children=None)
 
     @pytest.mark.asyncio

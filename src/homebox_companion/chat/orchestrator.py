@@ -64,7 +64,9 @@ EFFICIENCY RULES:
 
 RESPONSE FORMAT:
 - Present results as bullet-point lists with markdown links
-- Use the 'url' field from tool results: [Name](url)
+- Every object in tool results has a 'url' field - use it EXACTLY as provided, never modify
+- Items have a nested 'location' object which also has its own 'url' field
+- Example: [Item Name](item.url) in [Location Name](item.location.url)
 - Show up to 20 results, then summarize remaining count
 - Be helpful and complete, not artificially brief
 
