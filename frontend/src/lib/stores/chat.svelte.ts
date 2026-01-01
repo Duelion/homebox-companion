@@ -367,6 +367,7 @@ class ChatStore {
 						id: event.data.id,
 						tool_name: event.data.tool,
 						parameters: event.data.params,
+						display_info: event.data.display_info,
 						created_at: new Date().toISOString(),
 						expires_at: event.data.expires_at,
 						is_expired: false,

@@ -43,9 +43,21 @@ export interface ChatToolResultEvent {
 	};
 }
 
+export interface ApprovalDisplayInfo {
+	item_name?: string;
+	asset_id?: string;
+	location?: string;
+}
+
 export interface ChatApprovalEvent {
 	type: 'approval_required';
-	data: { id: string; tool: string; params: Record<string, unknown>; expires_at: string | null };
+	data: {
+		id: string;
+		tool: string;
+		params: Record<string, unknown>;
+		display_info?: ApprovalDisplayInfo;
+		expires_at: string | null;
+	};
 }
 
 export interface ChatErrorEvent {
@@ -76,6 +88,7 @@ export interface PendingApproval {
 	id: string;
 	tool_name: string;
 	parameters: Record<string, unknown>;
+	display_info?: ApprovalDisplayInfo;
 	created_at: string;
 	expires_at: string | null;
 	is_expired: boolean;

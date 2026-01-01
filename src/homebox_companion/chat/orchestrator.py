@@ -21,7 +21,14 @@ from ..core.config import settings
 from ..homebox.client import HomeboxClient
 from ..mcp.tools import get_tools
 from ..mcp.types import ToolPermission
-from .session import ChatMessage, ChatSession, PendingApproval, ToolCall, create_approval_id
+from .session import (
+    ChatMessage,
+    ChatSession,
+    DisplayInfo,
+    PendingApproval,
+    ToolCall,
+    create_approval_id,
+)
 
 
 class ChatEventType(str, Enum):
@@ -69,6 +76,11 @@ RESPONSE FORMAT:
 - Example: [Item Name](item.url) in [Location Name](item.location.url)
 - Show up to 20 results, then summarize remaining count
 - Be helpful and complete, not artificially brief
+
+APPROVAL HANDLING:
+- When calling write or destructive tools (create, update, delete), do NOT ask the user to type "yes" or confirm via text
+- The UI automatically presents an approval interface for these actions
+- Simply state what action will be taken and let the UI handle confirmation
 
 No tools needed for greetings or general questions."""
 
@@ -241,7 +253,7 @@ class ChatOrchestrator:
                 # Queue write tools for approval
                 has_pending_approvals = True
                 async for event in self._queue_approval(
-                    parsed_tc.id, parsed_tc.name, parsed_tc.arguments
+                    parsed_tc.id, parsed_tc.name, parsed_tc.arguments, token
                 ):
                     yield event
 
@@ -612,6 +624,56 @@ class ChatOrchestrator:
                 tool_calls=None,
             ))
 
+    async def _get_display_info(
+        self,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        token: str,
+    ) -> DisplayInfo:
+        """Fetch human-readable display info for an approval.
+
+        Args:
+            tool_name: Name of the tool
+            tool_args: Tool arguments
+            token: Auth token for Homebox
+
+        Returns:
+            Dictionary with display-friendly info (item_name, location, etc.)
+        """
+        display_info: DisplayInfo = {}
+
+        try:
+            # Handle tools that operate on existing items
+            if tool_name in ("delete_item", "update_item") and "item_id" in tool_args:
+                item = await self.client.get_item(token, tool_args["item_id"])
+                display_info["item_name"] = item.name
+                if item.asset_id:
+                    display_info["asset_id"] = item.asset_id
+                # Include location for delete actions
+                if tool_name == "delete_item" and item.location:
+                    display_info["location"] = item.location.name
+
+            elif tool_name == "create_item":
+                # For create, use the name from the params
+                if "name" in tool_args:
+                    display_info["item_name"] = tool_args["name"]
+                if "location_id" in tool_args:
+                    try:
+                        location = await self.client.get_location(
+                            token, tool_args["location_id"]
+                        )
+                        display_info["location"] = location.name
+                    except Exception as e:
+                        logger.debug(
+                            f"Location lookup failed for {tool_args['location_id']}: {e}"
+                        )
+
+        except Exception as e:
+            # Don't fail the approval if we can't fetch display info
+            logger.debug(f"Failed to fetch display info for {tool_name}: {e}")
+
+        return display_info
+
     async def _execute_tool(
         self,
         tool_call_id: str,
@@ -697,6 +759,7 @@ class ChatOrchestrator:
         tool_call_id: str,
         tool_name: str,
         tool_args: dict[str, Any],
+        token: str,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Queue a write tool for approval.
 
@@ -707,15 +770,20 @@ class ChatOrchestrator:
             tool_call_id: ID of the tool call from the LLM
             tool_name: Name of the tool
             tool_args: Tool arguments
+            token: Auth token for fetching display info
 
         Yields:
             Approval required event
         """
+        # Fetch display-friendly info for better UX
+        display_info = await self._get_display_info(tool_name, tool_args, token)
+
         approval_id = create_approval_id()
         approval = PendingApproval(
             id=approval_id,
             tool_name=tool_name,
             parameters=tool_args,
+            display_info=display_info,
         )
         self.session.add_pending_approval(approval)
 
@@ -738,6 +806,7 @@ class ChatOrchestrator:
                 "id": approval_id,
                 "tool": tool_name,
                 "params": tool_args,
+                "display_info": display_info,
                 "expires_at": approval.expires_at.isoformat() if approval.expires_at else None,
             }
         )
