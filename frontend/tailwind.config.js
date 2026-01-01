@@ -72,27 +72,6 @@ export default {
           DEFAULT: '#22d3ee',
           hover: '#67e8f9',
         },
-        
-        // Backwards compatibility aliases (will be deprecated)
-        surface: {
-          DEFAULT: '#1e1e2e',  // → neutral-800
-          elevated: '#2a2a3e', // → neutral-700
-          hover: '#3a3a4e',    // → neutral-600
-        },
-        background: '#0f0f1a', // → neutral-950
-        text: {
-          DEFAULT: '#e2e8f0',  // → neutral-200
-          muted: '#94a3b8',    // → neutral-400
-          dim: '#64748b',      // → neutral-500
-        },
-        border: {
-          DEFAULT: 'rgba(255, 255, 255, 0.1)',
-          hover: 'rgba(255, 255, 255, 0.2)',
-        },
-        danger: {
-          DEFAULT: '#ef4444',
-          bg: 'rgba(239, 68, 68, 0.1)',
-        },
       },
       
       // Typography scale with line-height and letter-spacing
@@ -106,6 +85,10 @@ export default {
         'body': ['1rem', { lineHeight: '1.6' }],
         'body-sm': ['0.875rem', { lineHeight: '1.5' }],
         'caption': ['0.75rem', { lineHeight: '1.4', letterSpacing: '0.01em' }],
+        'xs-tight': ['0.6875rem', { lineHeight: '1.4' }],  // 11px
+        'sm-tight': ['0.8125rem', { lineHeight: '1.4' }],  // 13px
+        'md-tight': ['0.9375rem', { lineHeight: '1.5' }],  // 15px
+        'xxs': ['0.625rem', { lineHeight: '1.2' }],  // 10px
       },
       
       fontFamily: {
@@ -119,6 +102,17 @@ export default {
         'xl': '1rem',      // 16px - buttons, medium cards
         '2xl': '1.25rem',  // 20px - large cards, modals
         '3xl': '1.5rem',   // 24px - hero elements
+        '4xl': '1.75rem',  // 28px - extra large
+        'pill': '0.875rem',  // 14px - pill shapes
+      },
+      
+      // Extended spacing scale
+      spacing: {
+        '4.5': '1.125rem',  // 18px
+        '5.5': '1.375rem',  // 22px
+        '7.5': '1.875rem',  // 30px
+        '8.5': '2.125rem',  // 34px
+        '11': '2.75rem',    // 44px
       },
       
       // Refined shadows for dark mode
@@ -128,7 +122,7 @@ export default {
         'md': '0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
         'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
         'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.08)',
-        // Deprecated - kept for backwards compatibility
+        // Primary color glow effects (coupled to primary-500: #6366f1)
         'glow': '0 0 20px rgba(99, 102, 241, 0.3)',
         'glow-lg': '0 0 40px rgba(99, 102, 241, 0.4)',
       },
@@ -141,8 +135,13 @@ export default {
         'scale-in': 'scaleIn 0.15s ease-out',
         'shimmer': 'shimmer 2s linear infinite',
         'pulse-slow': 'pulse 3s ease-in-out infinite',
-        // Deprecated - kept for backwards compatibility
-        'float': 'float 6s ease-in-out infinite',
+        // Component-specific animations
+        'pop': 'pop 300ms ease-out',
+        'typing-dot': 'bounce 1.4s infinite ease-in-out both',
+        'stream-glow': 'pulse-glow 2s ease-in-out infinite',
+        'toast-in': 'toastSlideDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'toast-out': 'toastFadeOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        'progress-shrink': 'progressShrink var(--duration, 4000ms) linear forwards',
       },
       keyframes: {
         fadeIn: {
@@ -165,10 +164,32 @@ export default {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
-        // Deprecated
-        float: {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-20px)' },
+        // Component-specific keyframes
+        pop: {
+          '0%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.03)' },
+          '100%': { transform: 'scale(1)' },
+        },
+        bounce: {
+          '0%, 80%, 100%': { transform: 'scale(0)' },
+          '40%': { transform: 'scale(1)' },
+        },
+        // Primary color glow pulse (coupled to primary-500: #6366f1)
+        'pulse-glow': {
+          '0%, 100%': { boxShadow: '0 0 0 1px rgba(99, 102, 241, 0.3)' },
+          '50%': { boxShadow: '0 0 12px 2px rgba(99, 102, 241, 0.4)' },
+        },
+        toastSlideDown: {
+          from: { opacity: '0', transform: 'translateY(-100%) scale(0.95)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        toastFadeOut: {
+          from: { opacity: '1', transform: 'translateY(0) scale(1)' },
+          to: { opacity: '0', transform: 'translateY(1rem) scale(0.95)' },
+        },
+        progressShrink: {
+          from: { width: '100%' },
+          to: { width: '0%' },
         },
       },
       

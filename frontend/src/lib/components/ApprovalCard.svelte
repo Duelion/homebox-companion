@@ -4,6 +4,7 @@
      */
     import type { PendingApproval } from "../api/chat";
     import { chatStore } from "../stores/chat.svelte";
+    import Button from "./Button.svelte";
 
     interface Props {
         approval: PendingApproval;
@@ -132,40 +133,25 @@
             ? 'border-neutral-700/50'
             : 'border-warning-500/20'}"
     >
-        <button
-            class="flex-1 btn btn-secondary text-sm py-2"
+        <Button
+            variant="secondary"
+            size="sm"
+            full
+            disabled={isProcessing || approval.is_expired}
+            loading={isProcessing}
             onclick={handleReject}
-            disabled={isProcessing || approval.is_expired}
         >
-            {#if isProcessing}
-                <span class="loading-spinner"></span>
-            {:else}
-                Reject
-            {/if}
-        </button>
-        <button
-            class="flex-1 btn btn-warning text-sm py-2"
+            Reject
+        </Button>
+        <Button
+            variant="warning"
+            size="sm"
+            full
+            disabled={isProcessing || approval.is_expired}
+            loading={isProcessing}
             onclick={handleApprove}
-            disabled={isProcessing || approval.is_expired}
         >
-            {#if isProcessing}
-                <span class="loading-spinner"></span>
-            {:else}
-                Approve
-            {/if}
-        </button>
+            Approve
+        </Button>
     </div>
 </div>
-
-<style>
-    .loading-spinner {
-        @apply w-4 h-4 border-2 border-white/30 border-t-white rounded-full;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
-        }
-    }
-</style>

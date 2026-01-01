@@ -464,14 +464,14 @@
 					Edit Thumbnail
 				</h3>
 				<p
-					class="text-sm text-neutral-400 truncate max-w-[200px] sm:max-w-[300px]"
+					class="text-sm text-neutral-400 truncate max-w-xs"
 				>
 					{itemName}
 				</p>
 			</div>
 			<button
 				type="button"
-				class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+				class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-11 min-h-11 flex items-center justify-center"
 				onclick={onClose}
 				aria-label="Close"
 			>

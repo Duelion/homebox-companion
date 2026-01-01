@@ -18,7 +18,7 @@
 		class="rounded-full border-primary/30 border-t-primary animate-spin {sizeClasses[size]}"
 	></div>
 	{#if message}
-		<p class="text-text-muted text-sm animate-pulse">{message}</p>
+		<p class="text-neutral-400 text-sm animate-pulse">{message}</p>
 	{/if}
 </div>
 

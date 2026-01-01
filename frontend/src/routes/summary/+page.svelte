@@ -301,7 +301,7 @@
 
 				<!-- Action buttons / status -->
 				<div
-					class="flex flex-col gap-1 items-center justify-start min-w-[44px]"
+					class="flex flex-col gap-1 items-center justify-start min-w-11"
 				>
 					{#if itemStatuses[index] && itemStatuses[index] !== "pending"}
 						<!-- Show status icon during/after submission -->

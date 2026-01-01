@@ -38,64 +38,9 @@
 /* Component utilities */
 @layer components {
 
-	/* Base button styles */
-	.btn {
-		@apply inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950;
-	}
-
-	/* Primary button - main CTA */
-	.btn-primary {
-		@apply bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700 active:scale-[0.98] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed focus:ring-primary-500/50;
-	}
-
-	/* Secondary button - alternative actions */
-	.btn-secondary {
-		@apply bg-neutral-800 text-neutral-200 hover:bg-neutral-700 hover:border-neutral-600 active:bg-neutral-900 active:scale-[0.98] disabled:bg-neutral-900 disabled:text-neutral-600 disabled:border-neutral-800 disabled:cursor-not-allowed border border-neutral-700 focus:ring-neutral-500/50;
-	}
-
-	/* Ghost button - minimal appearance */
-	.btn-ghost {
-		@apply bg-transparent text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 active:bg-neutral-700 active:scale-[0.98] disabled:text-neutral-600 disabled:cursor-not-allowed focus:ring-neutral-500/50;
-	}
-
-	/* Danger button - destructive actions */
-	.btn-danger {
-		@apply bg-error-600 text-white hover:bg-error-500 active:bg-error-700 active:scale-[0.98] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed focus:ring-error-500/50;
-	}
-
-	/* Warning button */
-	.btn-warning {
-		@apply bg-warning-500 text-white hover:bg-warning-600 active:bg-warning-700 active:scale-[0.98] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed focus:ring-warning-500/50;
-	}
-
 	/* Icon button - compact */
 	.btn-icon {
 		@apply p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 active:bg-neutral-700 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500/50;
-	}
-
-	/* Full width modifier */
-	.btn-full {
-		@apply w-full;
-	}
-
-	/* Card styles */
-	.card {
-		@apply bg-neutral-900 rounded-2xl border border-neutral-700 shadow-sm p-4 transition-all duration-200;
-	}
-
-	/* Elevated card - higher visual level */
-	.card-elevated {
-		@apply bg-neutral-800 border-neutral-600 shadow-md;
-	}
-
-	/* Interactive card - clickable */
-	.card-interactive {
-		@apply card cursor-pointer hover:bg-neutral-800 hover:border-neutral-600 hover:shadow-md active:scale-[0.99];
-	}
-
-	/* Selected card state */
-	.card-selected {
-		@apply card ring-2 ring-primary-500/50 border-primary-600;
 	}
 
 	/* Input styles */
@@ -232,6 +177,21 @@
 	.success-badge {
 		animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 		z-index: 10;
+	}
+
+	/* Page container with bottom nav offset */
+	.page-content {
+		@apply animate-in pb-28;
+	}
+
+	/* Fixed bottom panel above nav */
+	.fixed-bottom-panel {
+		@apply fixed bottom-nav-offset left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 z-40;
+	}
+
+	/* Empty state container */
+	.empty-state {
+		@apply flex flex-col items-center justify-center text-center px-6 py-12 min-h-[35vh];
 	}
 }
 

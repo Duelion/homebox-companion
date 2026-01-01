@@ -97,14 +97,14 @@
 	<title>Login - Homebox Companion</title>
 </svelte:head>
 
-<div class="flex flex-col items-center justify-center min-h-[70vh] animate-in">
+<div class="flex flex-col items-center justify-center min-h-screen animate-in">
 	{#if isCheckingAuth}
 		<!-- Loading state during auth check -->
 		<div class="flex flex-col items-center gap-4">
 			<div
 				class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"
 			></div>
-			<p class="text-sm text-text-muted">Loading...</p>
+			<p class="text-sm text-neutral-400">Loading...</p>
 		</div>
 	{:else}
 		<!-- Refined logo icon -->

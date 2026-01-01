@@ -61,10 +61,10 @@
 </svelte:head>
 
 <!-- Main content area with bottom padding for the fixed input -->
-<div class="animate-in pb-28">
+<div class="page-content">
     {#if !isEnabled}
         <!-- Disabled state -->
-        <div class="flex flex-col items-center justify-center text-center px-6 py-12 min-h-[60vh]">
+        <div class="empty-state min-h-[60vh]">
             <div class="w-16 h-16 flex items-center justify-center rounded-2xl bg-error-500/10 mb-5">
                 <svg
                     class="w-8 h-8 text-error-500"
@@ -113,7 +113,7 @@
         <!-- Messages area -->
         <div class="min-h-[50vh]" bind:this={messagesContainer}>
             {#if chatStore.messages.length === 0}
-                <div class="flex flex-col items-center justify-center text-center px-6 py-12 min-h-[35vh]">
+                <div class="empty-state">
                     <div class="w-16 h-16 flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500/15 to-purple-500/10 mb-5">
                         <svg
                             class="w-8 h-8 text-primary-500"
@@ -205,9 +205,7 @@
 
 <!-- Fixed input at bottom - above navigation bar (same pattern as Capture page) -->
 {#if isEnabled}
-    <div
-        class="fixed bottom-nav-offset left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 p-4 z-40"
-    >
+    <div class="fixed-bottom-panel p-4">
         <div class="max-w-lg mx-auto">
             <ChatInput
                 hasMessages={chatStore.messages.length > 0}

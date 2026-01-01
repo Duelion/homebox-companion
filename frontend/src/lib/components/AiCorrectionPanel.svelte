@@ -22,10 +22,10 @@
 	}
 </script>
 
-<div class="border-t border-border pt-4">
+<div class="border-t border-neutral-700 pt-4">
 	<button
 		type="button"
-		class="flex items-center gap-2 text-sm text-text-muted hover:text-text w-full"
+		class="flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200 w-full"
 		onclick={onToggle}
 	>
 		<svg
@@ -48,7 +48,7 @@
 					message="Correcting with AI..."
 				/>
 			{:else}
-				<p class="text-xs text-text-dim">
+				<p class="text-xs text-neutral-500">
 					Tell the AI what's wrong and it will re-analyze the image
 				</p>
 				<textarea

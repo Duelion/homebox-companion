@@ -60,10 +60,10 @@
 		class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
 	>
 		<div
-			class="w-full max-w-sm bg-surface rounded-2xl border border-border shadow-xl animate-scale-in overflow-hidden"
+			class="w-full max-w-sm bg-neutral-800 rounded-2xl border border-neutral-700 shadow-xl animate-scale-in overflow-hidden"
 		>
 			<!-- Header -->
-			<div class="px-6 py-4 border-b border-border bg-warning/10">
+			<div class="px-6 py-4 border-b border-neutral-700 bg-warning/10">
 				<div class="flex items-center gap-3">
 					<div class="p-2 rounded-full bg-warning/20">
 						<!-- Warning/clock icon for session expired -->
@@ -80,10 +80,10 @@
 						</svg>
 					</div>
 					<div>
-						<h3 class="text-lg font-semibold text-text">
+						<h3 class="text-lg font-semibold text-neutral-200">
 							Session Expired
 						</h3>
-						<p class="text-sm text-text-muted">
+						<p class="text-sm text-neutral-400">
 							Please log in again to continue
 						</p>
 					</div>
@@ -157,7 +157,7 @@
 
 					<button
 						type="button"
-						class="text-sm text-text-muted hover:text-text transition-colors py-2"
+						class="text-sm text-neutral-400 hover:text-neutral-200 transition-colors py-2"
 						onclick={handleLogout}
 						disabled={isSubmitting}
 					>
