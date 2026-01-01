@@ -231,3 +231,4 @@
 	bind:open={approvalModalOpen}
 	approvals={chatStore.pendingApprovals}
 />
+

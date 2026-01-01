@@ -11,11 +11,19 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from loguru import logger
 
 from ..core.config import settings
+
+
+class DisplayInfo(TypedDict, total=False):
+    """Human-readable display info for approval actions."""
+
+    item_name: str
+    asset_id: str
+    location: str
 
 
 @dataclass
@@ -80,12 +88,14 @@ class PendingApproval:
         id: Unique identifier for this approval request
         tool_name: Name of the tool to execute
         parameters: Tool parameters
+        display_info: Human-readable details for display (e.g., item name, location)
         created_at: When the approval was created
         expires_at: When the approval expires
     """
     id: str
     tool_name: str
     parameters: dict[str, Any]
+    display_info: DisplayInfo = field(default_factory=dict)  # type: ignore[assignment]
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
 
@@ -108,6 +118,7 @@ class PendingApproval:
             "id": self.id,
             "tool_name": self.tool_name,
             "parameters": self.parameters,
+            "display_info": self.display_info,
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "is_expired": self.is_expired,

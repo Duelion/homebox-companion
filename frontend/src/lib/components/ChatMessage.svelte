@@ -4,7 +4,7 @@
 	 *
 	 * User messages are right-aligned with primary color.
 	 * Assistant messages are left-aligned with surface color.
-	 * Shows approval badge when there are pending actions.
+	 * Shows approval badge button when there are pending actions.
 	 */
 	import type { ChatMessage as ChatMessageType } from '../stores/chat.svelte';
 	import { renderMarkdown } from '../markdown';
@@ -173,11 +173,11 @@
 				minute: '2-digit',
 			})}
 		</time>
-		{#if !isUser && message.tokenUsage}
-			<span class="text-xs text-neutral-500">
-				▶ {message.tokenUsage.total} tokens
-			</span>
-		{/if}
+	{#if !isUser && message.tokenUsage}
+		<span class="text-xs text-neutral-500">
+			{message.tokenUsage.total} tokens
+		</span>
+	{/if}
 	</div>
 </div>
 
@@ -225,7 +225,8 @@
 	}
 
 	@keyframes approval-pulse {
-		0%, 100% {
+		0%,
+		100% {
 			box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2);
 		}
 		50% {
