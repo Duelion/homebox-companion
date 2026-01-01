@@ -577,9 +577,15 @@ class TestChatOrchestrator:
         tool_result_events = [e for e in events if e.type == ChatEventType.TOOL_RESULT]
         text_events = [e for e in events if e.type == ChatEventType.TEXT]
 
-        assert len(tool_start_events) == 2, f"Should have 2 tool start events, got {len(tool_start_events)}"
-        assert len(tool_result_events) == 2, f"Should have 2 tool result events, got {len(tool_result_events)}"
-        assert len(text_events) == 1, f"Should have 1 text event, got {len(text_events)}"
+        assert len(tool_start_events) == 2, (
+            f"Should have 2 tool start events, got {len(tool_start_events)}"
+        )
+        assert len(tool_result_events) == 2, (
+            f"Should have 2 tool result events, got {len(tool_result_events)}"
+        )
+        assert len(text_events) == 1, (
+            f"Should have 1 text event, got {len(text_events)}"
+        )
         assert "Picture Hanging Wire" in text_events[0].data["content"]
 
         # Verify message sequence in session is valid
@@ -673,6 +679,9 @@ class TestChatOrchestrator:
 
         # Should have an error about max recursion depth
         error_events = [e for e in events if e.type == ChatEventType.ERROR]
-        assert any("recursion" in e.data.get("message", "").lower() for e in error_events), (
-            f"Should have error about max recursion depth. Got events: {[(e.type, e.data) for e in events]}"
+        assert any(
+            "recursion" in e.data.get("message", "").lower() for e in error_events
+        ), (
+            "Should have error about max recursion depth. "
+            f"Got events: {[(e.type, e.data) for e in events]}"
         )

@@ -11,7 +11,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sse_starlette.sse import EventSourceResponse
 
 from homebox_companion import HomeboxClient, settings
@@ -20,10 +20,15 @@ from homebox_companion.chat.session import (
     clear_session,
     get_session,
 )
+from homebox_companion.mcp.tools import get_tools
 
 from ..dependencies import get_client, get_token
 
 router = APIRouter()
+
+# Discover tools once at module load for approval execution
+_all_tools = get_tools()
+_tools_by_name = {t.name: t for t in _all_tools}
 
 
 class ChatMessageRequest(BaseModel):
@@ -158,13 +163,10 @@ async def approve_action(
     if not approval:
         raise HTTPException(status_code=404, detail="Approval not found or expired")
 
-    # Execute the approved write action
-    from homebox_companion.mcp.tools import HomeboxMCPTools
+    # Get tool by name
+    tool = _tools_by_name.get(approval.tool_name)
 
-    tools = HomeboxMCPTools(client)
-    tool_method = getattr(tools, approval.tool_name, None)
-
-    if not tool_method:
+    if not tool:
         session.remove_approval(approval_id)
         return JSONResponse(
             status_code=500,
@@ -179,7 +181,9 @@ async def approve_action(
             f"Executing approved action: {approval.tool_name} "
             f"with params {approval.parameters}"
         )
-        result = await tool_method(token, **approval.parameters)
+        # Validate parameters with Pydantic
+        params = tool.Params(**approval.parameters)
+        result = await tool.execute(client, token, params)
         session.remove_approval(approval_id)
 
         return JSONResponse(
@@ -188,6 +192,16 @@ async def approve_action(
                 "tool": approval.tool_name,
                 "data": result.data,
                 "error": result.error,
+            }
+        )
+    except ValidationError as e:
+        session.remove_approval(approval_id)
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": f"Invalid parameters: {e}",
+                "tool": approval.tool_name,
             }
         )
     except Exception as e:

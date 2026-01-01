@@ -10,7 +10,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from homebox_companion.mcp.tools import HomeboxMCPTools, ToolPermission, ToolResult
+from homebox_companion.mcp.tools import (
+    GetItemTool,
+    GetLocationTool,
+    ListItemsTool,
+    ListLabelsTool,
+    ListLocationsTool,
+    get_tools,
+)
+from homebox_companion.mcp.types import ToolPermission, ToolResult
 
 # =============================================================================
 # Test Fixtures
@@ -28,12 +36,6 @@ def mock_client() -> MagicMock:
     client.list_items = AsyncMock()
     client.get_item = AsyncMock()
     return client
-
-
-@pytest.fixture
-def tools(mock_client: MagicMock) -> HomeboxMCPTools:
-    """Create HomeboxMCPTools instance with mock client."""
-    return HomeboxMCPTools(mock_client)
 
 
 # =============================================================================
@@ -56,52 +58,55 @@ class TestToolResult:
 
 
 # =============================================================================
-# Tool Metadata Tests
+# Tool Discovery Tests
 # =============================================================================
 
 
-class TestToolMetadata:
-    """Tests for tool metadata and permissions."""
+class TestToolDiscovery:
+    """Tests for tool discovery and metadata."""
 
-    def test_get_tool_metadata_returns_all_tools(self):
-        """Metadata should include all defined tools."""
-        metadata = HomeboxMCPTools.get_tool_metadata()
+    def test_get_tools_returns_all_tools(self):
+        """Discovery should return all defined tools."""
+        tools = get_tools()
+        tool_names = {t.name for t in tools}
 
         expected_tools = [
             "list_locations", "get_location", "list_labels", "list_items", "get_item",
             "create_item", "update_item", "delete_item"
         ]
-        assert all(tool in metadata for tool in expected_tools)
+        assert all(tool in tool_names for tool in expected_tools)
 
-    def test_all_phase_a_tools_are_read_only(self):
-        """Phase A tools (list/get) should have READ permission."""
-        metadata = HomeboxMCPTools.get_tool_metadata()
-        phase_a_tools = ["list_locations", "get_location", "list_labels", "list_items", "get_item"]
+    def test_all_read_tools_have_read_permission(self):
+        """READ tools should have READ permission."""
+        tools = get_tools()
+        read_tools = ["list_locations", "get_location", "list_labels", "list_items", "get_item"]
+        tools_by_name = {t.name: t for t in tools}
 
-        for name in phase_a_tools:
+        for name in read_tools:
             assert (
-                metadata[name]["permission"] == ToolPermission.READ
+                tools_by_name[name].permission == ToolPermission.READ
             ), f"{name} should be READ permission"
 
-    def test_phase_d_write_tools_have_correct_permissions(self):
-        """Phase D write tools should have WRITE or DESTRUCTIVE permissions."""
-        metadata = HomeboxMCPTools.get_tool_metadata()
+    def test_write_tools_have_correct_permissions(self):
+        """Write tools should have WRITE or DESTRUCTIVE permissions."""
+        tools = get_tools()
+        tools_by_name = {t.name: t for t in tools}
 
-        assert metadata["create_item"]["permission"] == ToolPermission.WRITE
-        assert metadata["update_item"]["permission"] == ToolPermission.WRITE
-        assert metadata["delete_item"]["permission"] == ToolPermission.DESTRUCTIVE
+        assert tools_by_name["create_item"].permission == ToolPermission.WRITE
+        assert tools_by_name["update_item"].permission == ToolPermission.WRITE
+        assert tools_by_name["delete_item"].permission == ToolPermission.DESTRUCTIVE
 
-    def test_tool_metadata_has_required_fields(self):
-        """Each tool metadata should have description, permission, and parameters."""
-        metadata = HomeboxMCPTools.get_tool_metadata()
+    def test_tools_have_params_class(self):
+        """Each tool should have a Params class for schema generation."""
+        tools = get_tools()
 
-        for name, meta in metadata.items():
-            assert "description" in meta, f"{name} missing description"
-            assert "permission" in meta, f"{name} missing permission"
-            assert "parameters" in meta, f"{name} missing parameters"
-            assert (
-                meta["parameters"].get("type") == "object"
-            ), f"{name} parameters should be object type"
+        for tool in tools:
+            assert hasattr(tool, "Params"), f"{tool.name} missing Params class"
+            # Verify it can generate JSON schema
+            schema = tool.Params.model_json_schema()
+            assert "type" in schema or "properties" in schema, (
+                f"{tool.name} Params has invalid schema"
+            )
 
 
 # =============================================================================
@@ -113,9 +118,7 @@ class TestListLocations:
     """Tests for list_locations tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_locations_on_success(
-        self, tools: HomeboxMCPTools, mock_client: MagicMock
-    ):
+    async def test_returns_locations_on_success(self, mock_client: MagicMock):
         """Should return locations list on successful API call."""
         mock_locations = [
             {"id": "loc1", "name": "Living Room"},
@@ -123,29 +126,33 @@ class TestListLocations:
         ]
         mock_client.list_locations.return_value = mock_locations
 
-        result = await tools.list_locations("test-token")
+        tool = ListLocationsTool()
+        params = tool.Params(filter_children=False)
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
         assert result.data == mock_locations
         mock_client.list_locations.assert_called_once_with("test-token", filter_children=None)
 
     @pytest.mark.asyncio
-    async def test_passes_filter_children_parameter(
-        self, tools: HomeboxMCPTools, mock_client: MagicMock
-    ):
+    async def test_passes_filter_children_parameter(self, mock_client: MagicMock):
         """Should pass filter_children to client when True."""
         mock_client.list_locations.return_value = []
 
-        await tools.list_locations("test-token", filter_children=True)
+        tool = ListLocationsTool()
+        params = tool.Params(filter_children=True)
+        await tool.execute(mock_client, "test-token", params)
 
         mock_client.list_locations.assert_called_once_with("test-token", filter_children=True)
 
     @pytest.mark.asyncio
-    async def test_returns_error_on_exception(self, tools: HomeboxMCPTools, mock_client: MagicMock):
+    async def test_returns_error_on_exception(self, mock_client: MagicMock):
         """Should return error result when API call fails."""
         mock_client.list_locations.side_effect = Exception("Connection failed")
 
-        result = await tools.list_locations("test-token")
+        tool = ListLocationsTool()
+        params = tool.Params()
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is False
         assert result.error is not None
@@ -161,9 +168,7 @@ class TestGetLocation:
     """Tests for get_location tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_location_on_success(
-        self, tools: HomeboxMCPTools, mock_client: MagicMock
-    ):
+    async def test_returns_location_on_success(self, mock_client: MagicMock):
         """Should return location details on successful API call."""
         mock_location = {
             "id": "loc1",
@@ -172,20 +177,22 @@ class TestGetLocation:
         }
         mock_client.get_location.return_value = mock_location
 
-        result = await tools.get_location("test-token", location_id="loc1")
+        tool = GetLocationTool()
+        params = tool.Params(location_id="loc1")
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
         assert result.data == mock_location
         mock_client.get_location.assert_called_once_with("test-token", "loc1")
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_missing_location(
-        self, tools: HomeboxMCPTools, mock_client: MagicMock
-    ):
+    async def test_returns_error_for_missing_location(self, mock_client: MagicMock):
         """Should return error when location not found."""
         mock_client.get_location.side_effect = Exception("Location not found")
 
-        result = await tools.get_location("test-token", location_id="nonexistent")
+        tool = GetLocationTool()
+        params = tool.Params(location_id="nonexistent")
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is False
         assert "not found" in result.error.lower()
@@ -200,7 +207,7 @@ class TestListLabels:
     """Tests for list_labels tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_labels_on_success(self, tools: HomeboxMCPTools, mock_client: MagicMock):
+    async def test_returns_labels_on_success(self, mock_client: MagicMock):
         """Should return labels list on successful API call."""
         mock_labels = [
             {"id": "lbl1", "name": "Electronics"},
@@ -208,7 +215,9 @@ class TestListLabels:
         ]
         mock_client.list_labels.return_value = mock_labels
 
-        result = await tools.list_labels("test-token")
+        tool = ListLabelsTool()
+        params = tool.Params()
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
         assert result.data == mock_labels
@@ -224,7 +233,7 @@ class TestListItems:
     """Tests for list_items tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_items_on_success(self, tools: HomeboxMCPTools, mock_client: MagicMock):
+    async def test_returns_items_on_success(self, mock_client: MagicMock):
         """Should return items list on successful API call."""
         mock_items = [
             {"id": "item1", "name": "TV"},
@@ -232,8 +241,10 @@ class TestListItems:
         ]
         mock_client.list_items.return_value = mock_items
 
+        tool = ListItemsTool()
         # Use compact=False to get raw items without transformation
-        result = await tools.list_items("test-token", compact=False)
+        params = tool.Params(compact=False)
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
         assert result.data == mock_items
@@ -242,11 +253,13 @@ class TestListItems:
         )
 
     @pytest.mark.asyncio
-    async def test_filters_by_location(self, tools: HomeboxMCPTools, mock_client: MagicMock):
+    async def test_filters_by_location(self, mock_client: MagicMock):
         """Should pass location_id filter to client."""
         mock_client.list_items.return_value = []
 
-        await tools.list_items("test-token", location_id="loc1")
+        tool = ListItemsTool()
+        params = tool.Params(location_id="loc1")
+        await tool.execute(mock_client, "test-token", params)
 
         mock_client.list_items.assert_called_once_with(
             "test-token", location_id="loc1", label_ids=None, page=None, page_size=50
@@ -262,7 +275,7 @@ class TestGetItem:
     """Tests for get_item tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_item_on_success(self, tools: HomeboxMCPTools, mock_client: MagicMock):
+    async def test_returns_item_on_success(self, mock_client: MagicMock):
         """Should return full item details on successful API call."""
         mock_item = {
             "id": "item1",
@@ -273,20 +286,22 @@ class TestGetItem:
         }
         mock_client.get_item.return_value = mock_item
 
-        result = await tools.get_item("test-token", item_id="item1")
+        tool = GetItemTool()
+        params = tool.Params(item_id="item1")
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
         assert result.data == mock_item
         mock_client.get_item.assert_called_once_with("test-token", "item1")
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_missing_item(
-        self, tools: HomeboxMCPTools, mock_client: MagicMock
-    ):
+    async def test_returns_error_for_missing_item(self, mock_client: MagicMock):
         """Should return error when item not found."""
         mock_client.get_item.side_effect = Exception("Item not found")
 
-        result = await tools.get_item("test-token", item_id="nonexistent")
+        tool = GetItemTool()
+        params = tool.Params(item_id="nonexistent")
+        result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is False
         assert "not found" in result.error.lower()
@@ -313,8 +328,9 @@ class TestMCPToolsLive:
             response = await client.login(username, password)
             token = response["token"]
 
-            tools = HomeboxMCPTools(client)
-            result = await tools.list_locations(token)
+            tool = ListLocationsTool()
+            params = tool.Params()
+            result = await tool.execute(client, token, params)
 
             assert result.success is True
             assert isinstance(result.data, list)
@@ -333,8 +349,9 @@ class TestMCPToolsLive:
             response = await client.login(username, password)
             token = response["token"]
 
-            tools = HomeboxMCPTools(client)
-            result = await tools.list_labels(token)
+            tool = ListLabelsTool()
+            params = tool.Params()
+            result = await tool.execute(client, token, params)
 
             assert result.success is True
             assert isinstance(result.data, list)

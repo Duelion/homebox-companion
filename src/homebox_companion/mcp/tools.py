@@ -1,8 +1,8 @@
 """MCP tool definitions for Homebox operations.
 
 This module defines the tools that the MCP server exposes to LLM assistants.
-Each tool wraps a corresponding HomeboxClient method with proper input/output
-schemas and error handling.
+Each tool is a frozen dataclass with a nested Pydantic Params model for
+automatic JSON schema generation and parameter validation.
 
 Tool Classification:
 - READ: Auto-execute, no approval needed
@@ -14,21 +14,37 @@ from __future__ import annotations
 
 import base64
 import binascii
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from enum import Enum
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+from pydantic import BaseModel, Field
 
-from ..homebox.client import HomeboxClient
+from .types import Tool, ToolPermission, ToolResult
 
-# Sentinel value to distinguish "not provided" from "explicitly None"
-_UNSET: Any = object()
+if TYPE_CHECKING:
+    from ..homebox.client import HomeboxClient
 
-# Truncation limits for tool results (reduces context window usage)
-MAX_RESULT_ITEMS = 10  # Maximum items in list results
-MAX_RESULT_CHARS = 4000  # Maximum characters for string data
+
+def handle_tool_errors(
+    func: Callable[..., Coroutine[Any, Any, ToolResult]],
+) -> Callable[..., Coroutine[Any, Any, ToolResult]]:
+    """Decorator to standardize error handling for tool execute methods.
+
+    Catches exceptions, logs them, and returns a standardized ToolResult.
+    """
+
+    @wraps(func)
+    async def wrapper(self: Any, *args: Any, **kwargs: Any) -> ToolResult:
+        try:
+            return await func(self, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"{self.name} failed: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    return wrapper
 
 
 def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
@@ -69,148 +85,35 @@ def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-class ToolPermission(str, Enum):
-    """Permission level required to execute a tool.
-
-    READ: Safe to auto-execute, no side effects
-    WRITE: Modifies data, requires user approval
-    DESTRUCTIVE: Deletes data, requires approval + confirmation
-    """
-    READ = "read"
-    WRITE = "write"
-    DESTRUCTIVE = "destructive"
+# =============================================================================
+# READ-ONLY TOOLS
+# =============================================================================
 
 
-@dataclass
-class ToolResult:
-    """Standard result wrapper for tool execution.
+@dataclass(frozen=True)
+class ListLocationsTool:
+    """List all locations in Homebox inventory."""
 
-    Attributes:
-        success: Whether the operation succeeded
-        data: The result data (on success) or None
-        error: Error message (on failure) or None
-    """
-    success: bool
-    data: Any = None
-    error: str | None = None
+    name: str = "list_locations"
+    description: str = "List all locations in Homebox inventory"
+    permission: ToolPermission = ToolPermission.READ
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for MCP response with truncation."""
-        if self.success:
-            return {"success": True, "data": self._truncate_data(self.data)}
-        return {"success": False, "error": self.error}
-
-    def _truncate_data(self, data: Any) -> Any:
-        """Truncate large data to reduce context window usage."""
-        if isinstance(data, list) and len(data) > MAX_RESULT_ITEMS:
-            return {
-                "items": data[:MAX_RESULT_ITEMS],
-                "_truncated": True,
-                "_total": len(data),
-                "_showing": MAX_RESULT_ITEMS,
-            }
-        return data
-
-
-@dataclass
-class ToolMetadata:
-    """Metadata for a tool, attached by the @tool decorator.
-
-    Attributes:
-        description: Human-readable description of the tool
-        permission: Permission level required (READ, WRITE, DESTRUCTIVE)
-        parameters: JSON schema for the tool's parameters
-    """
-    description: str
-    permission: ToolPermission
-    parameters: dict[str, Any]
-
-
-def tool(
-    description: str,
-    permission: ToolPermission,
-    parameters: dict[str, Any] | None = None,
-):
-    """Decorator to register a method as an MCP tool with metadata.
-
-    This decorator attaches metadata directly to the method, which is then
-    collected by HomeboxMCPTools.get_tool_metadata(). This co-locates the
-    tool definition with its implementation for better maintainability.
-
-    Args:
-        description: Human-readable description of what the tool does
-        permission: Permission level (READ, WRITE, DESTRUCTIVE)
-        parameters: JSON schema for parameters. If None, uses empty object.
-
-    Example:
-        @tool(
-            description="List all locations in Homebox",
-            permission=ToolPermission.READ,
-            parameters={
-                "type": "object",
-                "properties": {
-                    "filter_children": {
-                        "type": "boolean",
-                        "description": "If true, only return top-level locations",
-                    }
-                }
-            }
+    class Params(BaseModel):
+        filter_children: bool = Field(
+            default=False,
+            description="If true, only return top-level locations",
         )
-        async def list_locations(self, token: str, *, filter_children: bool = False):
-            ...
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-        wrapper._tool_metadata = ToolMetadata(
-            description=description,
-            permission=permission,
-            parameters=parameters or {"type": "object", "properties": {}},
-        )
-        return wrapper
-    return decorator
 
-
-class HomeboxMCPTools:
-    """Collection of MCP tools for Homebox operations.
-
-    This class provides tool implementations that wrap HomeboxClient methods.
-    Each tool method returns a ToolResult with standardized success/error handling.
-
-    All tools require a valid Homebox auth token for execution.
-    """
-
-    def __init__(self, client: HomeboxClient):
-        """Initialize with a HomeboxClient instance.
-
-        Args:
-            client: The HomeboxClient to use for API calls.
-        """
-        self.client = client
-
-    # =========================================================================
-    # READ-ONLY TOOLS (Phase A)
-    # =========================================================================
-
-    async def list_locations(
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        filter_children: bool = False,
+        params: Params,
     ) -> ToolResult:
-        """List all locations in Homebox.
-
-        Args:
-            token: Homebox auth token
-            filter_children: If True, only return top-level locations
-
-        Returns:
-            ToolResult with list of location dicts
-        """
         try:
-            locations = await self.client.list_locations(
-                token, filter_children=filter_children if filter_children else None
+            locations = await client.list_locations(
+                token,
+                filter_children=params.filter_children if params.filter_children else None,
             )
             logger.debug(f"list_locations returned {len(locations)} locations")
             return ToolResult(success=True, data=locations)
@@ -218,83 +121,111 @@ class HomeboxMCPTools:
             logger.error(f"list_locations failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_location(
+
+@dataclass(frozen=True)
+class GetLocationTool:
+    """Get a specific location with its child locations."""
+
+    name: str = "get_location"
+    description: str = "Get a specific location with its child locations"
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        location_id: str = Field(description="The ID of the location to fetch")
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        location_id: str,
+        params: Params,
     ) -> ToolResult:
-        """Get a specific location with its children.
-
-        Args:
-            token: Homebox auth token
-            location_id: ID of the location to fetch
-
-        Returns:
-            ToolResult with location dict including children
-        """
         try:
-            location = await self.client.get_location(token, location_id)
+            location = await client.get_location(token, params.location_id)
             logger.debug(f"get_location returned location: {location.get('name', 'unknown')}")
             return ToolResult(success=True, data=location)
         except Exception as e:
-            logger.error(f"get_location failed for {location_id}: {e}")
+            logger.error(f"get_location failed for {params.location_id}: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def list_labels(
+
+@dataclass(frozen=True)
+class ListLabelsTool:
+    """List all labels available for categorizing items."""
+
+    name: str = "list_labels"
+    description: str = "List all labels available for categorizing items"
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        pass  # No parameters needed
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
+        params: Params,
     ) -> ToolResult:
-        """List all labels in Homebox.
-
-        Args:
-            token: Homebox auth token
-
-        Returns:
-            ToolResult with list of label dicts
-        """
         try:
-            labels = await self.client.list_labels(token)
+            labels = await client.list_labels(token)
             logger.debug(f"list_labels returned {len(labels)} labels")
             return ToolResult(success=True, data=labels)
         except Exception as e:
             logger.error(f"list_labels failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def list_items(
+
+@dataclass(frozen=True)
+class ListItemsTool:
+    """List items in the inventory with optional filtering and pagination."""
+
+    name: str = "list_items"
+    description: str = (
+        "List items in the inventory with optional filtering and pagination. "
+        "For text-based searches, prefer using search_items instead."
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        location_id: str | None = Field(
+            default=None,
+            description="Optional location ID to filter items by",
+        )
+        label_ids: list[str] | None = Field(
+            default=None,
+            description="Optional list of label IDs to filter items by",
+        )
+        page: int | None = Field(
+            default=None,
+            description="Optional page number (1-indexed) for pagination",
+        )
+        page_size: int = Field(
+            default=50,
+            description="Number of items per page (default 50, max recommended 100)",
+        )
+        compact: bool = Field(
+            default=True,
+            description=(
+                "If true, return only essential fields (id, name, location, quantity) "
+                "to reduce payload size. Set to false for full item details."
+            ),
+        )
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        location_id: str | None = None,
-        label_ids: list[str] | None = None,
-        page: int | None = None,
-        page_size: int = 50,
-        compact: bool = True,
+        params: Params,
     ) -> ToolResult:
-        """List items with optional filtering and pagination.
-
-        Args:
-            token: Homebox auth token
-            location_id: Optional location ID to filter by
-            label_ids: Optional list of label IDs to filter by
-            page: Optional page number (1-indexed)
-            page_size: Number of items per page (default 50)
-            compact: Return only essential fields by default (id, name, location,
-                quantity). Set to False for full item details.
-
-        Returns:
-            ToolResult with list of item dicts
-        """
         try:
-            items = await self.client.list_items(
+            items = await client.list_items(
                 token,
-                location_id=location_id,
-                label_ids=label_ids,
-                page=page,
-                page_size=page_size,
+                location_id=params.location_id,
+                label_ids=params.label_ids,
+                page=params.page,
+                page_size=params.page_size,
             )
 
-            if compact:
+            if params.compact:
                 items = [_compact_item(item) for item in items]
                 logger.debug(f"list_items returned {len(items)} items (compact mode)")
             else:
@@ -305,428 +236,281 @@ class HomeboxMCPTools:
             logger.error(f"list_items failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def search_items(
+
+@dataclass(frozen=True)
+class SearchItemsTool:
+    """Search items by text query."""
+
+    name: str = "search_items"
+    description: str = (
+        "Search items by text query. Use this for semantic searches like 'find rope', "
+        "'items for building X', or any text-based search. More efficient than listing all items."
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        query: str = Field(
+            description="Search query string (searches name, description, etc.)"
+        )
+        limit: int = Field(
+            default=50,
+            description="Maximum number of results to return (default 50)",
+        )
+        compact: bool = Field(
+            default=True,
+            description=(
+                "If true, return only essential fields (id, name, location, quantity). "
+                "Set to false for full item details."
+            ),
+        )
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        query: str,
-        limit: int = 50,
-        compact: bool = True,
+        params: Params,
     ) -> ToolResult:
-        """Search items by text query.
-
-        Use this tool for semantic searches like "find rope", "items for building X",
-        or any text-based search. More efficient than listing all items.
-
-        Args:
-            token: Homebox auth token
-            query: Search query string (searches name, description, etc.)
-            limit: Maximum number of results to return (default 50)
-            compact: Return only essential fields by default (id, name, location,
-                quantity). Set to False for full item details.
-
-        Returns:
-            ToolResult with list of matching item dicts
-        """
         try:
-            items = await self.client.search_items(token, query=query, limit=limit)
+            items = await client.search_items(token, query=params.query, limit=params.limit)
 
-            if compact:
+            if params.compact:
                 items = [_compact_item(item) for item in items]
-                logger.debug(f"search_items('{query}') returned {len(items)} items (compact mode)")
+                logger.debug(
+                    f"search_items('{params.query}') returned {len(items)} items (compact)"
+                )
             else:
-                logger.debug(f"search_items('{query}') returned {len(items)} items")
+                logger.debug(f"search_items('{params.query}') returned {len(items)} items")
 
             return ToolResult(success=True, data=items)
         except Exception as e:
             logger.error(f"search_items failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_item(
+
+@dataclass(frozen=True)
+class GetItemTool:
+    """Get full item details by ID."""
+
+    name: str = "get_item"
+    description: str = "Get full item details by ID"
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        item_id: str = Field(description="ID of the item to fetch")
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        item_id: str,
+        params: Params,
     ) -> ToolResult:
-        """Get full item details by ID.
-
-        Args:
-            token: Homebox auth token
-            item_id: ID of the item to fetch
-
-        Returns:
-            ToolResult with full item dict
-        """
         try:
-            item = await self.client.get_item(token, item_id)
+            item = await client.get_item(token, params.item_id)
             logger.debug(f"get_item returned item: {item.get('name', 'unknown')}")
             return ToolResult(success=True, data=item)
         except Exception as e:
-            logger.error(f"get_item failed for {item_id}: {e}")
+            logger.error(f"get_item failed for {params.item_id}: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_statistics(
+
+@dataclass(frozen=True)
+class GetStatisticsTool:
+    """Get inventory statistics overview."""
+
+    name: str = "get_statistics"
+    description: str = (
+        "Get inventory statistics overview. Returns counts and totals without loading "
+        "full item data. Use for questions like 'how many items' or 'total inventory value'."
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        pass  # No parameters needed
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
+        params: Params,
     ) -> ToolResult:
-        """Get inventory statistics overview.
-
-        Returns counts and totals without loading full item data.
-        Use this for overview questions like "how many items" or "total inventory value".
-
-        Args:
-            token: Homebox auth token
-
-        Returns:
-            ToolResult with statistics dict containing:
-            - totalItems: Count of all items
-            - totalLocations: Count of locations
-            - totalLabels: Count of labels
-            - totalItemPrice: Sum of item prices
-            - totalWithWarranty: Count of items with warranty
-            - totalUsers: Count of users
-        """
         try:
-            stats = await self.client.get_statistics(token)
+            stats = await client.get_statistics(token)
             logger.debug(f"get_statistics returned: {stats.get('totalItems', 0)} items")
             return ToolResult(success=True, data=stats)
         except Exception as e:
             logger.error(f"get_statistics failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_item_by_asset_id(
+
+@dataclass(frozen=True)
+class GetItemByAssetIdTool:
+    """Get item by its asset ID."""
+
+    name: str = "get_item_by_asset_id"
+    description: str = (
+        "Get item by its asset ID. Look up an item using its printed asset ID "
+        "(e.g., '000-085'). Useful for barcode scanning or when user provides an asset ID."
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        asset_id: str = Field(description="The asset ID to look up (e.g., '000-085')")
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        asset_id: str,
+        params: Params,
     ) -> ToolResult:
-        """Get item by its asset ID.
-
-        Look up an item using its printed asset ID (e.g., "000-085").
-        Useful for barcode scanning or when user provides an asset ID.
-
-        Args:
-            token: Homebox auth token
-            asset_id: The asset ID to look up (e.g., "000-085")
-
-        Returns:
-            ToolResult with item dict
-        """
         try:
-            item = await self.client.get_item_by_asset_id(token, asset_id)
-            logger.debug(
-                f"get_item_by_asset_id({asset_id}) returned item: "
-                f"{item.get('name', 'unknown')}"
-            )
+            item = await client.get_item_by_asset_id(token, params.asset_id)
+            logger.debug(f"get_item_by_asset_id({params.asset_id}) returned: {item.get('name', 'unknown')}")
             return ToolResult(success=True, data=item)
         except Exception as e:
-            logger.error(f"get_item_by_asset_id failed for {asset_id}: {e}")
+            logger.error(f"get_item_by_asset_id failed for {params.asset_id}: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_location_tree(
+
+@dataclass(frozen=True)
+class GetLocationTreeTool:
+    """Get hierarchical location tree."""
+
+    name: str = "get_location_tree"
+    description: str = (
+        "Get hierarchical location tree. Returns locations in a tree structure "
+        "showing parent-child relationships. More efficient than multiple get_location calls."
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        with_items: bool = Field(
+            default=False,
+            description="If true, include items in the tree structure",
+        )
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        with_items: bool = False,
+        params: Params,
     ) -> ToolResult:
-        """Get hierarchical location tree.
-
-        Returns locations in a tree structure showing parent-child relationships.
-        More efficient than multiple get_location calls when you need the hierarchy.
-
-        Args:
-            token: Homebox auth token
-            with_items: If True, include items in the tree structure
-
-        Returns:
-            ToolResult with list of tree nodes (each with nested children)
-        """
         try:
-            tree = await self.client.get_location_tree(token, with_items=with_items)
+            tree = await client.get_location_tree(token, with_items=params.with_items)
             logger.debug(f"get_location_tree returned {len(tree)} top-level nodes")
             return ToolResult(success=True, data=tree)
         except Exception as e:
             logger.error(f"get_location_tree failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_statistics_by_location(
+
+@dataclass(frozen=True)
+class GetStatisticsByLocationTool:
+    """Get item counts grouped by location."""
+
+    name: str = "get_statistics_by_location"
+    description: str = (
+        "Get item counts grouped by location. Useful for analytics queries "
+        "like 'which location has the most items?'"
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        pass  # No parameters needed
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
+        params: Params,
     ) -> ToolResult:
-        """Get item counts grouped by location.
-
-        Returns a list of locations with their item counts.
-        Useful for analytics queries like "which location has the most items?"
-
-        Args:
-            token: Homebox auth token
-
-        Returns:
-            ToolResult with list of dicts (id, name, total)
-        """
         try:
-            stats = await self.client.get_statistics_by_location(token)
+            stats = await client.get_statistics_by_location(token)
             logger.debug(f"get_statistics_by_location returned {len(stats)} locations")
             return ToolResult(success=True, data=stats)
         except Exception as e:
             logger.error(f"get_statistics_by_location failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_statistics_by_label(
+
+@dataclass(frozen=True)
+class GetStatisticsByLabelTool:
+    """Get item counts grouped by label."""
+
+    name: str = "get_statistics_by_label"
+    description: str = (
+        "Get item counts grouped by label. Useful for analytics queries "
+        "like 'how many items are tagged Electronics?'"
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        pass  # No parameters needed
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
+        params: Params,
     ) -> ToolResult:
-        """Get item counts grouped by label.
-
-        Returns a list of labels with their item counts.
-        Useful for analytics queries like "how many items are tagged Electronics?"
-
-        Args:
-            token: Homebox auth token
-
-        Returns:
-            ToolResult with list of dicts (id, name, total)
-        """
         try:
-            stats = await self.client.get_statistics_by_label(token)
+            stats = await client.get_statistics_by_label(token)
             logger.debug(f"get_statistics_by_label returned {len(stats)} labels")
             return ToolResult(success=True, data=stats)
         except Exception as e:
             logger.error(f"get_statistics_by_label failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def get_item_path(
+
+@dataclass(frozen=True)
+class GetItemPathTool:
+    """Get the full hierarchical path of an item."""
+
+    name: str = "get_item_path"
+    description: str = (
+        "Get the full hierarchical path of an item. Returns the location chain "
+        "from root to the item's location. Useful for telling users exactly where to find an item."
+    )
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        item_id: str = Field(description="ID of the item")
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        item_id: str,
+        params: Params,
     ) -> ToolResult:
-        """Get the full hierarchical path of an item.
-
-        Returns the location chain from root to the item's location.
-        Useful for telling users exactly where to find an item.
-
-        Args:
-            token: Homebox auth token
-            item_id: ID of the item
-
-        Returns:
-            ToolResult with list of path elements (id, name, type)
-        """
         try:
-            path = await self.client.get_item_path(token, item_id)
-            logger.debug(f"get_item_path for {item_id} returned {len(path)} path elements")
+            path = await client.get_item_path(token, params.item_id)
+            logger.debug(f"get_item_path for {params.item_id} returned {len(path)} path elements")
             return ToolResult(success=True, data=path)
         except Exception as e:
-            logger.error(f"get_item_path failed for {item_id}: {e}")
+            logger.error(f"get_item_path failed for {params.item_id}: {e}")
             return ToolResult(success=False, error=str(e))
 
-    # =========================================================================
-    # WRITE TOOLS (Phase D)
-    # =========================================================================
 
-    async def create_item(
+@dataclass(frozen=True)
+class GetAttachmentTool:
+    """Get an attachment's content by ID."""
+
+    name: str = "get_attachment"
+    description: str = "Get an attachment's content by ID (returns base64 encoded content)"
+    permission: ToolPermission = ToolPermission.READ
+
+    class Params(BaseModel):
+        item_id: str = Field(description="ID of the item the attachment belongs to")
+        attachment_id: str = Field(description="ID of the attachment to fetch")
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        name: str,
-        location_id: str,
-        description: str = "",
-        label_ids: list[str] | None = None,
+        params: Params,
     ) -> ToolResult:
-        """Create a new item in Homebox.
-
-        Args:
-            token: Homebox auth token
-            name: Name of the item
-            location_id: ID of the location to place the item
-            description: Optional description
-            label_ids: Optional list of label IDs to apply
-
-        Returns:
-            ToolResult with created item data
-        """
         try:
-            from ..homebox.models import ItemCreate
-
-            item_data = ItemCreate(
-                name=name,
-                location_id=location_id,
-                description=description,
-                label_ids=label_ids or [],
-            )
-            result = await self.client.create_item(token, item_data)
-            logger.info(f"create_item created item: {result.get('name', 'unknown')}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"create_item failed: {e}")
-            return ToolResult(success=False, error=str(e))
-
-    async def update_item(
-        self,
-        token: str,
-        *,
-        item_id: str,
-        name: str | None = None,
-        description: str | None = None,
-        location_id: str | None = None,
-    ) -> ToolResult:
-        """Update an existing item.
-
-        Args:
-            token: Homebox auth token
-            item_id: ID of the item to update
-            name: Optional new name
-            description: Optional new description
-            location_id: Optional new location ID
-
-        Returns:
-            ToolResult with updated item data
-        """
-        try:
-            # First get the current item to preserve fields
-            current = await self.client.get_item(token, item_id)
-
-            # Build update payload with only changed fields
-            update_data = dict(current)
-            if name is not None:
-                update_data["name"] = name
-            if description is not None:
-                update_data["description"] = description
-            if location_id is not None:
-                update_data["location"] = {"id": location_id}
-
-            result = await self.client.update_item(token, item_id, update_data)
-            logger.info(f"update_item updated item: {result.get('name', 'unknown')}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"update_item failed for {item_id}: {e}")
-            return ToolResult(success=False, error=str(e))
-
-    async def delete_item(
-        self,
-        token: str,
-        *,
-        item_id: str,
-    ) -> ToolResult:
-        """Delete an item from Homebox.
-
-        Args:
-            token: Homebox auth token
-            item_id: ID of the item to delete
-
-        Returns:
-            ToolResult with success status
-        """
-        try:
-            await self.client.delete_item(token, item_id)
-            logger.info(f"delete_item deleted item: {item_id}")
-            return ToolResult(success=True, data={"deleted_id": item_id})
-        except Exception as e:
-            logger.error(f"delete_item failed for {item_id}: {e}")
-            return ToolResult(success=False, error=str(e))
-
-    async def create_location(
-        self,
-        token: str,
-        *,
-        name: str,
-        description: str = "",
-        parent_id: str | None = None,
-    ) -> ToolResult:
-        """Create a new location in Homebox.
-
-        Args:
-            token: Homebox auth token
-            name: Name of the location
-            description: Optional description
-            parent_id: Optional parent location ID for nesting
-
-        Returns:
-            ToolResult with created location data
-        """
-        try:
-            result = await self.client.create_location(
-                token,
-                name=name,
-                description=description,
-                parent_id=parent_id,
-            )
-            logger.info(f"create_location created location: {result.get('name', 'unknown')}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"create_location failed: {e}")
-            return ToolResult(success=False, error=str(e))
-
-    async def update_location(
-        self,
-        token: str,
-        *,
-        location_id: str,
-        name: str | None = None,
-        description: str | None = None,
-        parent_id: str | None = _UNSET,
-    ) -> ToolResult:
-        """Update an existing location.
-
-        Args:
-            token: Homebox auth token
-            location_id: ID of the location to update
-            name: Optional new name
-            description: Optional new description
-            parent_id: New parent location ID, or None to make top-level
-
-        Returns:
-            ToolResult with updated location data
-        """
-        try:
-            # First get the current location to preserve fields
-            current = await self.client.get_location(token, location_id)
-
-            # Determine parent_id: use provided value, or keep current if unset
-            if parent_id is _UNSET:
-                resolved_parent_id = current.get("parent", {}).get("id")
-            else:
-                resolved_parent_id = parent_id  # Could be None (make top-level)
-
-            # Use current values for fields not being updated
-            result = await self.client.update_location(
-                token,
-                location_id=location_id,
-                name=name if name is not None else current.get("name", ""),
-                description=(
-                    description
-                    if description is not None
-                    else current.get("description", "")
-                ),
-                parent_id=resolved_parent_id,
-            )
-            logger.info(f"update_location updated location: {result.get('name', 'unknown')}")
-            return ToolResult(success=True, data=result)
-        except Exception as e:
-            logger.error(f"update_location failed for {location_id}: {e}")
-            return ToolResult(success=False, error=str(e))
-
-    async def get_attachment(
-        self,
-        token: str,
-        *,
-        item_id: str,
-        attachment_id: str,
-    ) -> ToolResult:
-        """Get an attachment's content by ID.
-
-        Args:
-            token: Homebox auth token
-            item_id: ID of the item the attachment belongs to
-            attachment_id: ID of the attachment to fetch
-
-        Returns:
-            ToolResult with attachment content (base64 encoded) and content type
-        """
-        try:
-            content_bytes, content_type = await self.client.get_attachment(
-                token, item_id, attachment_id
+            content_bytes, content_type = await client.get_attachment(
+                token, params.item_id, params.attachment_id
             )
             # Encode bytes as base64 for JSON transport
             encoded = base64.b64encode(content_bytes).decode("utf-8")
@@ -742,526 +526,326 @@ class HomeboxMCPTools:
         except FileNotFoundError:
             return ToolResult(success=False, error="Attachment not found")
         except Exception as e:
-            logger.error(f"get_attachment failed for {attachment_id}: {e}")
+            logger.error(f"get_attachment failed for {params.attachment_id}: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def upload_attachment(
+
+# =============================================================================
+# WRITE TOOLS
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class CreateItemTool:
+    """Create a new item in Homebox."""
+
+    name: str = "create_item"
+    description: str = "Create a new item in Homebox"
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(BaseModel):
+        name: str = Field(description="Name of the item")
+        location_id: str = Field(description="ID of the location to place the item")
+        description: str = Field(default="", description="Optional description")
+        label_ids: list[str] | None = Field(
+            default=None,
+            description="Optional list of label IDs to apply",
+        )
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
-        *,
-        item_id: str,
-        file_base64: str,
-        filename: str,
-        mime_type: str = "image/jpeg",
-        attachment_type: str = "photo",
+        params: Params,
     ) -> ToolResult:
-        """Upload an attachment to an item.
-
-        Args:
-            token: Homebox auth token
-            item_id: ID of the item to attach to
-            file_base64: File content as base64 encoded string
-            filename: Name for the uploaded file
-            mime_type: MIME type of the file (default: image/jpeg)
-            attachment_type: Type of attachment: 'photo', 'manual', 'warranty', etc.
-
-        Returns:
-            ToolResult with created attachment data
-        """
         try:
-            file_bytes = base64.b64decode(file_base64)
+            from ..homebox.models import ItemCreate
+
+            item_data = ItemCreate(
+                name=params.name,
+                location_id=params.location_id,
+                description=params.description,
+                label_ids=params.label_ids or [],
+            )
+            result = await client.create_item(token, item_data)
+            logger.info(f"create_item created item: {result.get('name', 'unknown')}")
+            return ToolResult(success=True, data=result)
+        except Exception as e:
+            logger.error(f"create_item failed: {e}")
+            return ToolResult(success=False, error=str(e))
+
+
+@dataclass(frozen=True)
+class UpdateItemTool:
+    """Update an existing item."""
+
+    name: str = "update_item"
+    description: str = "Update an existing item's name, description, or location"
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(BaseModel):
+        item_id: str = Field(description="ID of the item to update")
+        name: str | None = Field(default=None, description="Optional new name")
+        description: str | None = Field(default=None, description="Optional new description")
+        location_id: str | None = Field(default=None, description="Optional new location ID")
+
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        try:
+            # First get the current item to preserve fields
+            current = await client.get_item(token, params.item_id)
+
+            # Build update payload with only changed fields
+            update_data = dict(current)
+            if params.name is not None:
+                update_data["name"] = params.name
+            if params.description is not None:
+                update_data["description"] = params.description
+            if params.location_id is not None:
+                update_data["location"] = {"id": params.location_id}
+
+            result = await client.update_item(token, params.item_id, update_data)
+            logger.info(f"update_item updated item: {result.get('name', 'unknown')}")
+            return ToolResult(success=True, data=result)
+        except Exception as e:
+            logger.error(f"update_item failed for {params.item_id}: {e}")
+            return ToolResult(success=False, error=str(e))
+
+
+@dataclass(frozen=True)
+class CreateLocationTool:
+    """Create a new location in Homebox."""
+
+    name: str = "create_location"
+    description: str = "Create a new location in Homebox"
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(BaseModel):
+        name: str = Field(description="Name of the location")
+        description: str = Field(default="", description="Optional description")
+        parent_id: str | None = Field(
+            default=None,
+            description="Optional parent location ID for nesting",
+        )
+
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        try:
+            result = await client.create_location(
+                token,
+                name=params.name,
+                description=params.description,
+                parent_id=params.parent_id,
+            )
+            logger.info(f"create_location created location: {result.get('name', 'unknown')}")
+            return ToolResult(success=True, data=result)
+        except Exception as e:
+            logger.error(f"create_location failed: {e}")
+            return ToolResult(success=False, error=str(e))
+
+
+@dataclass(frozen=True)
+class UpdateLocationTool:
+    """Update an existing location."""
+
+    name: str = "update_location"
+    description: str = "Update an existing location's name, description, or parent"
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(BaseModel):
+        location_id: str = Field(description="ID of the location to update")
+        name: str | None = Field(default=None, description="Optional new name")
+        description: str | None = Field(default=None, description="Optional new description")
+        parent_id: str | None = Field(
+            default=None,
+            description="New parent location ID (use with clear_parent=False)",
+        )
+        clear_parent: bool = Field(
+            default=False,
+            description="If true, remove parent to make this a top-level location",
+        )
+
+    @handle_tool_errors
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        # First get the current location to preserve fields
+        current = await client.get_location(token, params.location_id)
+
+        # Determine parent_id based on clear_parent flag and provided value
+        if params.clear_parent:
+            resolved_parent_id = None
+        elif params.parent_id is not None:
+            resolved_parent_id = params.parent_id
+        else:
+            resolved_parent_id = current.get("parent", {}).get("id")
+
+        result = await client.update_location(
+            token,
+            location_id=params.location_id,
+            name=params.name if params.name is not None else current.get("name", ""),
+            description=(
+                params.description
+                if params.description is not None
+                else current.get("description", "")
+            ),
+            parent_id=resolved_parent_id,
+        )
+        logger.info(f"update_location updated location: {result.get('name', 'unknown')}")
+        return ToolResult(success=True, data=result)
+
+
+@dataclass(frozen=True)
+class UploadAttachmentTool:
+    """Upload an attachment to an item."""
+
+    name: str = "upload_attachment"
+    description: str = "Upload an attachment to an item"
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(BaseModel):
+        item_id: str = Field(description="ID of the item to attach to")
+        file_base64: str = Field(description="File content as base64 encoded string")
+        filename: str = Field(description="Name for the uploaded file")
+        mime_type: str = Field(
+            default="image/jpeg",
+            description="MIME type of the file (default: image/jpeg)",
+        )
+        attachment_type: str = Field(
+            default="photo",
+            description="Type of attachment: 'photo', 'manual', 'warranty', etc.",
+        )
+
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        try:
+            file_bytes = base64.b64decode(params.file_base64)
         except binascii.Error as e:
             logger.error(f"upload_attachment invalid base64: {e}")
             return ToolResult(success=False, error=f"Invalid base64 encoding: {e}")
 
         try:
-            result = await self.client.upload_attachment(
+            result = await client.upload_attachment(
                 token,
-                item_id=item_id,
+                item_id=params.item_id,
                 file_bytes=file_bytes,
-                filename=filename,
-                mime_type=mime_type,
-                attachment_type=attachment_type,
+                filename=params.filename,
+                mime_type=params.mime_type,
+                attachment_type=params.attachment_type,
             )
-            logger.info(f"upload_attachment uploaded {filename} to item {item_id}")
+            logger.info(f"upload_attachment uploaded {params.filename} to item {params.item_id}")
             return ToolResult(success=True, data=result)
         except Exception as e:
-            logger.error(f"upload_attachment failed for item {item_id}: {e}")
+            logger.error(f"upload_attachment failed for item {params.item_id}: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def ensure_asset_ids(
+
+@dataclass(frozen=True)
+class EnsureAssetIdsTool:
+    """Ensure all items have asset IDs assigned."""
+
+    name: str = "ensure_asset_ids"
+    description: str = (
+        "Ensure all items have asset IDs assigned. Assigns sequential asset IDs "
+        "to all items that don't currently have one. Idempotent - existing IDs are not affected."
+    )
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(BaseModel):
+        pass  # No parameters needed
+
+    async def execute(
         self,
+        client: HomeboxClient,
         token: str,
+        params: Params,
     ) -> ToolResult:
-        """Ensure all items have asset IDs assigned.
-
-        Assigns sequential asset IDs to all items that don't currently have one.
-        This is idempotent - items that already have asset IDs are not affected.
-
-        Args:
-            token: Homebox auth token
-
-        Returns:
-            ToolResult with count of items that were assigned asset IDs
-        """
         try:
-            count = await self.client.ensure_asset_ids(token)
+            count = await client.ensure_asset_ids(token)
             logger.info(f"ensure_asset_ids assigned IDs to {count} items")
             return ToolResult(success=True, data={"items_updated": count})
         except Exception as e:
             logger.error(f"ensure_asset_ids failed: {e}")
             return ToolResult(success=False, error=str(e))
 
-    @classmethod
-    def get_tool_metadata(cls) -> dict[str, dict[str, Any]]:
-        """Return metadata for all available tools.
 
-        This method collects metadata from two sources:
-        1. Methods decorated with @tool (preferred, co-located with implementation)
-        2. Static dictionary below (legacy, for gradual migration)
+# =============================================================================
+# DESTRUCTIVE TOOLS
+# =============================================================================
 
-        The decorator-based approach is preferred as it co-locates metadata
-        with the implementation, making it easier to keep them in sync.
 
-        Returns:
-            Dict mapping tool names to their metadata including:
-            - description: Human-readable description
-            - permission: ToolPermission level
-            - parameters: JSON schema for tool parameters
-        """
-        # Collect from decorated methods
-        metadata: dict[str, dict[str, Any]] = {}
-        for name in dir(cls):
-            if name.startswith("_"):
-                continue
-            method = getattr(cls, name, None)
-            if method and hasattr(method, "_tool_metadata"):
-                meta: ToolMetadata = method._tool_metadata
-                metadata[name] = {
-                    "description": meta.description,
-                    "permission": meta.permission,
-                    "parameters": meta.parameters,
-                }
+@dataclass(frozen=True)
+class DeleteItemTool:
+    """Delete an item from Homebox."""
 
-        # Add/override with static definitions for non-decorated methods
-        # This allows gradual migration from static dict to decorators
-        static_metadata = {
-            "list_locations": {
-                "description": "List all locations in Homebox inventory",
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "filter_children": {
-                            "type": "boolean",
-                            "description": "If true, only return top-level locations",
-                            "default": False,
-                        },
-                    },
-                },
-            },
-            "get_location": {
-                "description": "Get a specific location with its child locations",
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location_id": {
-                            "type": "string",
-                            "description": "The ID of the location to fetch",
-                        },
-                    },
-                    "required": ["location_id"],
-                },
-            },
-            "list_labels": {
-                "description": "List all labels available for categorizing items",
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-            "list_items": {
-                "description": (
-                    "List items in the inventory with optional filtering and "
-                    "pagination. For text-based searches, prefer using search_items "
-                    "instead."
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location_id": {
-                            "type": "string",
-                            "description": "Optional location ID to filter items by",
-                        },
-                        "label_ids": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Optional list of label IDs to filter items by",
-                        },
-                        "page": {
-                            "type": "integer",
-                            "description": "Optional page number (1-indexed) for pagination",
-                        },
-                        "page_size": {
-                            "type": "integer",
-                            "description": (
-                                "Number of items per page "
-                                "(default 50, max recommended 100)"
-                            ),
-                            "default": 50,
-                        },
-                        "compact": {
-                            "type": "boolean",
-                            "description": (
-                                "If true, return only essential fields "
-                                "(id, name, location, quantity) to reduce payload "
-                                "size. Use when you don't need full item details."
-                            ),
-                            "default": True,
-                        },
-                    },
-                },
-            },
-            "search_items": {
-                "description": (
-                    "Search items by text query. Use this for semantic searches "
-                    "like 'find rope', 'items for building X', or any keyword-based "
-                    "search. More efficient than listing all items when you know "
-                    "what you're looking for."
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": (
-                                "Search query string (searches item names, "
-                                "descriptions, and other text fields)"
-                            ),
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of results to return (default 50)",
-                            "default": 50,
-                        },
-                        "compact": {
-                            "type": "boolean",
-                            "description": (
-                                "If true, return only essential fields "
-                                "(id, name, location, quantity) to reduce payload "
-                                "size. Use when you don't need full item details."
-                            ),
-                            "default": True,
-                        },
-                    },
-                    "required": ["query"],
-                },
-            },
-            "get_item": {
-                "description": "Get full details of a specific item",
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "item_id": {
-                            "type": "string",
-                            "description": "The ID of the item to fetch",
-                        },
-                    },
-                    "required": ["item_id"],
-                },
-            },
-            "get_statistics": {
-                "description": (
-                    "Get inventory overview statistics (counts and totals). "
-                    "Use this for questions like 'how many items do I have?' or "
-                    "'what's the total value?' instead of loading all items."
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-            "get_item_by_asset_id": {
-                "description": (
-                    "Get an item by its asset ID (e.g., '000-085'). Use this when "
-                    "the user provides an asset ID or for barcode scanning scenarios."
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "asset_id": {
-                            "type": "string",
-                            "description": "The asset ID to look up (e.g., '000-085')",
-                        },
-                    },
-                    "required": ["asset_id"],
-                },
-            },
-            "get_location_tree": {
-                "description": (
-                    "Get hierarchical location tree showing parent-child "
-                    "relationships. Use this to understand the location organization "
-                    "structure."
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "with_items": {
-                            "type": "boolean",
-                            "description": "If true, include items in the tree structure",
-                            "default": False,
-                        },
-                    },
-                },
-            },
-            "get_statistics_by_location": {
-                "description": (
-                    "Get item counts grouped by location. Use this for analytics "
-                    "queries like 'which location has the most items?'"
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-            "get_statistics_by_label": {
-                "description": (
-                    "Get item counts grouped by label. Use this for analytics "
-                    "queries like 'how many items are tagged Electronics?'"
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-            "get_item_path": {
-                "description": (
-                    "Get the full hierarchical path of an item (location chain from "
-                    "root to item). Use this to tell users exactly where to find an "
-                    "item."
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "item_id": {
-                            "type": "string",
-                            "description": "The ID of the item",
-                        },
-                    },
-                    "required": ["item_id"],
-                },
-            },
-            # Write tools (require approval)
-            "create_item": {
-                "description": "Create a new item in the inventory",
-                "permission": ToolPermission.WRITE,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "Name of the item",
-                        },
-                        "location_id": {
-                            "type": "string",
-                            "description": "ID of the location to place the item",
-                        },
-                        "description": {
-                            "type": "string",
-                            "description": "Optional description of the item",
-                        },
-                        "label_ids": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Optional list of label IDs to apply",
-                        },
-                    },
-                    "required": ["name", "location_id"],
-                },
-            },
-            "update_item": {
-                "description": "Update an existing item's name, description, or location",
-                "permission": ToolPermission.WRITE,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "item_id": {
-                            "type": "string",
-                            "description": "ID of the item to update",
-                        },
-                        "name": {
-                            "type": "string",
-                            "description": "New name for the item",
-                        },
-                        "description": {
-                            "type": "string",
-                            "description": "New description for the item",
-                        },
-                        "location_id": {
-                            "type": "string",
-                            "description": "New location ID to move the item to",
-                        },
-                    },
-                    "required": ["item_id"],
-                },
-            },
-            "delete_item": {
-                "description": "Permanently delete an item from the inventory",
-                "permission": ToolPermission.DESTRUCTIVE,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "item_id": {
-                            "type": "string",
-                            "description": "ID of the item to delete",
-                        },
-                    },
-                    "required": ["item_id"],
-                },
-            },
-            # Location write tools
-            "create_location": {
-                "description": "Create a new location in the inventory",
-                "permission": ToolPermission.WRITE,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "Name of the location",
-                        },
-                        "description": {
-                            "type": "string",
-                            "description": "Optional description of the location",
-                        },
-                        "parent_id": {
-                            "type": "string",
-                            "description": "Optional parent location ID for nesting",
-                        },
-                    },
-                    "required": ["name"],
-                },
-            },
-            "update_location": {
-                "description": (
-                    "Update an existing location's name, description, or parent. "
-                    "Use this to rename locations, add/edit descriptions, "
-                    "or reorganize the location hierarchy."
-                ),
-                "permission": ToolPermission.WRITE,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location_id": {
-                            "type": "string",
-                            "description": "ID of the location to update",
-                        },
-                        "name": {
-                            "type": "string",
-                            "description": "New name for the location",
-                        },
-                        "description": {
-                            "type": "string",
-                            "description": "New description for the location",
-                        },
-                        "parent_id": {
-                            "type": "string",
-                            "description": "New parent location ID (or null to make top-level)",
-                        },
-                    },
-                    "required": ["location_id"],
-                },
-            },
-            # Attachment tools
-            "get_attachment": {
-                "description": (
-                    "Get an attachment's content by ID. Returns the file as "
-                    "base64 encoded data along with content type."
-                ),
-                "permission": ToolPermission.READ,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "item_id": {
-                            "type": "string",
-                            "description": "ID of the item the attachment belongs to",
-                        },
-                        "attachment_id": {
-                            "type": "string",
-                            "description": "ID of the attachment to fetch",
-                        },
-                    },
-                    "required": ["item_id", "attachment_id"],
-                },
-            },
-            "upload_attachment": {
-                "description": (
-                    "Upload an attachment (image, manual, etc.) to an item. "
-                    "File content must be base64 encoded."
-                ),
-                "permission": ToolPermission.WRITE,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "item_id": {
-                            "type": "string",
-                            "description": "ID of the item to attach to",
-                        },
-                        "file_base64": {
-                            "type": "string",
-                            "description": "File content as base64 encoded string",
-                        },
-                        "filename": {
-                            "type": "string",
-                            "description": "Name for the uploaded file",
-                        },
-                        "mime_type": {
-                            "type": "string",
-                            "description": "MIME type of the file (default: image/jpeg)",
-                            "default": "image/jpeg",
-                        },
-                        "attachment_type": {
-                            "type": "string",
-                            "description": (
-                                "Type of attachment: 'photo', 'manual', "
-                                "'warranty', 'receipt', 'attachment'"
-                            ),
-                            "default": "photo",
-                        },
-                    },
-                    "required": ["item_id", "file_base64", "filename"],
-                },
-            },
-            # Action tools
-            "ensure_asset_ids": {
-                "description": (
-                    "Ensure all items have asset IDs assigned. Assigns sequential "
-                    "asset IDs to items that don't have one. Idempotent - existing "
-                    "asset IDs are not changed."
-                ),
-                "permission": ToolPermission.WRITE,
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-        }
+    name: str = "delete_item"
+    description: str = "Delete an item from Homebox. This action cannot be undone."
+    permission: ToolPermission = ToolPermission.DESTRUCTIVE
 
-        # Merge: static_metadata fills gaps for non-decorated methods
-        # Decorated methods take precedence (already in metadata)
-        for name, meta in static_metadata.items():
-            if name not in metadata:
-                metadata[name] = meta
+    class Params(BaseModel):
+        item_id: str = Field(description="ID of the item to delete")
 
-        return metadata
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        try:
+            await client.delete_item(token, params.item_id)
+            logger.info(f"delete_item deleted item: {params.item_id}")
+            return ToolResult(success=True, data={"deleted_id": params.item_id})
+        except Exception as e:
+            logger.error(f"delete_item failed for {params.item_id}: {e}")
+            return ToolResult(success=False, error=str(e))
+
+
+# =============================================================================
+# TOOL DISCOVERY
+# =============================================================================
+
+
+def get_tools() -> list[Tool]:
+    """Discover and instantiate all Tool classes in this module.
+
+    Uses Protocol-based type checking to find tools rather than fragile
+    string matching or attribute inspection.
+
+    Returns:
+        List of tool instances, each satisfying the Tool protocol.
+    """
+    import inspect
+
+    tools: list[Tool] = []
+    for _name, cls in globals().items():
+        # Skip non-classes and abstract/protocol types
+        if not inspect.isclass(cls):
+            continue
+        if cls is Tool:
+            continue
+
+        # Try to instantiate and check if it satisfies the Tool protocol
+        try:
+            instance = cls()
+            if isinstance(instance, Tool):
+                tools.append(instance)
+        except TypeError:
+            # Class requires arguments or can't be instantiated
+            continue
+
+    return tools

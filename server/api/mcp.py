@@ -15,13 +15,19 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic import ValidationError
 
 from homebox_companion import HomeboxClient, settings
-from homebox_companion.mcp.tools import HomeboxMCPTools
+from homebox_companion.mcp.tools import get_tools
+from homebox_companion.mcp.types import ToolPermission
 
 from ..dependencies import get_client
 
 router = APIRouter()
+
+# Discover tools once at module load
+_all_tools = get_tools()
+_tools_by_name = {t.name: t for t in _all_tools}
 
 
 @router.get("/mcp/v1/tools")
@@ -40,15 +46,14 @@ async def list_mcp_tools() -> JSONResponse:
             content={"error": "Chat/MCP feature is disabled"}
         )
 
-    metadata = HomeboxMCPTools.get_tool_metadata()
     # Filter to only read-only tools for Phase A
     read_only_tools = {
-        name: {
-            "description": meta["description"],
-            "parameters": meta["parameters"],
+        tool.name: {
+            "description": tool.description,
+            "parameters": tool.Params.model_json_schema(),
         }
-        for name, meta in metadata.items()
-        if meta["permission"].value == "read"
+        for tool in _all_tools
+        if tool.permission == ToolPermission.READ
     }
 
     return JSONResponse(content={"tools": read_only_tools})
@@ -96,18 +101,17 @@ async def execute_mcp_tool(
             content={"success": False, "error": "Missing required token parameter"}
         )
 
-    # Get tool metadata
-    metadata = HomeboxMCPTools.get_tool_metadata()
-    tool_meta = metadata.get(tool_name)
+    # Get tool by name
+    tool = _tools_by_name.get(tool_name)
 
-    if not tool_meta:
+    if not tool:
         return JSONResponse(
             status_code=404,
             content={"success": False, "error": f"Unknown tool: {tool_name}"}
         )
 
     # Only allow read-only tools for Phase A
-    if tool_meta["permission"].value != "read":
+    if tool.permission != ToolPermission.READ:
         return JSONResponse(
             status_code=403,
             content={
@@ -116,19 +120,19 @@ async def execute_mcp_tool(
             }
         )
 
-    # Execute the tool
-    tools = HomeboxMCPTools(client)
-    tool_method = getattr(tools, tool_name, None)
-
-    if not tool_method:
+    # Validate parameters with Pydantic
+    try:
+        params = tool.Params(**body)
+    except ValidationError as e:
         return JSONResponse(
-            status_code=501,
-            content={"success": False, "error": f"Tool not implemented: {tool_name}"}
+            status_code=400,
+            content={"success": False, "error": f"Invalid parameters: {e}"}
         )
 
+    # Execute the tool
     logger.info(f"Executing MCP tool via HTTP: {tool_name}")
     try:
-        result = await tool_method(token, **body)
+        result = await tool.execute(client, token, params)
         return JSONResponse(content=result.to_dict())
     except Exception as e:
         logger.exception(f"MCP tool execution failed: {tool_name}")

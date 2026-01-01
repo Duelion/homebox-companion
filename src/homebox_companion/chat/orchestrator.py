@@ -19,7 +19,8 @@ from loguru import logger
 from ..core import config
 from ..core.config import settings
 from ..homebox.client import HomeboxClient
-from ..mcp.tools import HomeboxMCPTools, ToolPermission
+from ..mcp.tools import get_tools
+from ..mcp.types import ToolPermission
 from .session import ChatMessage, ChatSession, PendingApproval, ToolCall, create_approval_id
 
 
@@ -92,20 +93,20 @@ def _build_litellm_tools() -> list[dict[str, Any]]:
     if _tool_cache and (time.time() - _tool_cache[1]) < _TOOL_CACHE_TTL:
         return _tool_cache[0]
 
-    metadata = HomeboxMCPTools.get_tool_metadata()
+    all_tools = get_tools()
     tools = []
 
-    for name, meta in metadata.items():
+    for tool in all_tools:
         # Only expose read-only tools for now
-        if meta["permission"] != ToolPermission.READ:
+        if tool.permission != ToolPermission.READ:
             continue
 
         tools.append({
             "type": "function",
             "function": {
-                "name": name,
-                "description": meta["description"],
-                "parameters": meta["parameters"],
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.Params.model_json_schema(),
             },
         })
 
@@ -134,8 +135,9 @@ class ChatOrchestrator:
         """
         self.client = client
         self.session = session
-        self.tools = HomeboxMCPTools(client)
-        self.tool_metadata = HomeboxMCPTools.get_tool_metadata()
+        # Discover tools and build lookup tables
+        self._all_tools = get_tools()
+        self._tools_by_name = {t.name: t for t in self._all_tools}
 
     def _parse_tool_calls(self, tool_calls: list[Any]) -> list[ToolCall]:
         """Parse raw LLM tool calls into ToolCall objects.
@@ -214,15 +216,15 @@ class ChatOrchestrator:
         # Execute tools using already-parsed tool calls (no redundant JSON parsing)
         for parsed_tc in parsed_tool_calls:
             # Check tool permission
-            meta = self.tool_metadata.get(parsed_tc.name)
-            if not meta:
+            tool = self._tools_by_name.get(parsed_tc.name)
+            if not tool:
                 yield ChatEvent(
                     type=ChatEventType.ERROR,
                     data={"message": f"Unknown tool: {parsed_tc.name}"}
                 )
                 continue
 
-            if meta["permission"] == ToolPermission.READ:
+            if tool.permission == ToolPermission.READ:
                 # Auto-execute read-only tools
                 async for event in self._execute_tool(
                     parsed_tc.id, parsed_tc.name, parsed_tc.arguments, token
@@ -625,8 +627,8 @@ class ChatOrchestrator:
             data={"tool": tool_name, "params": tool_args}
         )
 
-        tool_method = getattr(self.tools, tool_name, None)
-        if not tool_method:
+        tool = self._tools_by_name.get(tool_name)
+        if not tool:
             error_result = {"success": False, "error": f"Tool not implemented: {tool_name}"}
             self.session.add_message(ChatMessage(
                 role="tool",
@@ -642,7 +644,9 @@ class ChatOrchestrator:
         try:
             # TRACE: Time the tool execution
             start_time = time.perf_counter()
-            result = await tool_method(token, **tool_args)
+            # Validate and execute with Pydantic params
+            params = tool.Params(**tool_args)
+            result = await tool.execute(self.client, token, params)
             elapsed_ms = (time.perf_counter() - start_time) * 1000
 
             result_dict = result.to_dict()

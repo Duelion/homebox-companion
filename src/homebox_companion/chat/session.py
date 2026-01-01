@@ -211,7 +211,9 @@ class ChatSession:
             if data.get("success"):
                 result_data = data.get("data")
                 if isinstance(result_data, list):
-                    return json.dumps({"success": True, "_summary": f"{len(result_data)} items returned"})
+                    return json.dumps(
+                        {"success": True, "_summary": f"{len(result_data)} items returned"}
+                    )
                 elif isinstance(result_data, dict):
                     # For single items, just note it was retrieved
                     name = result_data.get("name", "item")
