@@ -33,27 +33,32 @@ export const items = {
 		if (file.size === 0) {
 			log.warn(`Empty file being uploaded to item ${itemId}: ${file.name}`);
 		} else if (file.size < 1000) {
-			log.warn(`Suspiciously small file being uploaded to item ${itemId}: ${file.name} (${file.size} bytes)`);
+			log.warn(
+				`Suspiciously small file being uploaded to item ${itemId}: ${file.name} (${file.size} bytes)`
+			);
 		}
 
 		const formData = new FormData();
 		formData.append('file', file);
-		return requestFormData<unknown>(
-			`/items/${itemId}/attachments`,
-			formData,
-			{ errorMessage: 'Failed to upload attachment', signal: options.signal }
-		);
+		return requestFormData<unknown>(`/items/${itemId}/attachments`, formData, {
+			errorMessage: 'Failed to upload attachment',
+			signal: options.signal,
+		});
 	},
 
 	/**
 	 * Fetch a thumbnail image and return a blob URL with cleanup function.
-	 * 
+	 *
 	 * IMPORTANT: Call `result.revoke()` when done to avoid memory leaks.
-	 * 
+	 *
 	 * @throws {ApiError} When the server returns a non-OK response (e.g., 404 for missing thumbnail)
 	 * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
 	 */
-	getThumbnail: (itemId: string, attachmentId: string, signal?: AbortSignal): Promise<BlobUrlResult> =>
+	getThumbnail: (
+		itemId: string,
+		attachmentId: string,
+		signal?: AbortSignal
+	): Promise<BlobUrlResult> =>
 		requestBlobUrl(`/items/${itemId}/attachments/${attachmentId}`, signal),
 
 	/**
@@ -68,4 +73,3 @@ export const items = {
 		});
 	},
 };
-

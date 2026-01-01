@@ -1,37 +1,36 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
-	import { locations as locationsApi } from "$lib/api";
-	import { ApiError } from "$lib/api/client";
-	import { authStore } from "$lib/stores/auth.svelte";
-	import { locationStore } from "$lib/stores/locations.svelte";
-	import { locationNavigator } from "$lib/services/locationNavigator.svelte";
-	import { fetchLabels } from "$lib/stores/labels.svelte";
-	import { showToast } from "$lib/stores/ui.svelte";
-	import { scanWorkflow } from "$lib/workflows/scan.svelte";
-	import { routeGuards } from "$lib/utils/routeGuard";
-	import { createLogger } from "$lib/utils/logger";
-	import type { Location } from "$lib/types";
-	import Button from "$lib/components/Button.svelte";
-	import Skeleton from "$lib/components/Skeleton.svelte";
-	import StepIndicator from "$lib/components/StepIndicator.svelte";
-	import LocationModal from "$lib/components/LocationModal.svelte";
-	import ItemPickerModal from "$lib/components/ItemPickerModal.svelte";
-	import BackLink from "$lib/components/BackLink.svelte";
-	import QrScanner from "$lib/components/QrScanner.svelte";
-	import PullToRefresh from "$lib/components/PullToRefresh.svelte";
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	import { locations as locationsApi } from '$lib/api';
+	import { ApiError } from '$lib/api/client';
+	import { authStore } from '$lib/stores/auth.svelte';
+	import { locationStore } from '$lib/stores/locations.svelte';
+	import { locationNavigator } from '$lib/services/locationNavigator.svelte';
+	import { fetchLabels } from '$lib/stores/labels.svelte';
+	import { showToast } from '$lib/stores/ui.svelte';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { routeGuards } from '$lib/utils/routeGuard';
+	import { createLogger } from '$lib/utils/logger';
+	import type { Location } from '$lib/types';
+	import Button from '$lib/components/Button.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
+	import StepIndicator from '$lib/components/StepIndicator.svelte';
+	import LocationModal from '$lib/components/LocationModal.svelte';
+	import ItemPickerModal from '$lib/components/ItemPickerModal.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
+	import QrScanner from '$lib/components/QrScanner.svelte';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
-	const log = createLogger({ prefix: "LocationPage" });
+	const log = createLogger({ prefix: 'LocationPage' });
 
 	// Local UI state
-	let searchQuery = $state("");
+	let searchQuery = $state('');
 
 	// Modal state
 	let showLocationModal = $state(false);
-	let locationModalMode = $state<"create" | "edit">("create");
-	let createParentLocation = $state<{ id: string; name: string } | null>(
-		null,
-	);
+	let locationModalMode = $state<'create' | 'edit'>('create');
+	let createParentLocation = $state<{ id: string; name: string } | null>(null);
 
 	// Item picker modal state
 	let showItemPicker = $state(false);
@@ -42,17 +41,13 @@
 
 	// Derived: filtered locations based on search (uses store's flatList)
 	let filteredLocations = $derived(
-		searchQuery.trim() === ""
+		searchQuery.trim() === ''
 			? []
 			: locationStore.flatList.filter(
 					(item) =>
-						item.location.name
-							.toLowerCase()
-							.includes(searchQuery.toLowerCase()) ||
-						item.path
-							.toLowerCase()
-							.includes(searchQuery.toLowerCase()),
-				),
+						item.location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+						item.path.toLowerCase().includes(searchQuery.toLowerCase())
+				)
 	);
 
 	let isSearching = $derived(searchQuery.trim().length > 0);
@@ -101,23 +96,20 @@
 		try {
 			await fetchLabels(true); // force refresh
 		} catch (error) {
-			log.warn("Failed to refresh labels during pull-to-refresh", error);
+			log.warn('Failed to refresh labels during pull-to-refresh', error);
 		}
 	}
 
 	function selectFromSearch(item: { location: Location; path: string }) {
 		locationNavigator.selectLocation(item.location, item.path);
-		searchQuery = "";
+		searchQuery = '';
 	}
 
 	function selectCurrentLocation() {
 		// Use the stored current location from navigateInto instead of traversing stale tree
 		if (locationNavigator.currentLocation) {
-			const pathStr = locationStore.path.map((p) => p.name).join(" / ");
-			locationNavigator.selectLocation(
-				locationNavigator.currentLocation,
-				pathStr,
-			);
+			const pathStr = locationStore.path.map((p) => p.name).join(' / ');
+			locationNavigator.selectLocation(locationNavigator.currentLocation, pathStr);
 		}
 	}
 
@@ -127,22 +119,20 @@
 
 	function continueToCapture() {
 		if (!locationStore.selected) {
-			showToast("Please select a location", "warning");
+			showToast('Please select a location', 'warning');
 			return;
 		}
-		goto("/capture");
+		goto(resolve('/capture'));
 	}
 
-	function openCreateModal(
-		parent: { id: string; name: string } | null = null,
-	) {
-		locationModalMode = "create";
+	function openCreateModal(parent: { id: string; name: string } | null = null) {
+		locationModalMode = 'create';
 		createParentLocation = parent;
 		showLocationModal = true;
 	}
 
 	function openEditModal() {
-		locationModalMode = "edit";
+		locationModalMode = 'edit';
 		showLocationModal = true;
 	}
 
@@ -152,35 +142,27 @@
 		parentId: string | null;
 	}) {
 		try {
-			if (locationModalMode === "create") {
+			if (locationModalMode === 'create') {
 				const newLocation = await locationsApi.create({
 					name: data.name,
 					description: data.description,
 					parent_id: data.parentId,
 				});
 
-				log.debug(
-					"Created location:",
-					newLocation.name,
-					"under parent:",
-					data.parentId,
-				);
+				log.debug('Created location:', newLocation.name, 'under parent:', data.parentId);
 
 				// Refresh current level by fetching parent's children directly
 				// This avoids tree traversal and works at any depth
 				await locationNavigator.refreshCurrentLevel(data.parentId);
 
-				showToast(`Location "${newLocation.name}" created`, "success");
-			} else if (locationModalMode === "edit" && locationStore.selected) {
-				const updatedLocation = await locationsApi.update(
-					locationStore.selected.id,
-					{
-						name: data.name,
-						description: data.description,
-					},
-				);
+				showToast(`Location "${newLocation.name}" created`, 'success');
+			} else if (locationModalMode === 'edit' && locationStore.selected) {
+				const updatedLocation = await locationsApi.update(locationStore.selected.id, {
+					name: data.name,
+					description: data.description,
+				});
 
-				log.debug("Updated location:", updatedLocation.name);
+				log.debug('Updated location:', updatedLocation.name);
 
 				// Update selected location with new data
 				const locationData: Location = {
@@ -192,27 +174,20 @@
 				locationStore.setSelected(locationData);
 
 				// Update workflow with new name
-				scanWorkflow.setLocation(
-					locationData.id,
-					locationData.name,
-					locationStore.selectedPath,
-				);
+				scanWorkflow.setLocation(locationData.id, locationData.name, locationStore.selectedPath);
 
 				// Refresh flat list for search to show updated name
 				try {
 					const flatList = await locationsApi.list();
 					locationStore.setFlatList(flatList);
 				} catch (error) {
-					log.warn("Failed to refresh search list after edit", error);
+					log.warn('Failed to refresh search list after edit', error);
 				}
 
-				showToast(
-					`Location "${updatedLocation.name}" updated`,
-					"success",
-				);
+				showToast(`Location "${updatedLocation.name}" updated`, 'success');
 			}
 		} catch (error) {
-			log.error("Failed to save location", error);
+			log.error('Failed to save location', error);
 			// Re-throw to let LocationModal handle the error display
 			throw error;
 		}
@@ -234,12 +209,10 @@
 		try {
 			// Parse the QR code URL to extract location ID
 			// Expected format: https://homebox.example.com/location/{uuid}
-			const locationIdMatch = decodedText.match(
-				/\/location\/([a-f0-9-]+)(?:\/|$)/i,
-			);
+			const locationIdMatch = decodedText.match(/\/location\/([a-f0-9-]+)(?:\/|$)/i);
 
 			if (!locationIdMatch) {
-				showToast("Invalid QR code. Not a Homebox location.", "error");
+				showToast('Invalid QR code. Not a Homebox location.', 'error');
 				isProcessingQr = false;
 				return;
 			}
@@ -250,7 +223,7 @@
 			const location = await locationsApi.get(locationId);
 
 			if (!location) {
-				showToast("Location not found in your Homebox.", "error");
+				showToast('Location not found in your Homebox.', 'error');
 				isProcessingQr = false;
 				return;
 			}
@@ -263,30 +236,24 @@
 			const locationData: Location = {
 				id: location.id,
 				name: location.name,
-				description: location.description || "",
+				description: location.description || '',
 				itemCount: location.itemCount ?? 0,
 				children: location.children || [],
 			};
 
 			locationNavigator.selectLocation(locationData, locationPath);
 		} catch (error) {
-			log.error("QR scan error", error);
+			log.error('QR scan error', error);
 			if (error instanceof ApiError) {
 				if (error.status === 401) {
-					showToast("Session expired. Please log in again.", "error");
+					showToast('Session expired. Please log in again.', 'error');
 				} else if (error.status === 404) {
-					showToast("Location not found in your Homebox.", "error");
+					showToast('Location not found in your Homebox.', 'error');
 				} else {
-					showToast(
-						"Failed to load location. Please try again.",
-						"error",
-					);
+					showToast('Failed to load location. Please try again.', 'error');
 				}
 			} else {
-				showToast(
-					"Failed to load location. Please try again.",
-					"error",
-				);
+				showToast('Failed to load location. Please try again.', 'error');
 			}
 		} finally {
 			isProcessingQr = false;
@@ -294,7 +261,7 @@
 	}
 
 	function handleQrError(error: string) {
-		log.warn("QR Scanner error:", error);
+		log.warn('QR Scanner error:', error);
 	}
 
 	// Item picker handlers
@@ -317,40 +284,31 @@
 
 <PullToRefresh
 	onRefresh={handlePullRefresh}
-	enabled={!locationNavigator.isLoading &&
-		!showLocationModal &&
-		!showItemPicker &&
-		!showQrScanner}
+	enabled={!locationNavigator.isLoading && !showLocationModal && !showItemPicker && !showQrScanner}
 >
 	<div class="animate-in">
 		<StepIndicator currentStep={1} />
 
-		<h2 class="text-h2 text-neutral-100 mb-1">Select Location</h2>
-		<p class="text-body-sm text-neutral-400 mb-6">
-			Choose where your items will be stored
-		</p>
+		<h2 class="mb-1 text-h2 text-neutral-100">Select Location</h2>
+		<p class="mb-6 text-body-sm text-neutral-400">Choose where your items will be stored</p>
 
 		{#if locationStore.selected}
-			<BackLink
-				href="/location"
-				label="Choose a different location"
-				onclick={changeSelection}
-			/>
+			<BackLink href="/location" label="Choose a different location" onclick={changeSelection} />
 		{/if}
 
 		{#if locationNavigator.isLoading}
 			<!-- Skeleton loading state -->
 			<div class="space-y-3">
 				<!-- Search skeleton -->
-				<div class="flex gap-2 mb-4">
+				<div class="mb-4 flex gap-2">
 					<Skeleton width="100%" height="48px" rounded="xl" />
 					<Skeleton width="48px" height="48px" rounded="xl" />
 				</div>
 
 				<!-- Location card skeletons -->
-				{#each Array(6) as _, i}
+				{#each Array(6) as _, i (i)}
 					<div
-						class="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex items-center gap-3"
+						class="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4"
 						style="animation-delay: {i * 50}ms;"
 					>
 						<Skeleton width="44px" height="44px" rounded="lg" />
@@ -363,39 +321,30 @@
 				{/each}
 
 				<!-- Create button skeleton -->
-				<Skeleton
-					width="100%"
-					height="44px"
-					rounded="xl"
-					class="mt-4"
-				/>
+				<Skeleton width="100%" height="44px" rounded="xl" class="mt-4" />
 			</div>
 		{:else if locationStore.selected}
 			<!-- SELECTED STATE -->
 			<div class="space-y-4">
 				<!-- Selected location card with ring highlight -->
 				<div
-					class="bg-neutral-900 rounded-xl border border-primary-500 ring-2 ring-primary-500/30 p-4 shadow-md"
+					class="rounded-xl border border-primary-500 bg-neutral-900 p-4 shadow-md ring-2 ring-primary-500/30"
 				>
 					<div class="flex items-center gap-3">
-						<div class="p-3 bg-primary-500/20 rounded-lg">
+						<div class="rounded-lg bg-primary-500/20 p-3">
 							<svg
-								class="w-6 h-6 text-primary-400"
+								class="h-6 w-6 text-primary-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 							>
-								<path
-									d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
-								/>
+								<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 								<circle cx="12" cy="10" r="3" />
 							</svg>
 						</div>
-						<div class="flex-1 min-w-0">
-							<p class="text-body-sm text-neutral-400">
-								Selected location:
-							</p>
+						<div class="min-w-0 flex-1">
+							<p class="text-body-sm text-neutral-400">Selected location:</p>
 							<p class="text-body font-semibold text-neutral-100">
 								{locationStore.selected.name}
 							</p>
@@ -405,30 +354,26 @@
 								</p>
 							{/if}
 							{#if locationStore.selected.description}
-								<p class="text-body-sm text-neutral-400 mt-1">
+								<p class="mt-1 text-body-sm text-neutral-400">
 									{locationStore.selected.description}
 								</p>
 							{/if}
 						</div>
 						<button
 							type="button"
-							class="p-2 rounded-lg text-neutral-400 hover:text-primary-400 hover:bg-primary-500/10 transition-colors"
+							class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400"
 							onclick={openEditModal}
 							title="Edit location"
 						>
 							<svg
-								class="w-5 h-5"
+								class="h-5 w-5"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 							>
-								<path
-									d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-								/>
-								<path
-									d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-								/>
+								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
 							</svg>
 						</button>
 					</div>
@@ -442,22 +387,19 @@
 					disabled={(locationStore.selected?.itemCount ?? 0) === 0}
 				>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
 						stroke-width="1.5"
 					>
-						<path
-							d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-						/>
+						<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
 					</svg>
 					<span>
 						{#if scanWorkflow.state.parentItemName}
 							Inside: {scanWorkflow.state.parentItemName}
 						{:else}
-							Place Inside an Item ({locationStore.selected
-								?.itemCount ?? 0})
+							Place Inside an Item ({locationStore.selected?.itemCount ?? 0})
 						{/if}
 					</span>
 				</Button>
@@ -465,7 +407,7 @@
 				<Button variant="primary" full onclick={continueToCapture}>
 					<span>Continue to Capture</span>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -480,13 +422,11 @@
 			<!-- SELECTION STATE -->
 
 			<!-- Search box with elevated style and QR scan button -->
-			<div class="flex gap-2 mb-4">
+			<div class="mb-4 flex gap-2">
 				<div class="relative flex-1">
-					<div
-						class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"
-					>
+					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
 						<svg
-							class="w-5 h-5 text-neutral-500"
+							class="h-5 w-5 text-neutral-500"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -500,17 +440,17 @@
 						type="text"
 						placeholder="Search all locations..."
 						bind:value={searchQuery}
-						class="w-full h-12 pl-11 pr-10 bg-neutral-800 border border-neutral-600 rounded-xl text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all"
+						class="h-12 w-full rounded-xl border border-neutral-600 bg-neutral-800 pl-11 pr-10 text-neutral-100 transition-all placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
 					/>
 					{#if searchQuery}
 						<button
 							type="button"
-							class="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-200 transition-colors"
+							class="absolute inset-y-0 right-0 flex items-center pr-4 text-neutral-400 transition-colors hover:text-neutral-200"
 							aria-label="Clear search"
-							onclick={() => (searchQuery = "")}
+							onclick={() => (searchQuery = '')}
 						>
 							<svg
-								class="w-4 h-4"
+								class="h-4 w-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -528,16 +468,16 @@
 					type="button"
 					onclick={openQrScanner}
 					disabled={isProcessingQr}
-					class="w-12 h-12 flex items-center justify-center bg-neutral-800 border border-neutral-600 rounded-xl text-neutral-400 hover:text-primary-400 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all disabled:opacity-50"
+					class="flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-600 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/5 hover:text-primary-400 disabled:opacity-50"
 					title="Scan QR Code"
 				>
 					{#if isProcessingQr}
 						<div
-							class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"
+							class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
 						></div>
 					{:else}
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -562,7 +502,7 @@
 					{#if filteredLocations.length === 0}
 						<div class="py-8 text-center text-neutral-500">
 							<svg
-								class="w-10 h-10 mx-auto mb-2 opacity-50"
+								class="mx-auto mb-2 h-10 w-10 opacity-50"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -574,48 +514,39 @@
 							<p>No locations found for "{searchQuery}"</p>
 						</div>
 					{:else}
-						<p class="text-body-sm text-neutral-400 mb-2">
-							{filteredLocations.length} location{filteredLocations.length !==
-							1
-								? "s"
-								: ""} found
+						<p class="mb-2 text-body-sm text-neutral-400">
+							{filteredLocations.length} location{filteredLocations.length !== 1 ? 's' : ''} found
 						</p>
-						{#each filteredLocations as item}
+						{#each filteredLocations as item (item.location.id)}
 							<button
 								type="button"
-								class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-neutral-600 transition-all text-left group"
+								class="group flex w-full items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-900 p-4 text-left shadow-sm transition-all hover:border-neutral-600 hover:shadow-md"
 								onclick={() => selectFromSearch(item)}
 							>
 								<div
-									class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors"
+									class="rounded-lg bg-neutral-800 p-2.5 transition-colors group-hover:bg-primary-500/20"
 								>
 									<svg
-										class="w-5 h-5 text-neutral-400 group-hover:text-primary-400"
+										class="h-5 w-5 text-neutral-400 group-hover:text-primary-400"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
 										stroke-width="1.5"
 									>
-										<path
-											d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
-										/>
+										<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 										<circle cx="12" cy="10" r="3" />
 									</svg>
 								</div>
-								<div class="flex-1 min-w-0">
+								<div class="min-w-0 flex-1">
 									<p class="font-medium text-neutral-100">
 										{item.location.name}
 									</p>
-									<p
-										class="text-body-sm text-neutral-500 truncate"
-									>
+									<p class="truncate text-body-sm text-neutral-500">
 										{item.path}
 									</p>
 								</div>
 								{#if item.location.itemCount !== undefined}
-									<span class="text-body-sm text-neutral-500"
-										>{item.location.itemCount} items</span
-									>
+									<span class="text-body-sm text-neutral-500">{item.location.itemCount} items</span>
 								{/if}
 							</button>
 						{/each}
@@ -625,32 +556,29 @@
 				<!-- BROWSE MODE -->
 
 				{#if locationStore.path.length > 0}
-					<div
-						class="flex items-center gap-1 overflow-x-auto pb-2 mb-4 text-sm"
-					>
+					<div class="mb-4 flex items-center gap-1 overflow-x-auto pb-2 text-sm">
 						<button
 							type="button"
-							class="flex items-center gap-1 px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors whitespace-nowrap"
+							class="flex items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
 							onclick={() => locationNavigator.navigateToPath(-1)}
 						>
 							<svg
-								class="w-4 h-4"
+								class="h-4 w-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 							>
-								<path
-									d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
-								/>
+								<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
 								<polyline points="9 22 9 12 15 12 15 22" />
 							</svg>
 							<span>All</span>
 						</button>
 
-						{#each locationStore.path as pathItem, index}
+						{#each locationStore.path as pathItem (pathItem.id)}
+							{@const index = locationStore.path.indexOf(pathItem)}
 							<svg
-								class="w-4 h-4 text-neutral-600 shrink-0"
+								class="h-4 w-4 shrink-0 text-neutral-600"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -660,9 +588,8 @@
 							</svg>
 							<button
 								type="button"
-								class="px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors whitespace-nowrap"
-								onclick={() =>
-									locationNavigator.navigateToPath(index)}
+								class="whitespace-nowrap rounded-lg px-2 py-1 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
+								onclick={() => locationNavigator.navigateToPath(index)}
 							>
 								{pathItem.name}
 							</button>
@@ -672,44 +599,38 @@
 					<!-- Select current folder button -->
 					<button
 						type="button"
-						class="w-full flex items-center gap-3 p-4 mb-4 rounded-xl border bg-neutral-900 border-neutral-700 shadow-sm hover:shadow-md hover:border-primary-500 hover:bg-primary-500/5 transition-all text-left group"
+						class="group mb-4 flex w-full items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-900 p-4 text-left shadow-sm transition-all hover:border-primary-500 hover:bg-primary-500/5 hover:shadow-md"
 						aria-label="Select current location"
 						onclick={selectCurrentLocation}
 					>
 						<div
-							class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors"
+							class="rounded-lg bg-neutral-800 p-2.5 transition-colors group-hover:bg-primary-500/20"
 						>
 							<svg
-								class="w-5 h-5 text-neutral-400 group-hover:text-primary-400"
+								class="h-5 w-5 text-neutral-400 group-hover:text-primary-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 							>
-								<path
-									d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
-								/>
+								<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 								<circle cx="12" cy="10" r="3" />
 							</svg>
 						</div>
-						<div class="flex-1 min-w-0">
+						<div class="min-w-0 flex-1">
 							<p
-								class="font-medium text-neutral-100 group-hover:text-primary-400 transition-colors"
+								class="font-medium text-neutral-100 transition-colors group-hover:text-primary-400"
 							>
-								Use "{locationStore.path[
-									locationStore.path.length - 1
-								].name}"
+								Use "{locationStore.path[locationStore.path.length - 1].name}"
 							</p>
-							<p class="text-body-sm text-neutral-500">
-								Select as item location
-							</p>
+							<p class="text-body-sm text-neutral-500">Select as item location</p>
 						</div>
 						<div
-							class="flex items-center gap-1 text-neutral-500 group-hover:text-primary-400 transition-colors"
+							class="flex items-center gap-1 text-neutral-500 transition-colors group-hover:text-primary-400"
 						>
 							<span class="text-body-sm font-medium">Select</span>
 							<svg
-								class="w-4 h-4"
+								class="h-4 w-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -724,10 +645,10 @@
 
 				<!-- Sublocations section -->
 				{#if locationStore.currentLevel.length > 0 && locationStore.path.length > 0}
-					<div class="flex items-center gap-2 mb-2 mt-2">
+					<div class="mb-2 mt-2 flex items-center gap-2">
 						<div class="flex items-center gap-1.5 text-neutral-500">
 							<svg
-								class="w-4 h-4"
+								class="h-4 w-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -738,32 +659,29 @@
 								/>
 							</svg>
 							<span class="text-body-sm font-medium"
-								>Inside {locationStore.path[
-									locationStore.path.length - 1
-								].name}</span
+								>Inside {locationStore.path[locationStore.path.length - 1].name}</span
 							>
 						</div>
-						<div class="flex-1 h-px bg-neutral-800"></div>
+						<div class="h-px flex-1 bg-neutral-800"></div>
 					</div>
 				{/if}
 
 				<!-- Location list with improved cards -->
 				<div class="space-y-2">
-					{#each locationStore.currentLevel as location}
+					{#each locationStore.currentLevel as location (location.id)}
 						<button
 							type="button"
-							class="w-full flex items-center gap-3 p-4 rounded-xl border bg-neutral-900/60 border-neutral-700/70 shadow-sm hover:shadow-md hover:border-neutral-600 hover:bg-neutral-900 transition-all text-left group {locationStore
+							class="group flex w-full items-center gap-3 rounded-xl border border-neutral-700/70 bg-neutral-900/60 p-4 text-left shadow-sm transition-all hover:border-neutral-600 hover:bg-neutral-900 hover:shadow-md {locationStore
 								.path.length > 0
 								? 'ml-2'
 								: ''}"
-							onclick={() =>
-								locationNavigator.navigateInto(location)}
+							onclick={() => locationNavigator.navigateInto(location)}
 						>
 							<div
-								class="p-2.5 bg-neutral-800 rounded-lg group-hover:bg-primary-500/20 transition-colors"
+								class="rounded-lg bg-neutral-800 p-2.5 transition-colors group-hover:bg-primary-500/20"
 							>
 								<svg
-									class="w-5 h-5 text-neutral-400 group-hover:text-primary-400"
+									class="h-5 w-5 text-neutral-400 group-hover:text-primary-400"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -774,27 +692,21 @@
 									/>
 								</svg>
 							</div>
-							<div class="flex-1 min-w-0">
-								<p
-									class="font-medium text-neutral-100 truncate"
-								>
+							<div class="min-w-0 flex-1">
+								<p class="truncate font-medium text-neutral-100">
 									{location.name}
 								</p>
 								{#if location.description}
-									<p
-										class="text-body-sm text-neutral-500 truncate"
-									>
+									<p class="truncate text-body-sm text-neutral-500">
 										{location.description}
 									</p>
 								{/if}
 							</div>
 							{#if location.children && location.children.length > 0}
-								<div
-									class="flex items-center gap-1 text-neutral-500 text-body-sm"
-								>
+								<div class="flex items-center gap-1 text-body-sm text-neutral-500">
 									<span>{location.children.length}</span>
 									<svg
-										class="w-4 h-4"
+										class="h-4 w-4"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
@@ -804,9 +716,7 @@
 									</svg>
 								</div>
 							{:else if location.itemCount !== undefined}
-								<span class="text-body-sm text-neutral-500"
-									>{location.itemCount} items</span
-								>
+								<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
 							{/if}
 						</button>
 					{/each}
@@ -815,13 +725,10 @@
 					<Button
 						variant="secondary"
 						full
-						onclick={() =>
-							openCreateModal(
-								locationNavigator.getCurrentParent(),
-							)}
+						onclick={() => openCreateModal(locationNavigator.getCurrentParent())}
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -832,9 +739,7 @@
 						</svg>
 						<span>
 							{#if locationStore.path.length > 0}
-								Create Location in {locationStore.path[
-									locationStore.path.length - 1
-								].name}
+								Create Location in {locationStore.path[locationStore.path.length - 1].name}
 							{:else}
 								Create New Location
 							{/if}
@@ -850,10 +755,8 @@
 <LocationModal
 	bind:open={showLocationModal}
 	mode={locationModalMode}
-	location={locationModalMode === "edit" ? locationStore.selected : null}
-	parentLocation={locationModalMode === "create"
-		? createParentLocation
-		: null}
+	location={locationModalMode === 'edit' ? locationStore.selected : null}
+	parentLocation={locationModalMode === 'create' ? createParentLocation : null}
 	onsave={handleSaveLocation}
 />
 
@@ -869,9 +772,5 @@
 
 <!-- QR Scanner Modal -->
 {#if showQrScanner}
-	<QrScanner
-		onScan={handleQrScan}
-		onClose={closeQrScanner}
-		onError={handleQrError}
-	/>
+	<QrScanner onScan={handleQrScan} onClose={closeQrScanner} onError={handleQrError} />
 {/if}

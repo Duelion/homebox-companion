@@ -26,11 +26,11 @@
 <div class="border-t border-neutral-700 pt-4">
 	<button
 		type="button"
-		class="flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200 w-full"
+		class="flex w-full items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200"
 		onclick={onToggle}
 	>
 		<svg
-			class="w-4 h-4 transition-transform {expanded ? 'rotate-180' : ''}"
+			class="h-4 w-4 transition-transform {expanded ? 'rotate-180' : ''}"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -39,7 +39,7 @@
 		</svg>
 		<span>Extended Fields</span>
 		{#if hasData()}
-			<span class="px-1.5 py-0.5 bg-primary/20 text-primary-light rounded text-xs">Has data</span>
+			<span class="rounded bg-primary/20 px-1.5 py-0.5 text-xs text-primary-light">Has data</span>
 		{/if}
 	</button>
 
@@ -117,8 +117,3 @@
 		</div>
 	{/if}
 </div>
-
-
-
-
-

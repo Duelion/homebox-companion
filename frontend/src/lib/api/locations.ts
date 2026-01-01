@@ -3,7 +3,12 @@
  */
 
 import { request } from './client';
-import type { Location, LocationTreeNode, LocationCreateRequest, LocationUpdateRequest } from '../types';
+import type {
+	Location,
+	LocationTreeNode,
+	LocationCreateRequest,
+	LocationUpdateRequest,
+} from '../types';
 
 export const locations = {
 	list: (filterChildren?: boolean) => {
@@ -27,4 +32,3 @@ export const locations = {
 			body: JSON.stringify(data),
 		}),
 };
-

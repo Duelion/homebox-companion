@@ -15,18 +15,9 @@
 
 <div class="flex flex-col items-center justify-center gap-3">
 	<div
-		class="rounded-full border-primary/30 border-t-primary animate-spin {sizeClasses[size]}"
+		class="animate-spin rounded-full border-primary/30 border-t-primary {sizeClasses[size]}"
 	></div>
 	{#if message}
-		<p class="text-neutral-400 text-sm animate-pulse">{message}</p>
+		<p class="animate-pulse text-sm text-neutral-400">{message}</p>
 	{/if}
 </div>
-
-
-
-
-
-
-
-
-

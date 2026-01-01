@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
-	import { authStore } from "$lib/stores/auth.svelte";
-	import { resetLocationState } from "$lib/stores/locations.svelte";
-	import { uiStore } from "$lib/stores/ui.svelte";
-	import { scanWorkflow } from "$lib/workflows/scan.svelte";
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	import { authStore } from '$lib/stores/auth.svelte';
+	import { resetLocationState } from '$lib/stores/locations.svelte';
+	import { uiStore } from '$lib/stores/ui.svelte';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import {
 		getConfig,
 		getLogs,
@@ -18,15 +19,15 @@
 		type FieldPreferences,
 		type EffectiveDefaults,
 		type LabelData,
-	} from "$lib/api";
+	} from '$lib/api';
 	import {
 		getLogBuffer,
 		clearLogBuffer,
 		exportLogs,
 		type LogEntry,
 		settingsLogger as log,
-	} from "$lib/utils/logger";
-	import Button from "$lib/components/Button.svelte";
+	} from '$lib/utils/logger';
+	import Button from '$lib/components/Button.svelte';
 
 	let config = $state<ConfigResponse | null>(null);
 	let logs = $state<LogsResponse | null>(null);
@@ -54,9 +55,7 @@
 	// Field preferences state
 	let showFieldPrefs = $state(false);
 	let isLoadingFieldPrefs = $state(false);
-	let saveFieldPrefsState = $state<"idle" | "saving" | "success" | "error">(
-		"idle",
-	);
+	let saveFieldPrefsState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 	let fieldPrefsError = $state<string | null>(null);
 	let availableLabels = $state<LabelData[]>([]);
 	let prefs = $state<FieldPreferences>({
@@ -99,93 +98,85 @@
 		example: string;
 	}> = [
 		{
-			key: "name",
-			label: "Name",
-			example:
-				'"Ball Bearing 6900-2RS 10x22x6mm", "LED Strip COB Green 5V 1M"',
+			key: 'name',
+			label: 'Name',
+			example: '"Ball Bearing 6900-2RS 10x22x6mm", "LED Strip COB Green 5V 1M"',
 		},
 		{
-			key: "naming_examples",
-			label: "Naming Examples",
-			example:
-				"Comma-separated examples that show the AI how to format names",
+			key: 'naming_examples',
+			label: 'Naming Examples',
+			example: 'Comma-separated examples that show the AI how to format names',
 		},
 		{
-			key: "description",
-			label: "Description",
+			key: 'description',
+			label: 'Description',
 			example: '"Minor scratches on casing", "New in packaging"',
 		},
 		{
-			key: "quantity",
-			label: "Quantity",
-			example:
-				"5 identical screws = qty 5, but 2 sizes = 2 separate items",
+			key: 'quantity',
+			label: 'Quantity',
+			example: '5 identical screws = qty 5, but 2 sizes = 2 separate items',
 		},
 		{
-			key: "manufacturer",
-			label: "Manufacturer",
+			key: 'manufacturer',
+			label: 'Manufacturer',
 			example: 'DeWalt, Vallejo (NOT "Shenzhen XYZ Technology Co.")',
 		},
 		{
-			key: "model_number",
-			label: "Model Number",
+			key: 'model_number',
+			label: 'Model Number',
 			example: '"DCD771C2", "72.034"',
 		},
 		{
-			key: "serial_number",
-			label: "Serial Number",
+			key: 'serial_number',
+			label: 'Serial Number',
 			example: 'Look for "S/N:", "Serial:" markings',
 		},
 		{
-			key: "purchase_price",
-			label: "Purchase Price",
+			key: 'purchase_price',
+			label: 'Purchase Price',
 			example: '29.99 (not "$29.99")',
 		},
 		{
-			key: "purchase_from",
-			label: "Purchase From",
+			key: 'purchase_from',
+			label: 'Purchase From',
 			example: '"Amazon", "Home Depot"',
 		},
 		{
-			key: "notes",
-			label: "Notes",
-			example:
-				"For defects/warnings only. Include GOOD/BAD examples for clarity.",
+			key: 'notes',
+			label: 'Notes',
+			example: 'For defects/warnings only. Include GOOD/BAD examples for clarity.',
 		},
 	];
 
 	// Redirect if not authenticated
 	onMount(async () => {
 		if (!authStore.isAuthenticated) {
-			goto("/");
+			goto(resolve('/'));
 			return;
 		}
 
 		// Fetch config and version info in parallel
 		// Include labels fetch to verify auth is still valid (triggers session expired modal if not)
 		try {
-			const [configResult, versionResult, labelsResult] =
-				await Promise.all([
-					getConfig(),
-					getVersion(true), // Force check for updates regardless of env setting
-					labelsApi.list(), // Auth-required call to detect expired sessions early
-				]);
+			const [configResult, versionResult, labelsResult] = await Promise.all([
+				getConfig(),
+				getVersion(true), // Force check for updates regardless of env setting
+				labelsApi.list(), // Auth-required call to detect expired sessions early
+			]);
 
 			config = configResult;
 			setDemoMode(configResult.is_demo_mode);
 			availableLabels = labelsResult; // Cache for later use
 
 			// Set update info
-			if (
-				versionResult.update_available &&
-				versionResult.latest_version
-			) {
+			if (versionResult.update_available && versionResult.latest_version) {
 				updateAvailable = true;
 				latestVersionNumber = versionResult.latest_version;
 			}
 		} catch (error) {
 			// If it's a 401, the session expired modal will already be shown
-			log.error("Failed to load settings data:", error);
+			log.error('Failed to load settings data:', error);
 		} finally {
 			isLoadingConfig = false;
 		}
@@ -204,9 +195,8 @@
 			logs = await getLogs(300);
 			showLogs = true;
 		} catch (error) {
-			log.error("Failed to load logs:", error);
-			logsError =
-				error instanceof Error ? error.message : "Failed to load logs";
+			log.error('Failed to load logs:', error);
+			logsError = error instanceof Error ? error.message : 'Failed to load logs';
 		} finally {
 			isLoadingLogs = false;
 		}
@@ -219,9 +209,8 @@
 		try {
 			logs = await getLogs(300);
 		} catch (error) {
-			log.error("Failed to refresh logs:", error);
-			logsError =
-				error instanceof Error ? error.message : "Failed to load logs";
+			log.error('Failed to refresh logs:', error);
+			logsError = error instanceof Error ? error.message : 'Failed to load logs';
 		} finally {
 			isLoadingLogs = false;
 		}
@@ -233,11 +222,8 @@
 		try {
 			await downloadLogs(logs.filename);
 		} catch (error) {
-			log.error("Failed to download logs:", error);
-			logsError =
-				error instanceof Error
-					? error.message
-					: "Failed to download logs";
+			log.error('Failed to download logs:', error);
+			logsError = error instanceof Error ? error.message : 'Failed to download logs';
 		}
 	}
 
@@ -259,8 +245,7 @@
 			// Use requestAnimationFrame to ensure DOM is updated
 			requestAnimationFrame(() => {
 				if (logsFullscreenContainer) {
-					logsFullscreenContainer.scrollTop =
-						logsFullscreenContainer.scrollHeight;
+					logsFullscreenContainer.scrollTop = logsFullscreenContainer.scrollHeight;
 				}
 			});
 		}
@@ -269,14 +254,14 @@
 	// Colorize log output like Loguru does in terminal
 	// Log format: "YYYY-MM-DD HH:mm:ss | LEVEL    | module:function:line - message"
 	function colorizedLogs(): string {
-		if (!logs?.logs) return "";
+		if (!logs?.logs) return '';
 
 		return logs.logs
-			.split("\n")
+			.split('\n')
 			.map((line) => {
 				// Match the log format: timestamp | level | location - message
 				const match = line.match(
-					/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (\w+)\s*\| ([^-]+)- (.*)$/,
+					/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (\w+)\s*\| ([^-]+)- (.*)$/
 				);
 
 				if (!match) {
@@ -289,28 +274,28 @@
 
 				// Get color class based on log level (matching Loguru's default color scheme)
 				// https://github.com/Delgan/loguru/blob/master/loguru/_defaults.py
-				let levelClass = "text-neutral-100 font-semibold"; // Default: bold white (INFO)
+				let levelClass = 'text-neutral-100 font-semibold'; // Default: bold white (INFO)
 				switch (levelTrimmed) {
-					case "TRACE":
-						levelClass = "text-cyan-400 font-semibold";
+					case 'TRACE':
+						levelClass = 'text-cyan-400 font-semibold';
 						break;
-					case "DEBUG":
-						levelClass = "text-blue-400 font-semibold";
+					case 'DEBUG':
+						levelClass = 'text-blue-400 font-semibold';
 						break;
-					case "INFO":
-						levelClass = "text-neutral-100 font-semibold";
+					case 'INFO':
+						levelClass = 'text-neutral-100 font-semibold';
 						break;
-					case "SUCCESS":
-						levelClass = "text-success-500 font-semibold";
+					case 'SUCCESS':
+						levelClass = 'text-success-500 font-semibold';
 						break;
-					case "WARNING":
-						levelClass = "text-warning-500 font-semibold";
+					case 'WARNING':
+						levelClass = 'text-warning-500 font-semibold';
 						break;
-					case "ERROR":
-						levelClass = "text-error-500 font-semibold";
+					case 'ERROR':
+						levelClass = 'text-error-500 font-semibold';
 						break;
-					case "CRITICAL":
-						levelClass = "text-error-700 font-bold";
+					case 'CRITICAL':
+						levelClass = 'text-error-700 font-bold';
 						break;
 				}
 
@@ -323,16 +308,16 @@
 					`<span class="${levelClass}">${escapeHtml(message)}</span>`
 				);
 			})
-			.join("\n");
+			.join('\n');
 	}
 
 	function escapeHtml(text: string): string {
 		return text
-			.replace(/&/g, "&amp;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;")
-			.replace(/"/g, "&quot;")
-			.replace(/'/g, "&#039;");
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
 	}
 
 	// Frontend logs functions
@@ -352,11 +337,11 @@
 
 	function handleExportFrontendLogs() {
 		const json = exportLogs();
-		const blob = new Blob([json], { type: "application/json" });
+		const blob = new Blob([json], { type: 'application/json' });
 		const url = window.URL.createObjectURL(blob);
-		const a = document.createElement("a");
+		const a = document.createElement('a');
 		a.href = url;
-		a.download = `frontend-logs-${new Date().toISOString().split("T")[0]}.json`;
+		a.download = `frontend-logs-${new Date().toISOString().split('T')[0]}.json`;
 		document.body.appendChild(a);
 		a.click();
 		window.URL.revokeObjectURL(url);
@@ -365,15 +350,10 @@
 
 	// Auto-scroll frontend logs to bottom when loaded or refreshed
 	$effect(() => {
-		if (
-			frontendLogsContainer &&
-			frontendLogs.length > 0 &&
-			showFrontendLogs
-		) {
+		if (frontendLogsContainer && frontendLogs.length > 0 && showFrontendLogs) {
 			requestAnimationFrame(() => {
 				if (frontendLogsContainer) {
-					frontendLogsContainer.scrollTop =
-						frontendLogsContainer.scrollHeight;
+					frontendLogsContainer.scrollTop = frontendLogsContainer.scrollHeight;
 				}
 			});
 		}
@@ -381,15 +361,10 @@
 
 	// Auto-scroll fullscreen frontend logs to bottom when opened or refreshed
 	$effect(() => {
-		if (
-			frontendLogsFullscreenContainer &&
-			frontendLogs.length > 0 &&
-			frontendLogsFullscreen
-		) {
+		if (frontendLogsFullscreenContainer && frontendLogs.length > 0 && frontendLogsFullscreen) {
 			requestAnimationFrame(() => {
 				if (frontendLogsFullscreenContainer) {
-					frontendLogsFullscreenContainer.scrollTop =
-						frontendLogsFullscreenContainer.scrollHeight;
+					frontendLogsFullscreenContainer.scrollTop = frontendLogsFullscreenContainer.scrollHeight;
 				}
 			});
 		}
@@ -397,51 +372,48 @@
 
 	// Colorize frontend logs (similar to backend logs but adapted for LogEntry format)
 	function colorizedFrontendLogs(): string {
-		if (!frontendLogs || frontendLogs.length === 0) return "";
+		if (!frontendLogs || frontendLogs.length === 0) return '';
 
 		return frontendLogs
 			.map((entry) => {
 				// Format timestamp from ISO to match backend format
 				const date = new Date(entry.timestamp);
-				const timestamp = date
-					.toISOString()
-					.replace("T", " ")
-					.substring(0, 19);
+				const timestamp = date.toISOString().replace('T', ' ').substring(0, 19);
 
 				// Get color class based on log level
-				let levelClass = "text-neutral-100 font-semibold";
+				let levelClass = 'text-neutral-100 font-semibold';
 				switch (entry.level) {
-					case "TRACE":
-						levelClass = "text-cyan-400 font-semibold";
+					case 'TRACE':
+						levelClass = 'text-cyan-400 font-semibold';
 						break;
-					case "DEBUG":
-						levelClass = "text-blue-400 font-semibold";
+					case 'DEBUG':
+						levelClass = 'text-blue-400 font-semibold';
 						break;
-					case "INFO":
-						levelClass = "text-neutral-100 font-semibold";
+					case 'INFO':
+						levelClass = 'text-neutral-100 font-semibold';
 						break;
-					case "SUCCESS":
-						levelClass = "text-success-500 font-semibold";
+					case 'SUCCESS':
+						levelClass = 'text-success-500 font-semibold';
 						break;
-					case "WARNING":
-						levelClass = "text-warning-500 font-semibold";
+					case 'WARNING':
+						levelClass = 'text-warning-500 font-semibold';
 						break;
-					case "ERROR":
-						levelClass = "text-error-500 font-semibold";
+					case 'ERROR':
+						levelClass = 'text-error-500 font-semibold';
 						break;
-					case "CRITICAL":
-						levelClass = "text-error-700 font-bold";
+					case 'CRITICAL':
+						levelClass = 'text-error-700 font-bold';
 						break;
 				}
 
 				// Pad level to 8 characters for alignment
-				const paddedLevel = entry.level.padEnd(8, " ");
+				const paddedLevel = entry.level.padEnd(8, ' ');
 
 				// Build display message: include error summary (first line only) if present
 				let displayMessage = entry.message;
 				if (entry.error) {
 					// Get first line of error (the error message, not the full stack)
-					const errorFirstLine = entry.error.split("\n")[0];
+					const errorFirstLine = entry.error.split('\n')[0];
 					displayMessage = `${entry.message} [${errorFirstLine}]`;
 				}
 
@@ -453,14 +425,14 @@
 					`<span class="${levelClass}">${escapeHtml(displayMessage)}</span>`
 				);
 			})
-			.join("\n");
+			.join('\n');
 	}
 
 	function handleLogout() {
 		scanWorkflow.reset();
 		resetLocationState();
 		authStore.logout();
-		goto("/");
+		goto(resolve('/'));
 	}
 
 	async function checkForUpdates() {
@@ -471,10 +443,7 @@
 		try {
 			const versionResult = await getVersion(true); // Force check for updates
 
-			if (
-				versionResult.update_available &&
-				versionResult.latest_version
-			) {
+			if (versionResult.update_available && versionResult.latest_version) {
 				updateAvailable = true;
 				latestVersionNumber = versionResult.latest_version;
 			} else {
@@ -486,11 +455,8 @@
 				}, 5000); // Clear after 5 seconds
 			}
 		} catch (error) {
-			log.error("Failed to check for updates:", error);
-			updateCheckError =
-				error instanceof Error
-					? error.message
-					: "Failed to check for updates";
+			log.error('Failed to check for updates:', error);
+			updateCheckError = error instanceof Error ? error.message : 'Failed to check for updates';
 		} finally {
 			isCheckingUpdates = false;
 		}
@@ -515,18 +481,15 @@
 			effectiveDefaults = defaultsResult;
 			showFieldPrefs = true;
 		} catch (error) {
-			log.error("Failed to load field preferences:", error);
-			fieldPrefsError =
-				error instanceof Error
-					? error.message
-					: "Failed to load preferences";
+			log.error('Failed to load field preferences:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to load preferences';
 		} finally {
 			isLoadingFieldPrefs = false;
 		}
 	}
 
 	async function saveFieldPrefs() {
-		saveFieldPrefsState = "saving";
+		saveFieldPrefsState = 'saving';
 		fieldPrefsError = null;
 
 		try {
@@ -534,28 +497,25 @@
 			prefs = result;
 
 			// Show success state
-			saveFieldPrefsState = "success";
+			saveFieldPrefsState = 'success';
 
 			// Reset to idle after showing success
 			setTimeout(() => {
-				saveFieldPrefsState = "idle";
+				saveFieldPrefsState = 'idle';
 			}, 2000);
 		} catch (error) {
-			log.error("Failed to save field preferences:", error);
-			fieldPrefsError =
-				error instanceof Error
-					? error.message
-					: "Failed to save preferences";
-			saveFieldPrefsState = "error";
+			log.error('Failed to save field preferences:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to save preferences';
+			saveFieldPrefsState = 'error';
 			// Reset error state after a delay
 			setTimeout(() => {
-				saveFieldPrefsState = "idle";
+				saveFieldPrefsState = 'idle';
 			}, 3000);
 		}
 	}
 
 	async function resetFieldPrefs() {
-		saveFieldPrefsState = "saving";
+		saveFieldPrefsState = 'saving';
 		fieldPrefsError = null;
 
 		try {
@@ -564,22 +524,19 @@
 			promptPreview = null; // Clear preview when resetting
 
 			// Show success state
-			saveFieldPrefsState = "success";
+			saveFieldPrefsState = 'success';
 
 			// Reset to idle after showing success
 			setTimeout(() => {
-				saveFieldPrefsState = "idle";
+				saveFieldPrefsState = 'idle';
 			}, 2000);
 		} catch (error) {
-			log.error("Failed to reset field preferences:", error);
-			fieldPrefsError =
-				error instanceof Error
-					? error.message
-					: "Failed to reset preferences";
-			saveFieldPrefsState = "error";
+			log.error('Failed to reset field preferences:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to reset preferences';
+			saveFieldPrefsState = 'error';
 			// Reset error state after a delay
 			setTimeout(() => {
-				saveFieldPrefsState = "idle";
+				saveFieldPrefsState = 'idle';
 			}, 3000);
 		}
 	}
@@ -610,11 +567,8 @@
 			promptPreview = result.prompt;
 			showPromptPreview = true;
 		} catch (error) {
-			log.error("Failed to load prompt preview:", error);
-			fieldPrefsError =
-				error instanceof Error
-					? error.message
-					: "Failed to load preview";
+			log.error('Failed to load prompt preview:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to load preview';
 		} finally {
 			isLoadingPreview = false;
 		}
@@ -623,18 +577,18 @@
 	// Generate env vars string from current preferences
 	function generateEnvVars(prefsToExport: FieldPreferences): string {
 		const envMapping: Record<keyof FieldPreferences, string> = {
-			output_language: "HBC_AI_OUTPUT_LANGUAGE",
-			default_label_id: "HBC_AI_DEFAULT_LABEL_ID",
-			name: "HBC_AI_NAME",
-			description: "HBC_AI_DESCRIPTION",
-			quantity: "HBC_AI_QUANTITY",
-			manufacturer: "HBC_AI_MANUFACTURER",
-			model_number: "HBC_AI_MODEL_NUMBER",
-			serial_number: "HBC_AI_SERIAL_NUMBER",
-			purchase_price: "HBC_AI_PURCHASE_PRICE",
-			purchase_from: "HBC_AI_PURCHASE_FROM",
-			notes: "HBC_AI_NOTES",
-			naming_examples: "HBC_AI_NAMING_EXAMPLES",
+			output_language: 'HBC_AI_OUTPUT_LANGUAGE',
+			default_label_id: 'HBC_AI_DEFAULT_LABEL_ID',
+			name: 'HBC_AI_NAME',
+			description: 'HBC_AI_DESCRIPTION',
+			quantity: 'HBC_AI_QUANTITY',
+			manufacturer: 'HBC_AI_MANUFACTURER',
+			model_number: 'HBC_AI_MODEL_NUMBER',
+			serial_number: 'HBC_AI_SERIAL_NUMBER',
+			purchase_price: 'HBC_AI_PURCHASE_PRICE',
+			purchase_from: 'HBC_AI_PURCHASE_FROM',
+			notes: 'HBC_AI_NOTES',
+			naming_examples: 'HBC_AI_NAMING_EXAMPLES',
 		};
 
 		const lines: string[] = [];
@@ -647,9 +601,7 @@
 			}
 		}
 
-		return lines.length > 0
-			? lines.join("\n")
-			: "# No customizations configured";
+		return lines.length > 0 ? lines.join('\n') : '# No customizations configured';
 	}
 
 	async function toggleEnvExport() {
@@ -664,11 +616,8 @@
 			exportPrefs = await fieldPreferences.get();
 			showEnvExport = true;
 		} catch (error) {
-			log.error("Failed to load preferences for export:", error);
-			fieldPrefsError =
-				error instanceof Error
-					? error.message
-					: "Failed to load preferences";
+			log.error('Failed to load preferences for export:', error);
+			fieldPrefsError = error instanceof Error ? error.message : 'Failed to load preferences';
 		} finally {
 			isLoadingExport = false;
 		}
@@ -684,7 +633,7 @@
 				envCopied = false;
 			}, 2000);
 		} catch (error) {
-			log.warn("Failed to copy to clipboard:", error);
+			log.warn('Failed to copy to clipboard:', error);
 		}
 	}
 </script>
@@ -696,18 +645,14 @@
 <div class="animate-in space-y-6">
 	<div>
 		<h1 class="text-h1 font-bold text-neutral-100">Settings</h1>
-		<p class="text-body-sm text-neutral-400 mt-1">
-			App configuration and information
-		</p>
+		<p class="mt-1 text-body-sm text-neutral-400">App configuration and information</p>
 	</div>
 
 	<!-- About Section -->
 	<section class="card space-y-4">
-		<h2
-			class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2"
-		>
+		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 			<svg
-				class="w-5 h-5 text-primary-400"
+				class="h-5 w-5 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -725,27 +670,23 @@
 			<div class="flex items-center justify-between py-2">
 				<span class="text-neutral-400">Version</span>
 				<div class="flex items-center gap-2">
-					<span class="text-neutral-100 font-mono"
-						>{uiStore.appVersion || "Loading..."}</span
-					>
+					<span class="font-mono text-neutral-100">{uiStore.appVersion || 'Loading...'}</span>
 					{#if updateAvailable && latestVersionNumber}
 						<a
 							href="https://github.com/Duelion/homebox-companion/releases/latest"
 							target="_blank"
 							rel="noopener noreferrer"
-							class="inline-flex items-center gap-1 px-2 py-0.5 bg-warning-500/20 text-warning-500 rounded-full text-xs hover:bg-warning-500/30 transition-colors"
+							class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500 transition-colors hover:bg-warning-500/30"
 							title="Click to view release"
 						>
 							<svg
-								class="w-3 h-3"
+								class="h-3 w-3"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 								stroke-width="2"
 							>
-								<path
-									d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-								/>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 								<polyline points="7 10 12 15 17 10" />
 								<line x1="12" y1="15" x2="12" y2="3" />
 							</svg>
@@ -753,10 +694,10 @@
 						</a>
 					{:else if updateCheckDone}
 						<span
-							class="inline-flex items-center gap-1 px-2 py-0.5 bg-success-500/20 text-success-500 rounded-full text-xs"
+							class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-xs text-success-500"
 						>
 							<svg
-								class="w-3 h-3"
+								class="h-3 w-3"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -771,30 +712,28 @@
 			</div>
 
 			<!-- Check for Updates Button -->
-			<div class="py-2 border-t border-neutral-800">
+			<div class="border-t border-neutral-800 py-2">
 				<button
 					type="button"
-					class="w-full py-2.5 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+					class="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-2.5 text-sm text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
 					onclick={checkForUpdates}
 					disabled={isCheckingUpdates}
 				>
 					{#if isCheckingUpdates}
 						<div
-							class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
+							class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 						></div>
 						<span>Checking for updates...</span>
 					{:else}
 						<svg
-							class="w-4 h-4"
+							class="h-4 w-4"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 						>
 							<path d="M23 4v6h-6M1 20v-6h6" />
-							<path
-								d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
-							/>
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 						</svg>
 						<span>Check for Updates</span>
 					{/if}
@@ -809,37 +748,33 @@
 			<!-- Configuration Info -->
 			{#if config}
 				<!-- Homebox URL -->
-				<div
-					class="flex items-center justify-between py-2 border-t border-neutral-800"
-				>
-					<span class="text-neutral-400 flex-shrink-0"
-						>Homebox URL</span
-					>
-					<div class="flex items-center gap-2 min-w-0">
+				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
+					<span class="flex-shrink-0 text-neutral-400">Homebox URL</span>
+					<div class="flex min-w-0 items-center gap-2">
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
 						<a
 							href={config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="text-neutral-100 hover:text-primary-400 font-mono text-sm transition-colors flex items-center gap-1 truncate max-w-[200px]"
+							class="flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
 							title={config.homebox_url}
 						>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 							<span class="truncate">{config.homebox_url}</span>
 							<svg
-								class="w-3 h-3 opacity-70 flex-shrink-0"
+								class="h-3 w-3 flex-shrink-0 opacity-70"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 							>
-								<path
-									d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-								/>
+								<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
 								<polyline points="15 3 21 3 21 9" />
 								<line x1="10" y1="14" x2="21" y2="3" />
 							</svg>
 						</a>
 						{#if config.is_demo_mode}
 							<span
-								class="inline-flex items-center gap-1 px-2 py-0.5 bg-warning-500/20 text-warning-500 rounded-full text-xs flex-shrink-0"
+								class="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
 							>
 								Demo
 							</span>
@@ -848,46 +783,34 @@
 				</div>
 
 				<!-- AI Model -->
-				<div
-					class="flex items-center justify-between py-2 border-t border-neutral-800"
-				>
+				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">AI Model</span>
-					<span class="text-neutral-100 font-mono text-sm"
-						>{config.llm_model}</span
-					>
+					<span class="font-mono text-sm text-neutral-100">{config.llm_model}</span>
 				</div>
 
 				<!-- Image Quality -->
-				<div
-					class="flex items-center justify-between py-2 border-t border-neutral-800"
-				>
+				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">Image Quality</span>
-					<span class="text-neutral-100 font-mono text-sm capitalize"
-						>{config.image_quality}</span
-					>
+					<span class="font-mono text-sm capitalize text-neutral-100">{config.image_quality}</span>
 				</div>
 			{:else if isLoadingConfig}
 				<div class="flex items-center justify-center py-4">
 					<div
-						class="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"
+						class="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
 					></div>
 				</div>
 			{/if}
 
 			<!-- GitHub Link -->
-			<div class="pt-2 border-t border-neutral-800 space-y-2">
+			<div class="space-y-2 border-t border-neutral-800 pt-2">
 				<a
 					href="https://github.com/Duelion/homebox-companion"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="flex items-center justify-between py-2 text-neutral-400 hover:text-neutral-100 transition-colors group"
+					class="group flex items-center justify-between py-2 text-neutral-400 transition-colors hover:text-neutral-100"
 				>
 					<span class="flex items-center gap-2">
-						<svg
-							class="w-5 h-5"
-							fill="currentColor"
-							viewBox="0 0 16 16"
-						>
+						<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 16 16">
 							<path
 								d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
 							/>
@@ -895,31 +818,23 @@
 						<span>View on GitHub</span>
 					</span>
 					<svg
-						class="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity"
+						class="h-4 w-4 opacity-50 transition-opacity group-hover:opacity-100"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
 					>
-						<path
-							d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-						/>
+						<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
 						<polyline points="15 3 21 3 21 9" />
 						<line x1="10" y1="14" x2="21" y2="3" />
 					</svg>
 				</a>
-				<p class="text-xs text-neutral-500 flex items-start gap-1.5">
-					<svg
-						class="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
-						fill="currentColor"
-						viewBox="0 0 16 16"
-					>
+				<p class="flex items-start gap-1.5 text-xs text-neutral-500">
+					<svg class="mt-0.5 h-3.5 w-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 16 16">
 						<path
 							d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"
 						/>
 					</svg>
-					<span
-						>Enjoying the app? Consider giving us a star on GitHub!</span
-					>
+					<span>Enjoying the app? Consider giving us a star on GitHub!</span>
 				</p>
 			</div>
 		</div>
@@ -928,19 +843,15 @@
 	<!-- Logs Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2
-				class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2"
-			>
+			<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
 					stroke-width="1.5"
 				>
-					<path
-						d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-					/>
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 					<polyline points="14 2 14 8 20 8" />
 					<line x1="16" y1="13" x2="8" y2="13" />
 					<line x1="16" y1="17" x2="8" y2="17" />
@@ -952,58 +863,52 @@
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={refreshLogs}
 						disabled={isLoadingLogs}
 						title="Refresh logs"
 						aria-label="Refresh logs"
 					>
 						<svg
-							class="w-5 h-5 {isLoadingLogs
-								? 'animate-spin'
-								: ''}"
+							class="h-5 w-5 {isLoadingLogs ? 'animate-spin' : ''}"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 						>
 							<path d="M23 4v6h-6M1 20v-6h6" />
-							<path
-								d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
-							/>
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 						</svg>
 					</button>
 					<button
 						type="button"
-						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={handleDownloadLogs}
 						disabled={!logs.filename}
 						title="Download full log file"
 						aria-label="Download logs"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 						>
-							<path
-								d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-							/>
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 							<polyline points="7 10 12 15 17 10" />
 							<line x1="12" y1="15" x2="12" y2="3" />
 						</svg>
 					</button>
 					<button
 						type="button"
-						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={() => (logsFullscreen = true)}
 						title="Expand fullscreen"
 						aria-label="View logs fullscreen"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -1022,26 +927,24 @@
 
 		<button
 			type="button"
-			class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
+			class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 			onclick={loadLogs}
 			disabled={isLoadingLogs}
 		>
 			{#if isLoadingLogs}
 				<div
-					class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"
+					class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
 				></div>
 				<span>Loading logs...</span>
 			{:else}
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
 					stroke-width="1.5"
 				>
-					<path
-						d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-					/>
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 					<polyline points="14 2 14 8 20 8" />
 					<line x1="16" y1="13" x2="8" y2="13" />
 					<line x1="16" y1="17" x2="8" y2="17" />
@@ -1049,9 +952,7 @@
 				</svg>
 				<span>Show Logs</span>
 				<svg
-					class="w-4 h-4 ml-auto transition-transform {showLogs
-						? 'rotate-180'
-						: ''}"
+					class="ml-auto h-4 w-4 transition-transform {showLogs ? 'rotate-180' : ''}"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1064,16 +965,14 @@
 		{#if showLogs}
 			{#if logsError}
 				<div
-					class="p-4 bg-error-500/10 border border-error-500/30 rounded-xl text-error-500 text-sm"
+					class="rounded-xl border border-error-500/30 bg-error-500/10 p-4 text-sm text-error-500"
 				>
 					{logsError}
 				</div>
 			{:else if logs}
 				<div class="mt-3 space-y-2">
 					{#if logs.filename}
-						<div
-							class="flex items-center justify-between text-xs text-neutral-500"
-						>
+						<div class="flex items-center justify-between text-xs text-neutral-500">
 							<span>{logs.filename}</span>
 							<span>
 								{logs.truncated
@@ -1082,12 +981,12 @@
 							</span>
 						</div>
 					{/if}
-					<div
-						class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden"
-					>
+					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
+						<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted server data -->
 						<pre
 							bind:this={logsContainer}
-							class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedLogs()}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all p-4 font-mono text-xs text-neutral-400">{@html colorizedLogs()}</pre>
+						<!-- eslint-enable svelte/no-at-html-tags -->
 					</div>
 				</div>
 			{/if}
@@ -1097,11 +996,9 @@
 	<!-- Frontend Logs Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2
-				class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2"
-			>
+			<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1117,54 +1014,50 @@
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={refreshFrontendLogs}
 						title="Refresh logs"
 						aria-label="Refresh logs"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 						>
 							<path d="M23 4v6h-6M1 20v-6h6" />
-							<path
-								d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
-							/>
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 						</svg>
 					</button>
 					<button
 						type="button"
-						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={handleExportFrontendLogs}
 						title="Export as JSON"
 						aria-label="Export logs"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 						>
-							<path
-								d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-							/>
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 							<polyline points="7 10 12 15 17 10" />
 							<line x1="12" y1="15" x2="12" y2="3" />
 						</svg>
 					</button>
 					<button
 						type="button"
-						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={handleClearFrontendLogs}
 						title="Clear logs"
 						aria-label="Clear logs"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -1177,13 +1070,13 @@
 					</button>
 					<button
 						type="button"
-						class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={() => (frontendLogsFullscreen = true)}
 						title="Expand fullscreen"
 						aria-label="View logs fullscreen"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -1197,17 +1090,16 @@
 		</div>
 
 		<p class="text-body-sm text-neutral-400">
-			View browser console logs stored in memory. Logs are cleared on page
-			refresh.
+			View browser console logs stored in memory. Logs are cleared on page refresh.
 		</p>
 
 		<button
 			type="button"
-			class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
+			class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 			onclick={loadFrontendLogs}
 		>
 			<svg
-				class="w-5 h-5 text-primary-400"
+				class="h-5 w-5 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -1219,9 +1111,7 @@
 			</svg>
 			<span>Show Frontend Logs</span>
 			<svg
-				class="w-4 h-4 ml-auto transition-transform {showFrontendLogs
-					? 'rotate-180'
-					: ''}"
+				class="ml-auto h-4 w-4 transition-transform {showFrontendLogs ? 'rotate-180' : ''}"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -1233,30 +1123,25 @@
 		{#if showFrontendLogs}
 			{#if frontendLogs.length === 0}
 				<div
-					class="p-4 bg-neutral-800/50 border border-neutral-700 rounded-xl text-neutral-400 text-sm text-center"
+					class="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4 text-center text-sm text-neutral-400"
 				>
-					No frontend logs available. Logs will appear here as you use
-					the app.
+					No frontend logs available. Logs will appear here as you use the app.
 				</div>
 			{:else}
 				<div class="mt-3 space-y-2">
-					<div
-						class="flex items-center justify-between text-xs text-neutral-500"
-					>
+					<div class="flex items-center justify-between text-xs text-neutral-500">
 						<span>In-memory buffer</span>
 						<span
 							>{frontendLogs.length}
-							{frontendLogs.length === 1
-								? "entry"
-								: "entries"}</span
+							{frontendLogs.length === 1 ? 'entry' : 'entries'}</span
 						>
 					</div>
-					<div
-						class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden"
-					>
+					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
+						<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted local storage -->
 						<pre
 							bind:this={frontendLogsContainer}
-							class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all">{@html colorizedFrontendLogs()}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all p-4 font-mono text-xs text-neutral-400">{@html colorizedFrontendLogs()}</pre>
+						<!-- eslint-enable svelte/no-at-html-tags -->
 					</div>
 				</div>
 			{/if}
@@ -1266,11 +1151,9 @@
 	<!-- AI Output Configuration Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2
-				class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2"
-			>
+			<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1282,12 +1165,12 @@
 				</svg>
 				Configure AI Output
 			</h2>
-			{#if showFieldPrefs && saveFieldPrefsState === "success"}
+			{#if showFieldPrefs && saveFieldPrefsState === 'success'}
 				<span
-					class="inline-flex items-center gap-2 px-3 py-1.5 bg-success-500/20 text-success-500 rounded-full text-sm font-medium"
+					class="inline-flex items-center gap-2 rounded-full bg-success-500/20 px-3 py-1.5 text-sm font-medium text-success-500"
 				>
 					<svg
-						class="w-4 h-4"
+						class="h-4 w-4"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1301,24 +1184,23 @@
 		</div>
 
 		<p class="text-body-sm text-neutral-400">
-			Customize how the AI generates item data. Leave fields empty to use
-			default behavior.
+			Customize how the AI generates item data. Leave fields empty to use default behavior.
 		</p>
 
 		<button
 			type="button"
-			class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
+			class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 			onclick={loadFieldPrefs}
 			disabled={isLoadingFieldPrefs}
 		>
 			{#if isLoadingFieldPrefs}
 				<div
-					class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"
+					class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
 				></div>
 				<span>Loading...</span>
 			{:else}
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1330,9 +1212,7 @@
 				</svg>
 				<span>Configure Fields</span>
 				<svg
-					class="w-4 h-4 ml-auto transition-transform {showFieldPrefs
-						? 'rotate-180'
-						: ''}"
+					class="ml-auto h-4 w-4 transition-transform {showFieldPrefs ? 'rotate-180' : ''}"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1345,19 +1225,17 @@
 		{#if showFieldPrefs}
 			{#if fieldPrefsError}
 				<div
-					class="p-4 bg-error-500/10 border border-error-500/30 rounded-xl text-error-500 text-sm"
+					class="rounded-xl border border-error-500/30 bg-error-500/10 p-4 text-sm text-error-500"
 				>
 					{fieldPrefsError}
 				</div>
 			{/if}
 
 			<!-- Output Language Setting -->
-			<div
-				class="p-4 bg-primary-600/10 rounded-xl border border-primary-500/20 space-y-3"
-			>
+			<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
 				<div class="flex items-center gap-2">
 					<svg
-						class="w-5 h-5 text-primary-400"
+						class="h-5 w-5 text-primary-400"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1367,36 +1245,24 @@
 							d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
 						/>
 					</svg>
-					<label
-						for="output_language"
-						class="font-semibold text-neutral-100"
-						>Output Language</label
+					<label for="output_language" class="font-semibold text-neutral-100">Output Language</label
 					>
 				</div>
 				<p class="text-xs text-neutral-400">
-					Choose what language the AI should use for item names,
-					descriptions, and notes.
+					Choose what language the AI should use for item names, descriptions, and notes.
 				</p>
 				<input
 					type="text"
 					id="output_language"
-					value={prefs.output_language || ""}
-					oninput={(e) =>
-						handleFieldInput(
-							"output_language",
-							e.currentTarget.value,
-						)}
-					placeholder={effectiveDefaults
-						? effectiveDefaults.output_language
-						: "Loading..."}
+					value={prefs.output_language || ''}
+					oninput={(e) => handleFieldInput('output_language', e.currentTarget.value)}
+					placeholder={effectiveDefaults ? effectiveDefaults.output_language : 'Loading...'}
 					class="input"
 				/>
-				<div
-					class="p-2 bg-warning-500/10 border border-warning-500/30 rounded-lg"
-				>
-					<p class="text-xs text-warning-500 flex items-start gap-2">
+				<div class="rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
+					<p class="flex items-start gap-2 text-xs text-warning-500">
 						<svg
-							class="w-4 h-4 flex-shrink-0 mt-0.5"
+							class="mt-0.5 h-4 w-4 flex-shrink-0"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -1407,21 +1273,18 @@
 							/>
 						</svg>
 						<span
-							><strong>Note:</strong> Field customization instructions
-							below should still be written in English. Only the AI
-							output will be in the configured language.</span
+							><strong>Note:</strong> Field customization instructions below should still be written in
+							English. Only the AI output will be in the configured language.</span
 						>
 					</p>
 				</div>
 			</div>
 
 			<!-- Default Label Setting -->
-			<div
-				class="p-4 bg-primary-600/10 rounded-xl border border-primary-500/20 space-y-3"
-			>
+			<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
 				<div class="flex items-center gap-2">
 					<svg
-						class="w-5 h-5 text-primary-400"
+						class="h-5 w-5 text-primary-400"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1431,71 +1294,55 @@
 							d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
 						/>
 					</svg>
-					<label
-						for="default_label"
-						class="font-semibold text-neutral-100"
-						>Default Label</label
-					>
+					<label for="default_label" class="font-semibold text-neutral-100">Default Label</label>
 				</div>
 				<p class="text-xs text-neutral-400">
-					Automatically tag all items created via Homebox Companion
-					with this label.
+					Automatically tag all items created via Homebox Companion with this label.
 				</p>
 				<select
 					id="default_label"
-					value={prefs.default_label_id || ""}
+					value={prefs.default_label_id || ''}
 					onchange={(e) => {
 						prefs.default_label_id = e.currentTarget.value || null;
 					}}
 					class="input"
 				>
 					<option value="">No default label</option>
-					{#each availableLabels as label}
+					{#each availableLabels as label (label.id)}
 						<option value={label.id}
-							>{label.name}{effectiveDefaults?.default_label_id ===
-							label.id
-								? " (env default)"
-								: ""}</option
+							>{label.name}{effectiveDefaults?.default_label_id === label.id
+								? ' (env default)'
+								: ''}</option
 						>
 					{/each}
 				</select>
 				<p class="text-xs text-neutral-500">
-					Useful for identifying items added through this app in your
-					Homebox inventory.
+					Useful for identifying items added through this app in your Homebox inventory.
 				</p>
 			</div>
 
 			<!-- Field Customizations - 2-column grid on wider screens -->
 			<div class="grid gap-4 sm:grid-cols-2">
-				{#each fieldMeta as field}
-					<div
-						class="p-3 bg-neutral-800/50 rounded-lg border border-neutral-700/50 space-y-2"
-					>
-						<label
-							for={field.key}
-							class="block text-sm font-semibold text-neutral-100"
-						>
+				{#each fieldMeta as field (field.key)}
+					<div class="space-y-2 rounded-lg border border-neutral-700/50 bg-neutral-800/50 p-3">
+						<label for={field.key} class="block text-sm font-semibold text-neutral-100">
 							{field.label}
 						</label>
 						<div
-							class="text-xs text-neutral-400 bg-neutral-950/50 px-2 py-1.5 rounded border border-neutral-700/30"
+							class="rounded border border-neutral-700/30 bg-neutral-950/50 px-2 py-1.5 text-xs text-neutral-400"
 						>
 							<span class="text-neutral-500">Default:</span>
-							{effectiveDefaults?.[field.key] ?? "Loading..."}
+							{effectiveDefaults?.[field.key] ?? 'Loading...'}
 						</div>
 						<input
 							type="text"
 							id={field.key}
-							value={prefs[field.key] || ""}
-							oninput={(e) =>
-								handleFieldInput(
-									field.key,
-									e.currentTarget.value,
-								)}
+							value={prefs[field.key] || ''}
+							oninput={(e) => handleFieldInput(field.key, e.currentTarget.value)}
 							placeholder="Leave empty for default..."
 							class="input text-sm"
 						/>
-						<p class="text-xs text-neutral-500 line-clamp-2">
+						<p class="line-clamp-2 text-xs text-neutral-500">
 							Example: {field.example}
 						</p>
 					</div>
@@ -1506,20 +1353,17 @@
 				<Button
 					variant="primary"
 					onclick={saveFieldPrefs}
-					disabled={saveFieldPrefsState === "saving" ||
-						saveFieldPrefsState === "success"}
+					disabled={saveFieldPrefsState === 'saving' || saveFieldPrefsState === 'success'}
 				>
-					{#if saveFieldPrefsState === "saving"}
+					{#if saveFieldPrefsState === 'saving'}
 						<div
-							class="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"
+							class="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
 						></div>
 						<span>Saving...</span>
-					{:else if saveFieldPrefsState === "success"}
-						<div
-							class="w-8 h-8 flex items-center justify-center bg-success-500/20 rounded-full"
-						>
+					{:else if saveFieldPrefsState === 'success'}
+						<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
 							<svg
-								class="w-5 h-5 text-success-500"
+								class="h-5 w-5 text-success-500"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -1530,12 +1374,7 @@
 						</div>
 						<span>Saved!</span>
 					{:else}
-						<svg
-							class="w-4 h-4"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -1549,15 +1388,9 @@
 				<Button
 					variant="secondary"
 					onclick={resetFieldPrefs}
-					disabled={saveFieldPrefsState === "saving" ||
-						saveFieldPrefsState === "success"}
+					disabled={saveFieldPrefsState === 'saving' || saveFieldPrefsState === 'success'}
 				>
-					<svg
-						class="w-4 h-4"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
+					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
@@ -1571,12 +1404,10 @@
 		{/if}
 
 		<!-- Docker Persistence Warning & Export - Moved up for visibility -->
-		<div
-			class="p-4 bg-warning-500/10 border border-warning-500/30 rounded-xl space-y-3"
-		>
+		<div class="space-y-3 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4">
 			<div class="flex items-start gap-2">
 				<svg
-					class="w-5 h-5 text-warning-500 flex-shrink-0 mt-0.5"
+					class="mt-0.5 h-5 w-5 flex-shrink-0 text-warning-500"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1587,31 +1418,28 @@
 					/>
 				</svg>
 				<div>
-					<p class="text-sm font-medium text-warning-500 mb-1">
-						Docker users
-					</p>
+					<p class="mb-1 text-sm font-medium text-warning-500">Docker users</p>
 					<p class="text-xs text-neutral-400">
-						Customizations are stored in a config file that may be
-						lost when updating your container. Export as environment
-						variables to persist settings.
+						Customizations are stored in a config file that may be lost when updating your
+						container. Export as environment variables to persist settings.
 					</p>
 				</div>
 			</div>
 
 			<button
 				type="button"
-				class="w-full py-2.5 px-4 bg-warning-500/20 hover:bg-warning-500/30 border border-warning-500/30 rounded-lg text-warning-500 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+				class="flex w-full items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/20 px-4 py-2.5 text-sm font-medium text-warning-500 transition-all hover:bg-warning-500/30"
 				onclick={toggleEnvExport}
 				disabled={isLoadingExport}
 			>
 				{#if isLoadingExport}
 					<div
-						class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
+						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 					></div>
 					<span>Loading...</span>
 				{:else}
 					<svg
-						class="w-4 h-4"
+						class="h-4 w-4"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1629,75 +1457,54 @@
 		{#if showEnvExport && exportPrefs}
 			<div class="space-y-2">
 				<div class="flex items-center justify-between">
-					<span class="text-xs text-neutral-400 font-medium"
+					<span class="text-xs font-medium text-neutral-400"
 						>Add these to your docker-compose.yml or .env file</span
 					>
 					<button
 						type="button"
-						class="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 rounded-lg transition-colors min-h-[36px]"
+						class="flex min-h-[36px] items-center gap-1 rounded-lg bg-primary-600/20 px-3 py-1.5 text-xs text-primary-400 transition-colors hover:bg-primary-600/30"
 						onclick={copyEnvVars}
 						aria-label="Copy environment variables"
 					>
 						{#if envCopied}
-							<svg
-								class="w-4 h-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
 							<span>Copied!</span>
 						{:else}
-							<svg
-								class="w-4 h-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<rect
-									x="9"
-									y="9"
-									width="13"
-									height="13"
-									rx="2"
-									ry="2"
-								/>
-								<path
-									d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
-								/>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+								<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
 							</svg>
 							<span>Copy</span>
 						{/if}
 					</button>
 				</div>
-				<div
-					class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden"
-				>
+				<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 					<pre
-						class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto whitespace-pre-wrap break-words">{generateEnvVars(
-							exportPrefs,
+						class="overflow-x-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{generateEnvVars(
+							exportPrefs
 						)}</pre>
 				</div>
 			</div>
 		{/if}
 
 		<!-- Prompt Preview Section -->
-		<div class="pt-4 border-t border-neutral-800">
+		<div class="border-t border-neutral-800 pt-4">
 			<button
 				type="button"
-				class="w-full py-3 px-4 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-neutral-400 hover:text-neutral-100 transition-all flex items-center gap-2"
+				class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 				onclick={loadPromptPreview}
 				disabled={isLoadingPreview}
 			>
 				{#if isLoadingPreview}
 					<div
-						class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"
+						class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
 					></div>
 					<span>Generating preview...</span>
 				{:else}
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1710,9 +1517,7 @@
 					</svg>
 					<span>Preview AI Prompt</span>
 					<svg
-						class="w-4 h-4 ml-auto transition-transform {showPromptPreview
-							? 'rotate-180'
-							: ''}"
+						class="ml-auto h-4 w-4 transition-transform {showPromptPreview ? 'rotate-180' : ''}"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1725,39 +1530,32 @@
 			{#if showPromptPreview && promptPreview}
 				<div class="mt-3 space-y-2">
 					<div class="flex items-center justify-between">
-						<span class="text-xs text-neutral-400 font-medium"
-							>System Prompt Preview</span
-						>
+						<span class="text-xs font-medium text-neutral-400">System Prompt Preview</span>
 						<button
 							type="button"
-							class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+							class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 							onclick={() => (promptFullscreen = true)}
 							title="Expand fullscreen"
 							aria-label="View prompt fullscreen"
 						>
 							<svg
-								class="w-5 h-5"
+								class="h-5 w-5"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 							>
-								<path
-									d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"
-								/>
+								<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
 							</svg>
 						</button>
 					</div>
-					<div
-						class="bg-neutral-950 rounded-xl border border-neutral-700 overflow-hidden"
-					>
+					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 						<pre
-							class="p-4 text-xs font-mono text-neutral-400 overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-words">{promptPreview}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{promptPreview}</pre>
 					</div>
 					<p class="text-xs text-neutral-500">
-						This is what the AI will see when analyzing your images.
-						Labels shown are examples; actual labels from your
-						Homebox instance will be used.
+						This is what the AI will see when analyzing your images. Labels shown are examples;
+						actual labels from your Homebox instance will be used.
 					</p>
 				</div>
 			{/if}
@@ -1766,11 +1564,9 @@
 
 	<!-- Account Section -->
 	<section class="card space-y-4">
-		<h2
-			class="text-body-lg font-semibold text-neutral-100 flex items-center gap-2"
-		>
+		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 			<svg
-				class="w-5 h-5 text-primary-400"
+				class="h-5 w-5 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -1783,13 +1579,7 @@
 		</h2>
 
 		<Button variant="danger" full onclick={handleLogout}>
-			<svg
-				class="w-5 h-5"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
+			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 				<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
 				<polyline points="16 17 21 12 16 7" />
 				<line x1="21" y1="12" x2="9" y2="12" />
@@ -1806,29 +1596,23 @@
 {#if logsFullscreen && logs}
 	<div class="fixed inset-0 z-[60] flex flex-col bg-neutral-950">
 		<!-- Header -->
-		<div
-			class="flex items-center justify-between p-4 border-b border-neutral-700 bg-neutral-900"
-		>
+		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
 					stroke-width="1.5"
 				>
-					<path
-						d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-					/>
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 					<polyline points="14 2 14 8 20 8" />
 					<line x1="16" y1="13" x2="8" y2="13" />
 					<line x1="16" y1="17" x2="8" y2="17" />
 					<polyline points="10 9 9 9 8 9" />
 				</svg>
 				<div>
-					<h2 class="text-body-lg font-semibold text-neutral-100">
-						Application Logs
-					</h2>
+					<h2 class="text-body-lg font-semibold text-neutral-100">Application Logs</h2>
 					{#if logs.filename}
 						<p class="text-xs text-neutral-500">
 							{logs.filename} • {logs.truncated
@@ -1841,35 +1625,33 @@
 			<div class="flex items-center gap-2">
 				<button
 					type="button"
-					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={refreshLogs}
 					disabled={isLoadingLogs}
 					title="Refresh logs"
 					aria-label="Refresh logs"
 				>
 					<svg
-						class="w-5 h-5 {isLoadingLogs ? 'animate-spin' : ''}"
+						class="h-5 w-5 {isLoadingLogs ? 'animate-spin' : ''}"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
 						stroke-width="1.5"
 					>
 						<path d="M23 4v6h-6M1 20v-6h6" />
-						<path
-							d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
-						/>
+						<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 					</svg>
 				</button>
 				<button
 					type="button"
-					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={handleDownloadLogs}
 					disabled={!logs.filename}
 					title="Download full log file"
 					aria-label="Download logs"
 				>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1882,13 +1664,13 @@
 				</button>
 				<button
 					type="button"
-					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={() => (logsFullscreen = false)}
 					title="Close fullscreen"
 					aria-label="Close"
 				>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1900,12 +1682,11 @@
 			</div>
 		</div>
 		<!-- Content -->
-		<div
-			bind:this={logsFullscreenContainer}
-			class="flex-1 overflow-auto p-4 pb-24"
-		>
+		<div bind:this={logsFullscreenContainer} class="flex-1 overflow-auto p-4 pb-24">
+			<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted server data -->
 			<pre
-				class="text-xs font-mono text-neutral-400 whitespace-pre-wrap break-all leading-relaxed">{@html colorizedLogs()}</pre>
+				class="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-neutral-400">{@html colorizedLogs()}</pre>
+			<!-- eslint-enable svelte/no-at-html-tags -->
 		</div>
 	</div>
 {/if}
@@ -1914,12 +1695,10 @@
 {#if promptFullscreen && promptPreview}
 	<div class="fixed inset-0 z-[60] flex flex-col bg-neutral-950">
 		<!-- Header -->
-		<div
-			class="flex items-center justify-between p-4 border-b border-neutral-700 bg-neutral-900"
-		>
+		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1931,9 +1710,7 @@
 					/>
 				</svg>
 				<div>
-					<h2 class="text-body-lg font-semibold text-neutral-100">
-						AI System Prompt
-					</h2>
+					<h2 class="text-body-lg font-semibold text-neutral-100">AI System Prompt</h2>
 					<p class="text-xs text-neutral-500">
 						This is what the AI sees when analyzing your images
 					</p>
@@ -1941,13 +1718,13 @@
 			</div>
 			<button
 				type="button"
-				class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+				class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 				onclick={() => (promptFullscreen = false)}
 				title="Close fullscreen"
 				aria-label="Close"
 			>
 				<svg
-					class="w-5 h-5"
+					class="h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1960,7 +1737,7 @@
 		<!-- Content -->
 		<div class="flex-1 overflow-auto p-4 pb-24">
 			<pre
-				class="text-sm font-mono text-neutral-400 whitespace-pre-wrap break-words leading-relaxed">{promptPreview}</pre>
+				class="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-neutral-400">{promptPreview}</pre>
 		</div>
 	</div>
 {/if}
@@ -1969,12 +1746,10 @@
 {#if frontendLogsFullscreen && frontendLogs.length > 0}
 	<div class="fixed inset-0 z-[60] flex flex-col bg-neutral-950">
 		<!-- Header -->
-		<div
-			class="flex items-center justify-between p-4 border-b border-neutral-700 bg-neutral-900"
-		>
+		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
 				<svg
-					class="w-5 h-5 text-primary-400"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1985,45 +1760,41 @@
 					/>
 				</svg>
 				<div>
-					<h2 class="text-body-lg font-semibold text-neutral-100">
-						Frontend Logs
-					</h2>
+					<h2 class="text-body-lg font-semibold text-neutral-100">Frontend Logs</h2>
 					<p class="text-xs text-neutral-500">
 						In-memory buffer • {frontendLogs.length}
-						{frontendLogs.length === 1 ? "entry" : "entries"}
+						{frontendLogs.length === 1 ? 'entry' : 'entries'}
 					</p>
 				</div>
 			</div>
 			<div class="flex items-center gap-2">
 				<button
 					type="button"
-					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={refreshFrontendLogs}
 					title="Refresh logs"
 					aria-label="Refresh logs"
 				>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
 						stroke-width="1.5"
 					>
 						<path d="M23 4v6h-6M1 20v-6h6" />
-						<path
-							d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
-						/>
+						<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 					</svg>
 				</button>
 				<button
 					type="button"
-					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={handleExportFrontendLogs}
 					title="Export as JSON"
 					aria-label="Export logs"
 				>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -2036,13 +1807,13 @@
 				</button>
 				<button
 					type="button"
-					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={handleClearFrontendLogs}
 					title="Clear logs"
 					aria-label="Clear logs"
 				>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -2055,13 +1826,13 @@
 				</button>
 				<button
 					type="button"
-					class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={() => (frontendLogsFullscreen = false)}
 					title="Close fullscreen"
 					aria-label="Close"
 				>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -2073,12 +1844,11 @@
 			</div>
 		</div>
 		<!-- Content -->
-		<div
-			bind:this={frontendLogsFullscreenContainer}
-			class="flex-1 overflow-auto p-4 pb-24"
-		>
+		<div bind:this={frontendLogsFullscreenContainer} class="flex-1 overflow-auto p-4 pb-24">
+			<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted local storage -->
 			<pre
-				class="text-xs font-mono text-neutral-400 whitespace-pre-wrap break-all leading-relaxed">{@html colorizedFrontendLogs()}</pre>
+				class="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-neutral-400">{@html colorizedFrontendLogs()}</pre>
+			<!-- eslint-enable svelte/no-at-html-tags -->
 		</div>
 	</div>
 {/if}

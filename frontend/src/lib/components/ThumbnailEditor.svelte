@@ -1,29 +1,18 @@
 <script lang="ts">
-	import { onMount } from "svelte";
-	import Button from "./Button.svelte";
-	import type { ThumbnailTransform } from "$lib/types";
+	import { onMount } from 'svelte';
+	import Button from './Button.svelte';
+	import type { ThumbnailTransform } from '$lib/types';
 
 	interface Props {
 		images: { file: File; dataUrl: string }[];
 		itemName: string;
 		currentThumbnail?: string;
 		initialTransform?: ThumbnailTransform;
-		onSave: (
-			dataUrl: string,
-			sourceImageIndex: number,
-			transform: ThumbnailTransform,
-		) => void;
+		onSave: (dataUrl: string, sourceImageIndex: number, transform: ThumbnailTransform) => void;
 		onClose: () => void;
 	}
 
-	let {
-		images,
-		itemName,
-		currentThumbnail,
-		initialTransform,
-		onSave,
-		onClose,
-	}: Props = $props();
+	let { images, itemName, initialTransform, onSave, onClose }: Props = $props();
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
@@ -80,10 +69,7 @@
 	let zoomSliderValue = $derived(scaleToSlider(scale));
 
 	// Convert screen-space delta to rotated-space delta (for panning)
-	function screenToRotatedSpace(
-		dx: number,
-		dy: number,
-	): { rdx: number; rdy: number } {
+	function screenToRotatedSpace(dx: number, dy: number): { rdx: number; rdy: number } {
 		const rad = (-rotation * Math.PI) / 180;
 		return {
 			rdx: dx * Math.cos(rad) - dy * Math.sin(rad),
@@ -104,7 +90,7 @@
 
 		// Wait for next tick to ensure canvas dimensions are set
 		requestAnimationFrame(() => {
-			ctx = canvas.getContext("2d");
+			ctx = canvas.getContext('2d');
 			// Load from initial transform's image index if available, otherwise first image
 			const startIndex = initialTransform?.sourceImageIndex ?? 0;
 			loadImage(startIndex);
@@ -126,11 +112,7 @@
 			minScale = cropSize / img.width;
 
 			// Apply initial transform if available and this is the first load
-			if (
-				isFirstLoad &&
-				initialTransform &&
-				index === initialTransform.sourceImageIndex
-			) {
+			if (isFirstLoad && initialTransform && index === initialTransform.sourceImageIndex) {
 				scale = initialTransform.scale;
 				rotation = initialTransform.rotation;
 				offsetX = initialTransform.offsetX;
@@ -176,7 +158,7 @@
 		const centerY = cropCenterY;
 
 		// Clear canvas
-		ctx.fillStyle = "#0a0a0f"; // neutral-950
+		ctx.fillStyle = '#0a0a0f'; // neutral-950
 		ctx.fillRect(0, 0, w, h);
 
 		// Save context state
@@ -197,46 +179,31 @@
 			-loadedImage.width / 2,
 			-loadedImage.height / 2,
 			loadedImage.width,
-			loadedImage.height,
+			loadedImage.height
 		);
 
 		ctx.restore();
 
 		// Draw dark overlay with transparent crop area
-		ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
 		ctx.fillRect(0, 0, w, centerY - cropSize / 2);
-		ctx.fillRect(
-			0,
-			centerY + cropSize / 2,
-			w,
-			h - (centerY + cropSize / 2),
-		);
-		ctx.fillRect(
-			0,
-			centerY - cropSize / 2,
-			centerX - cropSize / 2,
-			cropSize,
-		);
+		ctx.fillRect(0, centerY + cropSize / 2, w, h - (centerY + cropSize / 2));
+		ctx.fillRect(0, centerY - cropSize / 2, centerX - cropSize / 2, cropSize);
 		ctx.fillRect(
 			centerX + cropSize / 2,
 			centerY - cropSize / 2,
 			w - (centerX + cropSize / 2),
-			cropSize,
+			cropSize
 		);
 
 		// Draw crop border
-		ctx.strokeStyle = "rgba(99, 102, 241, 0.8)"; // primary-500
+		ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)'; // primary-500
 		ctx.lineWidth = 2;
-		ctx.strokeRect(
-			centerX - cropSize / 2,
-			centerY - cropSize / 2,
-			cropSize,
-			cropSize,
-		);
+		ctx.strokeRect(centerX - cropSize / 2, centerY - cropSize / 2, cropSize, cropSize);
 
 		// Draw corner handles
 		const handleSize = 20;
-		ctx.strokeStyle = "#6366f1"; // primary-500
+		ctx.strokeStyle = '#6366f1'; // primary-500
 		ctx.lineWidth = 3;
 
 		// Top-left
@@ -336,19 +303,13 @@
 			// Pinch zoom
 			const newDistance = getTouchDistance(e.touches);
 			const scaleChange = newDistance / lastTouchDistance;
-			scale = Math.max(
-				minScale,
-				Math.min(MAX_SCALE, scale * scaleChange),
-			);
+			scale = Math.max(minScale, Math.min(MAX_SCALE, scale * scaleChange));
 			lastTouchDistance = newDistance;
 
 			// Two-finger rotation
 			const newAngle = getTouchAngle(e.touches);
 			const angleDelta = (newAngle - lastTouchAngle) * (180 / Math.PI);
-			rotation = Math.max(
-				MIN_ROTATION,
-				Math.min(MAX_ROTATION, rotation + angleDelta),
-			);
+			rotation = Math.max(MIN_ROTATION, Math.min(MAX_ROTATION, rotation + angleDelta));
 			lastTouchAngle = newAngle;
 		}
 
@@ -407,17 +368,17 @@
 		if (!loadedImage) return;
 
 		const outputSize = 400;
-		const outputCanvas = document.createElement("canvas");
+		const outputCanvas = document.createElement('canvas');
 		outputCanvas.width = outputSize;
 		outputCanvas.height = outputSize;
-		const outputCtx = outputCanvas.getContext("2d");
+		const outputCtx = outputCanvas.getContext('2d');
 
 		if (!outputCtx) return;
 
 		const cropSize = CROP_SIZE;
 		const outputScale = outputSize / cropSize;
 
-		outputCtx.fillStyle = "#0a0a0f"; // neutral-950
+		outputCtx.fillStyle = '#0a0a0f'; // neutral-950
 		outputCtx.fillRect(0, 0, outputSize, outputSize);
 
 		// Same transform order as render, but scaled for output
@@ -431,10 +392,10 @@
 			-loadedImage.width / 2,
 			-loadedImage.height / 2,
 			loadedImage.width,
-			loadedImage.height,
+			loadedImage.height
 		);
 
-		const dataUrl = outputCanvas.toDataURL("image/jpeg", 0.9);
+		const dataUrl = outputCanvas.toDataURL('image/jpeg', 0.9);
 
 		// Build transform state so it can be restored later
 		const transform: ThumbnailTransform = {
@@ -451,32 +412,26 @@
 </script>
 
 <div
-	class="fixed inset-0 z-[60] flex items-start justify-center bg-black/80 p-4 sm:p-8 overflow-y-auto"
+	class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:p-8"
 >
 	<div
-		class="bg-neutral-900 rounded-2xl border border-neutral-700 max-w-lg w-full shadow-xl my-auto sm:my-8"
+		class="my-auto w-full max-w-lg rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl sm:my-8"
 	>
-		<div
-			class="flex items-center justify-between p-4 border-b border-neutral-700"
-		>
+		<div class="flex items-center justify-between border-b border-neutral-700 p-4">
 			<div>
-				<h3 class="text-body-lg font-semibold text-neutral-100">
-					Edit Thumbnail
-				</h3>
-				<p
-					class="text-sm text-neutral-400 truncate max-w-xs"
-				>
+				<h3 class="text-body-lg font-semibold text-neutral-100">Edit Thumbnail</h3>
+				<p class="max-w-xs truncate text-sm text-neutral-400">
 					{itemName}
 				</p>
 			</div>
 			<button
 				type="button"
-				class="p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors min-w-11 min-h-11 flex items-center justify-center"
+				class="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 				onclick={onClose}
 				aria-label="Close"
 			>
 				<svg
-					class="w-5 h-5"
+					class="h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -489,41 +444,34 @@
 		</div>
 
 		<!-- Instructions at top for better discovery -->
-		<div class="px-4 py-2 bg-neutral-800/50 border-b border-neutral-700/50">
-			<p class="text-xs text-neutral-400 text-center">
-				Drag to pan • Scroll to zoom • On mobile: pinch to zoom, two
-				fingers to rotate
+		<div class="border-b border-neutral-700/50 bg-neutral-800/50 px-4 py-2">
+			<p class="text-center text-xs text-neutral-400">
+				Drag to pan • Scroll to zoom • On mobile: pinch to zoom, two fingers to rotate
 			</p>
 		</div>
 
 		<!-- Image selector with larger thumbnails and labels -->
 		{#if images.length > 1}
-			<div class="px-4 py-3 border-b border-neutral-700/50">
-				<span class="text-xs text-neutral-400 mb-2 block font-medium"
-					>Select source image:</span
-				>
+			<div class="border-b border-neutral-700/50 px-4 py-3">
+				<span class="mb-2 block text-xs font-medium text-neutral-400">Select source image:</span>
 				<div class="flex gap-3 overflow-x-auto pb-2">
-					{#each images as img, index}
+					{#each images as img, index (`${img.file.name}-${img.file.size}-${index}`)}
 						<button
 							type="button"
-							class="flex flex-col items-center gap-1 flex-shrink-0"
+							class="flex flex-shrink-0 flex-col items-center gap-1"
 							onclick={() => loadImage(index)}
 						>
 							<div
-								class="w-16 h-16 rounded-lg overflow-hidden border-2 transition-all {selectedImageIndex ===
+								class="h-16 w-16 overflow-hidden rounded-lg border-2 transition-all {selectedImageIndex ===
 								index
 									? 'border-primary-500 ring-2 ring-primary-500/30'
 									: 'border-neutral-700 hover:border-neutral-600'}"
 							>
-								<img
-									src={img.dataUrl}
-									alt="Image {index + 1}"
-									class="w-full h-full object-cover"
-								/>
+								<img src={img.dataUrl} alt="Image {index + 1}" class="h-full w-full object-cover" />
 							</div>
 							<span
 								class="text-xs {selectedImageIndex === index
-									? 'text-primary-400 font-medium'
+									? 'font-medium text-primary-400'
 									: 'text-neutral-500'}"
 							>
 								Image {index + 1}
@@ -535,14 +483,12 @@
 		{/if}
 
 		<!-- Canvas area with cursor states -->
-		<div class="flex items-center justify-center p-4 touch-none">
+		<div class="flex touch-none items-center justify-center p-4">
 			<canvas
 				bind:this={canvas}
 				width={canvasSize}
 				height={canvasSize}
-				class="rounded-lg {isDragging
-					? 'cursor-grabbing'
-					: 'cursor-grab'}"
+				class="rounded-lg {isDragging ? 'cursor-grabbing' : 'cursor-grab'}"
 				onmousedown={handleMouseDown}
 				onmousemove={handleMouseMove}
 				onmouseup={handleMouseUp}
@@ -555,16 +501,16 @@
 		</div>
 
 		<!-- Slider Controls -->
-		<div class="px-4 py-4 border-t border-neutral-700/50 space-y-5">
+		<div class="space-y-5 border-t border-neutral-700/50 px-4 py-4">
 			<!-- Zoom slider with tick marks -->
 			<div>
-				<div class="flex items-center justify-between mb-2">
+				<div class="mb-2 flex items-center justify-between">
 					<label
 						for="zoomSlider"
-						class="text-xs text-neutral-300 flex items-center gap-1.5 font-medium"
+						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
 						<svg
-							class="w-4 h-4 text-primary-400"
+							class="h-4 w-4 text-primary-400"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -578,9 +524,7 @@
 				</div>
 				<!-- Tick marks for zoom -->
 				<div class="relative mb-1">
-					<div
-						class="flex justify-between text-[10px] text-neutral-600 px-0.5"
-					>
+					<div class="flex justify-between px-0.5 text-[10px] text-neutral-600">
 						<span>Min</span>
 						<span>Mid</span>
 						<span>Max</span>
@@ -594,19 +538,19 @@
 					step="0.005"
 					value={zoomSliderValue}
 					oninput={handleZoomSlider}
-					class="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+					class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-neutral-800"
 				/>
 			</div>
 
 			<!-- Rotation slider with tick marks -->
 			<div>
-				<div class="flex items-center justify-between mb-2">
+				<div class="mb-2 flex items-center justify-between">
 					<label
 						for="rotationSlider"
-						class="text-xs text-neutral-300 flex items-center gap-1.5 font-medium"
+						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
 						<svg
-							class="w-4 h-4 text-primary-400"
+							class="h-4 w-4 text-primary-400"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -623,9 +567,7 @@
 				</div>
 				<!-- Tick marks for rotation -->
 				<div class="relative mb-1 px-11">
-					<div
-						class="flex justify-between text-[10px] text-neutral-600"
-					>
+					<div class="flex justify-between text-[10px] text-neutral-600">
 						<span>-180°</span>
 						<span>-90°</span>
 						<span>0°</span>
@@ -636,13 +578,13 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 transition-colors relative z-10 flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="relative z-10 flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateLeft90}
 						aria-label="Rotate 90° left"
 						title="-90°"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -663,17 +605,17 @@
 						step="1"
 						value={rotation}
 						oninput={handleRotationSlider}
-						class="flex-1 h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer relative z-0"
+						class="relative z-0 h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-neutral-800"
 					/>
 					<button
 						type="button"
-						class="p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 transition-colors relative z-10 flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+						class="relative z-10 flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateRight90}
 						aria-label="Rotate 90° right"
 						title="+90°"
 					>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -693,7 +635,7 @@
 			<div class="flex justify-center">
 				<button
 					type="button"
-					class="px-4 py-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 text-sm transition-colors min-h-[44px]"
+					class="min-h-[44px] rounded-lg bg-neutral-800 px-4 py-2 text-sm text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={resetTransform}
 				>
 					Reset to Default
@@ -702,11 +644,11 @@
 		</div>
 
 		<!-- Actions -->
-		<div class="flex gap-3 p-4 border-t border-neutral-700">
+		<div class="flex gap-3 border-t border-neutral-700 p-4">
 			<Button variant="secondary" onclick={onClose}>Cancel</Button>
 			<Button variant="primary" onclick={saveCrop}>
 				<svg
-					class="w-4 h-4"
+					class="h-4 w-4"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -721,60 +663,60 @@
 </div>
 
 <style>
-    /* Custom slider styling with larger thumbs (22px) */
-    input[type="range"] {
-        -webkit-appearance: none;
-        appearance: none;
-        background: transparent;
-    }
+	/* Custom slider styling with larger thumbs (22px) */
+	input[type='range'] {
+		-webkit-appearance: none;
+		appearance: none;
+		background: transparent;
+	}
 
-    input[type="range"]::-webkit-slider-runnable-track {
-        @apply w-full h-2 bg-neutral-800 rounded;
-    }
+	input[type='range']::-webkit-slider-runnable-track {
+		@apply h-2 w-full rounded bg-neutral-800;
+	}
 
-    input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        @apply w-[22px] h-[22px] bg-primary-500 rounded-full cursor-pointer -mt-[7px] transition-all duration-fast;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
+	input[type='range']::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		@apply -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full bg-primary-500 transition-all duration-fast;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+	}
 
-    input[type="range"]::-webkit-slider-thumb:hover {
-        @apply scale-[1.15];
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-    }
+	input[type='range']::-webkit-slider-thumb:hover {
+		@apply scale-[1.15];
+		box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+	}
 
-    input[type="range"]::-webkit-slider-thumb:active {
-        @apply scale-105;
-    }
+	input[type='range']::-webkit-slider-thumb:active {
+		@apply scale-105;
+	}
 
-    input[type="range"]::-moz-range-track {
-        @apply w-full h-2 bg-neutral-800 rounded;
-    }
+	input[type='range']::-moz-range-track {
+		@apply h-2 w-full rounded bg-neutral-800;
+	}
 
-    input[type="range"]::-moz-range-thumb {
-        @apply w-[22px] h-[22px] bg-primary-500 rounded-full cursor-pointer border-0;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
+	input[type='range']::-moz-range-thumb {
+		@apply h-[22px] w-[22px] cursor-pointer rounded-full border-0 bg-primary-500;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+	}
 
-    input[type="range"]::-moz-range-thumb:hover {
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-    }
+	input[type='range']::-moz-range-thumb:hover {
+		box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+	}
 
-    /* Focus states for accessibility */
-    input[type="range"]:focus {
-        outline: none;
-    }
+	/* Focus states for accessibility */
+	input[type='range']:focus {
+		outline: none;
+	}
 
-    input[type="range"]:focus::-webkit-slider-thumb {
-        box-shadow:
-            0 0 0 3px rgba(99, 102, 241, 0.3),
-            0 2px 4px rgba(0, 0, 0, 0.3);
-    }
+	input[type='range']:focus::-webkit-slider-thumb {
+		box-shadow:
+			0 0 0 3px rgba(99, 102, 241, 0.3),
+			0 2px 4px rgba(0, 0, 0, 0.3);
+	}
 
-    input[type="range"]:focus::-moz-range-thumb {
-        box-shadow:
-            0 0 0 3px rgba(99, 102, 241, 0.3),
-            0 2px 4px rgba(0, 0, 0, 0.3);
-    }
+	input[type='range']:focus::-moz-range-thumb {
+		box-shadow:
+			0 0 0 3px rgba(99, 102, 241, 0.3),
+			0 2px 4px rgba(0, 0, 0, 0.3);
+	}
 </style>

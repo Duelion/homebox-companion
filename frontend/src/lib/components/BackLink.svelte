@@ -1,4 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
+	// Type-safe route type for dynamic paths
+	type AppRoute = Parameters<typeof resolve>[0];
+
 	interface Props {
 		href: string;
 		label?: string;
@@ -21,15 +26,17 @@
 </script>
 
 <a
-	{href}
-	class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all duration-200 mb-4 group {disabled
-		? 'text-neutral-600 bg-neutral-900/50 border border-neutral-800 cursor-not-allowed opacity-50'
-		: 'text-neutral-400 hover:text-neutral-200 bg-neutral-700/50 hover:bg-neutral-700 border border-transparent hover:border-neutral-700/50'}"
+	href={resolve(href as AppRoute)}
+	class="group mb-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all duration-200 {disabled
+		? 'cursor-not-allowed border border-neutral-800 bg-neutral-900/50 text-neutral-600 opacity-50'
+		: 'border border-transparent bg-neutral-700/50 text-neutral-400 hover:border-neutral-700/50 hover:bg-neutral-700 hover:text-neutral-200'}"
 	onclick={handleClick}
 	aria-disabled={disabled}
 >
 	<svg
-		class="w-4 h-4 transition-transform duration-200 {disabled ? '' : 'group-hover:-translate-x-0.5'}"
+		class="h-4 w-4 transition-transform duration-200 {disabled
+			? ''
+			: 'group-hover:-translate-x-0.5'}"
 		fill="none"
 		stroke="currentColor"
 		viewBox="0 0 24 24"
@@ -38,4 +45,3 @@
 	</svg>
 	<span>{label}</span>
 </a>
-

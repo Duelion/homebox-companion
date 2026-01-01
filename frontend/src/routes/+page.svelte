@@ -1,15 +1,16 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { auth, getConfig, setDemoMode } from "$lib/api";
-	import { authStore } from "$lib/stores/auth.svelte";
-	import { showToast, setLoading } from "$lib/stores/ui.svelte";
-	import { authLogger as log } from "$lib/utils/logger";
-	import { getInitPromise } from "$lib/services/tokenRefresh";
-	import Button from "$lib/components/Button.svelte";
-	import { onMount } from "svelte";
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { auth, getConfig, setDemoMode } from '$lib/api';
+	import { authStore } from '$lib/stores/auth.svelte';
+	import { showToast, setLoading } from '$lib/stores/ui.svelte';
+	import { authLogger as log } from '$lib/utils/logger';
+	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import Button from '$lib/components/Button.svelte';
+	import { onMount } from 'svelte';
 
-	let email = $state("");
-	let password = $state("");
+	let email = $state('');
+	let password = $state('');
 	let isSubmitting = $state(false);
 	let showPassword = $state(false);
 	let isCheckingAuth = $state(true); // Show loading during auth check
@@ -23,16 +24,14 @@
 
 			// Check if token exists and validate it before redirecting
 			if (authStore.isAuthenticated) {
-				log.debug("Token found, validating before redirect...");
+				log.debug('Token found, validating before redirect...');
 				const result = await auth.validateToken();
 				if (result.valid) {
-					log.debug("Token valid, redirecting to /location");
-					goto("/location");
+					log.debug('Token valid, redirecting to /location');
+					goto(resolve('/location'));
 					return;
 				} else {
-					log.debug(
-						"Token invalid, expired, or validation failed - clearing auth state",
-					);
+					log.debug('Token invalid, expired, or validation failed - clearing auth state');
 					// Token is invalid - clear it so user can log in
 					authStore.logout();
 				}
@@ -43,12 +42,12 @@
 				const config = await getConfig();
 				setDemoMode(config.is_demo_mode);
 				if (config.is_demo_mode) {
-					email = "demo@example.com";
-					password = "demo";
+					email = 'demo@example.com';
+					password = 'demo';
 				}
 			} catch (error) {
 				// If config fetch fails, just continue without auto-fill
-				log.debug("Failed to fetch config (demo mode check):", error);
+				log.debug('Failed to fetch config (demo mode check):', error);
 			}
 		} finally {
 			// Auth check complete, show login form
@@ -60,27 +59,22 @@
 		e.preventDefault();
 
 		if (!email || !password) {
-			showToast("Please enter email and password", "warning");
+			showToast('Please enter email and password', 'warning');
 			return;
 		}
 
 		isSubmitting = true;
-		setLoading(true, "Signing in...");
+		setLoading(true, 'Signing in...');
 
 		try {
 			const response = await auth.login(email, password);
-			authStore.setAuthenticatedState(
-				response.token,
-				new Date(response.expires_at),
-			);
-			goto("/location");
+			authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
+			goto(resolve('/location'));
 		} catch (error) {
-			log.error("Login failed:", error);
+			log.error('Login failed:', error);
 			showToast(
-				error instanceof Error
-					? error.message
-					: "Login failed. Please check your credentials.",
-				"error",
+				error instanceof Error ? error.message : 'Login failed. Please check your credentials.',
+				'error'
 			);
 		} finally {
 			isSubmitting = false;
@@ -97,22 +91,22 @@
 	<title>Login - Homebox Companion</title>
 </svelte:head>
 
-<div class="flex flex-col items-center justify-center min-h-screen animate-in">
+<div class="animate-in flex min-h-screen flex-col items-center justify-center">
 	{#if isCheckingAuth}
 		<!-- Loading state during auth check -->
 		<div class="flex flex-col items-center gap-4">
 			<div
-				class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"
+				class="h-12 w-12 animate-spin rounded-full border-4 border-primary/30 border-t-primary"
 			></div>
 			<p class="text-sm text-neutral-400">Loading...</p>
 		</div>
 	{:else}
 		<!-- Refined logo icon -->
 		<div
-			class="w-20 h-20 bg-primary-600/20 rounded-2xl flex items-center justify-center mb-10 shadow-lg"
+			class="mb-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg"
 		>
 			<svg
-				class="w-14 h-14 text-primary-400"
+				class="h-14 w-14 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -120,17 +114,13 @@
 				stroke-linecap="round"
 				stroke-linejoin="round"
 			>
-				<path
-					d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-				/>
+				<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
 			</svg>
 		</div>
 
 		<!-- Typography with improved hierarchy -->
-		<h1 class="text-h1 text-neutral-100 mb-2 text-center px-4">
-			Welcome back
-		</h1>
-		<p class="text-body text-neutral-400 mb-10 text-center px-4 max-w-xs">
+		<h1 class="mb-2 px-4 text-center text-h1 text-neutral-100">Welcome back</h1>
+		<p class="mb-10 max-w-xs px-4 text-center text-body text-neutral-400">
 			Sign in to continue to Homebox Companion
 		</p>
 
@@ -152,7 +142,7 @@
 				<label for="password" class="label">Password</label>
 				<div class="relative">
 					<input
-						type={showPassword ? "text" : "password"}
+						type={showPassword ? 'text' : 'password'}
 						id="password"
 						bind:value={password}
 						placeholder="Enter your password"
@@ -163,15 +153,13 @@
 					<button
 						type="button"
 						onclick={togglePasswordVisibility}
-						class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-500 hover:text-neutral-300 transition-colors rounded-lg hover:bg-neutral-800"
-						aria-label={showPassword
-							? "Hide password"
-							: "Show password"}
+						class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
+						aria-label={showPassword ? 'Hide password' : 'Show password'}
 					>
 						{#if showPassword}
 							<!-- Eye off icon -->
 							<svg
-								class="w-5 h-5"
+								class="h-5 w-5"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -184,7 +172,7 @@
 						{:else}
 							<!-- Eye icon -->
 							<svg
-								class="w-5 h-5"
+								class="h-5 w-5"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -201,15 +189,10 @@
 			</div>
 
 			<div class="pt-2">
-				<Button
-					type="submit"
-					variant="primary"
-					full
-					loading={isSubmitting}
-				>
+				<Button type="submit" variant="primary" full loading={isSubmitting}>
 					<span>Sign In</span>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"

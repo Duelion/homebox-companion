@@ -15,7 +15,7 @@ const urlCache = new WeakMap<File, string>();
 /**
  * Registry for tracking fetched blob URLs by their endpoint/key.
  * Unlike File-based URLs, fetched URLs need explicit key management.
- * 
+ *
  * Uses a Map with LRU eviction to prevent unbounded memory growth
  * in long-running sessions. When the registry exceeds MAX_REGISTRY_SIZE,
  * the oldest entries are revoked and removed.
@@ -128,14 +128,14 @@ export function createObjectUrlManager() {
 					trackedFiles.delete(file);
 				}
 			}
-		}
+		},
 	};
 }
 
 /**
  * Register a fetched blob URL for a given key (typically an API endpoint).
  * If there's an existing URL for this key, it will be revoked first.
- * 
+ *
  * Implements LRU eviction: when the registry exceeds MAX_REGISTRY_SIZE,
  * the oldest entries are revoked and removed to prevent memory leaks.
  *
@@ -259,6 +259,6 @@ export function createFetchedBlobUrlManager() {
 		 */
 		get size(): number {
 			return trackedUrls.size;
-		}
+		},
 	};
 }

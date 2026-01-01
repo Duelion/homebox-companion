@@ -19,7 +19,7 @@ import type {
 	Progress,
 	ItemInput,
 	ItemSubmissionStatus,
-	SubmissionResult
+	SubmissionResult,
 } from '$lib/types';
 
 // =============================================================================
@@ -83,8 +83,8 @@ export class SubmissionService {
 		return new File([blob], filename, { type: blob.type || 'image/jpeg' });
 	}
 
-	/** 
-	 * Upload attachments for a created item. 
+	/**
+	 * Upload attachments for a created item.
 	 * Returns status indicating what succeeded/failed.
 	 */
 	private async uploadAttachments(
@@ -104,7 +104,7 @@ export class SubmissionService {
 				);
 				await withRetry(() => itemsApi.uploadAttachment(itemId, thumbnailFile, { signal }), {
 					maxAttempts: 3,
-					onRetry: (attempt) => log.debug(`Retrying thumbnail upload (attempt ${attempt})`)
+					onRetry: (attempt) => log.debug(`Retrying thumbnail upload (attempt ${attempt})`),
 				});
 			} catch (error) {
 				if (error instanceof Error && error.name === 'AbortError') {
@@ -120,13 +120,10 @@ export class SubmissionService {
 					confirmedItem.compressedDataUrl,
 					`${confirmedItem.name.replace(/\s+/g, '_')}.jpg`
 				);
-				await withRetry(
-					() => itemsApi.uploadAttachment(itemId, compressedFile, { signal }),
-					{
-						maxAttempts: 3,
-						onRetry: (attempt) => log.debug(`Retrying compressed image upload (attempt ${attempt})`)
-					}
-				);
+				await withRetry(() => itemsApi.uploadAttachment(itemId, compressedFile, { signal }), {
+					maxAttempts: 3,
+					onRetry: (attempt) => log.debug(`Retrying compressed image upload (attempt ${attempt})`),
+				});
 			} catch (error) {
 				if (error instanceof Error && error.name === 'AbortError') {
 					throw error;
@@ -141,7 +138,7 @@ export class SubmissionService {
 					() => itemsApi.uploadAttachment(itemId, confirmedItem.originalFile!, { signal }),
 					{
 						maxAttempts: 3,
-						onRetry: (attempt) => log.debug(`Retrying image upload (attempt ${attempt})`)
+						onRetry: (attempt) => log.debug(`Retrying image upload (attempt ${attempt})`),
 					}
 				);
 			} catch (error) {
@@ -163,7 +160,10 @@ export class SubmissionService {
 		const additionalToUpload: File[] = [];
 
 		// Use compressed additional images if available
-		if (confirmedItem.compressedAdditionalDataUrls && confirmedItem.compressedAdditionalDataUrls.length > 0) {
+		if (
+			confirmedItem.compressedAdditionalDataUrls &&
+			confirmedItem.compressedAdditionalDataUrls.length > 0
+		) {
 			for (let i = 0; i < confirmedItem.compressedAdditionalDataUrls.length; i++) {
 				try {
 					const additionalFile = await this.dataUrlToFile(
@@ -186,7 +186,7 @@ export class SubmissionService {
 			try {
 				await withRetry(() => itemsApi.uploadAttachment(itemId, addImage, { signal }), {
 					maxAttempts: 3,
-					onRetry: (attempt) => log.debug(`Retrying additional image upload (attempt ${attempt})`)
+					onRetry: (attempt) => log.debug(`Retrying additional image upload (attempt ${attempt})`),
 				});
 			} catch (error) {
 				if (error instanceof Error && error.name === 'AbortError') {
@@ -222,13 +222,13 @@ export class SubmissionService {
 				serial_number: confirmedItem.serial_number,
 				purchase_price: confirmedItem.purchase_price,
 				purchase_from: confirmedItem.purchase_from,
-				notes: confirmedItem.notes
+				notes: confirmedItem.notes,
 			};
 
 			const response = await itemsApi.create(
 				{
 					items: [itemInput],
-					location_id: locationId
+					location_id: locationId,
 				},
 				{ signal }
 			);
@@ -255,16 +255,24 @@ export class SubmissionService {
 
 					// If primary image failed, delete the created item and mark as failed
 					if (uploadResult.primaryFailed) {
-						log.warn(`Primary image upload failed for ${confirmedItem.name}, deleting item ${createdItem.id}`);
+						log.warn(
+							`Primary image upload failed for ${confirmedItem.name}, deleting item ${createdItem.id}`
+						);
 						try {
 							await itemsApi.delete(createdItem.id, signal);
 							log.info(`Deleted item ${createdItem.id} after image upload failure`);
 						} catch (deleteError) {
 							// Log but don't fail - the item might be orphaned but that's better than hiding the failure
-							log.error(`Failed to cleanup item ${createdItem.id} after upload failure`, deleteError);
+							log.error(
+								`Failed to cleanup item ${createdItem.id} after upload failure`,
+								deleteError
+							);
 						}
 						this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
-						return { status: 'failed', error: `Failed to upload image for '${confirmedItem.name}'` };
+						return {
+							status: 'failed',
+							error: `Failed to upload image for '${confirmedItem.name}'`,
+						};
 					}
 
 					// Primary succeeded - additional image failures are non-critical (still success)
@@ -276,7 +284,10 @@ export class SubmissionService {
 				// Item created but no ID returned - log warning and treat as partial success
 				log.warn(`Item ${confirmedItem.name} created but response missing 'id' field`);
 				this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
-				return { status: 'partial_success', error: 'Item created but no ID returned - attachments skipped' };
+				return {
+					status: 'partial_success',
+					error: 'Item created but no ID returned - attachments skipped',
+				};
 			} else {
 				// No created items and no errors - unexpected state
 				log.error(`No items created for ${confirmedItem.name} and no error reported`);
@@ -322,7 +333,7 @@ export class SubmissionService {
 			partialSuccessCount: 0,
 			failCount: 0,
 			sessionExpired: false,
-			errors: []
+			errors: [],
 		};
 
 		if (items.length === 0) {
@@ -349,7 +360,7 @@ export class SubmissionService {
 		this.progress = {
 			current: 0,
 			total: items.length,
-			message: 'Creating items...'
+			message: 'Creating items...',
 		};
 
 		const signal = this.abortController?.signal;
@@ -383,7 +394,7 @@ export class SubmissionService {
 				this.progress = {
 					current: i + 1,
 					total: items.length,
-					message: `Created ${result.successCount + result.partialSuccessCount} of ${items.length}...`
+					message: `Created ${result.successCount + result.partialSuccessCount} of ${items.length}...`,
 				};
 			}
 
@@ -428,14 +439,18 @@ export class SubmissionService {
 	 * @param locationId - Target location ID
 	 * @param parentId - Optional parent item ID (for sub-items)
 	 */
-	async retryFailed(items: ConfirmedItem[], locationId: string | null, parentId: string | null): Promise<SubmitResult> {
+	async retryFailed(
+		items: ConfirmedItem[],
+		locationId: string | null,
+		parentId: string | null
+	): Promise<SubmitResult> {
 		const result: SubmitResult = {
 			success: false,
 			successCount: 0,
 			partialSuccessCount: 0,
 			failCount: 0,
 			sessionExpired: false,
-			errors: []
+			errors: [],
 		};
 
 		const failedIndices = Object.entries(this.itemStatuses)
@@ -548,6 +563,7 @@ export class SubmissionService {
 		}, 0);
 
 		// Count unique labels across all items
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Temporary collection for counting
 		const allLabelIds = new Set<string>();
 		successfulItems.forEach((item) => {
 			item.label_ids?.forEach((id) => allLabelIds.add(id));
@@ -559,7 +575,7 @@ export class SubmissionService {
 			labelCount: allLabelIds.size,
 			itemNames,
 			locationName: locationName || 'Unknown',
-			locationId: locationId || ''
+			locationId: locationId || '',
 		};
 	}
 

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
-	import QrScanner from "qr-scanner";
-	import heic2any from "heic2any";
-	import { qrLogger as log } from "$lib/utils/logger";
+	import { onMount, onDestroy } from 'svelte';
+	import QrScanner from 'qr-scanner';
+	import heic2any from 'heic2any';
+	import { qrLogger as log } from '$lib/utils/logger';
 
 	interface Props {
 		onScan: (decodedText: string) => void;
@@ -32,7 +32,7 @@
 			// Check for secure context - camera APIs require HTTPS
 			if (!window.isSecureContext) {
 				isInsecureContext = true;
-				error = "Camera requires HTTPS. Use the upload option below.";
+				error = 'Camera requires HTTPS. Use the upload option below.';
 				isStarting = false;
 				cameraFailed = true;
 				onError?.(error);
@@ -40,7 +40,7 @@
 			}
 
 			if (!videoElement) {
-				error = "Video element not ready. Please try again.";
+				error = 'Video element not ready. Please try again.';
 				isStarting = false;
 				cameraFailed = true;
 				onError?.(error);
@@ -59,60 +59,49 @@
 					});
 				},
 				{
-					preferredCamera: "environment",
+					preferredCamera: 'environment',
 					highlightScanRegion: true,
 					highlightCodeOutline: true,
 					returnDetailedScanResult: true,
-				},
+				}
 			);
 
 			await qrScanner.start();
 			isStarting = false;
 		} catch (err) {
-			log.error("Camera initialization failed:", err);
+			log.error('Camera initialization failed:', err);
 			isStarting = false;
 			cameraFailed = true;
 
 			if (err instanceof Error) {
-				const msg = err.message || "";
-				const name = err.name || "";
+				const msg = err.message || '';
+				const name = err.name || '';
 
 				if (
-					name === "NotAllowedError" ||
-					msg.includes("Permission") ||
-					msg.includes("NotAllowed")
+					name === 'NotAllowedError' ||
+					msg.includes('Permission') ||
+					msg.includes('NotAllowed')
 				) {
 					error =
-						"Camera permission denied. Check your browser settings, or use the upload option below.";
+						'Camera permission denied. Check your browser settings, or use the upload option below.';
 				} else if (
-					name === "NotFoundError" ||
-					msg.includes("NotFound") ||
-					msg.includes("DevicesNotFound")
+					name === 'NotFoundError' ||
+					msg.includes('NotFound') ||
+					msg.includes('DevicesNotFound')
 				) {
-					error = "No camera detected. Use the upload option below.";
-				} else if (
-					name === "NotReadableError" ||
-					msg.includes("NotReadable")
-				) {
+					error = 'No camera detected. Use the upload option below.';
+				} else if (name === 'NotReadableError' || msg.includes('NotReadable')) {
 					error =
-						"Camera is in use by another app. Close other apps or use the upload option below.";
-				} else if (
-					name === "OverconstrainedError" ||
-					msg.includes("Overconstrained")
-				) {
-					error =
-						"Camera settings not supported. Use the upload option below.";
-				} else if (
-					name === "NotSupportedError" ||
-					msg.includes("NotSupported")
-				) {
-					error =
-						"Camera not supported in this browser. Use the upload option below.";
+						'Camera is in use by another app. Close other apps or use the upload option below.';
+				} else if (name === 'OverconstrainedError' || msg.includes('Overconstrained')) {
+					error = 'Camera settings not supported. Use the upload option below.';
+				} else if (name === 'NotSupportedError' || msg.includes('NotSupported')) {
+					error = 'Camera not supported in this browser. Use the upload option below.';
 				} else {
-					error = `Camera error: ${msg || "Unknown error"}. Use the upload option below.`;
+					error = `Camera error: ${msg || 'Unknown error'}. Use the upload option below.`;
 				}
 			} else {
-				error = "Failed to start camera. Use the upload option below.";
+				error = 'Failed to start camera. Use the upload option below.';
 			}
 
 			onError?.(error);
@@ -130,7 +119,7 @@
 				qrScanner.destroy();
 				qrScanner = null;
 			} catch (err) {
-				log.debug("Error stopping scanner:", err);
+				log.debug('Error stopping scanner:', err);
 			}
 		}
 	}
@@ -157,15 +146,15 @@
 	// Convert HEIC images to JPEG (iOS may send HEIC format)
 	async function convertHeicIfNeeded(file: File): Promise<Blob> {
 		const isHeic =
-			file.type === "image/heic" ||
-			file.type === "image/heif" ||
-			file.name.toLowerCase().endsWith(".heic") ||
-			file.name.toLowerCase().endsWith(".heif");
+			file.type === 'image/heic' ||
+			file.type === 'image/heif' ||
+			file.name.toLowerCase().endsWith('.heic') ||
+			file.name.toLowerCase().endsWith('.heif');
 
 		if (isHeic) {
 			const blob = await heic2any({
 				blob: file,
-				toType: "image/jpeg",
+				toType: 'image/jpeg',
 				quality: 0.92,
 			});
 			return Array.isArray(blob) ? blob[0] : blob;
@@ -186,22 +175,19 @@
 				let height = img.naturalHeight;
 
 				// Scale down if image is too large
-				if (
-					width > MAX_IMAGE_DIMENSION ||
-					height > MAX_IMAGE_DIMENSION
-				) {
+				if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
 					const scale = MAX_IMAGE_DIMENSION / Math.max(width, height);
 					width = Math.round(width * scale);
 					height = Math.round(height * scale);
 				}
 
-				const canvas = document.createElement("canvas");
+				const canvas = document.createElement('canvas');
 				canvas.width = width;
 				canvas.height = height;
-				const ctx = canvas.getContext("2d");
+				const ctx = canvas.getContext('2d');
 				if (!ctx) {
 					URL.revokeObjectURL(url);
-					reject(new Error("Canvas context not available"));
+					reject(new Error('Canvas context not available'));
 					return;
 				}
 
@@ -210,17 +196,19 @@
 				canvas.toBlob(
 					(resultBlob) => {
 						URL.revokeObjectURL(url);
-						resultBlob
-							? resolve(resultBlob)
-							: reject(new Error("Canvas conversion failed"));
+						if (resultBlob) {
+							resolve(resultBlob);
+						} else {
+							reject(new Error('Canvas conversion failed'));
+						}
 					},
-					"image/jpeg",
-					0.92,
+					'image/jpeg',
+					0.92
 				);
 			};
 			img.onerror = () => {
 				URL.revokeObjectURL(url);
-				reject(new Error("Failed to load image"));
+				reject(new Error('Failed to load image'));
 			};
 			img.src = url;
 		});
@@ -250,19 +238,16 @@
 			await stopScanner();
 			onScan(result.data);
 		} catch (err) {
-			if (
-				err instanceof Error &&
-				err.message.includes("No QR code found")
-			) {
-				error = "No QR code found in image. Try a clearer photo.";
+			if (err instanceof Error && err.message.includes('No QR code found')) {
+				error = 'No QR code found in image. Try a clearer photo.';
 			} else {
-				error = "Could not read QR code from image. Try again.";
+				error = 'Could not read QR code from image. Try again.';
 			}
 			onError?.(error);
 		} finally {
 			isProcessingFile = false;
 			// Reset file input so the same file can be selected again
-			input.value = "";
+			input.value = '';
 		}
 	}
 </script>
@@ -278,37 +263,31 @@
 />
 
 <!-- Full-screen modal overlay -->
-<div class="fixed inset-0 z-[100] bg-black flex flex-col">
+<div class="fixed inset-0 z-[100] flex flex-col bg-black">
 	<!-- Header -->
-	<div class="flex items-center justify-between p-4 bg-black/80">
-		<h2 class="text-white font-semibold">Scan Location QR Code</h2>
+	<div class="flex items-center justify-between bg-black/80 p-4">
+		<h2 class="font-semibold text-white">Scan Location QR Code</h2>
 		<button
 			type="button"
 			onclick={handleClose}
-			class="p-2 text-white/70 hover:text-white transition-colors"
+			class="p-2 text-white/70 transition-colors hover:text-white"
 			aria-label="Close scanner"
 		>
-			<svg
-				class="w-6 h-6"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="2"
-			>
+			<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 				<path d="M6 18L18 6M6 6l12 12" />
 			</svg>
 		</button>
 	</div>
 
 	<!-- Scanner area -->
-	<div class="flex-1 flex items-center justify-center p-4">
+	<div class="flex flex-1 items-center justify-center p-4">
 		{#if cameraFailed}
-			<div class="text-center p-6 max-w-sm">
+			<div class="max-w-sm p-6 text-center">
 				<div
-					class="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center"
+					class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20"
 				>
 					<svg
-						class="w-8 h-8 text-amber-400"
+						class="h-8 w-8 text-amber-400"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -319,7 +298,7 @@
 						/>
 					</svg>
 				</div>
-				<p class="text-white/80 mb-6">{error}</p>
+				<p class="mb-6 text-white/80">{error}</p>
 
 				<!-- Action buttons -->
 				<div class="flex flex-col gap-3">
@@ -328,16 +307,16 @@
 						type="button"
 						onclick={triggerFileUpload}
 						disabled={isProcessingFile}
-						class="px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+						class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
 					>
 						{#if isProcessingFile}
 							<div
-								class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"
+								class="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
 							></div>
 							<span>Processing...</span>
 						{:else}
 							<svg
-								class="w-5 h-5"
+								class="h-5 w-5"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -357,7 +336,7 @@
 						<button
 							type="button"
 							onclick={handleRetryCamera}
-							class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+							class="rounded-lg bg-white/10 px-4 py-2 text-white transition-colors hover:bg-white/20"
 						>
 							Try Camera Again
 						</button>
@@ -366,7 +345,7 @@
 					<button
 						type="button"
 						onclick={handleClose}
-						class="px-4 py-2 text-white/60 hover:text-white transition-colors"
+						class="px-4 py-2 text-white/60 transition-colors hover:text-white"
 					>
 						Cancel
 					</button>
@@ -385,16 +364,12 @@
 
 				<!-- Scanning overlay -->
 				{#if isStarting}
-					<div
-						class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl"
-					>
+					<div class="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50">
 						<div class="text-center">
 							<div
-								class="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2"
+								class="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent"
 							></div>
-							<p class="text-white/80 text-sm">
-								Starting camera...
-							</p>
+							<p class="text-sm text-white/80">Starting camera...</p>
 						</div>
 					</div>
 				{/if}
@@ -403,13 +378,11 @@
 	</div>
 
 	<!-- Footer with instructions -->
-	<div class="p-4 bg-black/80 text-center">
+	<div class="bg-black/80 p-4 text-center">
 		{#if cameraFailed}
-			<p class="text-white/60 text-sm">Take a photo of the QR code</p>
+			<p class="text-sm text-white/60">Take a photo of the QR code</p>
 		{:else}
-			<p class="text-white/60 text-sm">
-				Point your camera at a Homebox location QR code
-			</p>
+			<p class="text-sm text-white/60">Point your camera at a Homebox location QR code</p>
 		{/if}
 	</div>
 </div>

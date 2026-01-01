@@ -131,7 +131,7 @@ export class AnalysisService {
 		this.progress = {
 			current: 0,
 			total: images.length,
-			message: 'Loading preferences...'
+			message: 'Loading preferences...',
 		};
 
 		// Initialize all images as pending
@@ -149,7 +149,7 @@ export class AnalysisService {
 			this.progress = {
 				current: 0,
 				total: images.length,
-				message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+				message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 			};
 
 			const allDetectedItems: ReviewItem[] = [];
@@ -157,7 +157,9 @@ export class AnalysisService {
 			const signal = this.abortController?.signal;
 
 			// Process images with limited concurrency to prevent overwhelming browser/server
-			log.debug(`Processing ${images.length} images with max ${MAX_CONCURRENT_REQUESTS} concurrent requests`);
+			log.debug(
+				`Processing ${images.length} images with max ${MAX_CONCURRENT_REQUESTS} concurrent requests`
+			);
 
 			const results = await mapWithConcurrency(
 				images,
@@ -171,15 +173,19 @@ export class AnalysisService {
 					this.imageStatuses = { ...this.imageStatuses, [index]: 'analyzing' };
 
 					try {
-						log.debug(`Starting detection for image ${index + 1}/${images.length}: file="${image.file.name}", size=${image.file.size} bytes`);
-						log.debug(`Image ${index + 1} options: separateItems=${image.separateItems}, additionalImages=${image.additionalFiles?.length ?? 0}`);
+						log.debug(
+							`Starting detection for image ${index + 1}/${images.length}: file="${image.file.name}", size=${image.file.size} bytes`
+						);
+						log.debug(
+							`Image ${index + 1} options: separateItems=${image.separateItems}, additionalImages=${image.additionalFiles?.length ?? 0}`
+						);
 
 						const response = await vision.detect(image.file, {
 							singleItem: !image.separateItems,
 							extraInstructions: image.extraInstructions || undefined,
 							extractExtendedFields: true,
 							additionalImages: image.additionalFiles,
-							signal
+							signal,
 						});
 
 						log.debug(
@@ -190,7 +196,7 @@ export class AnalysisService {
 						this.progress = {
 							current: completedCount,
 							total: images.length,
-							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 						};
 
 						// Mark this image as success
@@ -201,7 +207,7 @@ export class AnalysisService {
 							imageIndex: index,
 							image,
 							items: response.items,
-							compressedImages: response.compressed_images || []
+							compressedImages: response.compressed_images || [],
 						};
 					} catch (error) {
 						// Re-throw abort errors to be handled at the top level
@@ -214,7 +220,7 @@ export class AnalysisService {
 						this.progress = {
 							current: completedCount,
 							total: images.length,
-							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 						};
 
 						// Mark this image as failed
@@ -225,7 +231,7 @@ export class AnalysisService {
 							success: false as const,
 							imageIndex: index,
 							image,
-							error: error instanceof Error ? error.message : 'Unknown error'
+							error: error instanceof Error ? error.message : 'Unknown error',
 						};
 					}
 				},
@@ -270,7 +276,7 @@ export class AnalysisService {
 							: undefined;
 
 						const compressedAdditionalDataUrls = additionalCompressed.map(
-							img => `data:${img.mime_type};base64,${img.data}`
+							(img) => `data:${img.mime_type};base64,${img.data}`
 						);
 
 						allDetectedItems.push({
@@ -280,9 +286,8 @@ export class AnalysisService {
 							originalFile: result.image.file,
 							additionalImages: result.image.additionalFiles || [],
 							compressedDataUrl,
-							compressedAdditionalDataUrls: compressedAdditionalDataUrls.length > 0
-								? compressedAdditionalDataUrls
-								: undefined
+							compressedAdditionalDataUrls:
+								compressedAdditionalDataUrls.length > 0 ? compressedAdditionalDataUrls : undefined,
 						});
 					}
 				}
@@ -296,7 +301,7 @@ export class AnalysisService {
 					success: false,
 					items: [],
 					error: 'All images failed to analyze. Please try again.',
-					failedCount
+					failedCount,
 				};
 			}
 
@@ -305,7 +310,7 @@ export class AnalysisService {
 					success: false,
 					items: [],
 					error: 'No items detected in the images',
-					failedCount
+					failedCount,
 				};
 			}
 
@@ -314,7 +319,7 @@ export class AnalysisService {
 			return {
 				success: true,
 				items: allDetectedItems,
-				failedCount
+				failedCount,
 			};
 		} catch (error) {
 			// Don't set error if cancelled
@@ -331,7 +336,7 @@ export class AnalysisService {
 				success: false,
 				items: [],
 				error: error instanceof Error ? error.message : 'Analysis failed',
-				failedCount: 0
+				failedCount: 0,
 			};
 		} finally {
 			this.abortController = null;
@@ -366,14 +371,14 @@ export class AnalysisService {
 			return {
 				success: true,
 				items: existingItems,
-				failedCount: 0
+				failedCount: 0,
 			};
 		}
 
 		log.info(`Retrying analysis for ${failedIndices.length} failed image(s)`);
 
 		// Analyze only failed images
-		const failedImages = failedIndices.map(idx => images[idx]);
+		const failedImages = failedIndices.map((idx) => images[idx]);
 		const result = await this.analyzeSubset(failedImages, failedIndices);
 
 		// Merge with existing items
@@ -383,7 +388,7 @@ export class AnalysisService {
 			success: result.success || allItems.length > 0,
 			items: allItems,
 			error: result.error,
-			failedCount: result.failedCount
+			failedCount: result.failedCount,
 		};
 	}
 
@@ -393,7 +398,10 @@ export class AnalysisService {
 	 * @param originalIndices - Original indices in the full image array
 	 * @returns Analysis result with items mapped to original indices
 	 */
-	private async analyzeSubset(images: CapturedImage[], originalIndices: number[]): Promise<AnalysisResult> {
+	private async analyzeSubset(
+		images: CapturedImage[],
+		originalIndices: number[]
+	): Promise<AnalysisResult> {
 		if (images.length === 0) {
 			return { success: false, items: [], error: 'No images to analyze', failedCount: 0 };
 		}
@@ -411,7 +419,7 @@ export class AnalysisService {
 		this.progress = {
 			current: 0,
 			total: images.length,
-			message: 'Loading preferences...'
+			message: 'Loading preferences...',
 		};
 
 		// Reset statuses for images being retried
@@ -429,7 +437,7 @@ export class AnalysisService {
 			this.progress = {
 				current: 0,
 				total: images.length,
-				message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+				message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 			};
 
 			const allDetectedItems: ReviewItem[] = [];
@@ -437,7 +445,9 @@ export class AnalysisService {
 			const signal = this.abortController?.signal;
 
 			// Process images with limited concurrency
-			log.debug(`Processing ${images.length} images with max ${MAX_CONCURRENT_REQUESTS} concurrent requests`);
+			log.debug(
+				`Processing ${images.length} images with max ${MAX_CONCURRENT_REQUESTS} concurrent requests`
+			);
 
 			const results = await mapWithConcurrency(
 				images,
@@ -453,14 +463,16 @@ export class AnalysisService {
 					this.imageStatuses = { ...this.imageStatuses, [originalIndex]: 'analyzing' };
 
 					try {
-						log.debug(`Starting detection for image ${originalIndex + 1} (retry): file="${image.file.name}", size=${image.file.size} bytes`);
+						log.debug(
+							`Starting detection for image ${originalIndex + 1} (retry): file="${image.file.name}", size=${image.file.size} bytes`
+						);
 
 						const response = await vision.detect(image.file, {
 							singleItem: !image.separateItems,
 							extraInstructions: image.extraInstructions || undefined,
 							extractExtendedFields: true,
 							additionalImages: image.additionalFiles,
-							signal
+							signal,
 						});
 
 						log.debug(
@@ -471,7 +483,7 @@ export class AnalysisService {
 						this.progress = {
 							current: completedCount,
 							total: images.length,
-							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 						};
 
 						// Mark this image as success
@@ -482,7 +494,7 @@ export class AnalysisService {
 							imageIndex: originalIndex,
 							image,
 							items: response.items,
-							compressedImages: response.compressed_images || []
+							compressedImages: response.compressed_images || [],
 						};
 					} catch (error) {
 						// Re-throw abort errors to be handled at the top level
@@ -495,7 +507,7 @@ export class AnalysisService {
 						this.progress = {
 							current: completedCount,
 							total: images.length,
-							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...'
+							message: images.length === 1 ? 'Analyzing item...' : 'Analyzing items...',
 						};
 
 						// Mark this image as failed
@@ -506,7 +518,7 @@ export class AnalysisService {
 							success: false as const,
 							imageIndex: originalIndex,
 							image,
-							error: error instanceof Error ? error.message : 'Unknown error'
+							error: error instanceof Error ? error.message : 'Unknown error',
 						};
 					}
 				},
@@ -551,7 +563,7 @@ export class AnalysisService {
 							: undefined;
 
 						const compressedAdditionalDataUrls = additionalCompressed.map(
-							img => `data:${img.mime_type};base64,${img.data}`
+							(img) => `data:${img.mime_type};base64,${img.data}`
 						);
 
 						allDetectedItems.push({
@@ -561,9 +573,8 @@ export class AnalysisService {
 							originalFile: result.image.file,
 							additionalImages: result.image.additionalFiles || [],
 							compressedDataUrl,
-							compressedAdditionalDataUrls: compressedAdditionalDataUrls.length > 0
-								? compressedAdditionalDataUrls
-								: undefined
+							compressedAdditionalDataUrls:
+								compressedAdditionalDataUrls.length > 0 ? compressedAdditionalDataUrls : undefined,
 						});
 					}
 				}
@@ -577,7 +588,7 @@ export class AnalysisService {
 					success: false,
 					items: [],
 					error: 'All images failed to analyze. Please try again.',
-					failedCount
+					failedCount,
 				};
 			}
 
@@ -586,7 +597,7 @@ export class AnalysisService {
 					success: false,
 					items: [],
 					error: 'No items detected in the images',
-					failedCount
+					failedCount,
 				};
 			}
 
@@ -595,7 +606,7 @@ export class AnalysisService {
 			return {
 				success: true,
 				items: allDetectedItems,
-				failedCount
+				failedCount,
 			};
 		} catch (error) {
 			// Don't set error if cancelled
@@ -612,7 +623,7 @@ export class AnalysisService {
 				success: false,
 				items: [],
 				error: error instanceof Error ? error.message : 'Analysis failed',
-				failedCount: 0
+				failedCount: 0,
 			};
 		} finally {
 			this.abortController = null;
@@ -641,11 +652,11 @@ export class AnalysisService {
 
 	/** Check if there are any failed images */
 	hasFailedImages(): boolean {
-		return Object.values(this.imageStatuses).some(status => status === 'failed');
+		return Object.values(this.imageStatuses).some((status) => status === 'failed');
 	}
 
 	/** Get count of failed images */
 	get failedCount(): number {
-		return Object.values(this.imageStatuses).filter(status => status === 'failed').length;
+		return Object.values(this.imageStatuses).filter((status) => status === 'failed').length;
 	}
 }

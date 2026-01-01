@@ -8,4 +8,3 @@ import type { Label } from '../types';
 export const labels = {
 	list: () => request<Label[]>('/labels'),
 };
-

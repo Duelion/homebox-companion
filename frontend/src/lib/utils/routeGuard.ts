@@ -6,9 +6,13 @@
  */
 
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { authStore } from '$lib/stores/auth.svelte';
 import { scanWorkflow } from '$lib/workflows/scan.svelte';
 import type { ScanStatus } from '$lib/types';
+
+// Type-safe route type for dynamic paths
+type AppRoute = Parameters<typeof resolve>[0];
 
 /**
  * Route requirements configuration
@@ -104,7 +108,7 @@ export function applyRouteGuard(requirements: RouteRequirements): boolean {
 	const result = checkRouteAccess(requirements);
 
 	if (!result.allowed && result.redirectTo) {
-		goto(result.redirectTo);
+		goto(resolve(result.redirectTo as AppRoute));
 		return false;
 	}
 
@@ -123,7 +127,7 @@ export const routeGuards = {
 	location: (): boolean => {
 		const result = checkRouteAccess({ auth: true });
 		if (!result.allowed && result.redirectTo) {
-			goto(result.redirectTo);
+			goto(resolve(result.redirectTo as AppRoute));
 			return false;
 		}
 
@@ -132,7 +136,7 @@ export const routeGuards = {
 		if (workflow.state.locationId) {
 			const status = workflow.state.status;
 			if (status === 'capturing' || status === 'analyzing' || status === 'partial_analysis') {
-				goto('/capture');
+				goto(resolve('/capture'));
 				return false;
 			}
 		}
@@ -153,14 +157,14 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed && result.redirectTo) {
-			goto(result.redirectTo);
+			goto(resolve(result.redirectTo as AppRoute));
 			return false;
 		}
 
 		// If we're in reviewing state (analysis finished while away), redirect to review
 		const workflow = scanWorkflow;
 		if (workflow.state.status === 'reviewing') {
-			goto('/review');
+			goto(resolve('/review'));
 			return false;
 		}
 
@@ -181,7 +185,7 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed && result.redirectTo) {
-			goto(result.redirectTo);
+			goto(resolve(result.redirectTo as AppRoute));
 			return false;
 		}
 
@@ -202,7 +206,7 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed && result.redirectTo) {
-			goto(result.redirectTo);
+			goto(resolve(result.redirectTo as AppRoute));
 			return false;
 		}
 
@@ -217,7 +221,7 @@ export const routeGuards = {
 		const result = checkRouteAccess({ auth: true });
 
 		if (!result.allowed && result.redirectTo) {
-			goto(result.redirectTo);
+			goto(resolve(result.redirectTo as AppRoute));
 			return false;
 		}
 

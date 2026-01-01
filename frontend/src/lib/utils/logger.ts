@@ -1,19 +1,19 @@
 /**
  * Structured frontend logger with single log level control.
- * 
+ *
  * ## Log Level Control
- * 
+ *
  * **HBC_LOG_LEVEL** (synced from backend via setLogLevel):
  * Controls which logs are stored in the ring buffer AND shown in console.
  * Logs below this level are completely ignored.
- * 
+ *
  * Example: If HBC_LOG_LEVEL=DEBUG:
  * - DEBUG logs are stored in the ring buffer (viewable in Settings)
  * - DEBUG logs are shown in browser console
- * 
+ *
  * Example: If HBC_LOG_LEVEL=INFO:
  * - DEBUG logs are completely ignored (not buffered, not shown)
- * 
+ *
  * Logs are stored in a ring buffer (500 entries) for viewing in Settings.
  * Log level is synced from backend config at app startup.
  */
@@ -24,11 +24,11 @@ type LogLevel = 'TRACE' | 'DEBUG' | 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | '
  * Log entry stored in the ring buffer.
  */
 export interface LogEntry {
-	timestamp: string;   // ISO 8601
+	timestamp: string; // ISO 8601
 	level: LogLevel;
-	module: string;      // Logger prefix
+	module: string; // Logger prefix
 	message: string;
-	error?: string;      // Serialized error/stack
+	error?: string; // Serialized error/stack
 }
 
 /**
@@ -149,7 +149,7 @@ function serializeError(error: Error, depth = 0): string {
 
 /**
  * Create a namespaced logger instance.
- * 
+ *
  * @example
  * const log = createLogger({ prefix: 'ScanWorkflow' });
  * log.debug('Starting analysis'); // Only logs if level >= DEBUG

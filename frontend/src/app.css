@@ -37,15 +37,14 @@
 
 /* Component utilities */
 @layer components {
-
 	/* Icon button - compact */
 	.btn-icon {
-		@apply p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 active:bg-neutral-700 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500/50;
+		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 active:bg-neutral-700;
 	}
 
 	/* Input styles */
 	.input {
-		@apply w-full px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-xl text-neutral-200 placeholder:text-neutral-500 transition-all duration-150 focus:outline-none focus:bg-neutral-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:bg-neutral-950 disabled:text-neutral-600 disabled:border-neutral-800 disabled:cursor-not-allowed;
+		@apply w-full rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
 	}
 
 	/* Input error state */
@@ -61,23 +60,25 @@
 
 	/* Label styles */
 	.label {
-		@apply block text-body-sm font-medium text-neutral-300 mb-2;
+		@apply mb-2 block text-body-sm font-medium text-neutral-300;
 	}
 
 	/* Label chip / badge styles */
 	.label-chip {
-		@apply px-3 py-1.5 rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-300 text-sm hover:border-neutral-600 hover:bg-neutral-800 transition-all duration-150 cursor-pointer;
+		@apply cursor-pointer rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-300 transition-all duration-150 hover:border-neutral-600 hover:bg-neutral-800;
 	}
 
 	.label-chip-selected {
-		@apply px-3 py-1.5 rounded-lg border-2 border-primary-500 bg-primary-500/20 text-primary-300 text-sm font-medium shadow-sm ring-2 ring-primary-500/20;
+		@apply rounded-lg border-2 border-primary-500 bg-primary-500/20 px-3 py-1.5 text-sm font-medium text-primary-300 shadow-sm ring-2 ring-primary-500/20;
 	}
 }
 
 /* Animation utilities */
 @layer utilities {
 	.animate-in {
-		animation: fadeIn 0.25s ease-out, slideUp 0.25s ease-out;
+		animation:
+			fadeIn 0.25s ease-out,
+			slideUp 0.25s ease-out;
 	}
 
 	/* Avoid double-animations: disable per-page animate-in when View Transitions are enabled */
@@ -116,8 +117,13 @@
 
 	/* Skeleton loading animation */
 	.skeleton {
-		@apply bg-neutral-800 rounded animate-shimmer;
-		background: linear-gradient(90deg, theme('colors.neutral.800') 25%, theme('colors.neutral.700') 50%, theme('colors.neutral.800') 75%);
+		@apply animate-shimmer rounded bg-neutral-800;
+		background: linear-gradient(
+			90deg,
+			theme('colors.neutral.800') 25%,
+			theme('colors.neutral.700') 50%,
+			theme('colors.neutral.800') 75%
+		);
 		background-size: 200% 100%;
 	}
 
@@ -186,12 +192,12 @@
 
 	/* Fixed bottom panel above nav */
 	.fixed-bottom-panel {
-		@apply fixed bottom-nav-offset left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 z-40;
+		@apply bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur-lg;
 	}
 
 	/* Empty state container */
 	.empty-state {
-		@apply flex flex-col items-center justify-center text-center px-6 py-12 min-h-[35vh];
+		@apply flex min-h-[35vh] flex-col items-center justify-center px-6 py-12 text-center;
 	}
 }
 
@@ -226,7 +232,6 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
-
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;
