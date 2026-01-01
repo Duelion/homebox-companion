@@ -88,6 +88,7 @@ export default [
 				// Allow these custom utility classes from app.css
 				whitelist: [
 					'btn-icon',
+					'btn-icon-touch',
 					'input',
 					'input-error',
 					'input-expandable',
@@ -110,6 +111,7 @@ export default [
 					'empty-state',
 					'complete-pop',
 					'vt-enabled',
+					'markdown-content',
 				],
 			}],
 			// Enforce consistent class ordering - handled by prettier-plugin-tailwindcss
