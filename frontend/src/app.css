@@ -71,6 +71,133 @@
 	.label-chip-selected {
 		@apply rounded-lg border-2 border-primary-500 bg-primary-500/20 px-3 py-1.5 text-sm font-medium text-primary-300 shadow-sm ring-2 ring-primary-500/20;
 	}
+
+	/* Touch-target icon button */
+	.btn-icon-touch {
+		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100;
+	}
+
+	/* ==========================================================================
+	   Markdown Content Styling (extracted from ChatMessage for reuse)
+	   ========================================================================== */
+	.markdown-content {
+		margin: 0;
+		line-height: 1.5;
+	}
+
+	.markdown-content ul,
+	.markdown-content ol {
+		margin: 0.5rem 0;
+		padding-left: 1.5rem;
+	}
+
+	.markdown-content li {
+		margin: 0.25rem 0;
+	}
+
+	.markdown-content p {
+		margin: 0.5rem 0;
+	}
+
+	.markdown-content p:first-child {
+		margin-top: 0;
+	}
+
+	.markdown-content p:last-child {
+		margin-bottom: 0;
+	}
+
+	.markdown-content *:last-child {
+		margin-bottom: 0;
+	}
+
+	.markdown-content strong {
+		font-weight: 600;
+		@apply text-neutral-100;
+	}
+
+	.markdown-content em {
+		font-style: italic;
+	}
+
+	.markdown-content code {
+		@apply rounded bg-primary-500/10 px-1.5 py-0.5 font-mono text-[0.875em];
+	}
+
+	.markdown-content pre {
+		@apply my-2 overflow-x-auto rounded-lg bg-black/30 p-3;
+	}
+
+	.markdown-content pre code {
+		@apply bg-transparent p-0;
+	}
+
+	.markdown-content h1,
+	.markdown-content h2,
+	.markdown-content h3 {
+		@apply font-semibold text-neutral-100;
+		margin: 0.75rem 0 0.5rem;
+	}
+
+	.markdown-content h1 {
+		@apply text-h3;
+	}
+
+	.markdown-content h2 {
+		@apply text-h4;
+	}
+
+	.markdown-content h3 {
+		@apply text-body;
+	}
+
+	/* GFM Tables */
+	.markdown-content table {
+		@apply my-3 w-full border-collapse;
+	}
+
+	.markdown-content th,
+	.markdown-content td {
+		@apply border border-neutral-600 px-3 py-2 text-left;
+	}
+
+	.markdown-content th {
+		@apply bg-neutral-700/50 font-semibold text-neutral-100;
+	}
+
+	.markdown-content tr:nth-child(even) {
+		@apply bg-neutral-800/30;
+	}
+
+	/* GFM Task Lists */
+	.markdown-content input[type='checkbox'] {
+		@apply mr-2 accent-primary-500;
+	}
+
+	.markdown-content li:has(input[type='checkbox']) {
+		list-style: none;
+		margin-left: -1.25rem;
+	}
+
+	/* Links */
+	.markdown-content a {
+		@apply text-primary-400 underline transition-colors hover:text-primary-300;
+	}
+
+	/* Blockquotes */
+	.markdown-content blockquote {
+		@apply my-3 border-l-4 border-primary-500/50 pl-4 italic text-neutral-400;
+	}
+
+	/* Horizontal Rule */
+	.markdown-content hr {
+		@apply my-4 border-neutral-600;
+	}
+
+	/* Strikethrough */
+	.markdown-content del {
+		@apply text-neutral-500;
+	}
 }
 
 /* Animation utilities */
@@ -163,25 +290,25 @@
 	/* Stagger animation with fade in */
 	.animate-stagger {
 		opacity: 0;
-		animation: fadeSlideIn 0.3s ease-out forwards;
+		@apply animate-fade-slide-in;
 	}
 
 	/* Checkmark draw animation for success pages */
 	.checkmark-draw {
 		stroke-dasharray: 50;
 		stroke-dashoffset: 50;
-		animation: drawCheck 0.4s ease-out 0.2s forwards;
+		@apply animate-draw-check;
 	}
 
 	/* Success circle scale in */
 	.success-scale {
 		transform: scale(0);
-		animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+		@apply animate-scale-up;
 	}
 
 	/* Success badge animation */
 	.success-badge {
-		animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+		@apply animate-scale-in;
 		z-index: 10;
 	}
 
@@ -201,30 +328,11 @@
 	}
 }
 
-/* Custom keyframes */
-@keyframes fadeSlideIn {
-	from {
-		opacity: 0;
-		transform: translateY(10px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-@keyframes drawCheck {
-	to {
-		stroke-dashoffset: 0;
-	}
-}
-
-@keyframes scaleIn {
-	to {
-		transform: scale(1);
-	}
-}
+/* Keyframes now consolidated in tailwind.config.js:
+ * - fadeSlideIn -> animate-fade-slide-in
+ * - drawCheck -> animate-draw-check
+ * - scaleIn -> animate-scale-in (with opacity) / animate-scale-up (scale only)
+ */
 
 /* ==========================================================================
    Page transitions (View Transitions API)

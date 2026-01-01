@@ -863,7 +863,7 @@
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+						class="btn-icon-touch"
 						onclick={refreshLogs}
 						disabled={isLoadingLogs}
 						title="Refresh logs"
@@ -882,7 +882,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+						class="btn-icon-touch"
 						onclick={handleDownloadLogs}
 						disabled={!logs.filename}
 						title="Download full log file"
@@ -902,7 +902,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+						class="btn-icon-touch"
 						onclick={() => (logsFullscreen = true)}
 						title="Expand fullscreen"
 						aria-label="View logs fullscreen"
@@ -1014,7 +1014,7 @@
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+						class="btn-icon-touch"
 						onclick={refreshFrontendLogs}
 						title="Refresh logs"
 						aria-label="Refresh logs"
@@ -1032,7 +1032,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+						class="btn-icon-touch"
 						onclick={handleExportFrontendLogs}
 						title="Export as JSON"
 						aria-label="Export logs"
@@ -1051,7 +1051,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+						class="btn-icon-touch"
 						onclick={handleClearFrontendLogs}
 						title="Clear logs"
 						aria-label="Clear logs"
@@ -1070,7 +1070,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+						class="btn-icon-touch"
 						onclick={() => (frontendLogsFullscreen = true)}
 						title="Expand fullscreen"
 						aria-label="View logs fullscreen"
@@ -1533,7 +1533,7 @@
 						<span class="text-xs font-medium text-neutral-400">System Prompt Preview</span>
 						<button
 							type="button"
-							class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+							class="btn-icon-touch"
 							onclick={() => (promptFullscreen = true)}
 							title="Expand fullscreen"
 							aria-label="View prompt fullscreen"
@@ -1625,7 +1625,7 @@
 			<div class="flex items-center gap-2">
 				<button
 					type="button"
-					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="btn-icon-touch"
 					onclick={refreshLogs}
 					disabled={isLoadingLogs}
 					title="Refresh logs"
@@ -1644,7 +1644,7 @@
 				</button>
 				<button
 					type="button"
-					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="btn-icon-touch"
 					onclick={handleDownloadLogs}
 					disabled={!logs.filename}
 					title="Download full log file"
@@ -1664,7 +1664,7 @@
 				</button>
 				<button
 					type="button"
-					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="btn-icon-touch"
 					onclick={() => (logsFullscreen = false)}
 					title="Close fullscreen"
 					aria-label="Close"
@@ -1718,7 +1718,7 @@
 			</div>
 			<button
 				type="button"
-				class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+				class="btn-icon-touch"
 				onclick={() => (promptFullscreen = false)}
 				title="Close fullscreen"
 				aria-label="Close"
@@ -1770,7 +1770,7 @@
 			<div class="flex items-center gap-2">
 				<button
 					type="button"
-					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="btn-icon-touch"
 					onclick={refreshFrontendLogs}
 					title="Refresh logs"
 					aria-label="Refresh logs"
@@ -1788,7 +1788,7 @@
 				</button>
 				<button
 					type="button"
-					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="btn-icon-touch"
 					onclick={handleExportFrontendLogs}
 					title="Export as JSON"
 					aria-label="Export logs"
@@ -1807,7 +1807,7 @@
 				</button>
 				<button
 					type="button"
-					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="btn-icon-touch"
 					onclick={handleClearFrontendLogs}
 					title="Clear logs"
 					aria-label="Clear logs"
@@ -1826,7 +1826,7 @@
 				</button>
 				<button
 					type="button"
-					class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="btn-icon-touch"
 					onclick={() => (frontendLogsFullscreen = false)}
 					title="Close fullscreen"
 					aria-label="Close"
