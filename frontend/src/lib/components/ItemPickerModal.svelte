@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
-	import { items as itemsApi, type BlobUrlResult } from "$lib/api";
-	import { showToast } from "$lib/stores/ui.svelte";
-	import { createLogger } from "$lib/utils/logger";
-	import type { ItemSummary } from "$lib/types";
-	import Button from "./Button.svelte";
-	import Loader from "./Loader.svelte";
+	import { onMount, onDestroy } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { items as itemsApi, type BlobUrlResult } from '$lib/api';
+	import { showToast } from '$lib/stores/ui.svelte';
+	import { createLogger } from '$lib/utils/logger';
+	import type { ItemSummary } from '$lib/types';
+	import Button from './Button.svelte';
+	import Loader from './Loader.svelte';
 
-	const log = createLogger({ prefix: "ItemPicker" });
+	const log = createLogger({ prefix: 'ItemPicker' });
 
 	interface Props {
 		locationId: string;
@@ -16,21 +17,17 @@
 		onClose: () => void;
 	}
 
-	let {
-		locationId,
-		currentItemId = null,
-		onSelect,
-		onClose,
-	}: Props = $props();
+	let { locationId, currentItemId = null, onSelect, onClose }: Props = $props();
 
 	let isLoading = $state(true);
 	let items = $state<ItemSummary[]>([]);
 	// Track user's selection - starts with current parent, user can change independently
 	// We intentionally capture the initial prop value here; the effect below syncs on prop changes
+	// eslint-disable-next-line svelte/prefer-writable-derived -- Local state synced from prop, modifiable by user
 	let selectedItemId = $state<string | null | undefined>(undefined);
-	let searchQuery = $state("");
+	let searchQuery = $state('');
 	// Store fetched thumbnail results with their revoke functions (itemId -> BlobUrlResult)
-	let thumbnailResults = $state<Map<string, BlobUrlResult>>(new Map());
+	let thumbnailResults = new SvelteMap<string, BlobUrlResult>();
 
 	// Sync selectedItemId when currentItemId prop changes (including initial mount)
 	$effect(() => {
@@ -45,15 +42,13 @@
 
 	// Filtered items based on search
 	let filteredItems = $derived(
-		searchQuery.trim() === ""
+		searchQuery.trim() === ''
 			? items
-			: items.filter((item) =>
-					item.name.toLowerCase().includes(searchQuery.toLowerCase()),
-				),
+			: items.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
 	);
 
 	onMount(async () => {
-		log.debug("Loading items for location:", locationId);
+		log.debug('Loading items for location:', locationId);
 		await loadItems();
 	});
 
@@ -72,8 +67,8 @@
 			// Fetch thumbnails for items that have them
 			await loadThumbnails(items);
 		} catch (error) {
-			log.error("Failed to load items", error);
-			showToast("Failed to load items", "error");
+			log.error('Failed to load items', error);
+			showToast('Failed to load items', 'error');
 			items = [];
 		} finally {
 			isLoading = false;
@@ -81,9 +76,7 @@
 	}
 
 	async function loadThumbnails(itemsList: ItemSummary[]) {
-		const itemsWithThumbnails = itemsList.filter(
-			(item) => item.thumbnailId,
-		);
+		const itemsWithThumbnails = itemsList.filter((item) => item.thumbnailId);
 		if (itemsWithThumbnails.length === 0) return;
 
 		log.debug(`Fetching ${itemsWithThumbnails.length} thumbnails`);
@@ -92,28 +85,22 @@
 		const results = await Promise.all(
 			itemsWithThumbnails.map(async (item) => {
 				try {
-					const result = await itemsApi.getThumbnail(
-						item.id,
-						item.thumbnailId!,
-					);
+					const result = await itemsApi.getThumbnail(item.id, item.thumbnailId!);
 					return { itemId: item.id, result };
 				} catch (error) {
 					// Ignore aborted requests silently
-					if (error instanceof Error && error.name === "AbortError") {
+					if (error instanceof Error && error.name === 'AbortError') {
 						return { itemId: item.id, result: null };
 					}
 					// Log other errors but continue - missing thumbnails are not critical
-					log.debug(
-						`Failed to load thumbnail for item ${item.id}:`,
-						error,
-					);
+					log.debug(`Failed to load thumbnail for item ${item.id}:`, error);
 					return { itemId: item.id, result: null };
 				}
-			}),
+			})
 		);
 
 		// Store successful results (with their revoke functions for cleanup)
-		const newResults = new Map(thumbnailResults);
+		const newResults = new SvelteMap(thumbnailResults);
 		for (const { itemId, result } of results) {
 			if (result) {
 				// Revoke any existing URL for this item before replacing
@@ -135,12 +122,12 @@
 	}
 
 	function clearSelection() {
-		onSelect("", "");
+		onSelect('', '');
 		onClose();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === "Escape") {
+		if (e.key === 'Escape') {
 			onClose();
 		}
 	}
@@ -150,13 +137,13 @@
 
 <!-- Modal overlay -->
 <div
-	class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in"
+	class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
 	onclick={onClose}
 	role="presentation"
 >
 	<!-- Modal content -->
 	<div
-		class="bg-neutral-900 rounded-2xl border border-neutral-700 shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col animate-in zoom-in-95"
+		class="animate-in zoom-in-95 flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 		tabindex="-1"
@@ -165,20 +152,16 @@
 		aria-labelledby="item-picker-title"
 	>
 		<!-- Header -->
-		<div
-			class="flex items-center justify-between p-6 border-b border-neutral-800"
-		>
-			<h2 id="item-picker-title" class="text-h3 text-neutral-100">
-				Select Container Item
-			</h2>
+		<div class="flex items-center justify-between border-b border-neutral-800 p-6">
+			<h2 id="item-picker-title" class="text-h3 text-neutral-100">Select Container Item</h2>
 			<button
 				type="button"
-				class="p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors"
+				class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
 				onclick={onClose}
 				aria-label="Close"
 			>
 				<svg
-					class="w-5 h-5"
+					class="h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -191,13 +174,11 @@
 		</div>
 
 		<!-- Search -->
-		<div class="p-4 border-b border-neutral-800">
+		<div class="border-b border-neutral-800 p-4">
 			<div class="relative">
-				<div
-					class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-				>
+				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 					<svg
-						class="w-5 h-5 text-neutral-500"
+						class="h-5 w-5 text-neutral-500"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -211,68 +192,58 @@
 					type="text"
 					placeholder="Search items..."
 					bind:value={searchQuery}
-					class="w-full h-12 pl-10 pr-4 bg-neutral-800 border border-neutral-600 rounded-xl text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all"
+					class="h-12 w-full rounded-xl border border-neutral-600 bg-neutral-800 pl-10 pr-4 text-neutral-100 transition-all placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
 				/>
 			</div>
 		</div>
 
 		<!-- Items list -->
-		<div class="flex-1 overflow-y-auto p-4 space-y-2">
+		<div class="flex-1 space-y-2 overflow-y-auto p-4">
 			{#if isLoading}
 				<div class="flex items-center justify-center py-12">
 					<Loader size="lg" />
 				</div>
 			{:else if filteredItems.length === 0}
-				<div class="text-center py-12 text-neutral-500">
+				<div class="py-12 text-center text-neutral-500">
 					{#if searchQuery}
 						<p>No items found for "{searchQuery}"</p>
 					{:else}
 						<p>No items in this location</p>
-						<p class="text-body-sm mt-2">Add some items first</p>
+						<p class="mt-2 text-body-sm">Add some items first</p>
 					{/if}
 				</div>
 			{:else}
-				{#each filteredItems as item}
+				{#each filteredItems as item (item.id)}
 					{@const thumbnailUrl = getThumbnailUrl(item)}
 					<button
 						type="button"
-						class="w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left {selectedItemId ===
+						class="flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all {selectedItemId ===
 						item.id
-							? 'bg-primary-500/10 border-primary-500/50'
-							: 'bg-neutral-800 border-neutral-700 hover:border-neutral-600'}"
+							? 'border-primary-500/50 bg-primary-500/10'
+							: 'border-neutral-700 bg-neutral-800 hover:border-neutral-600'}"
 						onclick={() => selectItem(item)}
 					>
 						<!-- Thumbnail -->
-						<div
-							class="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-neutral-700"
-						>
+						<div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-700">
 							{#if thumbnailUrl}
-								<img
-									src={thumbnailUrl}
-									alt=""
-									class="w-full h-full object-cover"
-								/>
+								<img src={thumbnailUrl} alt="" class="h-full w-full object-cover" />
 							{:else}
-								<div
-									class="w-full h-full flex items-center justify-center"
-								>
+								<div class="flex h-full w-full items-center justify-center">
 									<svg
-										class="w-7 h-7 text-neutral-500"
+										class="h-7 w-7 text-neutral-500"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
 										stroke-width="1"
 									>
-										<path
-											d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-										/>
+										<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
 									</svg>
 								</div>
 							{/if}
 						</div>
 
-						<div class="flex-1 min-w-0">
-							<p class="font-medium text-neutral-100 truncate">
+						<div class="min-w-0 flex-1">
+							<p class="truncate font-medium text-neutral-100">
 								{item.name}
 							</p>
 							<p class="text-body-sm text-neutral-500">
@@ -281,11 +252,9 @@
 						</div>
 
 						{#if selectedItemId === item.id}
-							<div
-								class="w-6 h-6 flex items-center justify-center text-primary-400"
-							>
+							<div class="flex h-6 w-6 items-center justify-center text-primary-400">
 								<svg
-									class="w-5 h-5"
+									class="h-5 w-5"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -301,11 +270,11 @@
 		</div>
 
 		<!-- Footer actions -->
-		<div class="p-4 border-t border-neutral-800 space-y-2">
+		<div class="space-y-2 border-t border-neutral-800 p-4">
 			{#if currentItemId}
 				<Button variant="secondary" full onclick={clearSelection}>
 					<svg
-						class="w-5 h-5"
+						class="h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"

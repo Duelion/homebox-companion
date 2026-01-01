@@ -25,12 +25,15 @@ const timeoutSignals = new WeakSet<AbortSignal>();
  * Create a combined AbortSignal that aborts when either:
  * - The caller's signal aborts (if provided)
  * - The default timeout elapses
- * 
+ *
  * @param callerSignal - Optional signal from the caller
  * @param timeoutMs - Timeout in milliseconds
  * @returns AbortSignal that respects both conditions
  */
-function createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): AbortSignal {
+function createTimeoutSignal(
+	callerSignal?: AbortSignal,
+	timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS
+): AbortSignal {
 	const timeoutSignal = AbortSignal.timeout(timeoutMs);
 	// Track this signal as a timeout signal for reliable detection later
 	timeoutSignals.add(timeoutSignal);
@@ -66,7 +69,7 @@ export class ApiError extends Error {
 /**
  * Network Error class for connection-level failures.
  * Thrown when fetch fails due to network issues, DNS failures, or timeouts.
- * 
+ *
  * NOTE: User-initiated abort errors (when the user cancels a request) are NOT
  * wrapped in NetworkError. They are thrown as raw AbortError to preserve the
  * existing cancellation detection pattern (checking error.name === 'AbortError').
@@ -122,15 +125,15 @@ async function attemptRefreshOnce(): Promise<boolean> {
 
 /**
  * Handle 401 response with automatic token refresh and retry.
- * 
+ *
  * NOTE: This function reads authStore.token imperatively (not reactively).
  * This is intentional - we need the current value at call time, not a
  * reactive subscription. Changes to the token won't trigger re-execution.
- * 
+ *
  * - If no token exists: returns false (user not logged in)
  * - If token exists: attempts refresh and signals whether to retry
  * - If refresh fails: shows re-auth modal
- * 
+ *
  * @param response - The 401 response
  * @returns true if request should be retried with new token, false otherwise
  */
@@ -159,11 +162,11 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 /**
  * Wraps a fetch error into a typed NetworkError.
  * Handles timeout errors and generic network failures.
- * 
+ *
  * NOTE: User-initiated abort errors (AbortError without timeout) are re-thrown
  * directly to preserve the existing cancellation detection pattern used
  * throughout the codebase (checking error.name === 'AbortError').
- * 
+ *
  * @param error - The error from a failed fetch call
  * @param endpoint - The endpoint that was being fetched (for error message)
  * @param signal - The AbortSignal used in the request (to check if it was a timeout signal)
@@ -178,11 +181,7 @@ function wrapFetchError(error: unknown, endpoint: string, signal?: AbortSignal):
 			// in our timeoutSignals WeakSet (more reliable than checking error message)
 			const isTimeout = signal ? timeoutSignals.has(signal) : false;
 			if (isTimeout) {
-				return new NetworkError(
-					`Request to ${endpoint} timed out`,
-					error,
-					{ isTimeout: true }
-				);
+				return new NetworkError(`Request to ${endpoint} timed out`, error, { isTimeout: true });
 			}
 			// User-initiated abort - re-throw directly to preserve existing
 			// cancellation detection pattern (error.name === 'AbortError')
@@ -191,26 +190,16 @@ function wrapFetchError(error: unknown, endpoint: string, signal?: AbortSignal):
 
 		// Check for timeout explicitly (some implementations use TimeoutError)
 		if (error.name === 'TimeoutError') {
-			return new NetworkError(
-				`Request to ${endpoint} timed out`,
-				error,
-				{ isTimeout: true }
-			);
+			return new NetworkError(`Request to ${endpoint} timed out`, error, { isTimeout: true });
 		}
 
 		// Generic network error (connection refused, DNS failure, etc.)
-		return new NetworkError(
-			`Network error while fetching ${endpoint}: ${error.message}`,
-			error
-		);
+		return new NetworkError(`Network error while fetching ${endpoint}: ${error.message}`, error);
 	}
 
 	// Unknown error type, wrap in a generic Error first
 	const wrappedError = new Error(String(error));
-	return new NetworkError(
-		`Network error while fetching ${endpoint}`,
-		wrappedError
-	);
+	return new NetworkError(`Network error while fetching ${endpoint}`, wrappedError);
 }
 
 /**
@@ -271,10 +260,10 @@ export interface RequestOptions extends RequestInit {
 /**
  * Make a JSON API request with automatic auth header, timeout, and error handling.
  * Automatically retries once if token refresh succeeds after a 401.
- * 
+ *
  * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
- * 
+ *
  * @throws {ApiError} When the server returns a non-OK HTTP response
  * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
  */
@@ -300,9 +289,10 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
-	const signal = timeoutMs > 0 && timeoutMs < Infinity
-		? createTimeoutSignal(options.signal, timeoutMs)
-		: options.signal;
+	const signal =
+		timeoutMs > 0 && timeoutMs < Infinity
+			? createTimeoutSignal(options.signal, timeoutMs)
+			: options.signal;
 
 	// First attempt
 	let response: Response;
@@ -325,9 +315,10 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
-			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
-				? createTimeoutSignal(options.signal, timeoutMs)
-				: options.signal;
+			const retrySignal =
+				timeoutMs > 0 && timeoutMs < Infinity
+					? createTimeoutSignal(options.signal, timeoutMs)
+					: options.signal;
 
 			log.debug(`Retrying ${endpoint} after token refresh`);
 			try {
@@ -403,19 +394,19 @@ export interface BlobUrlRequestOptions {
 /**
  * Fetch a binary resource (image, file) with authentication, timeout, and return a blob URL with cleanup.
  * Automatically retries once if token refresh succeeds after a 401.
- * 
+ *
  * IMPORTANT: Blob URLs hold references to underlying data and MUST be revoked to avoid memory leaks.
  * Call `result.revoke()` when the URL is no longer needed (e.g., in onDestroy or when removing an image).
- * 
+ *
  * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
- * 
+ *
  * @param endpoint - API endpoint to fetch
  * @param options - Optional signal for cancellation and/or custom timeout
  * @returns BlobUrlResult with url and revoke function
  * @throws {ApiError} When the server returns a non-OK HTTP response
  * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
- * 
+ *
  * @example
  * ```typescript
  * try {
@@ -442,9 +433,8 @@ export async function requestBlobUrl(
 	options?: AbortSignal | BlobUrlRequestOptions
 ): Promise<BlobUrlResult> {
 	// Support both legacy AbortSignal parameter and new options object
-	const opts: BlobUrlRequestOptions = options instanceof AbortSignal
-		? { signal: options }
-		: (options ?? {});
+	const opts: BlobUrlRequestOptions =
+		options instanceof AbortSignal ? { signal: options } : (options ?? {});
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
 	// Helper to build headers with current token
@@ -454,9 +444,10 @@ export async function requestBlobUrl(
 	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
-	const signal = timeoutMs > 0 && timeoutMs < Infinity
-		? createTimeoutSignal(opts.signal, timeoutMs)
-		: opts.signal;
+	const signal =
+		timeoutMs > 0 && timeoutMs < Infinity
+			? createTimeoutSignal(opts.signal, timeoutMs)
+			: opts.signal;
 
 	// First attempt
 	let response: Response;
@@ -477,9 +468,10 @@ export async function requestBlobUrl(
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
-			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
-				? createTimeoutSignal(opts.signal, timeoutMs)
-				: opts.signal;
+			const retrySignal =
+				timeoutMs > 0 && timeoutMs < Infinity
+					? createTimeoutSignal(opts.signal, timeoutMs)
+					: opts.signal;
 
 			log.debug(`Retrying blob request ${endpoint} after token refresh`);
 			try {
@@ -498,10 +490,7 @@ export async function requestBlobUrl(
 	// Handle other errors
 	if (!response.ok) {
 		log.debug(`Blob request failed for ${endpoint}: ${response.status}`);
-		throw new ApiError(
-			response.status,
-			`Blob request failed with status ${response.status}`
-		);
+		throw new ApiError(response.status, `Blob request failed with status ${response.status}`);
 	}
 
 	const blob = await response.blob();
@@ -509,7 +498,7 @@ export async function requestBlobUrl(
 
 	return {
 		url,
-		revoke: () => URL.revokeObjectURL(url)
+		revoke: () => URL.revokeObjectURL(url),
 	};
 }
 
@@ -517,10 +506,10 @@ export async function requestBlobUrl(
  * Make a FormData API request with automatic auth header, timeout, and error handling.
  * Automatically retries once if token refresh succeeds after a 401.
  * Use this for file uploads and multipart form submissions.
- * 
+ *
  * By default, requests will timeout after DEFAULT_REQUEST_TIMEOUT_MS (60 seconds)
  * unless a custom timeout is specified or a caller-provided signal aborts earlier.
- * 
+ *
  * @throws {ApiError} When the server returns a non-OK HTTP response
  * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
  */
@@ -530,9 +519,8 @@ export async function requestFormData<T>(
 	options: FormDataRequestOptions | string = {}
 ): Promise<T> {
 	// Support legacy string errorMessage parameter for backwards compatibility
-	const opts: FormDataRequestOptions = typeof options === 'string'
-		? { errorMessage: options }
-		: options;
+	const opts: FormDataRequestOptions =
+		typeof options === 'string' ? { errorMessage: options } : options;
 	const errorMessage = opts.errorMessage ?? 'Request failed';
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
@@ -554,9 +542,10 @@ export async function requestFormData<T>(
 	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
-	const signal = timeoutMs > 0 && timeoutMs < Infinity
-		? createTimeoutSignal(opts.signal, timeoutMs)
-		: opts.signal;
+	const signal =
+		timeoutMs > 0 && timeoutMs < Infinity
+			? createTimeoutSignal(opts.signal, timeoutMs)
+			: opts.signal;
 
 	// First attempt
 	let response: Response;
@@ -582,9 +571,10 @@ export async function requestFormData<T>(
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
-			const retrySignal = timeoutMs > 0 && timeoutMs < Infinity
-				? createTimeoutSignal(opts.signal, timeoutMs)
-				: opts.signal;
+			const retrySignal =
+				timeoutMs > 0 && timeoutMs < Infinity
+					? createTimeoutSignal(opts.signal, timeoutMs)
+					: opts.signal;
 
 			log.debug(`Retrying FormData request ${endpoint} after token refresh`);
 			try {

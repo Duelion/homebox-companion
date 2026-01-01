@@ -1,6 +1,6 @@
 /**
  * API Module - HTTP client for Homebox Companion backend
- * 
+ *
  * This module provides typed API access organized by domain:
  * - auth: Authentication (login)
  * - locations: Location CRUD

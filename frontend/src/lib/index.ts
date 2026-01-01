@@ -1,6 +1,6 @@
 /**
  * Homebox Companion Frontend Library
- * 
+ *
  * Barrel exports for all shared modules.
  */
 
@@ -18,12 +18,16 @@ export { scanWorkflow } from './workflows/scan.svelte';
 // STORES - Svelte 5 class-based stores
 // =============================================================================
 export { authStore, logout, markSessionExpired, setAuthenticatedState } from './stores/auth.svelte';
-export { labelStore, labels, labelsById, fetchLabels, clearLabelsCache, getLabelName, isLabelsLoading } from './stores/labels.svelte';
 export {
-	locationStore,
-	type PathItem,
-	type FlatLocation,
-} from './stores/locations.svelte';
+	labelStore,
+	labels,
+	labelsById,
+	fetchLabels,
+	clearLabelsCache,
+	getLabelName,
+	isLabelsLoading,
+} from './stores/labels.svelte';
+export { locationStore, type PathItem, type FlatLocation } from './stores/locations.svelte';
 export {
 	uiStore,
 	isLoading,
@@ -44,4 +48,17 @@ export {
 // =============================================================================
 // API - HTTP client (to be split into modules)
 // =============================================================================
-export { auth, locations, labels as labelsApi, items, vision, getVersion, getConfig, getLogs, fieldPreferences, setDemoMode, ApiError, NetworkError } from './api';
+export {
+	auth,
+	locations,
+	labels as labelsApi,
+	items,
+	vision,
+	getVersion,
+	getConfig,
+	getLogs,
+	fieldPreferences,
+	setDemoMode,
+	ApiError,
+	NetworkError,
+} from './api';

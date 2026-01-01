@@ -111,8 +111,7 @@ export interface LogsResponse {
 	truncated: boolean;
 }
 
-export const getLogs = (lines: number = 200) =>
-	request<LogsResponse>(`/logs?lines=${lines}`);
+export const getLogs = (lines: number = 200) => request<LogsResponse>(`/logs?lines=${lines}`);
 
 export const downloadLogs = async (filename: string) => {
 	const { requestBlobUrl } = await import('./client');
@@ -218,4 +217,3 @@ export const fieldPreferences = {
 			body: JSON.stringify(prefs),
 		}),
 };
-

@@ -9,12 +9,13 @@
 	const steps = $derived(Array.from({ length: totalSteps }, (_, i) => i + 1));
 </script>
 
-<div class="flex items-center justify-center gap-2 mb-6">
-	{#each steps as step, index}
+<div class="mb-6 flex items-center justify-center gap-2">
+	{#each steps as step (step)}
+		{@const index = step - 1}
 		{#if index > 0}
 			<!-- Connecting line between steps -->
 			<span
-				class="flex-1 max-w-12 h-[3px] rounded-full transition-colors duration-300"
+				class="h-[3px] max-w-12 flex-1 rounded-full transition-colors duration-300"
 				class:bg-success-600={step < currentStep}
 				class:bg-primary-600={step === currentStep}
 				class:bg-neutral-700={step > currentStep}
@@ -22,20 +23,15 @@
 		{/if}
 		<!-- Step circle -->
 		<span
-			class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 shadow-sm {step ===
+			class="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold shadow-sm transition-all duration-300 {step ===
 			currentStep
 				? 'bg-primary-600 text-white ring-4 ring-primary-500/20'
 				: step < currentStep
 					? 'bg-success-600 text-white'
-					: 'bg-neutral-800 text-neutral-400 border border-neutral-700'}"
+					: 'border border-neutral-700 bg-neutral-800 text-neutral-400'}"
 		>
 			{#if step < currentStep}
-				<svg
-					class="w-5 h-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-				>
+				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path
 						stroke-linecap="round"
 						stroke-linejoin="round"

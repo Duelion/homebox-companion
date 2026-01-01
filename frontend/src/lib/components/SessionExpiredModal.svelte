@@ -1,16 +1,17 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { auth } from "$lib/api";
-	import { authStore } from "$lib/stores/auth.svelte";
-	import { resetLocationState } from "$lib/stores/locations.svelte";
-	import { scanWorkflow } from "$lib/workflows/scan.svelte";
-	import { authLogger as log } from "$lib/utils/logger";
-	import Button from "./Button.svelte";
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { auth } from '$lib/api';
+	import { authStore } from '$lib/stores/auth.svelte';
+	import { resetLocationState } from '$lib/stores/locations.svelte';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { authLogger as log } from '$lib/utils/logger';
+	import Button from './Button.svelte';
 
-	let email = $state("");
-	let password = $state("");
+	let email = $state('');
+	let password = $state('');
 	let isSubmitting = $state(false);
-	let errorMessage = $state("");
+	let errorMessage = $state('');
 
 	// Derive sessionExpired from authStore for reactive template usage
 	let sessionExpired = $derived(authStore.sessionExpired);
@@ -19,28 +20,23 @@
 		e.preventDefault();
 
 		if (!email || !password) {
-			errorMessage = "Please enter email and password";
+			errorMessage = 'Please enter email and password';
 			return;
 		}
 
 		isSubmitting = true;
-		errorMessage = "";
+		errorMessage = '';
 
 		try {
 			const response = await auth.login(email, password);
-			authStore.setAuthenticatedState(
-				response.token,
-				new Date(response.expires_at),
-			);
+			authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
 			// Reset form
-			email = "";
-			password = "";
+			email = '';
+			password = '';
 		} catch (error) {
-			log.error("Re-authentication failed:", error);
+			log.error('Re-authentication failed:', error);
 			errorMessage =
-				error instanceof Error
-					? error.message
-					: "Login failed. Please check your credentials.";
+				error instanceof Error ? error.message : 'Login failed. Please check your credentials.';
 		} finally {
 			isSubmitting = false;
 		}
@@ -50,25 +46,25 @@
 		scanWorkflow.reset();
 		resetLocationState();
 		authStore.logout();
-		goto("/");
+		goto(resolve('/'));
 	}
 </script>
 
 {#if sessionExpired}
 	<!-- Non-dismissable modal backdrop -->
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+		class="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
 	>
 		<div
-			class="w-full max-w-sm bg-neutral-800 rounded-2xl border border-neutral-700 shadow-xl animate-scale-in overflow-hidden"
+			class="w-full max-w-sm animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
 		>
 			<!-- Header -->
-			<div class="px-6 py-4 border-b border-neutral-700 bg-warning/10">
+			<div class="border-b border-neutral-700 bg-warning/10 px-6 py-4">
 				<div class="flex items-center gap-3">
-					<div class="p-2 rounded-full bg-warning/20">
+					<div class="rounded-full bg-warning/20 p-2">
 						<!-- Warning/clock icon for session expired -->
 						<svg
-							class="w-5 h-5 text-warning"
+							class="h-5 w-5 text-warning"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -80,22 +76,16 @@
 						</svg>
 					</div>
 					<div>
-						<h3 class="text-lg font-semibold text-neutral-200">
-							Session Expired
-						</h3>
-						<p class="text-sm text-neutral-400">
-							Please log in again to continue
-						</p>
+						<h3 class="text-lg font-semibold text-neutral-200">Session Expired</h3>
+						<p class="text-sm text-neutral-400">Please log in again to continue</p>
 					</div>
 				</div>
 			</div>
 
 			<!-- Form -->
-			<form class="p-6 space-y-4" onsubmit={handleSubmit}>
+			<form class="space-y-4 p-6" onsubmit={handleSubmit}>
 				{#if errorMessage}
-					<div
-						class="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm"
-					>
+					<div class="rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error">
 						{errorMessage}
 					</div>
 				{/if}
@@ -129,27 +119,15 @@
 				</div>
 
 				<div class="flex flex-col gap-2 pt-2">
-					<Button
-						type="submit"
-						variant="primary"
-						full
-						loading={isSubmitting}
-					>
+					<Button type="submit" variant="primary" full loading={isSubmitting}>
 						<svg
-							class="w-5 h-5"
+							class="h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 							stroke-width="2"
 						>
-							<rect
-								x="3"
-								y="11"
-								width="18"
-								height="11"
-								rx="2"
-								ry="2"
-							/>
+							<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
 							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
 						</svg>
 						<span>Sign In</span>
@@ -157,7 +135,7 @@
 
 					<button
 						type="button"
-						class="text-sm text-neutral-400 hover:text-neutral-200 transition-colors py-2"
+						class="py-2 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
 						onclick={handleLogout}
 						disabled={isSubmitting}
 					>

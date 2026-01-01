@@ -44,6 +44,29 @@ export default [
 			parserOptions: {
 				parser: tseslint.parser,
 			},
+			globals: {
+				...globals.browser,
+				...globals.node,
+				// DOM types used in TypeScript type annotations
+				HTMLInputElement: 'readonly',
+				HTMLTextAreaElement: 'readonly',
+				HTMLDivElement: 'readonly',
+				HTMLPreElement: 'readonly',
+				HTMLVideoElement: 'readonly',
+				HTMLCanvasElement: 'readonly',
+				HTMLImageElement: 'readonly',
+				MouseEvent: 'readonly',
+				KeyboardEvent: 'readonly',
+				TouchEvent: 'readonly',
+				WheelEvent: 'readonly',
+				TouchList: 'readonly',
+				Event: 'readonly',
+				File: 'readonly',
+				Blob: 'readonly',
+				Image: 'readonly',
+				Document: 'readonly',
+				CanvasRenderingContext2D: 'readonly',
+			},
 		},
 	},
 
@@ -89,8 +112,8 @@ export default [
 					'vt-enabled',
 				],
 			}],
-			// Enforce consistent class ordering
-			'tailwindcss/classnames-order': 'warn',
+			// Enforce consistent class ordering - handled by prettier-plugin-tailwindcss
+			'tailwindcss/classnames-order': 'off',
 			// Warn about conflicting classes like "p-2 p-4"
 			'tailwindcss/enforces-negative-arbitrary-values': 'warn',
 			// Suggest shorthand like "mx-2" instead of "ml-2 mr-2"
@@ -102,11 +125,20 @@ export default [
 		},
 	},
 
-	// Disable some TypeScript rules that are too strict for this project
+	// TypeScript rule adjustments
 	{
 		rules: {
 			'@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
 			'@typescript-eslint/no-explicit-any': 'off',
+		},
+	},
+
+	// Svelte-specific rule overrides (only truly acceptable exceptions)
+	{
+		files: ['**/*.svelte', '**/*.svelte.ts'],
+		rules: {
+			// Unused svelte-ignore comments are harmless noise
+			'svelte/no-unused-svelte-ignore': 'off',
 		},
 	},
 

@@ -58,7 +58,7 @@ export class CaptureService {
 			return {
 				...img,
 				additionalFiles: [...(img.additionalFiles || []), ...files],
-				additionalDataUrls: [...(img.additionalDataUrls || []), ...dataUrls]
+				additionalDataUrls: [...(img.additionalDataUrls || []), ...dataUrls],
 			};
 		});
 	}
@@ -71,7 +71,7 @@ export class CaptureService {
 			return {
 				...img,
 				additionalFiles: img.additionalFiles?.filter((_, j) => j !== additionalIndex),
-				additionalDataUrls: img.additionalDataUrls?.filter((_, j) => j !== additionalIndex)
+				additionalDataUrls: img.additionalDataUrls?.filter((_, j) => j !== additionalIndex),
 			};
 		});
 	}

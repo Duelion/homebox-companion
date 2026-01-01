@@ -15,10 +15,7 @@ interface RetryOptions {
  * @returns The result of the function
  * @throws The last error if all retries are exhausted
  */
-export async function withRetry<T>(
-	fn: () => Promise<T>,
-	options: RetryOptions = {}
-): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
 	const { maxAttempts = 3, baseDelay = 1000, onRetry } = options;
 
 	let lastError: Error | undefined;
@@ -46,4 +43,3 @@ export async function withRetry<T>(
 	// All retries exhausted
 	throw lastError || new Error('All retry attempts failed');
 }
-

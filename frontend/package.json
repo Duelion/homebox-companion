@@ -11,7 +11,9 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold warning --diagnostic-sources js,svelte",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch --threshold warning --diagnostic-sources js,svelte",
 		"lint": "eslint src",
-		"lint:fix": "eslint src --fix"
+		"lint:fix": "eslint src --fix",
+		"format": "prettier --write src",
+		"format:check": "prettier --check src"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.2",
@@ -24,6 +26,9 @@
 		"eslint-plugin-tailwindcss": "^3.18.2",
 		"globals": "^16.5.0",
 		"postcss": "^8.5.6",
+		"prettier": "^3.7.4",
+		"prettier-plugin-svelte": "^3.4.1",
+		"prettier-plugin-tailwindcss": "^0.7.2",
 		"svelte": "^5.43.8",
 		"svelte-check": "^4.3.4",
 		"svelte-eslint-parser": "^1.4.1",

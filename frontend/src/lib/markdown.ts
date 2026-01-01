@@ -15,17 +15,17 @@ import rehypeStringify from 'rehype-stringify';
 // 2. Add external link attributes AFTER sanitization - these safe attributes
 //    bypass the sanitizer entirely since it already ran
 const processor = unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkRehype)
-    .use(rehypeSanitize)
-    .use(rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] })
-    .use(rehypeStringify);
+	.use(remarkParse)
+	.use(remarkGfm)
+	.use(remarkRehype)
+	.use(rehypeSanitize)
+	.use(rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] })
+	.use(rehypeStringify);
 
 /**
  * Render markdown to sanitized HTML.
  * Uses synchronous processing for reactive $derived compatibility.
  */
 export function renderMarkdown(md: string): string {
-    return processor.processSync(md).toString();
+	return processor.processSync(md).toString();
 }

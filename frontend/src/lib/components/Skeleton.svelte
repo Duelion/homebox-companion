@@ -10,12 +10,7 @@
 		class?: string;
 	}
 
-	let { 
-		width = '100%', 
-		height = '1rem',
-		rounded = 'lg',
-		class: className = ''
-	}: Props = $props();
+	let { width = '100%', height = '1rem', rounded = 'lg', class: className = '' }: Props = $props();
 
 	const roundedClasses = {
 		sm: 'rounded-sm',
@@ -23,13 +18,12 @@
 		lg: 'rounded-lg',
 		xl: 'rounded-xl',
 		'2xl': 'rounded-2xl',
-		full: 'rounded-full'
+		full: 'rounded-full',
 	};
 </script>
 
-<div 
+<div
 	class="skeleton animate-shimmer {roundedClasses[rounded]} {className}"
 	style="width: {width}; height: {height};"
 	aria-hidden="true"
 ></div>
-

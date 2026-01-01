@@ -1,33 +1,34 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
-	import { slide } from "svelte/transition";
-	import { resetLocationState } from "$lib/stores/locations.svelte";
-	import { showToast } from "$lib/stores/ui.svelte";
-	import { markSessionExpired } from "$lib/stores/auth.svelte";
-	import { scanWorkflow } from "$lib/workflows/scan.svelte";
-	import { hasToken } from "$lib/utils/token";
-	import { routeGuards } from "$lib/utils/routeGuard";
-	import { createLogger } from "$lib/utils/logger";
-	import { getConfig } from "$lib/api/settings";
-	import Button from "$lib/components/Button.svelte";
-	import StepIndicator from "$lib/components/StepIndicator.svelte";
-	import BackLink from "$lib/components/BackLink.svelte";
-	import AnalysisProgressBar from "$lib/components/AnalysisProgressBar.svelte";
-	import StatusIcon from "$lib/components/StatusIcon.svelte";
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { slide } from 'svelte/transition';
+	import { resetLocationState } from '$lib/stores/locations.svelte';
+	import { showToast } from '$lib/stores/ui.svelte';
+	import { markSessionExpired } from '$lib/stores/auth.svelte';
+	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { hasToken } from '$lib/utils/token';
+	import { routeGuards } from '$lib/utils/routeGuard';
+	import { createLogger } from '$lib/utils/logger';
+	import { getConfig } from '$lib/api/settings';
+	import Button from '$lib/components/Button.svelte';
+	import StepIndicator from '$lib/components/StepIndicator.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
+	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
+	import StatusIcon from '$lib/components/StatusIcon.svelte';
 
-	const log = createLogger({ prefix: "Capture" });
+	const log = createLogger({ prefix: 'Capture' });
 
 	// Capture limits (loaded from config, with safe defaults)
 	let maxImages = $state(30);
 	let maxFileSizeMb = $state(10);
-	let configLoaded = $state(false);
 
 	let fileInput: HTMLInputElement;
 	let cameraInput: HTMLInputElement;
 
 	// Local UI state (not workflow state)
-	let expandedImages = $state<Set<number>>(new Set());
+	let expandedImages = new SvelteSet<number>();
 	let additionalImageInputs: { [key: number]: HTMLInputElement } = {};
 	let additionalCameraInputs: { [key: number]: HTMLInputElement } = {};
 	let analysisAnimationComplete = $state(false);
@@ -39,6 +40,7 @@
 	// destroy. This is because the workflow state persists across navigation, and
 	// we need the URLs to remain valid if the user navigates back to this page.
 	// The browser automatically cleans up Object URLs when the page/tab is closed.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Internal tracking, not reactive state
 	const createdObjectUrls = new Set<string>();
 
 	/** Create an object URL and track it for cleanup */
@@ -56,9 +58,7 @@
 		if (createdObjectUrls.has(url)) {
 			URL.revokeObjectURL(url);
 			createdObjectUrls.delete(url);
-			log.debug(
-				`Revoked object URL (${createdObjectUrls.size} remaining)`,
-			);
+			log.debug(`Revoked object URL (${createdObjectUrls.size} remaining)`);
 		} else {
 			// URL was created by a previous component instance - still try to revoke
 			// to free memory, but don't log errors since this is expected behavior
@@ -77,34 +77,30 @@
 	// Using getter pattern to ensure reactivity with class-based $state
 	let images = $derived(workflow.state.images);
 	let status = $derived(workflow.state.status);
-	let isAnalyzing = $derived(status === "analyzing");
+	let isAnalyzing = $derived(status === 'analyzing');
 	let progress = $derived(workflow.state.analysisProgress);
 	let imageStatuses = $derived(workflow.state.imageStatuses);
-	let locationName = $derived(workflow.state.locationName);
 	let locationPath = $derived(workflow.state.locationPath);
 	let parentItemName = $derived(workflow.state.parentItemName);
 
 	// Analysis status counts (computed once for efficiency)
 	let failedImageCount = $derived(
-		Object.values(imageStatuses).filter((s) => s === "failed").length,
+		Object.values(imageStatuses).filter((s) => s === 'failed').length
 	);
 	let succeededImageCount = $derived(
-		Object.values(imageStatuses).filter((s) => s === "success").length,
+		Object.values(imageStatuses).filter((s) => s === 'success').length
 	);
 	let detectedItemCount = $derived(workflow.state.detectedItems.length);
 
 	// Total image count including additional images (for limit enforcement)
 	let totalImageCount = $derived(
-		images.reduce(
-			(count, img) => count + 1 + (img.additionalFiles?.length || 0),
-			0,
-		),
+		images.reduce((count, img) => count + 1 + (img.additionalFiles?.length || 0), 0)
 	);
 
 	// True while analyzing OR while the completion animation is playing
 	// This prevents UI elements from appearing/disappearing during animation
 	let showAnalyzingUI = $derived(
-		isAnalyzing || (status === "reviewing" && !analysisAnimationComplete),
+		isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete)
 	);
 
 	// Cleanup orphaned Object URLs when workflow is reset (images array becomes empty)
@@ -114,9 +110,7 @@
 		const currentCount = images.length;
 		// If images were cleared (went to 0 from non-zero), revoke all tracked URLs
 		if (previousImageCount > 0 && currentCount === 0) {
-			log.debug(
-				`Workflow reset detected, revoking ${createdObjectUrls.size} orphaned URLs`,
-			);
+			log.debug(`Workflow reset detected, revoking ${createdObjectUrls.size} orphaned URLs`);
 			for (const url of createdObjectUrls) {
 				URL.revokeObjectURL(url);
 			}
@@ -135,14 +129,12 @@
 			maxImages = config.capture_max_images;
 			maxFileSizeMb = config.capture_max_file_size_mb;
 		} catch (error) {
-			log.warn("Failed to load capture config, using defaults", error);
-		} finally {
-			configLoaded = true;
+			log.warn('Failed to load capture config, using defaults', error);
 		}
 
 		// If workflow is complete (just finished submission), reset for a new scan session
-		if (workflow.state.status === "complete") {
-			log.info("Workflow complete, resetting for new scan session");
+		if (workflow.state.status === 'complete') {
+			log.info('Workflow complete, resetting for new scan session');
 			workflow.startNew();
 		}
 	});
@@ -150,7 +142,7 @@
 	// Watch for workflow errors
 	$effect(() => {
 		if (workflow.state.error) {
-			showToast(workflow.state.error, "error");
+			showToast(workflow.state.error, 'error');
 			workflow.clearError();
 		}
 	});
@@ -162,8 +154,8 @@
 		workflow.state.analysisProgress = null;
 
 		// Navigate immediately to prevent UI shift from buttons reappearing
-		if (workflow.state.status === "reviewing") {
-			goto("/review");
+		if (workflow.state.status === 'reviewing') {
+			goto(resolve('/review'));
 		}
 	}
 
@@ -174,10 +166,7 @@
 	/** Check if file exceeds size limit and show toast if so */
 	function isFileTooLarge(file: File): boolean {
 		if (file.size > maxFileSizeMb * 1024 * 1024) {
-			showToast(
-				`File ${file.name} is too large (max ${maxFileSizeMb}MB)`,
-				"warning",
-			);
+			showToast(`File ${file.name} is too large (max ${maxFileSizeMb}MB)`, 'warning');
 			return true;
 		}
 		return false;
@@ -192,7 +181,7 @@
 
 		for (const file of Array.from(input.files)) {
 			if (currentCount >= maxImages) {
-				showToast(`Maximum ${maxImages} images allowed`, "warning");
+				showToast(`Maximum ${maxImages} images allowed`, 'warning');
 				break;
 			}
 
@@ -209,13 +198,13 @@
 				file,
 				dataUrl: previewUrl,
 				separateItems: false,
-				extraInstructions: "",
+				extraInstructions: '',
 			});
 			// Collapse all expanded accordions when a new image is added
-			expandedImages = new Set();
+			expandedImages.clear();
 		}
 
-		input.value = "";
+		input.value = '';
 	}
 
 	function handleAdditionalImageSelect(imageIndex: number, e: Event) {
@@ -231,7 +220,7 @@
 		for (const file of Array.from(input.files)) {
 			// Check total image limit (including additional images)
 			if (newFiles.length >= remainingSlots) {
-				showToast(`Maximum ${maxImages} images allowed`, "warning");
+				showToast(`Maximum ${maxImages} images allowed`, 'warning');
 				break;
 			}
 
@@ -248,7 +237,7 @@
 			workflow.addAdditionalImages(imageIndex, newFiles, newPreviewUrls);
 		}
 
-		input.value = "";
+		input.value = '';
 	}
 
 	// ==========================================================================
@@ -258,10 +247,11 @@
 	function toggleImageExpanded(index: number) {
 		if (expandedImages.has(index)) {
 			// Collapse if already expanded
-			expandedImages = new Set();
+			expandedImages.clear();
 		} else {
 			// Expand this one and collapse all others
-			expandedImages = new Set([index]);
+			expandedImages.clear();
+			expandedImages.add(index);
 		}
 	}
 
@@ -279,25 +269,23 @@
 		}
 
 		workflow.removeImage(index);
-		expandedImages = new Set(
-			[...expandedImages]
-				.filter((i) => i !== index)
-				.map((i) => (i > index ? i - 1 : i)),
-		);
+		// Update expanded indices: remove this index and shift higher indices down
+		const updated = [...expandedImages]
+			.filter((i) => i !== index)
+			.map((i) => (i > index ? i - 1 : i));
+		expandedImages.clear();
+		updated.forEach((i) => expandedImages.add(i));
 	}
 
 	function updateImageOption(
 		index: number,
-		field: "separateItems" | "extraInstructions",
-		value: boolean | string,
+		field: 'separateItems' | 'extraInstructions',
+		value: boolean | string
 	) {
 		workflow.updateImageOptions(index, { [field]: value });
 	}
 
-	function removeAdditionalImage(
-		imageIndex: number,
-		additionalIndex: number,
-	) {
+	function removeAdditionalImage(imageIndex: number, additionalIndex: number) {
 		// Revoke object URL before removing to free memory
 		const image = images[imageIndex];
 		if (image?.additionalDataUrls?.[additionalIndex]) {
@@ -312,15 +300,15 @@
 	// ==========================================================================
 
 	function formatFileSize(bytes: number): string {
-		if (bytes < 1024) return bytes + " B";
-		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-		return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 	}
 
 	function goBack() {
 		resetLocationState();
 		workflow.clearLocation();
-		goto("/location");
+		goto(resolve('/location'));
 	}
 
 	// ==========================================================================
@@ -329,46 +317,42 @@
 
 	async function startAnalysis() {
 		// Entry logging
-		log.info("Analyze button clicked");
+		log.info('Analyze button clicked');
 
 		// Prevent double-clicks
 		if (isStartingAnalysis || isAnalyzing) {
-			log.debug(
-				"Analysis already starting or in progress, ignoring click",
-			);
+			log.debug('Analysis already starting or in progress, ignoring click');
 			return;
 		}
 
 		isStartingAnalysis = true;
-		log.debug("Starting analysis flow...");
+		log.debug('Starting analysis flow...');
 
 		try {
 			// Check token validity before starting analysis
-			log.debug("Checking authentication...");
+			log.debug('Checking authentication...');
 			if (!hasToken()) {
 				// Token missing - trigger re-auth modal
-				log.warn("Auth check failed, marking session expired");
+				log.warn('Auth check failed, marking session expired');
 				markSessionExpired();
 				return;
 			}
-			log.debug("Auth check passed");
+			log.debug('Auth check passed');
 
 			// Before workflow call
-			log.info(
-				`Starting workflow analysis for ${workflow.state.images.length} image(s)`,
-			);
+			log.info(`Starting workflow analysis for ${workflow.state.images.length} image(s)`);
 			analysisAnimationComplete = false;
 			// Collapse all expanded cards when analysis starts
-			expandedImages = new Set();
+			expandedImages.clear();
 			// Scroll to top of app after analysis starts
 			setTimeout(() => {
-				window.scrollTo({ top: 0, behavior: "smooth" });
+				window.scrollTo({ top: 0, behavior: 'smooth' });
 			}, 100);
 			await workflow.startAnalysis();
-			log.debug("Workflow.startAnalysis() completed");
+			log.debug('Workflow.startAnalysis() completed');
 		} catch (error) {
 			// Error logging
-			log.error("Analysis failed with exception", error);
+			log.error('Analysis failed with exception', error);
 			throw error;
 		} finally {
 			isStartingAnalysis = false;
@@ -389,52 +373,37 @@
 <div class="animate-in pb-28">
 	<StepIndicator currentStep={2} />
 
-	<h2 class="text-h2 text-neutral-100 mb-1">Capture Items</h2>
-	<p class="text-body-sm text-neutral-400 mb-6">
-		Add photos and configure detection options
-	</p>
+	<h2 class="mb-1 text-h2 text-neutral-100">Capture Items</h2>
+	<p class="mb-6 text-body-sm text-neutral-400">Add photos and configure detection options</p>
 
 	<!-- Current location display -->
 	{#if locationPath}
-		<BackLink
-			href="/location"
-			label="Change Location"
-			onclick={goBack}
-			disabled={isAnalyzing}
-		/>
+		<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
 
-		<div
-			class="flex flex-col gap-2 text-body-sm text-neutral-400 mb-3 mt-2"
-		>
+		<div class="mb-3 mt-2 flex flex-col gap-2 text-body-sm text-neutral-400">
 			<!-- Location block -->
 			<div class="flex flex-col gap-1">
 				<div class="flex items-center gap-2">
 					<svg
-						class="w-4 h-4 shrink-0"
+						class="h-4 w-4 shrink-0"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
 						stroke-width="1.5"
 					>
-						<path
-							d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
-						/>
+						<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 						<circle cx="12" cy="10" r="3" />
 					</svg>
 					<span>Items will be added to:</span>
 				</div>
-				<span class="font-semibold text-neutral-200 pl-6"
-					>{locationPath}</span
-				>
+				<span class="pl-6 font-semibold text-neutral-200">{locationPath}</span>
 			</div>
 
 			<!-- Parent item block (if present) -->
 			{#if parentItemName}
 				<div class="flex items-center gap-2 pl-6 sm:pl-0">
 					<span class="text-neutral-500">Inside:</span>
-					<span class="font-semibold text-primary-400"
-						>{parentItemName}</span
-					>
+					<span class="font-semibold text-primary-400">{parentItemName}</span>
 				</div>
 			{/if}
 		</div>
@@ -446,24 +415,22 @@
 			<AnalysisProgressBar
 				current={progress.current}
 				total={progress.total}
-				message={status === "reviewing"
-					? "Analysis complete!"
-					: progress.message || "Analyzing..."}
+				message={status === 'reviewing' ? 'Analysis complete!' : progress.message || 'Analyzing...'}
 				onComplete={handleAnalysisComplete}
 			/>
 		</div>
 	{/if}
 
 	<!-- Partial failure panel (when some images failed analysis) -->
-	{#if status === "partial_analysis"}
+	{#if status === 'partial_analysis'}
 		<div
-			class="bg-warning-500/10 border border-warning-500/30 rounded-xl p-4 mb-4"
+			class="mb-4 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4"
 			transition:slide={{ duration: 200 }}
 		>
-			<div class="flex items-start gap-3 mb-4">
+			<div class="mb-4 flex items-start gap-3">
 				<!-- Warning icon -->
 				<svg
-					class="w-6 h-6 text-warning-400 shrink-0 mt-0.5"
+					class="text-warning-400 mt-0.5 h-6 w-6 shrink-0"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -475,45 +442,32 @@
 				</svg>
 
 				<div class="flex-1">
-					<h3 class="text-body font-semibold text-warning-100 mb-1">
+					<h3 class="mb-1 text-body font-semibold text-warning-100">
 						Some Images Failed to Analyze
 					</h3>
-					<p class="text-body-sm text-warning-200/80 mb-3">
-						{failedImageCount} of {images.length} image(s) could not
-						be processed. You can retry the failed images, continue with
-						the successful ones, or remove the failed images.
+					<p class="text-warning-200/80 mb-3 text-body-sm">
+						{failedImageCount} of {images.length} image(s) could not be processed. You can retry the failed
+						images, continue with the successful ones, or remove the failed images.
 					</p>
 
 					<!-- Stats -->
-					<div class="flex gap-4 text-caption mb-4">
+					<div class="mb-4 flex gap-4 text-caption">
 						<div class="flex items-center gap-1.5">
-							<div
-								class="w-2 h-2 rounded-full bg-success-400"
-							></div>
-							<span class="text-neutral-300"
-								>{succeededImageCount} succeeded</span
-							>
+							<div class="bg-success-400 h-2 w-2 rounded-full"></div>
+							<span class="text-neutral-300">{succeededImageCount} succeeded</span>
 						</div>
 						<div class="flex items-center gap-1.5">
-							<div
-								class="w-2 h-2 rounded-full bg-error-400"
-							></div>
-							<span class="text-neutral-300"
-								>{failedImageCount} failed</span
-							>
+							<div class="bg-error-400 h-2 w-2 rounded-full"></div>
+							<span class="text-neutral-300">{failedImageCount} failed</span>
 						</div>
 						<div class="flex items-center gap-1.5">
-							<div
-								class="w-2 h-2 rounded-full bg-primary-400"
-							></div>
-							<span class="text-neutral-300"
-								>{detectedItemCount} items detected</span
-							>
+							<div class="h-2 w-2 rounded-full bg-primary-400"></div>
+							<span class="text-neutral-300">{detectedItemCount} items detected</span>
 						</div>
 					</div>
 
 					<!-- Action buttons -->
-					<div class="flex flex-col sm:flex-row gap-2">
+					<div class="flex flex-col gap-2 sm:flex-row">
 						<Button
 							variant="warning"
 							onclick={async () => {
@@ -524,7 +478,7 @@
 							disabled={isStartingAnalysis}
 						>
 							<svg
-								class="w-4 h-4"
+								class="h-4 w-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -540,13 +494,13 @@
 							variant="primary"
 							onclick={() => {
 								workflow.continueWithSuccessful();
-								goto("/review");
+								goto(resolve('/review'));
 							}}
 							disabled={isStartingAnalysis}
 						>
 							<span>Continue with Successful</span>
 							<svg
-								class="w-4 h-4"
+								class="h-4 w-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -559,12 +513,12 @@
 							variant="secondary"
 							onclick={() => {
 								workflow.removeFailedImages();
-								goto("/review");
+								goto(resolve('/review'));
 							}}
 							disabled={isStartingAnalysis}
 						>
 							<svg
-								class="w-4 h-4"
+								class="h-4 w-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -584,40 +538,36 @@
 
 	<!-- Image list with collapsible cards -->
 	{#if images.length > 0}
-		<div class="space-y-3 mb-4">
-			{#each images as image, index}
+		<div class="mb-4 space-y-3">
+			{#each images as image, index (image.dataUrl)}
 				<div
-					class="bg-neutral-900 rounded-xl border border-neutral-700 shadow-sm overflow-hidden transition-all hover:border-neutral-600"
+					class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-sm transition-all hover:border-neutral-600"
 				>
 					<!-- Header (always visible) -->
 					<div class="flex items-center gap-3 p-3">
 						<!-- Thumbnail -->
-						<div
-							class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-neutral-800 relative"
-						>
+						<div class="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-800">
 							<img
 								src={image.dataUrl}
 								alt="Captured {index + 1}"
-								class="w-full h-full object-cover"
+								class="h-full w-full object-cover"
 							/>
 							<div
-								class="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-medium"
+								class="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white"
 							>
 								{index + 1}
 							</div>
 						</div>
 
 						<!-- File info -->
-						<div class="flex-1 min-w-0">
+						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<p
-									class="text-body-sm font-medium text-neutral-200 truncate"
-								>
+								<p class="truncate text-body-sm font-medium text-neutral-200">
 									{image.file.name}
 								</p>
 								{#if image.additionalFiles && image.additionalFiles.length > 0}
 									<span
-										class="px-1.5 py-0.5 bg-primary-500/20 text-primary-300 rounded text-caption font-medium"
+										class="rounded bg-primary-500/20 px-1.5 py-0.5 text-caption font-medium text-primary-300"
 									>
 										+{image.additionalFiles.length}
 									</span>
@@ -632,24 +582,17 @@
 						<div class="flex items-center gap-1">
 							{#if showAnalyzingUI && imageStatuses[index]}
 								<!-- Show status icon during analysis -->
-								<StatusIcon
-									status={imageStatuses[index]}
-									size="sm"
-								/>
+								<StatusIcon status={imageStatuses[index]} size="sm" />
 							{:else}
 								<button
 									type="button"
-									class="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
-									aria-label={expandedImages.has(index)
-										? "Collapse options"
-										: "Expand options"}
+									class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
+									aria-label={expandedImages.has(index) ? 'Collapse options' : 'Expand options'}
 									onclick={() => toggleImageExpanded(index)}
 									disabled={isAnalyzing}
 								>
 									<svg
-										class="w-5 h-5 transition-transform duration-200 {expandedImages.has(
-											index,
-										)
+										class="h-5 w-5 transition-transform duration-200 {expandedImages.has(index)
 											? 'rotate-180'
 											: ''}"
 										fill="none"
@@ -662,13 +605,13 @@
 								</button>
 								<button
 									type="button"
-									class="p-2 text-neutral-400 hover:text-error-400 hover:bg-error-500/10 rounded-lg transition-colors"
+									class="hover:text-error-400 rounded-lg p-2 text-neutral-400 transition-colors hover:bg-error-500/10"
 									aria-label="Remove image"
 									onclick={() => removeImage(index)}
 									disabled={isAnalyzing}
 								>
 									<svg
-										class="w-5 h-5"
+										class="h-5 w-5"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
@@ -685,13 +628,11 @@
 					<!-- Expandable options -->
 					{#if expandedImages.has(index)}
 						<div
-							class="px-3 pb-3 pt-0 space-y-3 border-t border-neutral-800 mt-0"
+							class="mt-0 space-y-3 border-t border-neutral-800 px-3 pb-3 pt-0"
 							transition:slide={{ duration: 200 }}
 						>
 							<!-- Separate into multiple items toggle -->
-							<label
-								class="flex items-center gap-3 pt-3 cursor-pointer"
-							>
+							<label class="flex cursor-pointer items-center gap-3 pt-3">
 								<div class="relative">
 									<input
 										type="checkbox"
@@ -699,23 +640,20 @@
 										onchange={(e) =>
 											updateImageOption(
 												index,
-												"separateItems",
-												(e.target as HTMLInputElement)
-													.checked,
+												'separateItems',
+												(e.target as HTMLInputElement).checked
 											)}
-										class="sr-only peer"
+										class="peer sr-only"
 										disabled={isAnalyzing}
 									/>
 									<div
-										class="w-10 h-6 bg-neutral-700 rounded-full peer-checked:bg-primary-600 transition-colors"
+										class="h-6 w-10 rounded-full bg-neutral-700 transition-colors peer-checked:bg-primary-600"
 									></div>
 									<div
-										class="absolute left-1 top-1 w-4 h-4 bg-neutral-400 rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-all"
+										class="absolute left-1 top-1 h-4 w-4 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-white"
 									></div>
 								</div>
-								<span class="text-body-sm text-neutral-200"
-									>Separate into multiple items</span
-								>
+								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
 							</label>
 
 							<!-- Optional instructions -->
@@ -727,9 +665,8 @@
 									oninput={(e) =>
 										updateImageOption(
 											index,
-											"extraInstructions",
-											(e.target as HTMLInputElement)
-												.value,
+											'extraInstructions',
+											(e.target as HTMLInputElement).value
 										)}
 									class="input text-body-sm"
 									disabled={isAnalyzing}
@@ -742,8 +679,7 @@
 								accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
 								multiple
 								bind:this={additionalImageInputs[index]}
-								onchange={(e) =>
-									handleAdditionalImageSelect(index, e)}
+								onchange={(e) => handleAdditionalImageSelect(index, e)}
 								class="hidden"
 							/>
 							<input
@@ -752,96 +688,65 @@
 								capture="environment"
 								multiple
 								bind:this={additionalCameraInputs[index]}
-								onchange={(e) =>
-									handleAdditionalImageSelect(index, e)}
+								onchange={(e) => handleAdditionalImageSelect(index, e)}
 								class="hidden"
 							/>
 
 							{#if image.additionalDataUrls && image.additionalDataUrls.length > 0}
 								<!-- Has additional photos: show gallery strip -->
-								<div
-									class="pt-3 border-t border-neutral-800/50"
-								>
-									<div class="flex items-center gap-2 mb-3">
+								<div class="border-t border-neutral-800/50 pt-3">
+									<div class="mb-3 flex items-center gap-2">
 										<svg
-											class="w-4 h-4 text-primary-400"
+											class="h-4 w-4 text-primary-400"
 											fill="none"
 											stroke="currentColor"
 											viewBox="0 0 24 24"
 											stroke-width="1.5"
 										>
-											<rect
-												x="3"
-												y="3"
-												width="18"
-												height="18"
-												rx="2"
-												ry="2"
-											/>
+											<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
 											<circle cx="8.5" cy="8.5" r="1.5" />
-											<polyline
-												points="21 15 16 10 5 21"
-											/>
+											<polyline points="21 15 16 10 5 21" />
 										</svg>
-										<span
-											class="text-body-sm font-medium text-neutral-200"
-										>
-											{image.additionalDataUrls.length} additional
-											photo{image.additionalDataUrls
+										<span class="text-body-sm font-medium text-neutral-200">
+											{image.additionalDataUrls.length} additional photo{image.additionalDataUrls
 												.length !== 1
-												? "s"
-												: ""}
+												? 's'
+												: ''}
 										</span>
 									</div>
 
 									<!-- Thumbnail gallery -->
-									<div
-										class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin"
-									>
-										{#each image.additionalDataUrls as additionalUrl, additionalIndex}
+									<div class="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+										{#each image.additionalDataUrls as additionalUrl (additionalUrl)}
+											{@const additionalIndex = image.additionalDataUrls.indexOf(additionalUrl)}
 											<div
-												class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-neutral-800 group ring-1 ring-neutral-700"
+												class="group relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700"
 											>
 												<img
 													src={additionalUrl}
-													alt="Additional {additionalIndex +
-														1}"
-													class="w-full h-full object-cover"
+													alt="Additional {additionalIndex + 1}"
+													class="h-full w-full object-cover"
 												/>
 												<button
 													type="button"
-													class="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-error-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+													class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all hover:bg-error-600 group-hover:opacity-100"
 													aria-label="Remove additional image"
-													onclick={() =>
-														removeAdditionalImage(
-															index,
-															additionalIndex,
-														)}
+													onclick={() => removeAdditionalImage(index, additionalIndex)}
 													disabled={isAnalyzing}
 												>
 													<svg
-														class="w-3.5 h-3.5 text-white"
+														class="h-3.5 w-3.5 text-white"
 														fill="none"
 														stroke="currentColor"
 														stroke-width="2.5"
 														viewBox="0 0 24 24"
 													>
-														<line
-															x1="18"
-															y1="6"
-															x2="6"
-															y2="18"
-														/>
-														<line
-															x1="6"
-															y1="6"
-															x2="18"
-															y2="18"
-														/>
+														<line x1="18" y1="6" x2="6" y2="18" />
+														<line x1="6" y1="6" x2="18" y2="18" />
 													</svg>
 												</button>
 												<div
-													class="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] font-medium px-1.5 py-0.5 rounded"
+													class="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
 												>
 													{additionalIndex + 1}
 												</div>
@@ -850,18 +755,15 @@
 									</div>
 
 									<!-- Add more buttons below gallery -->
-									<div class="flex gap-2 mt-3">
+									<div class="mt-3 flex gap-2">
 										<button
 											type="button"
-											class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
-											onclick={() =>
-												additionalCameraInputs[
-													index
-												]?.click()}
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+											onclick={() => additionalCameraInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
 											<svg
-												class="w-4 h-4 text-neutral-400"
+												class="h-4 w-4 text-neutral-400"
 												fill="none"
 												stroke="currentColor"
 												stroke-width="1.5"
@@ -872,70 +774,44 @@
 												/>
 												<circle cx="12" cy="13" r="4" />
 											</svg>
-											<span
-												class="text-caption text-neutral-400 font-medium"
-												>Camera</span
-											>
+											<span class="text-caption font-medium text-neutral-400">Camera</span>
 										</button>
 										<button
 											type="button"
-											class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
-											onclick={() =>
-												additionalImageInputs[
-													index
-												]?.click()}
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+											onclick={() => additionalImageInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
 											<svg
-												class="w-4 h-4 text-neutral-400"
+												class="h-4 w-4 text-neutral-400"
 												fill="none"
 												stroke="currentColor"
 												stroke-width="1.5"
 												viewBox="0 0 24 24"
 											>
-												<path
-													d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-												/>
-												<polyline
-													points="17 8 12 3 7 8"
-												/>
-												<line
-													x1="12"
-													y1="3"
-													x2="12"
-													y2="15"
-												/>
+												<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+												<polyline points="17 8 12 3 7 8" />
+												<line x1="12" y1="3" x2="12" y2="15" />
 											</svg>
-											<span
-												class="text-caption text-neutral-400 font-medium"
-												>Upload</span
-											>
+											<span class="text-caption font-medium text-neutral-400">Upload</span>
 										</button>
 									</div>
 								</div>
 							{:else}
 								<!-- Empty state: compact add buttons (same style as when photos exist) -->
-								<div
-									class="pt-3 border-t border-neutral-800/50"
-								>
-									<p
-										class="text-caption text-neutral-500 mb-2"
-									>
-										Add close-ups, labels, serial numbers,
-										different angles
+								<div class="border-t border-neutral-800/50 pt-3">
+									<p class="mb-2 text-caption text-neutral-500">
+										Add close-ups, labels, serial numbers, different angles
 									</p>
 									<div class="flex gap-2">
 										<button
 											type="button"
-											class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
-											onclick={() =>
-												additionalCameraInputs[
-													index
-												]?.click()}
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+											onclick={() => additionalCameraInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
 											<svg
-												class="w-4 h-4 text-neutral-400"
+												class="h-4 w-4 text-neutral-400"
 												fill="none"
 												stroke="currentColor"
 												stroke-width="1.5"
@@ -946,44 +822,26 @@
 												/>
 												<circle cx="12" cy="13" r="4" />
 											</svg>
-											<span
-												class="text-caption text-neutral-400 font-medium"
-												>Camera</span
-											>
+											<span class="text-caption font-medium text-neutral-400">Camera</span>
 										</button>
 										<button
 											type="button"
-											class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
-											onclick={() =>
-												additionalImageInputs[
-													index
-												]?.click()}
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+											onclick={() => additionalImageInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
 											<svg
-												class="w-4 h-4 text-neutral-400"
+												class="h-4 w-4 text-neutral-400"
 												fill="none"
 												stroke="currentColor"
 												stroke-width="1.5"
 												viewBox="0 0 24 24"
 											>
-												<path
-													d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-												/>
-												<polyline
-													points="17 8 12 3 7 8"
-												/>
-												<line
-													x1="12"
-													y1="3"
-													x2="12"
-													y2="15"
-												/>
+												<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+												<polyline points="17 8 12 3 7 8" />
+												<line x1="12" y1="3" x2="12" y2="15" />
 											</svg>
-											<span
-												class="text-caption text-neutral-400 font-medium"
-												>Upload</span
-											>
+											<span class="text-caption font-medium text-neutral-400">Upload</span>
 										</button>
 									</div>
 								</div>
@@ -998,15 +856,15 @@
 				<div class="flex gap-3">
 					<button
 						type="button"
-						class="flex-1 p-4 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
+						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 						onclick={() => cameraInput.click()}
 					>
 						<div class="flex flex-col items-center gap-2">
 							<div
-								class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors"
+								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 							>
 								<svg
-									class="w-6 h-6 text-neutral-400 group-hover:text-primary-400 transition-colors"
+									class="h-6 w-6 text-neutral-400 transition-colors group-hover:text-primary-400"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -1019,36 +877,34 @@
 								</svg>
 							</div>
 							<span
-								class="text-body-sm font-medium text-neutral-400 group-hover:text-primary-400 transition-colors"
+								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
 								>Camera</span
 							>
 						</div>
 					</button>
 					<button
 						type="button"
-						class="flex-1 p-4 rounded-xl border border-dashed border-neutral-600 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
+						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 						onclick={() => fileInput.click()}
 					>
 						<div class="flex flex-col items-center gap-2">
 							<div
-								class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors"
+								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 							>
 								<svg
-									class="w-6 h-6 text-neutral-400 group-hover:text-primary-400 transition-colors"
+									class="h-6 w-6 text-neutral-400 transition-colors group-hover:text-primary-400"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
 									stroke-width="1.5"
 								>
-									<path
-										d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-									/>
+									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 									<polyline points="17 8 12 3 7 8" />
 									<line x1="12" y1="3" x2="12" y2="15" />
 								</svg>
 							</div>
 							<span
-								class="text-body-sm font-medium text-neutral-400 group-hover:text-primary-400 transition-colors"
+								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
 								>Upload</span
 							>
 						</div>
@@ -1058,12 +914,10 @@
 		</div>
 	{:else}
 		<!-- Enhanced empty state -->
-		<div class="flex flex-col items-center py-12 px-4 mb-6">
-			<div
-				class="w-24 h-24 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-6"
-			>
+		<div class="mb-6 flex flex-col items-center px-4 py-12">
+			<div class="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-primary-500/10">
 				<svg
-					class="w-12 h-12 text-primary-400"
+					class="h-12 w-12 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1075,27 +929,24 @@
 					<circle cx="12" cy="13" r="4" />
 				</svg>
 			</div>
-			<h3 class="text-h3 text-neutral-100 mb-2 text-center">
-				Capture your items
-			</h3>
-			<p class="text-body-sm text-neutral-400 text-center max-w-xs mb-8">
-				Take photos or upload images of items you want to add to your
-				inventory
+			<h3 class="mb-2 text-center text-h3 text-neutral-100">Capture your items</h3>
+			<p class="mb-8 max-w-xs text-center text-body-sm text-neutral-400">
+				Take photos or upload images of items you want to add to your inventory
 			</p>
 
 			<!-- Capture buttons -->
-			<div class="flex gap-3 w-full max-w-sm">
+			<div class="flex w-full max-w-sm gap-3">
 				<button
 					type="button"
-					class="flex-1 p-4 rounded-xl bg-neutral-900 border border-neutral-700 hover:border-primary-500/50 hover:bg-neutral-800 transition-all group shadow-sm"
+					class="group flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:border-primary-500/50 hover:bg-neutral-800"
 					onclick={() => cameraInput.click()}
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div
-							class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors"
+							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 						>
 							<svg
-								class="w-6 h-6 text-neutral-300 group-hover:text-primary-400 transition-colors"
+								class="h-6 w-6 text-neutral-300 transition-colors group-hover:text-primary-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -1108,45 +959,42 @@
 							</svg>
 						</div>
 						<span
-							class="text-body-sm font-medium text-neutral-200 group-hover:text-primary-400 transition-colors"
+							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
 							>Camera</span
 						>
 					</div>
 				</button>
 				<button
 					type="button"
-					class="flex-1 p-4 rounded-xl bg-neutral-900 border border-neutral-700 hover:border-primary-500/50 hover:bg-neutral-800 transition-all group shadow-sm"
+					class="group flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:border-primary-500/50 hover:bg-neutral-800"
 					onclick={() => fileInput.click()}
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div
-							class="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center group-hover:bg-primary-500/10 transition-colors"
+							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 						>
 							<svg
-								class="w-6 h-6 text-neutral-300 group-hover:text-primary-400 transition-colors"
+								class="h-6 w-6 text-neutral-300 transition-colors group-hover:text-primary-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 							>
-								<path
-									d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-								/>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 								<polyline points="17 8 12 3 7 8" />
 								<line x1="12" y1="3" x2="12" y2="15" />
 							</svg>
 						</div>
 						<span
-							class="text-body-sm font-medium text-neutral-200 group-hover:text-primary-400 transition-colors"
+							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
 							>Upload</span
 						>
 					</div>
 				</button>
 			</div>
 
-			<p class="text-caption text-neutral-500 mt-6">
-				{totalImageCount} / {maxImages} images · {maxFileSizeMb}MB per
-				file
+			<p class="mt-6 text-caption text-neutral-500">
+				{totalImageCount} / {maxImages} images · {maxFileSizeMb}MB per file
 			</p>
 		</div>
 	{/if}
@@ -1172,13 +1020,13 @@
 
 <!-- Sticky Analyze button at bottom - above navigation bar -->
 <div
-	class="fixed bottom-nav-offset left-0 right-0 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 p-4 z-40"
+	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
 >
-	<div class="max-w-lg mx-auto">
+	<div class="mx-auto max-w-lg">
 		{#if showAnalyzingUI && isAnalyzing}
 			<Button variant="secondary" full onclick={cancelAnalysis}>
 				<svg
-					class="w-5 h-5"
+					class="h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1202,7 +1050,7 @@
 					<span>Analyze with AI</span>
 				{/if}
 				<svg
-					class="w-5 h-5"
+					class="h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1214,9 +1062,7 @@
 				</svg>
 			</Button>
 			{#if images.length === 0}
-				<p class="text-center text-caption text-neutral-500 mt-2">
-					Add photos to continue
-				</p>
+				<p class="mt-2 text-center text-caption text-neutral-500">Add photos to continue</p>
 			{/if}
 		{/if}
 	</div>

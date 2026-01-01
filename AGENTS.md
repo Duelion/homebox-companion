@@ -33,7 +33,11 @@ uv run pytest -m live         # Live tests (real services)
 # Frontend (in frontend/ directory)
 npm install
 npm run dev
-npm run check            # TypeScript validation
+npm run check            # TypeScript/Svelte validation
+npm run lint             # ESLint (Svelte + Tailwind)
+npm run lint:fix         # ESLint with auto-fix
+npm run format:check     # Prettier format check
+npm run format           # Prettier auto-format
 ```
 
 ---
@@ -104,8 +108,10 @@ Demo credentials: `demo@example.com` / `demo`
 1. `uv run ruff check .`
 2. `uv run ty check`
 3. `uv run vulture --min-confidence 70 --sort-by-size`
-4. `cd frontend && npm run check`
-5. `cd frontend && npx svelte-check --tsconfig ./tsconfig.json`
+4. `npm run check`
+5. `cd frontend`
+6. `npm run lint`
+7. `npm run format:check`
 
 ---
 

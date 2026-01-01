@@ -65,7 +65,7 @@ export class ReviewService {
 	updateSourceImageIndices(removedIndices: number[]): void {
 		if (removedIndices.length === 0) return;
 
-		this._detectedItems = this._detectedItems.map(item => {
+		this._detectedItems = this._detectedItems.map((item) => {
 			let newIndex = item.sourceImageIndex;
 			// For each removed index that was below or equal to this item's source,
 			// decrement the index (but only if the source wasn't the removed index itself)
@@ -74,9 +74,7 @@ export class ReviewService {
 					newIndex--;
 				}
 			}
-			return newIndex !== item.sourceImageIndex
-				? { ...item, sourceImageIndex: newIndex }
-				: item;
+			return newIndex !== item.sourceImageIndex ? { ...item, sourceImageIndex: newIndex } : item;
 		});
 	}
 
@@ -156,11 +154,12 @@ export class ReviewService {
 	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
 		let count = 0;
 		for (let i = this._currentReviewIndex; i < this._detectedItems.length; i++) {
-			// Use the override for the current item (index matches currentReviewIndex), 
+			// Use the override for the current item (index matches currentReviewIndex),
 			// otherwise use the detected item as-is
-			const item = (i === this._currentReviewIndex && currentItemOverride)
-				? currentItemOverride
-				: this._detectedItems[i];
+			const item =
+				i === this._currentReviewIndex && currentItemOverride
+					? currentItemOverride
+					: this._detectedItems[i];
 			const confirmed: ConfirmedItem = { ...item, confirmed: true };
 			this._confirmedItems = [...this._confirmedItems, confirmed];
 			count++;
@@ -232,7 +231,7 @@ export class ReviewService {
 			originalFile: item.originalFile,
 			customThumbnail: item.customThumbnail,
 			compressedDataUrl: item.compressedDataUrl,
-			compressedAdditionalDataUrls: item.compressedAdditionalDataUrls
+			compressedAdditionalDataUrls: item.compressedAdditionalDataUrls,
 		};
 
 		// Add to detected items for re-review

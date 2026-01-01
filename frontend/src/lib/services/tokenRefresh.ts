@@ -119,4 +119,3 @@ export async function initializeAuth(): Promise<void> {
 		}
 	}
 }
-
