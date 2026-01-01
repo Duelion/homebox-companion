@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { resolve } from '$app/paths';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import AppContainer from '$lib/components/AppContainer.svelte';
 
 	// Type-safe route type for dynamic paths
 	type AppRoute = Parameters<typeof resolve>[0];
@@ -75,7 +76,7 @@
 	style="view-transition-name: bottom-nav; transform: translateZ(0); -webkit-transform: translateZ(0);"
 	aria-label="Main navigation"
 >
-	<div class="mx-auto max-w-lg px-2">
+	<AppContainer class="px-2">
 		<ul class="flex h-16 items-center justify-around" role="menubar">
 			{#each navItems as item (item.id)}
 				{@const active = isActive(item, currentPath)}
@@ -171,5 +172,5 @@
 				</li>
 			{/each}
 		</ul>
-	</div>
+	</AppContainer>
 </nav>

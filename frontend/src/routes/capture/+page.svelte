@@ -13,6 +13,7 @@
 	import { createLogger } from '$lib/utils/logger';
 	import { getConfig } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';
+	import AppContainer from '$lib/components/AppContainer.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
@@ -1022,7 +1023,7 @@
 <div
 	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
 >
-	<div class="mx-auto max-w-lg">
+	<AppContainer>
 		{#if showAnalyzingUI && isAnalyzing}
 			<Button variant="secondary" full onclick={cancelAnalysis}>
 				<svg
@@ -1065,5 +1066,5 @@
 				<p class="mt-2 text-center text-caption text-neutral-500">Add photos to continue</p>
 			{/if}
 		{/if}
-	</div>
+	</AppContainer>
 </div>

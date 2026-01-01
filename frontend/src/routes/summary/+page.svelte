@@ -13,6 +13,7 @@
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
+	import AppContainer from '$lib/components/AppContainer.svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -404,7 +405,7 @@
 <div
 	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
 >
-	<div class="mx-auto max-w-lg space-y-3">
+	<AppContainer class="space-y-3">
 		{#if !workflow.hasFailedItems() && !workflow.allItemsSuccessful()}
 			<Button variant="primary" full size="lg" loading={isSubmitting} onclick={submitAll}>
 				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -440,5 +441,5 @@
 				<span>Continue with Successful Items</span>
 			</Button>
 		{/if}
-	</div>
+	</AppContainer>
 </div>

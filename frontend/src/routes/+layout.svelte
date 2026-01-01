@@ -4,6 +4,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import SessionExpiredModal from '$lib/components/SessionExpiredModal.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
+	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { uiStore } from '$lib/stores/ui.svelte';
 	import { getVersion, getConfig } from '$lib/api';
@@ -121,7 +122,7 @@
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
-			<div class="mx-auto flex h-14 max-w-lg items-center justify-center px-4">
+			<AppContainer class="flex h-14 items-center justify-center px-4">
 				<!-- Center: Logo and title -->
 				<a
 					href={resolve(isAuthenticated ? '/location' : '/')}
@@ -142,7 +143,7 @@
 					</svg>
 					<span class="whitespace-nowrap text-lg">Homebox Companion</span>
 				</a>
-			</div>
+			</AppContainer>
 		</div>
 	</div>
 
@@ -191,8 +192,10 @@
 	{/if}
 
 	<!-- Main content - add bottom padding when nav is visible -->
-	<main class="mx-auto w-full max-w-lg flex-1 px-4 py-6 {isAuthenticated ? 'pb-24' : ''}">
-		{@render children()}
+	<main class="flex-1">
+		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24' : ''}">
+			{@render children()}
+		</AppContainer>
 	</main>
 
 	<!-- Offline banner - positioned above bottom nav when authenticated -->

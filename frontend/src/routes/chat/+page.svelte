@@ -12,6 +12,7 @@
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import ApprovalCard from '$lib/components/ApprovalCard.svelte';
+	import AppContainer from '$lib/components/AppContainer.svelte';
 
 	const log = createLogger({ prefix: 'ChatPage' });
 
@@ -209,8 +210,8 @@
 <!-- Fixed input at bottom - above navigation bar (same pattern as Capture page) -->
 {#if isEnabled}
 	<div class="fixed-bottom-panel p-4">
-		<div class="mx-auto max-w-lg">
+		<AppContainer>
 			<ChatInput hasMessages={chatStore.messages.length > 0} onClearHistory={handleClearHistory} />
-		</div>
+		</AppContainer>
 	</div>
 {/if}

@@ -13,6 +13,7 @@
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
 	import ExtendedFieldsPanel from '$lib/components/ExtendedFieldsPanel.svelte';
+	import AppContainer from '$lib/components/AppContainer.svelte';
 	import ImagesPanel from '$lib/components/ImagesPanel.svelte';
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -500,7 +501,7 @@
 	<div
 		class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
 	>
-		<div class="mx-auto max-w-lg">
+		<AppContainer>
 			<!-- Item counter in footer for mobile - positioned above bottom nav -->
 			<div class="flex items-center justify-center py-3 md:hidden">
 				<span class="text-body-sm font-medium text-neutral-300">
@@ -538,7 +539,7 @@
 					</Button>
 				</div>
 			</div>
-		</div>
+		</AppContainer>
 	</div>
 {/if}
 

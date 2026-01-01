@@ -96,10 +96,6 @@ def _build_litellm_tools() -> list[dict[str, Any]]:
     tools = []
 
     for tool in all_tools:
-        # Only expose read-only tools for now
-        if tool.permission != ToolPermission.READ:
-            continue
-
         tools.append({
             "type": "function",
             "function": {
