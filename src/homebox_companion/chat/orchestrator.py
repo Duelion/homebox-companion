@@ -209,10 +209,22 @@ class ChatOrchestrator:
         ))
 
         # Execute tools using already-parsed tool calls (no redundant JSON parsing)
+        # Track whether any approvals were queued - if so, we stop and wait for user action
+        has_pending_approvals = False
+
         for parsed_tc in parsed_tool_calls:
             # Check tool permission
             tool = self._tools_by_name.get(parsed_tc.name)
             if not tool:
+                # Add error tool result to satisfy OpenAI API requirements
+                self.session.add_message(ChatMessage(
+                    role="tool",
+                    content=json.dumps({
+                        "success": False,
+                        "error": f"Unknown tool: {parsed_tc.name}"
+                    }),
+                    tool_call_id=parsed_tc.id,
+                ))
                 yield ChatEvent(
                     type=ChatEventType.ERROR,
                     data={"message": f"Unknown tool: {parsed_tc.name}"}
@@ -227,12 +239,17 @@ class ChatOrchestrator:
                     yield event
             else:
                 # Queue write tools for approval
-                async for event in self._queue_approval(parsed_tc.name, parsed_tc.arguments):
+                has_pending_approvals = True
+                async for event in self._queue_approval(
+                    parsed_tc.id, parsed_tc.name, parsed_tc.arguments
+                ):
                     yield event
 
-        # Continue conversation with tool results
-        async for event in self._continue_with_tool_results(token, tools, depth + 1):
-            yield event
+        # Only continue conversation if no approvals are pending
+        # When approvals are pending, the conversation will resume after user action
+        if not has_pending_approvals:
+            async for event in self._continue_with_tool_results(token, tools, depth + 1):
+                yield event
 
     async def process_message(
         self,
@@ -677,12 +694,17 @@ class ChatOrchestrator:
 
     async def _queue_approval(
         self,
+        tool_call_id: str,
         tool_name: str,
         tool_args: dict[str, Any],
     ) -> AsyncGenerator[ChatEvent, None]:
         """Queue a write tool for approval.
 
+        Also adds a placeholder tool result message to satisfy OpenAI API requirements
+        that every tool_call_id must have a corresponding tool result message.
+
         Args:
+            tool_call_id: ID of the tool call from the LLM
             tool_name: Name of the tool
             tool_args: Tool arguments
 
@@ -696,6 +718,19 @@ class ChatOrchestrator:
             parameters=tool_args,
         )
         self.session.add_pending_approval(approval)
+
+        # Add placeholder tool result to satisfy OpenAI API requirements
+        # Every tool_call_id must have a corresponding tool result message
+        self.session.add_message(ChatMessage(
+            role="tool",
+            content=json.dumps({
+                "success": False,
+                "pending_approval": True,
+                "approval_id": approval_id,
+                "message": f"Action '{tool_name}' requires user approval before execution."
+            }),
+            tool_call_id=tool_call_id,
+        ))
 
         yield ChatEvent(
             type=ChatEventType.APPROVAL_REQUIRED,

@@ -11,13 +11,24 @@
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
-	import ApprovalCard from '$lib/components/ApprovalCard.svelte';
+	import ApprovalModal from '$lib/components/ApprovalModal.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 
 	const log = createLogger({ prefix: 'ChatPage' });
 
 	let messagesContainer: HTMLDivElement | null = $state(null);
 	let isEnabled = $state(true);
+	let approvalModalOpen = $state(false);
+
+	// Find the last assistant message index for showing approval badge
+	const lastAssistantIndex = $derived.by(() => {
+		for (let i = chatStore.messages.length - 1; i >= 0; i--) {
+			if (chatStore.messages[i].role === 'assistant') {
+				return i;
+			}
+		}
+		return -1;
+	});
 
 	// Scroll to bottom when messages change
 	$effect(() => {
@@ -51,6 +62,10 @@
 			await chatStore.clearHistory();
 			log.debug('Chat history cleared');
 		}
+	}
+
+	function handleOpenApprovals() {
+		approvalModalOpen = true;
 	}
 </script>
 
@@ -88,17 +103,6 @@
 			</p>
 		</div>
 	{:else}
-		<!-- Pending approvals (if any) -->
-		{#if chatStore.pendingApprovals.length > 0}
-			<div
-				class="max-h-[30vh] overflow-y-auto border-b border-white/[0.08] bg-neutral-950 px-4 py-3"
-			>
-				{#each chatStore.pendingApprovals as approval (approval.id)}
-					<ApprovalCard {approval} />
-				{/each}
-			</div>
-		{/if}
-
 		<!-- Error banner -->
 		{#if chatStore.error}
 			<div
@@ -198,8 +202,14 @@
 				</div>
 			{:else}
 				<div class="mx-auto flex max-w-2xl flex-col gap-3 p-4 lg:max-w-3xl">
-					{#each chatStore.messages as message (message.id)}
-						<ChatMessage {message} />
+					{#each chatStore.messages as message, index (message.id)}
+						<ChatMessage
+							{message}
+							pendingApprovalCount={index === lastAssistantIndex
+								? chatStore.pendingApprovals.length
+								: 0}
+							onOpenApprovals={handleOpenApprovals}
+						/>
 					{/each}
 				</div>
 			{/if}
@@ -215,3 +225,9 @@
 		</AppContainer>
 	</div>
 {/if}
+
+<!-- Approval Modal -->
+<ApprovalModal
+	bind:open={approvalModalOpen}
+	approvals={chatStore.pendingApprovals}
+/>
