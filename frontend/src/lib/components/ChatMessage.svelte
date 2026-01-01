@@ -4,18 +4,22 @@
 	 *
 	 * User messages are right-aligned with primary color.
 	 * Assistant messages are left-aligned with surface color.
+	 * Shows approval badge when there are pending actions.
 	 */
 	import type { ChatMessage as ChatMessageType } from '../stores/chat.svelte';
 	import { renderMarkdown } from '../markdown';
 
 	interface Props {
 		message: ChatMessageType;
+		pendingApprovalCount?: number;
+		onOpenApprovals?: () => void;
 	}
 
-	let { message }: Props = $props();
+	let { message, pendingApprovalCount = 0, onOpenApprovals }: Props = $props();
 
 	const isUser = $derived(message.role === 'user');
 	const hasToolResults = $derived(message.toolResults && message.toolResults.length > 0);
+	const showApprovalBadge = $derived(!isUser && pendingApprovalCount > 0);
 
 	// Copy button state
 	let copySuccess = $state(false);
@@ -103,6 +107,32 @@
 			{/if}
 		</div>
 
+		<!-- Approval Required Badge -->
+		{#if showApprovalBadge}
+			<button
+				type="button"
+				class="approval-badge mt-2 flex w-full items-center gap-2 rounded-xl border border-warning-500/40 bg-warning-500/15 px-3 py-2 text-left transition-all hover:border-warning-500/60 hover:bg-warning-500/20 active:scale-[0.98]"
+				onclick={onOpenApprovals}
+			>
+				<div class="flex h-6 w-6 items-center justify-center rounded-lg bg-warning-500/20">
+					<svg class="h-3.5 w-3.5 text-warning-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+				</div>
+				<span class="flex-1 text-sm font-medium text-warning-500">
+					{pendingApprovalCount} {pendingApprovalCount === 1 ? 'action requires' : 'actions require'} approval
+				</span>
+				<svg class="h-4 w-4 text-warning-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+				</svg>
+			</button>
+		{/if}
+
 		<!-- Copy button (appears on hover for assistant messages) -->
 		{#if !isUser && message.content && !message.isStreaming}
 			<button
@@ -187,5 +217,19 @@
 
 	.tool-accordion summary {
 		list-style: none;
+	}
+
+	/* Approval badge pulse animation */
+	.approval-badge {
+		animation: approval-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes approval-pulse {
+		0%, 100% {
+			box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2);
+		}
+		50% {
+			box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
+		}
 	}
 </style>
