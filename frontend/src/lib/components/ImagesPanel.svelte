@@ -131,7 +131,7 @@
 						<circle cx="8.5" cy="8.5" r="1.5" />
 						<polyline points="21 15 16 10 5 21" />
 					</svg>
-					<span class="text-sm font-medium text-text">
+					<span class="text-sm font-medium text-neutral-200">
 						{images.length} photo{images.length !== 1 ? "s" : ""}
 					</span>
 				</div>
@@ -142,7 +142,7 @@
 				>
 					{#each images as img, index}
 						<div
-							class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-surface-elevated group ring-1 ring-border/50"
+							class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-neutral-700 group ring-1 ring-white/10"
 						>
 							<img
 								src={getThumbnailUrl(img, index)}
@@ -167,7 +167,7 @@
 								</svg>
 							</button>
 							<div
-								class="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded"
+								class="absolute bottom-1 left-1 bg-black/60 text-white text-xxs font-medium px-1.5 py-0.5 rounded"
 							>
 								{#if index === 0}
 									{#if customThumbnail}
@@ -202,11 +202,11 @@
 				<div class="flex gap-2 mt-2">
 					<button
 						type="button"
-						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center gap-2 transition-all"
+						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-700/40 hover:border-primary-500/40 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
 						onclick={() => cameraInput.click()}
 					>
 						<svg
-							class="w-4 h-4 text-text-muted"
+							class="w-4 h-4 text-neutral-400"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -217,17 +217,17 @@
 							/>
 							<circle cx="12" cy="13" r="4" />
 						</svg>
-						<span class="text-xs text-text-muted font-medium"
+						<span class="text-xs text-neutral-400 font-medium"
 							>Camera</span
 						>
 					</button>
 					<button
 						type="button"
-						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center gap-2 transition-all"
+						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-700/40 hover:border-primary-500/40 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
 						onclick={() => fileInput.click()}
 					>
 						<svg
-							class="w-4 h-4 text-text-muted"
+							class="w-4 h-4 text-neutral-400"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -239,24 +239,24 @@
 							<polyline points="17 8 12 3 7 8" />
 							<line x1="12" y1="3" x2="12" y2="15" />
 						</svg>
-						<span class="text-xs text-text-muted font-medium"
+						<span class="text-xs text-neutral-400 font-medium"
 							>Upload</span
 						>
 					</button>
 				</div>
 			{:else}
 				<!-- Empty state: compact add buttons (same style as when photos exist) -->
-				<p class="text-xs text-text-dim mb-2">
+				<p class="text-xs text-neutral-500 mb-2">
 					Add labels, serial numbers, different angles
 				</p>
 				<div class="flex gap-2">
 					<button
 						type="button"
-						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center gap-2 transition-all"
+						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-700/40 hover:border-primary-500/40 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
 						onclick={() => cameraInput.click()}
 					>
 						<svg
-							class="w-4 h-4 text-text-muted"
+							class="w-4 h-4 text-neutral-400"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -267,17 +267,17 @@
 							/>
 							<circle cx="12" cy="13" r="4" />
 						</svg>
-						<span class="text-xs text-text-muted font-medium"
+						<span class="text-xs text-neutral-400 font-medium"
 							>Camera</span
 						>
 					</button>
 					<button
 						type="button"
-						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center gap-2 transition-all"
+						class="flex-1 py-2.5 px-3 rounded-lg border border-dashed border-neutral-700/40 hover:border-primary-500/40 hover:bg-primary-500/5 flex items-center justify-center gap-2 transition-all"
 						onclick={() => fileInput.click()}
 					>
 						<svg
-							class="w-4 h-4 text-text-muted"
+							class="w-4 h-4 text-neutral-400"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -289,7 +289,7 @@
 							<polyline points="17 8 12 3 7 8" />
 							<line x1="12" y1="3" x2="12" y2="15" />
 						</svg>
-						<span class="text-xs text-text-muted font-medium"
+						<span class="text-xs text-neutral-400 font-medium"
 							>Upload</span
 						>
 					</button>

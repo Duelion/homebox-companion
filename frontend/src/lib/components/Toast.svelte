@@ -71,7 +71,7 @@
 					<p class="flex-1 text-sm font-medium">{toast.message}</p>
 					<button
 						type="button"
-						class="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/30"
+						class="p-1.5 min-w-8 min-h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/30"
 						aria-label="Dismiss notification"
 						onclick={() => dismissToast(toast.id)}
 					>
@@ -109,47 +109,16 @@
 
 <style>
 	.toast-enter {
-		animation: slideDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+		@apply animate-toast-in;
 	}
 
 	.toast-exit {
-		animation: fadeOutDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+		@apply animate-toast-out;
 	}
 
 	/* Progress bar animation */
 	.toast-progress {
-		animation: progressShrink var(--duration, 4000ms) linear forwards;
-	}
-
-	@keyframes slideDown {
-		from {
-			opacity: 0;
-			transform: translateY(-100%) scale(0.95);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0) scale(1);
-		}
-	}
-
-	@keyframes fadeOutDown {
-		from {
-			opacity: 1;
-			transform: translateY(0) scale(1);
-		}
-		to {
-			opacity: 0;
-			transform: translateY(1rem) scale(0.95);
-		}
-	}
-
-	@keyframes progressShrink {
-		from {
-			width: 100%;
-		}
-		to {
-			width: 0%;
-		}
+		@apply animate-progress-shrink;
 	}
 
 	/* Screen reader only class */

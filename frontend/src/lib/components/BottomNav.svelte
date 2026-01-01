@@ -73,7 +73,7 @@
 
 <!-- view-transition-name excludes this from the root page transition, preventing jitter -->
 <nav
-	class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border pb-safe"
+	class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-neutral-700 pb-safe"
 	style="view-transition-name: bottom-nav; transform: translateZ(0); -webkit-transform: translateZ(0);"
 	aria-label="Main navigation"
 >
@@ -89,7 +89,7 @@
 						class="flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-xl transition-all duration-200
 							{active
 							? 'text-primary bg-primary/10'
-							: 'text-text-muted hover:text-text hover:bg-surface-elevated/50'}"
+							: 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700/50'}"
 					>
 						<!-- Icon -->
 						<span class="w-6 h-6 flex items-center justify-center">

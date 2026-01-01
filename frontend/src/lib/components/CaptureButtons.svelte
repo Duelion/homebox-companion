@@ -9,7 +9,7 @@
 	let { onCamera, onUpload }: Props = $props();
 </script>
 
-<div class="p-4 rounded-xl border-2 border-dashed border-border">
+<div class="p-4 rounded-xl border-2 border-dashed border-neutral-700">
 	<div class="flex justify-center gap-3">
 		<Button variant="secondary" onclick={onCamera}>
 			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

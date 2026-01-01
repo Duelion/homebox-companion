@@ -112,18 +112,18 @@
 	});
 </script>
 
-<div class="bg-surface rounded-xl border border-border p-4 mb-6">
+<div class="bg-neutral-800 rounded-xl border border-neutral-700 p-4 mb-6">
 	<!-- Header with message and count -->
 	<div class="flex items-center justify-between mb-2">
-		<span class="text-sm font-medium text-text">{message}</span>
-		<span class="text-sm text-text-muted">{current} / {total}</span>
+		<span class="text-sm font-medium text-neutral-200">{message}</span>
+		<span class="text-sm text-neutral-400">{current} / {total}</span>
 	</div>
 
 	<!-- Progress bar with notches -->
 	<div class="relative">
 		<!-- Track -->
 		<div 
-			class="h-2 bg-surface-elevated rounded-full overflow-hidden transition-all duration-300"
+			class="h-2 bg-neutral-700 rounded-full overflow-hidden transition-all duration-300"
 			class:complete-pop={isComplete}
 		>
 			<!-- Fill bar with smooth transition -->
@@ -142,7 +142,7 @@
 					class="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-colors duration-300"
 					class:bg-primary={notch.completed && !isComplete}
 					class:bg-success={notch.completed && isComplete}
-					class:bg-border={!notch.completed}
+					class:bg-neutral-600={!notch.completed}
 					style="left: {notch.position}%"
 				></div>
 			{/each}
@@ -152,20 +152,7 @@
 
 <style>
     .complete-pop {
-        animation: pop 300ms ease-out;
-        @apply shadow-[0_0_12px_rgba(34,197,94,0.5)];
-    }
-
-    @keyframes pop {
-        0% {
-            transform: scale(1);
-        }
-        50% {
-            transform: scale(1.03);
-        }
-        100% {
-            transform: scale(1);
-        }
+        @apply animate-pop shadow-[0_0_12px_rgba(34,197,94,0.5)];
     }
 </style>
 

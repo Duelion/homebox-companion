@@ -38,13 +38,13 @@
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
 		onclick={handleBackdropClick}
 	>
-		<div class="w-full max-w-lg bg-surface rounded-2xl border border-border shadow-xl animate-scale-in overflow-hidden">
+		<div class="w-full max-w-lg bg-neutral-800 rounded-2xl border border-neutral-700 shadow-xl animate-scale-in overflow-hidden">
 			{#if title}
-				<div class="flex items-center justify-between px-6 py-4 border-b border-border">
-					<h3 class="text-lg font-semibold text-text">{title}</h3>
+				<div class="flex items-center justify-between px-6 py-4 border-b border-neutral-700">
+					<h3 class="text-lg font-semibold text-neutral-200">{title}</h3>
 				<button
 					type="button"
-					class="p-2 rounded-lg text-text-muted hover:text-text hover:bg-surface-elevated transition-colors"
+					class="p-2 rounded-lg text-neutral-200-muted hover:text-neutral-200 hover:bg-neutral-800-elevated transition-colors"
 					onclick={handleClose}
 					aria-label="Close"
 				>
@@ -55,12 +55,12 @@
 				</div>
 			{/if}
 
-			<div class="p-6 max-h-[70vh] overflow-y-auto">
+			<div class="p-6 max-h-screen overflow-y-auto">
 				{@render children()}
 			</div>
 
 			{#if footer}
-				<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-elevated/50">
+				<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-700 bg-neutral-800-elevated/50">
 					{@render footer()}
 				</div>
 			{/if}

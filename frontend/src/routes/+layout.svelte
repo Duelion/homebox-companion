@@ -115,11 +115,11 @@
 	});
 </script>
 
-<div class="min-h-screen min-h-dvh flex flex-col bg-background">
+<div class="min-h-screen min-h-dvh flex flex-col bg-neutral-950">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
-		class="fixed top-0 left-0 right-0 z-40 glass border-b border-border"
+		class="fixed top-0 left-0 right-0 z-40 glass border-b border-neutral-700"
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
@@ -129,7 +129,7 @@
 				<!-- Center: Logo and title -->
 				<a
 					href={isAuthenticated ? "/location" : "/"}
-					class="flex items-center justify-center gap-2 text-text font-semibold overflow-visible"
+					class="flex items-center justify-center gap-2 text-neutral-200 font-semibold overflow-visible"
 				>
 					<svg
 						class="w-7 h-7 text-primary shrink-0"
@@ -241,7 +241,7 @@
 	<!-- Footer with version - only shown on login page (not authenticated) -->
 	{#if !isAuthenticated}
 		<footer
-			class="sticky bottom-0 mt-auto text-center py-3 text-text-dim text-xs flex items-center justify-center gap-3 bg-background"
+			class="sticky bottom-0 mt-auto text-center py-3 text-neutral-500 text-xs flex items-center justify-center gap-3 bg-neutral-950"
 		>
 			{#if appVersion}
 				<span>v{appVersion}</span>
@@ -272,7 +272,7 @@
 				href="https://github.com/Duelion/homebox-companion"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center gap-1 hover:text-text-muted transition-colors"
+				class="inline-flex items-center gap-1 hover:text-neutral-400 transition-colors"
 				title="Star on GitHub"
 			>
 				<svg

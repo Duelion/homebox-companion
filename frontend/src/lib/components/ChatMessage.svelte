@@ -46,7 +46,7 @@
 </script>
 
 <div
-    class="flex flex-col max-w-[85%] group {isUser
+    class="flex flex-col max-w-[80%] group {isUser
         ? 'self-end items-end'
         : 'self-start items-start'}"
 >
@@ -288,8 +288,7 @@
 
     /* Typing indicator animation */
     .typing-dot {
-        @apply w-2 h-2 bg-primary-500 rounded-full;
-        animation: bounce 1.4s infinite ease-in-out both;
+        @apply w-2 h-2 bg-primary-500 rounded-full animate-typing-dot;
     }
 
     .animation-delay-160 {
@@ -300,46 +299,14 @@
         animation-delay: -0.32s;
     }
 
-    @keyframes bounce {
-        0%,
-        80%,
-        100% {
-            transform: scale(0);
-        }
-        40% {
-            transform: scale(1);
-        }
-    }
-
     /* Tool execution spinner */
     .tool-spinner {
-        @apply w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full inline-block;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-        0% {
-            transform: rotate(0deg);
-        }
-        100% {
-            transform: rotate(360deg);
-        }
+        @apply w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full inline-block animate-spin;
     }
 
     /* Streaming glow animation */
     .streaming-glow {
-        @apply border-primary-500;
-        animation: pulse-glow 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse-glow {
-        0%,
-        100% {
-            box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
-        }
-        50% {
-            box-shadow: 0 0 12px 2px rgba(99, 102, 241, 0.4);
-        }
+        @apply border-primary-500 animate-stream-glow;
     }
 
     /* Tool accordion */

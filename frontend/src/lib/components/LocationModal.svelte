@@ -86,9 +86,9 @@
 <Modal bind:open {title} onclose={handleClose}>
 	<form onsubmit={handleSubmit} class="space-y-4">
 		{#if mode === 'create' && parentLocation}
-			<div class="p-3 bg-surface-elevated rounded-lg border border-border">
-				<p class="text-sm text-text-muted">Creating inside:</p>
-				<p class="font-medium text-text flex items-center gap-2">
+			<div class="p-3 bg-neutral-700 rounded-lg border border-neutral-700">
+				<p class="text-sm text-neutral-400">Creating inside:</p>
+				<p class="font-medium text-neutral-200 flex items-center gap-2">
 					<svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
 						<circle cx="12" cy="10" r="3" />
@@ -97,9 +97,9 @@
 				</p>
 			</div>
 		{:else if mode === 'create'}
-			<div class="p-3 bg-surface-elevated rounded-lg border border-border">
-				<p class="text-sm text-text-muted">Creating at:</p>
-				<p class="font-medium text-text flex items-center gap-2">
+			<div class="p-3 bg-neutral-700 rounded-lg border border-neutral-700">
+				<p class="text-sm text-neutral-400">Creating at:</p>
+				<p class="font-medium text-neutral-200 flex items-center gap-2">
 					<svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
 						<polyline points="9 22 9 12 15 12 15 22" />
@@ -110,7 +110,7 @@
 		{/if}
 
 		<div>
-			<label for="location-name" class="block text-sm font-medium text-text mb-1">
+			<label for="location-name" class="block text-sm font-medium text-neutral-200 mb-1">
 				Name <span class="text-error">*</span>
 			</label>
 			<input
@@ -118,13 +118,13 @@
 				type="text"
 				bind:value={name}
 				placeholder="e.g., Living Room, Drawer 1, Shelf A"
-				class="w-full px-4 py-3 bg-background border border-border rounded-xl text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+				class="w-full px-4 py-3 bg-neutral-950 border border-neutral-700 rounded-xl text-neutral-200 placeholder:text-neutral-200-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
 				disabled={isSaving}
 			/>
 		</div>
 
 		<div>
-			<label for="location-description" class="block text-sm font-medium text-text mb-1">
+			<label for="location-description" class="block text-sm font-medium text-neutral-200 mb-1">
 				Description
 			</label>
 			<textarea
@@ -132,7 +132,7 @@
 				bind:value={description}
 				placeholder="e.g., Second drawer from top, left side of garage"
 				rows="3"
-				class="w-full px-4 py-3 bg-background border border-border rounded-xl text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none"
+				class="w-full px-4 py-3 bg-neutral-950 border border-neutral-700 rounded-xl text-neutral-200 placeholder:text-neutral-200-dim focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none"
 				disabled={isSaving}
 			></textarea>
 		</div>

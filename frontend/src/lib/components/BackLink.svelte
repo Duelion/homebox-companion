@@ -24,7 +24,7 @@
 	{href}
 	class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all duration-200 mb-4 group {disabled
 		? 'text-neutral-600 bg-neutral-900/50 border border-neutral-800 cursor-not-allowed opacity-50'
-		: 'text-text-muted hover:text-text bg-surface-elevated/50 hover:bg-surface-elevated border border-transparent hover:border-border/50'}"
+		: 'text-neutral-400 hover:text-neutral-200 bg-neutral-700/50 hover:bg-neutral-700 border border-transparent hover:border-neutral-700/50'}"
 	onclick={handleClick}
 	aria-disabled={disabled}
 >
