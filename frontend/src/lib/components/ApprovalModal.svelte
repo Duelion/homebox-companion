@@ -43,7 +43,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
+		if (open && e.key === 'Escape') {
 			handleClose();
 		}
 	}
@@ -136,10 +136,7 @@
 	const isProcessingAny = $derived(processingIds.size > 0);
 </script>
 
-<!-- Only listen for Escape when modal is open -->
-{#if open}
-	<svelte:window onkeydown={handleKeydown} />
-{/if}
+<svelte:window onkeydown={handleKeydown} />
 
 {#if open && approvals.length > 0}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
