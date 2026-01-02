@@ -150,15 +150,15 @@
 >
 	<div class="relative">
 		<div
-			class="rounded-2xl px-3 py-2 break-words text-sm-tight {isUser
-				? 'from-primary-600 to-primary-500 rounded-br bg-gradient-to-br text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+			class="chat-bubble {isUser
+				? 'chat-bubble-user from-primary-600 to-primary-500 rounded-br bg-gradient-to-br text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
 				: ''}"
 		>
 			{#if message.content}
 				{#if isUser}
-					<p class="m-0 leading-snug">{message.content}</p>
+					<p class="m-0">{message.content}</p>
 				{:else}
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Rendered markdown from trusted AI response -->
 					<div class="markdown-content">{@html renderedContent}</div>
@@ -191,22 +191,20 @@
 			{/if}
 
 			{#if hasToolResults || hasExecutedActions}
-				<details class="tool-accordion group/tools mt-1.5 border-t border-white/10 pt-1.5">
-					<summary
-						class="flex cursor-pointer items-center gap-1 text-xxs text-neutral-400 select-none hover:text-neutral-300"
-					>
+				<details class="tool-accordion group/tools chat-tools-section">
+					<summary class="chat-tools-summary">
 						<span class="transform transition-transform group-open/tools:rotate-90">›</span>
 						Used {totalToolCount} tool{totalToolCount > 1 ? 's' : ''}
 					</summary>
-					<div class="mt-1.5 flex flex-wrap gap-1">
+					<div class="chat-tools-grid">
 						<!-- Read-only tool badges -->
 						{#each groupedToolResults as group (group.toolName)}
 							<div
-								class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xxs font-medium {group.isExecuting
-									? 'border-primary-500/30 bg-primary-500/15 text-primary-500 border'
+								class="chat-tool-badge {group.isExecuting
+									? 'border-primary-500/30 bg-primary-500/15 text-primary-500'
 									: group.success
-										? 'border-success-500/30 bg-success-500/15 text-success-500 border'
-										: 'border-error-500/30 bg-error-500/15 text-error-500 border'}"
+										? 'border-success-500/30 bg-success-500/15 text-success-500'
+										: 'border-error-500/30 bg-error-500/15 text-error-500'}"
 							>
 								{#if group.isExecuting}
 									<span class="tool-spinner"></span>
@@ -226,9 +224,7 @@
 							{@const hasReject = action.rejectCount > 0}
 							<!-- Show success badge if any succeeded -->
 							{#if hasSuccess}
-								<div
-									class="border-success-500/30 bg-success-500/15 text-success-500 inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xxs font-medium"
-								>
+								<div class="chat-tool-badge border-success-500/30 bg-success-500/15 text-success-500">
 									<span class="font-bold">✓</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.successCount > 1}
@@ -238,9 +234,7 @@
 							{/if}
 							<!-- Show fail badge if any failed -->
 							{#if hasFail}
-								<div
-									class="border-error-500/30 bg-error-500/15 text-error-500 inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xxs font-medium"
-								>
+								<div class="chat-tool-badge border-error-500/30 bg-error-500/15 text-error-500">
 									<span class="font-bold">✗</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.failCount > 1}
@@ -250,9 +244,7 @@
 							{/if}
 							<!-- Show rejected badge if any rejected -->
 							{#if hasReject}
-								<div
-									class="border-warning-500/30 bg-warning-500/15 text-warning-500 inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xxs font-medium"
-								>
+								<div class="chat-tool-badge border-warning-500/30 bg-warning-500/15 text-warning-500">
 									<span class="font-bold">⊘</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.rejectCount > 1}
@@ -269,16 +261,11 @@
 			{#if showApprovalBadge}
 				<button
 					type="button"
-					class="approval-badge border-warning-500/40 bg-warning-500/15 hover:border-warning-500/60 hover:bg-warning-500/20 mt-1.5 flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition-all active:scale-[0.98]"
+					class="chat-approval-badge approval-badge border-warning-500/40 bg-warning-500/15 text-warning-500 hover:border-warning-500/60 hover:bg-warning-500/20"
 					onclick={onOpenApprovals}
 				>
 					<div class="bg-warning-500/20 flex h-5 w-5 items-center justify-center rounded-md">
-						<svg
-							class="text-warning-500 h-3 w-3"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
+						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -287,16 +274,11 @@
 							/>
 						</svg>
 					</div>
-					<span class="text-warning-500 flex-1 text-xs font-medium">
+					<span class="flex-1">
 						{pendingApprovalCount}
 						{pendingApprovalCount === 1 ? 'action requires' : 'actions require'} approval
 					</span>
-					<svg
-						class="text-warning-500/70 h-3.5 w-3.5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
+					<svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
@@ -342,17 +324,15 @@
 		{/if}
 	</div>
 
-	<div class="mt-0.5 flex items-center gap-1.5 px-1.5">
-		<time class="text-xxs text-neutral-500">
+	<div class="chat-meta">
+		<time>
 			{message.timestamp.toLocaleTimeString([], {
 				hour: '2-digit',
 				minute: '2-digit',
 			})}
 		</time>
 		{#if !isUser && message.tokenUsage}
-			<span class="text-xxs text-neutral-500">
-				{message.tokenUsage.total} tokens
-			</span>
+			<span>{message.tokenUsage.total} tokens</span>
 		{/if}
 	</div>
 </div>
