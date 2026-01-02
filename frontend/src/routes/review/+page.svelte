@@ -3,7 +3,6 @@
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';
 	import { vision } from '$lib/api/vision';
-	import { labelStore } from '$lib/stores/labels.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
@@ -13,14 +12,13 @@
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
-	import ExtendedFieldsPanel from '$lib/components/ExtendedFieldsPanel.svelte';
+	import { ItemCoreFields, ItemExtendedFields, LabelSelector } from '$lib/components/form';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import ImagesPanel from '$lib/components/ImagesPanel.svelte';
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
-	import { expandable } from '$lib/actions/expandable';
 	import { longpress } from '$lib/actions/longpress';
 
 	// Get workflow reference
@@ -275,12 +273,13 @@
 		}
 	}
 
-	function getAvailableImages(): { file: File; dataUrl: string }[] {
-		return allImages.map((file) => ({
+	// Derived images with data URLs for thumbnail editor
+	const availableImages = $derived(
+		allImages.map((file) => ({
 			file,
 			dataUrl: urlManager.getUrl(file),
-		}));
-	}
+		}))
+	);
 
 	// Open thumbnail editor
 	function openThumbnailEditor() {
@@ -315,12 +314,13 @@
 		showThumbnailEditor = false;
 	}
 
-	function getDisplayThumbnail(): string | null {
+	// Derived display thumbnail - custom takes precedence, then first image
+	const displayThumbnail = $derived.by(() => {
 		if (!editedItem) return null;
 		if (editedItem.customThumbnail) return editedItem.customThumbnail;
 		if (allImages.length > 0) return urlManager.getUrl(allImages[0]);
 		return null;
-	}
+	});
 
 	// Sync object URLs when images change (cleanup removed files only)
 	$effect(() => {
@@ -335,25 +335,25 @@
 <div class="animate-in pb-32">
 	<StepIndicator currentStep={3} />
 
-	<h2 class="mb-1 text-h2 text-neutral-100">Review Items</h2>
-	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
+	<h2 class="text-h2 mb-1 text-neutral-100">Review Items</h2>
+	<p class="text-body-sm mb-6 text-neutral-400">Edit or skip detected items</p>
 
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
 
 	{#if editedItem}
-		{@const displayThumbnail = getDisplayThumbnail()}
+		{@const thumbnail = displayThumbnail}
 
 		<div
 			class="mb-4 overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-900 shadow-md"
 		>
 			<!-- Thumbnail section -->
-			{#if displayThumbnail}
+			{#if thumbnail}
 				<div class="group relative aspect-video bg-neutral-800">
-					<img src={displayThumbnail} alt={editedItem.name} class="h-full w-full object-contain" />
+					<img src={thumbnail} alt={editedItem.name} class="h-full w-full object-contain" />
 					<!-- Edit overlay - always visible on mobile, hover on desktop -->
 					<button
 						type="button"
-						class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-white/50 md:opacity-0 md:group-hover:opacity-100"
+						class="absolute right-3 bottom-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:ring-2 focus:ring-white/50 focus:outline-none md:opacity-0 md:group-hover:opacity-100"
 						onclick={openThumbnailEditor}
 						aria-label="Edit thumbnail image"
 					>
@@ -371,7 +371,7 @@
 					</button>
 					{#if editedItem.customThumbnail}
 						<span
-							class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
+							class="bg-primary-600/90 absolute top-3 left-3 rounded px-2 py-1 text-xs font-medium text-white"
 						>
 							Custom
 						</span>
@@ -394,71 +394,33 @@
 						<polyline points="21 15 16 10 5 21" />
 					</svg>
 					<p class="text-body-sm">No image available</p>
-					<p class="mt-1 text-caption">Add photos below</p>
+					<p class="text-caption mt-1">Add photos below</p>
 				</div>
 			{/if}
 
 			<div class="space-y-5 p-4">
-				<!-- Name field -->
-				<div>
-					<label for="itemName" class="label">Name</label>
-					<textarea
-						id="itemName"
-						bind:value={editedItem.name}
-						rows="1"
-						class="input-expandable"
-						use:expandable
-					></textarea>
-				</div>
-
-				<!-- Quantity field -->
-				<div>
-					<label for="itemQuantity" class="label">Quantity</label>
-					<input
-						type="number"
-						id="itemQuantity"
-						min="1"
-						bind:value={editedItem.quantity}
-						class="input w-24"
-					/>
-				</div>
-
-				<!-- Description field -->
-				<div>
-					<label for="itemDescription" class="label">Description</label>
-					<textarea
-						id="itemDescription"
-						bind:value={editedItem.description}
-						rows="1"
-						class="input-expandable"
-						use:expandable
-					></textarea>
-				</div>
+				<!-- Core fields: name, quantity, description -->
+				<ItemCoreFields
+					bind:name={editedItem.name}
+					bind:quantity={editedItem.quantity}
+					bind:description={editedItem.description}
+					idPrefix="review"
+				/>
 
 				<!-- Labels with chip selection -->
-				{#if labelStore.labels.length > 0}
-					<div>
-						<span class="label">Labels</span>
-						<div class="flex flex-wrap gap-2" role="group" aria-label="Select labels">
-							{#each labelStore.labels as label (label.id)}
-								{@const isSelected = editedItem.label_ids?.includes(label.id)}
-								<button
-									type="button"
-									class={isSelected ? 'label-chip-selected' : 'label-chip'}
-									onclick={() => toggleLabel(label.id)}
-								>
-									{label.name}
-								</button>
-							{/each}
-						</div>
-					</div>
-				{/if}
+				<LabelSelector selectedIds={editedItem.label_ids ?? []} onToggle={toggleLabel} />
 
-				<!-- Extended fields panel with count indicator -->
-				<ExtendedFieldsPanel
-					bind:item={editedItem}
+				<!-- Extended fields panel -->
+				<ItemExtendedFields
+					bind:manufacturer={editedItem.manufacturer}
+					bind:modelNumber={editedItem.model_number}
+					bind:serialNumber={editedItem.serial_number}
+					bind:purchasePrice={editedItem.purchase_price}
+					bind:purchaseFrom={editedItem.purchase_from}
+					bind:notes={editedItem.notes}
 					expanded={showExtendedFields}
 					onToggle={toggleExtendedFields}
+					idPrefix="review"
 				/>
 
 				<!-- Images panel -->
@@ -490,7 +452,6 @@
 	{/if}
 
 	{#if showThumbnailEditor && editedItem && allImages.length > 0}
-		{@const availableImages = getAvailableImages()}
 		<ThumbnailEditor
 			images={availableImages}
 			itemName={editedItem.name}
@@ -505,7 +466,7 @@
 <!-- Sticky action footer -->
 {#if editedItem}
 	<div
-		class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
+		class="bottom-nav-offset fixed right-0 left-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
 	>
 		<AppContainer>
 			<!-- Item counter in footer for mobile - positioned above bottom nav -->
