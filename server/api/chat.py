@@ -6,6 +6,7 @@ for the conversational assistant.
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 from sse_starlette.sse import EventSourceResponse
 
 from homebox_companion import HomeboxClient, settings
-from homebox_companion.chat.orchestrator import ChatOrchestrator
+from homebox_companion.chat.orchestrator import ChatOrchestrator, generate_confirmation_message
 from homebox_companion.chat.session import (
     clear_session,
     get_session,
@@ -163,6 +164,9 @@ async def approve_action(
     if not approval:
         raise HTTPException(status_code=404, detail="Approval not found or expired")
 
+    # Find the tool_call_id for this approval so we can update the history
+    tool_call_id = session.get_tool_call_id_for_approval(approval_id)
+
     # Get tool by name
     tool = _tools_by_name.get(approval.tool_name)
 
@@ -184,7 +188,29 @@ async def approve_action(
         # Validate parameters with Pydantic
         params = tool.Params(**approval.parameters)
         result = await tool.execute(client, token, params)
+
+        # Update the session history to replace the stale "pending_approval" message
+        # with the actual tool result. This ensures the LLM has correct context.
+        if tool_call_id:
+            result_message = {
+                "success": result.success,
+                "data": result.data,
+                "error": result.error,
+                "message": f"Action '{approval.tool_name}' executed successfully."
+                if result.success
+                else f"Action '{approval.tool_name}' failed: {result.error}",
+            }
+            session.update_tool_message(tool_call_id, json.dumps(result_message))
+
         session.remove_approval(approval_id)
+
+        # Generate confirmation message (no orchestrator needed - uses standalone function)
+        confirmation = generate_confirmation_message(
+            tool_name=approval.tool_name,
+            success=result.success,
+            data=result.data,
+            error=result.error,
+        )
 
         return JSONResponse(
             content={
@@ -192,27 +218,43 @@ async def approve_action(
                 "tool": approval.tool_name,
                 "data": result.data,
                 "error": result.error,
+                "confirmation": confirmation,
             }
         )
+
     except ValidationError as e:
         session.remove_approval(approval_id)
+        confirmation = generate_confirmation_message(
+            tool_name=approval.tool_name,
+            success=False,
+            data=None,
+            error=f"Invalid parameters: {e}",
+        )
         return JSONResponse(
             status_code=400,
             content={
                 "success": False,
                 "error": f"Invalid parameters: {e}",
                 "tool": approval.tool_name,
+                "confirmation": confirmation,
             }
         )
     except Exception as e:
         logger.exception(f"Approved action execution failed: {approval.tool_name}")
         session.remove_approval(approval_id)
+        confirmation = generate_confirmation_message(
+            tool_name=approval.tool_name,
+            success=False,
+            data=None,
+            error=str(e),
+        )
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
                 "error": str(e),
                 "tool": approval.tool_name,
+                "confirmation": confirmation,
             }
         )
 

@@ -277,11 +277,14 @@ export async function getPendingApprovals(): Promise<PendingApproval[]> {
  */
 export async function approveAction(
 	approvalId: string
-): Promise<{ success: boolean; message?: string }> {
+): Promise<{ success: boolean; confirmation?: string; error?: string }> {
 	log.info(`Approving action: ${approvalId}`);
-	return request<{ success: boolean; message?: string }>(`/chat/approve/${approvalId}`, {
-		method: 'POST',
-	});
+	return request<{ success: boolean; confirmation?: string; error?: string }>(
+		`/chat/approve/${approvalId}`,
+		{
+			method: 'POST',
+		}
+	);
 }
 
 /**

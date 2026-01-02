@@ -23,6 +23,12 @@ export interface ToolResult {
 	isExecuting?: boolean; // Track if tool is currently executing
 }
 
+export interface ExecutedAction {
+	toolName: string;
+	success: boolean;
+	error?: string;
+}
+
 export interface ChatMessage {
 	id: string;
 	role: MessageRole;
@@ -30,6 +36,7 @@ export interface ChatMessage {
 	timestamp: Date;
 	isStreaming?: boolean;
 	toolResults?: ToolResult[];
+	executedActions?: ExecutedAction[];
 	tokenUsage?: { prompt: number; completion: number; total: number };
 }
 
@@ -265,7 +272,7 @@ class ChatStore {
 	}
 
 	/**
-	 * Approve a pending action and show the result.
+	 * Approve a pending action and track it as an executed action on the last assistant message.
 	 */
 	async approveAction(approvalId: string): Promise<void> {
 		const approval = this._pendingApprovals.find((a) => a.id === approvalId);
@@ -275,14 +282,36 @@ class ChatStore {
 			const result = await chat.approveAction(approvalId);
 			this._pendingApprovals = this._pendingApprovals.filter((a) => a.id !== approvalId);
 
-			// Add system message with result
-			if (result.success) {
-				this.addSystemMessage(`✅ Action "${toolName}" executed successfully.`);
-			} else {
-				this.addSystemMessage(
-					`❌ Action "${toolName}" failed: ${(result as { error?: string }).error || 'Unknown error'}`
-				);
+			// Add executed action to the last assistant message
+			const executedAction: ExecutedAction = {
+				toolName,
+				success: result.success,
+				error: result.success ? undefined : result.error,
+			};
+
+			// Batch all message updates into a single mutation to avoid multiple reactive updates
+			const lastAssistantIndex = this._messages.findLastIndex((m) => m.role === 'assistant');
+			let updatedMessages = this._messages.map((msg, idx) =>
+				idx === lastAssistantIndex
+					? { ...msg, executedActions: [...(msg.executedActions || []), executedAction] }
+					: msg
+			);
+
+			// Display AI confirmation message if provided
+			if (result.confirmation) {
+				updatedMessages = [
+					...updatedMessages,
+					{
+						id: this.generateId(),
+						role: 'assistant' as const,
+						content: result.confirmation,
+						timestamp: new Date(),
+					},
+				];
 			}
+
+			// Single reactive update
+			this._messages = updatedMessages;
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to approve action';
 		}

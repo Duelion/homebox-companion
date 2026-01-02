@@ -227,8 +227,4 @@
 {/if}
 
 <!-- Approval Modal -->
-<ApprovalModal
-	bind:open={approvalModalOpen}
-	approvals={chatStore.pendingApprovals}
-/>
-
+<ApprovalModal bind:open={approvalModalOpen} approvals={chatStore.pendingApprovals} />

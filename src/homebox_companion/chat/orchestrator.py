@@ -78,7 +78,7 @@ RESPONSE FORMAT:
 - Be helpful and complete, not artificially brief
 
 APPROVAL HANDLING:
-- When calling write or destructive tools (create, update, delete), do NOT ask the user to type "yes" or confirm via text
+- For write/destructive tools (create, update, delete), do NOT ask the user to type "yes" or confirm via text
 - The UI automatically presents an approval interface for these actions
 - Simply state what action will be taken and let the UI handle confirmation
 
@@ -120,6 +120,53 @@ def _build_litellm_tools() -> list[dict[str, Any]]:
     _tool_cache = (tools, time.time())
     logger.debug(f"Built and cached {len(tools)} tool definitions")
     return tools
+
+
+def generate_confirmation_message(
+    tool_name: str,
+    success: bool,
+    data: Any,
+    error: str | None = None,
+) -> str:
+    """Generate a brief confirmation message after tool execution.
+
+    Uses simple template-based messages instead of LLM calls to avoid
+    latency and token costs for simple confirmations.
+
+    Args:
+        tool_name: Name of the tool that was executed
+        success: Whether the execution was successful
+        data: Result data from the tool execution
+        error: Error message if execution failed
+
+    Returns:
+        Brief confirmation message with ✓ or ✗ prefix
+    """
+    if not success:
+        return f"✗ {tool_name} failed: {error or 'Unknown error'}"
+
+    # Build a human-readable summary based on the data
+    summary = ""
+    try:
+        if isinstance(data, dict):
+            # Common patterns for our tools
+            if "name" in data:
+                summary = f"'{data['name']}'"
+            elif "id" in data:
+                summary = f"(ID: {data['id'][:8]}...)" if len(str(data.get('id', ''))) > 8 else f"(ID: {data['id']})"
+        elif isinstance(data, list):
+            count = len(data)
+            summary = f"{count} item{'s' if count != 1 else ''}"
+        elif data is not None:
+            summary = str(data)[:50]
+    except Exception:
+        # If anything goes wrong parsing data, just skip the summary
+        pass
+
+    if summary:
+        return f"✓ {tool_name} completed: {summary}"
+    else:
+        return f"✓ {tool_name} completed successfully."
 
 
 class ChatOrchestrator:
@@ -646,12 +693,13 @@ class ChatOrchestrator:
             # Handle tools that operate on existing items
             if tool_name in ("delete_item", "update_item") and "item_id" in tool_args:
                 item = await self.client.get_item(token, tool_args["item_id"])
-                display_info["item_name"] = item.name
-                if item.asset_id:
-                    display_info["asset_id"] = item.asset_id
+                # item is a dict, not an object - use dict access
+                display_info["item_name"] = item.get("name")
+                if item.get("assetId"):
+                    display_info["asset_id"] = item.get("assetId")
                 # Include location for delete actions
-                if tool_name == "delete_item" and item.location:
-                    display_info["location"] = item.location.name
+                if tool_name == "delete_item" and item.get("location"):
+                    display_info["location"] = item["location"].get("name")
 
             elif tool_name == "create_item":
                 # For create, use the name from the params
@@ -662,7 +710,7 @@ class ChatOrchestrator:
                         location = await self.client.get_location(
                             token, tool_args["location_id"]
                         )
-                        display_info["location"] = location.name
+                        display_info["location"] = location.get("name")
                     except Exception as e:
                         logger.debug(
                             f"Location lookup failed for {tool_args['location_id']}: {e}"

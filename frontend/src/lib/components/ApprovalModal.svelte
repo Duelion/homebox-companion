@@ -6,6 +6,7 @@
 	 * individual and bulk approve/reject actions.
 	 * Now shows human-readable display info (item name, location, etc.)
 	 */
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { PendingApproval } from '../api/chat';
 	import { chatStore } from '../stores/chat.svelte';
 	import Button from './Button.svelte';
@@ -18,7 +19,7 @@
 
 	let { open = $bindable(), approvals, onclose }: Props = $props();
 
-	let processingIds = $state<Set<string>>(new Set());
+	let processingIds = new SvelteSet<string>();
 	let now = $state(Date.now());
 
 	// Live countdown timer
@@ -64,11 +65,11 @@
 	});
 
 	function addProcessingId(id: string) {
-		processingIds = new Set([...processingIds, id]);
+		processingIds = new SvelteSet([...processingIds, id]);
 	}
 
 	function removeProcessingId(id: string) {
-		const next = new Set(processingIds);
+		const next = new SvelteSet(processingIds);
 		next.delete(id);
 		processingIds = next;
 	}
@@ -93,25 +94,25 @@
 
 	async function handleApproveAll() {
 		const ids = approvals.map((a) => a.id);
-		processingIds = new Set(ids);
+		processingIds = new SvelteSet(ids);
 		try {
 			for (const id of ids) {
 				await chatStore.approveAction(id);
 			}
 		} finally {
-			processingIds = new Set();
+			processingIds = new SvelteSet();
 		}
 	}
 
 	async function handleRejectAll() {
 		const ids = approvals.map((a) => a.id);
-		processingIds = new Set(ids);
+		processingIds = new SvelteSet(ids);
 		try {
 			for (const id of ids) {
 				await chatStore.rejectAction(id);
 			}
 		} finally {
-			processingIds = new Set();
+			processingIds = new SvelteSet();
 		}
 	}
 
@@ -216,12 +217,7 @@
 						</p>
 					{/if}
 				</div>
-				<button
-					type="button"
-					class="btn-icon"
-					onclick={handleClose}
-					aria-label="Close"
-				>
+				<button type="button" class="btn-icon" onclick={handleClose} aria-label="Close">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -245,7 +241,8 @@
 					>
 						<!-- Action Icon -->
 						<div
-							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {actionType === 'delete'
+							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {actionType ===
+							'delete'
 								? 'bg-error-500/15'
 								: actionType === 'create'
 									? 'bg-success-500/15'
@@ -379,4 +376,3 @@
 		</div>
 	</div>
 {/if}
-
