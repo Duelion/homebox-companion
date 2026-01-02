@@ -291,24 +291,24 @@ class ChatStore {
 
 			// Batch all message updates into a single mutation to avoid multiple reactive updates
 			const lastAssistantIndex = this._messages.findLastIndex((m) => m.role === 'assistant');
-			let updatedMessages = this._messages.map((msg, idx) =>
-				idx === lastAssistantIndex
-					? { ...msg, executedActions: [...(msg.executedActions || []), executedAction] }
-					: msg
-			);
 
-			// Display AI confirmation message if provided
-			if (result.confirmation) {
-				updatedMessages = [
-					...updatedMessages,
-					{
-						id: this.generateId(),
-						role: 'assistant' as const,
-						content: result.confirmation,
-						timestamp: new Date(),
-					},
-				];
-			}
+			// Single pass: add executed action AND append confirmation text if provided
+			const updatedMessages = this._messages.map((msg, idx) => {
+				if (idx !== lastAssistantIndex) return msg;
+
+				// Build updates for the last assistant message
+				const updates: Partial<ChatMessage> = {
+					executedActions: [...(msg.executedActions || []), executedAction],
+				};
+
+				// Append confirmation text to existing content
+				if (result.confirmation) {
+					const separator = msg.content ? '\n\n' : '';
+					updates.content = msg.content + separator + result.confirmation;
+				}
+
+				return { ...msg, ...updates };
+			});
 
 			// Single reactive update
 			this._messages = updatedMessages;

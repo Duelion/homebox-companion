@@ -19,7 +19,7 @@
 
 	let { open = $bindable(), approvals, onclose }: Props = $props();
 
-	let processingIds = $state(new SvelteSet<string>());
+	let processingIds = new SvelteSet<string>();
 	let now = $state(Date.now());
 
 	// Live countdown timer

@@ -125,6 +125,10 @@ class PendingApproval:
         }
 
 
+# Number of messages from the end of history before tool results are compressed
+_TOOL_COMPRESSION_THRESHOLD = 6
+
+
 class ChatSession:
     """Manages conversation state for a user session.
 
@@ -181,10 +185,10 @@ class ChatSession:
             logger.trace(f"[SESSION] {message.role} message: {content_preview}")
 
     def get_history(self, max_messages: int | None = None) -> list[dict[str, Any]]:
-        """Get conversation history in LLM format with compression for older messages.
+        """Get conversation history in LLM format with structure-aware truncation.
 
-        Tool results older than 3 conversation turns are compressed to summaries
-        to reduce context window usage while preserving recent context fidelity.
+        Ensures that 'tool' messages are always preceded by their 'assistant' calls,
+        preventing API errors from orphaned tool results during truncation.
 
         Args:
             max_messages: Maximum number of messages to return.
@@ -194,15 +198,49 @@ class ChatSession:
             List of message dicts in LLM API format
         """
         limit = max_messages or settings.chat_max_history
-        recent_messages = self.messages[-limit:] if limit else self.messages
+        if not limit or len(self.messages) <= limit:
+            recent_messages = self.messages
+        else:
+            # Initial slice point
+            start_idx = len(self.messages) - limit
+
+            # If we start with a 'tool' message, we MUST move back to find its
+            # parent assistant call. The parent must be an assistant message
+            # WITH tool_calls that contains this tool's tool_call_id.
+            while start_idx > 0:
+                msg = self.messages[start_idx]
+                if msg.role != "tool":
+                    # Found a non-tool message. Verify it's a valid starting point.
+                    # If it's an assistant WITH tool_calls, check if the next message
+                    # is a tool result for this call - if so, we're good.
+                    # If it's user or plain assistant, we're also good.
+                    break
+                start_idx -= 1
+
+            # Final safety: if start_idx lands on a user message but the next
+            # message is a tool result (which would be orphaned), keep moving back.
+            # This handles edge cases where tool results follow user messages due
+            # to session corruption or manual edits.
+            if start_idx < len(self.messages) - 1:
+                next_msg = self.messages[start_idx + 1]
+                if next_msg.role == "tool":
+                    # The next message is a tool result, but we're on a non-assistant
+                    # or an assistant without tool_calls. Keep going back.
+                    while start_idx > 0:
+                        candidate = self.messages[start_idx]
+                        if candidate.role == "assistant" and candidate.tool_calls:
+                            break
+                        start_idx -= 1
+
+            recent_messages = self.messages[start_idx:]
 
         result = []
         for i, msg in enumerate(recent_messages):
             formatted = msg.to_llm_format()
 
-            # Compress tool results older than last 3 turns (6 messages: 3 user + 3 assistant)
-            turns_from_end = (len(recent_messages) - i) // 2
-            if msg.role == "tool" and turns_from_end > 3:
+            # Compress tool results older than threshold
+            messages_from_end = len(recent_messages) - i
+            if msg.role == "tool" and messages_from_end > _TOOL_COMPRESSION_THRESHOLD:
                 formatted["content"] = self._compress_tool_result(formatted["content"])
 
             result.append(formatted)

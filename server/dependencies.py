@@ -286,7 +286,9 @@ async def get_vision_context(
         logger.debug("Using field preferences from X-Field-Preferences header (demo mode)")
         try:
             prefs_dict = json.loads(x_field_preferences)
-            prefs = FieldPreferences.model_validate(prefs_dict)
+            # Filter out None values - let model defaults fill in missing fields
+            filtered = {k: v for k, v in prefs_dict.items() if v is not None}
+            prefs = FieldPreferences.model_validate(filtered)
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning(f"Invalid field preferences in header, ignoring: {e}")
             prefs = load_field_preferences()
