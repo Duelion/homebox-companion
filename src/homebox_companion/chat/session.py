@@ -49,9 +49,16 @@ class ToolCall(BaseModel):
 class ChatMessage(BaseModel):
     """A single message in the conversation.
 
+    Note: This model is intentionally mutable (not frozen) because tool messages
+    may need to be updated after creation. When a write action requires approval,
+    a placeholder message is created with "pending_approval" status. After the user
+    approves, `ChatSession.update_tool_message()` updates the content in-place with
+    the actual tool result. This avoids the complexity of replacing messages in the
+    history list while maintaining correct tool_call_id references.
+
     Attributes:
         role: The role of the message sender
-        content: The message content
+        content: The message content (mutable for tool result updates)
         tool_calls: List of tool calls (for assistant messages)
         tool_call_id: ID of the tool call this message responds to (for tool messages)
         timestamp: When the message was created
@@ -110,10 +117,7 @@ class PendingApproval(BaseModel):
         """Set expiry time if not provided."""
         if self.expires_at is None:
             timeout_seconds = settings.chat_approval_timeout
-            # Use object.__setattr__ since we need to set after validation
-            object.__setattr__(
-                self, "expires_at", self.created_at + timedelta(seconds=timeout_seconds)
-            )
+            self.expires_at = self.created_at + timedelta(seconds=timeout_seconds)
         return self
 
     @computed_field
