@@ -3,12 +3,14 @@
 	 * ApprovalItemPanel - Expandable panel for viewing/editing a pending approval action
 	 *
 	 * Supports three action types:
-	 * - create_item: Editable name/description fields
+	 * - create_item: Editable name, quantity, description, location, notes, tags
 	 * - update_item: Editable fields that are being changed
 	 * - delete_item: Read-only verification view
 	 */
 	import { slide } from 'svelte/transition';
 	import type { PendingApproval } from '../api/chat';
+	import { labelStore } from '../stores/labels.svelte';
+	import { locationStore } from '../stores/locations.svelte';
 
 	type ActionType = 'delete' | 'create' | 'update';
 
@@ -23,7 +25,6 @@
 
 	// Local state
 	let expanded = $state(false);
-	let isInitialized = $state(false);
 
 	// Track which action is being processed to show spinner on correct button
 	let processingAction = $state<'approve' | 'reject' | null>(null);
@@ -31,27 +32,46 @@
 	// Editable copies of parameters
 	let editedName = $state('');
 	let editedDescription = $state('');
+	let editedQuantity = $state(1);
+	let editedNotes = $state('');
+	let editedLabelIds = $state<string[]>([]);
+	let editedLocationId = $state('');
 
 	// Helper to get original values with proper typing
 	const originalName = $derived((approval.parameters.name as string | undefined) ?? '');
 	const originalDescription = $derived(
 		(approval.parameters.description as string | undefined) ?? ''
 	);
+	const originalQuantity = $derived((approval.parameters.quantity as number | undefined) ?? 1);
+	const originalNotes = $derived((approval.parameters.notes as string | undefined) ?? '');
+	const originalLabelIds = $derived((approval.parameters.label_ids as string[] | undefined) ?? []);
+	const originalLocationId = $derived(
+		(approval.parameters.location_id as string | undefined) ?? ''
+	);
 
-	// Initialize edited values only once when first expanded
+	// Track which approval we've initialized for
+	let initializedForApprovalId = $state<string | null>(null);
+
+	// Initialize edited values when expanded, reset when approval changes
 	$effect(() => {
-		if (expanded && !isInitialized) {
+		const currentApprovalId = approval.id;
+
+		// Reset if approval changed
+		if (initializedForApprovalId !== null && initializedForApprovalId !== currentApprovalId) {
+			initializedForApprovalId = null;
+			expanded = false; // Collapse when switching to different approval
+		}
+
+		// Initialize when first expanded for this approval
+		if (expanded && initializedForApprovalId !== currentApprovalId) {
 			editedName = originalName;
 			editedDescription = originalDescription;
-			isInitialized = true;
+			editedQuantity = originalQuantity;
+			editedNotes = originalNotes;
+			editedLabelIds = [...originalLabelIds];
+			editedLocationId = originalLocationId;
+			initializedForApprovalId = currentApprovalId;
 		}
-	});
-
-	// Reset initialization flag when approval changes (new approval with same position)
-	$effect(() => {
-		// Access approval.id to track changes
-		approval.id;
-		isInitialized = false;
 	});
 
 	// Clear processing action when isProcessing becomes false
@@ -69,46 +89,43 @@
 		return 'update';
 	});
 
-	// Get human-readable action description
+	// Get human-readable action description (concise - just the item name)
 	const actionDescription = $derived.by(() => {
 		const toolName = approval.tool_name;
 		const info = approval.display_info;
 
 		if (toolName === 'delete_item') {
-			if (info?.item_name) {
-				let desc = `Delete "${info.item_name}"`;
-				if (info.asset_id) desc += ` (${info.asset_id})`;
-				if (info.location) desc += ` from ${info.location}`;
-				return desc;
-			}
-			return 'Delete item';
+			return info?.item_name ?? 'Delete item';
 		}
 
 		if (toolName === 'update_item') {
-			if (info?.item_name) {
-				let desc = `Update "${info.item_name}"`;
-				if (info.asset_id) desc += ` (${info.asset_id})`;
-				return desc;
-			}
-			return 'Update item';
+			return info?.item_name ?? 'Update item';
 		}
 
 		if (toolName === 'create_item') {
-			if (info?.item_name) {
-				let desc = `Create "${info.item_name}"`;
-				if (info.location) desc += ` in ${info.location}`;
-				return desc;
-			}
-			return 'Create new item';
+			return info?.item_name ?? 'New item';
 		}
 
 		return toolName.replace(/_/g, ' ');
 	});
 
+	// Helper to compare label arrays
+	function arraysEqual(a: string[], b: string[]): boolean {
+		if (a.length !== b.length) return false;
+		const sortedA = [...a].sort();
+		const sortedB = [...b].sort();
+		return sortedA.every((val, i) => val === sortedB[i]);
+	}
+
 	// Check if user has modified any parameters
 	const hasModifications = $derived(
 		actionType !== 'delete' &&
-			(editedName !== originalName || editedDescription !== originalDescription)
+			(editedName !== originalName ||
+				editedDescription !== originalDescription ||
+				editedQuantity !== originalQuantity ||
+				editedNotes !== originalNotes ||
+				!arraysEqual(editedLabelIds, originalLabelIds) ||
+				editedLocationId !== originalLocationId)
 	);
 
 	// Check which fields are being changed (for update_item)
@@ -133,8 +150,29 @@
 		if (editedDescription !== originalDescription) {
 			mods.description = editedDescription;
 		}
+		if (editedQuantity !== originalQuantity) {
+			mods.quantity = editedQuantity;
+		}
+		if (editedNotes !== originalNotes) {
+			mods.notes = editedNotes;
+		}
+		if (!arraysEqual(editedLabelIds, originalLabelIds)) {
+			mods.label_ids = editedLabelIds;
+		}
+		if (editedLocationId !== originalLocationId) {
+			mods.location_id = editedLocationId;
+		}
 
 		return Object.keys(mods).length > 0 ? mods : undefined;
+	}
+
+	// Toggle a label selection
+	function toggleLabel(labelId: string) {
+		if (editedLabelIds.includes(labelId)) {
+			editedLabelIds = editedLabelIds.filter((id) => id !== labelId);
+		} else {
+			editedLabelIds = [...editedLabelIds, labelId];
+		}
 	}
 
 	function handleApprove() {
@@ -209,9 +247,6 @@
 					: 'text-neutral-200'}"
 			>
 				{actionDescription}
-			</p>
-			<p class="mt-0.5 text-xs text-neutral-500">
-				{approval.tool_name}
 			</p>
 		</div>
 
@@ -314,45 +349,109 @@
 			transition:slide={{ duration: 200 }}
 		>
 			{#if actionType === 'create'}
-				<!-- Create Item: Editable name and description -->
-				<div class="space-y-3">
+				<!-- Create Item: Editable fields (compact styling) -->
+				<div class="space-y-2.5">
 					<div>
-						<label for="create-name-{approval.id}" class="label">Name</label>
+						<label for="create-name-{approval.id}" class="label-sm">Name</label>
 						<input
 							type="text"
 							id="create-name-{approval.id}"
 							bind:value={editedName}
 							placeholder="Item name"
-							class="input"
+							class="input-sm"
 							disabled={isProcessing}
 						/>
 					</div>
+
 					<div>
-						<label for="create-desc-{approval.id}" class="label">Description</label>
+						<label for="create-qty-{approval.id}" class="label-sm">Quantity</label>
+						<input
+							type="number"
+							id="create-qty-{approval.id}"
+							min="1"
+							bind:value={editedQuantity}
+							class="input-sm w-20"
+							disabled={isProcessing}
+						/>
+					</div>
+
+					<div>
+						<label for="create-desc-{approval.id}" class="label-sm">Description</label>
 						<textarea
 							id="create-desc-{approval.id}"
 							bind:value={editedDescription}
 							placeholder="Optional description"
 							rows="2"
-							class="input resize-none"
+							class="input-sm resize-none"
 							disabled={isProcessing}
 						></textarea>
 					</div>
-					{#if approval.display_info?.location}
-						<div class="rounded-lg bg-neutral-800/50 px-3 py-2">
-							<span class="text-xs text-neutral-500">Location:</span>
-							<span class="ml-1 text-sm text-neutral-300">{approval.display_info.location}</span>
+
+					<!-- Location Selector -->
+					<div>
+						<label for="create-loc-{approval.id}" class="label-sm">Location</label>
+						{#if locationStore.flatList.length > 0}
+							<select
+								id="create-loc-{approval.id}"
+								bind:value={editedLocationId}
+								class="input-sm"
+								disabled={isProcessing}
+							>
+								<option value="">Select location...</option>
+								{#each locationStore.flatList as loc (loc.location.id)}
+									<option value={loc.location.id}>{loc.path}</option>
+								{/each}
+							</select>
+						{:else}
+							<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
+								<span class="text-sm text-neutral-300"
+									>{approval.display_info?.location ?? 'No location'}</span
+								>
+							</div>
+						{/if}
+					</div>
+
+					<div>
+						<label for="create-notes-{approval.id}" class="label-sm">Notes</label>
+						<textarea
+							id="create-notes-{approval.id}"
+							bind:value={editedNotes}
+							placeholder="Optional notes"
+							rows="2"
+							class="input-sm resize-none"
+							disabled={isProcessing}
+						></textarea>
+					</div>
+
+					<!-- Tags/Labels -->
+					{#if labelStore.labels.length > 0}
+						<div>
+							<span class="label-sm">Tags</span>
+							<div class="flex flex-wrap gap-1.5" role="group" aria-label="Select labels">
+								{#each labelStore.labels as label (label.id)}
+									{@const isSelected = editedLabelIds.includes(label.id)}
+									<button
+										type="button"
+										class={isSelected ? 'label-chip-selected' : 'label-chip'}
+										onclick={() => toggleLabel(label.id)}
+										disabled={isProcessing}
+									>
+										{label.name}
+									</button>
+								{/each}
+							</div>
 						</div>
 					{/if}
+
 					{#if hasModifications}
 						<p class="text-xs text-primary-400">You have unsaved modifications</p>
 					{/if}
 				</div>
 			{:else if actionType === 'update'}
-				<!-- Update Item: Show only fields being changed -->
-				<div class="space-y-3">
+				<!-- Update Item: Show only fields being changed (compact styling) -->
+				<div class="space-y-2.5">
 					{#if approval.display_info?.item_name}
-						<div class="rounded-lg bg-neutral-800/50 px-3 py-2">
+						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
 							<span class="text-xs text-neutral-500">Updating:</span>
 							<span class="ml-1 text-sm text-neutral-300">{approval.display_info.item_name}</span>
 							{#if approval.display_info.asset_id}
@@ -363,13 +462,13 @@
 
 					{#if fieldsBeingChanged.includes('name')}
 						<div>
-							<label for="update-name-{approval.id}" class="label">New Name</label>
+							<label for="update-name-{approval.id}" class="label-sm">New Name</label>
 							<input
 								type="text"
 								id="update-name-{approval.id}"
 								bind:value={editedName}
 								placeholder="Item name"
-								class="input"
+								class="input-sm"
 								disabled={isProcessing}
 							/>
 						</div>
@@ -377,20 +476,20 @@
 
 					{#if fieldsBeingChanged.includes('description')}
 						<div>
-							<label for="update-desc-{approval.id}" class="label">New Description</label>
+							<label for="update-desc-{approval.id}" class="label-sm">New Description</label>
 							<textarea
 								id="update-desc-{approval.id}"
 								bind:value={editedDescription}
 								placeholder="Description"
 								rows="2"
-								class="input resize-none"
+								class="input-sm resize-none"
 								disabled={isProcessing}
 							></textarea>
 						</div>
 					{/if}
 
 					{#if fieldsBeingChanged.includes('location')}
-						<div class="rounded-lg bg-neutral-800/50 px-3 py-2">
+						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
 							<span class="text-xs text-neutral-500">Moving to location ID:</span>
 							<span class="ml-1 text-sm text-neutral-300">{approval.parameters.location_id}</span>
 						</div>

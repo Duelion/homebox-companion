@@ -52,38 +52,48 @@
 </script>
 
 <form
-	class="mx-auto flex w-full max-w-2xl flex-col gap-1 border-t border-white/[0.08] bg-neutral-950 px-3 py-1.5"
+	class="mx-auto flex w-full max-w-2xl flex-col border-t border-white/[0.08] bg-neutral-950 px-3 py-1"
 	onsubmit={(e) => {
 		e.preventDefault();
 		handleSubmit();
 	}}
 >
 	<div
-		class="flex items-end gap-2 rounded-xl border border-neutral-700 bg-neutral-900 p-1 transition-all duration-fast focus-within:border-primary-500 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.15)]"
+		class="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-900 px-1 py-0.5 transition-all duration-fast focus-within:border-primary-500 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.15)]"
 	>
-		<textarea
-			bind:this={textareaRef}
-			bind:value={inputValue}
-			onkeydown={handleKeydown}
-			oninput={handleInput}
-			placeholder="Ask about your inventory..."
-			rows="1"
-			disabled={chatStore.isStreaming}
-			autocomplete="off"
-			aria-label="Chat message input"
-			class="max-h-24 flex-1 resize-none rounded-lg border-0 bg-transparent px-3 py-2 text-sm leading-relaxed text-neutral-200 outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:text-neutral-500"
-		></textarea>
+		{#if chatStore.isStreaming}
+			<div class="flex flex-1 items-center gap-1 px-2 py-1.5 text-sm text-primary-500">
+				<span>Assistant is typing</span>
+				<span class="typing-dots">
+					<span class="typing-dot-inline"></span>
+					<span class="typing-dot-inline animation-delay-200"></span>
+					<span class="typing-dot-inline animation-delay-400"></span>
+				</span>
+			</div>
+		{:else}
+			<textarea
+				bind:this={textareaRef}
+				bind:value={inputValue}
+				onkeydown={handleKeydown}
+				oninput={handleInput}
+				placeholder="Ask about your inventory..."
+				rows="1"
+				autocomplete="off"
+				aria-label="Chat message input"
+				class="max-h-20 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-sm leading-relaxed text-neutral-200 outline-none placeholder:text-neutral-500"
+			></textarea>
+		{/if}
 
 		<button
 			type="submit"
 			disabled={isDisabled}
 			aria-label="Send message"
-			class="flex h-10 min-h-touch w-10 min-w-touch shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all duration-fast hover:scale-105 hover:shadow-[0_4px_12px_rgba(99,102,241,0.4)] active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
+			class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-[0_2px_6px_rgba(99,102,241,0.25)] transition-all duration-fast hover:scale-105 hover:shadow-[0_3px_10px_rgba(99,102,241,0.35)] active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
 		>
 			{#if chatStore.isStreaming}
 				<span class="loading-spinner"></span>
 			{:else}
-				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
 					<path
 						d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z"
 					/>
@@ -96,22 +106,15 @@
 				type="button"
 				onclick={handleCancel}
 				aria-label="Stop generating"
-				class="flex h-10 min-h-touch w-10 min-w-touch shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-[0_2px_8px_rgba(239,68,68,0.3)] transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-[0_4px_12px_rgba(239,68,68,0.4)] active:scale-95"
+				class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-[0_2px_6px_rgba(239,68,68,0.25)] transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-[0_3px_10px_rgba(239,68,68,0.35)] active:scale-95"
 			>
-				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
 					<rect x="6" y="6" width="12" height="12" rx="2" />
 				</svg>
 			</button>
 		{/if}
-	</div>
 
-	<div class="flex items-center justify-between px-1">
-		{#if chatStore.isStreaming}
-			<p class="m-0 text-xs text-primary-500">Assistant is typing...</p>
-		{:else}
-			<p class="m-0 text-xs text-neutral-600">Enter to send, Shift+Enter for new line</p>
-		{/if}
-		{#if hasMessages && onClearHistory}
+		{#if hasMessages && onClearHistory && !chatStore.isStreaming}
 			<button
 				type="button"
 				onclick={onClearHistory}
@@ -126,6 +129,35 @@
 
 <style>
 	.loading-spinner {
-		@apply h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white;
+		@apply h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white;
+	}
+
+	/* Animated typing dots */
+	.typing-dots {
+		@apply inline-flex items-center gap-0.5;
+	}
+
+	.typing-dot-inline {
+		@apply inline-block h-1 w-1 rounded-full bg-primary-500;
+		animation: typing-blink 1.4s infinite both;
+	}
+
+	.animation-delay-200 {
+		animation-delay: 0.2s;
+	}
+
+	.animation-delay-400 {
+		animation-delay: 0.4s;
+	}
+
+	@keyframes typing-blink {
+		0%,
+		80%,
+		100% {
+			opacity: 0.3;
+		}
+		40% {
+			opacity: 1;
+		}
 	}
 </style>

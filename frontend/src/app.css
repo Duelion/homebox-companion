@@ -47,6 +47,11 @@
 		@apply w-full rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
 	}
 
+	/* Compact input variant for modals and dense UIs */
+	.input-sm {
+		@apply w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
+	}
+
 	/* Input error state */
 	.input-error {
 		@apply border-error-500 focus:border-error-500 focus:ring-error-500/20;
@@ -61,6 +66,11 @@
 	/* Label styles */
 	.label {
 		@apply mb-2 block text-body-sm font-medium text-neutral-300;
+	}
+
+	/* Compact label for modals and dense UIs */
+	.label-sm {
+		@apply mb-1 block text-xs font-medium text-neutral-400;
 	}
 
 	/* Label chip / badge styles */
