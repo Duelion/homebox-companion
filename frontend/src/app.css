@@ -83,13 +83,13 @@
 	   ========================================================================== */
 	.markdown-content {
 		margin: 0;
-		line-height: 1.5;
+		line-height: 1.35;
 	}
 
 	.markdown-content ul,
 	.markdown-content ol {
-		margin: 0.5rem 0;
-		padding-left: 1.5rem;
+		margin: 0.25rem 0;
+		padding-left: 1.25rem;
 	}
 
 	.markdown-content ul {
@@ -101,11 +101,11 @@
 	}
 
 	.markdown-content li {
-		margin: 0.25rem 0;
+		margin: 0.125rem 0;
 	}
 
 	.markdown-content p {
-		margin: 0.5rem 0;
+		margin: 0.25rem 0;
 	}
 
 	.markdown-content p:first-child {
@@ -130,11 +130,11 @@
 	}
 
 	.markdown-content code {
-		@apply rounded bg-primary-500/10 px-1.5 py-0.5 font-mono text-[0.875em];
+		@apply rounded bg-primary-500/10 px-1 py-0.5 font-mono text-[0.85em];
 	}
 
 	.markdown-content pre {
-		@apply my-2 overflow-x-auto rounded-lg bg-black/30 p-3;
+		@apply my-1.5 overflow-x-auto rounded-lg bg-black/30 p-2;
 	}
 
 	.markdown-content pre code {
@@ -145,19 +145,19 @@
 	.markdown-content h2,
 	.markdown-content h3 {
 		@apply font-semibold text-neutral-100;
-		margin: 0.75rem 0 0.5rem;
+		margin: 0.5rem 0 0.25rem;
 	}
 
 	.markdown-content h1 {
-		@apply text-h3;
-	}
-
-	.markdown-content h2 {
 		@apply text-h4;
 	}
 
-	.markdown-content h3 {
+	.markdown-content h2 {
 		@apply text-body;
+	}
+
+	.markdown-content h3 {
+		@apply text-body-sm;
 	}
 
 	/* GFM Tables */

@@ -150,7 +150,7 @@
 >
 	<div class="relative">
 		<div
-			class="rounded-2xl px-3.5 py-2.5 break-words {isUser
+			class="rounded-2xl px-3 py-2 break-words text-sm-tight {isUser
 				? 'from-primary-600 to-primary-500 rounded-br bg-gradient-to-br text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
@@ -158,14 +158,14 @@
 		>
 			{#if message.content}
 				{#if isUser}
-					<p class="m-0 leading-relaxed">{message.content}</p>
+					<p class="m-0 leading-snug">{message.content}</p>
 				{:else}
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Rendered markdown from trusted AI response -->
 					<div class="markdown-content">{@html renderedContent}</div>
 				{/if}
 			{:else if hasExecutedActions && !message.isStreaming}
 				<!-- Fallback summary when no content but has executed actions -->
-				<p class="m-0 text-sm text-neutral-300">
+				<p class="m-0 text-xs text-neutral-300">
 					{#if executedActionStats.allSuccess && executedActionStats.rejected === 0}
 						✓ Completed {executedActionStats.total} action{executedActionStats.total !== 1
 							? 's'
@@ -183,7 +183,7 @@
 			{/if}
 
 			{#if message.isStreaming && !message.content}
-				<div class="flex gap-1 py-1">
+				<div class="flex gap-0.5 py-0.5">
 					<span class="typing-dot"></span>
 					<span class="typing-dot animation-delay-160"></span>
 					<span class="typing-dot animation-delay-320"></span>
@@ -191,18 +191,18 @@
 			{/if}
 
 			{#if hasToolResults || hasExecutedActions}
-				<details class="tool-accordion group/tools mt-2 border-t border-white/10 pt-2">
+				<details class="tool-accordion group/tools mt-1.5 border-t border-white/10 pt-1.5">
 					<summary
-						class="flex cursor-pointer items-center gap-1.5 text-xs text-neutral-400 select-none hover:text-neutral-300"
+						class="flex cursor-pointer items-center gap-1 text-xxs text-neutral-400 select-none hover:text-neutral-300"
 					>
 						<span class="transform transition-transform group-open/tools:rotate-90">›</span>
 						Used {totalToolCount} tool{totalToolCount > 1 ? 's' : ''}
 					</summary>
-					<div class="mt-2 flex flex-wrap gap-1.5">
+					<div class="mt-1.5 flex flex-wrap gap-1">
 						<!-- Read-only tool badges -->
 						{#each groupedToolResults as group (group.toolName)}
 							<div
-								class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium {group.isExecuting
+								class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xxs font-medium {group.isExecuting
 									? 'border-primary-500/30 bg-primary-500/15 text-primary-500 border'
 									: group.success
 										? 'border-success-500/30 bg-success-500/15 text-success-500 border'
@@ -227,7 +227,7 @@
 							<!-- Show success badge if any succeeded -->
 							{#if hasSuccess}
 								<div
-									class="border-success-500/30 bg-success-500/15 text-success-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+									class="border-success-500/30 bg-success-500/15 text-success-500 inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xxs font-medium"
 								>
 									<span class="font-bold">✓</span>
 									<span class="font-mono">{action.toolName}</span>
@@ -239,7 +239,7 @@
 							<!-- Show fail badge if any failed -->
 							{#if hasFail}
 								<div
-									class="border-error-500/30 bg-error-500/15 text-error-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+									class="border-error-500/30 bg-error-500/15 text-error-500 inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xxs font-medium"
 								>
 									<span class="font-bold">✗</span>
 									<span class="font-mono">{action.toolName}</span>
@@ -251,7 +251,7 @@
 							<!-- Show rejected badge if any rejected -->
 							{#if hasReject}
 								<div
-									class="border-warning-500/30 bg-warning-500/15 text-warning-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+									class="border-warning-500/30 bg-warning-500/15 text-warning-500 inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xxs font-medium"
 								>
 									<span class="font-bold">⊘</span>
 									<span class="font-mono">{action.toolName}</span>
@@ -269,12 +269,12 @@
 			{#if showApprovalBadge}
 				<button
 					type="button"
-					class="approval-badge border-warning-500/40 bg-warning-500/15 hover:border-warning-500/60 hover:bg-warning-500/20 mt-2 flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all active:scale-[0.98]"
+					class="approval-badge border-warning-500/40 bg-warning-500/15 hover:border-warning-500/60 hover:bg-warning-500/20 mt-1.5 flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition-all active:scale-[0.98]"
 					onclick={onOpenApprovals}
 				>
-					<div class="bg-warning-500/20 flex h-6 w-6 items-center justify-center rounded-lg">
+					<div class="bg-warning-500/20 flex h-5 w-5 items-center justify-center rounded-md">
 						<svg
-							class="text-warning-500 h-3.5 w-3.5"
+							class="text-warning-500 h-3 w-3"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -287,12 +287,12 @@
 							/>
 						</svg>
 					</div>
-					<span class="text-warning-500 flex-1 text-sm font-medium">
+					<span class="text-warning-500 flex-1 text-xs font-medium">
 						{pendingApprovalCount}
 						{pendingApprovalCount === 1 ? 'action requires' : 'actions require'} approval
 					</span>
 					<svg
-						class="text-warning-500/70 h-4 w-4"
+						class="text-warning-500/70 h-3.5 w-3.5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -342,15 +342,15 @@
 		{/if}
 	</div>
 
-	<div class="mt-1 flex items-center gap-2 px-2">
-		<time class="text-xs text-neutral-500">
+	<div class="mt-0.5 flex items-center gap-1.5 px-1.5">
+		<time class="text-xxs text-neutral-500">
 			{message.timestamp.toLocaleTimeString([], {
 				hour: '2-digit',
 				minute: '2-digit',
 			})}
 		</time>
 		{#if !isUser && message.tokenUsage}
-			<span class="text-xs text-neutral-500">
+			<span class="text-xxs text-neutral-500">
 				{message.tokenUsage.total} tokens
 			</span>
 		{/if}
@@ -365,7 +365,7 @@
 
 	/* Typing indicator animation */
 	.typing-dot {
-		@apply animate-typing-dot bg-primary-500 h-2 w-2 rounded-full;
+		@apply animate-typing-dot bg-primary-500 h-1.5 w-1.5 rounded-full;
 	}
 
 	.animation-delay-160 {
@@ -378,7 +378,7 @@
 
 	/* Tool execution spinner */
 	.tool-spinner {
-		@apply border-primary-500 inline-block h-3 w-3 animate-spin rounded-full border-2 border-t-transparent;
+		@apply border-primary-500 inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-t-transparent;
 	}
 
 	/* Streaming glow animation */
