@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ..homebox.client import HomeboxClient
 
 # Truncation limits for tool results (reduces context window usage)
-MAX_RESULT_ITEMS = 10  # Maximum items in list results
+MAX_RESULT_ITEMS = 25  # Maximum items in list results
 
 
 class ToolPermission(str, Enum):
