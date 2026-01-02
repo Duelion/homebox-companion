@@ -21,7 +21,7 @@ from ..core import config
 from ..core.config import settings
 from ..homebox.client import HomeboxClient
 from ..mcp.tools import get_tools
-from ..mcp.types import ToolPermission
+from ..mcp.types import MAX_RESULT_ITEMS, ToolPermission
 from .session import (
     ChatMessage,
     ChatSession,
@@ -62,7 +62,7 @@ class ChatEvent:
 # System prompt for the assistant
 # Note: Tool definitions are passed dynamically via the tools parameter,
 # so we focus on behavioral guidance and response formatting here.
-SYSTEM_PROMPT = """You are a Homebox inventory assistant. Help users find and manage their items.
+SYSTEM_PROMPT = f"""You are a Homebox inventory assistant. Help users find and manage their items.
 
 EFFICIENCY RULES:
 - Use the most appropriate tool for each query (tool definitions are provided separately)
@@ -84,7 +84,7 @@ Follow progressive disclosure: establish context first, then list details.
   - [Drill](item.url), quantity: 1
 - NEVER show assetId in responses unless the user explicitly asks for asset IDs
 - Group results by meaningful context (location, category) when it reduces redundancy
-- Show up to 20 results, then summarize remaining count
+- Show up to {MAX_RESULT_ITEMS} results, then summarize remaining count
 - Be helpful and complete, not artificially brief
 
 APPROVAL HANDLING:
