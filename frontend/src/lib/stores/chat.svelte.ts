@@ -159,12 +159,12 @@ class ChatStore {
 		this._messages = this._messages.map((msg) =>
 			msg.id === this.streamingMessageId
 				? {
-					...msg,
-					toolResults: [
-						...(msg.toolResults || []),
-						{ tool: toolName, executionId, success: false, isExecuting: true },
-					],
-				}
+						...msg,
+						toolResults: [
+							...(msg.toolResults || []),
+							{ tool: toolName, executionId, success: false, isExecuting: true },
+						],
+					}
 				: msg
 		);
 	}
@@ -274,13 +274,16 @@ class ChatStore {
 
 	/**
 	 * Approve a pending action and track it as an executed action on the last assistant message.
+	 *
+	 * @param approvalId - ID of the approval to approve
+	 * @param modifiedParams - Optional parameters to override the original action parameters
 	 */
-	async approveAction(approvalId: string): Promise<void> {
+	async approveAction(approvalId: string, modifiedParams?: Record<string, unknown>): Promise<void> {
 		const approval = this._pendingApprovals.find((a) => a.id === approvalId);
 		const toolName = approval?.tool_name || 'unknown';
 
 		try {
-			const result = await chat.approveAction(approvalId);
+			const result = await chat.approveAction(approvalId, modifiedParams);
 			this._pendingApprovals = this._pendingApprovals.filter((a) => a.id !== approvalId);
 
 			// Add executed action to the last assistant message

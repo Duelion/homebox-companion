@@ -4,12 +4,13 @@
 	 *
 	 * Displays all pending approvals in a clean, scannable list with
 	 * individual and bulk approve/reject actions.
-	 * Now shows human-readable display info (item name, location, etc.)
+	 * Supports expanding items to view details or edit parameters.
 	 */
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { PendingApproval } from '../api/chat';
 	import { chatStore } from '../stores/chat.svelte';
 	import Button from './Button.svelte';
+	import ApprovalItemPanel from './ApprovalItemPanel.svelte';
 
 	interface Props {
 		open: boolean;
@@ -72,10 +73,10 @@
 		processingIds.delete(id);
 	}
 
-	async function handleApprove(approvalId: string) {
+	async function handleApprove(approvalId: string, modifiedParams?: Record<string, unknown>) {
 		addProcessingId(approvalId);
 		try {
-			await chatStore.approveAction(approvalId);
+			await chatStore.approveAction(approvalId, modifiedParams);
 		} finally {
 			removeProcessingId(approvalId);
 		}
@@ -91,6 +92,8 @@
 	}
 
 	async function handleApproveAll() {
+		// Note: Bulk approve uses original parameters, not any user edits in expanded panels.
+		// This is intentional - users should use individual approve for edited items.
 		const ids = approvals.map((a) => a.id);
 		ids.forEach((id) => processingIds.add(id));
 		try {
@@ -112,52 +115,6 @@
 		} finally {
 			processingIds.clear();
 		}
-	}
-
-	// Get human-readable action description
-	function getActionDescription(approval: PendingApproval): string {
-		const toolName = approval.tool_name;
-		const info = approval.display_info;
-
-		if (toolName === 'delete_item') {
-			if (info?.item_name) {
-				let desc = `Delete "${info.item_name}"`;
-				if (info.asset_id) desc += ` (${info.asset_id})`;
-				if (info.location) desc += ` from ${info.location}`;
-				return desc;
-			}
-			return 'Delete item';
-		}
-
-		if (toolName === 'update_item') {
-			if (info?.item_name) {
-				let desc = `Update "${info.item_name}"`;
-				if (info.asset_id) desc += ` (${info.asset_id})`;
-				return desc;
-			}
-			return 'Update item';
-		}
-
-		if (toolName === 'create_item') {
-			if (info?.item_name) {
-				let desc = `Create "${info.item_name}"`;
-				if (info.location) desc += ` in ${info.location}`;
-				return desc;
-			}
-			return 'Create new item';
-		}
-
-		// Fallback: format tool name
-		return toolName.replace(/_/g, ' ');
-	}
-
-	// Get action type for styling
-	function getActionType(toolName: string): 'delete' | 'create' | 'update' {
-		if (toolName === 'delete_item') return 'delete';
-		if (toolName === 'create_item') return 'create';
-		if (toolName === 'update_item') return 'update';
-		// Default to 'update' styling for other write tools (e.g., ensure_asset_ids)
-		return 'update';
 	}
 
 	const isProcessingAny = $derived(processingIds.size > 0);
@@ -228,123 +185,14 @@
 			</div>
 
 			<!-- Approval List -->
-			<div class="max-h-80 divide-y divide-neutral-800 overflow-y-auto">
+			<div class="max-h-96 divide-y divide-neutral-800 overflow-y-auto">
 				{#each approvals as approval (approval.id)}
-					{@const isProcessing = processingIds.has(approval.id)}
-					{@const actionType = getActionType(approval.tool_name)}
-					<div
-						class="flex items-start gap-3 px-5 py-4 transition-colors {approval.is_expired
-							? 'opacity-50'
-							: ''}"
-					>
-						<!-- Action Icon -->
-						<div
-							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {actionType ===
-							'delete'
-								? 'bg-error-500/15'
-								: actionType === 'create'
-									? 'bg-success-500/15'
-									: 'bg-warning-500/15'}"
-						>
-							{#if actionType === 'delete'}
-								<svg
-									class="h-4.5 w-4.5 text-error-500"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="2"
-								>
-									<path
-										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-									/>
-								</svg>
-							{:else if actionType === 'create'}
-								<svg
-									class="h-4.5 w-4.5 text-success-500"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="2"
-								>
-									<path d="M12 4v16m8-8H4" />
-								</svg>
-							{:else}
-								<svg
-									class="h-4.5 w-4.5 text-warning-500"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="2"
-								>
-									<path
-										d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-									/>
-								</svg>
-							{/if}
-						</div>
-
-						<!-- Action Info -->
-						<div class="min-w-0 flex-1">
-							<p
-								class="text-sm font-medium {actionType === 'delete'
-									? 'text-error-400'
-									: 'text-neutral-200'}"
-							>
-								{getActionDescription(approval)}
-							</p>
-							<p class="mt-0.5 text-xs text-neutral-500">
-								{approval.tool_name}
-							</p>
-						</div>
-
-						<!-- Individual Actions -->
-						<div class="flex shrink-0 gap-1.5">
-							<button
-								type="button"
-								class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50"
-								disabled={isProcessing || approval.is_expired}
-								onclick={() => handleReject(approval.id)}
-								aria-label="Reject"
-							>
-								{#if isProcessing}
-									<div
-										class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-									></div>
-								{:else}
-									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M6 18L18 6M6 6l12 12"
-										/>
-									</svg>
-								{/if}
-							</button>
-							<button
-								type="button"
-								class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 disabled:opacity-50"
-								disabled={isProcessing || approval.is_expired}
-								onclick={() => handleApprove(approval.id)}
-								aria-label="Approve"
-							>
-								{#if isProcessing}
-									<div
-										class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-									></div>
-								{:else}
-									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M5 13l4 4L19 7"
-										/>
-									</svg>
-								{/if}
-							</button>
-						</div>
-					</div>
+					<ApprovalItemPanel
+						{approval}
+						isProcessing={processingIds.has(approval.id)}
+						onApprove={handleApprove}
+						onReject={handleReject}
+					/>
 				{/each}
 			</div>
 

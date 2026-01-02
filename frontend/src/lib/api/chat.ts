@@ -273,16 +273,21 @@ export async function getPendingApprovals(): Promise<PendingApproval[]> {
 }
 
 /**
- * Approve a pending action.
+ * Approve a pending action, optionally with modified parameters.
+ *
+ * @param approvalId - ID of the approval to approve
+ * @param modifiedParams - Optional parameters to override the original action parameters
  */
 export async function approveAction(
-	approvalId: string
+	approvalId: string,
+	modifiedParams?: Record<string, unknown>
 ): Promise<{ success: boolean; confirmation?: string; error?: string }> {
-	log.info(`Approving action: ${approvalId}`);
+	log.info(`Approving action: ${approvalId}`, modifiedParams ? { modifiedParams } : undefined);
 	return request<{ success: boolean; confirmation?: string; error?: string }>(
 		`/chat/approve/${approvalId}`,
 		{
 			method: 'POST',
+			body: modifiedParams ? JSON.stringify({ parameters: modifiedParams }) : undefined,
 		}
 	);
 }
