@@ -3,16 +3,32 @@
 	 * ApprovalItemPanel - Expandable panel for viewing/editing a pending approval action
 	 *
 	 * Supports three action types:
-	 * - create_item: Editable name, quantity, description, location, notes, tags
-	 * - update_item: Editable fields that are being changed
+	 * - create_item: Full editable form with core, extended fields, location, and labels
+	 * - update_item: Shows only fields being changed (editable)
 	 * - delete_item: Read-only verification view
 	 */
 	import { slide } from 'svelte/transition';
 	import type { PendingApproval } from '../api/chat';
-	import { labelStore } from '../stores/labels.svelte';
-	import { locationStore } from '../stores/locations.svelte';
+	import { ItemCoreFields, ItemExtendedFields, LabelSelector, LocationSelector } from './form';
 
 	type ActionType = 'delete' | 'create' | 'update';
+
+	// Field name constants to avoid magic strings
+	const CORE_FIELDS = ['name', 'description', 'quantity', 'notes', 'labels', 'location'] as const;
+	const EXTENDED_FIELDS = [
+		'manufacturer',
+		'model_number',
+		'serial_number',
+		'purchase_price',
+		'purchase_from',
+	] as const;
+
+	// Tool name to action type mapping
+	const ACTION_TYPE_MAP: Record<string, ActionType> = {
+		delete_item: 'delete',
+		create_item: 'create',
+		update_item: 'update',
+	};
 
 	interface Props {
 		approval: PendingApproval;
@@ -23,21 +39,27 @@
 
 	let { approval, isProcessing, onApprove, onReject }: Props = $props();
 
-	// Local state
+	// UI state
 	let expanded = $state(false);
-
-	// Track which action is being processed to show spinner on correct button
+	let showExtendedFields = $state(false);
 	let processingAction = $state<'approve' | 'reject' | null>(null);
 
-	// Editable copies of parameters
+	// Core fields state
 	let editedName = $state('');
-	let editedDescription = $state('');
+	let editedDescription = $state<string | null>('');
 	let editedQuantity = $state(1);
-	let editedNotes = $state('');
-	let editedLabelIds = $state<string[]>([]);
 	let editedLocationId = $state('');
+	let editedLabelIds = $state<string[]>([]);
+	let editedNotes = $state<string | null>('');
 
-	// Helper to get original values with proper typing
+	// Extended fields state
+	let editedManufacturer = $state<string | null>(null);
+	let editedModelNumber = $state<string | null>(null);
+	let editedSerialNumber = $state<string | null>(null);
+	let editedPurchasePrice = $state<number | null>(null);
+	let editedPurchaseFrom = $state<string | null>(null);
+
+	// Helper to safely extract original values from approval parameters
 	const originalName = $derived((approval.parameters.name as string | undefined) ?? '');
 	const originalDescription = $derived(
 		(approval.parameters.description as string | undefined) ?? ''
@@ -47,6 +69,21 @@
 	const originalLabelIds = $derived((approval.parameters.label_ids as string[] | undefined) ?? []);
 	const originalLocationId = $derived(
 		(approval.parameters.location_id as string | undefined) ?? ''
+	);
+	const originalManufacturer = $derived(
+		(approval.parameters.manufacturer as string | undefined) ?? null
+	);
+	const originalModelNumber = $derived(
+		(approval.parameters.model_number as string | undefined) ?? null
+	);
+	const originalSerialNumber = $derived(
+		(approval.parameters.serial_number as string | undefined) ?? null
+	);
+	const originalPurchasePrice = $derived(
+		(approval.parameters.purchase_price as number | undefined) ?? null
+	);
+	const originalPurchaseFrom = $derived(
+		(approval.parameters.purchase_from as string | undefined) ?? null
 	);
 
 	// Track which approval we've initialized for
@@ -59,17 +96,27 @@
 		// Reset if approval changed
 		if (initializedForApprovalId !== null && initializedForApprovalId !== currentApprovalId) {
 			initializedForApprovalId = null;
-			expanded = false; // Collapse when switching to different approval
+			expanded = false;
+			showExtendedFields = false;
 		}
 
 		// Initialize when first expanded for this approval
 		if (expanded && initializedForApprovalId !== currentApprovalId) {
+			// Core fields
 			editedName = originalName;
 			editedDescription = originalDescription;
 			editedQuantity = originalQuantity;
 			editedNotes = originalNotes;
 			editedLabelIds = [...originalLabelIds];
 			editedLocationId = originalLocationId;
+			// Extended fields
+			editedManufacturer = originalManufacturer;
+			editedModelNumber = originalModelNumber;
+			editedSerialNumber = originalSerialNumber;
+			editedPurchasePrice = originalPurchasePrice;
+			editedPurchaseFrom = originalPurchaseFrom;
+			// Auto-expand if any extended field has data
+			showExtendedFields = hasAnyExtendedData();
 			initializedForApprovalId = currentApprovalId;
 		}
 	});
@@ -81,69 +128,18 @@
 		}
 	});
 
-	// Get action type for styling and behavior
-	const actionType = $derived.by((): ActionType => {
-		if (approval.tool_name === 'delete_item') return 'delete';
-		if (approval.tool_name === 'create_item') return 'create';
-		if (approval.tool_name === 'update_item') return 'update';
-		return 'update';
-	});
+	// Get action type for styling and behavior (using lookup map for clarity)
+	const actionType = $derived(ACTION_TYPE_MAP[approval.tool_name] ?? 'update');
 
-	// Get human-readable action description (concise - just the item name)
+	// Get human-readable action description
 	const actionDescription = $derived.by(() => {
 		const toolName = approval.tool_name;
 		const info = approval.display_info;
 
-		if (toolName === 'delete_item') {
-			return info?.item_name ?? 'Delete item';
-		}
-
-		if (toolName === 'update_item') {
-			return info?.item_name ?? 'Update item';
-		}
-
-		if (toolName === 'create_item') {
-			return info?.item_name ?? 'New item';
-		}
-
+		if (toolName === 'delete_item') return info?.item_name ?? 'Delete item';
+		if (toolName === 'update_item') return info?.item_name ?? 'Update item';
+		if (toolName === 'create_item') return info?.item_name ?? 'New item';
 		return toolName.replace(/_/g, ' ');
-	});
-
-	// Helper to compare label arrays
-	function arraysEqual(a: string[], b: string[]): boolean {
-		if (a.length !== b.length) return false;
-		const sortedA = [...a].sort();
-		const sortedB = [...b].sort();
-		return sortedA.every((val, i) => val === sortedB[i]);
-	}
-
-	// Check if user has modified any editable parameters
-	// For update actions, only considers fields in fieldsBeingChanged
-	const hasModifications = $derived.by(() => {
-		if (actionType === 'delete') return false;
-
-		// For create actions, check all fields
-		if (actionType === 'create') {
-			return (
-				editedName !== originalName ||
-				editedDescription !== originalDescription ||
-				editedQuantity !== originalQuantity ||
-				editedNotes !== originalNotes ||
-				!arraysEqual(editedLabelIds, originalLabelIds) ||
-				editedLocationId !== originalLocationId
-			);
-		}
-
-		// For update actions, only check fields that are being changed
-		const allowed = new Set(fieldsBeingChanged);
-		return (
-			(allowed.has('name') && editedName !== originalName) ||
-			(allowed.has('description') && editedDescription !== originalDescription) ||
-			(allowed.has('quantity') && editedQuantity !== originalQuantity) ||
-			(allowed.has('notes') && editedNotes !== originalNotes) ||
-			(allowed.has('labels') && !arraysEqual(editedLabelIds, originalLabelIds)) ||
-			(allowed.has('location') && editedLocationId !== originalLocationId)
-		);
 	});
 
 	// Check which fields are being changed (for update_item)
@@ -156,39 +152,96 @@
 		if (approval.parameters.notes !== undefined) fields.push('notes');
 		if (approval.parameters.label_ids !== undefined) fields.push('labels');
 		if (approval.parameters.location_id !== undefined) fields.push('location');
+		// Extended fields
+		if (approval.parameters.manufacturer !== undefined) fields.push('manufacturer');
+		if (approval.parameters.model_number !== undefined) fields.push('model_number');
+		if (approval.parameters.serial_number !== undefined) fields.push('serial_number');
+		if (approval.parameters.purchase_price !== undefined) fields.push('purchase_price');
+		if (approval.parameters.purchase_from !== undefined) fields.push('purchase_from');
 		return fields;
 	});
 
+	// Helper to compare string arrays
+	function arraysEqual(a: string[], b: string[]): boolean {
+		if (a.length !== b.length) return false;
+		const sortedA = [...a].sort();
+		const sortedB = [...b].sort();
+		return sortedA.every((val, i) => val === sortedB[i]);
+	}
+
+	// Check if any extended field has data in original params
+	function hasAnyExtendedData(): boolean {
+		return !!(
+			originalManufacturer ||
+			originalModelNumber ||
+			originalSerialNumber ||
+			originalPurchasePrice ||
+			originalPurchaseFrom
+		);
+	}
+
+	// Check if extended fields are being updated (for update action)
+	const hasExtendedFieldsBeingChanged = $derived(
+		fieldsBeingChanged.some((f) => (EXTENDED_FIELDS as readonly string[]).includes(f))
+	);
+
+	// Check if notes is being changed standalone (not as part of extended fields)
+	// Used to prevent duplicate notes binding
+	const isNotesChangedStandalone = $derived(
+		fieldsBeingChanged.includes('notes') && hasExtendedFieldsBeingChanged
+	);
+
+	// Shared helper: check if a field can be modified based on action type
+	const allowedFields = $derived(new Set(fieldsBeingChanged));
+	function canModifyField(field: string): boolean {
+		return actionType !== 'update' || allowedFields.has(field);
+	}
+
+	// Check if user has modified any editable parameters
+	const hasModifications = $derived.by(() => {
+		if (actionType === 'delete') return false;
+
+		return (
+			(canModifyField('name') && editedName !== originalName) ||
+			(canModifyField('description') && editedDescription !== originalDescription) ||
+			(canModifyField('quantity') && editedQuantity !== originalQuantity) ||
+			(canModifyField('notes') && editedNotes !== originalNotes) ||
+			(canModifyField('labels') && !arraysEqual(editedLabelIds, originalLabelIds)) ||
+			(canModifyField('location') && editedLocationId !== originalLocationId) ||
+			(canModifyField('manufacturer') && editedManufacturer !== originalManufacturer) ||
+			(canModifyField('model_number') && editedModelNumber !== originalModelNumber) ||
+			(canModifyField('serial_number') && editedSerialNumber !== originalSerialNumber) ||
+			(canModifyField('purchase_price') && editedPurchasePrice !== originalPurchasePrice) ||
+			(canModifyField('purchase_from') && editedPurchaseFrom !== originalPurchaseFrom)
+		);
+	});
+
 	// Build modified parameters object (only changed fields)
-	// For update actions, only returns fields that are in fieldsBeingChanged
 	function getModifiedParams(): Record<string, unknown> | undefined {
 		if (!hasModifications) return undefined;
 
 		const mods: Record<string, unknown> = {};
-		const isUpdate = actionType === 'update';
-		const allowed = new Set(fieldsBeingChanged);
 
-		// Helper to check if field can be modified
-		const canModify = (field: string) => !isUpdate || allowed.has(field);
-
-		if (editedName !== originalName && canModify('name')) {
-			mods.name = editedName;
-		}
-		if (editedDescription !== originalDescription && canModify('description')) {
+		if (editedName !== originalName && canModifyField('name')) mods.name = editedName;
+		if (editedDescription !== originalDescription && canModifyField('description'))
 			mods.description = editedDescription;
-		}
-		if (editedQuantity !== originalQuantity && canModify('quantity')) {
+		if (editedQuantity !== originalQuantity && canModifyField('quantity'))
 			mods.quantity = editedQuantity;
-		}
-		if (editedNotes !== originalNotes && canModify('notes')) {
-			mods.notes = editedNotes;
-		}
-		if (!arraysEqual(editedLabelIds, originalLabelIds) && canModify('labels')) {
+		if (editedNotes !== originalNotes && canModifyField('notes')) mods.notes = editedNotes;
+		if (!arraysEqual(editedLabelIds, originalLabelIds) && canModifyField('labels'))
 			mods.label_ids = editedLabelIds;
-		}
-		if (editedLocationId !== originalLocationId && canModify('location')) {
+		if (editedLocationId !== originalLocationId && canModifyField('location'))
 			mods.location_id = editedLocationId;
-		}
+		if (editedManufacturer !== originalManufacturer && canModifyField('manufacturer'))
+			mods.manufacturer = editedManufacturer;
+		if (editedModelNumber !== originalModelNumber && canModifyField('model_number'))
+			mods.model_number = editedModelNumber;
+		if (editedSerialNumber !== originalSerialNumber && canModifyField('serial_number'))
+			mods.serial_number = editedSerialNumber;
+		if (editedPurchasePrice !== originalPurchasePrice && canModifyField('purchase_price'))
+			mods.purchase_price = editedPurchasePrice;
+		if (editedPurchaseFrom !== originalPurchaseFrom && canModifyField('purchase_from'))
+			mods.purchase_from = editedPurchaseFrom;
 
 		return Object.keys(mods).length > 0 ? mods : undefined;
 	}
@@ -216,6 +269,10 @@
 	function toggleExpanded() {
 		expanded = !expanded;
 	}
+
+	function toggleExtendedFieldsPanel() {
+		showExtendedFields = !showExtendedFields;
+	}
 </script>
 
 <div class="transition-colors {approval.is_expired ? 'opacity-50' : ''}">
@@ -231,7 +288,7 @@
 		>
 			{#if actionType === 'delete'}
 				<svg
-					class="h-4.5 w-4.5 text-error-500"
+					class="text-error-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -243,7 +300,7 @@
 				</svg>
 			{:else if actionType === 'create'}
 				<svg
-					class="h-4.5 w-4.5 text-success-500"
+					class="text-success-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -253,7 +310,7 @@
 				</svg>
 			{:else}
 				<svg
-					class="h-4.5 w-4.5 text-warning-500"
+					class="text-warning-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -279,10 +336,10 @@
 
 		<!-- Action Buttons -->
 		<div class="flex shrink-0 gap-1.5">
-			<!-- Expand/Edit Button - always enabled unless expired (can collapse during processing) -->
+			<!-- Expand/Edit Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 {expanded
+				class="hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50 {expanded
 					? 'border-primary-500/50 bg-primary-500/10 text-primary-400'
 					: ''}"
 				disabled={approval.is_expired}
@@ -291,7 +348,6 @@
 				aria-expanded={expanded}
 			>
 				{#if actionType === 'delete'}
-					<!-- Eye icon for delete (view details) -->
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -307,7 +363,6 @@
 						/>
 					</svg>
 				{:else}
-					<!-- Pencil icon for create/update (edit) -->
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -322,7 +377,7 @@
 			<!-- Reject Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50"
+				class="hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleReject}
 				aria-label="Reject"
@@ -346,7 +401,7 @@
 			<!-- Approve Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 disabled:opacity-50"
+				class="hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleApprove}
 				aria-label="Approve"
@@ -376,106 +431,52 @@
 			transition:slide={{ duration: 200 }}
 		>
 			{#if actionType === 'create'}
-				<!-- Create Item: Editable fields (compact styling) -->
-				<div class="space-y-2.5">
-					<div>
-						<label for="create-name-{approval.id}" class="label-sm">Name</label>
-						<input
-							type="text"
-							id="create-name-{approval.id}"
-							bind:value={editedName}
-							placeholder="Item name"
-							class="input-sm"
-							disabled={isProcessing}
-						/>
-					</div>
+				<!-- Create Item: Full editable form -->
+				<div class="space-y-3">
+					<ItemCoreFields
+						bind:name={editedName}
+						bind:quantity={editedQuantity}
+						bind:description={editedDescription}
+						size="sm"
+						disabled={isProcessing}
+						idPrefix="create-{approval.id}"
+					/>
 
-					<div>
-						<label for="create-qty-{approval.id}" class="label-sm">Quantity</label>
-						<input
-							type="number"
-							id="create-qty-{approval.id}"
-							min="1"
-							bind:value={editedQuantity}
-							class="input-sm w-20"
-							disabled={isProcessing}
-						/>
-					</div>
+					<LocationSelector
+						bind:value={editedLocationId}
+						size="sm"
+						disabled={isProcessing}
+						idPrefix="create-{approval.id}"
+						fallbackDisplay={approval.display_info?.location ?? 'No location'}
+					/>
 
-					<div>
-						<label for="create-desc-{approval.id}" class="label-sm">Description</label>
-						<textarea
-							id="create-desc-{approval.id}"
-							bind:value={editedDescription}
-							placeholder="Optional description"
-							rows="2"
-							class="input-sm resize-none"
-							disabled={isProcessing}
-						></textarea>
-					</div>
+					<LabelSelector
+						selectedIds={editedLabelIds}
+						size="sm"
+						disabled={isProcessing}
+						onToggle={toggleLabel}
+					/>
 
-					<!-- Location Selector -->
-					<div>
-						<label for="create-loc-{approval.id}" class="label-sm">Location</label>
-						{#if locationStore.flatList.length > 0}
-							<select
-								id="create-loc-{approval.id}"
-								bind:value={editedLocationId}
-								class="input-sm"
-								disabled={isProcessing}
-							>
-								<option value="">Select location...</option>
-								{#each locationStore.flatList as loc (loc.location.id)}
-									<option value={loc.location.id}>{loc.path}</option>
-								{/each}
-							</select>
-						{:else}
-							<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
-								<span class="text-sm text-neutral-300"
-									>{approval.display_info?.location ?? 'No location'}</span
-								>
-							</div>
-						{/if}
-					</div>
-
-					<div>
-						<label for="create-notes-{approval.id}" class="label-sm">Notes</label>
-						<textarea
-							id="create-notes-{approval.id}"
-							bind:value={editedNotes}
-							placeholder="Optional notes"
-							rows="2"
-							class="input-sm resize-none"
-							disabled={isProcessing}
-						></textarea>
-					</div>
-
-					<!-- Tags/Labels -->
-					{#if labelStore.labels.length > 0}
-						<div>
-							<span class="label-sm">Tags</span>
-							<div class="flex flex-wrap gap-1.5" role="group" aria-label="Select labels">
-								{#each labelStore.labels as label (label.id)}
-									{@const isSelected = editedLabelIds.includes(label.id)}
-									<button
-										type="button"
-										class={isSelected ? 'label-chip-selected' : 'label-chip'}
-										onclick={() => toggleLabel(label.id)}
-										disabled={isProcessing}
-									>
-										{label.name}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
+					<ItemExtendedFields
+						bind:manufacturer={editedManufacturer}
+						bind:modelNumber={editedModelNumber}
+						bind:serialNumber={editedSerialNumber}
+						bind:purchasePrice={editedPurchasePrice}
+						bind:purchaseFrom={editedPurchaseFrom}
+						bind:notes={editedNotes}
+						expanded={showExtendedFields}
+						size="sm"
+						disabled={isProcessing}
+						idPrefix="create-{approval.id}"
+						onToggle={toggleExtendedFieldsPanel}
+					/>
 
 					{#if hasModifications}
-						<p class="text-xs text-primary-400">You have unsaved modifications</p>
+						<p class="text-primary-400 text-xs">You have unsaved modifications</p>
 					{/if}
 				</div>
 			{:else if actionType === 'update'}
-				<!-- Update Item: Show only fields being changed (compact styling) -->
+				<!-- Update Item: Show only fields being changed -->
 				<div class="space-y-2.5">
 					{#if approval.display_info?.item_name}
 						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
@@ -530,31 +531,27 @@
 					{/if}
 
 					{#if fieldsBeingChanged.includes('location')}
-						<div>
-							<label for="update-loc-{approval.id}" class="label-sm">New Location</label>
-							{#if locationStore.flatList.length > 0}
-								<select
-									id="update-loc-{approval.id}"
-									bind:value={editedLocationId}
-									class="input-sm"
-									disabled={isProcessing}
-								>
-									<option value="">Select location...</option>
-									{#each locationStore.flatList as loc (loc.location.id)}
-										<option value={loc.location.id}>{loc.path}</option>
-									{/each}
-								</select>
-							{:else}
-								<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
-									<span class="text-sm text-neutral-300"
-										>{approval.display_info?.location ?? approval.parameters.location_id}</span
-									>
-								</div>
-							{/if}
-						</div>
+						<LocationSelector
+							bind:value={editedLocationId}
+							size="sm"
+							disabled={isProcessing}
+							idPrefix="update-{approval.id}"
+							fallbackDisplay={approval.display_info?.location ??
+								(approval.parameters.location_id as string)}
+						/>
 					{/if}
 
-					{#if fieldsBeingChanged.includes('notes')}
+					{#if fieldsBeingChanged.includes('labels')}
+						<LabelSelector
+							selectedIds={editedLabelIds}
+							size="sm"
+							disabled={isProcessing}
+							onToggle={toggleLabel}
+						/>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('notes') && !hasExtendedFieldsBeingChanged}
+						<!-- Only show standalone notes when NOT also showing ItemExtendedFields (which includes notes) -->
 						<div>
 							<label for="update-notes-{approval.id}" class="label-sm">New Notes</label>
 							<textarea
@@ -568,25 +565,21 @@
 						</div>
 					{/if}
 
-					{#if fieldsBeingChanged.includes('labels')}
-						{#if labelStore.labels.length > 0}
-							<div>
-								<span class="label-sm">New Tags</span>
-								<div class="flex flex-wrap gap-1.5" role="group" aria-label="Select labels">
-									{#each labelStore.labels as label (label.id)}
-										{@const isSelected = editedLabelIds.includes(label.id)}
-										<button
-											type="button"
-											class={isSelected ? 'label-chip-selected' : 'label-chip'}
-											onclick={() => toggleLabel(label.id)}
-											disabled={isProcessing}
-										>
-											{label.name}
-										</button>
-									{/each}
-								</div>
-							</div>
-						{/if}
+					<!-- Extended fields being changed -->
+					{#if hasExtendedFieldsBeingChanged}
+						<ItemExtendedFields
+							bind:manufacturer={editedManufacturer}
+							bind:modelNumber={editedModelNumber}
+							bind:serialNumber={editedSerialNumber}
+							bind:purchasePrice={editedPurchasePrice}
+							bind:purchaseFrom={editedPurchaseFrom}
+							bind:notes={editedNotes}
+							expanded={showExtendedFields}
+							size="sm"
+							disabled={isProcessing}
+							idPrefix="update-{approval.id}"
+							onToggle={toggleExtendedFieldsPanel}
+						/>
 					{/if}
 
 					{#if fieldsBeingChanged.length === 0}
@@ -594,7 +587,7 @@
 					{/if}
 
 					{#if hasModifications}
-						<p class="text-xs text-primary-400">You have unsaved modifications</p>
+						<p class="text-primary-400 text-xs">You have unsaved modifications</p>
 					{/if}
 				</div>
 			{:else if actionType === 'delete'}
@@ -603,7 +596,7 @@
 					<p class="text-sm text-neutral-400">
 						Are you sure you want to delete this item? This action cannot be undone.
 					</p>
-					<div class="space-y-1 rounded-lg border border-error-500/20 bg-error-500/10 px-3 py-2">
+					<div class="border-error-500/20 bg-error-500/10 space-y-1 rounded-lg border px-3 py-2">
 						{#if approval.display_info?.item_name}
 							<div>
 								<span class="text-xs text-neutral-500">Item:</span>
