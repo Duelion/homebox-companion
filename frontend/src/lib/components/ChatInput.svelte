@@ -130,9 +130,9 @@
 
 	/* Animated typing ellipsis */
 	.typing-ellipsis {
-		@apply inline-block font-mono tracking-wider;
+		@apply inline-block font-mono;
 		animation: typing-ellipsis 1.4s steps(4, end) infinite;
-		width: 1.5em;
+		width: 3ch;
 		text-align: left;
 		overflow: hidden;
 	}
@@ -142,7 +142,7 @@
 			width: 0;
 		}
 		100% {
-			width: 1.5em;
+			width: 3ch;
 		}
 	}
 </style>
