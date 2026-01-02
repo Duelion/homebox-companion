@@ -151,7 +151,7 @@
 	<div class="relative">
 		<div
 			class="chat-bubble {isUser
-				? 'chat-bubble-user from-primary-600 to-primary-500 rounded-br bg-gradient-to-br text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+				? 'chat-bubble-user rounded-br bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
 				: ''}"
@@ -224,7 +224,9 @@
 							{@const hasReject = action.rejectCount > 0}
 							<!-- Show success badge if any succeeded -->
 							{#if hasSuccess}
-								<div class="chat-tool-badge border-success-500/30 bg-success-500/15 text-success-500">
+								<div
+									class="chat-tool-badge border-success-500/30 bg-success-500/15 text-success-500"
+								>
 									<span class="font-bold">✓</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.successCount > 1}
@@ -244,7 +246,9 @@
 							{/if}
 							<!-- Show rejected badge if any rejected -->
 							{#if hasReject}
-								<div class="chat-tool-badge border-warning-500/30 bg-warning-500/15 text-warning-500">
+								<div
+									class="chat-tool-badge border-warning-500/30 bg-warning-500/15 text-warning-500"
+								>
 									<span class="font-bold">⊘</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.rejectCount > 1}
@@ -264,7 +268,7 @@
 					class="chat-approval-badge approval-badge border-warning-500/40 bg-warning-500/15 text-warning-500 hover:border-warning-500/60 hover:bg-warning-500/20"
 					onclick={onOpenApprovals}
 				>
-					<div class="bg-warning-500/20 flex h-5 w-5 items-center justify-center rounded-md">
+					<div class="flex h-5 w-5 items-center justify-center rounded-md bg-warning-500/20">
 						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -288,19 +292,18 @@
 					</svg>
 				</button>
 			{/if}
-
-			</div>
+		</div>
 
 		<!-- Copy button (appears on hover for assistant messages) -->
 		{#if !isUser && message.content && !message.isStreaming}
 			<button
-				class="copy-btn absolute -top-1 -right-1 rounded-md bg-neutral-700/80 p-1.5 text-neutral-400 opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 hover:bg-neutral-600 hover:text-neutral-200"
+				class="copy-btn absolute -right-1 -top-1 rounded-md bg-neutral-700/80 p-1.5 text-neutral-400 opacity-0 backdrop-blur-sm transition-all hover:bg-neutral-600 hover:text-neutral-200 group-hover:opacity-100"
 				onclick={handleCopy}
 				aria-label="Copy message"
 			>
 				{#if copySuccess}
 					<svg
-						class="text-success-500 h-3.5 w-3.5"
+						class="h-3.5 w-3.5 text-success-500"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -345,7 +348,7 @@
 
 	/* Typing indicator animation */
 	.typing-dot {
-		@apply animate-typing-dot bg-primary-500 h-1.5 w-1.5 rounded-full;
+		@apply h-1.5 w-1.5 animate-typing-dot rounded-full bg-primary-500;
 	}
 
 	.animation-delay-160 {
@@ -358,7 +361,7 @@
 
 	/* Tool execution spinner */
 	.tool-spinner {
-		@apply border-primary-500 inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-t-transparent;
+		@apply inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-primary-500 border-t-transparent;
 	}
 
 	/* Streaming glow animation */

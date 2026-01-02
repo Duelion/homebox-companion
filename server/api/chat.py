@@ -43,6 +43,11 @@ class ApprovalResponse(BaseModel):
     message: str | None = None
 
 
+class ApproveRequest(BaseModel):
+    """Optional request body for approve action with modified parameters."""
+    parameters: dict[str, Any] | None = None
+
+
 async def _event_generator(
     orchestrator: ChatOrchestrator,
     user_message: str,
@@ -144,6 +149,7 @@ async def approve_action(
     approval_id: str,
     token: Annotated[str, Depends(get_token)],
     client: Annotated[HomeboxClient, Depends(get_client)],
+    body: ApproveRequest | None = None,
 ) -> JSONResponse:
     """Approve a pending action and execute it.
 
@@ -151,6 +157,7 @@ async def approve_action(
         approval_id: ID of the approval to approve
         token: Auth token
         client: Homebox client
+        body: Optional request body with modified parameters
 
     Returns:
         Result of the action execution
@@ -180,13 +187,19 @@ async def approve_action(
             }
         )
 
+    # Merge user-modified parameters with original approval parameters
+    final_params = {**approval.parameters}
+    if body and body.parameters:
+        final_params.update(body.parameters)
+        logger.info(f"User modified parameters for {approval.tool_name}: {body.parameters}")
+
     try:
         logger.info(
             f"Executing approved action: {approval.tool_name} "
-            f"with params {approval.parameters}"
+            f"with params {final_params}"
         )
         # Validate parameters with Pydantic
-        params = tool.Params(**approval.parameters)
+        params = tool.Params(**final_params)
         result = await tool.execute(client, token, params)
 
         # Update the session history to replace the stale "pending_approval" message

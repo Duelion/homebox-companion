@@ -59,7 +59,7 @@
 	}}
 >
 	<div
-		class="duration-fast focus-within:border-primary-500 flex items-end gap-2 rounded-xl border border-neutral-700 bg-neutral-900 p-1 transition-all focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.15)]"
+		class="flex items-end gap-2 rounded-xl border border-neutral-700 bg-neutral-900 p-1 transition-all duration-fast focus-within:border-primary-500 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.15)]"
 	>
 		<textarea
 			bind:this={textareaRef}
@@ -78,7 +78,7 @@
 			type="submit"
 			disabled={isDisabled}
 			aria-label="Send message"
-			class="min-h-touch min-w-touch from-primary-500 to-primary-600 duration-fast flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-gradient-to-br text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all hover:scale-105 hover:shadow-[0_4px_12px_rgba(99,102,241,0.4)] active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
+			class="flex h-10 min-h-touch w-10 min-w-touch shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all duration-fast hover:scale-105 hover:shadow-[0_4px_12px_rgba(99,102,241,0.4)] active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
 		>
 			{#if chatStore.isStreaming}
 				<span class="loading-spinner"></span>
@@ -96,7 +96,7 @@
 				type="button"
 				onclick={handleCancel}
 				aria-label="Stop generating"
-				class="min-h-touch min-w-touch bg-error-500 duration-fast hover:bg-error-600 flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 text-white shadow-[0_2px_8px_rgba(239,68,68,0.3)] transition-all hover:scale-105 hover:shadow-[0_4px_12px_rgba(239,68,68,0.4)] active:scale-95"
+				class="flex h-10 min-h-touch w-10 min-w-touch shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-[0_2px_8px_rgba(239,68,68,0.3)] transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-[0_4px_12px_rgba(239,68,68,0.4)] active:scale-95"
 			>
 				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
 					<rect x="6" y="6" width="12" height="12" rx="2" />
@@ -107,7 +107,7 @@
 
 	<div class="flex items-center justify-between px-1">
 		{#if chatStore.isStreaming}
-			<p class="text-primary-500 m-0 text-xs">Assistant is typing...</p>
+			<p class="m-0 text-xs text-primary-500">Assistant is typing...</p>
 		{:else}
 			<p class="m-0 text-xs text-neutral-600">Enter to send, Shift+Enter for new line</p>
 		{/if}
@@ -116,7 +116,7 @@
 				type="button"
 				onclick={onClearHistory}
 				aria-label="Clear chat history"
-				class="duration-fast hover:bg-error-500/10 hover:text-error-500 cursor-pointer rounded border-0 bg-transparent px-1.5 py-0.5 text-xs text-neutral-500 transition-all active:scale-95"
+				class="cursor-pointer rounded border-0 bg-transparent px-1.5 py-0.5 text-xs text-neutral-500 transition-all duration-fast hover:bg-error-500/10 hover:text-error-500 active:scale-95"
 			>
 				Clear
 			</button>

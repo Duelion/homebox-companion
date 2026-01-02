@@ -113,9 +113,9 @@
 	{#if !isEnabled}
 		<!-- Disabled state -->
 		<div class="empty-state min-h-[60vh]">
-			<div class="bg-error-500/10 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl">
+			<div class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-error-500/10">
 				<svg
-					class="text-error-500 h-8 w-8"
+					class="h-8 w-8 text-error-500"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -126,13 +126,13 @@
 					/>
 				</svg>
 			</div>
-			<h2 class="text-h3 mb-2 text-neutral-100">Chat Disabled</h2>
-			<p class="text-body-sm mb-1 text-neutral-400">
+			<h2 class="mb-2 text-h3 text-neutral-100">Chat Disabled</h2>
+			<p class="mb-1 text-body-sm text-neutral-400">
 				The chat feature is currently disabled on the server.
 			</p>
-			<p class="text-body-sm mb-1 text-neutral-400">
+			<p class="mb-1 text-body-sm text-neutral-400">
 				Enable it by setting <code
-					class="text-primary-300 mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-[0.8125rem]"
+					class="mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-[0.8125rem] text-primary-300"
 					>HBC_CHAT_ENABLED=true</code
 				>
 			</p>
@@ -141,7 +141,7 @@
 		<!-- Error banner -->
 		{#if chatStore.error}
 			<div
-				class="text-error-400 border-error-500/15 bg-error-500/10 text-body-sm flex items-center gap-2 border-b px-4 py-2.5"
+				class="text-error-400 flex items-center gap-2 border-b border-error-500/15 bg-error-500/10 px-4 py-2.5 text-body-sm"
 			>
 				<svg
 					class="h-4 w-4 shrink-0"
@@ -161,10 +161,10 @@
 			{#if chatStore.messages.length === 0}
 				<div class="empty-state">
 					<div
-						class="from-primary-500/15 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br to-purple-500/10"
+						class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500/15 to-purple-500/10"
 					>
 						<svg
-							class="text-primary-500 h-8 w-8"
+							class="h-8 w-8 text-primary-500"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -175,17 +175,17 @@
 							/>
 						</svg>
 					</div>
-					<h2 class="text-h3 mb-1.5 text-neutral-100">Start a conversation</h2>
-					<p class="text-body-sm mb-6 text-neutral-400">
+					<h2 class="mb-1.5 text-h3 text-neutral-100">Start a conversation</h2>
+					<p class="mb-6 text-body-sm text-neutral-400">
 						Ask me about your inventory, locations, or items.
 					</p>
 					<div class="flex w-full max-w-80 flex-col gap-2">
 						<button
-							class="text-body-sm duration-fast hover:border-primary-500 flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-neutral-200 transition-all hover:-translate-y-px hover:bg-neutral-800 active:scale-[0.98]"
+							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
 							onclick={() => chatStore.sendMessage('What locations do I have?')}
 						>
 							<svg
-								class="text-primary-500 h-[1.125rem] w-[1.125rem] shrink-0"
+								class="h-[1.125rem] w-[1.125rem] shrink-0 text-primary-500"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -199,11 +199,11 @@
 							<span class="flex-1">What locations do I have?</span>
 						</button>
 						<button
-							class="text-body-sm duration-fast hover:border-primary-500 flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-neutral-200 transition-all hover:-translate-y-px hover:bg-neutral-800 active:scale-[0.98]"
+							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
 							onclick={() => chatStore.sendMessage('List my labels')}
 						>
 							<svg
-								class="text-primary-500 h-[1.125rem] w-[1.125rem] shrink-0"
+								class="h-[1.125rem] w-[1.125rem] shrink-0 text-primary-500"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -217,11 +217,11 @@
 							<span class="flex-1">List my labels</span>
 						</button>
 						<button
-							class="text-body-sm duration-fast hover:border-primary-500 flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-neutral-200 transition-all hover:-translate-y-px hover:bg-neutral-800 active:scale-[0.98]"
+							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
 							onclick={() => chatStore.sendMessage('How many items are in my inventory?')}
 						>
 							<svg
-								class="text-primary-500 h-[1.125rem] w-[1.125rem] shrink-0"
+								class="h-[1.125rem] w-[1.125rem] shrink-0 text-primary-500"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
