@@ -5,9 +5,8 @@
 	 * Layout follows the Capture page pattern:
 	 * - Main scrollable content area with pb-28 padding
 	 * - Fixed input pinned to bottom (above navigation) using bottom-nav-offset
-	 * - On mobile, input repositions above virtual keyboard when open
 	 */
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
@@ -18,7 +17,6 @@
 	const log = createLogger({ prefix: 'ChatPage' });
 
 	let messagesContainer: HTMLDivElement | null = $state(null);
-	let chatInputContainer: HTMLDivElement | null = $state(null);
 	let isEnabled = $state(true);
 	let approvalModalOpen = $state(false);
 
@@ -48,28 +46,6 @@
 		}
 	});
 
-	// Handle virtual keyboard on mobile
-	// Minimum height to consider as keyboard (filters out overscroll/rubber-banding)
-	const KEYBOARD_MIN_HEIGHT = 150;
-
-	function handleViewportResize() {
-		if (!window.visualViewport || !chatInputContainer) return;
-
-		const viewport = window.visualViewport;
-		// Calculate keyboard height: difference between layout viewport and visual viewport
-		const layoutHeight = window.innerHeight;
-		const visualHeight = viewport.height;
-		const keyboardHeight = Math.max(0, layoutHeight - visualHeight - viewport.offsetTop);
-
-		if (keyboardHeight > KEYBOARD_MIN_HEIGHT) {
-			// Keyboard is open - position input above keyboard
-			chatInputContainer.style.bottom = `${keyboardHeight}px`;
-		} else {
-			// Keyboard is closed or just overscroll - reset to default (above nav bar)
-			chatInputContainer.style.bottom = '';
-		}
-	}
-
 	onMount(async () => {
 		log.info('Chat page mounted');
 		isEnabled = await chatStore.checkEnabled();
@@ -77,20 +53,6 @@
 		if (isEnabled) {
 			await chatStore.refreshPendingApprovals();
 			log.debug(`Pending approvals: ${chatStore.pendingApprovals.length}`);
-		}
-
-		// Set up visual viewport listener for keyboard handling
-		if (window.visualViewport) {
-			window.visualViewport.addEventListener('resize', handleViewportResize);
-			window.visualViewport.addEventListener('scroll', handleViewportResize);
-		}
-	});
-
-	onDestroy(() => {
-		// Clean up viewport listeners
-		if (typeof window !== 'undefined' && window.visualViewport) {
-			window.visualViewport.removeEventListener('resize', handleViewportResize);
-			window.visualViewport.removeEventListener('scroll', handleViewportResize);
 		}
 	});
 
@@ -255,9 +217,9 @@
 	{/if}
 </div>
 
-<!-- Fixed input at bottom - above navigation bar, repositions above keyboard on mobile -->
+<!-- Fixed input at bottom - above navigation bar -->
 {#if isEnabled}
-	<div bind:this={chatInputContainer} class="chat-input-keyboard-aware px-3">
+	<div class="chat-input-keyboard-aware px-3">
 		<AppContainer>
 			<ChatInput hasMessages={chatStore.messages.length > 0} onClearHistory={handleClearHistory} />
 		</AppContainer>
