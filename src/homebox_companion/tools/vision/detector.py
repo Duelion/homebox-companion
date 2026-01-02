@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from loguru import logger
+from pydantic import TypeAdapter
 
 from ...ai.images import encode_image_bytes_to_data_uri
 from ...ai.llm import vision_completion
@@ -15,6 +16,10 @@ from .prompts import (
     build_discriminatory_user_prompt,
     build_multi_image_system_prompt,
 )
+
+# Module-level TypeAdapter for validating lists of DetectedItem from LLM output.
+# Creating TypeAdapter is relatively expensive, so we do it once at import time.
+_DETECTED_ITEMS_ADAPTER: TypeAdapter[list[DetectedItem]] = TypeAdapter(list[DetectedItem])
 
 
 async def detect_items_from_bytes(
@@ -131,10 +136,7 @@ async def _detect_items_from_data_uris(
     )
 
     # Validate LLM output with Pydantic
-    from pydantic import TypeAdapter
-
-    items_adapter = TypeAdapter(list[DetectedItem])
-    items = items_adapter.validate_python(parsed_content.get("items", []))
+    items = _DETECTED_ITEMS_ADAPTER.validate_python(parsed_content.get("items", []))
 
     logger.info(f"Detected {len(items)} items from {len(image_data_uris)} image(s)")
     for item in items:
@@ -197,10 +199,7 @@ async def discriminatory_detect_items(
     )
 
     # Validate LLM output with Pydantic
-    from pydantic import TypeAdapter
-
-    items_adapter = TypeAdapter(list[DetectedItem])
-    items = items_adapter.validate_python(parsed_content.get("items", []))
+    items = _DETECTED_ITEMS_ADAPTER.validate_python(parsed_content.get("items", []))
 
     logger.info(f"Discriminatory detection found {len(items)} items")
     for item in items:
