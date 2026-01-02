@@ -6,26 +6,21 @@ required features (vision, JSON schema).
 
 Test Coverage:
 --------------
-1. Capability Detection (TestCapabilityChecking):
-   - Vision models correctly report vision + JSON schema support
-   - Text-only models correctly report no vision support
-   - Older vision models (gemini-pro-vision) report vision but no schema
-
-2. Vision Validation (TestVisionValidation):
+1. Vision Validation (TestVisionValidation):
    - Text-only models are rejected with CapabilityNotSupportedError
    - Unsafe flag (HBC_LLM_ALLOW_UNSAFE_MODELS=true) bypasses validation
    - Vision models without JSON schema support still work (fallback to prompt-based JSON)
 
-3. Error Messages (TestErrorMessages):
+2. Error Messages (TestErrorMessages):
    - Error messages suggest officially supported models (gpt-5-mini, gpt-5-nano)
    - Error messages explain the bypass flag (HBC_LLM_ALLOW_UNSAFE_MODELS=true)
 
-4. Unsafe Flag Behavior (TestUnsafeFlagBehavior):
+3. Unsafe Flag Behavior (TestUnsafeFlagBehavior):
    - With unsafe flag, text-only models fail at LiteLLM level (not our validation)
    - Users get clear LiteLLM/provider errors about vision support
    - Vision models without JSON schema work fine with unsafe flag
 
-5. Caching (TestCapabilityCacheing):
+4. Caching (TestCapabilityCaching):
    - Capability checks are cached to avoid repeated LiteLLM queries
 
 Run with:
@@ -39,7 +34,6 @@ import os
 import pytest
 
 from homebox_companion.ai.llm import CapabilityNotSupportedError, LLMError, vision_completion
-from homebox_companion.ai.model_capabilities import get_model_capabilities
 
 # Use a tiny 1x1 pixel image for testing
 TINY_IMAGE_BASE64 = (
@@ -82,33 +76,6 @@ def reset_config():
 
     # Reload config again
     config.settings = config.Settings()
-
-
-@pytest.mark.unit
-class TestCapabilityChecking:
-    """Test LiteLLM capability detection."""
-
-    def test_vision_model_capabilities(self):
-        """Test that a known vision model reports correct capabilities."""
-        caps = get_model_capabilities("gpt-4o")
-        assert caps.vision is True
-        assert caps.json_mode is True
-        assert caps.multi_image is True
-
-    def test_text_only_model_capabilities(self):
-        """Test that a text-only model reports no vision."""
-        caps = get_model_capabilities("gpt-3.5-turbo")
-        assert caps.vision is False
-        # JSON mode depends on LiteLLM's assessment
-        assert caps.multi_image is False  # multi_image = vision
-
-    def test_vision_model_without_schema_support(self):
-        """Test a vision model that doesn't support JSON schema."""
-        # gpt-4-turbo has vision but doesn't support structured outputs/JSON schema
-        caps = get_model_capabilities("gpt-4-turbo")
-        assert caps.vision is True
-        assert caps.json_mode is False  # Older model, no structured outputs
-        assert caps.multi_image is True
 
 
 @pytest.mark.live

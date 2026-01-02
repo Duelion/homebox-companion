@@ -91,7 +91,7 @@ async def create_items(
             item_create = ItemCreate(
                 name=detected_item.name,
                 quantity=detected_item.quantity,
-                description=detected_item.description,
+                description=detected_item.description or "",
                 location_id=detected_item.location_id,
                 label_ids=detected_item.label_ids,
                 parent_id=item_input.parent_id,  # Include parent_id for sub-items
