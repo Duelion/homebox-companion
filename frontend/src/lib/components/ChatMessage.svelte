@@ -352,11 +352,11 @@
 	}
 
 	.animation-delay-160 {
-		animation-delay: -0.16s;
+		animation-delay: 0.16s;
 	}
 
 	.animation-delay-320 {
-		animation-delay: -0.32s;
+		animation-delay: 0.32s;
 	}
 
 	/* Tool execution spinner */

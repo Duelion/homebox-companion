@@ -64,11 +64,7 @@
 		{#if chatStore.isStreaming}
 			<div class="flex flex-1 items-center gap-1 px-2 py-1.5 text-sm text-primary-500">
 				<span>Assistant is typing</span>
-				<span class="typing-dots">
-					<span class="typing-dot-inline"></span>
-					<span class="typing-dot-inline animation-delay-200"></span>
-					<span class="typing-dot-inline animation-delay-400"></span>
-				</span>
+				<span class="typing-ellipsis" aria-hidden="true">...</span>
 			</div>
 		{:else}
 			<textarea
@@ -132,32 +128,21 @@
 		@apply h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white;
 	}
 
-	/* Animated typing dots */
-	.typing-dots {
-		@apply inline-flex items-center gap-0.5;
+	/* Animated typing ellipsis */
+	.typing-ellipsis {
+		@apply inline-block font-mono tracking-wider;
+		animation: typing-ellipsis 1.4s steps(4, end) infinite;
+		width: 1.5em;
+		text-align: left;
+		overflow: hidden;
 	}
 
-	.typing-dot-inline {
-		@apply inline-block h-1 w-1 rounded-full bg-primary-500;
-		animation: typing-blink 1.4s infinite both;
-	}
-
-	.animation-delay-200 {
-		animation-delay: 0.2s;
-	}
-
-	.animation-delay-400 {
-		animation-delay: 0.4s;
-	}
-
-	@keyframes typing-blink {
-		0%,
-		80%,
-		100% {
-			opacity: 0.3;
+	@keyframes typing-ellipsis {
+		0% {
+			width: 0;
 		}
-		40% {
-			opacity: 1;
+		100% {
+			width: 1.5em;
 		}
 	}
 </style>
