@@ -218,14 +218,22 @@ class ListItemsTool:
     name: str = "list_items"
     description: str = (
         "List items in the inventory with optional filtering and pagination. "
+        "You can filter by location_name (preferred) or location_id. "
         "For text-based searches, prefer using search_items instead."
     )
     permission: ToolPermission = ToolPermission.READ
 
     class Params(BaseModel):
+        location_name: str | None = Field(
+            default=None,
+            description=(
+                "Location name to filter items by (case-insensitive). "
+                "Use this when the user specifies a location by name like 'Garage' or 'Kitchen'."
+            ),
+        )
         location_id: str | None = Field(
             default=None,
-            description="Optional location ID to filter items by",
+            description="Location UUID to filter items by. Use location_name instead when possible.",
         )
         label_ids: list[str] | None = Field(
             default=None,
@@ -254,9 +262,28 @@ class ListItemsTool:
         token: str,
         params: Params,
     ) -> ToolResult:
+        # Resolve location_name to location_id if provided
+        resolved_location_id = params.location_id
+        if params.location_name and not params.location_id:
+            locations = await client.list_locations(token)
+            for loc in locations:
+                if loc.get("name", "").lower() == params.location_name.lower():
+                    resolved_location_id = loc.get("id")
+                    logger.debug(
+                        f"list_items: resolved location_name '{params.location_name}' "
+                        f"to id '{resolved_location_id}'"
+                    )
+                    break
+            else:
+                # Location not found
+                return ToolResult(
+                    success=False,
+                    error=f"Location '{params.location_name}' not found",
+                )
+
         items = await client.list_items(
             token,
-            location_id=params.location_id,
+            location_id=resolved_location_id,
             label_ids=params.label_ids,
             page=params.page,
             page_size=params.page_size,

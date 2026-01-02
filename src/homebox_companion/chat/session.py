@@ -273,6 +273,49 @@ class ChatSession:
             return True
         return False
 
+    def update_tool_message(self, tool_call_id: str, new_content: str) -> bool:
+        """Update a tool message's content by tool_call_id.
+
+        This is used to replace placeholder "pending_approval" messages with
+        actual tool results after user approves an action.
+
+        Args:
+            tool_call_id: The tool_call_id to find and update
+            new_content: The new content to set
+
+        Returns:
+            True if message was found and updated, False otherwise
+        """
+        for msg in self.messages:
+            if msg.role == "tool" and msg.tool_call_id == tool_call_id:
+                msg.content = new_content
+                logger.debug(f"Updated tool message for tool_call_id={tool_call_id}")
+                return True
+        logger.debug(f"Tool message not found for tool_call_id={tool_call_id}")
+        return False
+
+    def get_tool_call_id_for_approval(self, approval_id: str) -> str | None:
+        """Find the tool_call_id associated with a pending approval.
+
+        Searches backwards through messages to find the tool message that
+        contains the pending_approval response for this approval_id.
+
+        Args:
+            approval_id: The approval ID to search for
+
+        Returns:
+            The tool_call_id or None if not found
+        """
+        for msg in reversed(self.messages):
+            if msg.role == "tool" and msg.tool_call_id:
+                try:
+                    content = json.loads(msg.content)
+                    if content.get("approval_id") == approval_id:
+                        return msg.tool_call_id
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        return None
+
     def list_pending_approvals(self) -> list[PendingApproval]:
         """List all non-expired pending approvals.
 
