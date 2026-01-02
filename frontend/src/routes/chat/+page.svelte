@@ -7,7 +7,11 @@
 	 * - Fixed input pinned to bottom (above navigation) using bottom-nav-offset
 	 */
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { chatStore } from '$lib/stores/chat.svelte';
+	import { authStore } from '$lib/stores/auth.svelte';
+	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
@@ -48,6 +52,17 @@
 
 	onMount(async () => {
 		log.info('Chat page mounted');
+
+		// Wait for auth initialization to complete to avoid race conditions
+		// where we check isAuthenticated before initializeAuth clears expired tokens
+		await getInitPromise();
+
+		// Redirect if not authenticated
+		if (!authStore.isAuthenticated) {
+			goto(resolve('/'));
+			return;
+		}
+
 		isEnabled = await chatStore.checkEnabled();
 		log.debug(`Chat enabled: ${isEnabled}`);
 		if (isEnabled) {

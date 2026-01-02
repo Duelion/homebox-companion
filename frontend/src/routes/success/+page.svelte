@@ -5,6 +5,7 @@
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
+	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import Button from '$lib/components/Button.svelte';
 
 	const workflow = scanWorkflow;
@@ -17,6 +18,10 @@
 
 	// Apply route guard: requires authentication only
 	onMount(async () => {
+		// Wait for auth initialization to complete to avoid race conditions
+		// where we check isAuthenticated before initializeAuth clears expired tokens
+		await getInitPromise();
+
 		if (!routeGuards.success()) return;
 
 		// Stop the ping animation after 3 seconds

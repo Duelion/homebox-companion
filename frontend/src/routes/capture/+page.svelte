@@ -10,6 +10,7 @@
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { hasToken } from '$lib/utils/token';
 	import { routeGuards } from '$lib/utils/routeGuard';
+	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import { createLogger } from '$lib/utils/logger';
 	import { getConfig } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';
@@ -122,6 +123,10 @@
 
 	// Apply route guard: requires auth, location, and not in reviewing state
 	onMount(async () => {
+		// Wait for auth initialization to complete to avoid race conditions
+		// where we check isAuthenticated before initializeAuth clears expired tokens
+		await getInitPromise();
+
 		if (!routeGuards.capture()) return;
 
 		// Load capture limits from config
