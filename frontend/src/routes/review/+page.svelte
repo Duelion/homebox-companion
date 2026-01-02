@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { vision } from '$lib/api/vision';
 	import { labelStore } from '$lib/stores/labels.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import { routeGuards } from '$lib/utils/routeGuard';
+	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import type { ReviewItem } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -105,12 +106,17 @@
 		}
 	}
 
-	// Apply route guard and setup cleanup
-	onMount(() => {
+	// Apply route guard
+	onMount(async () => {
+		// Wait for auth initialization to complete to avoid race conditions
+		// where we check isAuthenticated before initializeAuth clears expired tokens
+		await getInitPromise();
+
 		if (!routeGuards.review()) return;
-		// Cleanup object URLs only on component unmount
-		return () => urlManager.cleanup();
 	});
+
+	// Cleanup object URLs on component unmount
+	onDestroy(() => urlManager.cleanup());
 
 	// Watch for status changes
 	$effect(() => {

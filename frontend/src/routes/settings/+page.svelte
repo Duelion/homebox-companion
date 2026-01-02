@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { uiStore } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
@@ -151,6 +152,10 @@
 
 	// Redirect if not authenticated
 	onMount(async () => {
+		// Wait for auth initialization to complete to avoid race conditions
+		// where we check isAuthenticated before initializeAuth clears expired tokens
+		await getInitPromise();
+
 		if (!authStore.isAuthenticated) {
 			goto(resolve('/'));
 			return;

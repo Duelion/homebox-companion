@@ -11,6 +11,7 @@
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
+	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import { createLogger } from '$lib/utils/logger';
 	import type { Location } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
@@ -69,6 +70,10 @@
 
 	// Apply route guard: requires auth, redirects to capture if already in workflow
 	onMount(async () => {
+		// Wait for auth initialization to complete to avoid race conditions
+		// where we check isAuthenticated before initializeAuth clears expired tokens
+		await getInitPromise();
+
 		if (!routeGuards.location()) return;
 
 		await locationNavigator.loadTree();
