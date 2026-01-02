@@ -20,9 +20,10 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .types import Tool, ToolPermission, ToolResult
+from ..homebox.views import CompactItemView, ItemView, LocationView, add_tree_urls
+from .types import Tool, ToolParams, ToolPermission, ToolResult
 
 if TYPE_CHECKING:
     from ..homebox.client import HomeboxClient
@@ -47,145 +48,6 @@ def handle_tool_errors(
     return wrapper
 
 
-def _compact_item(item: dict[str, Any]) -> dict[str, Any]:
-    """Extract minimal fields from an item for compact responses.
-
-    This reduces payload size significantly when full details aren't needed.
-    Includes pre-computed URL fields for markdown link generation.
-
-    The location is returned as an object with its own 'url' field, normalizing
-    the structure so every entity has a 'url' pointing to itself.
-
-    Args:
-        item: Full item dictionary
-
-    Returns:
-        Compact item with only essential fields plus URL
-    """
-    from ..core.config import settings
-
-    location = item.get("location", {})
-    location_name = location.get("name") if location else None
-    location_id = location.get("id") if location else None
-
-    # Handle None or missing description safely
-    description = item.get("description") or ""
-    truncated_desc = description[:100] + ("..." if len(description) > 100 else "")
-
-    item_id = item.get("id")
-    base_url = settings.effective_link_base_url
-
-    # Build location object with its own URL (normalized structure)
-    location_obj = None
-    if location_id:
-        location_obj = {
-            "id": location_id,
-            "name": location_name,
-            "url": f"{base_url}/location/{location_id}",
-        }
-
-    return {
-        "id": item_id,
-        "name": item.get("name"),
-        "description": truncated_desc,
-        "quantity": item.get("quantity"),
-        "location": location_obj,
-        "assetId": item.get("assetId"),
-        "url": f"{base_url}/item/{item_id}" if item_id else None,
-    }
-
-
-def _compact_location(location: dict[str, Any]) -> dict[str, Any]:
-    """Extract location fields with pre-computed URL for markdown links.
-
-    Args:
-        location: Full location dictionary
-
-    Returns:
-        Compact location with essential fields plus URL
-    """
-    from ..core.config import settings
-
-    location_id = location.get("id")
-    base_url = settings.effective_link_base_url
-
-    return {
-        "id": location_id,
-        "name": location.get("name"),
-        "description": location.get("description", ""),
-        "itemCount": location.get("itemCount", 0),
-        "url": f"{base_url}/location/{location_id}" if location_id else None,
-    }
-
-
-def _add_item_url(item: dict[str, Any]) -> dict[str, Any]:
-    """Add url field to item without modifying other fields.
-    
-    This is used for tools that return full item details (non-compact mode)
-    to ensure the LLM can generate correct markdown links.
-    
-    Args:
-        item: Full item dictionary
-        
-    Returns:
-        Same item dict with url field added (mutates in place and returns)
-    """
-    from ..core.config import settings
-    
-    base_url = settings.effective_link_base_url
-    item["url"] = f"{base_url}/item/{item.get('id')}"
-    
-    # Also add URL to nested location if present
-    if item.get("location"):
-        item["location"]["url"] = f"{base_url}/location/{item['location'].get('id')}"
-    
-    return item
-
-
-def _add_location_url(location: dict[str, Any]) -> dict[str, Any]:
-    """Add url field to location without modifying other fields.
-    
-    Args:
-        location: Full location dictionary
-        
-    Returns:
-        Same location dict with url field added (mutates in place and returns)
-    """
-    from ..core.config import settings
-    
-    base_url = settings.effective_link_base_url
-    location["url"] = f"{base_url}/location/{location.get('id')}"
-    
-    return location
-
-
-def _add_tree_urls(node: dict[str, Any]) -> dict[str, Any]:
-    """Recursively add urls to tree nodes (locations and items).
-    
-    Used by get_location_tree to ensure all nodes have URLs for markdown links.
-    
-    Args:
-        node: Tree node (location or item with 'type' and 'children' fields)
-        
-    Returns:
-        Same node with url field added (mutates in place and returns)
-    """
-    from ..core.config import settings
-    
-    base_url = settings.effective_link_base_url
-    
-    if node.get("type") == "location":
-        node["url"] = f"{base_url}/location/{node.get('id')}"
-    else:  # item
-        node["url"] = f"{base_url}/item/{node.get('id')}"
-    
-    # Recursively process children
-    for child in node.get("children", []):
-        _add_tree_urls(child)
-    
-    return node
-
-
 # =============================================================================
 # READ-ONLY TOOLS
 # =============================================================================
@@ -203,7 +65,7 @@ class ListLocationsTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         filter_children: bool = Field(
             default=False,
             description="If true, only return top-level locations",
@@ -220,8 +82,8 @@ class ListLocationsTool:
             token,
             filter_children=params.filter_children if params.filter_children else None,
         )
-        # Add URLs for markdown link generation
-        locations = [_compact_location(loc) for loc in locations]
+        # Convert to LocationView for URL generation
+        locations = [LocationView.from_dict(loc).model_dump(by_alias=True) for loc in locations]
         logger.debug(f"list_locations returned {len(locations)} locations")
         return ToolResult(success=True, data=locations)
 
@@ -238,7 +100,7 @@ class GetLocationTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         location_id: str = Field(description="The ID of the location to fetch")
 
     @handle_tool_errors
@@ -249,11 +111,10 @@ class GetLocationTool:
         params: Params,
     ) -> ToolResult:
         location = await client.get_location(token, params.location_id)
-        # Add URL for markdown link
-        from ..core.config import settings
-        location["url"] = f"{settings.effective_link_base_url}/location/{location.get('id')}"
+        # Convert to LocationView for URL generation
+        location_view = LocationView.from_dict(location).model_dump(by_alias=True)
         logger.debug(f"get_location returned location: {location.get('name', 'unknown')}")
-        return ToolResult(success=True, data=location)
+        return ToolResult(success=True, data=location_view)
 
 
 @dataclass(frozen=True)
@@ -264,7 +125,7 @@ class ListLabelsTool:
     description: str = "List all labels available for categorizing items"
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         pass  # No parameters needed
 
     @handle_tool_errors
@@ -291,7 +152,7 @@ class ListItemsTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         location_name: str | None = Field(
             default=None,
             description=(
@@ -358,11 +219,11 @@ class ListItemsTool:
         )
 
         if params.compact:
-            items = [_compact_item(item) for item in items]
+            items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
             logger.debug(f"list_items returned {len(items)} items (compact mode)")
         else:
-            # Add URLs to full items for markdown link generation
-            items = [_add_item_url(item) for item in items]
+            # Use ItemView for consistent URL generation
+            items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
             logger.debug(f"list_items returned {len(items)} items")
 
         return ToolResult(success=True, data=items)
@@ -379,7 +240,7 @@ class SearchItemsTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         query: str = Field(
             description="Search query string (searches name, description, etc.)"
         )
@@ -405,13 +266,13 @@ class SearchItemsTool:
         items = await client.search_items(token, query=params.query, limit=params.limit)
 
         if params.compact:
-            items = [_compact_item(item) for item in items]
+            items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
             logger.debug(
                 f"search_items('{params.query}') returned {len(items)} items (compact)"
             )
         else:
-            # Add URLs to full items for markdown link generation
-            items = [_add_item_url(item) for item in items]
+            # Use ItemView for consistent URL generation
+            items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
             logger.debug(f"search_items('{params.query}') returned {len(items)} items")
 
         return ToolResult(success=True, data=items)
@@ -425,7 +286,7 @@ class GetItemTool:
     description: str = "Get full item details by ID"
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         item_id: str = Field(description="ID of the item to fetch")
 
     @handle_tool_errors
@@ -436,10 +297,10 @@ class GetItemTool:
         params: Params,
     ) -> ToolResult:
         item = await client.get_item(token, params.item_id)
-        # Add URL for markdown link generation
-        _add_item_url(item)
+        # Use ItemView for consistent URL generation
+        item_view = ItemView.from_dict(item).model_dump(by_alias=True)
         logger.debug(f"get_item returned item: {item.get('name', 'unknown')}")
-        return ToolResult(success=True, data=item)
+        return ToolResult(success=True, data=item_view)
 
 
 @dataclass(frozen=True)
@@ -453,7 +314,7 @@ class GetStatisticsTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         pass  # No parameters needed
 
     @handle_tool_errors
@@ -479,7 +340,7 @@ class GetItemByAssetIdTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         asset_id: str = Field(description="The asset ID to look up (e.g., '000-085')")
 
     @handle_tool_errors
@@ -490,10 +351,10 @@ class GetItemByAssetIdTool:
         params: Params,
     ) -> ToolResult:
         item = await client.get_item_by_asset_id(token, params.asset_id)
-        # Add URL for markdown link generation
-        _add_item_url(item)
+        # Use ItemView for consistent URL generation
+        item_view = ItemView.from_dict(item).model_dump(by_alias=True)
         logger.debug(f"get_item_by_asset_id({params.asset_id}) returned: {item.get('name', 'unknown')}")
-        return ToolResult(success=True, data=item)
+        return ToolResult(success=True, data=item_view)
 
 
 @dataclass(frozen=True)
@@ -507,7 +368,7 @@ class GetLocationTreeTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         with_items: bool = Field(
             default=False,
             description="If true, include items in the tree structure",
@@ -523,7 +384,7 @@ class GetLocationTreeTool:
         tree = await client.get_location_tree(token, with_items=params.with_items)
         # Add URLs recursively to all nodes (locations and items)
         for node in tree:
-            _add_tree_urls(node)
+            add_tree_urls(node)
         logger.debug(f"get_location_tree returned {len(tree)} top-level nodes")
         return ToolResult(success=True, data=tree)
 
@@ -539,7 +400,7 @@ class GetStatisticsByLocationTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         pass  # No parameters needed
 
     @handle_tool_errors
@@ -565,7 +426,7 @@ class GetStatisticsByLabelTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         pass  # No parameters needed
 
     @handle_tool_errors
@@ -591,7 +452,7 @@ class GetItemPathTool:
     )
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         item_id: str = Field(description="ID of the item")
 
     @handle_tool_errors
@@ -614,7 +475,7 @@ class GetAttachmentTool:
     description: str = "Get an attachment's content by ID (returns base64 encoded content)"
     permission: ToolPermission = ToolPermission.READ
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         item_id: str = Field(description="ID of the item the attachment belongs to")
         attachment_id: str = Field(description="ID of the attachment to fetch")
 
@@ -657,7 +518,7 @@ class CreateItemTool:
     description: str = "Create a new item in Homebox"
     permission: ToolPermission = ToolPermission.WRITE
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         name: str = Field(description="Name of the item")
         location_id: str = Field(description="ID of the location to place the item")
         description: str = Field(default="", description="Optional description")
@@ -694,7 +555,7 @@ class UpdateItemTool:
     description: str = "Update an existing item's name, description, or location"
     permission: ToolPermission = ToolPermission.WRITE
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         item_id: str = Field(description="ID of the item to update")
         name: str | None = Field(default=None, description="Optional new name")
         description: str | None = Field(default=None, description="Optional new description")
@@ -751,7 +612,7 @@ class CreateLocationTool:
     description: str = "Create a new location in Homebox"
     permission: ToolPermission = ToolPermission.WRITE
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         name: str = Field(description="Name of the location")
         description: str = Field(default="", description="Optional description")
         parent_id: str | None = Field(
@@ -784,7 +645,7 @@ class UpdateLocationTool:
     description: str = "Update an existing location's name, description, or parent"
     permission: ToolPermission = ToolPermission.WRITE
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         location_id: str = Field(description="ID of the location to update")
         name: str | None = Field(default=None, description="Optional new name")
         description: str | None = Field(default=None, description="Optional new description")
@@ -838,7 +699,7 @@ class UploadAttachmentTool:
     description: str = "Upload an attachment to an item"
     permission: ToolPermission = ToolPermission.WRITE
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         item_id: str = Field(description="ID of the item to attach to")
         file_base64: str = Field(description="File content as base64 encoded string")
         filename: str = Field(description="Name for the uploaded file")
@@ -887,7 +748,7 @@ class EnsureAssetIdsTool:
     )
     permission: ToolPermission = ToolPermission.WRITE
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         pass  # No parameters needed
 
     @handle_tool_errors
@@ -915,7 +776,7 @@ class DeleteItemTool:
     description: str = "Delete an item from Homebox. This action cannot be undone."
     permission: ToolPermission = ToolPermission.DESTRUCTIVE
 
-    class Params(BaseModel):
+    class Params(ToolParams):
         item_id: str = Field(description="ID of the item to delete")
 
     @handle_tool_errors
@@ -946,12 +807,18 @@ def get_tools() -> list[Tool]:
     """
     import inspect
 
+    from pydantic import BaseModel
+
     tools: list[Tool] = []
     for _name, cls in globals().items():
         # Skip non-classes and abstract/protocol types
         if not inspect.isclass(cls):
             continue
         if cls is Tool:
+            continue
+
+        # Skip Pydantic models (views imported for tool responses)
+        if issubclass(cls, BaseModel):
             continue
 
         # Try to instantiate and check if it satisfies the Tool protocol

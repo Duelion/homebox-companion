@@ -130,7 +130,11 @@ async def _detect_items_from_data_uris(
         expected_keys=["items"],
     )
 
-    items = DetectedItem.from_raw_items(parsed_content.get("items", []))
+    # Validate LLM output with Pydantic
+    from pydantic import TypeAdapter
+
+    items_adapter = TypeAdapter(list[DetectedItem])
+    items = items_adapter.validate_python(parsed_content.get("items", []))
 
     logger.info(f"Detected {len(items)} items from {len(image_data_uris)} image(s)")
     for item in items:
@@ -192,7 +196,11 @@ async def discriminatory_detect_items(
         expected_keys=["items"],
     )
 
-    items = DetectedItem.from_raw_items(parsed_content.get("items", []))
+    # Validate LLM output with Pydantic
+    from pydantic import TypeAdapter
+
+    items_adapter = TypeAdapter(list[DetectedItem])
+    items = items_adapter.validate_python(parsed_content.get("items", []))
 
     logger.info(f"Discriminatory detection found {len(items)} items")
     for item in items:

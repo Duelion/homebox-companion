@@ -1,7 +1,7 @@
 """Homebox API client module."""
 
 from .client import HomeboxClient
-from .models import Attachment, Item, ItemCreate, ItemUpdate, Label, Location
+from .models import Attachment, Item, ItemCreate, ItemUpdate, Label, Location, has_extended_fields
 
 __all__ = [
     "HomeboxClient",
@@ -11,4 +11,5 @@ __all__ = [
     "ItemCreate",
     "ItemUpdate",
     "Attachment",
+    "has_extended_fields",
 ]

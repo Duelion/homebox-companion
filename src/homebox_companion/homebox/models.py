@@ -1,201 +1,172 @@
-"""Data models for Homebox API entities."""
+"""Data models for Homebox API entities.
+
+Pydantic-first architecture: These models handle parsing, validation, and
+serialization automatically. Use `model_validate()` to parse API responses
+and `model_dump(by_alias=True)` to generate API payloads.
+
+Field aliases map Python snake_case to API camelCase automatically via
+alias_generator, with explicit overrides where needed.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field
+
+__all__ = [
+    "Location",
+    "Label",
+    "Item",
+    "ItemCreate",
+    "ItemUpdate",
+    "Attachment",
+    "has_extended_fields",
+]
 
 
-@dataclass
-class Location:
+def has_extended_fields(
+    manufacturer: str | None,
+    model_number: str | None,
+    serial_number: str | None,
+    purchase_price: float | None,
+    purchase_from: str | None,
+    notes: str | None,
+) -> bool:
+    """Check if any extended item fields are set.
+
+    Extended fields are those that cannot be set during item creation
+    and require a subsequent update API call.
+
+    This is a shared utility used by ItemUpdate and DetectedItem.
+    """
+    return any(
+        [
+            manufacturer,
+            model_number,
+            serial_number,
+            purchase_price is not None and purchase_price > 0,
+            purchase_from,
+            notes,
+        ]
+    )
+
+
+# =============================================================================
+# Core Domain Models (API Contract - Strict)
+# =============================================================================
+
+
+class Location(BaseModel):
     """A location in the Homebox inventory system."""
 
-    id: str
-    name: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = ""
+    name: str = ""
     description: str = ""
-    item_count: int = 0
-    children: list[Location] = field(default_factory=list)
-
-    @classmethod
-    def from_api(cls, data: dict) -> Location:
-        """Create a Location from API response data."""
-        children = [cls.from_api(c) for c in data.get("children", [])]
-        return cls(
-            id=data.get("id", ""),
-            name=data.get("name", ""),
-            description=data.get("description", ""),
-            item_count=data.get("itemCount", 0),
-            children=children,
-        )
+    item_count: int = Field(default=0, alias="itemCount")
+    children: list[Location] = Field(default_factory=list)
 
 
-@dataclass
-class Label:
+class Label(BaseModel):
     """A label in the Homebox inventory system."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     id: str
     name: str
     description: str = ""
     color: str = ""
 
-    @classmethod
-    def from_api(cls, data: dict) -> Label:
-        """Create a Label from API response data."""
-        return cls(
-            id=data.get("id", ""),
-            name=data.get("name", ""),
-            description=data.get("description", ""),
-            color=data.get("color", ""),
-        )
 
-
-@dataclass
-class Item:
+class Item(BaseModel):
     """An item in the Homebox inventory system."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    name: str
-    quantity: int = 1
-    description: str = ""
-    location_id: str | None = None
-    label_ids: list[str] = field(default_factory=list)
+    name: Annotated[str, Field(min_length=1, max_length=255)]
+    quantity: int = Field(default=1, ge=0)
+    description: Annotated[str, Field(max_length=1000)] = ""
+    location_id: str | None = Field(default=None, alias="locationId")
+    label_ids: list[str] = Field(default_factory=list, alias="labelIds")
     # Extended fields
     manufacturer: str | None = None
-    model_number: str | None = None
-    serial_number: str | None = None
-    purchase_price: float | None = None
-    purchase_from: str | None = None
-    notes: str | None = None
+    model_number: str | None = Field(default=None, alias="modelNumber")
+    serial_number: str | None = Field(default=None, alias="serialNumber")
+    purchase_price: float | None = Field(default=None, alias="purchasePrice")
+    purchase_from: str | None = Field(default=None, alias="purchaseFrom")
+    notes: str | None = Field(default=None)
     insured: bool = False
 
-    @classmethod
-    def from_api(cls, data: dict) -> Item:
-        """Create an Item from API response data."""
-        location = data.get("location", {})
-        labels = data.get("labels", [])
-        return cls(
-            id=data.get("id", ""),
-            name=data.get("name", ""),
-            quantity=data.get("quantity", 1),
-            description=data.get("description", ""),
-            location_id=location.get("id") if location else None,
-            label_ids=[lbl.get("id") for lbl in labels if lbl.get("id")],
-            manufacturer=data.get("manufacturer"),
-            model_number=data.get("modelNumber"),
-            serial_number=data.get("serialNumber"),
-            purchase_price=data.get("purchasePrice"),
-            purchase_from=data.get("purchaseFrom"),
-            notes=data.get("notes"),
-            insured=data.get("insured", False),
-        )
+
+# =============================================================================
+# Input Models (For Create/Update Operations)
+# =============================================================================
 
 
-@dataclass
-class ItemCreate:
-    """Data for creating a new item in Homebox."""
+class ItemCreate(BaseModel):
+    """Data for creating a new item in Homebox.
 
-    name: str
-    quantity: int = 1
-    description: str | None = None
-    location_id: str | None = None
-    label_ids: list[str] | None = None
-    parent_id: str | None = None  # For sub-item relationships
+    Use `model_dump(by_alias=True, exclude_unset=True)` to generate the API payload.
+    """
 
-    def to_payload(self) -> dict:
-        """Convert to API payload for item creation."""
-        name = (self.name or "Untitled item").strip()[:255]
-        description = (self.description or "Created via Homebox Companion.").strip()[:1000]
+    model_config = ConfigDict(populate_by_name=True)
 
-        payload: dict = {
-            "name": name,
-            "description": description,
-            "quantity": max(int(self.quantity or 1), 1),
-        }
-
-        if self.location_id:
-            payload["locationId"] = self.location_id
-        if self.label_ids:
-            payload["labelIds"] = self.label_ids
-        if self.parent_id:
-            payload["parentId"] = self.parent_id
-
-        return payload
+    name: Annotated[str, Field(min_length=1, max_length=255)]
+    quantity: int = Field(default=1, ge=1)
+    description: Annotated[str, Field(max_length=1000)] = ""
+    location_id: str | None = Field(default=None, alias="locationId")
+    label_ids: list[str] | None = Field(default=None, alias="labelIds")
+    parent_id: str | None = Field(default=None, alias="parentId")
 
 
-@dataclass
-class ItemUpdate:
-    """Data for updating an existing item in Homebox."""
+class ItemUpdate(BaseModel):
+    """Data for updating an existing item in Homebox.
 
-    name: str | None = None
-    quantity: int | None = None
-    description: str | None = None
-    location_id: str | None = None
-    label_ids: list[str] | None = None
-    manufacturer: str | None = None
-    model_number: str | None = None
-    serial_number: str | None = None
-    purchase_price: float | None = None
-    purchase_from: str | None = None
-    notes: str | None = None
-    insured: bool | None = None
+    Only set fields that should be updated. Use `model_dump(by_alias=True, exclude_unset=True)`
+    to generate a partial update payload.
+    """
 
-    def to_payload(self) -> dict:
-        """Convert to API payload for item update."""
-        payload: dict = {}
+    model_config = ConfigDict(populate_by_name=True)
 
-        if self.name is not None:
-            payload["name"] = str(self.name).strip()[:255]
-        if self.quantity is not None:
-            payload["quantity"] = max(int(self.quantity), 1)
-        if self.description is not None:
-            payload["description"] = str(self.description).strip()[:1000]
-        if self.location_id is not None:
-            payload["locationId"] = self.location_id
-        if self.label_ids is not None:
-            payload["labelIds"] = self.label_ids
-        if self.manufacturer is not None:
-            payload["manufacturer"] = str(self.manufacturer).strip()[:255]
-        if self.model_number is not None:
-            payload["modelNumber"] = str(self.model_number).strip()[:255]
-        if self.serial_number is not None:
-            payload["serialNumber"] = str(self.serial_number).strip()[:255]
-        if self.purchase_price is not None:
-            payload["purchasePrice"] = self.purchase_price
-        if self.purchase_from is not None:
-            payload["purchaseFrom"] = str(self.purchase_from).strip()[:255]
-        if self.notes is not None:
-            payload["notes"] = str(self.notes).strip()[:1000]
-        if self.insured is not None:
-            payload["insured"] = self.insured
-
-        return payload
+    name: Annotated[str, Field(max_length=255)] | None = None
+    quantity: int | None = Field(default=None, ge=1)
+    description: Annotated[str, Field(max_length=1000)] | None = None
+    location_id: str | None = Field(default=None, alias="locationId")
+    label_ids: list[str] | None = Field(default=None, alias="labelIds")
+    manufacturer: Annotated[str, Field(max_length=255)] | None = None
+    model_number: Annotated[str, Field(max_length=255)] | None = Field(
+        default=None, alias="modelNumber"
+    )
+    serial_number: Annotated[str, Field(max_length=255)] | None = Field(
+        default=None, alias="serialNumber"
+    )
+    purchase_price: float | None = Field(default=None, alias="purchasePrice")
+    purchase_from: Annotated[str, Field(max_length=255)] | None = Field(
+        default=None, alias="purchaseFrom"
+    )
+    notes: Annotated[str, Field(max_length=1000)] | None = Field(default=None)
+    insured: bool | None = Field(default=None)
 
     def has_extended_fields(self) -> bool:
         """Check if any extended fields are set."""
-        return any(
-            [
-                self.manufacturer,
-                self.model_number,
-                self.serial_number,
-                self.purchase_price is not None and self.purchase_price > 0,
-                self.purchase_from,
-                self.notes,
-            ]
+        return has_extended_fields(
+            self.manufacturer,
+            self.model_number,
+            self.serial_number,
+            self.purchase_price,
+            self.purchase_from,
+            self.notes,
         )
 
 
-@dataclass
-class Attachment:
+class Attachment(BaseModel):
     """An attachment (image) for an item in Homebox."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     id: str
     type: str
-    document_id: str | None = None
-
-    @classmethod
-    def from_api(cls, data: dict) -> Attachment:
-        """Create an Attachment from API response data."""
-        return cls(
-            id=data.get("id", ""),
-            type=data.get("type", ""),
-            document_id=data.get("document", {}).get("id") if data.get("document") else None,
-        )
+    document_id: str | None = Field(default=None, alias="documentId")

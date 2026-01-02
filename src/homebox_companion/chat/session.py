@@ -2,6 +2,8 @@
 
 This module provides session state management for the conversational assistant,
 including message history and pending approval tracking.
+
+Uses Pydantic models for consistency with the Pydantic-first architecture.
 """
 
 from __future__ import annotations
@@ -9,25 +11,26 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal
 
 from loguru import logger
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from ..core.config import settings
 
 
-class DisplayInfo(TypedDict, total=False):
+class DisplayInfo(BaseModel):
     """Human-readable display info for approval actions."""
 
-    item_name: str
-    asset_id: str
-    location: str
+    model_config = ConfigDict(extra="allow")  # Allow additional fields
+
+    item_name: str | None = None
+    asset_id: str | None = None
+    location: str | None = None
 
 
-@dataclass
-class ToolCall:
+class ToolCall(BaseModel):
     """Represents a tool call from the LLM.
 
     Attributes:
@@ -35,13 +38,15 @@ class ToolCall:
         name: Name of the tool to call
         arguments: Tool arguments as a dictionary
     """
+
+    model_config = ConfigDict(frozen=True)
+
     id: str
     name: str
     arguments: dict[str, Any]
 
 
-@dataclass
-class ChatMessage:
+class ChatMessage(BaseModel):
     """A single message in the conversation.
 
     Attributes:
@@ -51,11 +56,12 @@ class ChatMessage:
         tool_call_id: ID of the tool call this message responds to (for tool messages)
         timestamp: When the message was created
     """
+
     role: Literal["user", "assistant", "tool", "system"]
     content: str
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def to_llm_format(self) -> dict[str, Any]:
         """Convert to the format expected by LLM APIs."""
@@ -80,8 +86,7 @@ class ChatMessage:
         return msg
 
 
-@dataclass
-class PendingApproval:
+class PendingApproval(BaseModel):
     """A pending action awaiting user approval.
 
     Attributes:
@@ -92,19 +97,26 @@ class PendingApproval:
         created_at: When the approval was created
         expires_at: When the approval expires
     """
+
     id: str
     tool_name: str
     parameters: dict[str, Any]
-    display_info: DisplayInfo = field(default_factory=dict)  # type: ignore[assignment]
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    display_info: DisplayInfo = Field(default_factory=DisplayInfo)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
 
-    def __post_init__(self):
+    @model_validator(mode="after")
+    def set_expiry(self) -> PendingApproval:
         """Set expiry time if not provided."""
         if self.expires_at is None:
             timeout_seconds = settings.chat_approval_timeout
-            self.expires_at = self.created_at + timedelta(seconds=timeout_seconds)
+            # Use object.__setattr__ since we need to set after validation
+            object.__setattr__(
+                self, "expires_at", self.created_at + timedelta(seconds=timeout_seconds)
+            )
+        return self
 
+    @computed_field
     @property
     def is_expired(self) -> bool:
         """Check if this approval has expired."""
@@ -118,7 +130,7 @@ class PendingApproval:
             "id": self.id,
             "tool_name": self.tool_name,
             "parameters": self.parameters,
-            "display_info": self.display_info,
+            "display_info": self.display_info.model_dump(exclude_none=True),
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "is_expired": self.is_expired,

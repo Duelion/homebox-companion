@@ -335,7 +335,7 @@ class HomeboxClient:
             List of Location objects.
         """
         raw = await self.list_locations(token, filter_children=filter_children)
-        return [Location.from_api(loc) for loc in raw]
+        return [Location.model_validate(loc) for loc in raw]
 
     async def get_location(self, token: str, location_id: str) -> dict[str, Any]:
         """Return a specific location by ID with its children.
@@ -368,7 +368,7 @@ class HomeboxClient:
             Location object including children.
         """
         raw = await self.get_location(token, location_id)
-        return Location.from_api(raw)
+        return Location.model_validate(raw)
 
     async def get_location_tree(
         self, token: str, *, with_items: bool = False
@@ -505,7 +505,7 @@ class HomeboxClient:
             List of Label objects.
         """
         raw = await self.list_labels(token)
-        return [Label.from_api(label) for label in raw]
+        return [Label.model_validate(label) for label in raw]
 
     @_rate_limited
     async def create_item(self, token: str, item: ItemCreate) -> dict[str, Any]:
@@ -525,7 +525,7 @@ class HomeboxClient:
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             },
-            json=item.to_payload(),
+            json=item.model_dump(by_alias=True, exclude_unset=True),
         )
         self._ensure_success(response, "Create item")
         return response.json()
@@ -541,7 +541,7 @@ class HomeboxClient:
             The created Item object.
         """
         raw = await self.create_item(token, item)
-        return Item.from_api(raw)
+        return Item.model_validate(raw)
 
     @_rate_limited
     async def update_item(
@@ -581,7 +581,7 @@ class HomeboxClient:
             The updated Item object.
         """
         raw = await self.update_item(token, item_id, item_data)
-        return Item.from_api(raw)
+        return Item.model_validate(raw)
 
     async def list_items(
         self,
@@ -803,7 +803,7 @@ class HomeboxClient:
             The Item object with all details.
         """
         raw = await self.get_item(token, item_id)
-        return Item.from_api(raw)
+        return Item.model_validate(raw)
 
     @_rate_limited
     async def delete_item(self, token: str, item_id: str) -> None:
@@ -916,7 +916,13 @@ class HomeboxClient:
         raw = await self.upload_attachment(
             token, item_id, file_bytes, filename, mime_type, attachment_type
         )
-        return Attachment.from_api(raw)
+        # Handle nested document structure from API
+        doc = raw.get("document", {})
+        return Attachment(
+            id=raw.get("id", ""),
+            type=raw.get("type", ""),
+            document_id=doc.get("id") if doc else None,
+        )
 
     @_rate_limited
     async def ensure_asset_ids(self, token: str) -> int:

@@ -190,7 +190,12 @@ class TestGetLocation:
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
-        assert result.data == mock_location
+        # Tool returns LocationView with computed URL and additional fields
+        assert result.data["id"] == "loc1"
+        assert result.data["name"] == "Living Room"
+        assert "url" in result.data  # Computed URL field
+        assert len(result.data["children"]) == 1
+        assert result.data["children"][0]["id"] == "loc1a"
         mock_client.get_location.assert_called_once_with("test-token", "loc1")
 
     @pytest.mark.asyncio
@@ -203,6 +208,7 @@ class TestGetLocation:
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is False
+        assert result.error is not None
         assert "not found" in result.error.lower()
 
 
@@ -250,12 +256,18 @@ class TestListItems:
         mock_client.list_items.return_value = mock_items
 
         tool = ListItemsTool()
-        # Use compact=False to get raw items without transformation
+        # Use compact=False to get ItemView format (still has computed fields)
         params = tool.Params(compact=False)
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
-        assert result.data == mock_items
+        # Tool returns ItemView with computed URL and additional fields
+        assert len(result.data) == 2
+        assert result.data[0]["id"] == "item1"
+        assert result.data[0]["name"] == "TV"
+        assert "url" in result.data[0]  # Computed URL field
+        assert result.data[1]["id"] == "item2"
+        assert result.data[1]["name"] == "Couch"
         mock_client.list_items.assert_called_once_with(
             "test-token", location_id=None, label_ids=None, page=None, page_size=50
         )
@@ -299,7 +311,15 @@ class TestGetItem:
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
-        assert result.data == mock_item
+        # Tool returns ItemView with computed URL and additional fields
+        assert result.data["id"] == "item1"
+        assert result.data["name"] == "Smart TV"
+        assert result.data["description"] == "65 inch OLED"
+        assert "url" in result.data  # Computed URL field
+        assert result.data["location"]["id"] == "loc1"
+        assert result.data["location"]["name"] == "Living Room"
+        assert len(result.data["labels"]) == 1
+        assert result.data["labels"][0]["id"] == "lbl1"
         mock_client.get_item.assert_called_once_with("test-token", "item1")
 
     @pytest.mark.asyncio
@@ -312,6 +332,7 @@ class TestGetItem:
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is False
+        assert result.error is not None
         assert "not found" in result.error.lower()
 
 
