@@ -117,16 +117,34 @@
 		return sortedA.every((val, i) => val === sortedB[i]);
 	}
 
-	// Check if user has modified any parameters
-	const hasModifications = $derived(
-		actionType !== 'delete' &&
-			(editedName !== originalName ||
+	// Check if user has modified any editable parameters
+	// For update actions, only considers fields in fieldsBeingChanged
+	const hasModifications = $derived.by(() => {
+		if (actionType === 'delete') return false;
+
+		// For create actions, check all fields
+		if (actionType === 'create') {
+			return (
+				editedName !== originalName ||
 				editedDescription !== originalDescription ||
 				editedQuantity !== originalQuantity ||
 				editedNotes !== originalNotes ||
 				!arraysEqual(editedLabelIds, originalLabelIds) ||
-				editedLocationId !== originalLocationId)
-	);
+				editedLocationId !== originalLocationId
+			);
+		}
+
+		// For update actions, only check fields that are being changed
+		const allowed = new Set(fieldsBeingChanged);
+		return (
+			(allowed.has('name') && editedName !== originalName) ||
+			(allowed.has('description') && editedDescription !== originalDescription) ||
+			(allowed.has('quantity') && editedQuantity !== originalQuantity) ||
+			(allowed.has('notes') && editedNotes !== originalNotes) ||
+			(allowed.has('labels') && !arraysEqual(editedLabelIds, originalLabelIds)) ||
+			(allowed.has('location') && editedLocationId !== originalLocationId)
+		);
+	});
 
 	// Check which fields are being changed (for update_item)
 	const fieldsBeingChanged = $derived.by(() => {
@@ -134,32 +152,41 @@
 		const fields: string[] = [];
 		if (approval.parameters.name !== undefined) fields.push('name');
 		if (approval.parameters.description !== undefined) fields.push('description');
+		if (approval.parameters.quantity !== undefined) fields.push('quantity');
+		if (approval.parameters.notes !== undefined) fields.push('notes');
+		if (approval.parameters.label_ids !== undefined) fields.push('labels');
 		if (approval.parameters.location_id !== undefined) fields.push('location');
 		return fields;
 	});
 
 	// Build modified parameters object (only changed fields)
+	// For update actions, only returns fields that are in fieldsBeingChanged
 	function getModifiedParams(): Record<string, unknown> | undefined {
 		if (!hasModifications) return undefined;
 
 		const mods: Record<string, unknown> = {};
+		const isUpdate = actionType === 'update';
+		const allowed = new Set(fieldsBeingChanged);
 
-		if (editedName !== originalName) {
+		// Helper to check if field can be modified
+		const canModify = (field: string) => !isUpdate || allowed.has(field);
+
+		if (editedName !== originalName && canModify('name')) {
 			mods.name = editedName;
 		}
-		if (editedDescription !== originalDescription) {
+		if (editedDescription !== originalDescription && canModify('description')) {
 			mods.description = editedDescription;
 		}
-		if (editedQuantity !== originalQuantity) {
+		if (editedQuantity !== originalQuantity && canModify('quantity')) {
 			mods.quantity = editedQuantity;
 		}
-		if (editedNotes !== originalNotes) {
+		if (editedNotes !== originalNotes && canModify('notes')) {
 			mods.notes = editedNotes;
 		}
-		if (!arraysEqual(editedLabelIds, originalLabelIds)) {
+		if (!arraysEqual(editedLabelIds, originalLabelIds) && canModify('labels')) {
 			mods.label_ids = editedLabelIds;
 		}
-		if (editedLocationId !== originalLocationId) {
+		if (editedLocationId !== originalLocationId && canModify('location')) {
 			mods.location_id = editedLocationId;
 		}
 
@@ -474,6 +501,20 @@
 						</div>
 					{/if}
 
+					{#if fieldsBeingChanged.includes('quantity')}
+						<div>
+							<label for="update-qty-{approval.id}" class="label-sm">New Quantity</label>
+							<input
+								type="number"
+								id="update-qty-{approval.id}"
+								min="1"
+								bind:value={editedQuantity}
+								class="input-sm w-20"
+								disabled={isProcessing}
+							/>
+						</div>
+					{/if}
+
 					{#if fieldsBeingChanged.includes('description')}
 						<div>
 							<label for="update-desc-{approval.id}" class="label-sm">New Description</label>
@@ -489,10 +530,63 @@
 					{/if}
 
 					{#if fieldsBeingChanged.includes('location')}
-						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
-							<span class="text-xs text-neutral-500">Moving to location ID:</span>
-							<span class="ml-1 text-sm text-neutral-300">{approval.parameters.location_id}</span>
+						<div>
+							<label for="update-loc-{approval.id}" class="label-sm">New Location</label>
+							{#if locationStore.flatList.length > 0}
+								<select
+									id="update-loc-{approval.id}"
+									bind:value={editedLocationId}
+									class="input-sm"
+									disabled={isProcessing}
+								>
+									<option value="">Select location...</option>
+									{#each locationStore.flatList as loc (loc.location.id)}
+										<option value={loc.location.id}>{loc.path}</option>
+									{/each}
+								</select>
+							{:else}
+								<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
+									<span class="text-sm text-neutral-300"
+										>{approval.display_info?.location ?? approval.parameters.location_id}</span
+									>
+								</div>
+							{/if}
 						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('notes')}
+						<div>
+							<label for="update-notes-{approval.id}" class="label-sm">New Notes</label>
+							<textarea
+								id="update-notes-{approval.id}"
+								bind:value={editedNotes}
+								placeholder="Notes"
+								rows="2"
+								class="input-sm resize-none"
+								disabled={isProcessing}
+							></textarea>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('labels')}
+						{#if labelStore.labels.length > 0}
+							<div>
+								<span class="label-sm">New Tags</span>
+								<div class="flex flex-wrap gap-1.5" role="group" aria-label="Select labels">
+									{#each labelStore.labels as label (label.id)}
+										{@const isSelected = editedLabelIds.includes(label.id)}
+										<button
+											type="button"
+											class={isSelected ? 'label-chip-selected' : 'label-chip'}
+											onclick={() => toggleLabel(label.id)}
+											disabled={isProcessing}
+										>
+											{label.name}
+										</button>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					{/if}
 
 					{#if fieldsBeingChanged.length === 0}
