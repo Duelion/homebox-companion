@@ -118,6 +118,74 @@ def _compact_location(location: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _add_item_url(item: dict[str, Any]) -> dict[str, Any]:
+    """Add url field to item without modifying other fields.
+    
+    This is used for tools that return full item details (non-compact mode)
+    to ensure the LLM can generate correct markdown links.
+    
+    Args:
+        item: Full item dictionary
+        
+    Returns:
+        Same item dict with url field added (mutates in place and returns)
+    """
+    from ..core.config import settings
+    
+    base_url = settings.effective_link_base_url
+    item["url"] = f"{base_url}/item/{item.get('id')}"
+    
+    # Also add URL to nested location if present
+    if item.get("location"):
+        item["location"]["url"] = f"{base_url}/location/{item['location'].get('id')}"
+    
+    return item
+
+
+def _add_location_url(location: dict[str, Any]) -> dict[str, Any]:
+    """Add url field to location without modifying other fields.
+    
+    Args:
+        location: Full location dictionary
+        
+    Returns:
+        Same location dict with url field added (mutates in place and returns)
+    """
+    from ..core.config import settings
+    
+    base_url = settings.effective_link_base_url
+    location["url"] = f"{base_url}/location/{location.get('id')}"
+    
+    return location
+
+
+def _add_tree_urls(node: dict[str, Any]) -> dict[str, Any]:
+    """Recursively add urls to tree nodes (locations and items).
+    
+    Used by get_location_tree to ensure all nodes have URLs for markdown links.
+    
+    Args:
+        node: Tree node (location or item with 'type' and 'children' fields)
+        
+    Returns:
+        Same node with url field added (mutates in place and returns)
+    """
+    from ..core.config import settings
+    
+    base_url = settings.effective_link_base_url
+    
+    if node.get("type") == "location":
+        node["url"] = f"{base_url}/location/{node.get('id')}"
+    else:  # item
+        node["url"] = f"{base_url}/item/{node.get('id')}"
+    
+    # Recursively process children
+    for child in node.get("children", []):
+        _add_tree_urls(child)
+    
+    return node
+
+
 # =============================================================================
 # READ-ONLY TOOLS
 # =============================================================================
@@ -293,6 +361,8 @@ class ListItemsTool:
             items = [_compact_item(item) for item in items]
             logger.debug(f"list_items returned {len(items)} items (compact mode)")
         else:
+            # Add URLs to full items for markdown link generation
+            items = [_add_item_url(item) for item in items]
             logger.debug(f"list_items returned {len(items)} items")
 
         return ToolResult(success=True, data=items)
@@ -340,6 +410,8 @@ class SearchItemsTool:
                 f"search_items('{params.query}') returned {len(items)} items (compact)"
             )
         else:
+            # Add URLs to full items for markdown link generation
+            items = [_add_item_url(item) for item in items]
             logger.debug(f"search_items('{params.query}') returned {len(items)} items")
 
         return ToolResult(success=True, data=items)
@@ -364,6 +436,8 @@ class GetItemTool:
         params: Params,
     ) -> ToolResult:
         item = await client.get_item(token, params.item_id)
+        # Add URL for markdown link generation
+        _add_item_url(item)
         logger.debug(f"get_item returned item: {item.get('name', 'unknown')}")
         return ToolResult(success=True, data=item)
 
@@ -416,6 +490,8 @@ class GetItemByAssetIdTool:
         params: Params,
     ) -> ToolResult:
         item = await client.get_item_by_asset_id(token, params.asset_id)
+        # Add URL for markdown link generation
+        _add_item_url(item)
         logger.debug(f"get_item_by_asset_id({params.asset_id}) returned: {item.get('name', 'unknown')}")
         return ToolResult(success=True, data=item)
 
@@ -445,6 +521,9 @@ class GetLocationTreeTool:
         params: Params,
     ) -> ToolResult:
         tree = await client.get_location_tree(token, with_items=params.with_items)
+        # Add URLs recursively to all nodes (locations and items)
+        for node in tree:
+            _add_tree_urls(node)
         logger.debug(f"get_location_tree returned {len(tree)} top-level nodes")
         return ToolResult(success=True, data=tree)
 
