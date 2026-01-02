@@ -19,7 +19,7 @@
 
 	let { open = $bindable(), approvals, onclose }: Props = $props();
 
-	let processingIds = new SvelteSet<string>();
+	let processingIds = $state(new SvelteSet<string>());
 	let now = $state(Date.now());
 
 	// Live countdown timer
@@ -65,13 +65,11 @@
 	});
 
 	function addProcessingId(id: string) {
-		processingIds = new SvelteSet([...processingIds, id]);
+		processingIds.add(id);
 	}
 
 	function removeProcessingId(id: string) {
-		const next = new SvelteSet(processingIds);
-		next.delete(id);
-		processingIds = next;
+		processingIds.delete(id);
 	}
 
 	async function handleApprove(approvalId: string) {
@@ -94,25 +92,25 @@
 
 	async function handleApproveAll() {
 		const ids = approvals.map((a) => a.id);
-		processingIds = new SvelteSet(ids);
+		ids.forEach((id) => processingIds.add(id));
 		try {
 			for (const id of ids) {
 				await chatStore.approveAction(id);
 			}
 		} finally {
-			processingIds = new SvelteSet();
+			processingIds.clear();
 		}
 	}
 
 	async function handleRejectAll() {
 		const ids = approvals.map((a) => a.id);
-		processingIds = new SvelteSet(ids);
+		ids.forEach((id) => processingIds.add(id));
 		try {
 			for (const id of ids) {
 				await chatStore.rejectAction(id);
 			}
 		} finally {
-			processingIds = new SvelteSet();
+			processingIds.clear();
 		}
 	}
 
