@@ -2,20 +2,28 @@
 
 This module contains the shared types used across MCP tool implementations:
 - ToolPermission: Enum for tool permission levels
+- ToolParams: Base class for tool parameter models
 - ToolResult: Standard result wrapper for tool execution
 - Tool: Protocol defining the tool contract
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from ..homebox.client import HomeboxClient
+
+__all__ = [
+    "ToolPermission",
+    "ToolParams",
+    "ToolResult",
+    "Tool",
+    "MAX_RESULT_ITEMS",
+]
 
 # Truncation limits for tool results (reduces context window usage)
 MAX_RESULT_ITEMS = 25  # Maximum items in list results
@@ -34,8 +42,20 @@ class ToolPermission(str, Enum):
     DESTRUCTIVE = "destructive"
 
 
-@dataclass
-class ToolResult:
+class ToolParams(BaseModel):
+    """Base class for tool parameter models.
+
+    All tool Params inner classes should inherit from this to ensure
+    consistent configuration (extra="forbid" catches typos in param names).
+    """
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="forbid",  # Reject unknown parameters
+    )
+
+
+class ToolResult(BaseModel):
     """Standard result wrapper for tool execution.
 
     Attributes:
@@ -43,6 +63,8 @@ class ToolResult:
         data: The result data (on success) or None
         error: Error message (on failure) or None
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     success: bool
     data: Any = None
