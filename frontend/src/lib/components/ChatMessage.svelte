@@ -93,6 +93,16 @@
 		return grouped;
 	});
 
+	// Executed action stats for fallback display
+	const executedActionStats = $derived.by(() => {
+		if (!message.executedActions || message.executedActions.length === 0) {
+			return { total: 0, success: 0, allSuccess: true };
+		}
+		const total = message.executedActions.length;
+		const success = message.executedActions.filter((a) => a.success).length;
+		return { total, success, allSuccess: success === total };
+	});
+
 	// Copy button state
 	let copySuccess = $state(false);
 
@@ -137,6 +147,20 @@
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Rendered markdown from trusted AI response -->
 					<div class="markdown-content">{@html renderedContent}</div>
 				{/if}
+			{:else if hasExecutedActions && !message.isStreaming}
+				<!-- Fallback summary when no content but has executed actions -->
+				<p class="m-0 text-sm text-neutral-300">
+					{#if executedActionStats.allSuccess}
+						✓ Completed {executedActionStats.total} action{executedActionStats.total !== 1
+							? 's'
+							: ''} successfully
+					{:else}
+						{executedActionStats.success} of {executedActionStats.total} action{executedActionStats.total !==
+						1
+							? 's'
+							: ''} completed
+					{/if}
+				</p>
 			{/if}
 
 			{#if message.isStreaming && !message.content}

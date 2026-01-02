@@ -6,6 +6,7 @@ handles tool calling, and generates streaming events for the frontend.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections.abc import AsyncGenerator
@@ -267,21 +268,52 @@ class ChatOrchestrator:
             tool_calls=parsed_tool_calls,
         ))
 
-        # Execute tools using already-parsed tool calls (no redundant JSON parsing)
-        # Track whether any approvals were queued - if so, we stop and wait for user action
+        # Track results and approvals
         has_pending_approvals = False
 
+        # Group tools for parallel execution (READ only)
+        read_calls = []
+        sequential_calls = []
+
         for parsed_tc in parsed_tool_calls:
-            # Check tool permission
             tool = self._tools_by_name.get(parsed_tc.name)
             if not tool:
-                # Add error tool result to satisfy OpenAI API requirements
+                # Unknown tool - handle sequentially to report error
+                sequential_calls.append(parsed_tc)
+            elif tool.permission == ToolPermission.READ:
+                read_calls.append(parsed_tc)
+            else:
+                sequential_calls.append(parsed_tc)
+
+        # 1. Execute READ tools in parallel for maximum performance
+        if read_calls:
+            logger.debug(f"[CHAT] Executing {len(read_calls)} read tools in parallel")
+
+            async def run_and_collect(tc):
+                collected_events = []
+                async for event in self._execute_tool(tc.id, tc.name, tc.arguments, token):
+                    collected_events.append(event)
+                return collected_events
+
+            # Gather all parallel results
+            parallel_results = await asyncio.gather(
+                *(run_and_collect(tc) for tc in read_calls)
+            )
+
+            # Yield all collected events
+            for event_list in parallel_results:
+                for event in event_list:
+                    yield event
+
+        # 2. Execute remaining tools (WRITE/Unknown) sequentially
+        for parsed_tc in sequential_calls:
+            tool = self._tools_by_name.get(parsed_tc.name)
+            if not tool:
+                # Add error tool result
+                error_dict = {"success": False, "error": f"Unknown tool: {parsed_tc.name}"}
                 self.session.add_message(ChatMessage(
                     role="tool",
-                    content=json.dumps({
-                        "success": False,
-                        "error": f"Unknown tool: {parsed_tc.name}"
-                    }),
+                    content=json.dumps(error_dict),
                     tool_call_id=parsed_tc.id,
                 ))
                 yield ChatEvent(
@@ -290,21 +322,14 @@ class ChatOrchestrator:
                 )
                 continue
 
-            if tool.permission == ToolPermission.READ:
-                # Auto-execute read-only tools
-                async for event in self._execute_tool(
-                    parsed_tc.id, parsed_tc.name, parsed_tc.arguments, token
-                ):
-                    yield event
-            else:
-                # Queue write tools for approval
-                has_pending_approvals = True
-                async for event in self._queue_approval(
-                    parsed_tc.id, parsed_tc.name, parsed_tc.arguments, token
-                ):
-                    yield event
+            # Queue write tools for approval
+            has_pending_approvals = True
+            async for event in self._queue_approval(
+                parsed_tc.id, parsed_tc.name, parsed_tc.arguments, token
+            ):
+                yield event
 
-        # Only continue conversation if no approvals are pending
+        # 3. Only continue conversation if no approvals are pending
         # When approvals are pending, the conversation will resume after user action
         if not has_pending_approvals:
             async for event in self._continue_with_tool_results(token, tools, depth + 1):
@@ -608,6 +633,15 @@ class ChatOrchestrator:
 
         # Reconstruct complete content
         full_content = "".join(content_chunks)
+
+        # UX Improvement: Handle "random/bulk creation" lead-in if content is empty
+        # This addresses the "silent assumptions" flagged in the UX critique
+        if not full_content and tool_call_chunks:
+            # Check if we are doing bulk creates
+            create_calls = [tc for tc in tool_call_chunks.values() if tc["name"] == "create_item"]
+            if len(create_calls) > 1:
+                full_content = f"I'll create {len(create_calls)} sample items for you..."
+                yield ChatEvent(type=ChatEventType.TEXT, data={"content": full_content})
 
         if full_content:
             logger.trace(f"[CHAT] Complete streamed content:\n{full_content}")
