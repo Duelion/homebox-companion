@@ -49,6 +49,9 @@
 	});
 
 	// Handle virtual keyboard on mobile
+	// Minimum height to consider as keyboard (filters out overscroll/rubber-banding)
+	const KEYBOARD_MIN_HEIGHT = 150;
+
 	function handleViewportResize() {
 		if (!window.visualViewport || !chatInputContainer) return;
 
@@ -58,11 +61,11 @@
 		const visualHeight = viewport.height;
 		const keyboardHeight = Math.max(0, layoutHeight - visualHeight - viewport.offsetTop);
 
-		if (keyboardHeight > 0) {
+		if (keyboardHeight > KEYBOARD_MIN_HEIGHT) {
 			// Keyboard is open - position input above keyboard
 			chatInputContainer.style.bottom = `${keyboardHeight}px`;
 		} else {
-			// Keyboard is closed - reset to default (above nav bar)
+			// Keyboard is closed or just overscroll - reset to default (above nav bar)
 			chatInputContainer.style.bottom = '';
 		}
 	}
