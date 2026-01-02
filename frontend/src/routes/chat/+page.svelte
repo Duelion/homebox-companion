@@ -5,8 +5,9 @@
 	 * Layout follows the Capture page pattern:
 	 * - Main scrollable content area with pb-28 padding
 	 * - Fixed input pinned to bottom (above navigation) using bottom-nav-offset
+	 * - On mobile, input repositions above virtual keyboard when open
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
@@ -17,6 +18,7 @@
 	const log = createLogger({ prefix: 'ChatPage' });
 
 	let messagesContainer: HTMLDivElement | null = $state(null);
+	let chatInputContainer: HTMLDivElement | null = $state(null);
 	let isEnabled = $state(true);
 	let approvalModalOpen = $state(false);
 
@@ -46,6 +48,25 @@
 		}
 	});
 
+	// Handle virtual keyboard on mobile
+	function handleViewportResize() {
+		if (!window.visualViewport || !chatInputContainer) return;
+
+		const viewport = window.visualViewport;
+		// Calculate keyboard height: difference between layout viewport and visual viewport
+		const layoutHeight = window.innerHeight;
+		const visualHeight = viewport.height;
+		const keyboardHeight = Math.max(0, layoutHeight - visualHeight - viewport.offsetTop);
+
+		if (keyboardHeight > 0) {
+			// Keyboard is open - position input above keyboard
+			chatInputContainer.style.bottom = `${keyboardHeight}px`;
+		} else {
+			// Keyboard is closed - reset to default (above nav bar)
+			chatInputContainer.style.bottom = '';
+		}
+	}
+
 	onMount(async () => {
 		log.info('Chat page mounted');
 		isEnabled = await chatStore.checkEnabled();
@@ -53,6 +74,20 @@
 		if (isEnabled) {
 			await chatStore.refreshPendingApprovals();
 			log.debug(`Pending approvals: ${chatStore.pendingApprovals.length}`);
+		}
+
+		// Set up visual viewport listener for keyboard handling
+		if (window.visualViewport) {
+			window.visualViewport.addEventListener('resize', handleViewportResize);
+			window.visualViewport.addEventListener('scroll', handleViewportResize);
+		}
+	});
+
+	onDestroy(() => {
+		// Clean up viewport listeners
+		if (typeof window !== 'undefined' && window.visualViewport) {
+			window.visualViewport.removeEventListener('resize', handleViewportResize);
+			window.visualViewport.removeEventListener('scroll', handleViewportResize);
 		}
 	});
 
@@ -78,9 +113,9 @@
 	{#if !isEnabled}
 		<!-- Disabled state -->
 		<div class="empty-state min-h-[60vh]">
-			<div class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-error-500/10">
+			<div class="bg-error-500/10 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl">
 				<svg
-					class="h-8 w-8 text-error-500"
+					class="text-error-500 h-8 w-8"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -91,13 +126,13 @@
 					/>
 				</svg>
 			</div>
-			<h2 class="mb-2 text-h3 text-neutral-100">Chat Disabled</h2>
-			<p class="mb-1 text-body-sm text-neutral-400">
+			<h2 class="text-h3 mb-2 text-neutral-100">Chat Disabled</h2>
+			<p class="text-body-sm mb-1 text-neutral-400">
 				The chat feature is currently disabled on the server.
 			</p>
-			<p class="mb-1 text-body-sm text-neutral-400">
+			<p class="text-body-sm mb-1 text-neutral-400">
 				Enable it by setting <code
-					class="mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-[0.8125rem] text-primary-300"
+					class="text-primary-300 mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-[0.8125rem]"
 					>HBC_CHAT_ENABLED=true</code
 				>
 			</p>
@@ -106,7 +141,7 @@
 		<!-- Error banner -->
 		{#if chatStore.error}
 			<div
-				class="text-error-400 flex items-center gap-2 border-b border-error-500/15 bg-error-500/10 px-4 py-2.5 text-body-sm"
+				class="text-error-400 border-error-500/15 bg-error-500/10 text-body-sm flex items-center gap-2 border-b px-4 py-2.5"
 			>
 				<svg
 					class="h-4 w-4 shrink-0"
@@ -126,10 +161,10 @@
 			{#if chatStore.messages.length === 0}
 				<div class="empty-state">
 					<div
-						class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500/15 to-purple-500/10"
+						class="from-primary-500/15 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br to-purple-500/10"
 					>
 						<svg
-							class="h-8 w-8 text-primary-500"
+							class="text-primary-500 h-8 w-8"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -140,17 +175,17 @@
 							/>
 						</svg>
 					</div>
-					<h2 class="mb-1.5 text-h3 text-neutral-100">Start a conversation</h2>
-					<p class="mb-6 text-body-sm text-neutral-400">
+					<h2 class="text-h3 mb-1.5 text-neutral-100">Start a conversation</h2>
+					<p class="text-body-sm mb-6 text-neutral-400">
 						Ask me about your inventory, locations, or items.
 					</p>
 					<div class="flex w-full max-w-80 flex-col gap-2">
 						<button
-							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
+							class="text-body-sm duration-fast hover:border-primary-500 flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-neutral-200 transition-all hover:-translate-y-px hover:bg-neutral-800 active:scale-[0.98]"
 							onclick={() => chatStore.sendMessage('What locations do I have?')}
 						>
 							<svg
-								class="h-[1.125rem] w-[1.125rem] shrink-0 text-primary-500"
+								class="text-primary-500 h-[1.125rem] w-[1.125rem] shrink-0"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -164,11 +199,11 @@
 							<span class="flex-1">What locations do I have?</span>
 						</button>
 						<button
-							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
+							class="text-body-sm duration-fast hover:border-primary-500 flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-neutral-200 transition-all hover:-translate-y-px hover:bg-neutral-800 active:scale-[0.98]"
 							onclick={() => chatStore.sendMessage('List my labels')}
 						>
 							<svg
-								class="h-[1.125rem] w-[1.125rem] shrink-0 text-primary-500"
+								class="text-primary-500 h-[1.125rem] w-[1.125rem] shrink-0"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -182,11 +217,11 @@
 							<span class="flex-1">List my labels</span>
 						</button>
 						<button
-							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
+							class="text-body-sm duration-fast hover:border-primary-500 flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-neutral-200 transition-all hover:-translate-y-px hover:bg-neutral-800 active:scale-[0.98]"
 							onclick={() => chatStore.sendMessage('How many items are in my inventory?')}
 						>
 							<svg
-								class="h-[1.125rem] w-[1.125rem] shrink-0 text-primary-500"
+								class="text-primary-500 h-[1.125rem] w-[1.125rem] shrink-0"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -217,9 +252,9 @@
 	{/if}
 </div>
 
-<!-- Fixed input at bottom - above navigation bar (same pattern as Capture page) -->
+<!-- Fixed input at bottom - above navigation bar, repositions above keyboard on mobile -->
 {#if isEnabled}
-	<div class="fixed-bottom-panel p-4">
+	<div bind:this={chatInputContainer} class="chat-input-keyboard-aware px-3">
 		<AppContainer>
 			<ChatInput hasMessages={chatStore.messages.length > 0} onClearHistory={handleClearHistory} />
 		</AppContainer>

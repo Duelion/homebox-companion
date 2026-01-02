@@ -71,10 +71,16 @@ EFFICIENCY RULES:
 - For "items in [location]", use list_items with location filter
 
 RESPONSE FORMAT:
-- Present results as bullet-point lists with markdown links
+Follow progressive disclosure: establish context first, then list details.
+- Start with a summary line that establishes shared context (e.g., "Found 3 items in [Living Room](url):")
+- List items beneath without repeating the contextual information already in the prelude
 - Every object in tool results has a 'url' field - use it EXACTLY as provided, never modify
-- Items have a nested 'location' object which also has its own 'url' field
-- Example: [Item Name](item.url) in [Location Name](item.location.url)
+- Items have a nested 'location' object with its own 'url' - use the location URL in the prelude
+- Example format:
+  Found 2 items in [Garage](location.url):
+  - [Socket Set](item.url), quantity: 1
+  - [Drill](item.url), quantity: 1
+- Group results by meaningful context (location, category) when it reduces redundancy
 - Show up to 20 results, then summarize remaining count
 - Be helpful and complete, not artificially brief
 

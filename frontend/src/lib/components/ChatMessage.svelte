@@ -66,29 +66,41 @@
 		count: number;
 		successCount: number;
 		failCount: number;
+		rejectCount: number;
 	}
 
 	const groupedExecutedActions = $derived.by(() => {
 		if (!message.executedActions || message.executedActions.length === 0) return [];
 
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local variable in pure derivation
-		const groups = new Map<string, { successCount: number; failCount: number }>();
+		const groups = new Map<
+			string,
+			{ successCount: number; failCount: number; rejectCount: number }
+		>();
 		for (const action of message.executedActions) {
 			const existing = groups.get(action.toolName);
 			if (existing) {
-				if (action.success) existing.successCount++;
+				if (action.rejected) existing.rejectCount++;
+				else if (action.success) existing.successCount++;
 				else existing.failCount++;
 			} else {
 				groups.set(action.toolName, {
-					successCount: action.success ? 1 : 0,
-					failCount: action.success ? 0 : 1,
+					successCount: action.rejected ? 0 : action.success ? 1 : 0,
+					failCount: action.rejected ? 0 : action.success ? 0 : 1,
+					rejectCount: action.rejected ? 1 : 0,
 				});
 			}
 		}
 
 		const grouped: GroupedAction[] = [];
-		for (const [toolName, { successCount, failCount }] of groups) {
-			grouped.push({ toolName, count: successCount + failCount, successCount, failCount });
+		for (const [toolName, { successCount, failCount, rejectCount }] of groups) {
+			grouped.push({
+				toolName,
+				count: successCount + failCount + rejectCount,
+				successCount,
+				failCount,
+				rejectCount,
+			});
 		}
 		return grouped;
 	});
@@ -96,11 +108,12 @@
 	// Executed action stats for fallback display
 	const executedActionStats = $derived.by(() => {
 		if (!message.executedActions || message.executedActions.length === 0) {
-			return { total: 0, success: 0, allSuccess: true };
+			return { total: 0, success: 0, rejected: 0, allSuccess: true };
 		}
 		const total = message.executedActions.length;
-		const success = message.executedActions.filter((a) => a.success).length;
-		return { total, success, allSuccess: success === total };
+		const success = message.executedActions.filter((a) => a.success && !a.rejected).length;
+		const rejected = message.executedActions.filter((a) => a.rejected).length;
+		return { total, success, rejected, allSuccess: success === total };
 	});
 
 	// Copy button state
@@ -134,8 +147,8 @@
 >
 	<div class="relative">
 		<div
-			class="break-words rounded-2xl px-3.5 py-2.5 {isUser
-				? 'rounded-br bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+			class="rounded-2xl px-3.5 py-2.5 break-words {isUser
+				? 'from-primary-600 to-primary-500 rounded-br bg-gradient-to-br text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
 				: ''}"
@@ -150,15 +163,18 @@
 			{:else if hasExecutedActions && !message.isStreaming}
 				<!-- Fallback summary when no content but has executed actions -->
 				<p class="m-0 text-sm text-neutral-300">
-					{#if executedActionStats.allSuccess}
+					{#if executedActionStats.allSuccess && executedActionStats.rejected === 0}
 						✓ Completed {executedActionStats.total} action{executedActionStats.total !== 1
 							? 's'
 							: ''} successfully
-					{:else}
-						{executedActionStats.success} of {executedActionStats.total} action{executedActionStats.total !==
-						1
+					{:else if executedActionStats.rejected > 0 && executedActionStats.success === 0}
+						⊘ Rejected {executedActionStats.rejected} action{executedActionStats.rejected !== 1
 							? 's'
-							: ''} completed
+							: ''}
+					{:else}
+						{executedActionStats.success} completed{executedActionStats.rejected > 0
+							? `, ${executedActionStats.rejected} rejected`
+							: ''}
 					{/if}
 				</p>
 			{/if}
@@ -174,7 +190,7 @@
 			{#if hasToolResults}
 				<details class="tool-accordion group/tools mt-2 border-t border-white/10 pt-2">
 					<summary
-						class="flex cursor-pointer select-none items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-300"
+						class="flex cursor-pointer items-center gap-1.5 text-xs text-neutral-400 select-none hover:text-neutral-300"
 					>
 						<span class="transform transition-transform group-open/tools:rotate-90">›</span>
 						Used {message.toolResults?.length ?? 0} tool{(message.toolResults?.length ?? 0) > 1
@@ -185,10 +201,10 @@
 						{#each groupedToolResults as group (group.tool)}
 							<div
 								class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium {group.isExecuting
-									? 'border border-primary-500/30 bg-primary-500/15 text-primary-500'
+									? 'border-primary-500/30 bg-primary-500/15 text-primary-500 border'
 									: group.success
-										? 'border border-success-500/30 bg-success-500/15 text-success-500'
-										: 'border border-error-500/30 bg-error-500/15 text-error-500'}"
+										? 'border-success-500/30 bg-success-500/15 text-success-500 border'
+										: 'border-error-500/30 bg-error-500/15 text-error-500 border'}"
 							>
 								{#if group.isExecuting}
 									<span class="tool-spinner"></span>
@@ -209,12 +225,12 @@
 			{#if showApprovalBadge}
 				<button
 					type="button"
-					class="approval-badge mt-2 flex w-full items-center gap-2 rounded-xl border border-warning-500/40 bg-warning-500/15 px-3 py-2 text-left transition-all hover:border-warning-500/60 hover:bg-warning-500/20 active:scale-[0.98]"
+					class="approval-badge border-warning-500/40 bg-warning-500/15 hover:border-warning-500/60 hover:bg-warning-500/20 mt-2 flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all active:scale-[0.98]"
 					onclick={onOpenApprovals}
 				>
-					<div class="flex h-6 w-6 items-center justify-center rounded-lg bg-warning-500/20">
+					<div class="bg-warning-500/20 flex h-6 w-6 items-center justify-center rounded-lg">
 						<svg
-							class="h-3.5 w-3.5 text-warning-500"
+							class="text-warning-500 h-3.5 w-3.5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -227,12 +243,12 @@
 							/>
 						</svg>
 					</div>
-					<span class="flex-1 text-sm font-medium text-warning-500">
+					<span class="text-warning-500 flex-1 text-sm font-medium">
 						{pendingApprovalCount}
 						{pendingApprovalCount === 1 ? 'action requires' : 'actions require'} approval
 					</span>
 					<svg
-						class="h-4 w-4 text-warning-500/70"
+						class="text-warning-500/70 h-4 w-4"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -251,18 +267,45 @@
 			{#if hasExecutedActions}
 				<div class="mt-2 flex flex-wrap gap-1.5 border-t border-white/10 pt-2">
 					{#each groupedExecutedActions as action (action.toolName)}
-						<div
-							class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium {action.failCount >
-							0
-								? 'border border-error-500/30 bg-error-500/15 text-error-500'
-								: 'border border-success-500/30 bg-success-500/15 text-success-500'}"
-						>
-							<span class="font-bold">{action.failCount > 0 ? '✗' : '✓'}</span>
-							<span class="font-mono">{action.toolName}</span>
-							{#if action.count > 1}
-								<span class="opacity-70">×{action.count}</span>
-							{/if}
-						</div>
+						{@const hasSuccess = action.successCount > 0}
+						{@const hasFail = action.failCount > 0}
+						{@const hasReject = action.rejectCount > 0}
+						<!-- Show success badge if any succeeded -->
+						{#if hasSuccess}
+							<div
+								class="border-success-500/30 bg-success-500/15 text-success-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+							>
+								<span class="font-bold">✓</span>
+								<span class="font-mono">{action.toolName}</span>
+								{#if action.successCount > 1}
+									<span class="opacity-70">×{action.successCount}</span>
+								{/if}
+							</div>
+						{/if}
+						<!-- Show fail badge if any failed -->
+						{#if hasFail}
+							<div
+								class="border-error-500/30 bg-error-500/15 text-error-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+							>
+								<span class="font-bold">✗</span>
+								<span class="font-mono">{action.toolName}</span>
+								{#if action.failCount > 1}
+									<span class="opacity-70">×{action.failCount}</span>
+								{/if}
+							</div>
+						{/if}
+						<!-- Show rejected badge if any rejected -->
+						{#if hasReject}
+							<div
+								class="border-warning-500/30 bg-warning-500/15 text-warning-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+							>
+								<span class="font-bold">⊘</span>
+								<span class="font-mono">{action.toolName}</span>
+								{#if action.rejectCount > 1}
+									<span class="opacity-70">×{action.rejectCount}</span>
+								{/if}
+							</div>
+						{/if}
 					{/each}
 				</div>
 			{/if}
@@ -271,13 +314,13 @@
 		<!-- Copy button (appears on hover for assistant messages) -->
 		{#if !isUser && message.content && !message.isStreaming}
 			<button
-				class="copy-btn absolute -right-1 -top-1 rounded-md bg-neutral-700/80 p-1.5 text-neutral-400 opacity-0 backdrop-blur-sm transition-all hover:bg-neutral-600 hover:text-neutral-200 group-hover:opacity-100"
+				class="copy-btn absolute -top-1 -right-1 rounded-md bg-neutral-700/80 p-1.5 text-neutral-400 opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 hover:bg-neutral-600 hover:text-neutral-200"
 				onclick={handleCopy}
 				aria-label="Copy message"
 			>
 				{#if copySuccess}
 					<svg
-						class="h-3.5 w-3.5 text-success-500"
+						class="text-success-500 h-3.5 w-3.5"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -324,7 +367,7 @@
 
 	/* Typing indicator animation */
 	.typing-dot {
-		@apply h-2 w-2 animate-typing-dot rounded-full bg-primary-500;
+		@apply animate-typing-dot bg-primary-500 h-2 w-2 rounded-full;
 	}
 
 	.animation-delay-160 {
@@ -337,7 +380,7 @@
 
 	/* Tool execution spinner */
 	.tool-spinner {
-		@apply inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-500 border-t-transparent;
+		@apply border-primary-500 inline-block h-3 w-3 animate-spin rounded-full border-2 border-t-transparent;
 	}
 
 	/* Streaming glow animation */

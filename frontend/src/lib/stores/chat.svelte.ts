@@ -27,6 +27,7 @@ export interface ExecutedAction {
 	toolName: string;
 	success: boolean;
 	error?: string;
+	rejected?: boolean; // True if user rejected this action
 }
 
 export interface ChatMessage {
@@ -158,12 +159,12 @@ class ChatStore {
 		this._messages = this._messages.map((msg) =>
 			msg.id === this.streamingMessageId
 				? {
-						...msg,
-						toolResults: [
-							...(msg.toolResults || []),
-							{ tool: toolName, executionId, success: false, isExecuting: true },
-						],
-					}
+					...msg,
+					toolResults: [
+						...(msg.toolResults || []),
+						{ tool: toolName, executionId, success: false, isExecuting: true },
+					],
+				}
 				: msg
 		);
 	}
@@ -318,12 +319,33 @@ class ChatStore {
 	}
 
 	/**
-	 * Reject a pending action.
+	 * Reject a pending action and track it as rejected on the last assistant message.
 	 */
 	async rejectAction(approvalId: string): Promise<void> {
+		const approval = this._pendingApprovals.find((a) => a.id === approvalId);
+		const toolName = approval?.tool_name || 'unknown';
+
 		try {
 			await chat.rejectAction(approvalId);
 			this._pendingApprovals = this._pendingApprovals.filter((a) => a.id !== approvalId);
+
+			// Track rejection on the last assistant message
+			const rejectedAction: ExecutedAction = {
+				toolName,
+				success: false,
+				rejected: true,
+			};
+
+			const lastAssistantIndex = this._messages.findLastIndex((m) => m.role === 'assistant');
+			if (lastAssistantIndex !== -1) {
+				this._messages = this._messages.map((msg, idx) => {
+					if (idx !== lastAssistantIndex) return msg;
+					return {
+						...msg,
+						executedActions: [...(msg.executedActions || []), rejectedAction],
+					};
+				});
+			}
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to reject action';
 		}
