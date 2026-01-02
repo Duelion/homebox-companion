@@ -25,9 +25,14 @@
 	);
 	const showApprovalBadge = $derived(!isUser && pendingApprovalCount > 0);
 
+	// Total tool count for unified display (read-only + executed)
+	const totalToolCount = $derived(
+		(message.toolResults?.length ?? 0) + (message.executedActions?.length ?? 0)
+	);
+
 	// Group tool results by tool name with count
 	interface GroupedTool {
-		tool: string;
+		toolName: string;
 		count: number;
 		success: boolean;
 		isExecuting: boolean;
@@ -49,13 +54,13 @@
 		}
 
 		const grouped: GroupedTool[] = [];
-		for (const [tool, { count, results }] of groups) {
+		for (const [toolName, { count, results }] of groups) {
 			// Tool is executing if any instance is executing
 			const isExecuting = results.some((r) => r.isExecuting);
 			// Tool is successful if all completed instances are successful
 			const completedResults = results.filter((r) => !r.isExecuting);
 			const success = completedResults.length > 0 && completedResults.every((r) => r.success);
-			grouped.push({ tool, count, success, isExecuting });
+			grouped.push({ toolName, count, success, isExecuting });
 		}
 		return grouped;
 	});
@@ -63,7 +68,6 @@
 	// Group executed actions by tool name with count
 	interface GroupedAction {
 		toolName: string;
-		count: number;
 		successCount: number;
 		failCount: number;
 		rejectCount: number;
@@ -96,7 +100,6 @@
 		for (const [toolName, { successCount, failCount, rejectCount }] of groups) {
 			grouped.push({
 				toolName,
-				count: successCount + failCount + rejectCount,
 				successCount,
 				failCount,
 				rejectCount,
@@ -187,18 +190,17 @@
 				</div>
 			{/if}
 
-			{#if hasToolResults}
+			{#if hasToolResults || hasExecutedActions}
 				<details class="tool-accordion group/tools mt-2 border-t border-white/10 pt-2">
 					<summary
 						class="flex cursor-pointer items-center gap-1.5 text-xs text-neutral-400 select-none hover:text-neutral-300"
 					>
 						<span class="transform transition-transform group-open/tools:rotate-90">›</span>
-						Used {message.toolResults?.length ?? 0} tool{(message.toolResults?.length ?? 0) > 1
-							? 's'
-							: ''}
+						Used {totalToolCount} tool{totalToolCount > 1 ? 's' : ''}
 					</summary>
 					<div class="mt-2 flex flex-wrap gap-1.5">
-						{#each groupedToolResults as group (group.tool)}
+						<!-- Read-only tool badges -->
+						{#each groupedToolResults as group (group.toolName)}
 							<div
 								class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium {group.isExecuting
 									? 'border-primary-500/30 bg-primary-500/15 text-primary-500 border'
@@ -211,11 +213,53 @@
 								{:else}
 									<span class="font-bold">{group.success ? '✓' : '✗'}</span>
 								{/if}
-								<span class="font-mono">{group.tool}</span>
+								<span class="font-mono">{group.toolName}</span>
 								{#if group.count > 1}
 									<span class="opacity-70">×{group.count}</span>
 								{/if}
 							</div>
+						{/each}
+						<!-- Executed action badges -->
+						{#each groupedExecutedActions as action (action.toolName)}
+							{@const hasSuccess = action.successCount > 0}
+							{@const hasFail = action.failCount > 0}
+							{@const hasReject = action.rejectCount > 0}
+							<!-- Show success badge if any succeeded -->
+							{#if hasSuccess}
+								<div
+									class="border-success-500/30 bg-success-500/15 text-success-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+								>
+									<span class="font-bold">✓</span>
+									<span class="font-mono">{action.toolName}</span>
+									{#if action.successCount > 1}
+										<span class="opacity-70">×{action.successCount}</span>
+									{/if}
+								</div>
+							{/if}
+							<!-- Show fail badge if any failed -->
+							{#if hasFail}
+								<div
+									class="border-error-500/30 bg-error-500/15 text-error-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+								>
+									<span class="font-bold">✗</span>
+									<span class="font-mono">{action.toolName}</span>
+									{#if action.failCount > 1}
+										<span class="opacity-70">×{action.failCount}</span>
+									{/if}
+								</div>
+							{/if}
+							<!-- Show rejected badge if any rejected -->
+							{#if hasReject}
+								<div
+									class="border-warning-500/30 bg-warning-500/15 text-warning-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
+								>
+									<span class="font-bold">⊘</span>
+									<span class="font-mono">{action.toolName}</span>
+									{#if action.rejectCount > 1}
+										<span class="opacity-70">×{action.rejectCount}</span>
+									{/if}
+								</div>
+							{/if}
 						{/each}
 					</div>
 				</details>
@@ -263,53 +307,7 @@
 				</button>
 			{/if}
 
-			<!-- Executed Actions (inside bubble, green badges) -->
-			{#if hasExecutedActions}
-				<div class="mt-2 flex flex-wrap gap-1.5 border-t border-white/10 pt-2">
-					{#each groupedExecutedActions as action (action.toolName)}
-						{@const hasSuccess = action.successCount > 0}
-						{@const hasFail = action.failCount > 0}
-						{@const hasReject = action.rejectCount > 0}
-						<!-- Show success badge if any succeeded -->
-						{#if hasSuccess}
-							<div
-								class="border-success-500/30 bg-success-500/15 text-success-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
-							>
-								<span class="font-bold">✓</span>
-								<span class="font-mono">{action.toolName}</span>
-								{#if action.successCount > 1}
-									<span class="opacity-70">×{action.successCount}</span>
-								{/if}
-							</div>
-						{/if}
-						<!-- Show fail badge if any failed -->
-						{#if hasFail}
-							<div
-								class="border-error-500/30 bg-error-500/15 text-error-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
-							>
-								<span class="font-bold">✗</span>
-								<span class="font-mono">{action.toolName}</span>
-								{#if action.failCount > 1}
-									<span class="opacity-70">×{action.failCount}</span>
-								{/if}
-							</div>
-						{/if}
-						<!-- Show rejected badge if any rejected -->
-						{#if hasReject}
-							<div
-								class="border-warning-500/30 bg-warning-500/15 text-warning-500 inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium"
-							>
-								<span class="font-bold">⊘</span>
-								<span class="font-mono">{action.toolName}</span>
-								{#if action.rejectCount > 1}
-									<span class="opacity-70">×{action.rejectCount}</span>
-								{/if}
-							</div>
-						{/if}
-					{/each}
-				</div>
-			{/if}
-		</div>
+			</div>
 
 		<!-- Copy button (appears on hover for assistant messages) -->
 		{#if !isUser && message.content && !message.isStreaming}
