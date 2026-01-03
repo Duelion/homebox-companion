@@ -208,6 +208,44 @@ class ChatStore {
 		];
 	}
 
+	/**
+	 * Auto-reject all pending approvals on the last assistant message.
+	 * Called when user sends a new message, which supersedes pending approvals.
+	 * This mirrors the backend behavior (auto_reject_all_pending).
+	 */
+	private autoRejectPendingApprovals(): void {
+		if (this._pendingApprovals.length === 0) return;
+
+		log.trace(`Auto-rejecting ${this._pendingApprovals.length} pending approvals`);
+
+		// Find the last assistant message (where approvals were shown)
+		const lastAssistantIndex = this._messages.findLastIndex((m) => m.role === 'assistant');
+		if (lastAssistantIndex === -1) {
+			// No assistant message to attach rejections to, just clear
+			this._pendingApprovals = [];
+			return;
+		}
+
+		// Build rejected actions from pending approvals
+		const rejectedActions: ExecutedAction[] = this._pendingApprovals.map((approval) => ({
+			toolName: approval.tool_name,
+			success: false,
+			rejected: true,
+		}));
+
+		// Add rejected actions to the last assistant message
+		this._messages = this._messages.map((msg, idx) => {
+			if (idx !== lastAssistantIndex) return msg;
+			return {
+				...msg,
+				executedActions: [...(msg.executedActions || []), ...rejectedActions],
+			};
+		});
+
+		// Clear pending approvals
+		this._pendingApprovals = [];
+	}
+
 	// =========================================================================
 	// PUBLIC METHODS
 	// =========================================================================
@@ -230,6 +268,12 @@ class ChatStore {
 
 		// Clear any previous error
 		this._error = null;
+
+		// Auto-reject pending approvals on the original assistant message
+		// (mirrors backend behavior which auto-rejects when new message arrives)
+		if (this._pendingApprovals.length > 0) {
+			this.autoRejectPendingApprovals();
+		}
 
 		// Add user message
 		this.addUserMessage(content);
