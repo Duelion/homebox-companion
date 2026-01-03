@@ -112,7 +112,7 @@
 				<!-- Has images: show gallery strip -->
 				<div class="mb-3 flex items-center gap-2">
 					<svg
-						class="h-4 w-4 text-primary-light"
+						class="h-4 w-4 text-primary-300"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -139,7 +139,7 @@
 							/>
 							<button
 								type="button"
-								class="hover:bg-danger absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all group-hover:opacity-100"
+								class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all hover:bg-error-500 group-hover:opacity-100"
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
 							>

@@ -37,7 +37,6 @@
 
 /* Component utilities */
 @layer components {
-
 	/* Icon button - compact */
 	.btn-icon {
 		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 active:bg-neutral-700;
@@ -86,6 +85,15 @@
 	/* Touch-target icon button */
 	.btn-icon-touch {
 		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100;
+	}
+
+	/* Card base styles - use for lightweight card-like containers without importing Card.svelte */
+	.card {
+		@apply rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm;
+	}
+
+	.card-interactive {
+		@apply card cursor-pointer transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:shadow-md active:scale-[0.99];
 	}
 
 	/* ==========================================================================
@@ -306,10 +314,12 @@
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply animate-shimmer rounded bg-neutral-800;
-		background: linear-gradient(90deg,
-				theme('colors.neutral.800') 25%,
-				theme('colors.neutral.700') 50%,
-				theme('colors.neutral.800') 75%);
+		background: linear-gradient(
+			90deg,
+			theme('colors.neutral.800') 25%,
+			theme('colors.neutral.700') 50%,
+			theme('colors.neutral.800') 75%
+		);
 		background-size: 200% 100%;
 	}
 
@@ -409,7 +419,6 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
-
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;

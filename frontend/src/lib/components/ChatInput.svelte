@@ -59,7 +59,7 @@
 	}}
 >
 	<div
-		class="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-900 px-1 py-0.5 transition-all duration-fast focus-within:border-primary-500 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.15)]"
+		class="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-900 px-1 py-0.5 transition-all duration-fast focus-within:border-primary-500 focus-within:shadow-primary-ring"
 	>
 		{#if chatStore.isStreaming}
 			<div class="flex flex-1 items-center px-2 py-1.5 text-sm text-primary-500">
@@ -87,7 +87,7 @@
 			type="submit"
 			disabled={isDisabled}
 			aria-label="Send message"
-			class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-[0_2px_6px_rgba(99,102,241,0.25)] transition-all duration-fast hover:scale-105 hover:shadow-[0_3px_10px_rgba(99,102,241,0.35)] active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
+			class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-primary-glow-sm transition-all duration-fast hover:scale-105 hover:shadow-primary-glow active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
 		>
 			{#if chatStore.isStreaming}
 				<span class="loading-spinner"></span>
@@ -105,7 +105,7 @@
 				type="button"
 				onclick={handleCancel}
 				aria-label="Stop generating"
-				class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-[0_2px_6px_rgba(239,68,68,0.25)] transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-[0_3px_10px_rgba(239,68,68,0.35)] active:scale-95"
+				class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-error-glow-sm transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-error-glow active:scale-95"
 			>
 				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
 					<rect x="6" y="6" width="12" height="12" rx="2" />

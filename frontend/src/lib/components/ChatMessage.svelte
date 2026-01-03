@@ -165,7 +165,7 @@
 	<div class="relative">
 		<div
 			class="chat-bubble {isUser
-				? 'chat-bubble-user rounded-br bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+				? 'chat-bubble-user rounded-br bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-primary-glow-sm'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
 				: ''}"
@@ -392,22 +392,8 @@
 		list-style: none;
 	}
 
-	/* Approval badge pulse animation - enhanced for visibility */
+	/* Approval badge pulse animation - uses consolidated animation from tailwind.config.js */
 	.approval-badge {
-		animation: approval-pulse 1.5s ease-in-out infinite;
-	}
-
-	@keyframes approval-pulse {
-		0%,
-		100% {
-			box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
-			transform: scale(1);
-			border-color: rgba(245, 158, 11, 0.4);
-		}
-		50% {
-			box-shadow: 0 0 8px 4px rgba(245, 158, 11, 0.25);
-			transform: scale(1.02);
-			border-color: rgba(245, 158, 11, 0.8);
-		}
+		@apply animate-approval-pulse;
 	}
 </style>

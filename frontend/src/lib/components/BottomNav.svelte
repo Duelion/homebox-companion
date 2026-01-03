@@ -87,7 +87,7 @@
 						aria-current={active ? 'page' : undefined}
 						class="flex flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all duration-200
 							{active
-							? 'bg-primary/10 text-primary'
+							? 'bg-primary-500/10 text-primary-500'
 							: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
 					>
 						<!-- Icon -->

@@ -149,7 +149,7 @@
 			</p>
 			<p class="mb-1 text-body-sm text-neutral-400">
 				Enable it by setting <code
-					class="mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-[0.8125rem] text-primary-300"
+					class="mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-sm-tight text-primary-300"
 					>HBC_CHAT_ENABLED=true</code
 				>
 			</p>
