@@ -224,18 +224,6 @@ class ToolExecutor:
             return True  # Fail-safe: unknown tools require approval
         return tool.permission in (ToolPermission.WRITE, ToolPermission.DESTRUCTIVE)
 
-    def get_permission(self, tool_name: str) -> ToolPermission | None:
-        """Get the permission level for a tool.
-
-        Args:
-            tool_name: The name of the tool.
-
-        Returns:
-            The ToolPermission or None if tool not found.
-        """
-        tool = self.get_tool(tool_name)
-        return tool.permission if tool else None
-
     async def execute(
         self,
         tool_name: str,
@@ -278,29 +266,3 @@ class ToolExecutor:
         except Exception as e:
             logger.exception(f"Tool {tool_name} execution failed")
             return ToolResult(success=False, error=str(e))
-
-    async def execute_if_allowed(
-        self,
-        tool_name: str,
-        params: dict[str, Any],
-        token: str,
-        allow_write: bool = False,
-    ) -> ToolResult | None:
-        """Execute a tool only if it doesn't require approval (or write is allowed).
-
-        This is a convenience method for the chat flow where READ tools are
-        auto-executed and WRITE tools are queued for approval.
-
-        Args:
-            tool_name: Name of the tool to execute.
-            params: Raw parameters dict.
-            token: Homebox authentication token.
-            allow_write: If True, execute WRITE/DESTRUCTIVE tools too.
-
-        Returns:
-            ToolResult if executed, None if tool requires approval and
-            allow_write is False.
-        """
-        if not allow_write and self.requires_approval(tool_name):
-            return None
-        return await self.execute(tool_name, params, token)

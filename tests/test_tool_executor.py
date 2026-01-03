@@ -120,16 +120,6 @@ class TestToolExecutor:
         # somehow reaches execution, requiring approval adds a safety layer.
         assert executor.requires_approval("nonexistent") is True
 
-    def test_get_permission_returns_correct_permission(self, executor: ToolExecutor):
-        """get_permission should return the correct permission level."""
-        assert executor.get_permission("list_locations") == ToolPermission.READ
-        assert executor.get_permission("create_item") == ToolPermission.WRITE
-        assert executor.get_permission("delete_item") == ToolPermission.DESTRUCTIVE
-
-    def test_get_permission_returns_none_for_unknown(self, executor: ToolExecutor):
-        """get_permission should return None for unknown tools."""
-        assert executor.get_permission("nonexistent") is None
-
     @pytest.mark.asyncio
     async def test_execute_read_tool_success(
         self, executor: ToolExecutor, mock_client: MagicMock
@@ -161,48 +151,6 @@ class TestToolExecutor:
         assert result.success is False
         assert result.error is not None
         assert "Invalid parameters" in result.error or "validation" in result.error.lower()
-
-    @pytest.mark.asyncio
-    async def test_execute_if_allowed_executes_read_tools(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
-        """execute_if_allowed should execute READ tools."""
-        result = await executor.execute_if_allowed(
-            "list_locations", {}, "test-token", allow_write=False
-        )
-
-        assert result is not None
-        assert result.success is True
-
-    @pytest.mark.asyncio
-    async def test_execute_if_allowed_skips_write_tools(self, executor: ToolExecutor):
-        """execute_if_allowed should return None for WRITE tools when not allowed."""
-        result = await executor.execute_if_allowed(
-            "create_item", {"name": "Test", "location_id": "loc1"}, "test-token",
-            allow_write=False
-        )
-
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_execute_if_allowed_executes_write_when_allowed(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
-        """execute_if_allowed should execute WRITE tools when allow_write=True."""
-        mock_client.create_item = AsyncMock(
-            return_value={"id": "new-item", "name": "Test"}
-        )
-
-        result = await executor.execute_if_allowed(
-            "create_item",
-            {"name": "Test", "location_id": "loc1"},
-            "test-token",
-            allow_write=True,
-        )
-
-        assert result is not None
-        # Note: The result might fail validation, but that's okay for this test
-        # The point is that it attempted to execute rather than returning None
 
 
 class TestToolExecutorCaching:

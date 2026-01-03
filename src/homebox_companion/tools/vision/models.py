@@ -39,28 +39,6 @@ class DetectedItem(BaseModel):
     purchase_from: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="purchaseFrom")
     notes: Annotated[str, Field(max_length=1000)] | None = None
 
-    def to_create_payload(self) -> dict[str, Any]:
-        """Convert to payload for Homebox item creation API.
-
-        Returns only fields accepted during item creation.
-        Use `get_extended_fields_payload()` for fields that require an update.
-        """
-        # Use model_dump with by_alias and exclude_unset to generate clean payload
-        # Only include fields that can be set during creation
-        payload = self.model_dump(
-            by_alias=True,
-            exclude_unset=True,
-            exclude={"manufacturer", "model_number", "serial_number", "purchase_price", "purchase_from", "notes"},
-        )
-
-        # Ensure defaults
-        if "name" not in payload:
-            payload["name"] = "Untitled item"
-        if "quantity" not in payload:
-            payload["quantity"] = 1
-
-        return payload
-
     def get_extended_fields_payload(self) -> dict[str, str | float] | None:
         """Get extended fields that require an update after item creation.
 

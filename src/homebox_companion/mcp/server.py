@@ -14,7 +14,6 @@ from typing import Any
 
 from loguru import logger
 from mcp.server import Server
-from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from ..core.config import settings
@@ -110,21 +109,3 @@ def create_mcp_server(client: HomeboxClient | None = None) -> Server:
         return [TextContent(type="text", text=json.dumps(result.to_dict()))]
 
     return server
-
-
-async def run_stdio_server() -> None:
-    """Run the MCP server using stdio transport.
-
-    This is the entry point for external MCP hosts like Claude Desktop
-    that communicate via stdin/stdout.
-    """
-    client = HomeboxClient()
-    server = create_mcp_server(client)
-
-    try:
-        async with stdio_server() as (read_stream, write_stream):
-            await server.run(
-                read_stream, write_stream, server.create_initialization_options()
-            )
-    finally:
-        await client.aclose()
