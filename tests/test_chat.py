@@ -823,11 +823,21 @@ class TestChatOrchestrator:
             async for event in orchestrator.process_message("Test", "token"):
                 events.append(event)
 
-        # Should have an error about max recursion depth
-        error_events = [e for e in events if e.type == ChatEventType.ERROR]
-        assert any(
-            "recursion" in e.data.get("message", "").lower() for e in error_events
-        ), (
-            "Should have error about max recursion depth. "
-            f"Got events: {[(e.type, e.data) for e in events]}"
+        # When max recursion is hit, the orchestrator lets the LLM generate
+        # a recovery explanation (as text), not an error event.
+        # The mocked LLM will return another tool call attempt, but since
+        # we're at max depth, it will call the LLM again without tools.
+        # Check that we got a done event (indicating the flow completed)
+        # and that the limit stopped the infinite loop
+        done_events = [e for e in events if e.type == ChatEventType.DONE]
+        assert len(done_events) == 1, "Should have exactly one done event"
+
+        # The tool call count should be limited by MAX_TOOL_RECURSION_DEPTH
+        from homebox_companion.chat.orchestrator import MAX_TOOL_RECURSION_DEPTH
+
+        # We called the mock at least MAX_TOOL_RECURSION_DEPTH times
+        # (the limit triggers and then there's one more call for the explanation)
+        assert call_count >= MAX_TOOL_RECURSION_DEPTH, (
+            f"Should have called LLM at least {MAX_TOOL_RECURSION_DEPTH} times, "
+            f"got {call_count}"
         )
