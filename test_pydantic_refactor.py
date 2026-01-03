@@ -1,9 +1,10 @@
 """Quick test to verify the Pydantic refactor works correctly."""
 
-from homebox_companion.chat.session import ChatMessage, DisplayInfo, PendingApproval, ToolCall
+from homebox_companion.chat.session import PendingApproval
+from homebox_companion.chat.types import ChatMessage, ToolCall
 from homebox_companion.homebox.models import ItemCreate, Location
 from homebox_companion.homebox.views import LocationView
-from homebox_companion.mcp.types import ToolParams, ToolResult
+from homebox_companion.mcp.types import DisplayInfo, ToolParams, ToolResult
 
 
 def test_models():

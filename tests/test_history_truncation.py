@@ -1,4 +1,5 @@
-from homebox_companion.chat.session import ChatMessage, ChatSession, ToolCall
+from homebox_companion.chat.session import ChatSession
+from homebox_companion.chat.types import ChatMessage, ToolCall
 
 
 def test_history_truncation_safety():

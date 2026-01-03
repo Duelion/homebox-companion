@@ -22,6 +22,7 @@ __all__ = [
     "ToolParams",
     "ToolResult",
     "Tool",
+    "DisplayInfo",
     "MAX_RESULT_ITEMS",
 ]
 
@@ -53,6 +54,20 @@ class ToolParams(BaseModel):
         populate_by_name=True,
         extra="forbid",  # Reject unknown parameters
     )
+
+
+class DisplayInfo(BaseModel):
+    """Human-readable display info for approval actions.
+
+    Used by the approval UI to show user-friendly details about
+    the action being approved (e.g., item name, location).
+    """
+
+    model_config = ConfigDict(extra="allow")  # Allow additional fields
+
+    item_name: str | None = None
+    asset_id: str | None = None
+    location: str | None = None
 
 
 class ToolResult(BaseModel):

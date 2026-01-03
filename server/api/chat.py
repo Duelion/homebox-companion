@@ -2,6 +2,13 @@
 
 This module provides SSE streaming chat endpoints and approval management
 for the conversational assistant.
+
+Uses the refactored service architecture:
+- ChatOrchestrator: Thin facade for chat flow
+- ToolExecutor: Centralized tool execution
+- ChatSession: Pure state management
+- ApprovalService: Approval lifecycle handling
+- SessionStoreProtocol: Pluggable session storage
 """
 
 from __future__ import annotations
@@ -12,39 +19,37 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from loguru import logger
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from homebox_companion import HomeboxClient, settings
-from homebox_companion.chat.orchestrator import ChatOrchestrator, generate_confirmation_message
-from homebox_companion.chat.session import (
-    clear_session,
-    get_session,
-)
-from homebox_companion.mcp.tools import get_tools
+from homebox_companion import settings
+from homebox_companion.chat.approvals import ApprovalService
+from homebox_companion.chat.orchestrator import ChatOrchestrator
+from homebox_companion.chat.session import ChatSession
+from homebox_companion.chat.stream import StreamEmitter
+from homebox_companion.mcp.executor import ToolExecutor
 
-from ..dependencies import get_client, get_token
+from ..dependencies import get_executor, get_session, get_token, session_store_holder
 
 router = APIRouter()
-
-# Discover tools once at module load for approval execution
-_all_tools = get_tools()
-_tools_by_name = {t.name: t for t in _all_tools}
 
 
 class ChatMessageRequest(BaseModel):
     """Request body for sending a chat message."""
+
     message: str
 
 
 class ApprovalResponse(BaseModel):
     """Response for approval actions."""
+
     success: bool
     message: str | None = None
 
 
 class ApproveRequest(BaseModel):
     """Optional request body for approve action with modified parameters."""
+
     parameters: dict[str, Any] | None = None
 
 
@@ -86,7 +91,8 @@ async def _event_generator(
 async def send_message(
     request: ChatMessageRequest,
     token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    session: Annotated[ChatSession, Depends(get_session)],
+    executor: Annotated[ToolExecutor, Depends(get_executor)],
 ) -> EventSourceResponse:
     """Send a message and receive SSE stream of events.
 
@@ -102,7 +108,8 @@ async def send_message(
     Args:
         request: The chat message request
         token: Auth token from header
-        client: Homebox client
+        session: Chat session for this user
+        executor: Shared ToolExecutor instance
 
     Returns:
         EventSourceResponse with streaming events
@@ -113,8 +120,8 @@ async def send_message(
     # TRACE: Log incoming chat message
     logger.trace(f"[API] Incoming chat message: {request.message}")
 
-    session = get_session(token)
-    orchestrator = ChatOrchestrator(client, session)
+    # Create orchestrator with injected dependencies
+    orchestrator = ChatOrchestrator(session=session, executor=executor)
 
     return EventSourceResponse(
         _event_generator(orchestrator, request.message, token),
@@ -124,7 +131,7 @@ async def send_message(
 
 @router.get("/chat/pending")
 async def list_pending_approvals(
-    token: Annotated[str, Depends(get_token)],
+    session: Annotated[ChatSession, Depends(get_session)],
 ) -> dict[str, Any]:
     """List pending approval requests for this session.
 
@@ -134,7 +141,6 @@ async def list_pending_approvals(
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
 
-    session = get_session(token)
     approvals = session.list_pending_approvals()
 
     return {
@@ -146,15 +152,24 @@ async def list_pending_approvals(
 async def approve_action(
     approval_id: str,
     token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    session: Annotated[ChatSession, Depends(get_session)],
+    executor: Annotated[ToolExecutor, Depends(get_executor)],
     body: ApproveRequest | None = None,
 ) -> JSONResponse:
     """Approve a pending action and execute it.
 
+    Uses ApprovalService which handles:
+    - Approval validation
+    - Parameter merging
+    - Tool execution via ToolExecutor
+    - History update
+    - Approval cleanup
+
     Args:
         approval_id: ID of the approval to approve
         token: Auth token
-        client: Homebox client
+        session: Chat session for this user
+        executor: Shared ToolExecutor instance
         body: Optional request body with modified parameters
 
     Returns:
@@ -163,60 +178,22 @@ async def approve_action(
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
 
-    session = get_session(token)
-    approval = session.get_pending_approval(approval_id)
+    # Create approval service with injected executor
+    approval_service = ApprovalService(session, executor)
 
-    if not approval:
-        raise HTTPException(status_code=404, detail="Approval not found or expired")
-
-    # Find the tool_call_id for this approval so we can update the history
-    tool_call_id = session.get_tool_call_id_for_approval(approval_id)
-
-    # Get tool by name
-    tool = _tools_by_name.get(approval.tool_name)
-
-    if not tool:
-        session.remove_approval(approval_id)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": f"Tool not found: {approval.tool_name}",
-            }
-        )
-
-    # Merge user-modified parameters with original approval parameters
-    final_params = {**approval.parameters}
-    if body and body.parameters:
-        final_params.update(body.parameters)
-        logger.info(f"User modified parameters for {approval.tool_name}: {body.parameters}")
+    # Get modified params if provided
+    modified_params = body.parameters if body and body.parameters else None
 
     try:
-        logger.info(
-            f"Executing approved action: {approval.tool_name} "
-            f"with params {final_params}"
+        # Use approval service for atomic execution (validates approval internally)
+        result, approval = await approval_service.execute(
+            approval_id=approval_id,
+            token=token,
+            modified_params=modified_params,
         )
-        # Validate parameters with Pydantic
-        params = tool.Params(**final_params)
-        result = await tool.execute(client, token, params)
 
-        # Update the session history to replace the stale "pending_approval" message
-        # with the actual tool result. This ensures the LLM has correct context.
-        if tool_call_id:
-            result_message = {
-                "success": result.success,
-                "data": result.data,
-                "error": result.error,
-                "message": f"Action '{approval.tool_name}' executed successfully."
-                if result.success
-                else f"Action '{approval.tool_name}' failed: {result.error}",
-            }
-            session.update_tool_message(tool_call_id, json.dumps(result_message))
-
-        session.remove_approval(approval_id)
-
-        # Generate confirmation message (no orchestrator needed - uses standalone function)
-        confirmation = generate_confirmation_message(
+        # Generate confirmation message
+        confirmation = StreamEmitter.confirmation_message(
             tool_name=approval.tool_name,
             success=result.success,
             data=result.data,
@@ -233,61 +210,41 @@ async def approve_action(
             }
         )
 
-    except ValidationError as e:
-        session.remove_approval(approval_id)
-        confirmation = generate_confirmation_message(
-            tool_name=approval.tool_name,
-            success=False,
-            data=None,
-            error=f"Invalid parameters: {e}",
-        )
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": f"Invalid parameters: {e}",
-                "tool": approval.tool_name,
-                "confirmation": confirmation,
-            }
-        )
+    except ValueError as e:
+        # Approval not found or expired
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
     except Exception as e:
-        logger.exception(f"Approved action execution failed: {approval.tool_name}")
+        logger.exception(f"Approved action execution failed: {approval_id}")
+        # Remove approval on failure (may already be removed if execute partially succeeded)
         session.remove_approval(approval_id)
-        confirmation = generate_confirmation_message(
-            tool_name=approval.tool_name,
-            success=False,
-            data=None,
-            error=str(e),
-        )
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
                 "error": str(e),
-                "tool": approval.tool_name,
-                "confirmation": confirmation,
-            }
+                "tool": None,
+                "confirmation": f"✗ Action failed: {e}",
+            },
         )
 
 
 @router.post("/chat/reject/{approval_id}")
 async def reject_action(
     approval_id: str,
-    token: Annotated[str, Depends(get_token)],
+    session: Annotated[ChatSession, Depends(get_session)],
 ) -> ApprovalResponse:
     """Reject a pending action.
 
     Args:
         approval_id: ID of the approval to reject
-        token: Auth token
+        session: Chat session for this user
 
     Returns:
         Success status
     """
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
-
-    session = get_session(token)
 
     # Use the session's reject_approval method which handles history update
     if not session.reject_approval(approval_id, "user rejected"):
@@ -308,7 +265,7 @@ async def clear_history(
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
 
-    clear_session(token)
+    session_store_holder.get().delete(token)
     return ApprovalResponse(success=True, message="History cleared")
 
 

@@ -3,8 +3,8 @@
 This module creates and configures the MCP server that exposes Homebox
 operations to external MCP hosts like Claude Desktop.
 
-The server uses the Anthropic MCP SDK for protocol handling and discovers
-tools dynamically from the tools module.
+The server uses the Anthropic MCP SDK for protocol handling and the
+ToolExecutor service for tool discovery and execution.
 """
 
 from __future__ import annotations
@@ -16,11 +16,10 @@ from loguru import logger
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
-from pydantic import ValidationError
 
 from ..core.config import settings
 from ..homebox.client import HomeboxClient
-from .tools import get_tools
+from .executor import ToolExecutor
 from .types import ToolPermission
 
 
@@ -45,11 +44,10 @@ def create_mcp_server(client: HomeboxClient | None = None) -> Server:
     if client is None:
         client = HomeboxClient()
 
-    # Discover and instantiate all tools at server creation
-    all_tools = get_tools()
-    tools_by_name = {t.name: t for t in all_tools}
+    # Create ToolExecutor for centralized tool handling
+    executor = ToolExecutor(client)
 
-    logger.info(f"MCP server initialized with {len(all_tools)} tools")
+    logger.info(f"MCP server initialized with {len(executor.list_tools())} tools")
 
     @server.list_tools()
     async def list_tools() -> list[Tool]:
@@ -58,20 +56,17 @@ def create_mcp_server(client: HomeboxClient | None = None) -> Server:
             logger.info("Chat/MCP is disabled, returning empty tool list")
             return []
 
-        result = []
-        for tool in all_tools:
-            # Only expose read-only tools for now (Phase A)
-            # Write tools will be added in Phase D with approval workflow
-            if tool.permission != ToolPermission.READ:
-                continue
+        # Only expose read-only tools (write tools require approval via chat)
+        read_tools = executor.list_tools(permission_filter=ToolPermission.READ)
 
-            result.append(
-                Tool(
-                    name=tool.name,
-                    description=tool.description,
-                    inputSchema=tool.Params.model_json_schema(),
-                )
+        result = [
+            Tool(
+                name=tool.name,
+                description=tool.description,
+                inputSchema=tool.Params.model_json_schema(),
             )
+            for tool in read_tools
+        ]
 
         logger.debug(f"Returning {len(result)} tools")
         return result
@@ -98,32 +93,21 @@ def create_mcp_server(client: HomeboxClient | None = None) -> Server:
         # Filter out token for parameter validation
         tool_arguments = {k: v for k, v in arguments.items() if k != "token"}
 
-        # Get tool by name
-        tool = tools_by_name.get(name)
+        # Check tool exists
+        tool = executor.get_tool(name)
         if not tool:
             return _error_response(f"Unknown tool: {name}")
 
-        # For now, only allow read-only tools (Phase A)
-        # Write tools will require approval workflow (Phase D)
+        # Only allow read-only tools (write tools require approval via chat)
         if tool.permission != ToolPermission.READ:
             return _error_response(
-                "Write operations require approval (not yet implemented)"
+                "Write operations require approval via the chat interface"
             )
 
-        # Validate arguments with Pydantic
-        try:
-            params = tool.Params(**tool_arguments)
-        except ValidationError as e:
-            return _error_response(f"Invalid parameters: {e}")
-
-        # Execute the tool
+        # Execute via ToolExecutor
         logger.info(f"Executing tool: {name}")
-        try:
-            result = await tool.execute(client, token, params)
-            return [TextContent(type="text", text=json.dumps(result.to_dict()))]
-        except Exception as e:
-            logger.exception(f"Tool execution failed: {name}")
-            return _error_response(str(e))
+        result = await executor.execute(name, tool_arguments, token)
+        return [TextContent(type="text", text=json.dumps(result.to_dict()))]
 
     return server
 

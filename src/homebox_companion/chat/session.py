@@ -3,94 +3,36 @@
 This module provides session state management for the conversational assistant,
 including message history and pending approval tracking.
 
+The ChatSession is the single source of truth for conversation state:
+- Message history (with structure-aware truncation)
+- Pending approval lifecycle (create, reject)
+- Tool message updates
+
+For session storage, see the store module which provides the
+SessionStoreProtocol and MemorySessionStore implementation.
+
 Uses Pydantic models for consistency with the Pydantic-first architecture.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field
 
 from ..core.config import settings
+from ..mcp.types import DisplayInfo
+from .types import ChatMessage
 
 
-class DisplayInfo(BaseModel):
-    """Human-readable display info for approval actions."""
-
-    model_config = ConfigDict(extra="allow")  # Allow additional fields
-
-    item_name: str | None = None
-    asset_id: str | None = None
-    location: str | None = None
-
-
-class ToolCall(BaseModel):
-    """Represents a tool call from the LLM.
-
-    Attributes:
-        id: Unique identifier for this tool call
-        name: Name of the tool to call
-        arguments: Tool arguments as a dictionary
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    id: str
-    name: str
-    arguments: dict[str, Any]
-
-
-class ChatMessage(BaseModel):
-    """A single message in the conversation.
-
-    Note: This model is intentionally mutable (not frozen) because tool messages
-    may need to be updated after creation. When a write action requires approval,
-    a placeholder message is created with "pending_approval" status. After the user
-    approves, `ChatSession.update_tool_message()` updates the content in-place with
-    the actual tool result. This avoids the complexity of replacing messages in the
-    history list while maintaining correct tool_call_id references.
-
-    Attributes:
-        role: The role of the message sender
-        content: The message content (mutable for tool result updates)
-        tool_calls: List of tool calls (for assistant messages)
-        tool_call_id: ID of the tool call this message responds to (for tool messages)
-        timestamp: When the message was created
-    """
-
-    role: Literal["user", "assistant", "tool", "system"]
-    content: str
-    tool_calls: list[ToolCall] | None = None
-    tool_call_id: str | None = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    def to_llm_format(self) -> dict[str, Any]:
-        """Convert to the format expected by LLM APIs."""
-        msg: dict[str, Any] = {"role": self.role, "content": self.content}
-
-        if self.tool_calls:
-            msg["tool_calls"] = [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.name,
-                        "arguments": json.dumps(tc.arguments),
-                    },
-                }
-                for tc in self.tool_calls
-            ]
-
-        if self.tool_call_id:
-            msg["tool_call_id"] = self.tool_call_id
-
-        return msg
+def _compute_default_expiry() -> datetime:
+    """Compute default expiry based on settings."""
+    timeout_seconds = settings.chat_approval_timeout
+    return datetime.now(UTC) + timedelta(seconds=timeout_seconds)
 
 
 class PendingApproval(BaseModel):
@@ -100,6 +42,7 @@ class PendingApproval(BaseModel):
         id: Unique identifier for this approval request
         tool_name: Name of the tool to execute
         parameters: Tool parameters
+        tool_call_id: The tool_call_id from the assistant message (for history updates)
         display_info: Human-readable details for display (e.g., item name, location)
         created_at: When the approval was created
         expires_at: When the approval expires
@@ -108,37 +51,31 @@ class PendingApproval(BaseModel):
     id: str
     tool_name: str
     parameters: dict[str, Any]
+    tool_call_id: str | None = None  # Links to the tool message in history
     display_info: DisplayInfo = Field(default_factory=DisplayInfo)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    expires_at: datetime | None = None
-
-    @model_validator(mode="after")
-    def set_expiry(self) -> PendingApproval:
-        """Set expiry time if not provided."""
-        if self.expires_at is None:
-            timeout_seconds = settings.chat_approval_timeout
-            self.expires_at = self.created_at + timedelta(seconds=timeout_seconds)
-        return self
+    expires_at: datetime = Field(default_factory=_compute_default_expiry)
 
     @computed_field
     @property
     def is_expired(self) -> bool:
         """Check if this approval has expired."""
-        if self.expires_at is None:
-            return False
         return datetime.now(UTC) > self.expires_at
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for API responses."""
-        return {
-            "id": self.id,
-            "tool_name": self.tool_name,
-            "parameters": self.parameters,
-            "display_info": self.display_info.model_dump(exclude_none=True),
-            "created_at": self.created_at.isoformat(),
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "is_expired": self.is_expired,
-        }
+        """Convert to dictionary for API responses.
+
+        Uses Pydantic's model_dump with custom serialization for datetime fields.
+        """
+        data = self.model_dump(
+            include={"id", "tool_name", "parameters", "display_info", "created_at", "expires_at", "is_expired"},
+            exclude_none=True,
+        )
+        # Serialize datetimes to ISO format and exclude None values from display_info
+        data["created_at"] = self.created_at.isoformat()
+        data["expires_at"] = self.expires_at.isoformat()
+        data["display_info"] = self.display_info.model_dump(exclude_none=True)
+        return data
 
 
 # Number of messages from the end of history before tool results are compressed
@@ -161,6 +98,8 @@ class ChatSession:
         self.messages: list[ChatMessage] = []
         self.pending_approvals: dict[str, PendingApproval] = {}
         self._created_at = datetime.now(UTC)
+        # Index for O(1) lookup of tool messages by tool_call_id
+        self._tool_message_index: dict[str, ChatMessage] = {}
 
     def add_message(self, message: ChatMessage) -> None:
         """Add a message to the conversation history.
@@ -169,6 +108,11 @@ class ChatSession:
             message: The message to add
         """
         self.messages.append(message)
+
+        # Maintain tool message index for O(1) lookup
+        if message.role == "tool" and message.tool_call_id:
+            self._tool_message_index[message.tool_call_id] = message
+
         logger.debug(f"Added {message.role} message, total: {len(self.messages)}")
 
         # TRACE: Log actual message content
@@ -333,6 +277,8 @@ class ChatSession:
         This is used to replace placeholder "pending_approval" messages with
         actual tool results after user approves an action.
 
+        Uses an internal index for O(1) lookup instead of iterating messages.
+
         Args:
             tool_call_id: The tool_call_id to find and update
             new_content: The new content to set
@@ -340,34 +286,28 @@ class ChatSession:
         Returns:
             True if message was found and updated, False otherwise
         """
-        for msg in self.messages:
-            if msg.role == "tool" and msg.tool_call_id == tool_call_id:
-                msg.content = new_content
-                logger.debug(f"Updated tool message for tool_call_id={tool_call_id}")
-                return True
+        msg = self._tool_message_index.get(tool_call_id)
+        if msg:
+            msg.content = new_content
+            logger.debug(f"Updated tool message for tool_call_id={tool_call_id}")
+            return True
         logger.debug(f"Tool message not found for tool_call_id={tool_call_id}")
         return False
 
     def get_tool_call_id_for_approval(self, approval_id: str) -> str | None:
         """Find the tool_call_id associated with a pending approval.
 
-        Searches backwards through messages to find the tool message that
-        contains the pending_approval response for this approval_id.
+        Uses the tool_call_id stored in the PendingApproval object.
 
         Args:
-            approval_id: The approval ID to search for
+            approval_id: The approval ID to look up
 
         Returns:
             The tool_call_id or None if not found
         """
-        for msg in reversed(self.messages):
-            if msg.role == "tool" and msg.tool_call_id:
-                try:
-                    content = json.loads(msg.content)
-                    if content.get("approval_id") == approval_id:
-                        return msg.tool_call_id
-                except (json.JSONDecodeError, TypeError):
-                    continue
+        approval = self.pending_approvals.get(approval_id)
+        if approval:
+            return approval.tool_call_id
         return None
 
     def list_pending_approvals(self) -> list[PendingApproval]:
@@ -465,52 +405,11 @@ class ChatSession:
         return rejected_count
 
     def clear(self) -> None:
-        """Clear all messages and pending approvals."""
+        """Clear all messages, pending approvals, and indexes."""
         self.messages.clear()
         self.pending_approvals.clear()
+        self._tool_message_index.clear()
         logger.info("Cleared chat session")
-
-
-# Session storage - in-memory for now, keyed by token hash
-# In production, consider using Redis or database storage
-_sessions: dict[str, ChatSession] = {}
-
-
-def get_session(token: str) -> ChatSession:
-    """Get or create a session for the given token.
-
-    Args:
-        token: The user's auth token (used as session key)
-
-    Returns:
-        The ChatSession for this user
-    """
-    # Use a deterministic hash of the token for session key
-    # This ensures consistency across restarts (required for future persistence)
-    session_key = hashlib.sha256(token.encode()).hexdigest()[:16]
-
-    if session_key not in _sessions:
-        _sessions[session_key] = ChatSession()
-        logger.debug(f"Created new session for key {session_key[:8]}...")
-
-    return _sessions[session_key]
-
-
-def clear_session(token: str) -> bool:
-    """Clear and remove a session.
-
-    Args:
-        token: The user's auth token
-
-    Returns:
-        True if session existed and was removed
-    """
-    session_key = hashlib.sha256(token.encode()).hexdigest()[:16]
-    if session_key in _sessions:
-        del _sessions[session_key]
-        logger.info(f"Deleted session for key {session_key[:8]}...")
-        return True
-    return False
 
 
 def create_approval_id() -> str:

@@ -93,7 +93,7 @@
 
 	/* Chat bubble container */
 	.chat-bubble {
-		@apply break-words rounded-2xl px-3 py-2 text-body-sm;
+		@apply break-words rounded-2xl px-3 py-2 text-body;
 	}
 
 	/* User message line height */
