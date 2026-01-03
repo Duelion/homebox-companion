@@ -24,7 +24,7 @@ from homebox_companion import (
 )
 
 from .api import api_router
-from .dependencies import client_holder
+from .dependencies import client_holder, session_store_holder, tool_executor_holder
 from .middleware import RequestIDMiddleware, request_id_var
 
 # GitHub version check cache with async lock for thread safety within a single worker.
@@ -280,14 +280,21 @@ async def lifespan(app: FastAPI):
     # Run connectivity test in debug mode
     await _test_homebox_connectivity()
 
-    # Create and set the shared client
+    # Initialize shared service holders
     client = HomeboxClient(base_url=settings.api_url)
     client_holder.set(client)
+
+    # Session store and executor are lazily initialized on first use
+    # (see their .get() methods in dependencies.py)
 
     yield
 
     # Cleanup
     logger.info("Shutting down Homebox Companion API")
+
+    # Reset holders (executor and session store don't need async cleanup)
+    tool_executor_holder.reset()
+    session_store_holder.reset()
     await client_holder.close()
     # Note: cleanup_llm_clients() is now a no-op with LiteLLM
     logger.info("Shutdown complete")

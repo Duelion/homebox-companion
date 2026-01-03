@@ -176,27 +176,29 @@
 		<!-- Messages area -->
 		<div class="min-h-[50vh]" bind:this={messagesContainer} onscroll={handleScroll}>
 			{#if chatStore.messages.length === 0}
-				<div class="empty-state">
+				<div class="flex flex-col items-center justify-center pb-16 pt-8">
 					<div
-						class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500/15 to-purple-500/10"
+						class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg"
 					>
 						<svg
-							class="h-8 w-8 text-primary-500"
+							class="h-14 w-14 text-primary-400"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
 						>
 							<path
 								d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
 							/>
 						</svg>
 					</div>
-					<h2 class="mb-1.5 text-h3 text-neutral-100">Start a conversation</h2>
-					<p class="mb-6 text-body-sm text-neutral-400">
+					<h2 class="mb-2 px-4 text-center text-h1 text-neutral-100">Start a conversation</h2>
+					<p class="mb-6 max-w-xs px-4 text-center text-body text-neutral-400">
 						Ask me about your inventory, locations, or items.
 					</p>
-					<div class="flex w-full max-w-80 flex-col gap-2">
+					<div class="flex w-full max-w-sm flex-col gap-2 px-4">
 						<button
 							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
 							onclick={() => chatStore.sendMessage('What locations do I have?')}

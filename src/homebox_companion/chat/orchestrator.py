@@ -1,7 +1,13 @@
-"""Chat orchestrator for LLM interactions with tool calling.
+"""Chat orchestrator - thin facade for LLM interactions with tool calling.
 
-This module provides the orchestration layer that proxies LLM requests,
-handles tool calling, and generates streaming events for the frontend.
+This module provides the orchestration layer that coordinates:
+- LLM communication via LLMClient
+- Tool execution via ToolExecutor
+- Session state via ChatSession
+- Event generation via StreamEmitter
+
+The orchestrator is intentionally thin - it delegates to focused
+components rather than implementing logic directly.
 """
 
 from __future__ import annotations
@@ -10,339 +16,191 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass, field
 from typing import Any
 
-import litellm
 from loguru import logger
 
-from ..core import config
 from ..core.config import settings
-from ..homebox.client import HomeboxClient
-from ..mcp.tools import get_tools
-from ..mcp.types import MAX_RESULT_ITEMS, ToolPermission
-from .session import (
-    ChatMessage,
-    ChatSession,
-    DisplayInfo,
-    PendingApproval,
-    ToolCall,
-    create_approval_id,
-)
-
-
-class ChatEventType(str, Enum):
-    """Types of streaming events."""
-    TEXT = "text"
-    TOOL_START = "tool_start"
-    TOOL_RESULT = "tool_result"
-    APPROVAL_REQUIRED = "approval_required"
-    ERROR = "error"
-    USAGE = "usage"
-    DONE = "done"
-
-
-@dataclass
-class ChatEvent:
-    """A streaming event from the orchestrator.
-
-    Attributes:
-        type: The event type
-        data: Event data (varies by type)
-    """
-    type: ChatEventType
-    data: dict[str, Any]
-
-    def to_sse(self) -> str:
-        """Convert to SSE format."""
-        return f"event: {self.type.value}\ndata: {json.dumps(self.data)}\n\n"
-
-
-# System prompt for the assistant
-# Note: Tool definitions are passed dynamically via the tools parameter,
-# so we focus on behavioral guidance and response formatting here.
-SYSTEM_PROMPT = f"""You are a Homebox inventory assistant. Help users find and manage their items.
-
-EFFICIENCY RULES:
-- Use the most appropriate tool for each query (tool definitions are provided separately)
-- For listing locations/items, use the list tool ONCE - do NOT call get_* for each result
-- For "find X" or "where is X" queries, use search_items
-- For "items in [location]", use list_items with location filter
-
-RESPONSE FORMAT:
-Follow progressive disclosure: establish context first, then list details.
-- Start with a summary line that establishes shared context (e.g., "Found 3 items in [Living Room](url):")
-- List items beneath without repeating the contextual information already in the prelude
-- Every object in tool results has a 'url' field - use it EXACTLY as provided, never modify
-- Items have a nested 'location' object with its own 'url' - use the location URL in the prelude
-- ALWAYS format item names as clickable markdown links using [Item Name](item.url)
-- ALWAYS format location names as clickable markdown links using [Location Name](location.url)
-- Example format:
-  Found 2 items in [Garage](location.url):
-  - [Socket Set](item.url), quantity: 1
-  - [Drill](item.url), quantity: 1
-- NEVER show assetId in responses unless the user explicitly asks for asset IDs
-- Group results by meaningful context (location, category) when it reduces redundancy
-- Show up to {MAX_RESULT_ITEMS} results, then summarize remaining count
-- Be helpful and complete, not artificially brief
-
-APPROVAL HANDLING:
-- For write/destructive tools (create, update, delete), do NOT ask the user to type "yes" or confirm via text
-- The UI automatically presents an approval interface for these actions
-- Simply state what action will be taken and let the UI handle confirmation
-
-No tools needed for greetings or general questions."""
+from ..mcp.executor import ToolExecutor
+from .llm_client import LLMClient, TokenUsage
+from .session import ChatSession, PendingApproval, create_approval_id
+from .stream import ChatEvent, StreamEmitter
+from .types import ChatMessage, ToolCall
 
 # Maximum recursion depth for tool call continuations
 # Prevents infinite loops if LLM keeps making tool calls
 MAX_TOOL_RECURSION_DEPTH = 10
 
-# Tool cache with TTL for performance
-_tool_cache: tuple[list[dict[str, Any]], float] | None = None
-_TOOL_CACHE_TTL = 300  # 5 minutes
+
+# =============================================================================
+# HELPER DATA CLASSES
+# =============================================================================
 
 
+@dataclass
+class ToolExecution:
+    """Result of a single tool execution with timing info.
 
-
-
-def _build_litellm_tools() -> list[dict[str, Any]]:
-    """Build tool definitions in Litellm/OpenAI format with caching."""
-    global _tool_cache
-
-    # Return cached tools if still valid
-    if _tool_cache and (time.time() - _tool_cache[1]) < _TOOL_CACHE_TTL:
-        return _tool_cache[0]
-
-    all_tools = get_tools()
-    tools = []
-
-    for tool in all_tools:
-        tools.append({
-            "type": "function",
-            "function": {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.Params.model_json_schema(),
-            },
-        })
-
-    _tool_cache = (tools, time.time())
-    logger.debug(f"Built and cached {len(tools)} tool definitions")
-    return tools
-
-
-def generate_confirmation_message(
-    tool_name: str,
-    success: bool,
-    data: Any,
-    error: str | None = None,
-) -> str:
-    """Generate a brief confirmation message after tool execution.
-
-    Uses simple template-based messages instead of LLM calls to avoid
-    latency and token costs for simple confirmations.
-
-    Args:
-        tool_name: Name of the tool that was executed
-        success: Whether the execution was successful
-        data: Result data from the tool execution
-        error: Error message if execution failed
-
-    Returns:
-        Brief confirmation message with ✓ or ✗ prefix
-    """
-    if not success:
-        return f"✗ {tool_name} failed: {error or 'Unknown error'}"
-
-    # Build a human-readable summary based on the data
-    summary = ""
-    try:
-        if isinstance(data, dict):
-            # Common patterns for our tools
-            if "name" in data:
-                summary = f"'{data['name']}'"
-            elif "id" in data:
-                summary = f"(ID: {data['id'][:8]}...)" if len(str(data.get('id', ''))) > 8 else f"(ID: {data['id']})"
-        elif isinstance(data, list):
-            count = len(data)
-            summary = f"{count} item{'s' if count != 1 else ''}"
-        elif data is not None:
-            summary = str(data)[:50]
-    except Exception:
-        # If anything goes wrong parsing data, just skip the summary
-        pass
-
-    if summary:
-        return f"✓ {tool_name} completed: {summary}"
-    else:
-        return f"✓ {tool_name} completed successfully."
-
-
-class ChatOrchestrator:
-    """Orchestrates LLM calls with MCP tool integration.
-
-    This class manages the conversation flow, including:
-    - Building prompts with conversation history
-    - Calling the LLM with tool definitions
-    - Executing read-only tools automatically
-    - Creating pending approvals for write tools
-    - Generating streaming events for the frontend
+    Used internally by the orchestrator to collect parallel execution results
+    and process them in order.
     """
 
-    def __init__(self, client: HomeboxClient, session: ChatSession):
-        """Initialize the orchestrator.
+    tc: ToolCall
+    result: Any  # ToolResult, but using Any to avoid import in dataclass
+    elapsed_ms: float
+
+
+# =============================================================================
+# STREAM TOOL CALL ACCUMULATOR
+# =============================================================================
+
+
+@dataclass
+class ToolCallAccumulator:
+    """Accumulates streaming tool call chunks into complete ToolCall objects.
+
+    LLM streaming responses deliver tool calls in fragments across multiple
+    chunks. This class collects those fragments and reconstructs complete
+    ToolCall objects when the stream ends.
+
+    Example:
+        >>> accumulator = ToolCallAccumulator()
+        >>> for chunk in stream:
+        ...     if chunk.tool_calls:
+        ...         for tc_delta in chunk.tool_calls:
+        ...             accumulator.add_chunk(tc_delta)
+        >>> tool_calls = accumulator.build()
+    """
+
+    _chunks: dict[int, dict[str, str]] = field(default_factory=dict)
+
+    def add_chunk(self, tc_delta: Any) -> None:
+        """Add a streaming tool call chunk.
 
         Args:
-            client: HomeboxClient for tool execution
-            session: ChatSession for conversation state
+            tc_delta: The delta chunk from the stream (has index, id, function attrs).
         """
-        self.client = client
-        self.session = session
-        # Discover tools and build lookup tables
-        self._all_tools = get_tools()
-        self._tools_by_name = {t.name: t for t in self._all_tools}
+        idx = tc_delta.index
+        if idx not in self._chunks:
+            self._chunks[idx] = {"id": "", "name": "", "arguments": ""}
 
-    def _parse_tool_calls(self, tool_calls: list[Any]) -> list[ToolCall]:
-        """Parse raw LLM tool calls into ToolCall objects.
+        if tc_delta.id:
+            self._chunks[idx]["id"] = tc_delta.id
+        if tc_delta.function and tc_delta.function.name:
+            self._chunks[idx]["name"] = tc_delta.function.name
+        if tc_delta.function and tc_delta.function.arguments:
+            self._chunks[idx]["arguments"] += tc_delta.function.arguments
 
-        This centralizes JSON argument parsing to avoid duplication.
+    def add_complete(self, idx: int, tc: Any) -> None:
+        """Add a complete tool call (for non-incremental streaming).
 
         Args:
-            tool_calls: Raw tool calls from LLM response
+            idx: Index of the tool call.
+            tc: Complete tool call object from non-streaming response.
+        """
+        if idx not in self._chunks:
+            self._chunks[idx] = {
+                "id": getattr(tc, "id", ""),
+                "name": (
+                    tc.function.name
+                    if hasattr(tc, "function") and tc.function
+                    else ""
+                ),
+                "arguments": (
+                    tc.function.arguments
+                    if hasattr(tc, "function") and tc.function
+                    else ""
+                ),
+            }
+
+    def build(self) -> list[ToolCall]:
+        """Build complete ToolCall objects from accumulated chunks.
 
         Returns:
-            List of parsed ToolCall objects
+            List of ToolCall objects (reusing the Pydantic model from session).
         """
-        parsed = []
-        for tc in tool_calls:
-            tool_name = tc.function.name
-            try:
-                tool_args = json.loads(tc.function.arguments)
-            except json.JSONDecodeError:
-                tool_args = {}
+        if not self._chunks:
+            return []
 
-            parsed.append(ToolCall(
-                id=tc.id,
-                name=tool_name,
-                arguments=tool_args,
-            ))
-        return parsed
-
-    async def _handle_tool_calls(
-        self,
-        content: str,
-        tool_calls: list[Any],
-        token: str,
-        tools: list[dict[str, Any]],
-        depth: int = 0,
-    ) -> AsyncGenerator[ChatEvent, None]:
-        """Unified handler for LLM responses with tool calls.
-
-        This method centralizes all tool handling logic:
-        1. Parses tool calls
-        2. Adds assistant message with tool_calls to session
-        3. Executes tools (yielding events)
-        4. Continues conversation with tool results (recursive)
-
-        Args:
-            content: The assistant message content
-            tool_calls: Raw tool calls from LLM response
-            token: Homebox auth token
-            tools: Tool definitions for recursive LLM calls
-            depth: Current recursion depth (for safety limit)
-
-        Yields:
-            ChatEvent objects for SSE streaming
-        """
-        # Safety check: prevent infinite recursion
-        if depth >= MAX_TOOL_RECURSION_DEPTH:
-            logger.warning(
-                f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached"
-            )
-            yield ChatEvent(
-                type=ChatEventType.ERROR,
-                data={"message": "Max tool recursion depth reached. Please try a simpler query."}
-            )
-            return
-
-        # Parse tool calls once
-        parsed_tool_calls = self._parse_tool_calls(tool_calls)
-
-        # IMPORTANT: Add assistant message with tool_calls BEFORE executing tools
-        # OpenAI API requires tool messages to follow an assistant message with tool_calls
-        self.session.add_message(ChatMessage(
-            role="assistant",
-            content=content,
-            tool_calls=parsed_tool_calls,
-        ))
-
-        # Track results and approvals
-        has_pending_approvals = False
-
-        # Group tools for parallel execution (READ only)
-        read_calls = []
-        sequential_calls = []
-
-        for parsed_tc in parsed_tool_calls:
-            tool = self._tools_by_name.get(parsed_tc.name)
-            if not tool:
-                # Unknown tool - handle sequentially to report error
-                sequential_calls.append(parsed_tc)
-            elif tool.permission == ToolPermission.READ:
-                read_calls.append(parsed_tc)
-            else:
-                sequential_calls.append(parsed_tc)
-
-        # 1. Execute READ tools in parallel for maximum performance
-        if read_calls:
-            logger.debug(f"[CHAT] Executing {len(read_calls)} read tools in parallel")
-
-            async def run_and_collect(tc):
-                collected_events = []
-                async for event in self._execute_tool(tc.id, tc.name, tc.arguments, token):
-                    collected_events.append(event)
-                return collected_events
-
-            # Gather all parallel results
-            parallel_results = await asyncio.gather(
-                *(run_and_collect(tc) for tc in read_calls)
-            )
-
-            # Yield all collected events
-            for event_list in parallel_results:
-                for event in event_list:
-                    yield event
-
-        # 2. Execute remaining tools (WRITE/Unknown) sequentially
-        for parsed_tc in sequential_calls:
-            tool = self._tools_by_name.get(parsed_tc.name)
-            if not tool:
-                # Add error tool result
-                error_dict = {"success": False, "error": f"Unknown tool: {parsed_tc.name}"}
-                self.session.add_message(ChatMessage(
-                    role="tool",
-                    content=json.dumps(error_dict),
-                    tool_call_id=parsed_tc.id,
-                ))
-                yield ChatEvent(
-                    type=ChatEventType.ERROR,
-                    data={"message": f"Unknown tool: {parsed_tc.name}"}
+        tool_calls = []
+        for idx in sorted(self._chunks.keys()):
+            tc_data = self._chunks[idx]
+            if not tc_data["id"] or not tc_data["name"]:
+                logger.warning(
+                    f"[CHAT] Skipping incomplete tool call: id={tc_data['id']}, "
+                    f"name={tc_data['name']}"
                 )
                 continue
 
-            # Queue write tools for approval
-            has_pending_approvals = True
-            async for event in self._queue_approval(
-                parsed_tc.id, parsed_tc.name, parsed_tc.arguments, token
-            ):
-                yield event
+            # Parse arguments JSON into dict
+            try:
+                args = json.loads(tc_data["arguments"]) if tc_data["arguments"] else {}
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    f"[CHAT] Failed to parse tool arguments for {tc_data['name']}: {e}"
+                )
+                args = {}
 
-        # 3. Only continue conversation if no approvals are pending
-        # When approvals are pending, the conversation will resume after user action
-        if not has_pending_approvals:
-            async for event in self._continue_with_tool_results(token, tools, depth + 1):
-                yield event
+            tool_calls.append(
+                ToolCall(id=tc_data["id"], name=tc_data["name"], arguments=args)
+            )
+
+        for tc in tool_calls:
+            logger.trace(f"[CHAT] Tool call: {tc.name}({tc.arguments})")
+
+        return tool_calls
+
+
+# =============================================================================
+# ORCHESTRATOR
+# =============================================================================
+
+
+class ChatOrchestrator:
+    """Coordinates chat flow between LLM, tools, and session.
+
+    This class is a thin facade that delegates to focused components:
+    - LLMClient: LLM communication
+    - ToolExecutor: Tool discovery and execution
+    - ChatSession: State management
+    - StreamEmitter: Event generation
+
+    The orchestrator handles:
+    - User message processing
+    - LLM response streaming
+    - Tool call routing (auto-execute READ, queue WRITE for approval)
+    - Recursive tool call handling
+
+    Example:
+        >>> orchestrator = ChatOrchestrator(session, executor, llm, emitter)
+        >>> async for event in orchestrator.process_message("List items", token):
+        ...     yield event.to_sse()
+    """
+
+    def __init__(
+        self,
+        session: ChatSession,
+        executor: ToolExecutor,
+        llm: LLMClient | None = None,
+        emitter: StreamEmitter | None = None,
+    ):
+        """Initialize the orchestrator with required components.
+
+        Args:
+            session: ChatSession for conversation state.
+            executor: ToolExecutor for tool discovery and execution.
+            llm: LLMClient for LLM calls. Created if not provided.
+            emitter: StreamEmitter for event generation. Created if not provided.
+        """
+        self._session = session
+        self._executor = executor
+        self._llm = llm or LLMClient()
+        self._emitter = emitter or StreamEmitter()
+
+    # =========================================================================
+    # PUBLIC API
+    # =========================================================================
 
     async def process_message(
         self,
@@ -351,506 +209,324 @@ class ChatOrchestrator:
     ) -> AsyncGenerator[ChatEvent, None]:
         """Process a user message and yield streaming events.
 
-        This method:
+        This is the main entry point for chat interactions. It:
         1. Adds the user message to history
-        2. Calls the LLM with tools (streaming)
-        3. Handles tool calls (auto-execute READ, queue WRITE for approval)
-        4. Yields streaming events
+        2. Auto-rejects any pending approvals (superseded)
+        3. Calls the LLM with streaming
+        4. Handles tool calls (auto-execute READ, queue WRITE)
+        5. Yields SSE events throughout
 
         Args:
-            user_message: The user's message content
-            token: Homebox auth token for tool execution
+            user_message: The user's message content.
+            token: Homebox auth token for tool execution.
 
         Yields:
-            ChatEvent objects for SSE streaming
+            ChatEvent objects for SSE streaming.
         """
         if not settings.chat_enabled:
-            yield ChatEvent(
-                type=ChatEventType.ERROR,
-                data={"message": "Chat feature is disabled"}
-            )
+            yield self._emitter.error("Chat feature is disabled")
             return
 
         # TRACE: Log the start of a new conversation turn
         logger.trace("[CHAT] === NEW MESSAGE ===")
         logger.trace(f"[CHAT] User message:\n{user_message}")
-        logger.trace(f"[CHAT] Session state: {len(self.session.messages)} messages in history")
+        logger.trace(
+            f"[CHAT] Session state: {len(self._session.messages)} messages in history"
+        )
 
         # Add user message to history
-        self.session.add_message(ChatMessage(role="user", content=user_message))
+        self._session.add_message(ChatMessage(role="user", content=user_message))
 
         # Auto-reject any pending approvals - user's new message supersedes them
-        rejected_count = self.session.auto_reject_all_pending("superseded by new message")
+        rejected_count = self._session.auto_reject_all_pending(
+            "superseded by new message"
+        )
         if rejected_count:
             logger.debug(f"[CHAT] Auto-rejected {rejected_count} pending approvals")
 
         # Build messages for LLM
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-        # TRACE: Log the full system prompt
-        logger.trace(f"[CHAT] System prompt:\n{SYSTEM_PROMPT}")
+        system_prompt = self._llm.get_system_prompt()
+        messages = [{"role": "system", "content": system_prompt}]
 
         # Get conversation history
-        history = self.session.get_history()
+        history = self._session.get_history()
         messages.extend(history)
 
-        # TRACE: Log conversation history being sent to LLM
+        # TRACE: Log conversation context
         logger.trace(f"[CHAT] Sending {len(history)} history messages to LLM")
-        for i, msg in enumerate(history):
-            role = msg.get('role', 'unknown')
-            content = msg.get('content', '')
-            # Truncate very long tool results for readability
-            if len(content) > 500:
-                content_preview = content[:500] + '...'
-            else:
-                content_preview = content
-            logger.trace(f"[CHAT] History[{i}] {role}: {content_preview}")
 
-        # Build tool definitions
-        tools = _build_litellm_tools()
+        # Get tool schemas
+        tools = self._executor.get_tool_schemas(include_write=True)
 
         # Call LLM with streaming
         try:
-            stream_response = await self._call_llm(messages, tools, stream=True)
+            stream = self._llm.complete_stream(messages, tools)
+            async for event in self._handle_stream(stream, token, tools):
+                yield event
         except Exception as e:
             logger.exception("LLM call failed")
-            yield ChatEvent(
-                type=ChatEventType.ERROR,
-                data={"message": f"LLM error: {str(e)}"}
-            )
+            yield self._emitter.error(f"LLM error: {str(e)}")
+            yield self._emitter.done()
             return
 
-        # Process streaming response
-        async for event in self._handle_streaming_response(stream_response, token, tools):
-            yield event
+        yield self._emitter.done()
 
-        yield ChatEvent(type=ChatEventType.DONE, data={})
+    # =========================================================================
+    # STREAM HANDLING
+    # =========================================================================
 
-    async def _call_llm(
+    async def _handle_stream(
         self,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]],
-        stream: bool = True,
-    ) -> Any:
-        """Call the LLM with the given messages and tools.
-
-        Args:
-            messages: Conversation messages
-            tools: Tool definitions
-            stream: If True, return streaming response; if False, return complete response
-
-        Returns:
-            LLM response object (streaming or complete)
-        """
-        kwargs: dict[str, Any] = {
-            "model": config.settings.effective_llm_model,
-            "messages": messages,
-            "api_key": config.settings.effective_llm_api_key,
-            "timeout": config.settings.llm_timeout,
-            "stream": stream,
-        }
-
-        if config.settings.llm_api_base:
-            kwargs["api_base"] = config.settings.llm_api_base
-
-        # Apply response length limit
-        if config.settings.chat_max_response_tokens > 0:
-            kwargs["max_tokens"] = config.settings.chat_max_response_tokens
-
-        if tools:
-            kwargs["tools"] = tools
-            kwargs["tool_choice"] = "auto"
-
-        # TRACE: Log available tools
-        tool_names = [t['function']['name'] for t in tools] if tools else []
-        logger.trace(f"[CHAT] Available tools: {tool_names}")
-
-        logger.debug(
-            f"Calling LLM with {len(messages)} messages, {len(tools)} tools "
-            f"(streaming={stream})"
-        )
-
-        # TRACE: Time the LLM call
-        start_time = time.perf_counter()
-        response = await litellm.acompletion(**kwargs)
-
-        if not stream:
-            # Non-streaming: log immediately
-            elapsed_ms = (time.perf_counter() - start_time) * 1000
-
-            # TRACE: Log token usage if available
-            if hasattr(response, 'usage') and response.usage:
-                logger.trace(
-                    f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms - "
-                    f"tokens: prompt={response.usage.prompt_tokens}, "
-                    f"completion={response.usage.completion_tokens}, "
-                    f"total={response.usage.total_tokens}"
-                )
-            else:
-                logger.trace(f"[CHAT] LLM call completed in {elapsed_ms:.0f}ms")
-
-            # TRACE: Log full response content
-            assistant_message = response.choices[0].message
-            content = assistant_message.content or ""
-            if content:
-                logger.trace(f"[CHAT] LLM response content:\n{content}")
-            else:
-                logger.trace("[CHAT] LLM response content: (empty)")
-
-            # TRACE: Log tool call decisions
-            tool_calls = assistant_message.tool_calls
-            if tool_calls:
-                for tc in tool_calls:
-                    logger.trace(
-                        f"[CHAT] LLM tool call: "
-                        f"{tc.function.name}({tc.function.arguments})"
-                    )
-            else:
-                logger.trace("[CHAT] LLM made no tool calls")
-
-        return response
-
-    async def _handle_streaming_response(
-        self,
-        stream_response: Any,
+        stream: AsyncGenerator[Any, None],
         token: str,
         tools: list[dict[str, Any]],
         depth: int = 0,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Handle a streaming LLM response.
 
-        Accumulates chunks, yields text events, and handles tool calls when complete.
+        Accumulates chunks, yields text events, and handles tool calls.
 
         Args:
-            stream_response: Streaming response from LLM
-            token: Homebox auth token
-            tools: Tool definitions for recursive calls
-            depth: Current recursion depth
+            stream: Streaming response from LLM.
+            token: Homebox auth token.
+            tools: Tool definitions for recursive calls.
+            depth: Current recursion depth.
 
         Yields:
-            ChatEvent objects for SSE streaming
+            ChatEvent objects.
         """
-        content_chunks = []
-        tool_call_chunks: dict[int, dict[str, Any]] = {}  # idx -> {id, name, arguments}
-        usage_info = None  # Track token usage from final chunk
+        content_chunks: list[str] = []
+        accumulator = ToolCallAccumulator()
+        usage_info: TokenUsage | None = None
+        # Track if we've received a complete message (non-incremental providers)
+        seen_complete_message = False
 
         start_time = time.perf_counter()
         chunk_count = 0
 
         try:
-            async for chunk in stream_response:
+            async for chunk in stream:
                 chunk_count += 1
 
-                if not hasattr(chunk, 'choices') or not chunk.choices:
+                if not hasattr(chunk, "choices") or not chunk.choices:
                     # Some providers send usage-only chunks at the end
-                    if hasattr(chunk, 'usage') and chunk.usage:
-                        usage_info = chunk.usage
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        usage_info = TokenUsage(
+                            prompt_tokens=chunk.usage.prompt_tokens,
+                            completion_tokens=chunk.usage.completion_tokens,
+                            total_tokens=chunk.usage.total_tokens,
+                        )
                     continue
 
                 choice = chunk.choices[0]
 
                 # Handle content from delta (standard streaming)
-                if hasattr(choice, 'delta') and choice.delta:
+                if hasattr(choice, "delta") and choice.delta:
                     delta = choice.delta
-                    if hasattr(delta, 'content') and delta.content:
-                        content_chunk = delta.content
-                        content_chunks.append(content_chunk)
-                        # Yield individual text chunk for real-time display
-                        yield ChatEvent(type=ChatEventType.TEXT, data={"content": content_chunk})
+                    if hasattr(delta, "content") and delta.content:
+                        content_chunks.append(delta.content)
+                        yield self._emitter.text(delta.content)
 
-                    # Handle tool call streaming (accumulate)
-                    if hasattr(delta, 'tool_calls') and delta.tool_calls:
+                    # Accumulate tool call chunks
+                    if hasattr(delta, "tool_calls") and delta.tool_calls:
                         for tc_delta in delta.tool_calls:
-                            idx = tc_delta.index
-                            if idx not in tool_call_chunks:
-                                tool_call_chunks[idx] = {
-                                    "id": "",
-                                    "name": "",
-                                    "arguments": ""
-                                }
+                            accumulator.add_chunk(tc_delta)
 
-                            if tc_delta.id:
-                                tool_call_chunks[idx]["id"] = tc_delta.id
-                            if tc_delta.function and tc_delta.function.name:
-                                tool_call_chunks[idx]["name"] = tc_delta.function.name
-                            if tc_delta.function and tc_delta.function.arguments:
-                                tool_call_chunks[idx]["arguments"] += tc_delta.function.arguments
-
-                # Handle content from message (non-incremental streaming / final chunk)
-                # Some providers send complete content in message field instead of delta
-                if hasattr(choice, 'message') and choice.message:
+                # Handle content from message (non-incremental streaming)
+                # Only process once to avoid duplicate content
+                if (
+                    not seen_complete_message
+                    and hasattr(choice, "message")
+                    and choice.message
+                ):
                     message = choice.message
-                    if hasattr(message, 'content') and message.content:
-                        # Only add if we haven't seen this content yet (avoid duplicates)
-                        if message.content not in content_chunks:
-                            content_chunks.append(message.content)
-                            yield ChatEvent(
-                                type=ChatEventType.TEXT,
-                                data={"content": message.content}
-                            )
+                    if hasattr(message, "content") and message.content:
+                        seen_complete_message = True
+                        content_chunks.append(message.content)
+                        yield self._emitter.text(message.content)
 
-                    # Also check for tool calls in message
-                    if hasattr(message, 'tool_calls') and message.tool_calls:
+                    if hasattr(message, "tool_calls") and message.tool_calls:
                         for idx, tc in enumerate(message.tool_calls):
-                            if idx not in tool_call_chunks:
-                                tool_call_chunks[idx] = {
-                                    "id": tc.id if hasattr(tc, 'id') else "",
-                                    "name": (
-                                        tc.function.name
-                                        if hasattr(tc, "function") and tc.function
-                                        else ""
-                                    ),
-                                    "arguments": (
-                                        tc.function.arguments
-                                        if hasattr(tc, "function") and tc.function
-                                        else ""
-                                    ),
-                                }
+                            accumulator.add_complete(idx, tc)
 
-                # Capture usage info from chunk
-                if hasattr(chunk, 'usage') and chunk.usage:
-                    usage_info = chunk.usage
+                # Capture usage from chunk
+                if hasattr(chunk, "usage") and chunk.usage:
+                    usage_info = TokenUsage(
+                        prompt_tokens=chunk.usage.prompt_tokens,
+                        completion_tokens=chunk.usage.completion_tokens,
+                        total_tokens=chunk.usage.total_tokens,
+                    )
 
         except Exception as e:
             logger.exception("[CHAT] Error during streaming")
-            yield ChatEvent(
-                type=ChatEventType.ERROR,
-                data={"message": f"Streaming error: {str(e)}"}
-            )
+            yield self._emitter.error(f"Streaming error: {str(e)}")
             return
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
+        logger.trace(
+            f"[CHAT] Streaming completed in {elapsed_ms:.0f}ms - "
+            f"{chunk_count} chunks received"
+        )
 
-        # Log completion with token usage if available
+        # Emit usage event if available
         if usage_info:
-            logger.trace(
-                f"[CHAT] Streaming completed in {elapsed_ms:.0f}ms - "
-                f"{chunk_count} chunks received - "
-                f"tokens: prompt={usage_info.prompt_tokens}, "
-                f"completion={usage_info.completion_tokens}, "
-                f"total={usage_info.total_tokens}"
-            )
-            # Emit usage event for frontend
-            yield ChatEvent(
-                type=ChatEventType.USAGE,
-                data={
-                    "prompt_tokens": usage_info.prompt_tokens,
-                    "completion_tokens": usage_info.completion_tokens,
-                    "total_tokens": usage_info.total_tokens,
-                }
-            )
-        else:
-            logger.trace(
-                f"[CHAT] Streaming completed in {elapsed_ms:.0f}ms - "
-                f"{chunk_count} chunks received"
-            )
+            yield self._emitter.usage(usage_info)
 
-        # Reconstruct complete content
+        # Reconstruct full content
         full_content = "".join(content_chunks)
 
-        # UX Improvement: Handle "random/bulk creation" lead-in if content is empty
-        # This addresses the "silent assumptions" flagged in the UX critique
-        if not full_content and tool_call_chunks:
-            # Check if we are doing bulk creates
-            create_calls = [tc for tc in tool_call_chunks.values() if tc["name"] == "create_item"]
+        # Build tool calls from accumulator
+        tool_calls = accumulator.build()
+
+        # Handle bulk create lead-in
+        if not full_content and tool_calls:
+            create_calls = [tc for tc in tool_calls if tc.name == "create_item"]
             if len(create_calls) > 1:
                 full_content = f"I'll create {len(create_calls)} sample items for you..."
-                yield ChatEvent(type=ChatEventType.TEXT, data={"content": full_content})
+                yield self._emitter.text(full_content)
 
-        if full_content:
-            logger.trace(f"[CHAT] Complete streamed content:\n{full_content}")
-        elif usage_info and usage_info.completion_tokens > 0 and not tool_call_chunks:
-            # We have completion tokens but no content and no tool calls - something is wrong
-            logger.warning(
-                f"[CHAT] No content captured despite {usage_info.completion_tokens} "
-                f"completion tokens. This may indicate a streaming format issue."
-            )
-
-        # Reconstruct tool calls if any
-        tool_calls = []
-        if tool_call_chunks:
-            # Define mock classes outside loop (efficiency + cleaner code)
-            @dataclass
-            class MockFunction:
-                name: str
-                arguments: str
-
-            @dataclass
-            class MockToolCall:
-                id: str
-                function: MockFunction
-
-            for idx in sorted(tool_call_chunks.keys()):
-                tc_data = tool_call_chunks[idx]
-
-                # Validate tool call has required fields
-                if not tc_data["id"] or not tc_data["name"]:
-                    logger.warning(
-                        f"[CHAT] Skipping incomplete tool call: id={tc_data['id']}, "
-                        f"name={tc_data['name']}"
-                    )
-                    continue
-
-                tool_calls.append(MockToolCall(
-                    id=tc_data["id"],
-                    function=MockFunction(
-                        name=tc_data["name"],
-                        arguments=tc_data["arguments"]
-                    )
-                ))
-
-            # Log tool calls
-            for tc in tool_calls:
-                logger.trace(f"[CHAT] LLM tool call: {tc.function.name}({tc.function.arguments})")
-        else:
-            logger.trace("[CHAT] LLM made no tool calls")
-
-        # Handle tool calls if present
+        # Handle tool calls or store message
         if tool_calls:
             async for event in self._handle_tool_calls(
                 full_content, tool_calls, token, tools, depth
             ):
                 yield event
         else:
-            # No tool calls - just store the assistant message
-            self.session.add_message(ChatMessage(
-                role="assistant",
-                content=full_content,
-                tool_calls=None,
-            ))
+            self._session.add_message(
+                ChatMessage(role="assistant", content=full_content, tool_calls=None)
+            )
 
-    async def _get_display_info(
+    # =========================================================================
+    # TOOL HANDLING
+    # =========================================================================
+
+    async def _handle_tool_calls(
         self,
-        tool_name: str,
-        tool_args: dict[str, Any],
+        content: str,
+        tool_calls: list[ToolCall],
         token: str,
-    ) -> DisplayInfo:
-        """Fetch human-readable display info for an approval.
-
-        Args:
-            tool_name: Name of the tool
-            tool_args: Tool arguments
-            token: Auth token for Homebox
-
-        Returns:
-            DisplayInfo model with display-friendly info (item_name, location, etc.)
-        """
-        item_name: str | None = None
-        asset_id: str | None = None
-        location: str | None = None
-
-        try:
-            # Handle tools that operate on existing items
-            if tool_name in ("delete_item", "update_item") and "item_id" in tool_args:
-                item = await self.client.get_item(token, tool_args["item_id"])
-                # item is a dict, not an object - use dict access
-                item_name = item.get("name")
-                if item.get("assetId"):
-                    asset_id = item.get("assetId")
-                # Include location for delete actions
-                if tool_name == "delete_item" and item.get("location"):
-                    location = item["location"].get("name")
-
-            elif tool_name == "create_item":
-                # For create, use the name from the params
-                if "name" in tool_args:
-                    item_name = tool_args["name"]
-                if "location_id" in tool_args:
-                    try:
-                        loc = await self.client.get_location(
-                            token, tool_args["location_id"]
-                        )
-                        location = loc.get("name")
-                    except Exception as e:
-                        logger.debug(
-                            f"Location lookup failed for {tool_args['location_id']}: {e}"
-                        )
-
-        except Exception as e:
-            # Don't fail the approval if we can't fetch display info
-            logger.debug(f"Failed to fetch display info for {tool_name}: {e}")
-
-        return DisplayInfo(item_name=item_name, asset_id=asset_id, location=location)
-
-    async def _execute_tool(
-        self,
-        tool_call_id: str,
-        tool_name: str,
-        tool_args: dict[str, Any],
-        token: str,
+        tools: list[dict[str, Any]],
+        depth: int = 0,
     ) -> AsyncGenerator[ChatEvent, None]:
-        """Execute a read-only tool and yield events.
+        """Handle LLM tool calls.
 
         Args:
-            tool_call_id: ID of the tool call
-            tool_name: Name of the tool
-            tool_args: Tool arguments
-            token: Auth token for Homebox
+            content: Assistant message content.
+            tool_calls: List of ToolCall objects (already parsed).
+            token: Homebox auth token.
+            tools: Tool definitions for recursive calls.
+            depth: Current recursion depth.
 
         Yields:
-            Tool execution events
+            ChatEvent objects.
         """
-        # TRACE: Log tool execution start
-        logger.trace(f"[CHAT] Executing tool: {tool_name}")
-        logger.trace(f"[CHAT] Tool arguments: {json.dumps(tool_args, indent=2)}")
-
-        yield ChatEvent(
-            type=ChatEventType.TOOL_START,
-            data={"tool": tool_name, "params": tool_args}
-        )
-
-        tool = self._tools_by_name.get(tool_name)
-        if not tool:
-            error_result = {"success": False, "error": f"Tool not implemented: {tool_name}"}
-            self.session.add_message(ChatMessage(
-                role="tool",
-                content=json.dumps(error_result),
-                tool_call_id=tool_call_id,
-            ))
-            yield ChatEvent(
-                type=ChatEventType.ERROR,
-                data={"message": f"Tool not implemented: {tool_name}"}
+        # Safety check: prevent infinite recursion
+        if depth >= MAX_TOOL_RECURSION_DEPTH:
+            logger.warning(
+                f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached"
+            )
+            yield self._emitter.error(
+                "Max tool recursion depth reached. Please try a simpler query."
             )
             return
 
-        try:
-            # TRACE: Time the tool execution
-            start_time = time.perf_counter()
-            # Validate and execute with Pydantic params
-            params = tool.Params(**tool_args)
-            result = await tool.execute(self.client, token, params)
-            elapsed_ms = (time.perf_counter() - start_time) * 1000
+        # Add assistant message with tool_calls BEFORE executing
+        self._session.add_message(
+            ChatMessage(role="assistant", content=content, tool_calls=tool_calls)
+        )
 
+        # Categorize tools: READ (parallel), WRITE (approval), unknown (error)
+        read_calls: list[ToolCall] = []
+        write_calls: list[ToolCall] = []
+        unknown_calls: list[ToolCall] = []
+
+        for tc in tool_calls:
+            tool = self._executor.get_tool(tc.name)
+            if not tool:
+                unknown_calls.append(tc)
+            elif not self._executor.requires_approval(tc.name):
+                read_calls.append(tc)
+            else:
+                write_calls.append(tc)
+
+        # Handle unknown tools first (add error messages to history)
+        for tc in unknown_calls:
+            error_dict = {"success": False, "error": f"Unknown tool: {tc.name}"}
+            self._session.add_message(
+                ChatMessage(
+                    role="tool",
+                    content=json.dumps(error_dict),
+                    tool_call_id=tc.id,
+                )
+            )
+            yield self._emitter.error(f"Unknown tool: {tc.name}")
+
+        # Execute READ tools in parallel, preserving message order
+        if read_calls:
+            logger.debug(f"[CHAT] Executing {len(read_calls)} read tools in parallel")
+            async for event in self._execute_tools_parallel(read_calls, token):
+                yield event
+
+        # Handle WRITE tools (queue for approval)
+        for tc in write_calls:
+            async for event in self._queue_approval(tc.id, tc.name, tc.arguments, token):
+                yield event
+
+        # Continue conversation if no approvals pending
+        if not write_calls:
+            async for event in self._continue_with_results(token, tools, depth + 1):
+                yield event
+
+    async def _execute_tools_parallel(
+        self,
+        tool_calls: list[ToolCall],
+        token: str,
+    ) -> AsyncGenerator[ChatEvent, None]:
+        """Execute multiple READ tools in parallel, preserving message order.
+
+        Executes tools concurrently for speed, but adds results to session
+        history in the original tool_calls order to maintain LLM context integrity.
+
+        Args:
+            tool_calls: List of ToolCall objects to execute.
+            token: Homebox auth token.
+
+        Yields:
+            Tool execution events (tool_start, tool_result).
+        """
+
+        async def run_tool(tc: ToolCall) -> ToolExecution:
+            """Execute a single tool and capture result."""
+            start_time = time.perf_counter()
+            result = await self._executor.execute(tc.name, tc.arguments, token)
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            return ToolExecution(tc=tc, result=result, elapsed_ms=elapsed_ms)
+
+        # Execute all tools in parallel
+        executions = await asyncio.gather(*(run_tool(tc) for tc in tool_calls))
+
+        # Process results in original order, adding to history sequentially
+        for execution in executions:
+            tc = execution.tc
+            result = execution.result
             result_dict = result.to_dict()
 
-            # TRACE: Log full tool result (may be large for list operations)
-            result_json = json.dumps(result_dict, indent=2)
-            if len(result_json) > 2000:
-                logger.trace(
-                    f"[CHAT] Tool '{tool_name}' result "
-                    f"({elapsed_ms:.0f}ms, {len(result_json)} chars):\n"
-                    f"{result_json[:2000]}...[truncated]"
+            logger.trace(
+                f"[CHAT] Tool '{tc.name}' completed in {execution.elapsed_ms:.0f}ms"
+            )
+
+            # Add tool result to history (in order)
+            self._session.add_message(
+                ChatMessage(
+                    role="tool",
+                    content=json.dumps(result_dict),
+                    tool_call_id=tc.id,
                 )
-            else:
-                logger.trace(
-                    f"[CHAT] Tool '{tool_name}' result ({elapsed_ms:.0f}ms):\n{result_json}"
-                )
+            )
 
-        except Exception as e:
-            logger.exception(f"Tool {tool_name} failed")
-            result_dict = {"success": False, "error": str(e)}
-
-        # Add tool result to history
-        self.session.add_message(ChatMessage(
-            role="tool",
-            content=json.dumps(result_dict),
-            tool_call_id=tool_call_id,
-        ))
-
-        yield ChatEvent(
-            type=ChatEventType.TOOL_RESULT,
-            data={"tool": tool_name, "result": result_dict}
-        )
+            # Yield events
+            yield self._emitter.tool_start(tc.name, tc.arguments)
+            yield self._emitter.tool_result(tc.name, result_dict)
 
     async def _queue_approval(
         self,
@@ -861,87 +537,70 @@ class ChatOrchestrator:
     ) -> AsyncGenerator[ChatEvent, None]:
         """Queue a write tool for approval.
 
-        Also adds a placeholder tool result message to satisfy OpenAI API requirements
-        that every tool_call_id must have a corresponding tool result message.
-
         Args:
-            tool_call_id: ID of the tool call from the LLM
-            tool_name: Name of the tool
-            tool_args: Tool arguments
-            token: Auth token for fetching display info
+            tool_call_id: ID of the tool call.
+            tool_name: Name of the tool.
+            tool_args: Tool arguments.
+            token: Auth token for display info lookup.
 
         Yields:
-            Approval required event
+            Approval required event.
         """
-        # Fetch display-friendly info for better UX
-        display_info = await self._get_display_info(tool_name, tool_args, token)
+        # Fetch display-friendly info via executor (encapsulates client access)
+        display_info = await self._executor.get_display_info(tool_name, tool_args, token)
 
         approval_id = create_approval_id()
         approval = PendingApproval(
             id=approval_id,
             tool_name=tool_name,
             parameters=tool_args,
+            tool_call_id=tool_call_id,  # Store for efficient lookup later
             display_info=display_info,
         )
-        self.session.add_pending_approval(approval)
+        self._session.add_pending_approval(approval)
 
-        # Add placeholder tool result to satisfy OpenAI API requirements
-        # Every tool_call_id must have a corresponding tool result message
-        self.session.add_message(ChatMessage(
-            role="tool",
-            content=json.dumps({
-                "success": False,
-                "pending_approval": True,
-                "approval_id": approval_id,
-                "message": f"Action '{tool_name}' requires user approval before execution."
-            }),
-            tool_call_id=tool_call_id,
-        ))
-
-        yield ChatEvent(
-            type=ChatEventType.APPROVAL_REQUIRED,
-            data={
-                "id": approval_id,
-                "tool": tool_name,
-                "params": tool_args,
-                "display_info": display_info,
-                "expires_at": approval.expires_at.isoformat() if approval.expires_at else None,
-            }
+        # Add placeholder tool result (OpenAI API requirement)
+        self._session.add_message(
+            ChatMessage(
+                role="tool",
+                content=json.dumps(
+                    {
+                        "success": False,
+                        "pending_approval": True,
+                        "approval_id": approval_id,
+                        "message": f"Action '{tool_name}' requires user approval.",
+                    }
+                ),
+                tool_call_id=tool_call_id,
+            )
         )
 
-    async def _continue_with_tool_results(
+        yield self._emitter.approval_required(approval)
+
+    async def _continue_with_results(
         self,
         token: str,
         tools: list[dict[str, Any]],
-        depth: int = 0,
+        depth: int,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Continue conversation after tool execution.
 
-        This calls the LLM again with tool results to get a final response.
-        Uses streaming for real-time feedback.
-
         Args:
-            token: Auth token
-            tools: Tool definitions
-            depth: Current recursion depth (passed to _handle_streaming_response)
+            token: Homebox auth token.
+            tools: Tool definitions.
+            depth: Current recursion depth.
 
         Yields:
-            Additional chat events
+            Additional chat events.
         """
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        messages.extend(self.session.get_history())
+        system_prompt = self._llm.get_system_prompt()
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(self._session.get_history())
 
         try:
-            stream_response = await self._call_llm(messages, tools, stream=True)
+            stream = self._llm.complete_stream(messages, tools)
+            async for event in self._handle_stream(stream, token, tools, depth):
+                yield event
         except Exception as e:
             logger.exception("LLM continuation failed")
-            yield ChatEvent(
-                type=ChatEventType.ERROR,
-                data={"message": f"LLM error: {str(e)}"}
-            )
-            return
-
-        async for event in self._handle_streaming_response(
-            stream_response, token, tools, depth
-        ):
-            yield event
+            yield self._emitter.error(f"LLM error: {str(e)}")
