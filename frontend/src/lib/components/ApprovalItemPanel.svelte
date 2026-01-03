@@ -22,12 +22,29 @@
 		'purchase_from',
 	] as const;
 
-	// Tool name to action type mapping
-	const ACTION_TYPE_MAP: Record<string, ActionType> = {
+	// Fallback action type mapping for backwards compatibility (before backend sends action_type)
+	const FALLBACK_ACTION_TYPE_MAP: Record<string, ActionType> = {
 		delete_item: 'delete',
+		delete_label: 'delete',
+		delete_location: 'delete',
 		create_item: 'create',
-		update_item: 'update',
+		create_label: 'create',
+		create_location: 'create',
 	};
+
+	/**
+	 * Get action type from display_info (preferred) or derive from tool name (fallback).
+	 * The backend now provides action_type in display_info, but we keep the fallback
+	 * for backwards compatibility with older sessions.
+	 */
+	function getActionType(toolName: string, displayInfo?: { action_type?: ActionType }): ActionType {
+		// Prefer backend-provided action_type
+		if (displayInfo?.action_type) {
+			return displayInfo.action_type;
+		}
+		// Fallback to map, then default to 'update'
+		return FALLBACK_ACTION_TYPE_MAP[toolName] ?? 'update';
+	}
 
 	interface Props {
 		approval: PendingApproval;
@@ -127,17 +144,29 @@
 		}
 	});
 
-	// Get action type for styling and behavior (using lookup map for clarity)
-	const actionType = $derived(ACTION_TYPE_MAP[approval.tool_name] ?? 'update');
+	// Get action type for styling and behavior
+	// Prefers backend-provided action_type, falls back to tool name derivation
+	const actionType = $derived(getActionType(approval.tool_name, approval.display_info));
 
 	// Get human-readable action description
 	const actionDescription = $derived.by(() => {
 		const toolName = approval.tool_name;
 		const info = approval.display_info;
+		const params = approval.parameters;
 
+		// Items
 		if (toolName === 'delete_item') return info?.item_name ?? 'Delete item';
 		if (toolName === 'update_item') return info?.item_name ?? 'Update item';
 		if (toolName === 'create_item') return info?.item_name ?? 'New item';
+		// Labels - use params.name as fallback since labels don't have display_info
+		if (toolName === 'create_label') return (params?.name as string) ?? 'New label';
+		if (toolName === 'update_label') return (params?.name as string) ?? 'Update label';
+		if (toolName === 'delete_label') return (params?.name as string) ?? 'Delete label';
+		// Locations
+		if (toolName === 'create_location') return (params?.name as string) ?? 'New location';
+		if (toolName === 'update_location') return (params?.name as string) ?? 'Update location';
+		if (toolName === 'delete_location') return (params?.name as string) ?? 'Delete location';
+
 		return toolName.replace(/_/g, ' ');
 	});
 
