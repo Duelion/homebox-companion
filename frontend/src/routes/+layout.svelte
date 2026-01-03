@@ -150,10 +150,10 @@
 	<!-- Spacer for fixed header -->
 	<div class="pt-safe h-14 shrink-0"></div>
 
-	<!-- Update available banner - sticky at top, only on login page -->
-	{#if !isAuthenticated && latestVersion && !updateDismissed}
+	<!-- Update available banner - fixed overlay just below header -->
+	{#if latestVersion && !updateDismissed}
 		<div
-			class="sticky top-14 z-30 flex items-center justify-center gap-3 border-b border-amber-500/40 bg-amber-500/20 px-4 py-2.5 text-sm text-amber-300"
+			class="fixed left-1/2 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] z-30 flex -translate-x-1/2 items-center justify-center gap-3 rounded-full border border-amber-500/40 bg-amber-900/90 px-4 py-2 text-sm text-amber-300 shadow-lg backdrop-blur-sm"
 		>
 			<svg
 				class="h-4 w-4 shrink-0"
@@ -179,7 +179,7 @@
 			</a>
 			<button
 				type="button"
-				class="ml-1 rounded p-1 transition-colors hover:bg-amber-500/30"
+				class="ml-1 rounded-full p-1 transition-colors hover:bg-amber-500/30"
 				title="Dismiss"
 				onclick={dismissUpdate}
 			>

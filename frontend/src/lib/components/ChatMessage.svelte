@@ -7,6 +7,7 @@
 	 * Shows approval badge inside the bubble when there are pending actions.
 	 * Groups tools and executed actions with counters (x2, x3, etc.).
 	 */
+	import { onDestroy } from 'svelte';
 	import type { ChatMessage as ChatMessageType, ToolResult } from '../stores/chat.svelte';
 	import { renderMarkdown } from '../markdown';
 
@@ -24,6 +25,9 @@
 		message.executedActions && message.executedActions.length > 0
 	);
 	const showApprovalBadge = $derived(!isUser && pendingApprovalCount > 0);
+
+	// Track timeout for cleanup on component destroy
+	let copyTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	// Total tool count for unified display (read-only + executed)
 	const totalToolCount = $derived(
@@ -127,11 +131,21 @@
 		try {
 			await navigator.clipboard.writeText(message.content);
 			copySuccess = true;
-			setTimeout(() => (copySuccess = false), 2000);
+			// Clear any existing timeout and set new one
+			if (copyTimeoutId) clearTimeout(copyTimeoutId);
+			copyTimeoutId = setTimeout(() => {
+				copySuccess = false;
+				copyTimeoutId = null;
+			}, 2000);
 		} catch (e) {
 			console.error('Copy failed:', e);
 		}
 	}
+
+	// Cleanup timeout on component destroy to prevent memory leaks
+	onDestroy(() => {
+		if (copyTimeoutId) clearTimeout(copyTimeoutId);
+	});
 
 	// Memoized markdown rendering with GFM support and sanitization
 	const renderedContent = $derived.by(() => {
@@ -180,6 +194,38 @@
 							: ''}
 					{/if}
 				</p>
+			{/if}
+
+			<!-- Approval Required Badge (inside bubble, below text) -->
+			{#if showApprovalBadge}
+				<button
+					type="button"
+					class="chat-approval-badge approval-badge border-warning-500/40 bg-warning-500/15 text-warning-500 hover:border-warning-500/60 hover:bg-warning-500/20"
+					onclick={onOpenApprovals}
+				>
+					<div class="flex h-5 w-5 items-center justify-center rounded-md bg-warning-500/20">
+						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+					</div>
+					<span class="flex-1">
+						{pendingApprovalCount}
+						{pendingApprovalCount === 1 ? 'action requires' : 'actions require'} approval
+					</span>
+					<svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 5l7 7-7 7"
+						/>
+					</svg>
+				</button>
 			{/if}
 
 			{#if message.isStreaming && !message.content}
@@ -259,38 +305,6 @@
 						{/each}
 					</div>
 				</details>
-			{/if}
-
-			<!-- Approval Required Badge (inside bubble) -->
-			{#if showApprovalBadge}
-				<button
-					type="button"
-					class="chat-approval-badge approval-badge border-warning-500/40 bg-warning-500/15 text-warning-500 hover:border-warning-500/60 hover:bg-warning-500/20"
-					onclick={onOpenApprovals}
-				>
-					<div class="flex h-5 w-5 items-center justify-center rounded-md bg-warning-500/20">
-						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-							/>
-						</svg>
-					</div>
-					<span class="flex-1">
-						{pendingApprovalCount}
-						{pendingApprovalCount === 1 ? 'action requires' : 'actions require'} approval
-					</span>
-					<svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 5l7 7-7 7"
-						/>
-					</svg>
-				</button>
 			{/if}
 		</div>
 

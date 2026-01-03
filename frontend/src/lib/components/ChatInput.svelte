@@ -62,9 +62,13 @@
 		class="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-900 px-1 py-0.5 transition-all duration-fast focus-within:border-primary-500 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.15)]"
 	>
 		{#if chatStore.isStreaming}
-			<div class="flex flex-1 items-center gap-1 px-2 py-1.5 text-sm text-primary-500">
+			<div class="flex flex-1 items-center px-2 py-1.5 text-sm text-primary-500">
 				<span>Assistant is typing</span>
-				<span class="typing-ellipsis" aria-hidden="true">...</span>
+				<span class="typing-dots" aria-hidden="true">
+					<span class="typing-dot"></span>
+					<span class="typing-dot"></span>
+					<span class="typing-dot"></span>
+				</span>
 			</div>
 		{:else}
 			<textarea
@@ -128,21 +132,45 @@
 		@apply h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white;
 	}
 
-	/* Animated typing ellipsis */
-	.typing-ellipsis {
-		@apply inline-block font-mono;
-		animation: typing-ellipsis 1.4s steps(4, end) infinite;
-		width: 3ch;
-		text-align: left;
-		overflow: hidden;
+	/* Animated typing dots - bouncing wave effect */
+	.typing-dots {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		margin-left: 6px;
 	}
 
-	@keyframes typing-ellipsis {
-		0% {
-			width: 0;
-		}
+	.typing-dot {
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background-color: currentColor;
+		opacity: 0.6;
+		animation: typing-bounce 1.4s ease-in-out infinite;
+	}
+
+	.typing-dot:nth-child(1) {
+		animation-delay: 0s;
+	}
+
+	.typing-dot:nth-child(2) {
+		animation-delay: 0.2s;
+	}
+
+	.typing-dot:nth-child(3) {
+		animation-delay: 0.4s;
+	}
+
+	@keyframes typing-bounce {
+		0%,
+		60%,
 		100% {
-			width: 3ch;
+			transform: translateY(0);
+			opacity: 0.6;
+		}
+		30% {
+			transform: translateY(-4px);
+			opacity: 1;
 		}
 	}
 </style>

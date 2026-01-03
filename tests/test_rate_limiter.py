@@ -130,7 +130,7 @@ class TestThrottlingBehavior:
             # Use a high rate so timing-based integration tests complete quickly.
             # Still exercises token bucket behavior (burst then refill).
             quota=rate_limiter.per_sec(20, burst=3),  # 20/sec, burst of 3
-            store=mem_store,
+            store=mem_store,  # type: ignore[arg-type]
             timeout=2,  # Hard cap so these tests can't stall CI
         )
 

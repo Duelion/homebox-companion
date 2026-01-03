@@ -380,22 +380,89 @@ class ChatSession:
         return list(self.pending_approvals.values())
 
     def cleanup_expired(self) -> int:
-        """Remove all expired approvals.
+        """Auto-reject all expired approvals, updating history.
 
         Returns:
-            Number of approvals removed
+            Number of approvals rejected
         """
-        expired_ids = [
-            aid for aid, approval in self.pending_approvals.items()
+        expired = [
+            approval for approval in self.pending_approvals.values()
             if approval.is_expired
         ]
-        for aid in expired_ids:
-            del self.pending_approvals[aid]
+        if expired:
+            return self._auto_reject_approvals(expired, "approval expired")
+        return 0
 
-        if expired_ids:
-            logger.debug(f"Cleaned up {len(expired_ids)} expired approvals")
+    def auto_reject_all_pending(self, reason: str = "superseded by new message") -> int:
+        """Auto-reject all pending approvals, updating history to show rejection.
 
-        return len(expired_ids)
+        Called when user sends a new message, which supersedes any pending approvals.
+
+        Args:
+            reason: Reason for rejection shown in history
+
+        Returns:
+            Number of approvals rejected
+        """
+        if not self.pending_approvals:
+            return 0
+        return self._auto_reject_approvals(
+            list(self.pending_approvals.values()), reason
+        )
+
+    def reject_approval(self, approval_id: str, reason: str) -> bool:
+        """Reject a single approval and update history to show rejection.
+
+        This is the preferred method for rejecting approvals as it handles both
+        updating the tool message in history and removing from pending.
+
+        Args:
+            approval_id: ID of the approval to reject
+            reason: Reason for rejection shown in history
+
+        Returns:
+            True if approval was found and rejected, False otherwise
+        """
+        approval = self.pending_approvals.get(approval_id)
+        if not approval:
+            return False
+
+        # Update the tool message in history to show rejection
+        tool_call_id = self.get_tool_call_id_for_approval(approval_id)
+        if tool_call_id:
+            rejection_message = json.dumps({
+                "success": False,
+                "rejected": True,
+                "reason": reason,
+                "message": f"Action '{approval.tool_name}' was rejected: {reason}"
+            })
+            self.update_tool_message(tool_call_id, rejection_message)
+
+        del self.pending_approvals[approval_id]
+        logger.info(f"Rejected approval {approval_id} for tool {approval.tool_name}: {reason}")
+        return True
+
+    def _auto_reject_approvals(
+        self, approvals: list[PendingApproval], reason: str
+    ) -> int:
+        """Internal method to reject a list of approvals and update history.
+
+        Args:
+            approvals: List of approvals to reject
+            reason: Reason for rejection
+
+        Returns:
+            Number of approvals rejected
+        """
+        rejected_count = 0
+        for approval in approvals:
+            if self.reject_approval(approval.id, f"automatically rejected: {reason}"):
+                rejected_count += 1
+
+        if rejected_count:
+            logger.debug(f"Auto-rejected {rejected_count} pending approvals: {reason}")
+
+        return rejected_count
 
     def clear(self) -> None:
         """Clear all messages and pending approvals."""
