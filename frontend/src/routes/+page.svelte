@@ -91,7 +91,7 @@
 	<title>Login - Homebox Companion</title>
 </svelte:head>
 
-<div class="animate-in flex min-h-screen flex-col items-center justify-center">
+<div class="animate-in flex flex-col items-center justify-center pb-16 pt-8">
 	{#if isCheckingAuth}
 		<!-- Loading state during auth check -->
 		<div class="flex flex-col items-center gap-4">
@@ -103,7 +103,7 @@
 	{:else}
 		<!-- Refined logo icon -->
 		<div
-			class="mb-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg"
+			class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg"
 		>
 			<svg
 				class="h-14 w-14 text-primary-400"
@@ -120,7 +120,7 @@
 
 		<!-- Typography with improved hierarchy -->
 		<h1 class="mb-2 px-4 text-center text-h1 text-neutral-100">Welcome back</h1>
-		<p class="mb-10 max-w-xs px-4 text-center text-body text-neutral-400">
+		<p class="mb-6 max-w-xs px-4 text-center text-body text-neutral-400">
 			Sign in to continue to Homebox Companion
 		</p>
 

@@ -14,7 +14,6 @@
 	type ActionType = 'delete' | 'create' | 'update';
 
 	// Field name constants to avoid magic strings
-	const CORE_FIELDS = ['name', 'description', 'quantity', 'notes', 'labels', 'location'] as const;
 	const EXTENDED_FIELDS = [
 		'manufacturer',
 		'model_number',
@@ -185,12 +184,6 @@
 		fieldsBeingChanged.some((f) => (EXTENDED_FIELDS as readonly string[]).includes(f))
 	);
 
-	// Check if notes is being changed standalone (not as part of extended fields)
-	// Used to prevent duplicate notes binding
-	const isNotesChangedStandalone = $derived(
-		fieldsBeingChanged.includes('notes') && hasExtendedFieldsBeingChanged
-	);
-
 	// Shared helper: check if a field can be modified based on action type
 	const allowedFields = $derived(new Set(fieldsBeingChanged));
 	function canModifyField(field: string): boolean {
@@ -288,7 +281,7 @@
 		>
 			{#if actionType === 'delete'}
 				<svg
-					class="text-error-500 h-4.5 w-4.5"
+					class="h-4.5 w-4.5 text-error-500"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -300,7 +293,7 @@
 				</svg>
 			{:else if actionType === 'create'}
 				<svg
-					class="text-success-500 h-4.5 w-4.5"
+					class="h-4.5 w-4.5 text-success-500"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -310,7 +303,7 @@
 				</svg>
 			{:else}
 				<svg
-					class="text-warning-500 h-4.5 w-4.5"
+					class="h-4.5 w-4.5 text-warning-500"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -325,12 +318,19 @@
 
 		<!-- Action Info -->
 		<div class="min-w-0 flex-1">
-			<p
-				class="text-sm font-medium {actionType === 'delete'
-					? 'text-error-400'
-					: 'text-neutral-200'}"
-			>
-				{actionDescription}
+			<p class="text-sm font-medium text-neutral-200">
+				<span
+					class="mr-1.5 text-xs font-semibold uppercase tracking-wide {actionType === 'delete'
+						? 'text-error-400'
+						: actionType === 'create'
+							? 'text-success-400'
+							: 'text-warning-400'}"
+				>
+					{actionType}:
+				</span>
+				<span class={actionType === 'delete' ? 'text-error-300' : ''}>
+					{actionDescription}
+				</span>
 			</p>
 		</div>
 
@@ -339,7 +339,7 @@
 			<!-- Expand/Edit Button -->
 			<button
 				type="button"
-				class="hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50 {expanded
+				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 {expanded
 					? 'border-primary-500/50 bg-primary-500/10 text-primary-400'
 					: ''}"
 				disabled={approval.is_expired}
@@ -377,7 +377,7 @@
 			<!-- Reject Button -->
 			<button
 				type="button"
-				class="hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50"
+				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleReject}
 				aria-label="Reject"
@@ -401,7 +401,7 @@
 			<!-- Approve Button -->
 			<button
 				type="button"
-				class="hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50"
+				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleApprove}
 				aria-label="Approve"
@@ -472,7 +472,7 @@
 					/>
 
 					{#if hasModifications}
-						<p class="text-primary-400 text-xs">You have unsaved modifications</p>
+						<p class="text-xs text-primary-400">You have unsaved modifications</p>
 					{/if}
 				</div>
 			{:else if actionType === 'update'}
@@ -587,7 +587,7 @@
 					{/if}
 
 					{#if hasModifications}
-						<p class="text-primary-400 text-xs">You have unsaved modifications</p>
+						<p class="text-xs text-primary-400">You have unsaved modifications</p>
 					{/if}
 				</div>
 			{:else if actionType === 'delete'}
@@ -596,7 +596,7 @@
 					<p class="text-sm text-neutral-400">
 						Are you sure you want to delete this item? This action cannot be undone.
 					</p>
-					<div class="border-error-500/20 bg-error-500/10 space-y-1 rounded-lg border px-3 py-2">
+					<div class="space-y-1 rounded-lg border border-error-500/20 bg-error-500/10 px-3 py-2">
 						{#if approval.display_info?.item_name}
 							<div>
 								<span class="text-xs text-neutral-500">Item:</span>

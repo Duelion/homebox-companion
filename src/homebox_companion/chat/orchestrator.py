@@ -379,6 +379,11 @@ class ChatOrchestrator:
         # Add user message to history
         self.session.add_message(ChatMessage(role="user", content=user_message))
 
+        # Auto-reject any pending approvals - user's new message supersedes them
+        rejected_count = self.session.auto_reject_all_pending("superseded by new message")
+        if rejected_count:
+            logger.debug(f"[CHAT] Auto-rejected {rejected_count} pending approvals")
+
         # Build messages for LLM
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
@@ -728,32 +733,34 @@ class ChatOrchestrator:
             token: Auth token for Homebox
 
         Returns:
-            Dictionary with display-friendly info (item_name, location, etc.)
+            DisplayInfo model with display-friendly info (item_name, location, etc.)
         """
-        display_info: DisplayInfo = {}
+        item_name: str | None = None
+        asset_id: str | None = None
+        location: str | None = None
 
         try:
             # Handle tools that operate on existing items
             if tool_name in ("delete_item", "update_item") and "item_id" in tool_args:
                 item = await self.client.get_item(token, tool_args["item_id"])
                 # item is a dict, not an object - use dict access
-                display_info["item_name"] = item.get("name")
+                item_name = item.get("name")
                 if item.get("assetId"):
-                    display_info["asset_id"] = item.get("assetId")
+                    asset_id = item.get("assetId")
                 # Include location for delete actions
                 if tool_name == "delete_item" and item.get("location"):
-                    display_info["location"] = item["location"].get("name")
+                    location = item["location"].get("name")
 
             elif tool_name == "create_item":
                 # For create, use the name from the params
                 if "name" in tool_args:
-                    display_info["item_name"] = tool_args["name"]
+                    item_name = tool_args["name"]
                 if "location_id" in tool_args:
                     try:
-                        location = await self.client.get_location(
+                        loc = await self.client.get_location(
                             token, tool_args["location_id"]
                         )
-                        display_info["location"] = location.get("name")
+                        location = loc.get("name")
                     except Exception as e:
                         logger.debug(
                             f"Location lookup failed for {tool_args['location_id']}: {e}"
@@ -763,7 +770,7 @@ class ChatOrchestrator:
             # Don't fail the approval if we can't fetch display info
             logger.debug(f"Failed to fetch display info for {tool_name}: {e}")
 
-        return display_info
+        return DisplayInfo(item_name=item_name, asset_id=asset_id, location=location)
 
     async def _execute_tool(
         self,

@@ -563,6 +563,15 @@ class UpdateItemTool:
         description: str | None = Field(default=None, description="Optional new description")
         location_id: str | None = Field(default=None, description="Optional new location ID")
         quantity: int | None = Field(default=None, ge=1, description="Optional new quantity")
+        purchase_price: float | None = Field(
+            default=None, ge=0, description="Optional new purchase price"
+        )
+        label_ids: list[str] | None = Field(
+            default=None, description="Optional new label IDs (replaces existing)"
+        )
+        notes: str | None = Field(default=None, description="Optional new notes text")
+        insured: bool | None = Field(default=None, description="Optional insurance status")
+        archived: bool | None = Field(default=None, description="Optional archive status")
 
     @handle_tool_errors
     async def execute(
@@ -584,11 +593,17 @@ class UpdateItemTool:
                 else current.get("description", "")
             ),
             "quantity": params.quantity if params.quantity is not None else current.get("quantity", 1),
-            "insured": current.get("insured", False),
-            "archived": current.get("archived", False),
+            "insured": params.insured if params.insured is not None else current.get("insured", False),
+            "archived": params.archived if params.archived is not None else current.get("archived", False),
             "assetId": current.get("assetId", ""),
-            "notes": current.get("notes", ""),
+            "notes": params.notes if params.notes is not None else current.get("notes", ""),
         }
+
+        # Handle purchasePrice - use new value if provided, else preserve current
+        if params.purchase_price is not None:
+            update_data["purchasePrice"] = params.purchase_price
+        elif current.get("purchasePrice") is not None:
+            update_data["purchasePrice"] = current.get("purchasePrice")
 
         # Handle location - use new location_id if provided, else preserve current
         if params.location_id is not None:
@@ -596,10 +611,13 @@ class UpdateItemTool:
         elif current.get("location"):
             update_data["locationId"] = current["location"].get("id")
 
-        # Preserve labels if present
-        if current.get("labels"):
-            update_data["labels"] = [
-                {"id": label.get("id")} for label in current["labels"] if label.get("id")
+        # Handle labels - use correct API field name "labelIds" with flat string array
+        if params.label_ids is not None:
+            update_data["labelIds"] = params.label_ids
+        elif current.get("labels"):
+            # Preserve existing labels using correct format
+            update_data["labelIds"] = [
+                label.get("id") for label in current["labels"] if label.get("id")
             ]
 
         result = await client.update_item(token, params.item_id, update_data)
@@ -637,6 +655,36 @@ class CreateLocationTool:
             parent_id=params.parent_id,
         )
         logger.info(f"create_location created location: {result.get('name', 'unknown')}")
+        return ToolResult(success=True, data=result)
+
+
+@dataclass(frozen=True)
+class CreateLabelTool:
+    """Create a new label in Homebox."""
+
+    name: str = "create_label"
+    description: str = "Create a new label in Homebox"
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(ToolParams):
+        name: str = Field(description="Name of the label")
+        description: str = Field(default="", description="Optional description")
+        color: str = Field(default="", description="Optional color for the label")
+
+    @handle_tool_errors
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        result = await client.create_label(
+            token,
+            name=params.name,
+            description=params.description,
+            color=params.color,
+        )
+        logger.info(f"create_label created label: {result.get('name', 'unknown')}")
         return ToolResult(success=True, data=result)
 
 
@@ -691,6 +739,45 @@ class UpdateLocationTool:
             parent_id=resolved_parent_id,
         )
         logger.info(f"update_location updated location: {result.get('name', 'unknown')}")
+        return ToolResult(success=True, data=result)
+
+
+@dataclass(frozen=True)
+class UpdateLabelTool:
+    """Update an existing label."""
+
+    name: str = "update_label"
+    description: str = "Update an existing label's name, description, or color"
+    permission: ToolPermission = ToolPermission.WRITE
+
+    class Params(ToolParams):
+        label_id: str = Field(description="ID of the label to update")
+        name: str | None = Field(default=None, description="Optional new name")
+        description: str | None = Field(default=None, description="Optional new description")
+        color: str | None = Field(default=None, description="Optional new color")
+
+    @handle_tool_errors
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        # Get the current label to preserve fields not being updated
+        current = await client.get_label(token, params.label_id)
+
+        result = await client.update_label(
+            token,
+            label_id=params.label_id,
+            name=params.name if params.name is not None else current.get("name", ""),
+            description=(
+                params.description
+                if params.description is not None
+                else current.get("description", "")
+            ),
+            color=params.color if params.color is not None else current.get("color", ""),
+        )
+        logger.info(f"update_label updated label: {result.get('name', 'unknown')}")
         return ToolResult(success=True, data=result)
 
 
@@ -792,6 +879,52 @@ class DeleteItemTool:
         await client.delete_item(token, params.item_id)
         logger.info(f"delete_item deleted item: {params.item_id}")
         return ToolResult(success=True, data={"deleted_id": params.item_id})
+
+
+@dataclass(frozen=True)
+class DeleteLabelTool:
+    """Delete a label from Homebox."""
+
+    name: str = "delete_label"
+    description: str = "Delete a label from Homebox. This action cannot be undone."
+    permission: ToolPermission = ToolPermission.DESTRUCTIVE
+
+    class Params(ToolParams):
+        label_id: str = Field(description="ID of the label to delete")
+
+    @handle_tool_errors
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        await client.delete_label(token, params.label_id)
+        logger.info(f"delete_label deleted label: {params.label_id}")
+        return ToolResult(success=True, data={"deleted_id": params.label_id})
+
+
+@dataclass(frozen=True)
+class DeleteLocationTool:
+    """Delete a location from Homebox."""
+
+    name: str = "delete_location"
+    description: str = "Delete a location from Homebox. This action cannot be undone."
+    permission: ToolPermission = ToolPermission.DESTRUCTIVE
+
+    class Params(ToolParams):
+        location_id: str = Field(description="ID of the location to delete")
+
+    @handle_tool_errors
+    async def execute(
+        self,
+        client: HomeboxClient,
+        token: str,
+        params: Params,
+    ) -> ToolResult:
+        await client.delete_location(token, params.location_id)
+        logger.info(f"delete_location deleted location: {params.location_id}")
+        return ToolResult(success=True, data={"deleted_id": params.location_id})
 
 
 # =============================================================================

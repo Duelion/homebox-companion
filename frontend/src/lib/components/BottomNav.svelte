@@ -42,18 +42,18 @@
 	// Navigation items - easily extendable for future tabs (max 5 recommended)
 	let navItems = $derived<NavItem[]>([
 		{
-			id: 'scan',
-			label: 'Scan',
-			href: scanHref,
-			icon: 'scan',
-			activeRoutes: ['/location', '/capture', '/review', '/summary', '/success'],
-		},
-		{
 			id: 'chat',
 			label: 'Chat',
 			href: '/chat',
 			icon: 'chat',
 			activeRoutes: ['/chat'],
+		},
+		{
+			id: 'scan',
+			label: 'Scan',
+			href: scanHref,
+			icon: 'scan',
+			activeRoutes: ['/location', '/capture', '/review', '/summary', '/success'],
 		},
 		{
 			id: 'settings',
