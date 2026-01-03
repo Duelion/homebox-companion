@@ -10,7 +10,7 @@ This module contains the shared types used across MCP tool implementations:
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
@@ -56,15 +56,39 @@ class ToolParams(BaseModel):
     )
 
 
+ActionType = Literal["create", "update", "delete"]
+
+
+def get_action_type_from_tool_name(tool_name: str) -> ActionType:
+    """Derive action type from tool name convention.
+
+    Tool names follow the pattern: {action}_{target} (e.g., create_item, delete_label).
+    This function extracts the action prefix to determine the UI action type.
+
+    Args:
+        tool_name: The tool name (e.g., "create_item", "update_location")
+
+    Returns:
+        The action type: 'create', 'update', or 'delete'
+    """
+    if tool_name.startswith("create_"):
+        return "create"
+    if tool_name.startswith("delete_"):
+        return "delete"
+    # Default to 'update' for update_*, upload_*, ensure_*, etc.
+    return "update"
+
+
 class DisplayInfo(BaseModel):
     """Human-readable display info for approval actions.
 
     Used by the approval UI to show user-friendly details about
-    the action being approved (e.g., item name, location).
+    the action being approved (e.g., item name, location, action type).
     """
 
     model_config = ConfigDict(extra="allow")  # Allow additional fields
 
+    action_type: ActionType | None = None  # Derived from tool name: create, update, delete
     item_name: str | None = None
     asset_id: str | None = None
     location: str | None = None
