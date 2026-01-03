@@ -522,6 +522,7 @@ class CreateItemTool:
         name: str = Field(description="Name of the item")
         location_id: str = Field(description="ID of the location to place the item")
         description: str = Field(default="", description="Optional description")
+        quantity: int = Field(default=1, ge=1, description="Quantity of the item (default: 1)")
         label_ids: list[str] | None = Field(
             default=None,
             description="Optional list of label IDs to apply",
@@ -540,6 +541,7 @@ class CreateItemTool:
             name=params.name,
             location_id=params.location_id,
             description=params.description,
+            quantity=params.quantity,
             label_ids=params.label_ids or [],
         )
         result = await client.create_item(token, item_data)
@@ -552,7 +554,7 @@ class UpdateItemTool:
     """Update an existing item."""
 
     name: str = "update_item"
-    description: str = "Update an existing item's name, description, or location"
+    description: str = "Update an existing item's name, description, location, or quantity"
     permission: ToolPermission = ToolPermission.WRITE
 
     class Params(ToolParams):
@@ -560,6 +562,7 @@ class UpdateItemTool:
         name: str | None = Field(default=None, description="Optional new name")
         description: str | None = Field(default=None, description="Optional new description")
         location_id: str | None = Field(default=None, description="Optional new location ID")
+        quantity: int | None = Field(default=None, ge=1, description="Optional new quantity")
 
     @handle_tool_errors
     async def execute(
@@ -571,16 +574,16 @@ class UpdateItemTool:
         # First get the current item to preserve unchanged fields
         current = await client.get_item(token, params.item_id)
 
-        # Build update payload with ONLY editable fields (avoid read-only fields
-        # like id, createdAt, updatedAt that the API may reject)
+        # Build update payload preserving unchanged fields from current item
         update_data = {
+            "id": params.item_id,
             "name": params.name if params.name is not None else current.get("name"),
             "description": (
                 params.description
                 if params.description is not None
                 else current.get("description", "")
             ),
-            "quantity": current.get("quantity", 1),
+            "quantity": params.quantity if params.quantity is not None else current.get("quantity", 1),
             "insured": current.get("insured", False),
             "archived": current.get("archived", False),
             "assetId": current.get("assetId", ""),
@@ -589,9 +592,9 @@ class UpdateItemTool:
 
         # Handle location - use new location_id if provided, else preserve current
         if params.location_id is not None:
-            update_data["location"] = {"id": params.location_id}
+            update_data["locationId"] = params.location_id
         elif current.get("location"):
-            update_data["location"] = {"id": current["location"].get("id")}
+            update_data["locationId"] = current["location"].get("id")
 
         # Preserve labels if present
         if current.get("labels"):
