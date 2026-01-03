@@ -307,7 +307,7 @@
 						type="button"
 						onclick={triggerFileUpload}
 						disabled={isProcessingFile}
-						class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+						class="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
 					>
 						{#if isProcessingFile}
 							<div
@@ -388,18 +388,18 @@
 </div>
 
 <style>
-	/* Style the qr-scanner overlay */
+	/* Style the qr-scanner overlay - uses primary-500 (#6366f1) from design system */
 	:global(.scan-region-highlight) {
-		border: 2px solid hsl(var(--primary)) !important;
+		border: 2px solid #6366f1 !important;
 		border-radius: 0.5rem;
 	}
 
 	:global(.scan-region-highlight-svg) {
-		stroke: hsl(var(--primary)) !important;
+		stroke: #6366f1 !important;
 	}
 
 	:global(.code-outline-highlight) {
-		stroke: hsl(var(--primary)) !important;
+		stroke: #6366f1 !important;
 		stroke-width: 3px;
 	}
 </style>

@@ -126,8 +126,8 @@
 			<!-- Fill bar with smooth transition -->
 			<div
 				class="h-full transition-all duration-300 ease-out"
-				class:bg-primary={!isComplete}
-				class:bg-success={isComplete}
+				class:bg-primary-500={!isComplete}
+				class:bg-success-500={isComplete}
 				style="width: {Math.max(0, Math.min(100, displayProgress))}%"
 			></div>
 		</div>
@@ -137,8 +137,8 @@
 			{#each notches as notch (notch.position)}
 				<div
 					class="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 transition-colors duration-300"
-					class:bg-primary={notch.completed && !isComplete}
-					class:bg-success={notch.completed && isComplete}
+					class:bg-primary-500={notch.completed && !isComplete}
+					class:bg-success-500={notch.completed && isComplete}
 					class:bg-neutral-600={!notch.completed}
 					style="left: {notch.position}%"
 				></div>
@@ -149,6 +149,6 @@
 
 <style>
 	.complete-pop {
-		@apply animate-pop shadow-[0_0_12px_rgba(34,197,94,0.5)];
+		@apply animate-pop shadow-success-glow;
 	}
 </style>

@@ -26,17 +26,13 @@ const processor = unified()
  * Post-process HTML to add styling to status indicators.
  * Wraps status symbols in spans with appropriate color classes:
  * - ✓ (checkmark) -> success green
- * - ✗ (cross) -> error red  
+ * - ✗ (cross) -> error red
  * - ⊘ (null/rejected) -> warning amber
  */
 function styleStatusIndicators(html: string): string {
 	return html.replace(/[✓✗⊘]/g, (match) => {
 		const colorClass =
-			match === '✓'
-				? 'text-success-500'
-				: match === '✗'
-					? 'text-error-500'
-					: 'text-warning-500';
+			match === '✓' ? 'text-success-500' : match === '✗' ? 'text-error-500' : 'text-warning-500';
 		return `<span class="${colorClass} font-semibold">${match}</span>`;
 	});
 }

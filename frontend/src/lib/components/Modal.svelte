@@ -46,7 +46,7 @@
 					<h3 class="text-lg font-semibold text-neutral-200">{title}</h3>
 					<button
 						type="button"
-						class="text-neutral-200-muted hover:bg-neutral-800-elevated rounded-lg p-2 transition-colors hover:text-neutral-200"
+						class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
 						onclick={handleClose}
 						aria-label="Close"
 					>
@@ -68,7 +68,7 @@
 
 			{#if footer}
 				<div
-					class="bg-neutral-800-elevated/50 flex items-center justify-end gap-3 border-t border-neutral-700 px-6 py-4"
+					class="flex items-center justify-end gap-3 border-t border-neutral-700 bg-neutral-800/50 px-6 py-4"
 				>
 					{@render footer()}
 				</div>

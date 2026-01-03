@@ -752,7 +752,7 @@
 													</svg>
 												</button>
 												<div
-													class="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+													class="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-xxs font-medium text-white"
 												>
 													{additionalIndex + 1}
 												</div>

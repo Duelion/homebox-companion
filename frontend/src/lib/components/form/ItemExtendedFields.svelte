@@ -66,7 +66,7 @@
 		</svg>
 		<span>Extended Fields</span>
 		{#if hasData}
-			<span class="rounded bg-primary/20 px-1.5 py-0.5 text-xs text-primary-light">Has data</span>
+			<span class="rounded bg-primary-500/20 px-1.5 py-0.5 text-xs text-primary-300">Has data</span>
 		{/if}
 	</button>
 

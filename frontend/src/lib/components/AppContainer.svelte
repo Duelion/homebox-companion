@@ -13,4 +13,3 @@
 <div class="mx-auto w-full max-w-lg sm:max-w-xl md:max-w-2xl {className}">
 	{@render children()}
 </div>
-

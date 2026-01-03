@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import Button from './Button.svelte';
 	import type { ThumbnailTransform } from '$lib/types';
+	import { CANVAS_COLORS } from '$lib/utils/canvas-colors';
 
 	interface Props {
 		images: { file: File; dataUrl: string }[];
@@ -158,7 +159,7 @@
 		const centerY = cropCenterY;
 
 		// Clear canvas
-		ctx.fillStyle = '#0a0a0f'; // neutral-950
+		ctx.fillStyle = CANVAS_COLORS.background;
 		ctx.fillRect(0, 0, w, h);
 
 		// Save context state
@@ -197,13 +198,13 @@
 		);
 
 		// Draw crop border
-		ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)'; // primary-500
+		ctx.strokeStyle = CANVAS_COLORS.primaryOverlay;
 		ctx.lineWidth = 2;
 		ctx.strokeRect(centerX - cropSize / 2, centerY - cropSize / 2, cropSize, cropSize);
 
 		// Draw corner handles
 		const handleSize = 20;
-		ctx.strokeStyle = '#6366f1'; // primary-500
+		ctx.strokeStyle = CANVAS_COLORS.primary;
 		ctx.lineWidth = 3;
 
 		// Top-left
@@ -378,7 +379,7 @@
 		const cropSize = CROP_SIZE;
 		const outputScale = outputSize / cropSize;
 
-		outputCtx.fillStyle = '#0a0a0f'; // neutral-950
+		outputCtx.fillStyle = CANVAS_COLORS.background;
 		outputCtx.fillRect(0, 0, outputSize, outputSize);
 
 		// Same transform order as render, but scaled for output
@@ -524,7 +525,7 @@
 				</div>
 				<!-- Tick marks for zoom -->
 				<div class="relative mb-1">
-					<div class="flex justify-between px-0.5 text-[10px] text-neutral-600">
+					<div class="flex justify-between px-0.5 text-xxs text-neutral-600">
 						<span>Min</span>
 						<span>Mid</span>
 						<span>Max</span>
@@ -567,7 +568,7 @@
 				</div>
 				<!-- Tick marks for rotation -->
 				<div class="relative mb-1 px-11">
-					<div class="flex justify-between text-[10px] text-neutral-600">
+					<div class="flex justify-between text-xxs text-neutral-600">
 						<span>-180°</span>
 						<span>-90°</span>
 						<span>0°</span>

@@ -47,6 +47,7 @@ export interface ApprovalDisplayInfo {
 	item_name?: string;
 	asset_id?: string;
 	location?: string;
+	action_type?: 'delete' | 'create' | 'update';
 }
 
 export interface ChatApprovalEvent {
