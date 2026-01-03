@@ -30,7 +30,7 @@ from .types import ChatMessage, ToolCall
 
 # Maximum recursion depth for tool call continuations
 # Prevents infinite loops if LLM keeps making tool calls
-MAX_TOOL_RECURSION_DEPTH = 10
+MAX_TOOL_RECURSION_DEPTH = 25
 
 
 # =============================================================================
@@ -425,9 +425,33 @@ class ChatOrchestrator:
             logger.warning(
                 f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached"
             )
-            yield self._emitter.error(
-                "Max tool recursion depth reached. Please try a simpler query."
+            # Add feedback to conversation so LLM can explain to user
+            self._session.add_message(
+                ChatMessage(
+                    role="system",
+                    content=(
+                        "SYSTEM ALERT: Tool recursion limit reached. You've made too many "
+                        "sequential tool calls without completing the task. Stop calling "
+                        "tools now and explain to the user what happened: what you were "
+                        "trying to do, how far you got, and suggest they break the request "
+                        "into smaller parts (e.g., update items in batches of 5)."
+                    ),
+                )
             )
+            # Let LLM generate a response WITHOUT tools so it can explain
+            system_prompt = self._llm.get_system_prompt()
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(self._session.get_history())
+            try:
+                stream = self._llm.complete_stream(messages, tools=None)
+                async for event in self._handle_stream(stream, token, [], depth):
+                    yield event
+            except Exception as e:
+                logger.exception("LLM recovery response failed")
+                yield self._emitter.error(
+                    "Tool limit reached and couldn't generate explanation. "
+                    "Please try a simpler request."
+                )
             return
 
         # Add assistant message with tool_calls BEFORE executing
