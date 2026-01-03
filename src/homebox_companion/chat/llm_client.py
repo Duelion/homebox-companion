@@ -20,7 +20,9 @@ import litellm
 from loguru import logger
 
 from homebox_companion.core import config
-from homebox_companion.mcp.types import MAX_RESULT_ITEMS
+
+# Guidance for system prompt - recommended max items to display in responses.
+MAX_RESULT_ITEMS = 50
 
 # System prompt for the assistant
 # Note: Tool definitions are passed dynamically via the tools parameter,
@@ -38,6 +40,13 @@ UPDATE OPERATIONS:
 - To add a label: call update_item with label_ids containing BOTH existing label IDs AND the new one
 - For bulk updates (e.g., applying a label to multiple items), call update_item in parallel
 - Each item's current labels are in the list_items/get_item response - merge with new label IDs
+
+BULK OPERATIONS:
+- ALWAYS honor the user's requested quantity - if they ask for 60 items, create 60 items
+- Do NOT reduce scope or stop early without explicit user permission
+- Call multiple tools in PARALLEL when possible (the API handles rate limiting)
+- For large operations, you CAN make all tool calls at once - they will be batched for approval
+- The approval UI handles bulk operations well - users can review and approve all at once
 
 RESPONSE FORMAT:
 Follow progressive disclosure: establish context first, then list details.

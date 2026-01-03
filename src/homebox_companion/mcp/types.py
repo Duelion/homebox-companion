@@ -23,11 +23,9 @@ __all__ = [
     "ToolResult",
     "Tool",
     "DisplayInfo",
-    "MAX_RESULT_ITEMS",
 ]
 
-# Truncation limits for tool results (reduces context window usage)
-MAX_RESULT_ITEMS = 25  # Maximum items in list results
+
 
 
 class ToolPermission(str, Enum):
@@ -110,21 +108,10 @@ class ToolResult(BaseModel):
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for MCP response with truncation."""
+        """Convert to dictionary for MCP response."""
         if self.success:
-            return {"success": True, "data": self._truncate_data(self.data)}
+            return {"success": True, "data": self.data}
         return {"success": False, "error": self.error}
-
-    def _truncate_data(self, data: Any) -> Any:
-        """Truncate large data to reduce context window usage."""
-        if isinstance(data, list) and len(data) > MAX_RESULT_ITEMS:
-            return {
-                "items": data[:MAX_RESULT_ITEMS],
-                "_truncated": True,
-                "_total": len(data),
-                "_showing": MAX_RESULT_ITEMS,
-            }
-        return data
 
 
 @runtime_checkable
