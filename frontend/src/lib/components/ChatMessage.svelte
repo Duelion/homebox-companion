@@ -181,11 +181,11 @@
 				<!-- Fallback summary when no content but has executed actions -->
 				<p class="m-0 text-xs text-neutral-300">
 					{#if executedActionStats.allSuccess && executedActionStats.rejected === 0}
-						✓ Completed {executedActionStats.total} action{executedActionStats.total !== 1
+						✔️ Completed {executedActionStats.total} action{executedActionStats.total !== 1
 							? 's'
 							: ''} successfully
 					{:else if executedActionStats.rejected > 0 && executedActionStats.success === 0}
-						⊘ Rejected {executedActionStats.rejected} action{executedActionStats.rejected !== 1
+						⛔ Rejected {executedActionStats.rejected} action{executedActionStats.rejected !== 1
 							? 's'
 							: ''}
 					{:else}
@@ -255,7 +255,7 @@
 								{#if group.isExecuting}
 									<span class="tool-spinner"></span>
 								{:else}
-									<span class="font-bold">{group.success ? '✓' : '✗'}</span>
+									<span>{group.success ? '✔️' : '❌'}</span>
 								{/if}
 								<span class="font-mono">{group.toolName}</span>
 								{#if group.count > 1}
@@ -273,7 +273,7 @@
 								<div
 									class="chat-tool-badge border-success-500/30 bg-success-500/15 text-success-500"
 								>
-									<span class="font-bold">✓</span>
+									<span>✔️</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.successCount > 1}
 										<span class="opacity-70">×{action.successCount}</span>
@@ -283,7 +283,7 @@
 							<!-- Show fail badge if any failed -->
 							{#if hasFail}
 								<div class="chat-tool-badge border-error-500/30 bg-error-500/15 text-error-500">
-									<span class="font-bold">✗</span>
+									<span>❌</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.failCount > 1}
 										<span class="opacity-70">×{action.failCount}</span>
@@ -295,7 +295,7 @@
 								<div
 									class="chat-tool-badge border-warning-500/30 bg-warning-500/15 text-warning-500"
 								>
-									<span class="font-bold">⊘</span>
+									<span>⛔</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.rejectCount > 1}
 										<span class="opacity-70">×{action.rejectCount}</span>
