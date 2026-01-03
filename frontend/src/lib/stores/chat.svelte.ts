@@ -6,7 +6,9 @@
  */
 
 import { chat, type ChatEvent, type PendingApproval } from '../api/chat';
+import { locationNavigator } from '../services/locationNavigator.svelte';
 import { chatLogger as log } from '../utils/logger';
+import { labelStore } from './labels.svelte';
 
 // =============================================================================
 // TYPES
@@ -360,8 +362,44 @@ class ChatStore {
 
 			// Single reactive update
 			this._messages = updatedMessages;
+
+			// Refresh caches if needed based on the tool that was executed
+			if (result.success) {
+				await this.refreshCachesForTool(toolName);
+			}
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to approve action';
+		}
+	}
+
+	/**
+	 * Refresh frontend caches based on the tool that was executed.
+	 * This ensures the UI reflects changes made by approved tool actions.
+	 */
+	private async refreshCachesForTool(toolName: string): Promise<void> {
+		try {
+			// Refresh labels cache when labels are created/updated/deleted
+			if (
+				toolName === 'create_label' ||
+				toolName === 'update_label' ||
+				toolName === 'delete_label'
+			) {
+				log.debug(`Refreshing labels cache after ${toolName}`);
+				await labelStore.fetchLabels(true); // force refresh
+			}
+
+			// Refresh locations cache when locations are created/updated/deleted
+			if (
+				toolName === 'create_location' ||
+				toolName === 'update_location' ||
+				toolName === 'delete_location'
+			) {
+				log.debug(`Refreshing locations cache after ${toolName}`);
+				await locationNavigator.loadTree(); // reloads tree and flat list
+			}
+		} catch (error) {
+			// Don't fail the approval if cache refresh fails - just log it
+			log.warn(`Failed to refresh caches after ${toolName}:`, error);
 		}
 	}
 

@@ -20,7 +20,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from .tools import get_tools
-from .types import DisplayInfo, Tool, ToolPermission, ToolResult
+from .types import DisplayInfo, Tool, ToolPermission, ToolResult, get_action_type_from_tool_name
 
 if TYPE_CHECKING:
     from ..homebox.client import HomeboxClient
@@ -168,6 +168,9 @@ class ToolExecutor:
         Returns:
             DisplayInfo with human-readable details.
         """
+        # Derive action type from tool name convention (create_*, update_*, delete_*)
+        action_type = get_action_type_from_tool_name(tool_name)
+
         item_name: str | None = None
         asset_id: str | None = None
         location: str | None = None
@@ -194,7 +197,12 @@ class ToolExecutor:
         except Exception as e:
             logger.debug(f"Failed to fetch display info for {tool_name}: {e}")
 
-        return DisplayInfo(item_name=item_name, asset_id=asset_id, location=location)
+        return DisplayInfo(
+            action_type=action_type,
+            item_name=item_name,
+            asset_id=asset_id,
+            location=location,
+        )
 
     def requires_approval(self, tool_name: str) -> bool:
         """Check if a tool requires user approval before execution.
