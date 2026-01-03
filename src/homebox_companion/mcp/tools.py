@@ -623,7 +623,11 @@ class UpdateItemTool:
     """Update an existing item."""
 
     name: str = "update_item"
-    description: str = "Update an existing item's name, description, location, or quantity"
+    description: str = (
+        "Update an existing item. Automatically fetches current values, so do NOT call "
+        "get_item first. Only provide fields you want to change. For label_ids, pass the "
+        "complete list of label IDs (existing + new) since it replaces all labels."
+    )
     permission: ToolPermission = ToolPermission.WRITE
 
     class Params(ToolParams):
@@ -636,7 +640,12 @@ class UpdateItemTool:
             default=None, ge=0, description="Optional new purchase price"
         )
         label_ids: list[str] | None = Field(
-            default=None, description="Optional new label IDs (replaces existing)"
+            default=None,
+            description=(
+                "Complete list of label IDs for the item. To ADD a label, include all "
+                "existing label IDs plus the new one. To REMOVE a label, omit it from "
+                "the list. Pass null/omit to keep labels unchanged."
+            ),
         )
         notes: str | None = Field(default=None, description="Optional new notes text")
         insured: bool | None = Field(default=None, description="Optional insurance status")
