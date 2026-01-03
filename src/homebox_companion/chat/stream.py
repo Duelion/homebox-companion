@@ -220,4 +220,4 @@ class StreamEmitter:
         if summary:
             return f"✓ {tool_name} completed: {summary}"
         else:
-            return f"✓ {tool_name} completed successfully."
+            return f"✓ {tool_name}"
