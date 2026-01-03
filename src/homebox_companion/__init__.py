@@ -17,7 +17,8 @@ Quick Start:
     ...     token = response["token"]
     ...     for item in items:
     ...         item.location_id = "your-location-id"
-    ...         await client.create_item(token, item.to_create_payload())
+    ...         payload = item.model_dump(by_alias=True)
+    ...         await client.create_item(token, payload)
 
 Environment Variables:
     HBC_LLM_API_KEY: API key for the LLM provider (preferred)

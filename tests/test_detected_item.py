@@ -10,44 +10,6 @@ from homebox_companion.tools.vision.models import DetectedItem
 pytestmark = pytest.mark.unit
 
 
-class TestToCreatePayload:
-    """Test DetectedItem.to_create_payload() API payload generation."""
-
-    def test_valid_item_returns_required_fields(self) -> None:
-        """Payload includes name, quantity, description with correct keys."""
-        item = DetectedItem(
-            name="Test Item",
-            quantity=3,
-            description="A test description",
-            location_id="loc-123",
-            label_ids=["label-1", "label-2"],
-        )
-
-        payload = item.to_create_payload()
-
-        assert payload["name"] == "Test Item"
-        assert payload["quantity"] == 3
-        assert payload["description"] == "A test description"
-        assert payload["locationId"] == "loc-123"
-        assert payload["labelIds"] == ["label-1", "label-2"]
-
-    def test_extended_fields_not_in_create_payload(self) -> None:
-        """Extended fields should not appear in create payload."""
-        item = DetectedItem(
-            name="Tool",
-            quantity=1,
-            manufacturer="DeWalt",
-            model_number="DCD771",
-            purchase_price=99.99,
-        )
-
-        payload = item.to_create_payload()
-
-        assert "manufacturer" not in payload
-        assert "modelNumber" not in payload
-        assert "purchasePrice" not in payload
-
-
 class TestGetExtendedFieldsPayload:
     """Test DetectedItem.get_extended_fields_payload() for update operations."""
 
