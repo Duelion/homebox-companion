@@ -79,7 +79,7 @@
 				rows="1"
 				autocomplete="off"
 				aria-label="Chat message input"
-				class="max-h-20 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-sm leading-relaxed text-neutral-200 outline-none placeholder:text-neutral-500"
+				class="max-h-20 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-body leading-relaxed text-neutral-200 outline-none placeholder:text-neutral-500"
 			></textarea>
 		{/if}
 
