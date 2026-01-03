@@ -64,7 +64,7 @@
 		{#if chatStore.isStreaming}
 			<div class="flex flex-1 items-center px-2 py-1.5 text-sm text-primary-500">
 				<span
-					>Assistant is typing<span class="typing-ellipsis" aria-hidden="true"
+					>Assistant is responding<span class="typing-ellipsis" aria-hidden="true"
 						><span>.</span><span>.</span><span>.</span></span
 					></span
 				>
