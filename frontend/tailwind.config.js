@@ -171,6 +171,7 @@ export default {
         'draw-check': 'drawCheck 0.4s ease-out 0.2s forwards',
         'scale-up': 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         'fade-slide-in': 'fadeSlideIn 0.3s ease-out forwards',
+        'fade-slide-out': 'fadeSlideOut 0.3s ease-out forwards',
         // Approval badge pulse (moved from ChatMessage.svelte)
         'approval-pulse': 'approvalPulse 1.5s ease-in-out infinite',
       },
@@ -232,6 +233,10 @@ export default {
         fadeSlideIn: {
           from: { opacity: '0', transform: 'translateY(10px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeSlideOut: {
+          from: { opacity: '1', transform: 'translateY(0)' },
+          to: { opacity: '0', transform: 'translateY(10px)' },
         },
         // Approval badge pulse (moved from ChatMessage.svelte, coupled to warning-500: #f59e0b)
         approvalPulse: {

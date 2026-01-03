@@ -149,7 +149,49 @@ class ToolCallAccumulator:
         for tc in tool_calls:
             logger.trace(f"[CHAT] Tool call: {tc.name}({tc.arguments})")
 
+        # Deduplicate tool calls (LLM sometimes generates duplicates)
+        tool_calls = self._deduplicate_tool_calls(tool_calls)
+
         return tool_calls
+
+    def _deduplicate_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:
+        """Remove duplicate tool calls (same name + same arguments).
+
+        LLMs occasionally generate duplicate tool calls in the same response,
+        which can cause issues like trying to delete the same item twice.
+        This method filters out duplicates while preserving the first occurrence.
+
+        Args:
+            tool_calls: List of tool calls to deduplicate.
+
+        Returns:
+            Deduplicated list of tool calls.
+        """
+        if len(tool_calls) <= 1:
+            return tool_calls
+
+        seen: set[str] = set()
+        unique_calls: list[ToolCall] = []
+        duplicates: list[tuple[str, dict]] = []
+
+        for tc in tool_calls:
+            # Create a unique key from tool name + sorted JSON of arguments
+            # Sort dict keys for consistent comparison
+            key = f"{tc.name}:{json.dumps(tc.arguments, sort_keys=True)}"
+
+            if key not in seen:
+                seen.add(key)
+                unique_calls.append(tc)
+            else:
+                duplicates.append((tc.name, tc.arguments))
+
+        if duplicates:
+            logger.warning(
+                f"[CHAT] Removed {len(duplicates)} duplicate tool call(s): "
+                f"{[d[0] for d in duplicates]}"
+            )
+
+        return unique_calls
 
 
 # =============================================================================

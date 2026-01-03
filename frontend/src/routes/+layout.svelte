@@ -24,8 +24,17 @@
 	let latestVersion = $derived(uiStore.latestVersion);
 	let updateDismissed = $derived(uiStore.updateDismissed);
 
+	// Local state for update banner exit animation
+	let updateBannerExiting = $state(false);
+
 	function dismissUpdate() {
-		uiStore.setUpdateDismissed(true);
+		// Start exit animation first
+		updateBannerExiting = true;
+		// Wait for animation to complete before actually dismissing
+		setTimeout(() => {
+			uiStore.setUpdateDismissed(true);
+			updateBannerExiting = false;
+		}, 300); // Match animation duration
 	}
 
 	// Event handlers (stable references for cleanup)
@@ -118,7 +127,7 @@
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
-		class="glass fixed left-0 right-0 top-0 z-40 border-b border-neutral-700"
+		class="glass fixed top-0 right-0 left-0 z-40 border-b border-neutral-700"
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
@@ -129,7 +138,7 @@
 					class="flex items-center justify-center gap-2 overflow-visible font-semibold text-neutral-200"
 				>
 					<svg
-						class="h-7 w-7 shrink-0 text-primary"
+						class="text-primary h-7 w-7 shrink-0"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -141,7 +150,7 @@
 						<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 						<line x1="12" y1="22.08" x2="12" y2="12" />
 					</svg>
-					<span class="whitespace-nowrap text-lg">Homebox Companion</span>
+					<span class="text-lg whitespace-nowrap">Homebox Companion</span>
 				</a>
 			</AppContainer>
 		</div>
@@ -153,7 +162,8 @@
 	<!-- Update available banner - fixed overlay just below header -->
 	{#if latestVersion && !updateDismissed}
 		<div
-			class="fixed left-1/2 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] z-30 flex -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-amber-500/40 bg-amber-900/90 px-3 py-1.5 text-sm text-amber-300 shadow-lg backdrop-blur-sm"
+			class="fixed top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] left-1/2 z-30 flex -translate-x-1/2 items-center justify-center gap-2 rounded-full border border-amber-500/40 bg-amber-900/90 px-3 py-1.5 text-sm whitespace-nowrap text-amber-300 shadow-lg backdrop-blur-sm
+				{updateBannerExiting ? 'animate-fade-slide-out' : 'animate-fade-in'}"
 		>
 			<svg
 				class="h-4 w-4 shrink-0"
@@ -173,7 +183,7 @@
 				href="https://github.com/Duelion/homebox-companion/releases/latest"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="text-primary underline transition-colors hover:text-primary/80"
+				class="text-primary hover:text-primary/80 underline transition-colors"
 			>
 				View release
 			</a>
@@ -201,7 +211,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-yellow-300 {isAuthenticated
+			class="border-warning/30 bg-warning/20 fixed right-0 left-0 z-40 flex items-center justify-center gap-2 border-t px-4 py-3 text-sm text-yellow-300 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>

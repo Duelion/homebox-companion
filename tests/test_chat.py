@@ -333,6 +333,110 @@ class TestChatEvent:
 
 
 # =============================================================================
+# ToolCallAccumulator Tests
+# =============================================================================
+
+
+class TestToolCallAccumulator:
+    """Tests for ToolCallAccumulator class, including deduplication."""
+
+    def test_deduplication_removes_exact_duplicates(self):
+        """Duplicate tool calls with same name and arguments should be removed."""
+        from homebox_companion.chat.orchestrator import ToolCallAccumulator
+
+        accumulator = ToolCallAccumulator()
+
+        # Add two identical tool calls (same name, same args)
+        accumulator._chunks[0] = {
+            "id": "call_1",
+            "name": "delete_item",
+            "arguments": '{"item_id": "abc-123"}',
+        }
+        accumulator._chunks[1] = {
+            "id": "call_2",
+            "name": "delete_item",
+            "arguments": '{"item_id": "abc-123"}',
+        }
+
+        tool_calls = accumulator.build()
+
+        # Should only have 1 call after deduplication
+        assert len(tool_calls) == 1
+        assert tool_calls[0].id == "call_1"
+        assert tool_calls[0].arguments == {"item_id": "abc-123"}
+
+    def test_deduplication_preserves_different_args(self):
+        """Tool calls with different arguments should NOT be deduplicated."""
+        from homebox_companion.chat.orchestrator import ToolCallAccumulator
+
+        accumulator = ToolCallAccumulator()
+
+        # Add two calls with same name but different item IDs
+        accumulator._chunks[0] = {
+            "id": "call_1",
+            "name": "delete_item",
+            "arguments": '{"item_id": "abc-123"}',
+        }
+        accumulator._chunks[1] = {
+            "id": "call_2",
+            "name": "delete_item",
+            "arguments": '{"item_id": "def-456"}',
+        }
+
+        tool_calls = accumulator.build()
+
+        # Both calls should be preserved
+        assert len(tool_calls) == 2
+
+    def test_deduplication_preserves_different_tools(self):
+        """Different tools with same arguments should NOT be deduplicated."""
+        from homebox_companion.chat.orchestrator import ToolCallAccumulator
+
+        accumulator = ToolCallAccumulator()
+
+        # Add two calls with different tools but same args
+        accumulator._chunks[0] = {
+            "id": "call_1",
+            "name": "get_item",
+            "arguments": '{"item_id": "abc-123"}',
+        }
+        accumulator._chunks[1] = {
+            "id": "call_2",
+            "name": "delete_item",
+            "arguments": '{"item_id": "abc-123"}',
+        }
+
+        tool_calls = accumulator.build()
+
+        # Both calls should be preserved
+        assert len(tool_calls) == 2
+
+    def test_deduplication_handles_empty_list(self):
+        """Empty tool call list should work without error."""
+        from homebox_companion.chat.orchestrator import ToolCallAccumulator
+
+        accumulator = ToolCallAccumulator()
+        tool_calls = accumulator.build()
+
+        assert len(tool_calls) == 0
+
+    def test_deduplication_handles_single_call(self):
+        """Single tool call should work without deduplication issue."""
+        from homebox_companion.chat.orchestrator import ToolCallAccumulator
+
+        accumulator = ToolCallAccumulator()
+        accumulator._chunks[0] = {
+            "id": "call_1",
+            "name": "list_items",
+            "arguments": "{}",
+        }
+
+        tool_calls = accumulator.build()
+
+        assert len(tool_calls) == 1
+
+
+# =============================================================================
 # ChatOrchestrator Tests
 # =============================================================================
 
