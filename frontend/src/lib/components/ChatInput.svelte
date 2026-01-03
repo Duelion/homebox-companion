@@ -63,12 +63,11 @@
 	>
 		{#if chatStore.isStreaming}
 			<div class="flex flex-1 items-center px-2 py-1.5 text-sm text-primary-500">
-				<span>Assistant is typing</span>
-				<span class="typing-dots" aria-hidden="true">
-					<span class="typing-dot"></span>
-					<span class="typing-dot"></span>
-					<span class="typing-dot"></span>
-				</span>
+				<span
+					>Assistant is typing<span class="typing-ellipsis" aria-hidden="true"
+						><span>.</span><span>.</span><span>.</span></span
+					></span
+				>
 			</div>
 		{:else}
 			<textarea
@@ -132,44 +131,40 @@
 		@apply h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white;
 	}
 
-	/* Animated typing dots - bouncing wave effect */
-	.typing-dots {
-		display: inline-flex;
-		align-items: center;
-		gap: 3px;
-		margin-left: 6px;
+	/* Animated typing ellipsis - classic sequential fade */
+	.typing-ellipsis {
+		display: inline;
+		letter-spacing: 0.05em;
 	}
 
-	.typing-dot {
-		width: 5px;
-		height: 5px;
-		border-radius: 50%;
-		background-color: currentColor;
-		opacity: 0.6;
-		animation: typing-bounce 1.4s ease-in-out infinite;
+	.typing-ellipsis > span {
+		display: inline-block;
+		opacity: 0;
+		animation: typing-fade 1.4s infinite;
 	}
 
-	.typing-dot:nth-child(1) {
+	.typing-ellipsis > span:nth-child(1) {
 		animation-delay: 0s;
 	}
 
-	.typing-dot:nth-child(2) {
+	.typing-ellipsis > span:nth-child(2) {
 		animation-delay: 0.2s;
 	}
 
-	.typing-dot:nth-child(3) {
+	.typing-ellipsis > span:nth-child(3) {
 		animation-delay: 0.4s;
 	}
 
-	@keyframes typing-bounce {
+	@keyframes typing-fade {
 		0%,
+		20% {
+			opacity: 0;
+		}
+		40% {
+			opacity: 1;
+		}
 		60%,
 		100% {
-			transform: translateY(0);
-			opacity: 0.6;
-		}
-		30% {
-			transform: translateY(-4px);
 			opacity: 1;
 		}
 	}

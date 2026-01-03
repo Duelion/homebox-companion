@@ -11,20 +11,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from homebox_companion.chat.orchestrator import (
-    ChatEvent,
-    ChatEventType,
-    ChatOrchestrator,
-)
-from homebox_companion.chat.session import (
-    ChatMessage,
-    ChatSession,
-    PendingApproval,
-    ToolCall,
-    clear_session,
-    create_approval_id,
-    get_session,
-)
+from homebox_companion.chat.orchestrator import ChatOrchestrator
+from homebox_companion.chat.session import ChatSession, PendingApproval, create_approval_id
+from homebox_companion.chat.store import MemorySessionStore
+from homebox_companion.chat.stream import ChatEvent, ChatEventType
+from homebox_companion.chat.types import ChatMessage, ToolCall
+from homebox_companion.mcp.executor import ToolExecutor
 
 # =============================================================================
 # ChatMessage Tests
@@ -207,7 +199,9 @@ class TestChatSession:
     def test_remove_approval_returns_true_when_found(self):
         """remove_approval should return True when approval exists."""
         session = ChatSession()
-        session.pending_approvals["ap1"] = PendingApproval(id="ap1", tool_name="t", parameters={})
+        session.pending_approvals["ap1"] = PendingApproval(
+            id="ap1", tool_name="t", parameters={}
+        )
 
         result = session.remove_approval("ap1")
 
@@ -226,16 +220,22 @@ class TestChatSession:
         """cleanup_expired should remove all expired approvals."""
         session = ChatSession()
         session.pending_approvals["valid"] = PendingApproval(
-            id="valid", tool_name="t", parameters={},
-            expires_at=datetime.now(UTC) + timedelta(hours=1)
+            id="valid",
+            tool_name="t",
+            parameters={},
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
         session.pending_approvals["expired1"] = PendingApproval(
-            id="expired1", tool_name="t", parameters={},
-            expires_at=datetime.now(UTC) - timedelta(seconds=1)
+            id="expired1",
+            tool_name="t",
+            parameters={},
+            expires_at=datetime.now(UTC) - timedelta(seconds=1),
         )
         session.pending_approvals["expired2"] = PendingApproval(
-            id="expired2", tool_name="t", parameters={},
-            expires_at=datetime.now(UTC) - timedelta(seconds=10)
+            id="expired2",
+            tool_name="t",
+            parameters={},
+            expires_at=datetime.now(UTC) - timedelta(seconds=10),
         )
 
         removed = session.cleanup_expired()
@@ -249,7 +249,9 @@ class TestChatSession:
         """clear should remove all messages and approvals."""
         session = ChatSession()
         session.add_message(ChatMessage(role="user", content="Hello"))
-        session.pending_approvals["ap1"] = PendingApproval(id="ap1", tool_name="t", parameters={})
+        session.pending_approvals["ap1"] = PendingApproval(
+            id="ap1", tool_name="t", parameters={}
+        )
 
         session.clear()
 
@@ -263,34 +265,44 @@ class TestChatSession:
 
 
 class TestSessionManagement:
-    """Tests for session management functions."""
+    """Tests for MemorySessionStore and session management."""
 
-    def test_get_session_creates_new_session(self):
-        """get_session should create new session for unknown token."""
-        # Clear any existing sessions
-        from homebox_companion.chat.session import _sessions
-        _sessions.clear()
-
-        session = get_session("test-token-123")
+    def test_session_store_creates_new_session(self):
+        """MemorySessionStore.get should create new session for unknown token."""
+        store = MemorySessionStore()
+        session = store.get("test-token-123")
 
         assert isinstance(session, ChatSession)
 
-    def test_get_session_returns_same_session(self):
-        """get_session should return same session for same token."""
-        session1 = get_session("test-token-456")
-        session2 = get_session("test-token-456")
+    def test_session_store_returns_same_session(self):
+        """MemorySessionStore.get should return same session for same token."""
+        store = MemorySessionStore()
+        session1 = store.get("test-token-456")
+        session2 = store.get("test-token-456")
 
         assert session1 is session2
 
-    def test_clear_session_removes_session(self):
-        """clear_session should remove the session."""
-        from homebox_companion.chat.session import _sessions
-
-        get_session("test-token-789")  # Create session
-        result = clear_session("test-token-789")
+    def test_session_store_delete_removes_session(self):
+        """MemorySessionStore.delete should remove the session."""
+        store = MemorySessionStore()
+        store.get("test-token-789")  # Create session
+        result = store.delete("test-token-789")
 
         assert result is True
-        assert str(hash("test-token-789")) not in _sessions
+        # Getting it again should create a new session
+        new_session = store.get("test-token-789")
+        assert isinstance(new_session, ChatSession)
+
+    def test_session_store_clear_all(self):
+        """MemorySessionStore.clear_all should remove all sessions."""
+        store = MemorySessionStore()
+        store.get("token-1")
+        store.get("token-2")
+        store.get("token-3")
+
+        count = store.clear_all()
+
+        assert count == 3
 
     def test_create_approval_id_is_unique(self):
         """create_approval_id should generate unique IDs."""
@@ -343,9 +355,16 @@ class TestChatOrchestrator:
         return ChatSession()
 
     @pytest.fixture
-    def orchestrator(self, mock_client: MagicMock, session: ChatSession) -> ChatOrchestrator:
+    def executor(self, mock_client: MagicMock) -> ToolExecutor:
+        """Create a ToolExecutor with mocked client."""
+        return ToolExecutor(mock_client)
+
+    @pytest.fixture
+    def orchestrator(
+        self, session: ChatSession, executor: ToolExecutor
+    ) -> ChatOrchestrator:
         """Create orchestrator with mocked dependencies."""
-        return ChatOrchestrator(mock_client, session)
+        return ChatOrchestrator(session=session, executor=executor)
 
     @pytest.mark.asyncio
     async def test_process_message_adds_user_message(
@@ -359,8 +378,8 @@ class TestChatOrchestrator:
         mock_response.choices[0].message.tool_calls = None
 
         with patch(
-            "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(return_value=mock_response)
+            "homebox_companion.chat.llm_client.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response),
         ):
             events = []
             async for event in orchestrator.process_message("Hi", "token"):
@@ -375,6 +394,7 @@ class TestChatOrchestrator:
         self, orchestrator: ChatOrchestrator
     ):
         """process_message should yield text event for LLM response."""
+
         # Mock streaming response with chunks
         async def mock_streaming_response():
             # Chunk 1: content
@@ -401,12 +421,14 @@ class TestChatOrchestrator:
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
             chunk3.choices[0].message = None  # No message field
-            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            chunk3.usage = MagicMock(
+                prompt_tokens=10, completion_tokens=5, total_tokens=15
+            )
             yield chunk3
 
         with patch(
-            "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(return_value=mock_streaming_response())
+            "homebox_companion.chat.llm_client.litellm.acompletion",
+            new=AsyncMock(return_value=mock_streaming_response()),
         ):
             events = []
             async for event in orchestrator.process_message("Help me", "token"):
@@ -422,6 +444,7 @@ class TestChatOrchestrator:
         self, orchestrator: ChatOrchestrator
     ):
         """process_message should always yield done event at the end."""
+
         # Mock streaming response
         async def mock_streaming_response():
             chunk = MagicMock()
@@ -433,8 +456,8 @@ class TestChatOrchestrator:
             yield chunk
 
         with patch(
-            "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(return_value=mock_streaming_response())
+            "homebox_companion.chat.llm_client.litellm.acompletion",
+            new=AsyncMock(return_value=mock_streaming_response()),
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
@@ -448,8 +471,8 @@ class TestChatOrchestrator:
     ):
         """process_message should yield error event on LLM failure."""
         with patch(
-            "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(side_effect=Exception("API Error"))
+            "homebox_companion.chat.llm_client.litellm.acompletion",
+            new=AsyncMock(side_effect=Exception("API Error")),
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
@@ -474,20 +497,25 @@ class TestChatOrchestrator:
         The key assertion is that the session message sequence is valid:
         each tool message must be preceded by an assistant message with tool_calls.
         """
-        orchestrator = ChatOrchestrator(mock_client, session)
+        executor = ToolExecutor(mock_client)
+        orchestrator = ChatOrchestrator(session=session, executor=executor)
 
         # Mock search_items tool
-        mock_client.search_items = AsyncMock(return_value=[
-            {"id": "item-123", "name": "Picture Hanging Wire"}
-        ])
+        mock_client.search_items = AsyncMock(
+            return_value=[{"id": "item-123", "name": "Picture Hanging Wire"}]
+        )
         # Mock get_item tool
-        mock_client.get_item = AsyncMock(return_value={
-            "id": "item-123",
-            "name": "Picture Hanging Wire",
-            "description": "Steel wire for hanging pictures"
-        })
+        mock_client.get_item = AsyncMock(
+            return_value={
+                "id": "item-123",
+                "name": "Picture Hanging Wire",
+                "description": "Steel wire for hanging pictures",
+            }
+        )
 
-        async def create_streaming_tool_response(tool_name: str, tool_args: dict, call_id: str):
+        async def create_streaming_tool_response(
+            tool_name: str, tool_args: dict, call_id: str
+        ):
             """Create a streaming response with a tool call."""
             # First chunk: tool call start
             chunk1 = MagicMock()
@@ -512,7 +540,9 @@ class TestChatOrchestrator:
             chunk2.choices[0].delta.tool_calls[0].id = None
             chunk2.choices[0].delta.tool_calls[0].function = MagicMock()
             chunk2.choices[0].delta.tool_calls[0].function.name = None
-            chunk2.choices[0].delta.tool_calls[0].function.arguments = json.dumps(tool_args)
+            chunk2.choices[0].delta.tool_calls[0].function.arguments = json.dumps(
+                tool_args
+            )
             chunk2.choices[0].message = None
             chunk2.usage = None
             yield chunk2
@@ -523,7 +553,9 @@ class TestChatOrchestrator:
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
             chunk3.choices[0].message = None
-            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            chunk3.usage = MagicMock(
+                prompt_tokens=10, completion_tokens=5, total_tokens=15
+            )
             yield chunk3
 
         async def create_streaming_text_response(text: str):
@@ -543,7 +575,9 @@ class TestChatOrchestrator:
             chunk2.choices[0].delta.content = None
             chunk2.choices[0].delta.tool_calls = None
             chunk2.choices[0].message = None
-            chunk2.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            chunk2.usage = MagicMock(
+                prompt_tokens=10, completion_tokens=5, total_tokens=15
+            )
             yield chunk2
 
         call_sequence = 0
@@ -553,7 +587,9 @@ class TestChatOrchestrator:
             call_sequence += 1
             if call_sequence == 1:
                 return create_streaming_tool_response(
-                    "search_items", {"query": "wire", "compact": True}, "call_search_items"
+                    "search_items",
+                    {"query": "wire", "compact": True},
+                    "call_search_items",
                 )
             elif call_sequence == 2:
                 return create_streaming_tool_response(
@@ -565,11 +601,13 @@ class TestChatOrchestrator:
                 )
 
         with patch(
-            "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(side_effect=acompletion_side_effect)
+            "homebox_companion.chat.llm_client.litellm.acompletion",
+            new=AsyncMock(side_effect=acompletion_side_effect),
         ):
             events = []
-            async for event in orchestrator.process_message("What wire do I have?", "token"):
+            async for event in orchestrator.process_message(
+                "What wire do I have?", "token"
+            ):
                 events.append(event)
 
         # Verify we got the expected events
@@ -614,11 +652,13 @@ class TestChatOrchestrator:
         self, mock_client: MagicMock, session: ChatSession
     ):
         """Orchestrator should stop after MAX_TOOL_RECURSION_DEPTH iterations."""
-
-        orchestrator = ChatOrchestrator(mock_client, session)
+        executor = ToolExecutor(mock_client)
+        orchestrator = ChatOrchestrator(session=session, executor=executor)
 
         # Mock a tool that always exists
-        mock_client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test"}])
+        mock_client.list_locations = AsyncMock(
+            return_value=[{"id": "loc1", "name": "Test"}]
+        )
 
         call_count = 0
 
@@ -662,7 +702,9 @@ class TestChatOrchestrator:
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
             chunk3.choices[0].message = None
-            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+            chunk3.usage = MagicMock(
+                prompt_tokens=10, completion_tokens=5, total_tokens=15
+            )
             yield chunk3
 
         # Create enough streaming responses to trigger the limit
@@ -670,8 +712,8 @@ class TestChatOrchestrator:
             return create_streaming_tool_response()
 
         with patch(
-            "homebox_companion.chat.orchestrator.litellm.acompletion",
-            new=AsyncMock(side_effect=acompletion_side_effect)
+            "homebox_companion.chat.llm_client.litellm.acompletion",
+            new=AsyncMock(side_effect=acompletion_side_effect),
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):

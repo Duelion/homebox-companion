@@ -8,6 +8,8 @@ Tool Classification:
 - READ: Auto-execute, no approval needed
 - WRITE: Requires explicit user approval
 - DESTRUCTIVE: Requires approval + additional confirmation
+
+Tools are registered using the @register_tool decorator for explicit discovery.
 """
 
 from __future__ import annotations
@@ -27,6 +29,58 @@ from .types import Tool, ToolParams, ToolPermission, ToolResult
 
 if TYPE_CHECKING:
     from ..homebox.client import HomeboxClient
+
+
+# =============================================================================
+# TOOL REGISTRY
+# =============================================================================
+
+_TOOL_REGISTRY: list[type[Tool]] = []
+
+
+def register_tool[T: type[Tool]](cls: T) -> T:
+    """Decorator to register a tool class for discovery.
+
+    This provides explicit tool registration rather than fragile
+    introspection-based discovery.
+
+    Example:
+        >>> @register_tool
+        ... @dataclass(frozen=True)
+        ... class MyTool:
+        ...     name: str = "my_tool"
+        ...     ...
+    """
+    _TOOL_REGISTRY.append(cls)
+    return cls
+
+
+def get_tools() -> list[Tool]:
+    """Get all registered tool instances.
+
+    Returns:
+        List of tool instances, each satisfying the Tool protocol.
+    """
+    return [cls() for cls in _TOOL_REGISTRY]
+
+
+def clear_tool_registry() -> None:
+    """Clear the tool registry.
+
+    This is primarily for testing to ensure a clean slate between test cases.
+    In production, tools are registered at module import time and should not
+    be cleared.
+
+    Warning:
+        After calling this, you must re-import tool modules to re-register
+        tools, or manually call register_tool for each tool class.
+    """
+    _TOOL_REGISTRY.clear()
+
+
+# =============================================================================
+# ERROR HANDLING DECORATOR
+# =============================================================================
 
 
 def handle_tool_errors(
@@ -53,6 +107,7 @@ def handle_tool_errors(
 # =============================================================================
 
 
+@register_tool
 @dataclass(frozen=True)
 class ListLocationsTool:
     """List all locations in Homebox inventory."""
@@ -80,7 +135,7 @@ class ListLocationsTool:
     ) -> ToolResult:
         locations = await client.list_locations(
             token,
-            filter_children=params.filter_children if params.filter_children else None,
+            filter_children=params.filter_children or None,
         )
         # Convert to LocationView for URL generation
         locations = [LocationView.from_dict(loc).model_dump(by_alias=True) for loc in locations]
@@ -88,6 +143,7 @@ class ListLocationsTool:
         return ToolResult(success=True, data=locations)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetLocationTool:
     """Get a specific location with its child locations."""
@@ -117,6 +173,7 @@ class GetLocationTool:
         return ToolResult(success=True, data=location_view)
 
 
+@register_tool
 @dataclass(frozen=True)
 class ListLabelsTool:
     """List all labels available for categorizing items."""
@@ -140,6 +197,7 @@ class ListLabelsTool:
         return ToolResult(success=True, data=labels)
 
 
+@register_tool
 @dataclass(frozen=True)
 class ListItemsTool:
     """List items in the inventory with optional filtering and pagination."""
@@ -229,6 +287,7 @@ class ListItemsTool:
         return ToolResult(success=True, data=items)
 
 
+@register_tool
 @dataclass(frozen=True)
 class SearchItemsTool:
     """Search items by text query."""
@@ -278,6 +337,7 @@ class SearchItemsTool:
         return ToolResult(success=True, data=items)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetItemTool:
     """Get full item details by ID."""
@@ -303,6 +363,7 @@ class GetItemTool:
         return ToolResult(success=True, data=item_view)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetStatisticsTool:
     """Get inventory statistics overview."""
@@ -329,6 +390,7 @@ class GetStatisticsTool:
         return ToolResult(success=True, data=stats)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetItemByAssetIdTool:
     """Get item by its asset ID."""
@@ -357,6 +419,7 @@ class GetItemByAssetIdTool:
         return ToolResult(success=True, data=item_view)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetLocationTreeTool:
     """Get hierarchical location tree."""
@@ -389,6 +452,7 @@ class GetLocationTreeTool:
         return ToolResult(success=True, data=tree)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetStatisticsByLocationTool:
     """Get item counts grouped by location."""
@@ -415,6 +479,7 @@ class GetStatisticsByLocationTool:
         return ToolResult(success=True, data=stats)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetStatisticsByLabelTool:
     """Get item counts grouped by label."""
@@ -441,6 +506,7 @@ class GetStatisticsByLabelTool:
         return ToolResult(success=True, data=stats)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetItemPathTool:
     """Get the full hierarchical path of an item."""
@@ -467,6 +533,7 @@ class GetItemPathTool:
         return ToolResult(success=True, data=path)
 
 
+@register_tool
 @dataclass(frozen=True)
 class GetAttachmentTool:
     """Get an attachment's content by ID."""
@@ -510,6 +577,7 @@ class GetAttachmentTool:
 # =============================================================================
 
 
+@register_tool
 @dataclass(frozen=True)
 class CreateItemTool:
     """Create a new item in Homebox."""
@@ -549,6 +617,7 @@ class CreateItemTool:
         return ToolResult(success=True, data=result)
 
 
+@register_tool
 @dataclass(frozen=True)
 class UpdateItemTool:
     """Update an existing item."""
@@ -625,6 +694,7 @@ class UpdateItemTool:
         return ToolResult(success=True, data=result)
 
 
+@register_tool
 @dataclass(frozen=True)
 class CreateLocationTool:
     """Create a new location in Homebox."""
@@ -658,6 +728,7 @@ class CreateLocationTool:
         return ToolResult(success=True, data=result)
 
 
+@register_tool
 @dataclass(frozen=True)
 class CreateLabelTool:
     """Create a new label in Homebox."""
@@ -688,6 +759,7 @@ class CreateLabelTool:
         return ToolResult(success=True, data=result)
 
 
+@register_tool
 @dataclass(frozen=True)
 class UpdateLocationTool:
     """Update an existing location."""
@@ -742,6 +814,7 @@ class UpdateLocationTool:
         return ToolResult(success=True, data=result)
 
 
+@register_tool
 @dataclass(frozen=True)
 class UpdateLabelTool:
     """Update an existing label."""
@@ -781,6 +854,7 @@ class UpdateLabelTool:
         return ToolResult(success=True, data=result)
 
 
+@register_tool
 @dataclass(frozen=True)
 class UploadAttachmentTool:
     """Upload an attachment to an item."""
@@ -827,6 +901,7 @@ class UploadAttachmentTool:
         return ToolResult(success=True, data=result)
 
 
+@register_tool
 @dataclass(frozen=True)
 class EnsureAssetIdsTool:
     """Ensure all items have asset IDs assigned."""
@@ -858,6 +933,7 @@ class EnsureAssetIdsTool:
 # =============================================================================
 
 
+@register_tool
 @dataclass(frozen=True)
 class DeleteItemTool:
     """Delete an item from Homebox."""
@@ -881,6 +957,7 @@ class DeleteItemTool:
         return ToolResult(success=True, data={"deleted_id": params.item_id})
 
 
+@register_tool
 @dataclass(frozen=True)
 class DeleteLabelTool:
     """Delete a label from Homebox."""
@@ -904,6 +981,7 @@ class DeleteLabelTool:
         return ToolResult(success=True, data={"deleted_id": params.label_id})
 
 
+@register_tool
 @dataclass(frozen=True)
 class DeleteLocationTool:
     """Delete a location from Homebox."""
@@ -925,45 +1003,3 @@ class DeleteLocationTool:
         await client.delete_location(token, params.location_id)
         logger.info(f"delete_location deleted location: {params.location_id}")
         return ToolResult(success=True, data={"deleted_id": params.location_id})
-
-
-# =============================================================================
-# TOOL DISCOVERY
-# =============================================================================
-
-
-def get_tools() -> list[Tool]:
-    """Discover and instantiate all Tool classes in this module.
-
-    Uses Protocol-based type checking to find tools rather than fragile
-    string matching or attribute inspection.
-
-    Returns:
-        List of tool instances, each satisfying the Tool protocol.
-    """
-    import inspect
-
-    from pydantic import BaseModel
-
-    tools: list[Tool] = []
-    for _name, cls in globals().items():
-        # Skip non-classes and abstract/protocol types
-        if not inspect.isclass(cls):
-            continue
-        if cls is Tool:
-            continue
-
-        # Skip Pydantic models (views imported for tool responses)
-        if issubclass(cls, BaseModel):
-            continue
-
-        # Try to instantiate and check if it satisfies the Tool protocol
-        try:
-            instance = cls()
-            if isinstance(instance, Tool):
-                tools.append(instance)
-        except TypeError:
-            # Class requires arguments or can't be instantiated
-            continue
-
-    return tools

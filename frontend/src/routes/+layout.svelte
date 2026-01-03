@@ -153,7 +153,7 @@
 	<!-- Update available banner - fixed overlay just below header -->
 	{#if latestVersion && !updateDismissed}
 		<div
-			class="fixed left-1/2 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] z-30 flex -translate-x-1/2 items-center justify-center gap-3 rounded-full border border-amber-500/40 bg-amber-900/90 px-4 py-2 text-sm text-amber-300 shadow-lg backdrop-blur-sm"
+			class="fixed left-1/2 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] z-30 flex -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-amber-500/40 bg-amber-900/90 px-3 py-1.5 text-sm text-amber-300 shadow-lg backdrop-blur-sm"
 		>
 			<svg
 				class="h-4 w-4 shrink-0"
@@ -173,13 +173,13 @@
 				href="https://github.com/Duelion/homebox-companion/releases/latest"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="underline transition-colors hover:text-amber-100"
+				class="text-primary underline transition-colors hover:text-primary/80"
 			>
 				View release
 			</a>
 			<button
 				type="button"
-				class="ml-1 rounded-full p-1 transition-colors hover:bg-amber-500/30"
+				class="ml-0.5 shrink-0 rounded-full p-0.5 transition-colors hover:bg-amber-500/30"
 				title="Dismiss"
 				onclick={dismissUpdate}
 			>

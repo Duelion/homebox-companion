@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import httpx
 from fastapi import Depends, Header, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import AuthenticationError, HomeboxClient, settings
+
+if TYPE_CHECKING:
+    from homebox_companion.chat.session import ChatSession
+    from homebox_companion.chat.store import SessionStoreProtocol
+    from homebox_companion.mcp.executor import ToolExecutor
+
 from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
 
 
@@ -86,6 +92,143 @@ class ClientHolder:
 client_holder = ClientHolder()
 
 
+class SessionStoreHolder:
+    """Manages the lifecycle of the shared session store.
+
+    Similar to ClientHolder, this provides explicit lifecycle management
+    for the session store, enabling testing and future backend swaps.
+
+    Usage:
+        # In app lifespan:
+        session_store_holder.set(MemorySessionStore())
+        yield
+        # No cleanup needed for memory store
+
+        # In tests:
+        session_store_holder.set(mock_store)
+        # ... run tests ...
+        session_store_holder.reset()
+    """
+
+    def __init__(self) -> None:
+        self._store: SessionStoreProtocol | None = None
+
+    def set(self, store: SessionStoreProtocol) -> None:
+        """Set the shared store instance.
+
+        Args:
+            store: The session store instance to use.
+        """
+        self._store = store
+
+    def get(self) -> SessionStoreProtocol:
+        """Get the shared store instance, creating default if needed.
+
+        Returns:
+            The shared session store instance.
+        """
+        if self._store is None:
+            from homebox_companion.chat.store import MemorySessionStore
+
+            self._store = MemorySessionStore()
+            logger.debug("Created default MemorySessionStore")
+        return self._store
+
+    def reset(self) -> None:
+        """Reset the holder (for testing).
+
+        Use this in tests to reset state between test cases.
+        """
+        self._store = None
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the store has been initialized."""
+        return self._store is not None
+
+
+# Singleton session store holder
+session_store_holder = SessionStoreHolder()
+
+
+class ToolExecutorHolder:
+    """Manages the shared ToolExecutor instance.
+
+    This makes the ToolExecutor a singleton, ensuring that schema caching
+    is effective across requests rather than being recreated per-request.
+
+    The holder tracks the client reference to ensure the executor is
+    recreated if the client changes (important for testing).
+
+    Usage:
+        # Get executor (auto-creates if needed):
+        executor = tool_executor_holder.get(client)
+
+        # In tests:
+        tool_executor_holder.reset()
+    """
+
+    def __init__(self) -> None:
+        self._executor: ToolExecutor | None = None
+        self._client_id: int | None = None  # Track client identity
+
+    def get(self, client: HomeboxClient) -> ToolExecutor:
+        """Get or create the shared executor instance.
+
+        If the client reference has changed (e.g., during testing),
+        the executor is recreated with the new client.
+
+        Args:
+            client: HomeboxClient for tool execution.
+
+        Returns:
+            The shared ToolExecutor instance.
+        """
+        from homebox_companion.mcp.executor import ToolExecutor
+
+        current_client_id = id(client)
+
+        # Recreate executor if client has changed
+        if self._executor is None or self._client_id != current_client_id:
+            if self._executor is not None:
+                logger.debug("Client changed, recreating ToolExecutor")
+            self._executor = ToolExecutor(client)
+            self._client_id = current_client_id
+            logger.debug("Created shared ToolExecutor instance")
+
+        return self._executor
+
+    def reset(self) -> None:
+        """Reset the holder (for testing).
+
+        Use this in tests to reset state between test cases.
+        """
+        self._executor = None
+        self._client_id = None
+
+    def invalidate_cache(self) -> None:
+        """Invalidate the schema cache.
+
+        Useful when tools are modified during testing.
+        """
+        if self._executor is not None:
+            self._executor.invalidate_cache()
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the executor has been initialized."""
+        return self._executor is not None
+
+
+# Singleton tool executor holder
+tool_executor_holder = ToolExecutorHolder()
+
+
+# =============================================================================
+# CORE DEPENDENCIES (defined first so they can be used in Depends())
+# =============================================================================
+
+
 def set_client(client: HomeboxClient) -> None:
     """Set the global Homebox client instance.
 
@@ -113,6 +256,49 @@ def get_token(authorization: Annotated[str | None, Header()] = None) -> str:
     return authorization[7:]
 
 
+# =============================================================================
+# COMPOSITE DEPENDENCIES (depend on core dependencies above)
+# =============================================================================
+
+
+def get_executor(
+    client: Annotated[HomeboxClient, Depends(get_client)],
+) -> ToolExecutor:
+    """Get the shared ToolExecutor.
+
+    This is a FastAPI dependency that returns the shared executor instance.
+    Can be overridden in tests using app.dependency_overrides[get_executor].
+    """
+    return tool_executor_holder.get(client)
+
+
+def get_session_store() -> SessionStoreProtocol:
+    """Get the shared session store.
+
+    This is a FastAPI dependency that returns the shared store instance.
+    Can be overridden in tests using app.dependency_overrides[get_session_store].
+    """
+    return session_store_holder.get()
+
+
+def get_session(
+    token: Annotated[str, Depends(get_token)],
+) -> ChatSession:
+    """Get the chat session for the current user.
+
+    This is a FastAPI dependency that retrieves (or creates) the session
+    for the authenticated user.
+
+    Args:
+        token: The user's auth token (from get_token dependency).
+
+    Returns:
+        The ChatSession for this user.
+    """
+    store = session_store_holder.get()
+    return store.get(token)
+
+
 def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
     """Dependency that validates authentication without returning the token.
 
@@ -124,8 +310,8 @@ def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
         async def protected_route() -> dict:
             return {"status": "authenticated"}
     """
-    # Token validation happens in get_token; nothing more needed here
-    pass
+    # Token validation happens in get_token; explicitly acknowledge unused param
+    _ = token
 
 
 def require_llm_configured() -> str:
