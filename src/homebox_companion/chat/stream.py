@@ -188,11 +188,11 @@ class StreamEmitter:
             error: Error message if execution failed
 
         Returns:
-            Brief confirmation message with colored check or cross prefix (HTML)
+            Brief confirmation message with ✓ or ✗ prefix (styled by frontend)
         """
         if not success:
-            # Red cross for failure
-            return f'<span style="color: #f87171;">✗</span> {tool_name} failed: {error or "Unknown error"}'
+            # Cross for failure - frontend styles based on ✗ prefix
+            return f"✗ {tool_name} failed: {error or 'Unknown error'}"
 
         # Build a human-readable summary based on the data
         summary = ""
@@ -216,9 +216,8 @@ class StreamEmitter:
             # If anything goes wrong parsing data, just skip the summary
             pass
 
-        # Green check for success
-        check = '<span style="color: #4ade80;">✓</span>'
+        # Check for success - frontend styles based on ✓ prefix
         if summary:
-            return f"{check} {tool_name} completed: {summary}"
+            return f"✓ {tool_name} completed: {summary}"
         else:
-            return f"{check} {tool_name} completed successfully."
+            return f"✓ {tool_name} completed successfully."
