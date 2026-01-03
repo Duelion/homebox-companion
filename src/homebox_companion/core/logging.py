@@ -29,7 +29,7 @@ def setup_logging() -> None:
     logger.remove()
 
     # Configure patcher to ensure request_id exists in all log records
-    logger.configure(patcher=_patcher)
+    logger.configure(patcher=_patcher)  # type: ignore[arg-type]
 
     # Console handler with colors
     # {extra[request_id]} is set by RequestIDMiddleware via logger.contextualize()

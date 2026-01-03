@@ -16,12 +16,12 @@ export type FormSize = 'sm' | 'md';
 
 /** Returns appropriate input class based on size */
 export function getInputClass(size: FormSize): string {
-    return size === 'sm' ? 'input-sm' : 'input';
+	return size === 'sm' ? 'input-sm' : 'input';
 }
 
 /** Returns appropriate label class based on size */
 export function getLabelClass(size: FormSize): string {
-    return size === 'sm' ? 'label-sm' : 'label';
+	return size === 'sm' ? 'label-sm' : 'label';
 }
 
 /**
@@ -29,10 +29,10 @@ export function getLabelClass(size: FormSize): string {
  * Useful when components need multiple class types.
  */
 export function getFormClasses(size: FormSize) {
-    return {
-        input: size === 'sm' ? 'input-sm' : 'input',
-        label: size === 'sm' ? 'label-sm' : 'label',
-        spacing: size === 'sm' ? 'space-y-2.5' : 'space-y-5',
-        gridGap: size === 'sm' ? 'gap-2.5' : 'gap-3',
-    };
+	return {
+		input: size === 'sm' ? 'input-sm' : 'input',
+		label: size === 'sm' ? 'label-sm' : 'label',
+		spacing: size === 'sm' ? 'space-y-2.5' : 'space-y-5',
+		gridGap: size === 'sm' ? 'gap-2.5' : 'gap-3',
+	};
 }

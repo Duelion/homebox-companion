@@ -24,6 +24,10 @@
 	let isEnabled = $state(true);
 	let approvalModalOpen = $state(false);
 
+	// Terminal-style auto-scroll: only scroll if user hasn't scrolled up
+	let userHasScrolledUp = $state(false);
+	const SCROLL_THRESHOLD = 50; // pixels from bottom to consider "at bottom"
+
 	// Find the last assistant message index for showing approval badge
 	const lastAssistantIndex = $derived.by(() => {
 		for (let i = chatStore.messages.length - 1; i >= 0; i--) {
@@ -34,19 +38,52 @@
 		return -1;
 	});
 
-	// Scroll to bottom when messages change
+	// Check if container is scrolled to bottom
+	function isAtBottom(container: HTMLElement): boolean {
+		return container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_THRESHOLD;
+	}
+
+	// Scroll to bottom helper
+	function scrollToBottom() {
+		if (messagesContainer) {
+			messagesContainer.scrollTop = messagesContainer.scrollHeight;
+		}
+	}
+
+	// Handle user scroll - detect if they've scrolled up from bottom
+	function handleScroll(event: Event) {
+		const container = event.target as HTMLElement;
+		if (!container) return;
+
+		const atBottom = isAtBottom(container);
+		if (atBottom && userHasScrolledUp) {
+			// User scrolled back to bottom - re-enable auto-scroll
+			userHasScrolledUp = false;
+			log.debug('User scrolled to bottom, re-enabling auto-scroll');
+		} else if (!atBottom && !userHasScrolledUp && chatStore.isStreaming) {
+			// User scrolled up during streaming - disable auto-scroll
+			userHasScrolledUp = true;
+			log.debug('User scrolled up, disabling auto-scroll');
+		}
+	}
+
+	// Auto-scroll when new messages arrive
 	$effect(() => {
-		// Track messages length to trigger scroll
 		const messageCount = chatStore.messages.length;
-		log.debug(`Messages count changed: ${messageCount}`);
-		if (messagesContainer && messageCount > 0) {
-			// Use requestAnimationFrame to ensure DOM has updated
-			requestAnimationFrame(() => {
-				if (messagesContainer) {
-					messagesContainer.scrollTop = messagesContainer.scrollHeight;
-					log.debug('Scrolled to bottom of messages');
-				}
-			});
+		if (messagesContainer && messageCount > 0 && !userHasScrolledUp) {
+			requestAnimationFrame(scrollToBottom);
+		}
+	});
+
+	// Auto-scroll during streaming (tracks content changes)
+	$effect(() => {
+		// Access streaming message content to trigger reactivity
+		const lastMessage = chatStore.messages[chatStore.messages.length - 1];
+		const streamingContent = lastMessage?.content;
+		const isStreaming = chatStore.isStreaming;
+
+		if (messagesContainer && isStreaming && streamingContent && !userHasScrolledUp) {
+			requestAnimationFrame(scrollToBottom);
 		}
 	});
 
@@ -137,7 +174,7 @@
 		{/if}
 
 		<!-- Messages area -->
-		<div class="min-h-[50vh]" bind:this={messagesContainer}>
+		<div class="min-h-[50vh]" bind:this={messagesContainer} onscroll={handleScroll}>
 			{#if chatStore.messages.length === 0}
 				<div class="empty-state">
 					<div

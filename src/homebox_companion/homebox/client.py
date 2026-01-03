@@ -36,7 +36,7 @@ def _get_homebox_rate_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_sec(30, burst=10),
-        store=store.MemoryStore(),
+        store=store.MemoryStore(),  # type: ignore[arg-type]
         timeout=30,  # Wait up to 30s for capacity
     )
 
@@ -476,6 +476,26 @@ class HomeboxClient:
         self._ensure_success(response, "Update location")
         return response.json()
 
+    @_rate_limited
+    async def delete_location(self, token: str, location_id: str) -> None:
+        """Delete a location by ID.
+
+        Args:
+            token: The bearer token from login.
+            location_id: The ID of the location to delete.
+
+        Returns:
+            None
+        """
+        response = await self.client.delete(
+            f"{self.base_url}/locations/{location_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Delete location")
+
     async def list_labels(self, token: str) -> list[dict[str, Any]]:
         """Return all available labels for the authenticated user.
 
@@ -506,6 +526,122 @@ class HomeboxClient:
         """
         raw = await self.list_labels(token)
         return [Label.model_validate(label) for label in raw]
+
+    async def get_label(self, token: str, label_id: str) -> dict[str, Any]:
+        """Return a specific label by ID.
+
+        Args:
+            token: The bearer token from login.
+            label_id: The ID of the label to fetch.
+
+        Returns:
+            Label dictionary (raw API response).
+        """
+        response = await self.client.get(
+            f"{self.base_url}/labels/{label_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Fetch label")
+        return response.json()
+
+    @_rate_limited
+    async def create_label(
+        self,
+        token: str,
+        name: str,
+        description: str = "",
+        color: str = "",
+    ) -> dict[str, Any]:
+        """Create a new label.
+
+        Args:
+            token: The bearer token from login.
+            name: The name of the new label.
+            description: Optional description for the label.
+            color: Optional color for the label.
+
+        Returns:
+            The created label dictionary.
+        """
+        payload: dict[str, Any] = {
+            "name": name,
+            "description": description,
+            "color": color,
+        }
+
+        response = await self.client.post(
+            f"{self.base_url}/labels",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        self._ensure_success(response, "Create label")
+        return response.json()
+
+    @_rate_limited
+    async def update_label(
+        self,
+        token: str,
+        label_id: str,
+        name: str,
+        description: str = "",
+        color: str = "",
+    ) -> dict[str, Any]:
+        """Update an existing label.
+
+        Args:
+            token: The bearer token from login.
+            label_id: The ID of the label to update.
+            name: The new name for the label.
+            description: The new description for the label.
+            color: The new color for the label.
+
+        Returns:
+            The updated label dictionary.
+        """
+        payload: dict[str, Any] = {
+            "name": name,
+            "description": description,
+            "color": color,
+        }
+
+        response = await self.client.put(
+            f"{self.base_url}/labels/{label_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        self._ensure_success(response, "Update label")
+        return response.json()
+
+    @_rate_limited
+    async def delete_label(self, token: str, label_id: str) -> None:
+        """Delete a label by ID.
+
+        Args:
+            token: The bearer token from login.
+            label_id: The ID of the label to delete.
+
+        Returns:
+            None
+        """
+        response = await self.client.delete(
+            f"{self.base_url}/labels/{label_id}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Delete label")
 
     @_rate_limited
     async def create_item(self, token: str, item: ItemCreate) -> dict[str, Any]:

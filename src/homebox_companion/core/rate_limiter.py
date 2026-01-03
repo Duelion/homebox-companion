@@ -37,7 +37,7 @@ def _create_rpm_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_min(rpm, burst=burst),
-        store=_get_memory_store(),
+        store=_get_memory_store(),  # type: ignore[arg-type]
         # Wait up to 60 seconds for capacity instead of failing immediately
         timeout=60,
     )
@@ -54,7 +54,7 @@ def _create_tpm_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_min(tpm, burst=burst),
-        store=_get_memory_store(),
+        store=_get_memory_store(),  # type: ignore[arg-type]
         timeout=60,
     )
 
@@ -139,20 +139,20 @@ async def acquire_rate_limit(
 
     # Check RPM limit (1 request)
     rpm_result = await rpm_limiter.limit("llm_rpm", cost=1)
-    if rpm_result.limited:
+    if rpm_result.limited:  # type: ignore[attr-defined]
         logger.debug(
             f"RPM limit reached, waited for capacity. "
-            f"Remaining: {rpm_result.state.remaining}, "
-            f"Reset after: {rpm_result.state.reset_after:.1f}s"
+            f"Remaining: {rpm_result.state.remaining}, "  # type: ignore[attr-defined]
+            f"Reset after: {rpm_result.state.reset_after:.1f}s"  # type: ignore[attr-defined]
         )
 
     # Check TPM limit (estimated tokens)
     tpm_result = await tpm_limiter.limit("llm_tpm", cost=estimated_tokens)
-    if tpm_result.limited:
+    if tpm_result.limited:  # type: ignore[attr-defined]
         logger.debug(
             f"TPM limit reached, waited for capacity. "
-            f"Remaining: {tpm_result.state.remaining}, "
-            f"Reset after: {tpm_result.state.reset_after:.1f}s"
+            f"Remaining: {tpm_result.state.remaining}, "  # type: ignore[attr-defined]
+            f"Reset after: {tpm_result.state.reset_after:.1f}s"  # type: ignore[attr-defined]
         )
 
 

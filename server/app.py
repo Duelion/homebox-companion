@@ -303,12 +303,12 @@ def create_app() -> FastAPI:
     )
 
     # Request-ID middleware (must be added first to wrap all requests)
-    app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(RequestIDMiddleware)  # type: ignore[arg-type]
 
     # CORS middleware for browser access
     # Use HBC_CORS_ORIGINS to restrict origins in production
     app.add_middleware(
-        CORSMiddleware,
+        CORSMiddleware,  # type: ignore[arg-type]
         allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],

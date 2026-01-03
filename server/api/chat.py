@@ -63,8 +63,6 @@ async def _event_generator(
     Yields:
         SSE formatted events
     """
-    import json
-
     try:
         async for event in orchestrator.process_message(user_message, token):
             # sse_starlette expects data as a string - must JSON-serialize dicts
@@ -290,13 +288,10 @@ async def reject_action(
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
 
     session = get_session(token)
-    approval = session.get_pending_approval(approval_id)
 
-    if not approval:
+    # Use the session's reject_approval method which handles history update
+    if not session.reject_approval(approval_id, "user rejected"):
         raise HTTPException(status_code=404, detail="Approval not found or expired")
-
-    session.remove_approval(approval_id)
-    logger.info(f"User rejected approval {approval_id} for tool {approval.tool_name}")
 
     return ApprovalResponse(success=True, message="Action rejected")
 
