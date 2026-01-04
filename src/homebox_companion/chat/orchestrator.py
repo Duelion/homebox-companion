@@ -32,6 +32,9 @@ from .types import ChatMessage, ToolCall
 # Prevents infinite loops if LLM keeps making tool calls
 MAX_TOOL_RECURSION_DEPTH = 25
 
+# Timeout for parallel tool execution (seconds)
+TOOL_EXECUTION_TIMEOUT = 60.0
+
 
 # =============================================================================
 # HELPER DATA CLASSES
@@ -114,21 +117,47 @@ class ToolCallAccumulator:
                 ),
             }
 
-    def build(self) -> list[ToolCall]:
+    def build(self) -> tuple[list[ToolCall], list[tuple[str, str]]]:
         """Build complete ToolCall objects from accumulated chunks.
 
         Returns:
-            List of ToolCall objects (reusing the Pydantic model from session).
+            Tuple of (valid_tool_calls, incomplete_tool_calls).
+            incomplete_tool_calls is a list of (id, error_message) tuples for
+            tool calls that couldn't be parsed, allowing the caller to send
+            error responses to the LLM.
         """
         if not self._chunks:
-            return []
+            return [], []
 
         tool_calls = []
+        incomplete: list[tuple[str, str]] = []
+
         for idx in sorted(self._chunks.keys()):
             tc_data = self._chunks[idx]
-            if not tc_data["id"] or not tc_data["name"]:
+
+            # Check for incomplete tool calls
+            if not tc_data["name"]:
+                if tc_data["id"]:
+                    # Has ID but no name - LLM expects a response
+                    incomplete.append(
+                        (tc_data["id"], "Tool call incomplete: missing tool name")
+                    )
+                    logger.warning(
+                        f"[CHAT] Incomplete tool call (has id, missing name): "
+                        f"id={tc_data['id']}"
+                    )
+                else:
+                    # No ID and no name - can't respond, just log
+                    logger.warning(
+                        f"[CHAT] Skipping malformed tool call chunk at index {idx}: "
+                        f"missing both id and name"
+                    )
+                continue
+
+            if not tc_data["id"]:
+                # Has name but no ID - unusual, log and skip
                 logger.warning(
-                    f"[CHAT] Skipping incomplete tool call: id={tc_data['id']}, "
+                    f"[CHAT] Skipping tool call with name but no id: "
                     f"name={tc_data['name']}"
                 )
                 continue
@@ -137,10 +166,14 @@ class ToolCallAccumulator:
             try:
                 args = json.loads(tc_data["arguments"]) if tc_data["arguments"] else {}
             except json.JSONDecodeError as e:
+                # Has ID but invalid arguments - send error response
+                incomplete.append(
+                    (tc_data["id"], f"Failed to parse arguments: {e}")
+                )
                 logger.warning(
                     f"[CHAT] Failed to parse tool arguments for {tc_data['name']}: {e}"
                 )
-                args = {}
+                continue
 
             tool_calls.append(
                 ToolCall(id=tc_data["id"], name=tc_data["name"], arguments=args)
@@ -152,7 +185,7 @@ class ToolCallAccumulator:
         # Deduplicate tool calls (LLM sometimes generates duplicates)
         tool_calls = self._deduplicate_tool_calls(tool_calls)
 
-        return tool_calls
+        return tool_calls, incomplete
 
     def _deduplicate_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:
         """Remove duplicate tool calls (same name + same arguments).
@@ -418,7 +451,20 @@ class ChatOrchestrator:
         full_content = "".join(content_chunks)
 
         # Build tool calls from accumulator
-        tool_calls = accumulator.build()
+        tool_calls, incomplete_calls = accumulator.build()
+
+        # Add error responses for incomplete tool calls so LLM doesn't hang
+        # waiting for responses it will never receive
+        for tc_id, error_msg in incomplete_calls:
+            error_dict = {"success": False, "error": error_msg}
+            self._session.add_message(
+                ChatMessage(
+                    role="tool",
+                    content=json.dumps(error_dict),
+                    tool_call_id=tc_id,
+                )
+            )
+            yield self._emitter.error(f"Tool call error: {error_msg}")
 
         # Handle bulk create lead-in
         if not full_content and tool_calls:
@@ -486,9 +532,13 @@ class ChatOrchestrator:
             messages.extend(self._session.get_history())
             try:
                 stream = self._llm.complete_stream(messages, tools=None)
-                async for event in self._handle_stream(stream, token, [], depth):
+                # Pass depth + 1 to prevent any further recursion even if LLM
+                # somehow returns tool calls (shouldn't happen with tools=None)
+                async for event in self._handle_stream(
+                    stream, token, [], depth + 1
+                ):
                     yield event
-            except Exception as e:
+            except Exception:
                 logger.exception("LLM recovery response failed")
                 yield self._emitter.error(
                     "Tool limit reached and couldn't generate explanation. "
@@ -568,8 +618,34 @@ class ChatOrchestrator:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             return ToolExecution(tc=tc, result=result, elapsed_ms=elapsed_ms)
 
-        # Execute all tools in parallel
-        executions = await asyncio.gather(*(run_tool(tc) for tc in tool_calls))
+        # Execute all tools in parallel with timeout protection
+        try:
+            executions = await asyncio.wait_for(
+                asyncio.gather(*(run_tool(tc) for tc in tool_calls)),
+                timeout=TOOL_EXECUTION_TIMEOUT,
+            )
+        except TimeoutError:
+            logger.error(
+                f"[CHAT] Tool execution timed out after {TOOL_EXECUTION_TIMEOUT}s "
+                f"for {len(tool_calls)} tool(s)"
+            )
+            # Add timeout error responses for all pending tools
+            for tc in tool_calls:
+                error_dict = {
+                    "success": False,
+                    "error": f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT}s",
+                }
+                self._session.add_message(
+                    ChatMessage(
+                        role="tool",
+                        content=json.dumps(error_dict),
+                        tool_call_id=tc.id,
+                    )
+                )
+            yield self._emitter.error(
+                f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT:.0f} seconds"
+            )
+            return
 
         # Process results in original order, adding to history sequentially
         for execution in executions:
@@ -591,8 +667,8 @@ class ChatOrchestrator:
             )
 
             # Yield events
-            yield self._emitter.tool_start(tc.name, tc.arguments)
-            yield self._emitter.tool_result(tc.name, result_dict)
+            yield self._emitter.tool_start(tc.name, tc.arguments, tc.id)
+            yield self._emitter.tool_result(tc.name, result_dict, tc.id)
 
     async def _queue_approval(
         self,

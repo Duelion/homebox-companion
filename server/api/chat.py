@@ -198,6 +198,7 @@ async def approve_action(
             success=result.success,
             data=result.data,
             error=result.error,
+            display_info=approval.display_info,
         )
 
         return JSONResponse(

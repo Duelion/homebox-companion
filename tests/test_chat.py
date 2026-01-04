@@ -358,12 +358,13 @@ class TestToolCallAccumulator:
             "arguments": '{"item_id": "abc-123"}',
         }
 
-        tool_calls = accumulator.build()
+        tool_calls, incomplete = accumulator.build()
 
         # Should only have 1 call after deduplication
         assert len(tool_calls) == 1
         assert tool_calls[0].id == "call_1"
         assert tool_calls[0].arguments == {"item_id": "abc-123"}
+        assert len(incomplete) == 0
 
     def test_deduplication_preserves_different_args(self):
         """Tool calls with different arguments should NOT be deduplicated."""
@@ -383,10 +384,11 @@ class TestToolCallAccumulator:
             "arguments": '{"item_id": "def-456"}',
         }
 
-        tool_calls = accumulator.build()
+        tool_calls, incomplete = accumulator.build()
 
         # Both calls should be preserved
         assert len(tool_calls) == 2
+        assert len(incomplete) == 0
 
     def test_deduplication_preserves_different_tools(self):
         """Different tools with same arguments should NOT be deduplicated."""
@@ -406,19 +408,21 @@ class TestToolCallAccumulator:
             "arguments": '{"item_id": "abc-123"}',
         }
 
-        tool_calls = accumulator.build()
+        tool_calls, incomplete = accumulator.build()
 
         # Both calls should be preserved
         assert len(tool_calls) == 2
+        assert len(incomplete) == 0
 
     def test_deduplication_handles_empty_list(self):
         """Empty tool call list should work without error."""
         from homebox_companion.chat.orchestrator import ToolCallAccumulator
 
         accumulator = ToolCallAccumulator()
-        tool_calls = accumulator.build()
+        tool_calls, incomplete = accumulator.build()
 
         assert len(tool_calls) == 0
+        assert len(incomplete) == 0
 
     def test_deduplication_handles_single_call(self):
         """Single tool call should work without deduplication issue."""
@@ -431,9 +435,10 @@ class TestToolCallAccumulator:
             "arguments": "{}",
         }
 
-        tool_calls = accumulator.build()
+        tool_calls, incomplete = accumulator.build()
 
         assert len(tool_calls) == 1
+        assert len(incomplete) == 0
 
 
 # =============================================================================
@@ -450,7 +455,7 @@ class TestChatOrchestrator:
         client = MagicMock()
         client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test"}])
         client.list_labels = AsyncMock(return_value=[])
-        client.list_items = AsyncMock(return_value=[])
+        client.list_items = AsyncMock(return_value={"items": [], "page": 1, "pageSize": 50, "total": 0})
         return client
 
     @pytest.fixture
