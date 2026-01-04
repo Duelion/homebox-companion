@@ -183,6 +183,11 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 
 			log.debug('Starting SSE stream parsing');
 			let receivedDone = false;
+			// Track current event type across chunk boundaries
+			// SSE format: event: <type>\ndata: <json>\n\n
+			// If chunk boundary falls between event: and data: lines,
+			// we need to remember the event type for the next chunk
+			let currentEvent: ChatEventType | null = null;
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) {
@@ -197,8 +202,6 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 				buffer += decoder.decode(value, { stream: true });
 				const lines = buffer.split('\n');
 				buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-				let currentEvent: ChatEventType | null = null;
 				for (const line of lines) {
 					if (line.startsWith('event: ')) {
 						currentEvent = line.slice(7).trim() as ChatEventType;
