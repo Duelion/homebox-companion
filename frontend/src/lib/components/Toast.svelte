@@ -10,6 +10,7 @@
 		success: 'bg-success-500/20 border-success-500/30 text-success-500',
 		warning: 'bg-warning-500/20 border-warning-500/30 text-warning-500',
 		error: 'bg-error-500/20 border-error-500/30 text-error-500',
+		update: 'bg-amber-900/90 border-amber-500/40 text-amber-300',
 	};
 
 	// Progress bar colors for each type
@@ -18,6 +19,7 @@
 		success: 'bg-success-500',
 		warning: 'bg-warning-500',
 		error: 'bg-error-500',
+		update: 'bg-amber-500',
 	};
 
 	const typeIcons = {
@@ -26,6 +28,7 @@
 		warning:
 			'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
 		error: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
+		update: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
 	};
 </script>
 
@@ -59,7 +62,23 @@
 							d={typeIcons[toast.type]}
 						/>
 					</svg>
-					<p class="flex-1 text-sm font-medium">{toast.message}</p>
+					<div class="flex flex-1 flex-col gap-1">
+						<p class="text-sm font-medium">{toast.message}</p>
+						{#if toast.action}
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
+							<a
+								href={toast.action.href}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-sm underline transition-colors {toast.type === 'update'
+									? 'text-primary hover:text-primary/80'
+									: 'hover:opacity-80'}"
+							>
+								{toast.action.label}
+							</a>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{/if}
+					</div>
 					<button
 						type="button"
 						class="flex min-h-8 min-w-8 items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
@@ -77,8 +96,8 @@
 					</button>
 				</div>
 
-				<!-- Auto-dismiss progress bar -->
-				{#if !toast.exiting}
+				<!-- Auto-dismiss progress bar (only for non-persistent toasts) -->
+				{#if !toast.exiting && !toast.persistent}
 					<div class="h-0.5 w-full bg-black/20">
 						<div
 							class="h-full {progressColors[toast.type]} toast-progress"

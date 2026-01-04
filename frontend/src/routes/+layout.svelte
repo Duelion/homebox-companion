@@ -6,7 +6,7 @@
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
-	import { uiStore } from '$lib/stores/ui.svelte';
+	import { uiStore, showToast } from '$lib/stores/ui.svelte';
 	import { getVersion, getConfig } from '$lib/api';
 	import { setLogLevel } from '$lib/utils/logger';
 	import { initializeAuth } from '$lib/services/tokenRefresh';
@@ -24,18 +24,33 @@
 	let latestVersion = $derived(uiStore.latestVersion);
 	let updateDismissed = $derived(uiStore.updateDismissed);
 
-	// Local state for update banner exit animation
-	let updateBannerExiting = $state(false);
+	// Track if we've already shown the update toast
+	let updateToastId = $state<number | null>(null);
 
-	function dismissUpdate() {
-		// Start exit animation first
-		updateBannerExiting = true;
-		// Wait for animation to complete before actually dismissing
-		setTimeout(() => {
-			uiStore.setUpdateDismissed(true);
-			updateBannerExiting = false;
-		}, 300); // Match animation duration
-	}
+	// Show update toast when a new version is available
+	$effect(() => {
+		if (latestVersion && !updateDismissed && updateToastId === null && browser) {
+			updateToastId = showToast(`Update available: v${latestVersion}`, 'update', 0, {
+				persistent: true,
+				action: {
+					label: 'View release',
+					href: 'https://github.com/Duelion/homebox-companion/releases/latest',
+				},
+			});
+		}
+	});
+
+	// Monitor toasts to detect when the update toast is dismissed
+	$effect(() => {
+		if (updateToastId !== null && browser) {
+			const toastExists = uiStore.toasts.some((t) => t.id === updateToastId);
+			if (!toastExists) {
+				// Update toast was dismissed
+				uiStore.setUpdateDismissed(true);
+				updateToastId = null;
+			}
+		}
+	});
 
 	// Event handlers (stable references for cleanup)
 	function handleOnline() {
@@ -158,48 +173,6 @@
 
 	<!-- Spacer for fixed header -->
 	<div class="pt-safe h-14 shrink-0"></div>
-
-	<!-- Update available banner - fixed overlay just below header -->
-	{#if latestVersion && !updateDismissed}
-		<div
-			class="fixed left-1/2 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] z-30 flex -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-amber-500/40 bg-amber-900/90 px-3 py-1.5 text-sm text-amber-300 shadow-lg backdrop-blur-sm
-				{updateBannerExiting ? 'animate-fade-slide-out' : 'animate-fade-in'}"
-		>
-			<svg
-				class="h-4 w-4 shrink-0"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="2"
-			>
-				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-				<polyline points="7 10 12 15 17 10" />
-				<line x1="12" y1="15" x2="12" y2="3" />
-			</svg>
-			<span>
-				Update available: <strong class="text-amber-200">v{latestVersion}</strong>
-			</span>
-			<a
-				href="https://github.com/Duelion/homebox-companion/releases/latest"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="text-primary underline transition-colors hover:text-primary/80"
-			>
-				View release
-			</a>
-			<button
-				type="button"
-				class="ml-0.5 shrink-0 rounded-full p-0.5 transition-colors hover:bg-amber-500/30"
-				title="Dismiss"
-				onclick={dismissUpdate}
-			>
-				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-					<line x1="18" y1="6" x2="6" y2="18" />
-					<line x1="6" y1="6" x2="18" y2="18" />
-				</svg>
-			</button>
-		</div>
-	{/if}
 
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main class="flex-1">

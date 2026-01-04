@@ -154,17 +154,19 @@ class TestListLocations:
         mock_client.list_locations.assert_called_once_with("test-token", filter_children=True)
 
     @pytest.mark.asyncio
-    async def test_returns_error_on_exception(self, mock_client: MagicMock):
-        """Should return error result when API call fails."""
+    async def test_raises_exception_on_api_error(self, mock_client: MagicMock):
+        """Should propagate exception when API call fails.
+
+        Note: Error handling (converting to ToolResult) is done by the
+        ToolExecutor, not by individual tools. This keeps tools simple.
+        """
         mock_client.list_locations.side_effect = Exception("Connection failed")
 
         tool = ListLocationsTool()
         params = tool.Params()
-        result = await tool.execute(mock_client, "test-token", params)
 
-        assert result.success is False
-        assert result.error is not None
-        assert "Connection failed" in result.error
+        with pytest.raises(Exception, match="Connection failed"):
+            await tool.execute(mock_client, "test-token", params)
 
 
 # =============================================================================
@@ -199,17 +201,19 @@ class TestGetLocation:
         mock_client.get_location.assert_called_once_with("test-token", "loc1")
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_missing_location(self, mock_client: MagicMock):
-        """Should return error when location not found."""
+    async def test_raises_exception_for_missing_location(self, mock_client: MagicMock):
+        """Should propagate exception when location not found.
+
+        Note: Error handling (converting to ToolResult) is done by the
+        ToolExecutor, not by individual tools. This keeps tools simple.
+        """
         mock_client.get_location.side_effect = Exception("Location not found")
 
         tool = GetLocationTool()
         params = tool.Params(location_id="nonexistent")
-        result = await tool.execute(mock_client, "test-token", params)
 
-        assert result.success is False
-        assert result.error is not None
-        assert "not found" in result.error.lower()
+        with pytest.raises(Exception, match="Location not found"):
+            await tool.execute(mock_client, "test-token", params)
 
 
 # =============================================================================
@@ -337,17 +341,19 @@ class TestGetItem:
         mock_client.get_item.assert_called_once_with("test-token", "item1")
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_missing_item(self, mock_client: MagicMock):
-        """Should return error when item not found."""
+    async def test_raises_exception_for_missing_item(self, mock_client: MagicMock):
+        """Should propagate exception when item not found.
+
+        Note: Error handling (converting to ToolResult) is done by the
+        ToolExecutor, not by individual tools. This keeps tools simple.
+        """
         mock_client.get_item.side_effect = Exception("Item not found")
 
         tool = GetItemTool()
         params = tool.Params(item_id="nonexistent")
-        result = await tool.execute(mock_client, "test-token", params)
 
-        assert result.success is False
-        assert result.error is not None
-        assert "not found" in result.error.lower()
+        with pytest.raises(Exception, match="Item not found"):
+            await tool.execute(mock_client, "test-token", params)
 
 
 # =============================================================================

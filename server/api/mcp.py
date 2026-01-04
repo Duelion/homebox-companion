@@ -34,23 +34,27 @@ async def list_mcp_tools(
     External MCP hosts typically use the MCP protocol directly.
 
     Returns:
-        JSON object with tool names and their metadata
+        JSON object with tool names and their metadata.
+        Each tool's parameters include 'token' as a required field.
     """
     if not settings.chat_enabled:
         return JSONResponse(
             status_code=503, content={"error": "Chat/MCP feature is disabled"}
         )
 
-    # Filter to only read-only tools
-    read_only_tools = {
-        tool.name: {
-            "description": tool.description,
-            "parameters": tool.Params.model_json_schema(),
+    # Get schemas with token parameter included for MCP protocol
+    schemas = executor.get_tool_schemas(include_write=False, include_token=True)
+
+    # Convert to dict format for JSON response
+    tools_dict = {
+        schema["function"]["name"]: {
+            "description": schema["function"]["description"],
+            "parameters": schema["function"]["parameters"],
         }
-        for tool in executor.list_tools(permission_filter=ToolPermission.READ)
+        for schema in schemas
     }
 
-    return JSONResponse(content={"tools": read_only_tools})
+    return JSONResponse(content={"tools": tools_dict})
 
 
 @router.post("/mcp/v1/tools/{tool_name}")
