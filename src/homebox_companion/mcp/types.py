@@ -87,7 +87,8 @@ class DisplayInfo(BaseModel):
     model_config = ConfigDict(extra="allow")  # Allow additional fields
 
     action_type: ActionType | None = None  # Derived from tool name: create, update, delete
-    item_name: str | None = None
+    target_name: str | None = None  # Name of the target being operated on (item, location, label)
+    item_name: str | None = None  # Kept for backward compatibility with item operations
     asset_id: str | None = None
     location: str | None = None
 

@@ -171,14 +171,17 @@ class ToolExecutor:
         # Derive action type from tool name convention (create_*, update_*, delete_*)
         action_type = get_action_type_from_tool_name(tool_name)
 
-        item_name: str | None = None
+        target_name: str | None = None
+        item_name: str | None = None  # Kept for backward compatibility
         asset_id: str | None = None
         location: str | None = None
 
         try:
+            # Item operations
             if tool_name in ("delete_item", "update_item") and "item_id" in tool_args:
                 item = await self._client.get_item(token, tool_args["item_id"])
                 item_name = item.get("name")
+                target_name = item_name
                 if item.get("assetId"):
                     asset_id = item.get("assetId")
                 if tool_name == "delete_item" and item.get("location"):
@@ -187,6 +190,7 @@ class ToolExecutor:
             elif tool_name == "create_item":
                 if "name" in tool_args:
                     item_name = tool_args["name"]
+                    target_name = item_name
                 if "location_id" in tool_args:
                     try:
                         loc = await self._client.get_location(token, tool_args["location_id"])
@@ -194,11 +198,28 @@ class ToolExecutor:
                     except Exception as e:
                         logger.debug(f"Location lookup failed: {e}")
 
+            # Location operations
+            elif tool_name in ("update_location", "delete_location") and "location_id" in tool_args:
+                loc = await self._client.get_location(token, tool_args["location_id"])
+                target_name = loc.get("name")
+
+            elif tool_name == "create_location":
+                target_name = tool_args.get("name")
+
+            # Label operations
+            elif tool_name in ("update_label", "delete_label") and "label_id" in tool_args:
+                label = await self._client.get_label(token, tool_args["label_id"])
+                target_name = label.get("name")
+
+            elif tool_name == "create_label":
+                target_name = tool_args.get("name")
+
         except Exception as e:
             logger.debug(f"Failed to fetch display info for {tool_name}: {e}")
 
         return DisplayInfo(
             action_type=action_type,
+            target_name=target_name,
             item_name=item_name,
             asset_id=asset_id,
             location=location,

@@ -79,6 +79,32 @@ def clear_tool_registry() -> None:
 
 
 # =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def _sort_items_by_location_and_name(items: list[dict]) -> list[dict]:
+    """Sort items by location name, then by item name.
+
+    This helps the AI parse results more efficiently by grouping items
+    by location and maintaining alphabetical order within each location.
+
+    Args:
+        items: List of item dicts with 'name' and 'location' fields.
+
+    Returns:
+        Sorted list of items.
+    """
+    return sorted(
+        items,
+        key=lambda item: (
+            (item.get("location", {}) or {}).get("name", "").lower(),
+            item.get("name", "").lower(),
+        ),
+    )
+
+
+# =============================================================================
 # ERROR HANDLING DECORATOR
 # =============================================================================
 
@@ -204,8 +230,8 @@ class ListItemsTool:
 
     name: str = "list_items"
     description: str = (
-        "List items in the inventory with optional filtering and pagination. "
-        "You can filter by location_name (preferred) or location_id. "
+        "List items in the inventory with optional filtering. "
+        "Set page_size to the user's requested count (e.g., 'list 100 items' -> page_size=100). "
         "For text-based searches, prefer using search_items instead."
     )
     permission: ToolPermission = ToolPermission.READ
@@ -232,7 +258,7 @@ class ListItemsTool:
         )
         page_size: int = Field(
             default=50,
-            description="Number of items per page (default 50, max recommended 100)",
+            description="Number of items to return. Use the user's requested count if specified.",
         )
         compact: bool = Field(
             default=True,
@@ -281,11 +307,13 @@ class ListItemsTool:
 
         if params.compact:
             items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
-            logger.debug(f"list_items returned {len(items)} items (compact mode)")
         else:
             # Use ItemView for consistent URL generation
             items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
-            logger.debug(f"list_items returned {len(items)} items")
+
+        # Sort by location name, then item name for easier AI parsing
+        items = _sort_items_by_location_and_name(items)
+        logger.debug(f"list_items returned {len(items)} items (sorted by location/name)")
 
         # Include pagination metadata so LLM knows if there are more items
         return ToolResult(
@@ -309,8 +337,8 @@ class SearchItemsTool:
 
     name: str = "search_items"
     description: str = (
-        "Search items by text query. Use this for semantic searches like 'find rope', "
-        "'items for building X', or any text-based search. More efficient than listing all items."
+        "Search items by text query. Use for semantic searches like 'find rope'. "
+        "Set page_size to the user's requested count if specified."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -324,7 +352,7 @@ class SearchItemsTool:
         )
         page_size: int = Field(
             default=50,
-            description="Number of items per page (default 50, max recommended 100)",
+            description="Number of items to return. Use the user's requested count if specified.",
         )
         compact: bool = Field(
             default=True,
@@ -353,13 +381,15 @@ class SearchItemsTool:
 
         if params.compact:
             items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
-            logger.debug(
-                f"search_items('{params.query}') returned {len(items)} items (compact)"
-            )
         else:
             # Use ItemView for consistent URL generation
             items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
-            logger.debug(f"search_items('{params.query}') returned {len(items)} items")
+
+        # Sort by location name, then item name for easier AI parsing
+        items = _sort_items_by_location_and_name(items)
+        logger.debug(
+            f"search_items('{params.query}') returned {len(items)} items (sorted by location/name)"
+        )
 
         # Include pagination metadata so LLM knows if there are more items
         return ToolResult(
