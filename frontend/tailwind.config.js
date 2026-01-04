@@ -217,7 +217,7 @@ export default {
         },
         toastFadeOut: {
           from: { opacity: '1', transform: 'translateY(0) scale(1)' },
-          to: { opacity: '0', transform: 'translateY(1rem) scale(0.95)' },
+          to: { opacity: '0', transform: 'translateY(-1rem) scale(0.95)' },
         },
         progressShrink: {
           from: { width: '100%' },
