@@ -730,6 +730,15 @@ class ChatStore {
 		this._isStreaming = false;
 		this.abortController = null;
 
+		// Clean up any tools that started but never received results
+		// This can happen if the stream ends unexpectedly or a tool_result event is dropped
+		if (this.pendingTools.size > 0) {
+			log.warn(
+				`Stream completed with ${this.pendingTools.size} pending tool(s) - marking as incomplete`
+			);
+			this.cleanupPendingTools('Stream ended without result');
+		}
+
 		// Mark streaming message as complete and log the final message
 		if (this.streamingMessageId) {
 			const completedMessage = this._messages.find((m) => m.id === this.streamingMessageId);

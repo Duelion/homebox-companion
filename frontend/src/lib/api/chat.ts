@@ -6,6 +6,7 @@
  */
 
 import { authStore } from '../stores/auth.svelte';
+import { abortSignalAny } from '../utils/abortSignal';
 import { ApiError, request } from './client';
 import { chatLogger as log } from '../utils/logger';
 
@@ -129,8 +130,9 @@ export interface SendMessageOptions {
  */
 export function sendMessage(message: string, options: SendMessageOptions = {}): AbortController {
 	const controller = new AbortController();
+	// Use abortSignalAny for browser compatibility (AbortSignal.any not in older Safari/Chrome)
 	const signal = options.signal
-		? AbortSignal.any([options.signal, controller.signal])
+		? abortSignalAny([options.signal, controller.signal])
 		: controller.signal;
 
 	// Run async operation

@@ -12,8 +12,13 @@
 export interface Toast {
 	id: number;
 	message: string;
-	type: 'info' | 'success' | 'warning' | 'error';
+	type: 'info' | 'success' | 'warning' | 'error' | 'update';
 	exiting?: boolean;
+	persistent?: boolean;
+	action?: {
+		label: string;
+		href: string;
+	};
 }
 
 // =============================================================================
@@ -172,13 +177,21 @@ class UIStore {
 	}
 
 	/** Show a toast notification */
-	showToast(message: string, type: Toast['type'] = 'info', duration = TOAST_DURATION_MS): number {
+	showToast(
+		message: string,
+		type: Toast['type'] = 'info',
+		duration = TOAST_DURATION_MS,
+		options?: { persistent?: boolean; action?: { label: string; href: string } }
+	): number {
 		const id = ++this.toastIdCounter;
 
-		this._toasts = [...this._toasts, { id, message, type }];
+		this._toasts = [
+			...this._toasts,
+			{ id, message, type, persistent: options?.persistent, action: options?.action },
+		];
 
-		// If we exceed max, mark oldest non-exiting toast for removal
-		const visibleToasts = this._toasts.filter((toast) => !toast.exiting);
+		// If we exceed max, mark oldest non-exiting, non-persistent toast for removal
+		const visibleToasts = this._toasts.filter((toast) => !toast.exiting && !toast.persistent);
 		if (visibleToasts.length > MAX_VISIBLE_TOASTS) {
 			const oldestId = visibleToasts[0].id;
 			// Schedule removal of oldest toast
@@ -186,7 +199,8 @@ class UIStore {
 			this.registerTimer(oldestId, overflowTimer);
 		}
 
-		if (duration > 0) {
+		// Only auto-dismiss if not persistent and duration is positive
+		if (!options?.persistent && duration > 0) {
 			const dismissTimer = setTimeout(() => this.removeToast(id), duration);
 			this.registerTimer(id, dismissTimer);
 		}
@@ -224,8 +238,12 @@ export const uiStore = new UIStore();
 
 export const setLoading = (loading: boolean, message?: string) =>
 	uiStore.setLoading(loading, message);
-export const showToast = (message: string, type?: Toast['type'], duration?: number) =>
-	uiStore.showToast(message, type, duration);
+export const showToast = (
+	message: string,
+	type?: Toast['type'],
+	duration?: number,
+	options?: { persistent?: boolean; action?: { label: string; href: string } }
+) => uiStore.showToast(message, type, duration, options);
 export const dismissToast = (id: number) => uiStore.dismissToast(id);
 export const clearAllToasts = () => uiStore.clearAllToasts();
 

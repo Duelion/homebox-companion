@@ -55,16 +55,17 @@ def create_mcp_server(client: HomeboxClient | None = None) -> Server:
             logger.debug("Chat/MCP is disabled, returning empty tool list")
             return []
 
+        # Get schemas with token parameter included for MCP protocol
         # Only expose read-only tools (write tools require approval via chat)
-        read_tools = executor.list_tools(permission_filter=ToolPermission.READ)
+        schemas = executor.get_tool_schemas(include_write=False, include_token=True)
 
         result = [
             Tool(
-                name=tool.name,
-                description=tool.description,
-                inputSchema=tool.Params.model_json_schema(),
+                name=schema["function"]["name"],
+                description=schema["function"]["description"],
+                inputSchema=schema["function"]["parameters"],
             )
-            for tool in read_tools
+            for schema in schemas
         ]
 
         logger.debug(f"Returning {len(result)} tools")

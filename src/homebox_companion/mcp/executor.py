@@ -99,7 +99,11 @@ class ToolExecutor:
             tools = [t for t in tools if t.permission == permission_filter]
         return tools
 
-    def get_tool_schemas(self, include_write: bool = True) -> list[dict[str, Any]]:
+    def get_tool_schemas(
+        self,
+        include_write: bool = True,
+        include_token: bool = False,
+    ) -> list[dict[str, Any]]:
         """Get tool definitions in OpenAI/LiteLLM function calling format.
 
         Uses instance-level caching with TTL to avoid rebuilding schemas.
@@ -107,10 +111,15 @@ class ToolExecutor:
         Args:
             include_write: If True, include WRITE and DESTRUCTIVE tools.
                           If False, only include READ tools.
+            include_token: If True, include 'token' as a required parameter
+                          in each schema. Used for MCP protocol where clients
+                          need to know about authentication requirements.
 
         Returns:
             List of tool schema dicts suitable for LLM function calling.
         """
+        import copy
+
         # Check instance-level cache
         if self._schema_cache and (time.time() - self._schema_cache[1]) < _SCHEMA_CACHE_TTL:
             all_schemas = self._schema_cache[0]
@@ -129,15 +138,35 @@ class ToolExecutor:
             self._schema_cache = (all_schemas, time.time())
             logger.debug(f"Built and cached {len(all_schemas)} tool schemas")
 
+        # Filter by permission if needed
         if include_write:
-            return list(all_schemas)  # Return copy to prevent cache mutation
+            schemas = all_schemas
+        else:
+            read_tool_names = {
+                t.name for t in self._tools_by_name.values()
+                if t.permission == ToolPermission.READ
+            }
+            schemas = [s for s in all_schemas if s["function"]["name"] in read_tool_names]
 
-        # Filter to READ-only tools
-        read_tool_names = {
-            t.name for t in self._tools_by_name.values()
-            if t.permission == ToolPermission.READ
-        }
-        return [s for s in all_schemas if s["function"]["name"] in read_tool_names]
+        # Deep copy to prevent cache mutation
+        result = copy.deepcopy(schemas)
+
+        # Inject token parameter for MCP protocol compatibility
+        if include_token:
+            for schema in result:
+                params = schema["function"]["parameters"]
+                if "properties" not in params:
+                    params["properties"] = {}
+                params["properties"]["token"] = {
+                    "type": "string",
+                    "description": "Homebox authentication token (required)",
+                }
+                if "required" not in params:
+                    params["required"] = []
+                if "token" not in params["required"]:
+                    params["required"].append("token")
+
+        return result
 
     def invalidate_cache(self) -> None:
         """Invalidate all caches including tool discovery and schema cache.

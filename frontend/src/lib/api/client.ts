@@ -3,6 +3,7 @@
  */
 
 import { authStore } from '../stores/auth.svelte';
+import { abortSignalAny } from '../utils/abortSignal';
 import { apiLogger as log } from '../utils/logger';
 import { refreshToken } from '../services/tokenRefresh';
 
@@ -43,8 +44,8 @@ function createTimeoutSignal(
 	}
 
 	// Combine caller signal with timeout signal
-	// AbortSignal.any() combines multiple signals - aborts when any one aborts
-	const combinedSignal = AbortSignal.any([callerSignal, timeoutSignal]);
+	// Uses abortSignalAny for browser compatibility (AbortSignal.any not in older Safari/Chrome)
+	const combinedSignal = abortSignalAny([callerSignal, timeoutSignal]);
 	// Mark the combined signal as timeout-capable
 	timeoutSignals.add(combinedSignal);
 	return combinedSignal;

@@ -16,10 +16,8 @@ from __future__ import annotations
 
 import base64
 import binascii
-from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from functools import wraps
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from loguru import logger
 from pydantic import Field
@@ -105,30 +103,6 @@ def _sort_items_by_location_and_name(items: list[dict]) -> list[dict]:
 
 
 # =============================================================================
-# ERROR HANDLING DECORATOR
-# =============================================================================
-
-
-def handle_tool_errors(
-    func: Callable[..., Coroutine[Any, Any, ToolResult]],
-) -> Callable[..., Coroutine[Any, Any, ToolResult]]:
-    """Decorator to standardize error handling for tool execute methods.
-
-    Catches exceptions, logs them, and returns a standardized ToolResult.
-    """
-
-    @wraps(func)
-    async def wrapper(self: Any, *args: Any, **kwargs: Any) -> ToolResult:
-        try:
-            return await func(self, *args, **kwargs)
-        except Exception as e:
-            logger.error(f"{self.name} failed: {e}")
-            return ToolResult(success=False, error=str(e))
-
-    return wrapper
-
-
-# =============================================================================
 # READ-ONLY TOOLS
 # =============================================================================
 
@@ -152,7 +126,6 @@ class ListLocationsTool:
             description="If true, only return top-level locations",
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -185,7 +158,6 @@ class GetLocationTool:
     class Params(ToolParams):
         location_id: str = Field(description="The ID of the location to fetch")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -211,7 +183,6 @@ class ListLabelsTool:
     class Params(ToolParams):
         pass  # No parameters needed
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -268,7 +239,6 @@ class ListItemsTool:
             ),
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -279,20 +249,39 @@ class ListItemsTool:
         resolved_location_id = params.location_id
         if params.location_name and not params.location_id:
             locations = await client.list_locations(token)
-            for loc in locations:
-                if loc.get("name", "").lower() == params.location_name.lower():
-                    resolved_location_id = loc.get("id")
-                    logger.debug(
-                        f"list_items: resolved location_name '{params.location_name}' "
-                        f"to id '{resolved_location_id}'"
-                    )
-                    break
-            else:
-                # Location not found
+            # Find ALL matching locations (case-insensitive)
+            matches = [
+                loc for loc in locations
+                if loc.get("name", "").lower() == params.location_name.lower()
+            ]
+
+            if not matches:
                 return ToolResult(
                     success=False,
                     error=f"Location '{params.location_name}' not found",
                 )
+
+            if len(matches) > 1:
+                # Ambiguous: multiple locations with same name
+                match_ids = [m.get("id", "unknown") for m in matches]
+                logger.warning(
+                    f"list_items: location_name '{params.location_name}' matched "
+                    f"{len(matches)} locations: {match_ids}. Using first match."
+                )
+                return ToolResult(
+                    success=False,
+                    error=(
+                        f"Ambiguous location name '{params.location_name}' matches "
+                        f"{len(matches)} locations. Use location_id instead: {match_ids}"
+                    ),
+                )
+
+            # Single match - use it
+            resolved_location_id = matches[0].get("id")
+            logger.debug(
+                f"list_items: resolved location_name '{params.location_name}' "
+                f"to id '{resolved_location_id}'"
+            )
 
         response = await client.list_items(
             token,
@@ -362,7 +351,6 @@ class SearchItemsTool:
             ),
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -418,7 +406,6 @@ class GetItemTool:
     class Params(ToolParams):
         item_id: str = Field(description="ID of the item to fetch")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -447,7 +434,6 @@ class GetStatisticsTool:
     class Params(ToolParams):
         pass  # No parameters needed
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -474,7 +460,6 @@ class GetItemByAssetIdTool:
     class Params(ToolParams):
         asset_id: str = Field(description="The asset ID to look up (e.g., '000-085')")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -506,7 +491,6 @@ class GetLocationTreeTool:
             description="If true, include items in the tree structure",
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -536,7 +520,6 @@ class GetStatisticsByLocationTool:
     class Params(ToolParams):
         pass  # No parameters needed
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -563,7 +546,6 @@ class GetStatisticsByLabelTool:
     class Params(ToolParams):
         pass  # No parameters needed
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -590,7 +572,6 @@ class GetItemPathTool:
     class Params(ToolParams):
         item_id: str = Field(description="ID of the item")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -615,7 +596,6 @@ class GetAttachmentTool:
         item_id: str = Field(description="ID of the item the attachment belongs to")
         attachment_id: str = Field(description="ID of the attachment to fetch")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -665,7 +645,6 @@ class CreateItemTool:
             description="Optional list of label IDs to apply",
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -720,7 +699,6 @@ class UpdateItemTool:
         insured: bool | None = Field(default=None, description="Optional insurance status")
         archived: bool | None = Field(default=None, description="Optional archive status")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -789,7 +767,6 @@ class CreateLocationTool:
             description="Optional parent location ID for nesting",
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -820,7 +797,6 @@ class CreateLabelTool:
         description: str = Field(default="", description="Optional description")
         color: str = Field(default="", description="Optional color for the label")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -859,7 +835,6 @@ class UpdateLocationTool:
             description="If true, remove parent to make this a top-level location",
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -907,7 +882,6 @@ class UpdateLabelTool:
         description: str | None = Field(default=None, description="Optional new description")
         color: str | None = Field(default=None, description="Optional new color")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -941,9 +915,15 @@ class UploadAttachmentTool:
     description: str = "Upload an attachment to an item"
     permission: ToolPermission = ToolPermission.WRITE
 
+    # Maximum base64 payload size: 10MB encoded ≈ 7.5MB decoded file
+    MAX_BASE64_SIZE = 10 * 1024 * 1024
+
     class Params(ToolParams):
         item_id: str = Field(description="ID of the item to attach to")
-        file_base64: str = Field(description="File content as base64 encoded string")
+        file_base64: str = Field(
+            max_length=10 * 1024 * 1024,  # 10MB base64 ≈ 7.5MB file
+            description="File content as base64 encoded string (max 10MB)",
+        )
         filename: str = Field(description="Name for the uploaded file")
         mime_type: str = Field(
             default="image/jpeg",
@@ -954,7 +934,6 @@ class UploadAttachmentTool:
             description="Type of attachment: 'photo', 'manual', 'warranty', etc.",
         )
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -994,7 +973,6 @@ class EnsureAssetIdsTool:
     class Params(ToolParams):
         pass  # No parameters needed
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -1023,7 +1001,6 @@ class DeleteItemTool:
     class Params(ToolParams):
         item_id: str = Field(description="ID of the item to delete")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -1047,7 +1024,6 @@ class DeleteLabelTool:
     class Params(ToolParams):
         label_id: str = Field(description="ID of the label to delete")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
@@ -1071,7 +1047,6 @@ class DeleteLocationTool:
     class Params(ToolParams):
         location_id: str = Field(description="ID of the location to delete")
 
-    @handle_tool_errors
     async def execute(
         self,
         client: HomeboxClient,
