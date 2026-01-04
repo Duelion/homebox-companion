@@ -12,7 +12,7 @@ import json
 import httpx
 import pytest
 
-from homebox_companion.core.exceptions import AuthenticationError
+from homebox_companion.core.exceptions import AuthenticationError, HomeboxAPIError
 from homebox_companion.homebox.client import HomeboxClient
 
 # All tests in this module are unit tests (mocked httpx, tmp_path for files)
@@ -32,34 +32,34 @@ class TestHomeboxClientErrorHandling:
         with pytest.raises(AuthenticationError, match="Token expired"):
             HomeboxClient._ensure_success(response, "Test operation")
 
-    def test_404_response_raises_runtime_error(self) -> None:
-        """404 responses should raise RuntimeError with status code."""
+    def test_404_response_raises_homebox_api_error(self) -> None:
+        """404 responses should raise HomeboxAPIError with status code."""
         response = httpx.Response(
             404,
             json={"error": "Not found"},
         )
 
-        with pytest.raises(RuntimeError, match="404"):
+        with pytest.raises(HomeboxAPIError, match="404"):
             HomeboxClient._ensure_success(response, "Fetch item")
 
-    def test_500_response_raises_runtime_error(self) -> None:
-        """500 responses should raise RuntimeError with status code."""
+    def test_500_response_raises_homebox_api_error(self) -> None:
+        """500 responses should raise HomeboxAPIError with status code."""
         response = httpx.Response(
             500,
             json={"error": "Internal server error"},
         )
 
-        with pytest.raises(RuntimeError, match="500"):
+        with pytest.raises(HomeboxAPIError, match="500"):
             HomeboxClient._ensure_success(response, "Create item")
 
     def test_malformed_json_response_raises_with_text(self) -> None:
-        """Non-JSON responses should raise error with text content."""
+        """Non-JSON responses should raise HomeboxAPIError with text content."""
         response = httpx.Response(
             400,
             text="Bad request - invalid format",
         )
 
-        with pytest.raises(RuntimeError, match="Bad request"):
+        with pytest.raises(HomeboxAPIError, match="Bad request"):
             HomeboxClient._ensure_success(response, "Update item")
 
     def test_success_response_does_not_raise(self) -> None:
