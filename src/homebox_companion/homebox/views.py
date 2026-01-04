@@ -27,6 +27,7 @@ from ..core.config import settings
 
 __all__ = [
     "LocationView",
+    "CompactLabelView",
     "CompactItemView",
     "ItemView",
     "add_tree_urls",
@@ -79,11 +80,31 @@ class LocationView(BaseModel):
         )
 
 
+class CompactLabelView(BaseModel):
+    """Minimal label view for compact item responses.
+
+    Only includes id and name to reduce token usage while still
+    allowing the LLM to work with labels without fetching full item details.
+    """
+
+    id: str
+    name: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CompactLabelView:
+        """Create a CompactLabelView from an API response dictionary."""
+        return cls(
+            id=data.get("id") or "",
+            name=data.get("name") or "",
+        )
+
+
 class CompactItemView(BaseModel):
     """Minimal item view for list responses (reduces token usage).
 
     Includes only essential fields with truncated description.
     Nested location also gets a URL for markdown link generation.
+    Labels are included as compact views (id + name only).
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -94,6 +115,7 @@ class CompactItemView(BaseModel):
     quantity: int = 1
     asset_id: str | None = Field(default=None, serialization_alias="assetId")
     location: LocationView | None = None
+    labels: list[CompactLabelView] = Field(default_factory=list)
 
     @computed_field
     @property
@@ -108,6 +130,7 @@ class CompactItemView(BaseModel):
         Uses custom parsing instead of model_validate() to:
         - Truncate description to 100 chars for token efficiency
         - Build nested LocationView for URL generation
+        - Build compact label views (id + name only)
         - Filter out unnecessary fields from the compact representation
         """
         # Build location view if present
@@ -120,6 +143,10 @@ class CompactItemView(BaseModel):
                 description="",  # Don't include description in compact view
                 item_count=0,
             )
+
+        # Build compact label views
+        labels_data = data.get("labels", [])
+        labels = [CompactLabelView.from_dict(lbl) for lbl in labels_data if lbl.get("id")]
 
         # Truncate description
         description = data.get("description") or ""
@@ -139,6 +166,7 @@ class CompactItemView(BaseModel):
             quantity=data.get("quantity", 1),
             asset_id=data.get("assetId"),
             location=location_view,
+            labels=labels,
         )
 
 

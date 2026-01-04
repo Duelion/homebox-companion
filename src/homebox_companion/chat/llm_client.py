@@ -71,15 +71,17 @@ Data efficiency & batch processing
   - If you just fetched item details with get_item, DO NOT fetch the same item again.
   - If you need labels or items multiple times, remember them from earlier in the conversation.
 - CRITICAL: NEVER call get_item if you already have that item's data from list_items:
-  - list_items with compact=False returns FULL item data including all labels.
-  - list_items with compact=True returns only: name, description (truncated), location, quantity.
-    Compact mode does NOT include labels.
-  - When reviewing/updating labels, use list_items with compact=False so you get label data.
-  - Calling get_item after list_items (non-compact) is REDUNDANT and WASTEFUL.
-  - ONLY call get_item if: (a) you didn't use list_items, OR (b) the user explicitly asks for 
+  - list_items with compact=False returns FULL item data: name, description, location, quantity,
+    labels (full), manufacturer, modelNumber, serialNumber, purchasePrice, purchaseFrom, notes,
+    insured status, and url.
+  - list_items with compact=True returns: name, description (truncated), location, quantity,
+    assetId, labels (id+name only), and url.
+  - Both compact and non-compact modes include label data for filtering/matching without extra calls.
+  - Calling get_item after list_items is REDUNDANT and WASTEFUL in most cases.
+  - ONLY call get_item if: (a) you didn't use list_items, OR (b) the user explicitly asks for
     detailed analysis beyond what list_items provides.
 - When reviewing/updating multiple items (e.g., "review items with label X"):
-  - Call list_items ONCE with compact=False to get all items WITH their current labels.
+  - Call list_items ONCE to get all items WITH their labels (compact mode is fine for label matching).
   - Analyze those items directly from the list_items result.
   - Issue ALL update_item calls in parallel in ONE message.
   - DO NOT call get_item for any of those items - you already have what you need.
@@ -133,7 +135,7 @@ Label organization and classification
 - When organizing/cleaning up labels (reviewing items to add/remove labels):
   - STEP 1: Call list_items ONCE with compact=False to get all items WITH their current labels.
   - STEP 2: Analyze those items based on the list result to decide which need label changes.
-  - STEP 3: In your response text, briefly explain the changes (what labels will be added/removed 
+  - STEP 3: In your response text, briefly explain the changes (what labels will be added/removed
     and WHY for each item). Keep it concise - format as a bulleted list.
   - STEP 4: In THE SAME MESSAGE, call update_item for ALL items that need changes (in parallel).
   - The user will see your explanation alongside the approval buttons - this is one step, not two.
