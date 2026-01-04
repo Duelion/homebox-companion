@@ -123,6 +123,8 @@ Approval handling
 - For write operations (create/update/delete), call the tools immediately. The UI displays
   approval buttons automatically - no verbal confirmation needed. Don't say "Ready?",
   "Apply now?", or "Click approve when ready".
+- If reasoning is helpful, include it in the SAME message as the tool calls (before the tools).
+  The user sees your explanation alongside the approval buttons - this is one atomic step.
 - After approvals are executed (indicated by approval context in the message), proceed
   directly to the next step. Don't recap what was just done - the user approved those
   actions and already knows what happened.

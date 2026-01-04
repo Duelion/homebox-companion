@@ -187,7 +187,7 @@
 		>
 			{#if message.content}
 				{#if isUser}
-					<p class="m-0">{message.content}</p>
+					<p class="m-0 whitespace-pre-wrap">{message.content}</p>
 				{:else}
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Rendered markdown from trusted AI response -->
 					<div class="markdown-content">{@html renderedContent}</div>

@@ -47,9 +47,54 @@ class TestToolResult:
     """Tests for ToolResult dataclass."""
 
     def test_success_result_to_dict(self):
-        """Successful result should include data in dict."""
+        """Successful result should include data and metadata in dict."""
         result = ToolResult(success=True, data={"id": "123", "name": "Test"})
-        assert result.to_dict() == {"success": True, "data": {"id": "123", "name": "Test"}}
+        expected = {
+            "success": True,
+            "metadata": {"type": "object", "name": "Test"},
+            "data": {"id": "123", "name": "Test"},
+        }
+        assert result.to_dict() == expected
+
+    def test_success_result_with_list_data(self):
+        """List data should include count in metadata."""
+        result = ToolResult(success=True, data=[{"id": "1"}, {"id": "2"}, {"id": "3"}])
+        expected = {
+            "success": True,
+            "metadata": {"count": 3, "type": "list"},
+            "data": [{"id": "1"}, {"id": "2"}, {"id": "3"}],
+        }
+        assert result.to_dict() == expected
+
+    def test_success_result_with_empty_list(self):
+        """Empty list should show count of 0."""
+        result = ToolResult(success=True, data=[])
+        expected = {
+            "success": True,
+            "metadata": {"count": 0, "type": "list"},
+            "data": [],
+        }
+        assert result.to_dict() == expected
+
+    def test_success_result_with_custom_metadata(self):
+        """Custom metadata should be included alongside computed metadata."""
+        result = ToolResult(
+            success=True,
+            data=[{"id": "1"}],
+            metadata={"custom_field": "value"},
+        )
+        expected = {
+            "success": True,
+            "metadata": {"count": 1, "type": "list", "custom_field": "value"},
+            "data": [{"id": "1"}],
+        }
+        assert result.to_dict() == expected
+
+    def test_success_result_with_none_data(self):
+        """None data should not include metadata."""
+        result = ToolResult(success=True, data=None)
+        expected = {"success": True, "data": None}
+        assert result.to_dict() == expected
 
     def test_error_result_to_dict(self):
         """Error result should include error message in dict."""

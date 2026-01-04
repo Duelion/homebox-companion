@@ -100,6 +100,7 @@ class ToolResult(BaseModel):
         success: Whether the operation succeeded
         data: The result data (on success) or None
         error: Error message (on failure) or None
+        metadata: Optional additional metadata (auto-computed if not provided)
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -107,11 +108,51 @@ class ToolResult(BaseModel):
     success: bool
     data: Any = None
     error: str | None = None
+    metadata: dict[str, Any] | None = None
+
+    def _compute_metadata(self) -> dict[str, Any]:
+        """Compute metadata based on the data type.
+
+        Returns:
+            Dictionary with computed metadata fields.
+        """
+        meta: dict[str, Any] = {}
+
+        if self.data is None:
+            return meta
+
+        if isinstance(self.data, list):
+            meta["count"] = len(self.data)
+            meta["type"] = "list"
+        elif isinstance(self.data, dict):
+            meta["type"] = "object"
+            # Include name if present (common in single item results)
+            if "name" in self.data:
+                meta["name"] = self.data["name"]
+            # Include count for nested lists (e.g., {"items_updated": 5})
+            for key in ("items_updated", "count"):
+                if key in self.data:
+                    meta["count"] = self.data[key]
+                    break
+
+        return meta
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for MCP response."""
+        """Convert to dictionary for MCP response.
+
+        Automatically includes metadata about the result (count, type, etc.)
+        to help the AI understand the scope of the response.
+        """
         if self.success:
-            return {"success": True, "data": self.data}
+            # Merge explicit metadata with computed metadata
+            computed = self._compute_metadata()
+            final_meta = {**computed, **(self.metadata or {})}
+
+            result: dict[str, Any] = {"success": True}
+            if final_meta:
+                result["metadata"] = final_meta
+            result["data"] = self.data
+            return result
         return {"success": False, "error": self.error}
 
 
