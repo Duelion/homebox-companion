@@ -60,7 +60,7 @@ Tooling norms (definitions provided separately)
   - For "find X" / "where is X", start with search_items.
   - For "items in [location]", use list_items with a location filter.
 - Updating:
-  - update_item already fetches current state; do not call get_item just to update.
+  - update_item internally fetches the current item state; NEVER call get_item before update_item.
   - Preserve existing fields unless asked to change them.
   - Labels: treat label changes as additive unless the user explicitly asks to replace labels.
     When adding a label, include both existing label IDs and the new one.
@@ -70,14 +70,19 @@ Data efficiency & batch processing
   - If you just called list_labels, DO NOT call it again in the same conversation turn.
   - If you just fetched item details with get_item, DO NOT fetch the same item again.
   - If you need labels or items multiple times, remember them from earlier in the conversation.
+- CRITICAL: NEVER call get_item if you already have that item's data from list_items:
+  - list_items with compact=False returns FULL item data including all labels.
+  - list_items with compact=True returns only: name, description (truncated), location, quantity.
+    Compact mode does NOT include labels.
+  - When reviewing/updating labels, use list_items with compact=False so you get label data.
+  - Calling get_item after list_items (non-compact) is REDUNDANT and WASTEFUL.
+  - ONLY call get_item if: (a) you didn't use list_items, OR (b) the user explicitly asks for 
+    detailed analysis beyond what list_items provides.
 - When reviewing/updating multiple items (e.g., "review items with label X"):
-  - Use list_items to get all items at once (compact mode is fine for label decisions).
-  - Based on that single list result, decide which items need updates.
+  - Call list_items ONCE with compact=False to get all items WITH their current labels.
+  - Analyze those items directly from the list_items result.
   - Issue ALL update_item calls in parallel in ONE message.
-  - DO NOT fetch items one-by-one in a loop. Process the batch together.
-- The compact list results contain enough information (name, description, labels) to make
-  label classification decisions. You do NOT need to call get_item for each item unless
-  the user explicitly asks for detailed analysis.
+  - DO NOT call get_item for any of those items - you already have what you need.
 
 Bulk operations
 - Match the user requested quantity exactly; do not silently reduce scope.
@@ -124,7 +129,7 @@ Approval handling
 
 Label organization and classification
 - When organizing/cleaning up labels (reviewing items to add/remove labels):
-  - STEP 1: Call list_items ONCE to get all items with the target label (compact mode is fine).
+  - STEP 1: Call list_items ONCE with compact=False to get all items WITH their current labels.
   - STEP 2: Analyze those items based on the list result to decide which need label changes.
   - STEP 3: In your response text, briefly explain the changes (what labels will be added/removed 
     and WHY for each item). Keep it concise - format as a bulleted list.
