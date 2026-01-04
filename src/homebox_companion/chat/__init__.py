@@ -15,7 +15,7 @@ Key components:
 from .approvals import ApprovalService
 from .llm_client import LLMClient, TokenUsage
 from .orchestrator import ChatOrchestrator
-from .session import ChatSession, PendingApproval
+from .session import ApprovalOutcome, ChatSession, PendingApproval
 from .store import MemorySessionStore, SessionStoreProtocol
 from .stream import ChatEvent, ChatEventType, StreamEmitter
 from .types import ChatMessage, ToolCall
@@ -29,6 +29,7 @@ __all__ = [
     "ChatMessage",
     "ToolCall",
     "PendingApproval",
+    "ApprovalOutcome",
     # Storage
     "SessionStoreProtocol",
     "MemorySessionStore",

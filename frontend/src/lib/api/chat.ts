@@ -104,6 +104,17 @@ export interface ChatHealthResponse {
 	approval_timeout_seconds: number;
 }
 
+/**
+ * Approval outcome for AI context injection.
+ * Sent with the next message to inform the AI about approval decisions.
+ */
+export interface ApprovalOutcomeContext {
+	tool_name: string;
+	outcome: 'approved' | 'rejected';
+	success?: boolean;
+	item_name?: string;
+}
+
 // =============================================================================
 // SSE STREAMING
 // =============================================================================
@@ -113,6 +124,8 @@ export interface SendMessageOptions {
 	onError?: (error: Error) => void;
 	onComplete?: () => void;
 	signal?: AbortSignal;
+	/** Approval outcomes to include as context for the AI */
+	approvalContext?: ApprovalOutcomeContext[];
 }
 
 /**
@@ -151,10 +164,19 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 				headers['Authorization'] = `Bearer ${authStore.token}`;
 			}
 
+			// Build request body with optional approval context
+			const requestBody: { message: string; approval_context?: ApprovalOutcomeContext[] } = {
+				message,
+			};
+			if (options.approvalContext && options.approvalContext.length > 0) {
+				requestBody.approval_context = options.approvalContext;
+				log.trace(`Including ${options.approvalContext.length} approval outcomes in request`);
+			}
+
 			const response = await fetch(`${BASE_URL}/chat/messages`, {
 				method: 'POST',
 				headers,
-				body: JSON.stringify({ message }),
+				body: JSON.stringify(requestBody),
 				signal,
 			});
 

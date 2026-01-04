@@ -6,11 +6,12 @@
 	 * - Main scrollable content area with pb-28 padding
 	 * - Fixed input pinned to bottom (above navigation) using bottom-nav-offset
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { showToast } from '$lib/stores/ui.svelte';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
@@ -87,6 +88,16 @@
 		}
 	});
 
+	// Show errors as toast notifications instead of banner
+	$effect(() => {
+		const error = chatStore.error;
+		if (error) {
+			showToast(error, 'error');
+			// Use untrack to avoid re-triggering this effect when clearing
+			untrack(() => chatStore.clearError());
+		}
+	});
+
 	onMount(async () => {
 		log.info('Chat page mounted');
 
@@ -155,24 +166,6 @@
 			</p>
 		</div>
 	{:else}
-		<!-- Error banner -->
-		{#if chatStore.error}
-			<div
-				class="text-error-400 flex items-center gap-2 border-b border-error-500/15 bg-error-500/10 px-4 py-2.5 text-body-sm"
-			>
-				<svg
-					class="h-4 w-4 shrink-0"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-				</svg>
-				<span>{chatStore.error}</span>
-			</div>
-		{/if}
-
 		<!-- Messages area -->
 		<div class="min-h-[50vh]" bind:this={messagesContainer} onscroll={handleScroll}>
 			{#if chatStore.messages.length === 0}
