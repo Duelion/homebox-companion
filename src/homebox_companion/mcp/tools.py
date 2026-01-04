@@ -234,7 +234,7 @@ class ListItemsTool:
         compact: bool = Field(
             default=True,
             description=(
-                "If true, return only essential fields (id, name, location, quantity) "
+                "If true, return only essential fields (id, name, location, quantity, labels) "
                 "to reduce payload size. Set to false for full item details."
             ),
         )
@@ -346,7 +346,7 @@ class SearchItemsTool:
         compact: bool = Field(
             default=True,
             description=(
-                "If true, return only essential fields (id, name, location, quantity). "
+                "If true, return only essential fields (id, name, location, quantity, labels). "
                 "Set to false for full item details."
             ),
         )
