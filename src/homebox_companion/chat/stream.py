@@ -15,6 +15,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from ..mcp.types import DisplayInfo
     from .llm_client import TokenUsage
     from .session import PendingApproval
 
@@ -76,38 +77,43 @@ class StreamEmitter:
         """
         return ChatEvent(type=ChatEventType.TEXT, data={"content": content})
 
-    def tool_start(self, tool_name: str, params: dict[str, Any]) -> ChatEvent:
+    def tool_start(
+        self, tool_name: str, params: dict[str, Any], execution_id: str
+    ) -> ChatEvent:
         """Create a tool execution started event.
 
         Args:
             tool_name: Name of the tool being executed.
             params: Tool parameters.
+            execution_id: Unique ID to correlate with tool_result.
 
         Returns:
             ChatEvent with TOOL_START type.
         """
         return ChatEvent(
             type=ChatEventType.TOOL_START,
-            data={"tool": tool_name, "params": params},
+            data={"tool": tool_name, "params": params, "execution_id": execution_id},
         )
 
     def tool_result(
         self,
         tool_name: str,
         result: dict[str, Any],
+        execution_id: str,
     ) -> ChatEvent:
         """Create a tool result event.
 
         Args:
             tool_name: Name of the tool that completed.
             result: Tool result as a dict (typically from ToolResult.to_dict()).
+            execution_id: Unique ID to correlate with tool_start.
 
         Returns:
             ChatEvent with TOOL_RESULT type.
         """
         return ChatEvent(
             type=ChatEventType.TOOL_RESULT,
-            data={"tool": tool_name, "result": result},
+            data={"tool": tool_name, "result": result, "execution_id": execution_id},
         )
 
     def approval_required(self, approval: PendingApproval) -> ChatEvent:
@@ -175,6 +181,7 @@ class StreamEmitter:
         success: bool,
         data: Any,
         error: str | None = None,
+        display_info: "DisplayInfo | None" = None,
     ) -> str:
         """Generate a brief confirmation message after tool execution.
 
@@ -186,6 +193,7 @@ class StreamEmitter:
             success: Whether the execution was successful
             data: Result data from the tool execution
             error: Error message if execution failed
+            display_info: Optional DisplayInfo with item name (for delete/update tools)
 
         Returns:
             Brief confirmation message with ✓ or ✗ prefix (styled by frontend)
@@ -194,30 +202,37 @@ class StreamEmitter:
             # Cross for failure - frontend styles based on ✗ prefix
             return f"✗ {tool_name} failed: {error or 'Unknown error'}"
 
-        # Build a human-readable summary based on the data
+        # Build a human-readable summary
+        # Priority: display_info.item_name > data extraction
         summary = ""
-        try:
-            if isinstance(data, dict):
-                # Common patterns for our tools
-                if "name" in data:
-                    summary = f"'{data['name']}'"
-                elif "id" in data:
-                    id_str = str(data.get("id", ""))
-                    if len(id_str) > 8:
-                        summary = f"(ID: {id_str[:8]}...)"
-                    else:
-                        summary = f"(ID: {id_str})"
-            elif isinstance(data, list):
-                count = len(data)
-                summary = f"{count} item{'s' if count != 1 else ''}"
-            elif data is not None:
-                summary = str(data)[:50]
-        except Exception:
-            # If anything goes wrong parsing data, just skip the summary
-            pass
+
+        # First try display_info (has item name for delete/update tools)
+        if display_info and display_info.item_name:
+            summary = f"'{display_info.item_name}'"
+        else:
+            # Fall back to extracting from data (for backward compatibility)
+            try:
+                if isinstance(data, dict):
+                    # Common patterns for our tools
+                    if "name" in data:
+                        summary = f"'{data['name']}'"
+                    elif "id" in data:
+                        id_str = str(data.get("id", ""))
+                        if len(id_str) > 8:
+                            summary = f"(ID: {id_str[:8]}...)"
+                        else:
+                            summary = f"(ID: {id_str})"
+                elif isinstance(data, list):
+                    count = len(data)
+                    summary = f"{count} item{'s' if count != 1 else ''}"
+                elif data is not None:
+                    summary = str(data)[:50]
+            except Exception:
+                # If anything goes wrong parsing data, just skip the summary
+                pass
 
         # Check for success - frontend styles based on ✓ prefix
         if summary:
-            return f"✓ {tool_name} completed: {summary}"
+            return f"✓ {tool_name}: {summary}"
         else:
             return f"✓ {tool_name}"
