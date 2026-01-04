@@ -44,6 +44,16 @@ export interface ChatMessage {
 }
 
 // =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Tools that modify labels - used for cache invalidation */
+const LABEL_TOOLS = new Set(['create_label', 'update_label', 'delete_label']);
+
+/** Tools that modify locations - used for cache invalidation */
+const LOCATION_TOOLS = new Set(['create_location', 'update_location', 'delete_location']);
+
+// =============================================================================
 // CHAT STORE CLASS
 // =============================================================================
 
@@ -79,6 +89,15 @@ class ChatStore {
 
 	/** ID of the message currently being streamed */
 	private streamingMessageId: string | null = null;
+
+	/** Maps executionId -> messageId for in-flight tool executions */
+	private pendingTools = new Map<string, string>();
+
+	/** Timeout handles for stuck tool cleanup, keyed by executionId */
+	private toolTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+	/** Timeout duration for stuck tools (90 seconds) */
+	private static readonly TOOL_TIMEOUT_MS = 90_000;
 
 	// =========================================================================
 	// GETTERS
@@ -154,42 +173,63 @@ class ChatStore {
 		);
 	}
 
+	/** Find the index of the last assistant message, or -1 if none exists */
+	private findLastAssistantIndex(): number {
+		return this._messages.findLastIndex((m) => m.role === 'assistant');
+	}
+
+	/** Find the ID of the last assistant message */
+	private findLastAssistantMessageId(): string | null {
+		const index = this.findLastAssistantIndex();
+		return index === -1 ? null : this._messages[index].id;
+	}
+
 	/** Mark a tool as executing (without a result yet) */
 	private markToolExecuting(toolName: string, executionId?: string): void {
-		// Try to find the target message - prefer streamingMessageId, but fall back to
-		// the most recent assistant message that is still streaming
-		let targetMessageId = this.streamingMessageId;
+		// Determine the target message
+		const messageId = this.streamingMessageId ?? this.findLastAssistantMessageId();
 
-		if (!targetMessageId) {
-			// Search for the most recent assistant message
-			// Note: We can't rely on isStreaming since handleComplete() may have cleared it
-			for (let i = this._messages.length - 1; i >= 0; i--) {
-				const msg = this._messages[i];
-				if (msg.role === 'assistant') {
-					targetMessageId = msg.id;
-					log.trace(`Found assistant message ${msg.id} for tool_start (streamingMessageId was null)`);
-					break;
-				}
-			}
-		}
-
-		if (!targetMessageId) {
+		if (!messageId) {
 			log.warn(
-				`markToolExecuting: No streaming message found for tool '${toolName}' with executionId '${executionId}'`
+				`markToolExecuting: No assistant message found for tool '${toolName}' with executionId '${executionId}'`
 			);
 			return;
 		}
 
-		this._messages = this._messages.map((msg) =>
-			msg.id === targetMessageId
-				? {
-					...msg,
-					toolResults: [
-						...(msg.toolResults || []),
-						{ tool: toolName, executionId, success: false, isExecuting: true },
-					],
+		if (!executionId) {
+			log.warn(
+				`markToolExecuting: No executionId provided for tool '${toolName}' - tool result matching may fail`
+			);
+		}
+
+		// Track the mapping for reliable result correlation
+		if (executionId) {
+			this.pendingTools.set(executionId, messageId);
+
+			// Set timeout for cleanup of stuck tools
+			const timeoutId = setTimeout(() => {
+				if (this.pendingTools.has(executionId)) {
+					this.handleToolTimeout(executionId, toolName);
 				}
+			}, ChatStore.TOOL_TIMEOUT_MS);
+			this.toolTimeouts.set(executionId, timeoutId);
+		}
+
+		// Add tool entry to the message
+		this._messages = this._messages.map((msg) =>
+			msg.id === messageId
+				? {
+						...msg,
+						toolResults: [
+							...(msg.toolResults || []),
+							{ tool: toolName, executionId, success: false, isExecuting: true },
+						],
+					}
 				: msg
+		);
+
+		log.trace(
+			`markToolExecuting: Added tool '${toolName}' (executionId: ${executionId}) to message ${messageId}`
 		);
 	}
 
@@ -199,39 +239,53 @@ class ChatStore {
 		executionId: string | undefined,
 		result: Omit<ToolResult, 'tool' | 'executionId'>
 	): void {
-		// Try to find the target message - prefer streamingMessageId, but fall back to searching
-		// This handles edge cases where tool_result arrives after stream completion
-		let targetMessageId = this.streamingMessageId;
+		// Clear timeout for this tool if it exists
+		if (executionId) {
+			const timeoutId = this.toolTimeouts.get(executionId);
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+				this.toolTimeouts.delete(executionId);
+			}
+		}
 
-		if (!targetMessageId) {
-			// Search recent assistant messages for one with matching executionId
-			// (search from most recent first)
+		// Use the pendingTools map for direct lookup (primary method)
+		let messageId: string | null = null;
+		if (executionId) {
+			messageId = this.pendingTools.get(executionId) ?? null;
+			if (messageId) {
+				this.pendingTools.delete(executionId);
+			}
+		}
+
+		// Fallback: search messages if not found in map (handles edge cases)
+		if (!messageId) {
+			log.trace(
+				`updateToolResult: executionId '${executionId}' not in pendingTools map, searching messages`
+			);
 			for (let i = this._messages.length - 1; i >= 0; i--) {
 				const msg = this._messages[i];
 				if (msg.role !== 'assistant') continue;
 
 				const hasMatch = msg.toolResults?.some((tr) =>
-					executionId
-						? tr.executionId === executionId
-						: tr.tool === toolName && tr.isExecuting
+					executionId ? tr.executionId === executionId : tr.tool === toolName && tr.isExecuting
 				);
 				if (hasMatch) {
-					targetMessageId = msg.id;
-					log.trace(`Found tool result target in message ${msg.id} (streamingMessageId was null)`);
+					messageId = msg.id;
 					break;
 				}
 			}
 		}
 
-		if (!targetMessageId) {
+		if (!messageId) {
 			log.warn(
 				`updateToolResult: Could not find message for tool '${toolName}' with executionId '${executionId}'`
 			);
 			return;
 		}
 
+		// Update the tool entry in the message
 		this._messages = this._messages.map((msg) => {
-			if (msg.id !== targetMessageId) return msg;
+			if (msg.id !== messageId) return msg;
 
 			const toolResults = msg.toolResults || [];
 			// Match by executionId if available, otherwise fallback to name + isExecuting
@@ -241,7 +295,7 @@ class ChatStore {
 
 			if (toolIndex === -1) {
 				log.warn(
-					`updateToolResult: Found message but no matching tool entry for '${toolName}' with executionId '${executionId}'`
+					`updateToolResult: Found message ${messageId} but no matching tool entry for '${toolName}' with executionId '${executionId}'`
 				);
 				return msg;
 			}
@@ -250,23 +304,24 @@ class ChatStore {
 			updatedResults[toolIndex] = { tool: toolName, executionId, ...result, isExecuting: false };
 
 			log.trace(
-				`updateToolResult: Updated tool '${toolName}' (executionId: ${executionId}) to success=${result.success}`
+				`updateToolResult: Updated tool '${toolName}' (executionId: ${executionId}) in message ${messageId} to success=${result.success}`
 			);
 			return { ...msg, toolResults: updatedResults };
 		});
 	}
 
-	/** Add a system message */
-	private addSystemMessage(content: string): void {
-		this._messages = [
-			...this._messages,
-			{
-				id: this.generateId(),
-				role: 'system',
-				content,
-				timestamp: new Date(),
-			},
-		];
+	/** Handle a tool that has timed out without receiving a result */
+	private handleToolTimeout(executionId: string, toolName: string): void {
+		log.warn(`Tool '${toolName}' timed out (executionId: ${executionId})`);
+
+		// Clean up the timeout handle
+		this.toolTimeouts.delete(executionId);
+
+		// Update the tool result to show failure
+		this.updateToolResult(toolName, executionId, {
+			success: false,
+			error: 'Tool execution timed out',
+		});
 	}
 
 	/**
@@ -280,7 +335,7 @@ class ChatStore {
 		log.trace(`Auto-rejecting ${this._pendingApprovals.length} pending approvals`);
 
 		// Find the last assistant message (where approvals were shown)
-		const lastAssistantIndex = this._messages.findLastIndex((m) => m.role === 'assistant');
+		const lastAssistantIndex = this.findLastAssistantIndex();
 		if (lastAssistantIndex === -1) {
 			// No assistant message to attach rejections to, just clear
 			this._pendingApprovals = [];
@@ -360,7 +415,42 @@ class ChatStore {
 			this.abortController.abort();
 			this.abortController = null;
 		}
+
+		this.cleanupPendingTools('Cancelled');
 		this.handleComplete();
+	}
+
+	/**
+	 * Clean up all pending tools by marking them as failed with the given error.
+	 * Safely snapshots the Map before iterating to avoid modification during iteration.
+	 */
+	private cleanupPendingTools(errorMessage: string): void {
+		if (this.pendingTools.size === 0) return;
+
+		// Snapshot entries to avoid modifying Map during iteration
+		const entries = [...this.pendingTools.entries()];
+
+		for (const [executionId, messageId] of entries) {
+			// Clear timeout
+			const timeoutId = this.toolTimeouts.get(executionId);
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+				this.toolTimeouts.delete(executionId);
+			}
+
+			// Find the tool name from the message
+			const msg = this._messages.find((m) => m.id === messageId);
+			const toolEntry = msg?.toolResults?.find((tr) => tr.executionId === executionId);
+			if (toolEntry?.tool) {
+				this.updateToolResult(toolEntry.tool, executionId, {
+					success: false,
+					error: errorMessage,
+				});
+			} else {
+				// Tool entry not found, just remove from pending
+				this.pendingTools.delete(executionId);
+			}
+		}
 	}
 
 	/**
@@ -369,6 +459,14 @@ class ChatStore {
 	async clearHistory(): Promise<void> {
 		try {
 			await chat.clearHistory();
+
+			// Clear all pending tool timeouts to prevent memory leaks
+			for (const timeoutId of this.toolTimeouts.values()) {
+				clearTimeout(timeoutId);
+			}
+			this.toolTimeouts.clear();
+			this.pendingTools.clear();
+
 			this._messages = [];
 			this._pendingApprovals = [];
 			this._error = null;
@@ -385,7 +483,14 @@ class ChatStore {
 	 */
 	async approveAction(approvalId: string, modifiedParams?: Record<string, unknown>): Promise<void> {
 		const approval = this._pendingApprovals.find((a) => a.id === approvalId);
-		const toolName = approval?.tool_name || 'unknown';
+
+		// Guard: approval may have been already processed or expired
+		if (!approval) {
+			log.warn(`approveAction: Approval ${approvalId} not found - may have already been processed`);
+			return;
+		}
+
+		const toolName = approval.tool_name;
 
 		try {
 			const result = await chat.approveAction(approvalId, modifiedParams);
@@ -398,8 +503,12 @@ class ChatStore {
 				error: result.success ? undefined : result.error,
 			};
 
-			// Batch all message updates into a single mutation to avoid multiple reactive updates
-			const lastAssistantIndex = this._messages.findLastIndex((m) => m.role === 'assistant');
+			// Find last assistant message to attach the executed action
+			const lastAssistantIndex = this.findLastAssistantIndex();
+			if (lastAssistantIndex === -1) {
+				log.warn('approveAction: No assistant message to attach executed action to');
+				return;
+			}
 
 			// Single pass: add executed action AND append confirmation text if provided
 			const updatedMessages = this._messages.map((msg, idx) => {
@@ -428,6 +537,7 @@ class ChatStore {
 			}
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to approve action';
+			throw error; // Re-throw to allow caller to handle (e.g., bulk operations)
 		}
 	}
 
@@ -438,21 +548,13 @@ class ChatStore {
 	private async refreshCachesForTool(toolName: string): Promise<void> {
 		try {
 			// Refresh labels cache when labels are created/updated/deleted
-			if (
-				toolName === 'create_label' ||
-				toolName === 'update_label' ||
-				toolName === 'delete_label'
-			) {
+			if (LABEL_TOOLS.has(toolName)) {
 				log.debug(`Refreshing labels cache after ${toolName}`);
 				await labelStore.fetchLabels(true); // force refresh
 			}
 
 			// Refresh locations cache when locations are created/updated/deleted
-			if (
-				toolName === 'create_location' ||
-				toolName === 'update_location' ||
-				toolName === 'delete_location'
-			) {
+			if (LOCATION_TOOLS.has(toolName)) {
 				log.debug(`Refreshing locations cache after ${toolName}`);
 				await locationNavigator.loadTree(); // reloads tree and flat list
 			}
@@ -467,7 +569,14 @@ class ChatStore {
 	 */
 	async rejectAction(approvalId: string): Promise<void> {
 		const approval = this._pendingApprovals.find((a) => a.id === approvalId);
-		const toolName = approval?.tool_name || 'unknown';
+
+		// Guard: approval may have been already processed or expired
+		if (!approval) {
+			log.warn(`rejectAction: Approval ${approvalId} not found - may have already been processed`);
+			return;
+		}
+
+		const toolName = approval.tool_name;
 
 		try {
 			await chat.rejectAction(approvalId);
@@ -480,18 +589,22 @@ class ChatStore {
 				rejected: true,
 			};
 
-			const lastAssistantIndex = this._messages.findLastIndex((m) => m.role === 'assistant');
-			if (lastAssistantIndex !== -1) {
-				this._messages = this._messages.map((msg, idx) => {
-					if (idx !== lastAssistantIndex) return msg;
-					return {
-						...msg,
-						executedActions: [...(msg.executedActions || []), rejectedAction],
-					};
-				});
+			const lastAssistantIndex = this.findLastAssistantIndex();
+			if (lastAssistantIndex === -1) {
+				log.warn('rejectAction: No assistant message to attach rejected action to');
+				return;
 			}
+
+			this._messages = this._messages.map((msg, idx) => {
+				if (idx !== lastAssistantIndex) return msg;
+				return {
+					...msg,
+					executedActions: [...(msg.executedActions || []), rejectedAction],
+				};
+			});
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to reject action';
+			throw error; // Re-throw to allow caller to handle (e.g., bulk operations)
 		}
 	}
 
@@ -598,6 +711,9 @@ class ChatStore {
 
 	private handleError(error: Error): void {
 		this._error = error.message;
+
+		// Clean up any in-flight tools
+		this.cleanupPendingTools('Connection error');
 
 		// Remove empty assistant message on early failure
 		if (this.streamingMessageId) {

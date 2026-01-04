@@ -201,6 +201,12 @@ async def approve_action(
             display_info=approval.display_info,
         )
 
+        # Log successful approval execution for audit trail
+        logger.info(
+            f"Approved action executed: {approval.tool_name} "
+            f"(approval_id={approval_id}, success={result.success})"
+        )
+
         return JSONResponse(
             content={
                 "success": result.success,
@@ -250,6 +256,9 @@ async def reject_action(
     # Use the session's reject_approval method which handles history update
     if not session.reject_approval(approval_id, "user rejected"):
         raise HTTPException(status_code=404, detail="Approval not found or expired")
+
+    # Log rejection for audit trail
+    logger.info(f"Action rejected by user: approval_id={approval_id}")
 
     return ApprovalResponse(success=True, message="Action rejected")
 

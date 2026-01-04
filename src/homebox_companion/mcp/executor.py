@@ -68,7 +68,7 @@ class ToolExecutor:
         """Lazy-loaded tool lookup table."""
         tools = get_tools()
         result = {t.name: t for t in tools}
-        logger.debug(f"ToolExecutor discovered {len(result)} tools")
+        logger.trace(f"ToolExecutor discovered {len(result)} tools")
         return result
 
     def get_tool(self, name: str) -> Tool | None:
@@ -216,6 +216,10 @@ class ToolExecutor:
 
         except Exception as e:
             logger.debug(f"Failed to fetch display info for {tool_name}: {e}")
+
+        # Log successful display info resolution
+        if target_name:
+            logger.debug(f"Resolved display info for {tool_name}: target_name='{target_name}'")
 
         return DisplayInfo(
             action_type=action_type,

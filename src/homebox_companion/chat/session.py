@@ -113,7 +113,7 @@ class ChatSession:
         if message.role == "tool" and message.tool_call_id:
             self._tool_message_index[message.tool_call_id] = message
 
-        logger.debug(f"Added {message.role} message, total: {len(self.messages)}")
+        logger.trace(f"Added {message.role} message, total: {len(self.messages)}")
 
         # TRACE: Log actual message content
         if message.role == "tool":

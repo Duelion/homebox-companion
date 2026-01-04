@@ -94,26 +94,36 @@
 	async function handleApproveAll() {
 		// Note: Bulk approve uses original parameters, not any user edits in expanded panels.
 		// This is intentional - users should use individual approve for edited items.
+		// Capture IDs upfront since approvals array mutates as items are processed.
 		const ids = approvals.map((a) => a.id);
 		ids.forEach((id) => processingIds.add(id));
-		try {
-			for (const id of ids) {
+
+		// Process each item individually to handle partial failures gracefully
+		for (const id of ids) {
+			try {
 				await chatStore.approveAction(id);
+			} catch {
+				// Error is already captured in chatStore.error - continue with remaining items
+			} finally {
+				processingIds.delete(id);
 			}
-		} finally {
-			processingIds.clear();
 		}
 	}
 
 	async function handleRejectAll() {
+		// Capture IDs upfront since approvals array mutates as items are processed.
 		const ids = approvals.map((a) => a.id);
 		ids.forEach((id) => processingIds.add(id));
-		try {
-			for (const id of ids) {
+
+		// Process each item individually to handle partial failures gracefully
+		for (const id of ids) {
+			try {
 				await chatStore.rejectAction(id);
+			} catch {
+				// Error is already captured in chatStore.error - continue with remaining items
+			} finally {
+				processingIds.delete(id);
 			}
-		} finally {
-			processingIds.clear();
 		}
 	}
 

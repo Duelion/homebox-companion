@@ -52,7 +52,7 @@ def create_mcp_server(client: HomeboxClient | None = None) -> Server:
     async def list_tools() -> list[Tool]:
         """Return the list of available tools."""
         if not settings.chat_enabled:
-            logger.info("Chat/MCP is disabled, returning empty tool list")
+            logger.debug("Chat/MCP is disabled, returning empty tool list")
             return []
 
         # Only expose read-only tools (write tools require approval via chat)
@@ -104,7 +104,7 @@ def create_mcp_server(client: HomeboxClient | None = None) -> Server:
             )
 
         # Execute via ToolExecutor
-        logger.info(f"Executing tool: {name}")
+        logger.debug(f"Executing tool: {name}")
         result = await executor.execute(name, tool_arguments, token)
         return [TextContent(type="text", text=json.dumps(result.to_dict()))]
 

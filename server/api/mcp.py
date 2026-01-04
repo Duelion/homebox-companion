@@ -117,7 +117,7 @@ async def execute_mcp_tool(
         )
 
     # Execute via ToolExecutor
-    logger.info(f"Executing MCP tool via HTTP: {tool_name}")
+    logger.debug(f"Executing MCP tool via HTTP: {tool_name}")
     result = await executor.execute(tool_name, tool_args, token)
 
     if not result.success:

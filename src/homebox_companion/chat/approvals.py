@@ -86,6 +86,12 @@ class ApprovalService:
         )
         result = await self._executor.execute(approval.tool_name, final_params, token)
 
+        # Log execution result for debugging
+        logger.debug(
+            f"Approved action result: {approval.tool_name} "
+            f"success={result.success}, error={result.error}"
+        )
+
         # 4. Update the tool message in history (use tool_call_id directly from approval)
         if approval.tool_call_id:
             result_message = {

@@ -7,7 +7,7 @@ DetectedItem as a Pydantic BaseModel for automatic validation.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 

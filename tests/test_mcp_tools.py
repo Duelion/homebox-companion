@@ -268,11 +268,12 @@ class TestListItems:
         assert result.success is True
         # Tool returns dict with items and pagination
         assert len(result.data["items"]) == 2
-        assert result.data["items"][0]["id"] == "item1"
-        assert result.data["items"][0]["name"] == "TV"
+        # Items are sorted by location/name, so "Couch" comes before "TV"
+        assert result.data["items"][0]["id"] == "item2"
+        assert result.data["items"][0]["name"] == "Couch"
         assert "url" in result.data["items"][0]  # Computed URL field
-        assert result.data["items"][1]["id"] == "item2"
-        assert result.data["items"][1]["name"] == "Couch"
+        assert result.data["items"][1]["id"] == "item1"
+        assert result.data["items"][1]["name"] == "TV"
         # Check pagination metadata is included
         assert "pagination" in result.data
         assert result.data["pagination"]["total"] == 2

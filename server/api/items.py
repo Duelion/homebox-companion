@@ -28,7 +28,8 @@ async def list_items(
     """
     logger.debug(f"Fetching items for location_id={location_id}")
 
-    items = await client.list_items(token, location_id=location_id)
+    response = await client.list_items(token, location_id=location_id)
+    items = response.get("items", [])
 
     # Return simplified item data
     result = [

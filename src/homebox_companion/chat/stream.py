@@ -181,7 +181,7 @@ class StreamEmitter:
         success: bool,
         data: Any,
         error: str | None = None,
-        display_info: "DisplayInfo | None" = None,
+        display_info: DisplayInfo | None = None,
     ) -> str:
         """Generate a brief confirmation message after tool execution.
 

@@ -157,6 +157,21 @@
 			return message.content; // fallback to raw text
 		}
 	});
+
+	// Badge style variants for consistent styling across tool and action badges
+	type BadgeVariant = 'success' | 'error' | 'warning' | 'primary';
+	const badgeStyles: Record<BadgeVariant, string> = {
+		success: 'border-success-500/30 bg-success-500/15 text-success-500',
+		error: 'border-error-500/30 bg-error-500/15 text-error-500',
+		warning: 'border-warning-500/30 bg-warning-500/15 text-warning-500',
+		primary: 'border-primary-500/30 bg-primary-500/15 text-primary-500',
+	};
+
+	/** Get badge style classes for a tool result */
+	function getToolBadgeVariant(group: GroupedTool): BadgeVariant {
+		if (group.isExecuting) return 'primary';
+		return group.success ? 'success' : 'error';
+	}
 </script>
 
 <div
@@ -245,13 +260,7 @@
 					<div class="chat-tools-grid">
 						<!-- Read-only tool badges -->
 						{#each groupedToolResults as group (group.toolName)}
-							<div
-								class="chat-tool-badge {group.isExecuting
-									? 'border-primary-500/30 bg-primary-500/15 text-primary-500'
-									: group.success
-										? 'border-success-500/30 bg-success-500/15 text-success-500'
-										: 'border-error-500/30 bg-error-500/15 text-error-500'}"
-							>
+							<div class="chat-tool-badge {badgeStyles[getToolBadgeVariant(group)]}">
 								{#if group.isExecuting}
 									<span class="tool-spinner"></span>
 								{:else}
@@ -270,9 +279,7 @@
 							{@const hasReject = action.rejectCount > 0}
 							<!-- Show success badge if any succeeded -->
 							{#if hasSuccess}
-								<div
-									class="chat-tool-badge border-success-500/30 bg-success-500/15 text-success-500"
-								>
+								<div class="chat-tool-badge {badgeStyles.success}">
 									<span class="font-bold">✓</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.successCount > 1}
@@ -282,7 +289,7 @@
 							{/if}
 							<!-- Show fail badge if any failed -->
 							{#if hasFail}
-								<div class="chat-tool-badge border-error-500/30 bg-error-500/15 text-error-500">
+								<div class="chat-tool-badge {badgeStyles.error}">
 									<span class="font-bold">✗</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.failCount > 1}
@@ -292,9 +299,7 @@
 							{/if}
 							<!-- Show rejected badge if any rejected -->
 							{#if hasReject}
-								<div
-									class="chat-tool-badge border-warning-500/30 bg-warning-500/15 text-warning-500"
-								>
+								<div class="chat-tool-badge {badgeStyles.warning}">
 									<span class="font-bold">⊘</span>
 									<span class="font-mono">{action.toolName}</span>
 									{#if action.rejectCount > 1}
