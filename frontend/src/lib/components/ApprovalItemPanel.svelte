@@ -154,7 +154,10 @@
 		const info = approval.display_info;
 		const params = approval.parameters;
 
-		// Items
+		// Use generic target_name if available (unified field from backend)
+		if (info?.target_name) return info.target_name;
+
+		// Items - fallback to item_name for backward compatibility
 		if (toolName === 'delete_item') return info?.item_name ?? 'Delete item';
 		if (toolName === 'update_item') return info?.item_name ?? 'Update item';
 		if (toolName === 'create_item') return info?.item_name ?? 'New item';
@@ -310,7 +313,7 @@
 		>
 			{#if actionType === 'delete'}
 				<svg
-					class="h-4.5 w-4.5 text-error-500"
+					class="text-error-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -322,7 +325,7 @@
 				</svg>
 			{:else if actionType === 'create'}
 				<svg
-					class="h-4.5 w-4.5 text-success-500"
+					class="text-success-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -332,7 +335,7 @@
 				</svg>
 			{:else}
 				<svg
-					class="h-4.5 w-4.5 text-warning-500"
+					class="text-warning-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -349,7 +352,7 @@
 		<div class="min-w-0 flex-1">
 			<p class="text-sm font-medium text-neutral-200">
 				<span
-					class="mr-1.5 text-xs font-semibold uppercase tracking-wide {actionType === 'delete'
+					class="mr-1.5 text-xs font-semibold tracking-wide uppercase {actionType === 'delete'
 						? 'text-error-400'
 						: actionType === 'create'
 							? 'text-success-400'
@@ -368,7 +371,7 @@
 			<!-- Expand/Edit Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 {expanded
+				class="hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50 {expanded
 					? 'border-primary-500/50 bg-primary-500/10 text-primary-400'
 					: ''}"
 				disabled={approval.is_expired}
@@ -406,7 +409,7 @@
 			<!-- Reject Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50"
+				class="hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleReject}
 				aria-label="Reject"
@@ -430,7 +433,7 @@
 			<!-- Approve Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 disabled:opacity-50"
+				class="hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleApprove}
 				aria-label="Approve"
@@ -502,7 +505,7 @@
 						/>
 
 						{#if hasModifications}
-							<p class="text-xs text-primary-400">You have unsaved modifications</p>
+							<p class="text-primary-400 text-xs">You have unsaved modifications</p>
 						{/if}
 					</div>
 				{:else}
@@ -533,7 +536,7 @@
 						</div>
 
 						{#if hasModifications}
-							<p class="text-xs text-primary-400">You have unsaved modifications</p>
+							<p class="text-primary-400 text-xs">You have unsaved modifications</p>
 						{/if}
 					</div>
 				{/if}
@@ -649,7 +652,7 @@
 					{/if}
 
 					{#if hasModifications}
-						<p class="text-xs text-primary-400">You have unsaved modifications</p>
+						<p class="text-primary-400 text-xs">You have unsaved modifications</p>
 					{/if}
 				</div>
 			{:else if actionType === 'delete'}
@@ -658,7 +661,7 @@
 					<p class="text-sm text-neutral-400">
 						Are you sure you want to delete this item? This action cannot be undone.
 					</p>
-					<div class="space-y-1 rounded-lg border border-error-500/20 bg-error-500/10 px-3 py-2">
+					<div class="border-error-500/20 bg-error-500/10 space-y-1 rounded-lg border px-3 py-2">
 						{#if approval.display_info?.item_name}
 							<div>
 								<span class="text-xs text-neutral-500">Item:</span>

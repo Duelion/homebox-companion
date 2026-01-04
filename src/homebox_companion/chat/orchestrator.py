@@ -610,6 +610,10 @@ class ChatOrchestrator:
         Yields:
             Tool execution events (tool_start, tool_result).
         """
+        # Emit tool_start events BEFORE execution begins
+        # This allows the frontend to show loading spinners immediately
+        for tc in tool_calls:
+            yield self._emitter.tool_start(tc.name, tc.arguments, tc.id)
 
         async def run_tool(tc: ToolCall) -> ToolExecution:
             """Execute a single tool and capture result."""
@@ -642,6 +646,8 @@ class ChatOrchestrator:
                         tool_call_id=tc.id,
                     )
                 )
+                # Emit tool_result for timeout case so frontend can show error state
+                yield self._emitter.tool_result(tc.name, error_dict, tc.id)
             yield self._emitter.error(
                 f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT:.0f} seconds"
             )
@@ -666,8 +672,7 @@ class ChatOrchestrator:
                 )
             )
 
-            # Yield events
-            yield self._emitter.tool_start(tc.name, tc.arguments, tc.id)
+            # Yield tool_result event (tool_start was already emitted before execution)
             yield self._emitter.tool_result(tc.name, result_dict, tc.id)
 
     async def _queue_approval(

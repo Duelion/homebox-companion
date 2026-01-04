@@ -231,12 +231,12 @@ export default {
           to: { transform: 'scale(1)' },
         },
         fadeSlideIn: {
-          from: { opacity: '0', transform: 'translateY(10px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
+          from: { opacity: '0', transform: 'translateX(-50%) translateY(10px)' },
+          to: { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
         },
         fadeSlideOut: {
-          from: { opacity: '1', transform: 'translateY(0)' },
-          to: { opacity: '0', transform: 'translateY(10px)' },
+          from: { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
+          to: { opacity: '0', transform: 'translateX(-50%) translateY(10px)' },
         },
         // Approval badge pulse (moved from ChatMessage.svelte, coupled to warning-500: #f59e0b)
         approvalPulse: {
