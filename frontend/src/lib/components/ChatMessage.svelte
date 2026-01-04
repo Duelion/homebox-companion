@@ -316,9 +316,9 @@
 		<!-- Copy button (appears on hover for all messages) -->
 		{#if message.content && !message.isStreaming}
 			<button
-				class="copy-btn absolute -top-1 rounded-md bg-neutral-700/80 p-1.5 text-neutral-400 opacity-0 backdrop-blur-sm transition-all hover:bg-neutral-600 hover:text-neutral-200 group-hover:opacity-100 {isUser
-					? '-left-1'
-					: '-right-1'}"
+				class="copy-btn absolute -top-1 rounded-md p-1.5 opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
+					? '-right-1 bg-primary-700/80 text-primary-200 hover:bg-primary-600 hover:text-white'
+					: '-left-1 bg-neutral-700/80 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-200'}"
 				onclick={handleCopy}
 				aria-label="Copy message"
 			>
