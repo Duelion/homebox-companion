@@ -843,10 +843,10 @@ class ChatOrchestrator:
                 role="tool",
                 content=json.dumps(
                     {
-                        "success": False,
-                        "pending_approval": True,
+                        "status": "awaiting_approval",
                         "approval_id": approval_id,
-                        "message": f"Action '{tool_name}' requires user approval.",
+                        "message": f"Action '{tool_name}' queued for user approval. "
+                        f"An approval badge is now visible to the user.",
                     }
                 ),
                 tool_call_id=tool_call_id,
