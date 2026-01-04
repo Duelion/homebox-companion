@@ -43,18 +43,18 @@
 
 {#if toasts.length > 0}
 	<div
-		class="pointer-events-none fixed left-4 right-4 top-4 z-50 flex flex-col gap-2 md:left-auto md:right-4 md:w-80"
+		class="pointer-events-none fixed left-4 right-4 top-4 z-50 flex flex-col gap-2 md:left-auto md:right-4 md:w-96"
 	>
 		{#each toasts as toast (toast.id)}
 			<div
-				class="pointer-events-auto flex flex-col overflow-hidden rounded-lg border shadow-lg backdrop-blur-lg
+				class="pointer-events-auto flex flex-col overflow-hidden rounded-xl border shadow-lg backdrop-blur-lg
 					{typeStyles[toast.type]}
 					{toast.exiting ? 'toast-exit' : 'toast-enter'}"
 				role="alert"
 			>
 				<!-- Toast content -->
-				<div class="flex items-center gap-2 px-3 py-2">
-					<svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div class="flex items-center gap-3 px-4 py-2">
+					<svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
@@ -81,11 +81,11 @@
 					</div>
 					<button
 						type="button"
-						class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg p-1 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
+						class="flex min-h-8 min-w-8 items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
 						aria-label="Dismiss notification"
 						onclick={() => dismissToast(toast.id)}
 					>
-						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
