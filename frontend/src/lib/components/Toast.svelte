@@ -62,7 +62,7 @@
 							d={typeIcons[toast.type]}
 						/>
 					</svg>
-					<div class="flex flex-1 flex-col gap-1">
+					<div class="flex flex-1 items-center gap-2">
 						<p class="text-sm font-medium">{toast.message}</p>
 						{#if toast.action}
 							<!-- eslint-disable svelte/no-navigation-without-resolve -->
@@ -70,7 +70,7 @@
 								href={toast.action.href}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="text-sm underline transition-colors {toast.type === 'update'
+								class="shrink-0 text-sm underline transition-colors {toast.type === 'update'
 									? 'text-primary hover:text-primary/80'
 									: 'hover:opacity-80'}"
 							>
