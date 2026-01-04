@@ -9,6 +9,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { PendingApproval } from '../api/chat';
 	import { chatStore } from '../stores/chat.svelte';
+	import { showToast } from '../stores/ui.svelte';
 	import Button from './Button.svelte';
 	import ApprovalItemPanel from './ApprovalItemPanel.svelte';
 
@@ -136,6 +137,15 @@
 				handleClose();
 			}, 300);
 			return () => clearTimeout(timeout);
+		}
+	});
+
+	// Handle approval expiration - show toast, clear approvals, and close modal when countdown reaches 0
+	$effect(() => {
+		if (open && countdownSeconds === 0 && approvals.length > 0) {
+			showToast('Pending actions have expired', 'warning');
+			chatStore.clearExpiredApprovals();
+			handleClose();
 		}
 	});
 </script>

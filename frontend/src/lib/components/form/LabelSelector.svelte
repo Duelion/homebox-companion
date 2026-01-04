@@ -5,6 +5,7 @@
 	 * Displays available labels as clickable chips, highlighting selected ones.
 	 * Uses the global labelStore for available labels.
 	 */
+	import { onMount } from 'svelte';
 	import { labelStore } from '$lib/stores/labels.svelte';
 	import type { FormSize } from './types';
 	import { getLabelClass } from './types';
@@ -20,9 +21,21 @@
 
 	// Dynamic label class based on size
 	const labelClass = $derived(getLabelClass(size));
+
+	// Ensure labels are loaded when component mounts
+	onMount(() => {
+		if (!labelStore.fetched) {
+			labelStore.fetchLabels();
+		}
+	});
 </script>
 
-{#if labelStore.labels.length > 0}
+{#if labelStore.loading}
+	<div>
+		<span class={labelClass}>Labels</span>
+		<p class="text-sm text-neutral-500">Loading labels...</p>
+	</div>
+{:else if labelStore.labels.length > 0}
 	<div>
 		<span class={labelClass}>Labels</span>
 		<div class="flex flex-wrap gap-2" role="group" aria-label="Select labels">

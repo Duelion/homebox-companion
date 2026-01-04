@@ -32,6 +32,16 @@ export interface ExecutedAction {
 	rejected?: boolean; // True if user rejected this action
 }
 
+/**
+ * Tracks the outcome of an approval action for AI context.
+ */
+export interface ApprovalOutcome {
+	tool_name: string;
+	outcome: 'approved' | 'rejected';
+	success?: boolean; // For approved actions, whether execution succeeded
+	item_name?: string; // Display name of the item affected
+}
+
 export interface ChatMessage {
 	id: string;
 	role: MessageRole;
@@ -76,6 +86,9 @@ class ChatStore {
 
 	/** Whether chat feature is enabled */
 	private _isEnabled = $state(true);
+
+	/** Recent approval outcomes to send as context with the next message */
+	private _recentApprovalOutcomes = $state<ApprovalOutcome[]>([]);
 
 	// =========================================================================
 	// INTERNAL STATE
@@ -367,6 +380,16 @@ class ChatStore {
 	// =========================================================================
 
 	/**
+	 * Consume and clear the recent approval outcomes.
+	 * Used to send context with the next message.
+	 */
+	private consumeApprovalOutcomes(): ApprovalOutcome[] {
+		const outcomes = this._recentApprovalOutcomes;
+		this._recentApprovalOutcomes = [];
+		return outcomes;
+	}
+
+	/**
 	 * Send a message and stream the response.
 	 */
 	sendMessage(content: string): void {
@@ -391,6 +414,12 @@ class ChatStore {
 			this.autoRejectPendingApprovals();
 		}
 
+		// Consume any pending approval outcomes to send as context
+		const approvalContext = this.consumeApprovalOutcomes();
+		if (approvalContext.length > 0) {
+			log.trace(`Including ${approvalContext.length} approval outcomes as context`);
+		}
+
 		// Add user message
 		this.addUserMessage(content);
 
@@ -401,6 +430,7 @@ class ChatStore {
 		this._isStreaming = true;
 
 		this.abortController = chat.sendMessage(content, {
+			approvalContext: approvalContext.length > 0 ? approvalContext : undefined,
 			onEvent: (event: ChatEvent) => this.handleEvent(event),
 			onError: (error: Error) => this.handleError(error),
 			onComplete: () => this.handleComplete(),
@@ -469,10 +499,49 @@ class ChatStore {
 
 			this._messages = [];
 			this._pendingApprovals = [];
+			this._recentApprovalOutcomes = [];
 			this._error = null;
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to clear history';
 		}
+	}
+
+	/**
+	 * Clear the current error state.
+	 * Called after displaying an error as a toast notification.
+	 */
+	clearError(): void {
+		this._error = null;
+	}
+
+	/**
+	 * Clear all pending approvals when they expire.
+	 * Called when the approval countdown reaches zero.
+	 * Marks them as rejected on the last assistant message for visual consistency.
+	 */
+	clearExpiredApprovals(): void {
+		if (this._pendingApprovals.length === 0) return;
+
+		// Find the last assistant message to attach rejection indicators
+		const lastAssistantIndex = this.findLastAssistantIndex();
+		if (lastAssistantIndex !== -1) {
+			// Mark expired approvals as rejected actions on the message
+			const expiredActions: ExecutedAction[] = this._pendingApprovals.map((approval) => ({
+				toolName: approval.tool_name,
+				success: false,
+				rejected: true,
+			}));
+
+			this._messages = this._messages.map((msg, idx) => {
+				if (idx !== lastAssistantIndex) return msg;
+				return {
+					...msg,
+					executedActions: [...(msg.executedActions || []), ...expiredActions],
+				};
+			});
+		}
+
+		this._pendingApprovals = [];
 	}
 
 	/**
@@ -491,10 +560,22 @@ class ChatStore {
 		}
 
 		const toolName = approval.tool_name;
+		const itemName = approval.display_info?.item_name;
 
 		try {
 			const result = await chat.approveAction(approvalId, modifiedParams);
 			this._pendingApprovals = this._pendingApprovals.filter((a) => a.id !== approvalId);
+
+			// Record outcome for AI context in next message
+			this._recentApprovalOutcomes = [
+				...this._recentApprovalOutcomes,
+				{
+					tool_name: toolName,
+					outcome: 'approved',
+					success: result.success,
+					item_name: itemName,
+				},
+			];
 
 			// Add executed action to the last assistant message
 			const executedAction: ExecutedAction = {
@@ -577,10 +658,21 @@ class ChatStore {
 		}
 
 		const toolName = approval.tool_name;
+		const itemName = approval.display_info?.item_name;
 
 		try {
 			await chat.rejectAction(approvalId);
 			this._pendingApprovals = this._pendingApprovals.filter((a) => a.id !== approvalId);
+
+			// Record outcome for AI context in next message
+			this._recentApprovalOutcomes = [
+				...this._recentApprovalOutcomes,
+				{
+					tool_name: toolName,
+					outcome: 'rejected',
+					item_name: itemName,
+				},
+			];
 
 			// Track rejection on the last assistant message
 			const rejectedAction: ExecutedAction = {

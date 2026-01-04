@@ -14,7 +14,7 @@ Uses the refactored service architecture:
 from __future__ import annotations
 
 import json
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -34,10 +34,20 @@ from ..dependencies import get_executor, get_session, get_token, session_store_h
 router = APIRouter()
 
 
+class ApprovalOutcomeContext(BaseModel):
+    """Approval outcome for AI context injection."""
+
+    tool_name: str
+    outcome: Literal["approved", "rejected"]
+    success: bool | None = None
+    item_name: str | None = None
+
+
 class ChatMessageRequest(BaseModel):
     """Request body for sending a chat message."""
 
     message: str
+    approval_context: list[ApprovalOutcomeContext] | None = None
 
 
 class ApprovalResponse(BaseModel):
@@ -57,6 +67,7 @@ async def _event_generator(
     orchestrator: ChatOrchestrator,
     user_message: str,
     token: str,
+    approval_context: list[dict[str, Any]] | None = None,
 ):
     """Generate SSE events from orchestrator.
 
@@ -64,12 +75,15 @@ async def _event_generator(
         orchestrator: The chat orchestrator
         user_message: User's message content
         token: Auth token
+        approval_context: Optional approval outcomes for AI context
 
     Yields:
         SSE formatted events
     """
     try:
-        async for event in orchestrator.process_message(user_message, token):
+        async for event in orchestrator.process_message(
+            user_message, token, approval_context=approval_context
+        ):
             # sse_starlette expects data as a string - must JSON-serialize dicts
             yield {
                 "event": event.type.value,
@@ -120,11 +134,17 @@ async def send_message(
     # TRACE: Log incoming chat message
     logger.trace(f"[API] Incoming chat message: {request.message}")
 
+    # Extract approval context if provided
+    approval_context: list[dict[str, Any]] | None = None
+    if request.approval_context:
+        approval_context = [ctx.model_dump() for ctx in request.approval_context]
+        logger.trace(f"[API] Approval context: {len(approval_context)} outcomes")
+
     # Create orchestrator with injected dependencies
     orchestrator = ChatOrchestrator(session=session, executor=executor)
 
     return EventSourceResponse(
-        _event_generator(orchestrator, request.message, token),
+        _event_generator(orchestrator, request.message, token, approval_context),
         media_type="text/event-stream",
     )
 

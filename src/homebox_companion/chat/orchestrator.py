@@ -24,7 +24,7 @@ from loguru import logger
 from ..core.config import settings
 from ..mcp.executor import ToolExecutor
 from .llm_client import LLMClient, TokenUsage
-from .session import ChatSession, PendingApproval, create_approval_id
+from .session import ApprovalOutcome, ChatSession, PendingApproval, create_approval_id
 from .stream import ChatEvent, StreamEmitter
 from .types import ChatMessage, ToolCall
 
@@ -274,6 +274,80 @@ class ChatOrchestrator:
         self._emitter = emitter or StreamEmitter()
 
     # =========================================================================
+    # HELPER METHODS
+    # =========================================================================
+
+    def _build_approval_context(
+        self,
+        auto_rejections: list[ApprovalOutcome],
+        frontend_outcomes: list[ApprovalOutcome],
+    ) -> str | None:
+        """Build a context message summarizing approval outcomes.
+
+        This message is injected into the LLM conversation so it understands
+        what happened to pending actions before the user's message.
+
+        Args:
+            auto_rejections: Actions that were auto-rejected when user sent new message.
+            frontend_outcomes: Explicit approval/rejection outcomes from the frontend.
+
+        Returns:
+            Context message string, or None if no context needed.
+        """
+        parts: list[str] = []
+
+        # Handle auto-rejections
+        if auto_rejections:
+            tool_counts: dict[str, int] = {}
+            for outcome in auto_rejections:
+                tool_counts[outcome.tool_name] = tool_counts.get(outcome.tool_name, 0) + 1
+
+            tool_summary = ", ".join(
+                f"{name} (x{count})" if count > 1 else name
+                for name, count in tool_counts.items()
+            )
+            total = sum(tool_counts.values())
+            parts.append(
+                f"{total} pending action{'s were' if total != 1 else ' was'} "
+                f"dismissed when you sent this message: {tool_summary}. "
+                "These were NOT executed."
+            )
+
+        # Handle explicit frontend outcomes
+        if frontend_outcomes:
+            approved = [o for o in frontend_outcomes if o.outcome == "approved"]
+            rejected = [o for o in frontend_outcomes if o.outcome == "rejected"]
+
+            if approved:
+                success_count = sum(1 for o in approved if o.success)
+                fail_count = len(approved) - success_count
+                tool_names = ", ".join(o.tool_name for o in approved[:5])
+                if len(approved) > 5:
+                    tool_names += f" (+{len(approved) - 5} more)"
+
+                if fail_count == 0:
+                    parts.append(
+                        f"{len(approved)} action{'s were' if len(approved) != 1 else ' was'} "
+                        f"approved and executed successfully: {tool_names}."
+                    )
+                else:
+                    parts.append(
+                        f"{len(approved)} action{'s were' if len(approved) != 1 else ' was'} "
+                        f"approved ({success_count} succeeded, {fail_count} failed): {tool_names}."
+                    )
+
+            if rejected:
+                tool_names = ", ".join(o.tool_name for o in rejected[:5])
+                if len(rejected) > 5:
+                    tool_names += f" (+{len(rejected) - 5} more)"
+                parts.append(
+                    f"{len(rejected)} action{'s were' if len(rejected) != 1 else ' was'} "
+                    f"rejected by the user: {tool_names}."
+                )
+
+        return " ".join(parts) if parts else None
+
+    # =========================================================================
     # PUBLIC API
     # =========================================================================
 
@@ -281,19 +355,23 @@ class ChatOrchestrator:
         self,
         user_message: str,
         token: str,
+        approval_context: list[dict[str, Any]] | None = None,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Process a user message and yield streaming events.
 
         This is the main entry point for chat interactions. It:
         1. Adds the user message to history
         2. Auto-rejects any pending approvals (superseded)
-        3. Calls the LLM with streaming
-        4. Handles tool calls (auto-execute READ, queue WRITE)
-        5. Yields SSE events throughout
+        3. Builds context for any approval outcomes
+        4. Calls the LLM with streaming
+        5. Handles tool calls (auto-execute READ, queue WRITE)
+        6. Yields SSE events throughout
 
         Args:
             user_message: The user's message content.
             token: Homebox auth token for tool execution.
+            approval_context: Optional list of approval outcomes from the frontend
+                (for explicit approvals/rejections made before this message).
 
         Yields:
             ChatEvent objects for SSE streaming.
@@ -319,6 +397,37 @@ class ChatOrchestrator:
         if rejected_count:
             logger.debug(f"[CHAT] Auto-rejected {rejected_count} pending approvals")
 
+        # Consume auto-rejections for context injection
+        auto_rejections = self._session.consume_auto_rejections()
+
+        # Convert frontend approval_context to ApprovalOutcome objects
+        frontend_outcomes: list[ApprovalOutcome] = []
+        if approval_context:
+            for outcome_dict in approval_context:
+                # Validate outcome is a valid type
+                outcome_value = outcome_dict.get("outcome", "")
+                if outcome_value not in ("approved", "rejected"):
+                    logger.warning(
+                        f"[CHAT] Skipping invalid approval outcome: {outcome_value}"
+                    )
+                    continue
+
+                frontend_outcomes.append(
+                    ApprovalOutcome(
+                        tool_name=outcome_dict.get("tool_name", "unknown_tool"),
+                        outcome=outcome_value,  # type: ignore[arg-type]
+                        success=outcome_dict.get("success"),
+                        item_name=outcome_dict.get("item_name"),
+                    )
+                )
+
+        # Build context message for approval outcomes
+        context_message = self._build_approval_context(
+            auto_rejections, frontend_outcomes
+        )
+        if context_message:
+            logger.debug(f"[CHAT] Injecting approval context: {context_message}")
+
         # Build messages for LLM
         system_prompt = self._llm.get_system_prompt()
         messages = [{"role": "system", "content": system_prompt}]
@@ -326,6 +435,20 @@ class ChatOrchestrator:
         # Get conversation history
         history = self._session.get_history()
         messages.extend(history)
+
+        # Inject approval context by modifying the last user message in the LLM call
+        # This doesn't modify the session history, only the messages sent to the LLM
+        if context_message and messages:
+            # Find the last user message (should be the one we just added)
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i].get("role") == "user":
+                    # Prepend context to the user message for this LLM call only
+                    original_content = messages[i]["content"]
+                    messages[i] = {
+                        **messages[i],
+                        "content": f"[Context: {context_message}]\n\n{original_content}",
+                    }
+                    break
 
         # TRACE: Log conversation context
         logger.trace(f"[CHAT] Sending {len(history)} history messages to LLM")

@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from loguru import logger
 from pydantic import BaseModel, Field, computed_field
@@ -27,6 +27,26 @@ from pydantic import BaseModel, Field, computed_field
 from ..core.config import settings
 from ..mcp.types import DisplayInfo
 from .types import ChatMessage
+
+ApprovalOutcomeType = Literal["approved", "rejected", "auto_rejected"]
+
+
+class ApprovalOutcome(BaseModel):
+    """Records the outcome of an approval action.
+
+    Used to communicate approval results to the AI in subsequent messages.
+
+    Attributes:
+        tool_name: Name of the tool that was approved/rejected
+        outcome: The result - 'approved', 'rejected', or 'auto_rejected'
+        success: For approved actions, whether execution succeeded
+        item_name: Optional display name for the item affected
+    """
+
+    tool_name: str
+    outcome: ApprovalOutcomeType
+    success: bool | None = None  # Only for approved actions
+    item_name: str | None = None
 
 
 def _compute_default_expiry() -> datetime:
@@ -100,6 +120,8 @@ class ChatSession:
         self._created_at = datetime.now(UTC)
         # Index for O(1) lookup of tool messages by tool_call_id
         self._tool_message_index: dict[str, ChatMessage] = {}
+        # Track recent auto-rejections for context injection
+        self._recent_auto_rejections: list[ApprovalOutcome] = []
 
     def add_message(self, message: ChatMessage) -> None:
         """Add a message to the conversation history.
@@ -337,6 +359,7 @@ class ChatSession:
         """Auto-reject all pending approvals, updating history to show rejection.
 
         Called when user sends a new message, which supersedes any pending approvals.
+        Records the rejections for context injection in the next LLM call.
 
         Args:
             reason: Reason for rejection shown in history
@@ -346,9 +369,34 @@ class ChatSession:
         """
         if not self.pending_approvals:
             return 0
-        return self._auto_reject_approvals(
-            list(self.pending_approvals.values()), reason
-        )
+
+        # Capture the approvals before they're removed
+        approvals_to_reject = list(self.pending_approvals.values())
+
+        # Record these as auto-rejections for context injection
+        for approval in approvals_to_reject:
+            self._recent_auto_rejections.append(
+                ApprovalOutcome(
+                    tool_name=approval.tool_name,
+                    outcome="auto_rejected",
+                    item_name=approval.display_info.item_name if approval.display_info else None,
+                )
+            )
+
+        return self._auto_reject_approvals(approvals_to_reject, reason)
+
+    def consume_auto_rejections(self) -> list[ApprovalOutcome]:
+        """Get and clear the list of recent auto-rejections.
+
+        Used by the orchestrator to build context for the LLM about
+        actions that were dismissed when the user sent a new message.
+
+        Returns:
+            List of ApprovalOutcome objects representing auto-rejected actions
+        """
+        rejections = self._recent_auto_rejections
+        self._recent_auto_rejections = []
+        return rejections
 
     def reject_approval(self, approval_id: str, reason: str) -> bool:
         """Reject a single approval and update history to show rejection.
@@ -409,6 +457,7 @@ class ChatSession:
         self.messages.clear()
         self.pending_approvals.clear()
         self._tool_message_index.clear()
+        self._recent_auto_rejections.clear()
         logger.info("Cleared chat session")
 
 

@@ -75,6 +75,12 @@
 	let editedPurchasePrice = $state<number | null>(null);
 	let editedPurchaseFrom = $state<string | null>(null);
 
+	// Label fields state (for update_label)
+	let editedColor = $state<string | null>(null);
+
+	// Location fields state (for update_location)
+	let editedParentId = $state<string | null>(null);
+
 	// Helper to safely extract original values from approval parameters
 	const originalName = $derived((approval.parameters.name as string | undefined) ?? '');
 	const originalDescription = $derived(
@@ -100,6 +106,14 @@
 	);
 	const originalPurchaseFrom = $derived(
 		(approval.parameters.purchase_from as string | undefined) ?? null
+	);
+
+	// Label field originals (for update_label)
+	const originalColor = $derived((approval.parameters.color as string | undefined) ?? null);
+
+	// Location field originals (for update_location)
+	const originalParentId = $derived(
+		(approval.parameters.parent_id as string | undefined) ?? null
 	);
 
 	// Track which approval we've initialized for
@@ -131,6 +145,10 @@
 			editedSerialNumber = originalSerialNumber;
 			editedPurchasePrice = originalPurchasePrice;
 			editedPurchaseFrom = originalPurchaseFrom;
+			// Label fields
+			editedColor = originalColor;
+			// Location fields
+			editedParentId = originalParentId;
 			// Auto-expand if any extended field has data
 			showExtendedFields = hasAnyExtendedData();
 			initializedForApprovalId = currentApprovalId;
@@ -189,6 +207,10 @@
 		if (approval.parameters.serial_number !== undefined) fields.push('serial_number');
 		if (approval.parameters.purchase_price !== undefined) fields.push('purchase_price');
 		if (approval.parameters.purchase_from !== undefined) fields.push('purchase_from');
+		// Label fields (for update_label)
+		if (approval.parameters.color !== undefined) fields.push('color');
+		// Location fields (for update_location)
+		if (approval.parameters.parent_id !== undefined) fields.push('parent_id');
 		return fields;
 	});
 
@@ -237,7 +259,9 @@
 			(canModifyField('model_number') && editedModelNumber !== originalModelNumber) ||
 			(canModifyField('serial_number') && editedSerialNumber !== originalSerialNumber) ||
 			(canModifyField('purchase_price') && editedPurchasePrice !== originalPurchasePrice) ||
-			(canModifyField('purchase_from') && editedPurchaseFrom !== originalPurchaseFrom)
+			(canModifyField('purchase_from') && editedPurchaseFrom !== originalPurchaseFrom) ||
+			(canModifyField('color') && editedColor !== originalColor) ||
+			(canModifyField('parent_id') && editedParentId !== originalParentId)
 		);
 	});
 
@@ -267,6 +291,9 @@
 			mods.purchase_price = editedPurchasePrice;
 		if (editedPurchaseFrom !== originalPurchaseFrom && canModifyField('purchase_from'))
 			mods.purchase_from = editedPurchaseFrom;
+		if (editedColor !== originalColor && canModifyField('color')) mods.color = editedColor;
+		if (editedParentId !== originalParentId && canModifyField('parent_id'))
+			mods.parent_id = editedParentId;
 
 		return Object.keys(mods).length > 0 ? mods : undefined;
 	}
@@ -543,10 +570,10 @@
 			{:else if actionType === 'update'}
 				<!-- Update Item: Show only fields being changed -->
 				<div class="space-y-2.5">
-					{#if approval.display_info?.item_name}
+					{#if approval.display_info?.item_name || approval.display_info?.target_name}
 						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
 							<span class="text-xs text-neutral-500">Updating:</span>
-							<span class="ml-1 text-sm text-neutral-300">{approval.display_info.item_name}</span>
+							<span class="ml-1 text-sm text-neutral-300">{approval.display_info.item_name ?? approval.display_info.target_name}</span>
 							{#if approval.display_info.asset_id}
 								<span class="text-xs text-neutral-500">({approval.display_info.asset_id})</span>
 							{/if}
@@ -592,6 +619,34 @@
 								class="input-sm resize-none"
 								disabled={isProcessing}
 							></textarea>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('color')}
+						<div>
+							<label for="update-color-{approval.id}" class="label-sm">New Color</label>
+							<input
+								type="text"
+								id="update-color-{approval.id}"
+								bind:value={editedColor}
+								placeholder="Color (e.g., #FF5733)"
+								class="input-sm"
+								disabled={isProcessing}
+							/>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('parent_id')}
+						<div>
+							<label for="update-parent-{approval.id}" class="label-sm">New Parent Location</label>
+							<input
+								type="text"
+								id="update-parent-{approval.id}"
+								bind:value={editedParentId}
+								placeholder="Parent Location ID (optional)"
+								class="input-sm"
+								disabled={isProcessing}
+							/>
 						</div>
 					{/if}
 
