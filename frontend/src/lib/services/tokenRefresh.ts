@@ -1,12 +1,22 @@
 /**
  * Token refresh service
- * Handles automatic token refresh and scheduling
+ * Handles automatic token refresh and scheduling with retry logic
  */
 import { authStore } from '../stores/auth.svelte';
 import { auth } from '../api';
 import { authLogger as log } from '../utils/logger';
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Maximum number of retry attempts for failed token refresh.
+ */
+const MAX_RETRY_ATTEMPTS = 3;
+
+/**
+ * Current retry attempt count (reset on successful refresh).
+ */
+let retryCount = 0;
 
 /**
  * Promise that resolves when auth initialization completes.
@@ -41,6 +51,8 @@ export async function refreshToken(): Promise<boolean> {
 		const response = await auth.refresh();
 		// Use setAuthenticatedState to ensure all state updates happen atomically
 		authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
+		// Reset retry count on successful refresh
+		retryCount = 0;
 		return true;
 	} catch (error) {
 		// Log error for debugging (previously swallowed silently)
@@ -64,8 +76,42 @@ export function scheduleRefresh(): void {
 	const delay = Math.max(remaining / 2, 60_000);
 
 	refreshTimer = setTimeout(async () => {
-		await refreshToken();
+		const success = await refreshToken();
+		if (!success) {
+			// Schedule retry with exponential backoff
+			scheduleRetry();
+		}
+		// Note: retryCount is reset to 0 in refreshToken() on success (line 55)
 	}, delay);
+}
+
+/**
+ * Schedule a retry for failed token refresh with exponential backoff.
+ * Backoff: 1min, 2min, 4min (capped at 5min max).
+ * After MAX_RETRY_ATTEMPTS, gives up and lets session expire.
+ */
+function scheduleRetry(): void {
+	if (retryCount >= MAX_RETRY_ATTEMPTS) {
+		log.error(
+			`Token refresh failed after ${MAX_RETRY_ATTEMPTS} attempts. Session will expire naturally.`
+		);
+		retryCount = 0; // Reset for next successful auth
+		return;
+	}
+
+	retryCount++;
+	// Exponential backoff: 60s, 120s, 240s (capped at 300s = 5min)
+	const backoffMs = Math.min(60_000 * Math.pow(2, retryCount - 1), 300_000);
+	log.warn(`Scheduling token refresh retry ${retryCount}/${MAX_RETRY_ATTEMPTS} in ${backoffMs}ms`);
+
+	refreshTimer = setTimeout(async () => {
+		const success = await refreshToken();
+		if (!success) {
+			// Try again with next backoff
+			scheduleRetry();
+		}
+		// If successful, retryCount is already reset by refreshToken()
+	}, backoffMs);
 }
 
 /**
@@ -76,6 +122,8 @@ export function stopRefreshTimer(): void {
 		clearTimeout(refreshTimer);
 		refreshTimer = null;
 	}
+	// Reset retry count when stopping (e.g., on logout)
+	retryCount = 0;
 }
 
 /**

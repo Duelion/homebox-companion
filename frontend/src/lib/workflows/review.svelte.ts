@@ -152,7 +152,7 @@ export class ReviewService {
 	 * @returns The number of items confirmed
 	 */
 	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
-		let count = 0;
+		const newItems: ConfirmedItem[] = [];
 		for (let i = this._currentReviewIndex; i < this._detectedItems.length; i++) {
 			// Use the override for the current item (index matches currentReviewIndex),
 			// otherwise use the detected item as-is
@@ -161,10 +161,11 @@ export class ReviewService {
 					? currentItemOverride
 					: this._detectedItems[i];
 			const confirmed: ConfirmedItem = { ...item, confirmed: true };
-			this._confirmedItems = [...this._confirmedItems, confirmed];
-			count++;
+			newItems.push(confirmed);
 		}
-		return count;
+		// Batch append all items at once to avoid O(n²) array spreading
+		this._confirmedItems = [...this._confirmedItems, ...newItems];
+		return newItems.length;
 	}
 
 	/**

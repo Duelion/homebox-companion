@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';
 	import { vision } from '$lib/api/vision';
+	import { getConfig } from '$lib/api/settings';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
@@ -20,6 +21,10 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
+
+	// Capture limits (loaded from config, with safe defaults)
+	let maxImages = $state(30);
+	let maxFileSizeMb = $state(10);
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -111,6 +116,15 @@
 		await getInitPromise();
 
 		if (!routeGuards.review()) return;
+
+		// Load capture limits from config
+		try {
+			const config = await getConfig();
+			maxImages = config.capture_max_images;
+			maxFileSizeMb = config.capture_max_file_size_mb;
+		} catch (error) {
+			log.warn('Failed to load capture config, using defaults', error);
+		}
 	});
 
 	// Cleanup object URLs on component unmount
@@ -423,18 +437,20 @@
 					idPrefix="review"
 				/>
 
-				<!-- Images panel -->
-				<ImagesPanel
-					bind:images={allImages}
-					customThumbnail={editedItem.customThumbnail}
-					onCustomThumbnailClear={() => {
-						if (editedItem) {
-							editedItem.customThumbnail = undefined;
-						}
-					}}
-					expanded={showImagesPanel}
-					onToggle={toggleImagesPanel}
-				/>
+			<!-- Images panel -->
+			<ImagesPanel
+				bind:images={allImages}
+				customThumbnail={editedItem.customThumbnail}
+				onCustomThumbnailClear={() => {
+					if (editedItem) {
+						editedItem.customThumbnail = undefined;
+					}
+				}}
+				expanded={showImagesPanel}
+				onToggle={toggleImagesPanel}
+				maxFileSizeMb={maxFileSizeMb}
+				maxImages={maxImages}
+			/>
 
 				<!-- AI Correction panel -->
 				<AiCorrectionPanel

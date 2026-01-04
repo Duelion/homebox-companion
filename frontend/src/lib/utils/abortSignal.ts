@@ -2,7 +2,8 @@
  * AbortSignal utilities with fallbacks for older browsers.
  *
  * AbortSignal.any() was added in Chrome 116, Firefox 124, Safari 17.4 (March 2024).
- * This module provides a fallback for older browsers.
+ * AbortSignal.timeout() was added in Chrome 103, Firefox 100, Safari 16.0 (May-Sep 2022).
+ * This module provides fallbacks for older browsers.
  */
 
 /**
@@ -56,6 +57,38 @@ export function abortSignalAny(signals: AbortSignal[]): AbortSignal {
 	for (const signal of validSignals) {
 		signal.addEventListener('abort', onAbort);
 	}
+
+	return controller.signal;
+}
+
+/**
+ * Creates an AbortSignal that aborts after a specified timeout.
+ * Uses native AbortSignal.timeout() when available, falls back to manual implementation.
+ *
+ * @param ms - Timeout in milliseconds
+ * @returns A signal that aborts after the specified timeout
+ */
+export function abortSignalTimeout(ms: number): AbortSignal {
+	// Use native AbortSignal.timeout if available (Chrome 103+, Firefox 100+, Safari 16.0+)
+	if (typeof AbortSignal.timeout === 'function') {
+		return AbortSignal.timeout(ms);
+	}
+
+	// Fallback implementation for older browsers
+	const controller = new AbortController();
+	const timerId = setTimeout(() => {
+		// Use DOMException with 'TimeoutError' name to match native behavior
+		controller.abort(new DOMException('The operation timed out', 'TimeoutError'));
+	}, ms);
+
+	// Clear timeout if signal is aborted externally to prevent memory leak
+	controller.signal.addEventListener(
+		'abort',
+		() => {
+			clearTimeout(timerId);
+		},
+		{ once: true }
+	);
 
 	return controller.signal;
 }

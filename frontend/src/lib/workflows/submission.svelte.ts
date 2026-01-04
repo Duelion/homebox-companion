@@ -275,8 +275,19 @@ export class SubmissionService {
 						};
 					}
 
-					// Primary succeeded - additional image failures are non-critical (still success)
-					// User can add more images later via Homebox UI
+					// Primary succeeded - check for additional image failures
+					if (uploadResult.additionalFailed) {
+						log.warn(
+							`Additional images failed to upload for ${confirmedItem.name} (item created successfully)`
+						);
+						this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
+						return {
+							status: 'partial_success',
+							error: `Item created but some additional images failed to upload`,
+						};
+					}
+
+					// All uploads succeeded
 					const status: ItemSubmissionStatus = 'success';
 					this.itemStatuses = { ...this.itemStatuses, [index]: status };
 					return { status };

@@ -3,7 +3,7 @@
  */
 
 import { authStore } from '../stores/auth.svelte';
-import { abortSignalAny } from '../utils/abortSignal';
+import { abortSignalAny, abortSignalTimeout } from '../utils/abortSignal';
 import { apiLogger as log } from '../utils/logger';
 import { refreshToken } from '../services/tokenRefresh';
 
@@ -35,7 +35,7 @@ function createTimeoutSignal(
 	callerSignal?: AbortSignal,
 	timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS
 ): AbortSignal {
-	const timeoutSignal = AbortSignal.timeout(timeoutMs);
+	const timeoutSignal = abortSignalTimeout(timeoutMs);
 	// Track this signal as a timeout signal for reliable detection later
 	timeoutSignals.add(timeoutSignal);
 

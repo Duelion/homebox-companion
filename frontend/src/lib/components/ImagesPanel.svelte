@@ -10,6 +10,10 @@
 		onCustomThumbnailClear?: () => void;
 		expanded: boolean;
 		onToggle: () => void;
+		/** Maximum file size in MB (default: 10) */
+		maxFileSizeMb?: number;
+		/** Maximum number of images (optional, no limit if not provided) */
+		maxImages?: number;
 	}
 
 	let {
@@ -18,7 +22,17 @@
 		onCustomThumbnailClear,
 		expanded,
 		onToggle,
+		maxFileSizeMb = 10,
+		maxImages,
 	}: Props = $props();
+
+	// Validate props
+	if (maxFileSizeMb <= 0) {
+		throw new Error('maxFileSizeMb must be positive');
+	}
+	if (maxImages !== undefined && maxImages < 0) {
+		throw new Error('maxImages must be non-negative');
+	}
 
 	let fileInput: HTMLInputElement;
 	let cameraInput: HTMLInputElement;
@@ -41,8 +55,15 @@
 		if (!input.files) return;
 
 		for (const file of Array.from(input.files)) {
-			if (file.size > 10 * 1024 * 1024) {
-				showToast(`${file.name} is too large (max 10MB)`, 'warning');
+			// Check max images limit if provided
+			if (maxImages !== undefined && images.length >= maxImages) {
+				showToast(`Maximum ${maxImages} images allowed`, 'warning');
+				break;
+			}
+
+			// Check file size
+			if (file.size > maxFileSizeMb * 1024 * 1024) {
+				showToast(`${file.name} is too large (max ${maxFileSizeMb}MB)`, 'warning');
 				continue;
 			}
 			images = [...images, file];

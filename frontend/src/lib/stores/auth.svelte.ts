@@ -195,6 +195,9 @@ class AuthStore {
 			import('./labels.svelte.ts')
 				.then(({ clearLabelsCache }) => clearLabelsCache())
 				.catch((err) => log.warn('Failed to clear labels cache:', err)),
+			import('../workflows/scan.svelte.ts')
+				.then(({ scanWorkflow }) => scanWorkflow.reset())
+				.catch((err) => log.warn('Failed to reset scan workflow:', err)),
 		];
 		await Promise.allSettled(cleanupTasks);
 	}
