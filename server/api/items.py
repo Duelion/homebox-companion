@@ -106,24 +106,44 @@ async def create_items(
                 extended_payload = detected_item.get_extended_fields_payload()
                 if extended_payload:
                     logger.debug(f"  Updating with extended fields: {extended_payload.keys()}")
-                    # Get the full item to merge with extended fields
-                    full_item = await client.get_item(token, item_id)
-                    # Merge extended fields into the full item data
-                    update_data = {
-                        "name": full_item.get("name"),
-                        "description": full_item.get("description"),
-                        "quantity": full_item.get("quantity"),
-                        "locationId": full_item.get("location", {}).get("id"),
-                        "labelIds": [
-                            lbl.get("id") for lbl in full_item.get("labels", []) if lbl.get("id")
-                        ],
-                        **extended_payload,
-                    }
-                    # Preserve parentId if it was set
-                    if item_input.parent_id:
-                        update_data["parentId"] = item_input.parent_id
-                    result = await client.update_item(token, item_id, update_data)
-                    logger.info("  Updated item with extended fields")
+                    try:
+                        # Get the full item to merge with extended fields
+                        full_item = await client.get_item(token, item_id)
+                        # Merge extended fields into the full item data
+                        update_data = {
+                            "name": full_item.get("name"),
+                            "description": full_item.get("description"),
+                            "quantity": full_item.get("quantity"),
+                            "locationId": full_item.get("location", {}).get("id"),
+                            "labelIds": [
+                                lbl.get("id")
+                                for lbl in full_item.get("labels", [])
+                                if lbl.get("id")
+                            ],
+                            **extended_payload,
+                        }
+                        # Preserve parentId if it was set
+                        if item_input.parent_id:
+                            update_data["parentId"] = item_input.parent_id
+                        result = await client.update_item(token, item_id, update_data)
+                        logger.info("  Updated item with extended fields")
+                    except AuthenticationError:
+                        # Auth failure during update - don't delete the item!
+                        # The item was created successfully, user just needs fresh token.
+                        # Re-raise to trigger the outer auth handler.
+                        raise
+                    except Exception as update_err:
+                        # Non-auth update failures - clean up the partially created item
+                        logger.warning(
+                            f"Extended fields update failed for '{item_input.name}', "
+                            f"cleaning up item {item_id}: {update_err}"
+                        )
+                        try:
+                            await client.delete_item(token, item_id)
+                            logger.info(f"  Cleaned up partial item {item_id}")
+                        except Exception as delete_err:
+                            logger.error(f"  Failed to clean up item {item_id}: {delete_err}")
+                        raise update_err
 
             created.append(result)
         except AuthenticationError:

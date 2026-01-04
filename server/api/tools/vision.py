@@ -46,14 +46,41 @@ router = APIRouter()
 
 # Limit concurrent CPU-intensive compression to available cores.
 # This prevents 100+ parallel requests from overwhelming the CPU.
+# We track both the semaphore and the event loop it was created for,
+# so we can recreate it if the loop changes (e.g., during tests or reloads).
 _COMPRESSION_SEMAPHORE: asyncio.Semaphore | None = None
+_COMPRESSION_SEMAPHORE_LOOP: asyncio.AbstractEventLoop | None = None
 
 
 def _get_compression_semaphore() -> asyncio.Semaphore:
-    """Get or create the compression semaphore (lazy init for correct event loop)."""
-    global _COMPRESSION_SEMAPHORE
-    if _COMPRESSION_SEMAPHORE is None:
+    """Get or create the compression semaphore for the current event loop.
+
+    The semaphore is bound to the event loop it was created on.
+    If the loop changes (tests, reloads), we create a new semaphore.
+
+    Note: This function is safe from race conditions in async code because:
+    - There's no `await` between the check and the assignment
+    - Asyncio is cooperative, so this runs atomically within a single event loop
+    """
+    global _COMPRESSION_SEMAPHORE, _COMPRESSION_SEMAPHORE_LOOP
+
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop - this shouldn't happen in normal request handling
+        # but can occur in tests. Create semaphore anyway; it will be
+        # recreated when a proper loop is running.
+        current_loop = None
+
+    # Recreate semaphore if loop changed or doesn't exist
+    if (
+        _COMPRESSION_SEMAPHORE is None
+        or _COMPRESSION_SEMAPHORE_LOOP is None
+        or (current_loop is not None and _COMPRESSION_SEMAPHORE_LOOP is not current_loop)
+    ):
         _COMPRESSION_SEMAPHORE = asyncio.Semaphore(os.cpu_count() or 4)
+        _COMPRESSION_SEMAPHORE_LOOP = current_loop
+
     return _COMPRESSION_SEMAPHORE
 
 

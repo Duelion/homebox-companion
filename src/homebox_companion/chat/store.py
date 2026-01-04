@@ -12,6 +12,7 @@ implement a shared backend (e.g., Redis) that satisfies the protocol.
 from __future__ import annotations
 
 import hashlib
+import threading
 import time
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
@@ -81,6 +82,9 @@ class MemorySessionStore:
     Sessions automatically expire after a configurable TTL (default 24 hours)
     to prevent memory leaks from abandoned sessions.
 
+    Thread-safety: Uses a lock to protect concurrent access to session data.
+    This is important when running with multiple threads or during tests.
+
     Note:
         Sessions are lost on server restart and not shared between
         workers. For production multi-worker deployments, use a
@@ -107,6 +111,8 @@ class MemorySessionStore:
         self._last_cleanup: float = time.time()
         # Cleanup interval: run cleanup at most once per 5 minutes
         self._cleanup_interval = 300
+        # Lock for thread-safe access to session data
+        self._lock = threading.Lock()
 
     def _get_session_key(self, token: str) -> str:
         """Generate a deterministic session key from a token.
@@ -124,6 +130,8 @@ class MemorySessionStore:
 
         Only runs if enough time has passed since the last cleanup
         to avoid performance impact on every request.
+
+        Note: Caller must hold self._lock.
         """
         now = time.time()
         if now - self._last_cleanup < self._cleanup_interval:
@@ -155,29 +163,30 @@ class MemorySessionStore:
         # Import here to avoid circular imports at module load
         from .session import ChatSession
 
-        # Periodically cleanup expired sessions
-        self._maybe_cleanup_expired()
-
         session_key = self._get_session_key(token)
         now = time.time()
 
-        # Check if session exists and is not expired
-        if session_key in self._sessions:
-            last_access = self._last_access.get(session_key, 0)
-            if now - last_access > self._session_ttl:
-                # Session expired, remove it
-                del self._sessions[session_key]
-                del self._last_access[session_key]
-                logger.debug(f"Session {session_key[:8]}... expired, creating new")
+        with self._lock:
+            # Periodically cleanup expired sessions
+            self._maybe_cleanup_expired()
 
-        if session_key not in self._sessions:
-            self._sessions[session_key] = ChatSession()
-            logger.debug(f"Created new session for key {session_key[:8]}...")
+            # Check if session exists and is not expired
+            if session_key in self._sessions:
+                last_access = self._last_access.get(session_key, 0)
+                if now - last_access > self._session_ttl:
+                    # Session expired, remove it
+                    del self._sessions[session_key]
+                    del self._last_access[session_key]
+                    logger.debug(f"Session {session_key[:8]}... expired, creating new")
 
-        # Update last access time
-        self._last_access[session_key] = now
+            if session_key not in self._sessions:
+                self._sessions[session_key] = ChatSession()
+                logger.debug(f"Created new session for key {session_key[:8]}...")
 
-        return self._sessions[session_key]
+            # Update last access time
+            self._last_access[session_key] = now
+
+            return self._sessions[session_key]
 
     def delete(self, token: str) -> bool:
         """Delete a session.
@@ -189,12 +198,13 @@ class MemorySessionStore:
             True if session existed and was deleted
         """
         session_key = self._get_session_key(token)
-        if session_key in self._sessions:
-            del self._sessions[session_key]
-            self._last_access.pop(session_key, None)
-            logger.info(f"Deleted session for key {session_key[:8]}...")
-            return True
-        return False
+        with self._lock:
+            if session_key in self._sessions:
+                del self._sessions[session_key]
+                self._last_access.pop(session_key, None)
+                logger.info(f"Deleted session for key {session_key[:8]}...")
+                return True
+            return False
 
     def clear_all(self) -> int:
         """Clear all sessions.
@@ -202,14 +212,16 @@ class MemorySessionStore:
         Returns:
             Number of sessions cleared
         """
-        count = len(self._sessions)
-        self._sessions.clear()
-        self._last_access.clear()
-        logger.info(f"Cleared all {count} sessions")
-        return count
+        with self._lock:
+            count = len(self._sessions)
+            self._sessions.clear()
+            self._last_access.clear()
+            logger.info(f"Cleared all {count} sessions")
+            return count
 
     @property
     def session_count(self) -> int:
         """Get the number of active sessions."""
-        return len(self._sessions)
+        with self._lock:
+            return len(self._sessions)
 

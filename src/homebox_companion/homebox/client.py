@@ -19,6 +19,7 @@ from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store
 from ..core.config import settings
 from ..core.exceptions import (
     AuthenticationError,
+    HomeboxAPIError,
     HomeboxConnectionError,
     HomeboxTimeoutError,
 )
@@ -747,7 +748,7 @@ class HomeboxClient:
             params["locations"] = location_id
         if label_ids:
             # API expects comma-separated list for array params
-            params["labels"] = label_ids
+            params["labels"] = ",".join(label_ids)
         if query:
             params["q"] = query
         if page is not None:
@@ -1112,6 +1113,12 @@ class HomeboxClient:
             logger.debug(f"{context}: {request_info}-> 401 (unauthenticated)")
             raise AuthenticationError(f"{context} failed: {detail}")
 
+        # Use domain exception for all other non-success responses
+        # This allows centralized exception handling in the FastAPI layer
         logger.error(f"{context} failed: {request_info}-> {response.status_code}")
         logger.debug(f"Response detail: {detail}")
-        raise RuntimeError(f"{context} failed with {response.status_code}: {detail}")
+        raise HomeboxAPIError(
+            message=f"{context} failed with {response.status_code}: {detail}",
+            user_message=f"Homebox API error: {context} failed",
+            context={"status_code": response.status_code, "detail": str(detail)[:200]},
+        )

@@ -310,7 +310,8 @@ def create_app() -> FastAPI:
     )
 
     # Request-ID middleware (must be added first to wrap all requests)
-    app.add_middleware(RequestIDMiddleware)  # type: ignore[arg-type]
+    # Uses pure ASGI middleware to avoid issues with SSE streaming
+    app.add_middleware(RequestIDMiddleware)
 
     # CORS middleware for browser access
     # Use HBC_CORS_ORIGINS to restrict origins in production

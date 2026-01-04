@@ -1,14 +1,53 @@
 """Logs API routes for debugging and reference."""
 
 import os
+import re
 from collections import deque
 from glob import glob
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from ..dependencies import require_auth
+
 router = APIRouter()
+
+# Strict date format validation: YYYY-MM-DD
+_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# Logs directory - resolved once at module load relative to project root
+_LOGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "logs"))
+
+
+def _get_log_files(date: str | None) -> list[str]:
+    """Get log files matching the optional date filter.
+
+    Args:
+        date: Optional date string in YYYY-MM-DD format (already validated).
+
+    Returns:
+        List of matching log file paths, sorted newest first.
+    """
+    if date:
+        pattern = os.path.join(_LOGS_DIR, f"homebox_companion_{date}.log")
+        return glob(pattern)
+    else:
+        pattern = os.path.join(_LOGS_DIR, "homebox_companion_*.log")
+        return sorted(glob(pattern), reverse=True)
+
+
+def _validate_date_format(date: str | None) -> None:
+    """Validate date format to prevent path traversal.
+
+    Raises:
+        HTTPException: If date format is invalid.
+    """
+    if date and not _DATE_PATTERN.match(date):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Expected YYYY-MM-DD.",
+        )
 
 
 class LogsResponse(BaseModel):
@@ -20,7 +59,7 @@ class LogsResponse(BaseModel):
     truncated: bool
 
 
-@router.get("/logs", response_model=LogsResponse)
+@router.get("/logs", response_model=LogsResponse, dependencies=[Depends(require_auth)])
 async def get_logs(
     lines: int = Query(default=200, ge=1, le=2000, description="Number of lines to return"),
     date: str | None = Query(default=None, description="Log date in YYYY-MM-DD format"),
@@ -29,16 +68,11 @@ async def get_logs(
 
     Reads from the most recent log file (or a specific date if provided).
     Returns the last N lines for display in the Settings page.
-    """
-    logs_dir = "logs"
 
-    # Find log files
-    if date:
-        log_pattern = os.path.join(logs_dir, f"homebox_companion_{date}.log")
-        log_files = glob(log_pattern)
-    else:
-        log_pattern = os.path.join(logs_dir, "homebox_companion_*.log")
-        log_files = sorted(glob(log_pattern), reverse=True)
+    Requires authentication to prevent exposure of sensitive log data.
+    """
+    _validate_date_format(date)
+    log_files = _get_log_files(date)
 
     if not log_files:
         return LogsResponse(
@@ -77,23 +111,18 @@ async def get_logs(
         ) from e
 
 
-@router.get("/logs/download")
+@router.get("/logs/download", dependencies=[Depends(require_auth)])
 async def download_logs(
     date: str | None = Query(default=None, description="Log date in YYYY-MM-DD format"),
 ) -> FileResponse:
     """Download the full log file.
 
     Returns the complete log file for the most recent date (or a specific date if provided).
-    """
-    logs_dir = "logs"
 
-    # Find log files
-    if date:
-        log_pattern = os.path.join(logs_dir, f"homebox_companion_{date}.log")
-        log_files = glob(log_pattern)
-    else:
-        log_pattern = os.path.join(logs_dir, "homebox_companion_*.log")
-        log_files = sorted(glob(log_pattern), reverse=True)
+    Requires authentication to prevent exposure of sensitive log data.
+    """
+    _validate_date_format(date)
+    log_files = _get_log_files(date)
 
     if not log_files:
         raise HTTPException(status_code=404, detail="No log files found")

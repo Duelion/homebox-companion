@@ -313,10 +313,12 @@
 			{/if}
 		</div>
 
-		<!-- Copy button (appears on hover for assistant messages) -->
-		{#if !isUser && message.content && !message.isStreaming}
+		<!-- Copy button (appears on hover for all messages) -->
+		{#if message.content && !message.isStreaming}
 			<button
-				class="copy-btn absolute -right-1 -top-1 rounded-md bg-neutral-700/80 p-1.5 text-neutral-400 opacity-0 backdrop-blur-sm transition-all hover:bg-neutral-600 hover:text-neutral-200 group-hover:opacity-100"
+				class="copy-btn absolute -top-1 rounded-md bg-neutral-700/80 p-1.5 text-neutral-400 opacity-0 backdrop-blur-sm transition-all hover:bg-neutral-600 hover:text-neutral-200 group-hover:opacity-100 {isUser
+					? '-left-1'
+					: '-right-1'}"
 				onclick={handleCopy}
 				aria-label="Copy message"
 			>
