@@ -679,6 +679,9 @@ class ChatOrchestrator:
 
             # Yield tool_result event (tool_start was already emitted before execution)
             yield self._emitter.tool_result(tc.name, result_dict, tc.id)
+            logger.trace(
+                f"[CHAT] Yielded tool_result for '{tc.name}' (execution_id={tc.id})"
+            )
 
     async def _queue_approval(
         self,

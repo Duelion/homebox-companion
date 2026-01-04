@@ -71,6 +71,10 @@ async def _event_generator(
     try:
         async for event in orchestrator.process_message(user_message, token):
             # sse_starlette expects data as a string - must JSON-serialize dicts
+            execution_id = event.data.get("execution_id", "N/A")
+            logger.trace(
+                f"[SSE] Yielding event: type={event.type.value}, execution_id={execution_id}"
+            )
             yield {
                 "event": event.type.value,
                 "data": json.dumps(event.data),
