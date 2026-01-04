@@ -618,7 +618,12 @@ class ChatOrchestrator:
         async def run_tool(tc: ToolCall) -> ToolExecution:
             """Execute a single tool and capture result."""
             start_time = time.perf_counter()
-            result = await self._executor.execute(tc.name, tc.arguments, token)
+            try:
+                result = await self._executor.execute(tc.name, tc.arguments, token)
+            except Exception as e:
+                logger.exception(f"[CHAT] Tool '{tc.name}' raised unexpected exception")
+                from ..mcp.tools import ToolResult
+                result = ToolResult(success=False, error=f"Tool execution failed: {e}")
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             return ToolExecution(tc=tc, result=result, elapsed_ms=elapsed_ms)
 

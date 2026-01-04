@@ -21,8 +21,9 @@ from loguru import logger
 
 from homebox_companion.core import config
 
-# Guidance for system prompt - recommended max items to display in responses.
-MAX_RESULT_ITEMS = 50
+# Soft recommendation for max items in responses - used when user doesn't specify a count.
+# When user explicitly requests a specific number (e.g., "show me 80 items"), honor that request.
+DEFAULT_RESULT_LIMIT = 25
 
 # System prompt for the assistant
 # Note: Tool definitions are passed dynamically via the tools parameter,
@@ -78,11 +79,15 @@ Follow progressive disclosure: establish context first, then list details.
 - ALWAYS format location names as clickable markdown links using [Location Name](location.url)
 - Example format:
   Found 2 items in [Garage](location.url):
-  - [Socket Set](item.url), QTY: 1
-  - [Drill](item.url), QTY: 1
+  - [Socket Set](item.url)
+  - [Drill](item.url)
+- If the location is not relevant the the question, do not include it in the response. The link is enough.
 - NEVER show assetId in responses unless the user explicitly asks for asset IDs
 - Group results by meaningful context (location, category) when it reduces redundancy
-- Show up to {MAX_RESULT_ITEMS} results, then summarize remaining count
+- RESULT COUNT LIMITS:
+  - If user requests a specific count (e.g., "list 80 items"), show ALL requested items
+  - For open-ended queries (e.g., "search for wire"), show up to {DEFAULT_RESULT_LIMIT} results, then summarize remaining
+  - The {DEFAULT_RESULT_LIMIT} limit is guidance for unbounded queries, NOT a hard cap
 - Be helpful and complete, not artificially brief
 
 APPROVAL HANDLING:

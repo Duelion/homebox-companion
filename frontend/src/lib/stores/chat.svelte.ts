@@ -156,17 +156,39 @@ class ChatStore {
 
 	/** Mark a tool as executing (without a result yet) */
 	private markToolExecuting(toolName: string, executionId?: string): void {
-		if (!this.streamingMessageId) return;
+		// Try to find the target message - prefer streamingMessageId, but fall back to
+		// the most recent assistant message that is still streaming
+		let targetMessageId = this.streamingMessageId;
+
+		if (!targetMessageId) {
+			// Search for the most recent assistant message
+			// Note: We can't rely on isStreaming since handleComplete() may have cleared it
+			for (let i = this._messages.length - 1; i >= 0; i--) {
+				const msg = this._messages[i];
+				if (msg.role === 'assistant') {
+					targetMessageId = msg.id;
+					log.trace(`Found assistant message ${msg.id} for tool_start (streamingMessageId was null)`);
+					break;
+				}
+			}
+		}
+
+		if (!targetMessageId) {
+			log.warn(
+				`markToolExecuting: No streaming message found for tool '${toolName}' with executionId '${executionId}'`
+			);
+			return;
+		}
 
 		this._messages = this._messages.map((msg) =>
-			msg.id === this.streamingMessageId
+			msg.id === targetMessageId
 				? {
-						...msg,
-						toolResults: [
-							...(msg.toolResults || []),
-							{ tool: toolName, executionId, success: false, isExecuting: true },
-						],
-					}
+					...msg,
+					toolResults: [
+						...(msg.toolResults || []),
+						{ tool: toolName, executionId, success: false, isExecuting: true },
+					],
+				}
 				: msg
 		);
 	}
@@ -177,10 +199,39 @@ class ChatStore {
 		executionId: string | undefined,
 		result: Omit<ToolResult, 'tool' | 'executionId'>
 	): void {
-		if (!this.streamingMessageId) return;
+		// Try to find the target message - prefer streamingMessageId, but fall back to searching
+		// This handles edge cases where tool_result arrives after stream completion
+		let targetMessageId = this.streamingMessageId;
+
+		if (!targetMessageId) {
+			// Search recent assistant messages for one with matching executionId
+			// (search from most recent first)
+			for (let i = this._messages.length - 1; i >= 0; i--) {
+				const msg = this._messages[i];
+				if (msg.role !== 'assistant') continue;
+
+				const hasMatch = msg.toolResults?.some((tr) =>
+					executionId
+						? tr.executionId === executionId
+						: tr.tool === toolName && tr.isExecuting
+				);
+				if (hasMatch) {
+					targetMessageId = msg.id;
+					log.trace(`Found tool result target in message ${msg.id} (streamingMessageId was null)`);
+					break;
+				}
+			}
+		}
+
+		if (!targetMessageId) {
+			log.warn(
+				`updateToolResult: Could not find message for tool '${toolName}' with executionId '${executionId}'`
+			);
+			return;
+		}
 
 		this._messages = this._messages.map((msg) => {
-			if (msg.id !== this.streamingMessageId) return msg;
+			if (msg.id !== targetMessageId) return msg;
 
 			const toolResults = msg.toolResults || [];
 			// Match by executionId if available, otherwise fallback to name + isExecuting
@@ -188,11 +239,19 @@ class ChatStore {
 				? toolResults.findIndex((tr) => tr.executionId === executionId)
 				: toolResults.findIndex((tr) => tr.tool === toolName && tr.isExecuting);
 
-			if (toolIndex === -1) return msg;
+			if (toolIndex === -1) {
+				log.warn(
+					`updateToolResult: Found message but no matching tool entry for '${toolName}' with executionId '${executionId}'`
+				);
+				return msg;
+			}
 
 			const updatedResults = [...toolResults];
 			updatedResults[toolIndex] = { tool: toolName, executionId, ...result, isExecuting: false };
 
+			log.trace(
+				`updateToolResult: Updated tool '${toolName}' (executionId: ${executionId}) to success=${result.success}`
+			);
 			return { ...msg, toolResults: updatedResults };
 		});
 	}
