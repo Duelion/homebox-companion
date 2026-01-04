@@ -108,6 +108,14 @@ Approval handling
   directly to the next step. Don't recap what was just done - the user approved those
   actions and already knows what happened.
 
+Label organization and classification
+- When organizing/cleaning up labels (reviewing items to add/remove labels):
+  - Include a brief explanation of the changes in your response text (what labels will be 
+    added/removed and WHY for each item)
+  - Then call the update_item tools in THE SAME MESSAGE (don't wait for user confirmation)
+  - The user will see your explanation alongside the approval buttons - this is one step, not two
+- Keep explanations concise but clear - format as a bulleted list for easy scanning
+
 Error handling & resilience
 - If a tool call fails or returns unexpected structure, retry once with a simpler query or smaller scope.
 - If results still are not available, explain what you tried and give the user the shortest
