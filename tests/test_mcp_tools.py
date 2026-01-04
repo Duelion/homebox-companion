@@ -253,7 +253,12 @@ class TestListItems:
             {"id": "item1", "name": "TV"},
             {"id": "item2", "name": "Couch"},
         ]
-        mock_client.list_items.return_value = mock_items
+        mock_client.list_items.return_value = {
+            "items": mock_items,
+            "page": 1,
+            "pageSize": 50,
+            "total": 2,
+        }
 
         tool = ListItemsTool()
         # Use compact=False to get ItemView format (still has computed fields)
@@ -261,13 +266,16 @@ class TestListItems:
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
-        # Tool returns ItemView with computed URL and additional fields
-        assert len(result.data) == 2
-        assert result.data[0]["id"] == "item1"
-        assert result.data[0]["name"] == "TV"
-        assert "url" in result.data[0]  # Computed URL field
-        assert result.data[1]["id"] == "item2"
-        assert result.data[1]["name"] == "Couch"
+        # Tool returns dict with items and pagination
+        assert len(result.data["items"]) == 2
+        assert result.data["items"][0]["id"] == "item1"
+        assert result.data["items"][0]["name"] == "TV"
+        assert "url" in result.data["items"][0]  # Computed URL field
+        assert result.data["items"][1]["id"] == "item2"
+        assert result.data["items"][1]["name"] == "Couch"
+        # Check pagination metadata is included
+        assert "pagination" in result.data
+        assert result.data["pagination"]["total"] == 2
         mock_client.list_items.assert_called_once_with(
             "test-token", location_id=None, label_ids=None, page=None, page_size=50
         )
@@ -275,7 +283,12 @@ class TestListItems:
     @pytest.mark.asyncio
     async def test_filters_by_location(self, mock_client: MagicMock):
         """Should pass location_id filter to client."""
-        mock_client.list_items.return_value = []
+        mock_client.list_items.return_value = {
+            "items": [],
+            "page": 1,
+            "pageSize": 50,
+            "total": 0,
+        }
 
         tool = ListItemsTool()
         params = tool.Params(location_id="loc1")

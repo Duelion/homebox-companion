@@ -48,6 +48,12 @@ BULK OPERATIONS:
 - For large operations, you CAN make all tool calls at once - they will be batched for approval
 - The approval UI handles bulk operations well - users can review and approve all at once
 
+PAGINATION:
+- list_items returns {{items: [...], pagination: {{page, page_size, total, items_returned}}}}
+- When items_returned < total, more items exist - call with page + 1 to get more
+- To get full inventory, keep calling with incrementing page numbers until all items fetched
+- Always tell the user the total count (from pagination.total) and how many you're showing
+
 RESPONSE FORMAT:
 Follow progressive disclosure: establish context first, then list details.
 - Start with a summary line that establishes shared context (e.g., "Found 3 items in [Living Room](url):")

@@ -728,7 +728,7 @@ class HomeboxClient:
         query: str | None = None,
         page: int | None = None,
         page_size: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """List items with optional filtering, search, and pagination.
 
         Args:
@@ -740,7 +740,7 @@ class HomeboxClient:
             page_size: Optional number of items per page.
 
         Returns:
-            List of item dictionaries from the paginated response.
+            Full paginated response: {items: [...], page, pageSize, total}
         """
         params = {}
         if location_id:
@@ -764,9 +764,8 @@ class HomeboxClient:
             params=params or None,
         )
         self._ensure_success(response, "List items")
-        data = response.json()
-        # Homebox returns paginated response with items in "items" field
-        return data.get("items", [])
+        # Return full pagination response: {items, page, pageSize, total}
+        return response.json()
 
     async def search_items(
         self,
@@ -788,11 +787,12 @@ class HomeboxClient:
         Returns:
             List of item dictionaries matching the search query.
         """
-        return await self.list_items(
+        response = await self.list_items(
             token,
             query=query,
             page_size=limit,
         )
+        return response.get("items", [])
 
     async def get_item(self, token: str, item_id: str) -> dict[str, Any]:
         """Get full item details by ID.

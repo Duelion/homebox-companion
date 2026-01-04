@@ -268,13 +268,16 @@ class ListItemsTool:
                     error=f"Location '{params.location_name}' not found",
                 )
 
-        items = await client.list_items(
+        response = await client.list_items(
             token,
             location_id=resolved_location_id,
             label_ids=params.label_ids,
             page=params.page,
             page_size=params.page_size,
         )
+
+        # Extract items from pagination response
+        items = response.get("items", [])
 
         if params.compact:
             items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
@@ -284,7 +287,19 @@ class ListItemsTool:
             items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
             logger.debug(f"list_items returned {len(items)} items")
 
-        return ToolResult(success=True, data=items)
+        # Include pagination metadata so LLM knows if there are more items
+        return ToolResult(
+            success=True,
+            data={
+                "items": items,
+                "pagination": {
+                    "page": response.get("page", 1),
+                    "page_size": response.get("pageSize", params.page_size),
+                    "total": response.get("total", len(items)),
+                    "items_returned": len(items),
+                },
+            },
+        )
 
 
 @register_tool
@@ -303,9 +318,13 @@ class SearchItemsTool:
         query: str = Field(
             description="Search query string (searches name, description, etc.)"
         )
-        limit: int = Field(
+        page: int | None = Field(
+            default=None,
+            description="Optional page number (1-indexed) for pagination",
+        )
+        page_size: int = Field(
             default=50,
-            description="Maximum number of results to return (default 50)",
+            description="Number of items per page (default 50, max recommended 100)",
         )
         compact: bool = Field(
             default=True,
@@ -322,7 +341,15 @@ class SearchItemsTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        items = await client.search_items(token, query=params.query, limit=params.limit)
+        response = await client.list_items(
+            token,
+            query=params.query,
+            page=params.page,
+            page_size=params.page_size,
+        )
+
+        # Extract items from pagination response
+        items = response.get("items", [])
 
         if params.compact:
             items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
@@ -334,7 +361,19 @@ class SearchItemsTool:
             items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
             logger.debug(f"search_items('{params.query}') returned {len(items)} items")
 
-        return ToolResult(success=True, data=items)
+        # Include pagination metadata so LLM knows if there are more items
+        return ToolResult(
+            success=True,
+            data={
+                "items": items,
+                "pagination": {
+                    "page": response.get("page", 1),
+                    "page_size": response.get("pageSize", params.page_size),
+                    "total": response.get("total", len(items)),
+                    "items_returned": len(items),
+                },
+            },
+        )
 
 
 @register_tool
