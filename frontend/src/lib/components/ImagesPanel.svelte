@@ -26,14 +26,6 @@
 		maxImages,
 	}: Props = $props();
 
-	// Validate props
-	if (maxFileSizeMb <= 0) {
-		throw new Error('maxFileSizeMb must be positive');
-	}
-	if (maxImages !== undefined && maxImages < 0) {
-		throw new Error('maxImages must be non-negative');
-	}
-
 	let fileInput: HTMLInputElement;
 	let cameraInput: HTMLInputElement;
 
@@ -45,8 +37,14 @@
 		urlManager.sync(images);
 	});
 
-	// Only cleanup all URLs on component unmount
+	// Validate props on mount and cleanup URLs on unmount
 	onMount(() => {
+		if (maxFileSizeMb <= 0) {
+			throw new Error('maxFileSizeMb must be positive');
+		}
+		if (maxImages !== undefined && maxImages < 0) {
+			throw new Error('maxImages must be non-negative');
+		}
 		return () => urlManager.cleanup();
 	});
 
