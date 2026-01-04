@@ -674,7 +674,9 @@ class UpdateItemTool:
     description: str = (
         "Update an existing item. Automatically fetches current values, so do NOT call "
         "get_item first. Only provide fields you want to change. For label_ids, pass the "
-        "complete list of label IDs (existing + new) since it replaces all labels."
+        "complete list of label IDs (existing + new) since it replaces all labels. "
+        "IMPORTANT: You MUST explain the reason for this update in the message content "
+        "BEFORE calling this tool."
     )
     permission: ToolPermission = ToolPermission.WRITE
 

@@ -194,7 +194,7 @@
 				{/if}
 			{:else if hasExecutedActions && !message.isStreaming}
 				<!-- Fallback summary when no content but has executed actions -->
-				<p class="m-0 text-xs text-neutral-300">
+				<p class="m-0 text-sm text-neutral-300">
 					{#if executedActionStats.allSuccess && executedActionStats.rejected === 0}
 						<span class="text-success-500 font-bold">✓</span> Completed {executedActionStats.total} action{executedActionStats.total !==
 						1
