@@ -113,6 +113,98 @@ class ChatStore {
 	private static readonly TOOL_TIMEOUT_MS = 90_000;
 
 	// =========================================================================
+	// CONSTRUCTOR
+	// =========================================================================
+
+	constructor() {
+		// Load persisted messages from localStorage on initialization
+		this.loadFromStorage();
+	}
+
+	/** localStorage key for persisting chat messages */
+	private static readonly STORAGE_KEY = 'hbc-chat-messages';
+
+	// =========================================================================
+	// PERSISTENCE
+	// =========================================================================
+
+	/**
+	 * Load messages from localStorage on initialization.
+	 * Handles Date deserialization and syncs the message ID counter.
+	 */
+	private loadFromStorage(): void {
+		try {
+			const stored = localStorage.getItem(ChatStore.STORAGE_KEY);
+			if (!stored) return;
+
+			const parsed = JSON.parse(stored) as Array<ChatMessage & { timestamp: string }>;
+			if (!Array.isArray(parsed) || parsed.length === 0) return;
+
+			// Deserialize timestamps and ensure clean state
+			this._messages = parsed.map((msg) => ({
+				...msg,
+				timestamp: new Date(msg.timestamp),
+				isStreaming: false, // Never restore streaming state
+			}));
+
+			// Sync message ID counter to prevent collisions
+			// Extract the counter from existing message IDs (format: msg-{counter}-{timestamp})
+			let maxCounter = 0;
+			for (const msg of this._messages) {
+				const match = msg.id.match(/^msg-(\d+)-/);
+				if (match) {
+					const counter = parseInt(match[1], 10);
+					if (counter > maxCounter) maxCounter = counter;
+				}
+			}
+			this.messageIdCounter = maxCounter;
+
+			log.debug(`Loaded ${this._messages.length} messages from storage`);
+		} catch (error) {
+			log.warn('Failed to load chat messages from storage:', error);
+			// Don't fail silently - clear corrupted data
+			this.clearStorage();
+		}
+	}
+
+	/**
+	 * Save messages to localStorage.
+	 * Only saves when not streaming to avoid partial states.
+	 */
+	private saveToStorage(): void {
+		if (this._isStreaming) {
+			log.trace('Skipping storage save during streaming');
+			return;
+		}
+
+		try {
+			if (this._messages.length === 0) {
+				this.clearStorage();
+				return;
+			}
+
+			const serialized = JSON.stringify(this._messages);
+			localStorage.setItem(ChatStore.STORAGE_KEY, serialized);
+			log.trace(`Saved ${this._messages.length} messages to storage`);
+		} catch (error) {
+			// Handle quota exceeded or other storage errors gracefully
+			log.warn('Failed to save chat messages to storage:', error);
+		}
+	}
+
+	/**
+	 * Clear persisted messages from localStorage.
+	 */
+	private clearStorage(): void {
+		try {
+			localStorage.removeItem(ChatStore.STORAGE_KEY);
+			log.trace('Cleared chat messages from storage');
+		} catch (error) {
+			log.warn('Failed to clear chat storage:', error);
+		}
+	}
+
+	// =========================================================================
 	// GETTERS
 	// =========================================================================
 
@@ -501,6 +593,9 @@ class ChatStore {
 			this._pendingApprovals = [];
 			this._recentApprovalOutcomes = [];
 			this._error = null;
+
+			// Clear persisted messages from localStorage
+			this.clearStorage();
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to clear history';
 		}
@@ -539,6 +634,9 @@ class ChatStore {
 					executedActions: [...(msg.executedActions || []), ...expiredActions],
 				};
 			});
+
+			// Persist updated messages to localStorage
+			this.saveToStorage();
 		}
 
 		this._pendingApprovals = [];
@@ -611,6 +709,9 @@ class ChatStore {
 
 			// Single reactive update
 			this._messages = updatedMessages;
+
+			// Persist updated messages to localStorage
+			this.saveToStorage();
 
 			// Refresh caches if needed based on the tool that was executed
 			if (result.success) {
@@ -701,6 +802,9 @@ class ChatStore {
 					executedActions: [...(msg.executedActions || []), rejectedAction],
 				};
 			});
+
+			// Persist updated messages to localStorage
+			this.saveToStorage();
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to reject action';
 			throw error; // Re-throw to allow caller to handle (e.g., bulk operations)
@@ -847,6 +951,9 @@ class ChatStore {
 			this.updateMessage(this.streamingMessageId, { isStreaming: false });
 			this.streamingMessageId = null;
 		}
+
+		// Persist messages to localStorage after streaming completes
+		this.saveToStorage();
 	}
 }
 
