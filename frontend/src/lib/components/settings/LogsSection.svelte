@@ -29,6 +29,18 @@
 		if (!service.serverLogs?.filename) return undefined;
 		return `${service.serverLogs.filename} • ${serverLogsSubtitleRight}`;
 	});
+
+	const llmDebugLogsSubtitleRight = $derived.by(() => {
+		if (!service.llmDebugLog) return '';
+		const { truncated, total_lines } = service.llmDebugLog;
+		const shown = truncated && total_lines > 300 ? 300 : total_lines;
+		return truncated ? `Last ${shown} of ${total_lines} lines` : `${total_lines} lines`;
+	});
+
+	const llmDebugLogsFullscreenSubtitle = $derived.by(() => {
+		if (!service.llmDebugLog?.filename) return undefined;
+		return `${service.llmDebugLog.filename} • ${llmDebugLogsSubtitleRight}`;
+	});
 </script>
 
 {#snippet logsIcon(className: string)}
@@ -181,15 +193,16 @@
 			onToggle={() => service.toggleLLMDebugLog()}
 			isLoading={service.isLoading.llmDebugLog}
 			error={service.errors.llmDebugLog}
-			isEmpty={service.llmDebugLog.length === 0}
-			emptyMessage="No LLM interactions recorded. Start a conversation with the AI to capture debug data."
-			subtitleLeft="LLM interactions"
-			subtitleRight={`${service.llmDebugLog.length} ${service.llmDebugLog.length === 1 ? 'entry' : 'entries'}`}
-			fullscreenSubtitle={`LLM interactions • ${service.llmDebugLog.length} ${service.llmDebugLog.length === 1 ? 'entry' : 'entries'}`}
+			isEmpty={!service.llmDebugLog}
+			emptyMessage="No LLM debug log files found."
+			subtitleLeft={service.llmDebugLog?.filename ?? undefined}
+			subtitleRight={llmDebugLogsSubtitleRight}
+			fullscreenSubtitle={llmDebugLogsFullscreenSubtitle}
 			onRefresh={() => service.refreshLLMDebugLog()}
 			refreshDisabled={service.isLoading.llmDebugLog}
 			refreshLoading={service.isLoading.llmDebugLog}
-			onExport={() => service.exportLLMDebugLog()}
+			onDownload={() => service.downloadLLMDebugLogs()}
+			downloadDisabled={!service.llmDebugLog?.filename}
 			hasFullscreen={true}
 		>
 			{#snippet icon()}
@@ -203,9 +216,13 @@
 					<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
 				</svg>
 			{/snippet}
-			<LogViewer source={{ type: 'json', data: service.llmDebugLog }} />
+			{#if service.llmDebugLog}
+				<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} />
+			{/if}
 			{#snippet fullscreenContent()}
-				<LogViewer source={{ type: 'json', data: service.llmDebugLog }} maxHeight="" />
+				{#if service.llmDebugLog}
+					<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} maxHeight="" />
+				{/if}
 			{/snippet}
 		</LogPanel>
 	{/if}

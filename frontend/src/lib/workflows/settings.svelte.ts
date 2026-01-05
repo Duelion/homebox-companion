@@ -10,6 +10,8 @@ import {
 	getConfig,
 	getLogs,
 	downloadLogs,
+	getLLMDebugLogs,
+	downloadLLMDebugLogs,
 	getVersion,
 	fieldPreferences,
 	setDemoMode,
@@ -20,7 +22,6 @@ import {
 	type EffectiveDefaults,
 } from '$lib/api/settings';
 import { labels as labelsApi, type LabelData } from '$lib/api';
-import { getLLMLog, type LLMLogEntry } from '$lib/api/chat';
 import { getLogBuffer, clearLogBuffer, exportLogs, type LogEntry } from '$lib/utils/logger';
 import { chatStore } from '$lib/stores/chat.svelte';
 
@@ -141,7 +142,7 @@ class SettingsService {
 	// LLM DEBUG LOG STATE (raw LLM request/response pairs for debugging)
 	// =========================================================================
 
-	llmDebugLog = $state<LLMLogEntry[]>([]);
+	llmDebugLog = $state<LogsResponse | null>(null);
 	showLLMDebugLog = $state(false);
 
 	// =========================================================================
@@ -317,8 +318,8 @@ class SettingsService {
 	// =========================================================================
 
 	async toggleLLMDebugLog(): Promise<void> {
-		if (this.showLLMDebugLog) {
-			this.showLLMDebugLog = false;
+		if (this.llmDebugLog) {
+			this.showLLMDebugLog = !this.showLLMDebugLog;
 			return;
 		}
 
@@ -326,7 +327,7 @@ class SettingsService {
 		this.errors.llmDebugLog = null;
 
 		try {
-			this.llmDebugLog = await getLLMLog();
+			this.llmDebugLog = await getLLMDebugLogs(300);
 			this.showLLMDebugLog = true;
 		} catch (error) {
 			log.error('Failed to load LLM debug log:', error);
@@ -339,34 +340,27 @@ class SettingsService {
 
 	async refreshLLMDebugLog(): Promise<void> {
 		this.isLoading.llmDebugLog = true;
+		this.errors.llmDebugLog = null;
 
 		try {
-			this.llmDebugLog = await getLLMLog();
+			this.llmDebugLog = await getLLMDebugLogs(300);
 		} catch (error) {
 			log.error('Failed to refresh LLM debug log:', error);
+			this.errors.llmDebugLog = error instanceof Error ? error.message : 'Failed to load LLM debug log';
 		} finally {
 			this.isLoading.llmDebugLog = false;
 		}
 	}
 
-	/**
-	 * Export LLM debug log (raw request/response pairs) as JSON.
-	 * This is technical debugging data, not the user-visible chat.
-	 */
-	exportLLMDebugLog(): void {
-		if (this.llmDebugLog.length === 0) return;
+	async downloadLLMDebugLogs(): Promise<void> {
+		if (!this.llmDebugLog?.filename) return;
 
-		const json = JSON.stringify(this.llmDebugLog, null, 2);
-		const blob = new Blob([json], { type: 'application/json' });
-		const url = window.URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `llm-debug-log-${new Date().toISOString().split('T')[0]}.json`;
-		document.body.appendChild(a);
-		a.click();
-		window.URL.revokeObjectURL(url);
-		document.body.removeChild(a);
-		log.success(`Exported ${this.llmDebugLog.length} LLM interactions`);
+		try {
+			await downloadLLMDebugLogs(this.llmDebugLog.filename);
+		} catch (error) {
+			log.error('Failed to download LLM debug logs:', error);
+			this.errors.llmDebugLog = error instanceof Error ? error.message : 'Failed to download LLM debug logs';
+		}
 	}
 
 	// =========================================================================
@@ -405,7 +399,7 @@ class SettingsService {
 		try {
 			await chatStore.clearHistory();
 			// Reset our local view of the LLM debug log (will reload from files on next toggle)
-			this.llmDebugLog = [];
+			this.llmDebugLog = null;
 			this.showLLMDebugLog = false;
 			log.success('All chat data cleared');
 		} catch (error) {
@@ -635,7 +629,7 @@ class SettingsService {
 		this.showServerLogs = false;
 		this.frontendLogs = [];
 		this.showFrontendLogs = false;
-		this.llmDebugLog = [];
+		this.llmDebugLog = null;
 		this.showLLMDebugLog = false;
 		this.fieldPrefs = getEmptyPreferences();
 		this.effectiveDefaults = null;

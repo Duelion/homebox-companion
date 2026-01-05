@@ -130,6 +130,26 @@ export const downloadLogs = async (filename: string) => {
 	document.body.removeChild(a);
 };
 
+export const getLLMDebugLogs = (lines: number = 200) =>
+	request<LogsResponse>(`/logs/llm-debug?lines=${lines}`);
+
+export const downloadLLMDebugLogs = async (filename: string) => {
+	const { requestBlobUrl } = await import('./client');
+
+	const result = await requestBlobUrl('/logs/llm-debug/download');
+
+	// Create a temporary link and trigger download
+	const a = document.createElement('a');
+	a.href = result.url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+
+	// Cleanup
+	result.revoke();
+	document.body.removeChild(a);
+};
+
 // =============================================================================
 // FIELD PREFERENCES
 // =============================================================================

@@ -13,68 +13,17 @@ The LLMClient handles:
 from __future__ import annotations
 
 import json
-import os
 import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from glob import glob
 from typing import Any
 
 import litellm
 from loguru import logger
 
 from homebox_companion.core import config
-from homebox_companion.core.logging import LLM_DEBUG_LOG_DIR, get_log_level_value
-
-
-def get_raw_llm_log(max_entries: int = 50) -> list[dict[str, Any]]:
-    """Get the raw LLM interaction log from log files.
-
-    Reads from log files (newest first) to return the most recent interactions.
-
-    Args:
-        max_entries: Maximum number of entries to return.
-
-    Returns:
-        List of LLM interaction entries, oldest first (chronological order).
-    """
-    # Find LLM debug log files, sorted newest first
-    pattern = os.path.join(LLM_DEBUG_LOG_DIR, "llm_debug_*.log")
-    log_files = sorted(glob(pattern), reverse=True)
-
-    # Collect entries from newest file first, reading each file in reverse
-    # so we get the most recent entries across all files
-    all_entries: list[dict[str, Any]] = []
-
-    for log_file in log_files:
-        if len(all_entries) >= max_entries:
-            break
-
-        file_entries: list[dict[str, Any]] = []
-        try:
-            with open(log_file, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        entry = json.loads(line)
-                        file_entries.append(entry)
-                    except json.JSONDecodeError:
-                        # Skip malformed lines
-                        continue
-        except OSError:
-            # File might have been rotated/deleted
-            continue
-
-        # Take entries from this file, newest first (end of file = newest)
-        # We need (max_entries - len(all_entries)) more entries
-        needed = max_entries - len(all_entries)
-        # Prepend older entries from this file to the front
-        all_entries = file_entries[-needed:] + all_entries
-
-    return all_entries
+from homebox_companion.core.logging import get_log_level_value
 
 
 

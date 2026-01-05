@@ -168,16 +168,6 @@ class ToolExecutor:
 
         return result
 
-    def invalidate_cache(self) -> None:
-        """Invalidate all caches including tool discovery and schema cache.
-
-        Useful for testing or when tools are modified at runtime.
-        """
-        self._schema_cache = None
-        # Clear the cached_property by removing it from instance __dict__
-        self.__dict__.pop("_tools_by_name", None)
-        logger.debug("Tool executor caches invalidated")
-
     async def get_display_info(
         self,
         tool_name: str,
