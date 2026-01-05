@@ -631,7 +631,12 @@ class CreateItemTool:
     """Create a new item in Homebox."""
 
     name: str = "create_item"
-    description: str = "Create a new item in Homebox"
+    description: str = (
+        "Create a new item in Homebox with basic fields only (name, description, "
+        "quantity, location, labels). Does NOT support: notes, purchase_price, "
+        "manufacturer, model_number, or serial_number - inform the user if they "
+        "request these, and offer to update the items afterward."
+    )
     permission: ToolPermission = ToolPermission.WRITE
 
     class Params(ToolParams):

@@ -2,10 +2,10 @@
 	/**
 	 * ApprovalItemPanel - Expandable panel for viewing/editing a pending approval action
 	 *
-	 * Supports three action types:
-	 * - create_item: Full editable form with core, extended fields, location, and labels
-	 * - update_item: Shows only fields being changed (editable)
-	 * - delete_item: Read-only verification view
+	 * Supports three action types across items, labels, and locations:
+	 * - create: Full editable form (items get extended fields, labels/locations get name + description)
+	 * - update: Shows only fields being changed (editable)
+	 * - delete: Read-only verification view with entity-specific labeling
 	 */
 	import { slide } from 'svelte/transition';
 	import type { PendingApproval } from '../api/chat';
@@ -187,6 +187,21 @@
 		if (toolName === 'delete_location') return (params?.name as string) ?? 'Delete location';
 
 		return toolName.replace(/_/g, ' ');
+	});
+
+	// Determine entity type from tool name for proper labeling
+	const entityType = $derived.by(() => {
+		if (approval.tool_name.endsWith('_item')) return 'item';
+		if (approval.tool_name.endsWith('_label')) return 'label';
+		if (approval.tool_name.endsWith('_location')) return 'location';
+		return 'item';
+	});
+
+	// Get the correct ID parameter based on entity type
+	const entityIdParam = $derived.by(() => {
+		if (entityType === 'label') return (approval.parameters.label_id as string) ?? 'Unknown';
+		if (entityType === 'location') return (approval.parameters.location_id as string) ?? 'Unknown';
+		return (approval.parameters.item_id as string) ?? 'Unknown';
 	});
 
 	// Check which fields are being changed (for update_item)
@@ -566,13 +581,13 @@
 					</div>
 				{/if}
 			{:else if actionType === 'update'}
-				<!-- Update Item: Show only fields being changed -->
+				<!-- Update Entity: Show only fields being changed -->
 				<div class="space-y-2.5">
-					{#if approval.display_info?.item_name || approval.display_info?.target_name}
+					{#if approval.display_info?.target_name || approval.display_info?.item_name}
 						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
 							<span class="text-xs text-neutral-500">Updating:</span>
 							<span class="ml-1 text-sm text-neutral-300"
-								>{approval.display_info.item_name ?? approval.display_info.target_name}</span
+								>{approval.display_info.target_name ?? approval.display_info.item_name}</span
 							>
 							{#if approval.display_info.asset_id}
 								<span class="text-xs text-neutral-500">({approval.display_info.asset_id})</span>
@@ -711,16 +726,18 @@
 					{/if}
 				</div>
 			{:else if actionType === 'delete'}
-				<!-- Delete Item: Read-only verification -->
+				<!-- Delete Entity: Read-only verification -->
 				<div class="space-y-2">
 					<p class="text-sm text-neutral-400">
-						Are you sure you want to delete this item? This action cannot be undone.
+						Are you sure you want to delete this {entityType}? This action cannot be undone.
 					</p>
 					<div class="space-y-1 rounded-lg border border-error-500/20 bg-error-500/10 px-3 py-2">
-						{#if approval.display_info?.item_name}
+						{#if approval.display_info?.target_name || approval.display_info?.item_name}
 							<div>
-								<span class="text-xs text-neutral-500">Item:</span>
-								<span class="text-error-300 ml-1 text-sm">{approval.display_info.item_name}</span>
+								<span class="text-xs text-neutral-500 capitalize">{entityType}:</span>
+								<span class="text-error-300 ml-1 text-sm"
+									>{approval.display_info.target_name ?? approval.display_info.item_name}</span
+								>
 							</div>
 						{/if}
 						{#if approval.display_info?.asset_id}
@@ -735,10 +752,10 @@
 								<span class="ml-1 text-sm text-neutral-300">{approval.display_info.location}</span>
 							</div>
 						{/if}
-						{#if !approval.display_info?.item_name}
+						{#if !approval.display_info?.target_name && !approval.display_info?.item_name}
 							<div>
-								<span class="text-xs text-neutral-500">Item ID:</span>
-								<span class="ml-1 text-sm text-neutral-300">{approval.parameters.item_id}</span>
+								<span class="text-xs text-neutral-500 capitalize">{entityType} ID:</span>
+								<span class="ml-1 text-sm text-neutral-300">{entityIdParam}</span>
 							</div>
 						{/if}
 					</div>
