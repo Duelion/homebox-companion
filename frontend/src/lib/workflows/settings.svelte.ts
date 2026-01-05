@@ -397,14 +397,16 @@ class SettingsService {
 	}
 
 	/**
-	 * Clear all chat data: frontend localStorage, backend session, and LLM log.
+	 * Clear all chat data: frontend localStorage and backend session.
 	 * Uses chatStore.clearHistory() to ensure consistent state across all stores.
+	 * Note: LLM debug logs are preserved (managed by loguru with automatic retention).
 	 */
 	async clearAllChatData(): Promise<void> {
 		try {
 			await chatStore.clearHistory();
-			// Also clear our local copy of the LLM debug log
+			// Reset our local view of the LLM debug log (will reload from files on next toggle)
 			this.llmDebugLog = [];
+			this.showLLMDebugLog = false;
 			log.success('All chat data cleared');
 		} catch (error) {
 			log.error('Failed to clear chat data:', error);

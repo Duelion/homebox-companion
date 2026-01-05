@@ -323,7 +323,7 @@
 		</div>
 
 		<p class="text-xs text-neutral-500">
-			Export your conversation or clear all chat data (localStorage, session, and LLM logs).
+			Export your conversation or clear all chat data (localStorage, session).
 		</p>
 
 		<!-- Chat Transcript Export -->
@@ -359,7 +359,7 @@
 				type="button"
 				class="flex items-center justify-center gap-2 rounded-lg border border-error-500/30 bg-error-500/10 px-3 py-2.5 text-sm text-error-400 transition-all hover:bg-error-500/20 hover:text-error-300"
 				onclick={() => {
-					if (confirm('Clear all chat data? This will delete your conversation, session, and LLM logs.')) {
+					if (confirm('Clear all chat data? This will delete your conversation and session.')) {
 						service.clearAllChatData();
 					}
 				}}

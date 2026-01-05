@@ -271,7 +271,7 @@ class TestListLabels:
 
     @pytest.mark.asyncio
     async def test_returns_labels_on_success(self, mock_client: MagicMock):
-        """Should return labels list on successful API call."""
+        """Should return labels list with URLs on successful API call."""
         mock_labels = [
             {"id": "lbl1", "name": "Electronics"},
             {"id": "lbl2", "name": "Furniture"},
@@ -283,7 +283,16 @@ class TestListLabels:
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
-        assert result.data == mock_labels
+        # Check that URLs were added to each label
+        assert len(result.data) == 2
+        assert result.data[0]["id"] == "lbl1"
+        assert result.data[0]["name"] == "Electronics"
+        assert "url" in result.data[0]
+        assert "items?labels=lbl1" in result.data[0]["url"]
+        assert result.data[1]["id"] == "lbl2"
+        assert result.data[1]["name"] == "Furniture"
+        assert "url" in result.data[1]
+        assert "items?labels=lbl2" in result.data[1]["url"]
         mock_client.list_labels.assert_called_once_with("test-token")
 
 
