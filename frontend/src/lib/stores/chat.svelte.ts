@@ -612,6 +612,7 @@ class ChatStore {
 
 	/**
 	 * Clear all messages and reset state.
+	 * Clears both frontend localStorage and backend session/LLM log.
 	 */
 	async clearHistory(): Promise<void> {
 		try {
@@ -631,9 +632,28 @@ class ChatStore {
 
 			// Clear persisted messages from localStorage
 			this.clearStorage();
+
+			// Reset sync flag so next page mount can re-check backend state
+			this.hasCheckedBackendSync = false;
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to clear history';
 		}
+	}
+
+	/**
+	 * Export chat transcript as JSON string.
+	 * Returns the user-visible conversation for export/backup.
+	 */
+	exportTranscript(): string {
+		return JSON.stringify(this._messages, null, 2);
+	}
+
+	/**
+	 * Get the current message count.
+	 * Useful for checking if there are messages to export.
+	 */
+	get messageCount(): number {
+		return this._messages.length;
 	}
 
 	/**

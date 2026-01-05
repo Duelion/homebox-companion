@@ -20,8 +20,9 @@ import {
 	type EffectiveDefaults,
 } from '$lib/api/settings';
 import { labels as labelsApi, type LabelData } from '$lib/api';
-import { getLLMLog, clearHistory, type LLMLogEntry } from '$lib/api/chat';
+import { getLLMLog, type LLMLogEntry } from '$lib/api/chat';
 import { getLogBuffer, clearLogBuffer, exportLogs, type LogEntry } from '$lib/utils/logger';
+import { chatStore } from '$lib/stores/chat.svelte';
 
 // =============================================================================
 // FIELD METADATA
@@ -137,11 +138,11 @@ class SettingsService {
 	showFrontendLogs = $state(false);
 
 	// =========================================================================
-	// CHAT HISTORY STATE
+	// LLM DEBUG LOG STATE (raw LLM request/response pairs for debugging)
 	// =========================================================================
 
-	chatHistory = $state<LLMLogEntry[]>([]);
-	showChatHistory = $state(false);
+	llmDebugLog = $state<LLMLogEntry[]>([]);
+	showLLMDebugLog = $state(false);
 
 	// =========================================================================
 	// FIELD PREFERENCES STATE
@@ -160,7 +161,7 @@ class SettingsService {
 	isLoading = $state({
 		config: true,
 		serverLogs: false,
-		chatHistory: false,
+		llmDebugLog: false,
 		fieldPrefs: false,
 		promptPreview: false,
 		updateCheck: false,
@@ -179,7 +180,7 @@ class SettingsService {
 	errors = $state({
 		init: null as string | null,
 		serverLogs: null as string | null,
-		chatHistory: null as string | null,
+		llmDebugLog: null as string | null,
 		fieldPrefs: null as string | null,
 		updateCheck: null as string | null,
 	});
@@ -312,65 +313,101 @@ class SettingsService {
 	}
 
 	// =========================================================================
-	// CHAT HISTORY
+	// LLM DEBUG LOG (raw LLM request/response pairs for debugging)
 	// =========================================================================
 
-	async toggleChatHistory(): Promise<void> {
-		if (this.showChatHistory) {
-			this.showChatHistory = false;
+	async toggleLLMDebugLog(): Promise<void> {
+		if (this.showLLMDebugLog) {
+			this.showLLMDebugLog = false;
 			return;
 		}
 
-		this.isLoading.chatHistory = true;
-		this.errors.chatHistory = null;
+		this.isLoading.llmDebugLog = true;
+		this.errors.llmDebugLog = null;
 
 		try {
-			this.chatHistory = await getLLMLog();
-			this.showChatHistory = true;
+			this.llmDebugLog = await getLLMLog();
+			this.showLLMDebugLog = true;
 		} catch (error) {
-			log.error('Failed to load chat history:', error);
-			this.errors.chatHistory =
-				error instanceof Error ? error.message : 'Failed to load chat history';
+			log.error('Failed to load LLM debug log:', error);
+			this.errors.llmDebugLog =
+				error instanceof Error ? error.message : 'Failed to load LLM debug log';
 		} finally {
-			this.isLoading.chatHistory = false;
+			this.isLoading.llmDebugLog = false;
 		}
 	}
 
-	async refreshChatHistory(): Promise<void> {
-		this.isLoading.chatHistory = true;
+	async refreshLLMDebugLog(): Promise<void> {
+		this.isLoading.llmDebugLog = true;
 
 		try {
-			this.chatHistory = await getLLMLog();
+			this.llmDebugLog = await getLLMLog();
 		} catch (error) {
-			log.error('Failed to refresh chat history:', error);
+			log.error('Failed to refresh LLM debug log:', error);
 		} finally {
-			this.isLoading.chatHistory = false;
+			this.isLoading.llmDebugLog = false;
 		}
 	}
 
-	exportChatHistory(): void {
-		if (this.chatHistory.length === 0) return;
+	/**
+	 * Export LLM debug log (raw request/response pairs) as JSON.
+	 * This is technical debugging data, not the user-visible chat.
+	 */
+	exportLLMDebugLog(): void {
+		if (this.llmDebugLog.length === 0) return;
 
-		const json = JSON.stringify(this.chatHistory, null, 2);
+		const json = JSON.stringify(this.llmDebugLog, null, 2);
 		const blob = new Blob([json], { type: 'application/json' });
 		const url = window.URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `llm-chat-history-${new Date().toISOString().split('T')[0]}.json`;
+		a.download = `llm-debug-log-${new Date().toISOString().split('T')[0]}.json`;
 		document.body.appendChild(a);
 		a.click();
 		window.URL.revokeObjectURL(url);
 		document.body.removeChild(a);
-		log.success(`Exported ${this.chatHistory.length} LLM interactions`);
+		log.success(`Exported ${this.llmDebugLog.length} LLM interactions`);
 	}
 
-	async clearChatHistory(): Promise<void> {
+	// =========================================================================
+	// CHAT TRANSCRIPT (user-visible conversation from localStorage)
+	// =========================================================================
+
+	/**
+	 * Export chat transcript (user-visible conversation) as JSON.
+	 * This is the human-readable conversation the user sees in the chat UI.
+	 */
+	exportChatTranscript(): void {
+		if (chatStore.messageCount === 0) {
+			log.warn('No chat messages to export');
+			return;
+		}
+
+		const json = chatStore.exportTranscript();
+		const blob = new Blob([json], { type: 'application/json' });
+		const url = window.URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `chat-transcript-${new Date().toISOString().split('T')[0]}.json`;
+		document.body.appendChild(a);
+		a.click();
+		window.URL.revokeObjectURL(url);
+		document.body.removeChild(a);
+		log.success(`Exported ${chatStore.messageCount} chat messages`);
+	}
+
+	/**
+	 * Clear all chat data: frontend localStorage, backend session, and LLM log.
+	 * Uses chatStore.clearHistory() to ensure consistent state across all stores.
+	 */
+	async clearAllChatData(): Promise<void> {
 		try {
-			await clearHistory();
-			this.chatHistory = [];
-			log.success('Chat history cleared');
+			await chatStore.clearHistory();
+			// Also clear our local copy of the LLM debug log
+			this.llmDebugLog = [];
+			log.success('All chat data cleared');
 		} catch (error) {
-			log.error('Failed to clear chat history:', error);
+			log.error('Failed to clear chat data:', error);
 		}
 	}
 
@@ -596,8 +633,8 @@ class SettingsService {
 		this.showServerLogs = false;
 		this.frontendLogs = [];
 		this.showFrontendLogs = false;
-		this.chatHistory = [];
-		this.showChatHistory = false;
+		this.llmDebugLog = [];
+		this.showLLMDebugLog = false;
 		this.fieldPrefs = getEmptyPreferences();
 		this.effectiveDefaults = null;
 		this.showFieldPrefs = false;
@@ -610,7 +647,7 @@ class SettingsService {
 		this.isLoading = {
 			config: true,
 			serverLogs: false,
-			chatHistory: false,
+			llmDebugLog: false,
 			fieldPrefs: false,
 			promptPreview: false,
 			updateCheck: false,
@@ -619,7 +656,7 @@ class SettingsService {
 		this.errors = {
 			init: null,
 			serverLogs: null,
-			chatHistory: null,
+			llmDebugLog: null,
 			fieldPrefs: null,
 			updateCheck: null,
 		};

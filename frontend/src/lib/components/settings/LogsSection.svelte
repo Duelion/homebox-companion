@@ -1,8 +1,9 @@
 <script lang="ts">
 	/**
-	 * LogsSection - Application logs, frontend logs, and AI chat history.
+	 * LogsSection - Application logs, frontend logs, chat transcript, and LLM debug log.
 	 */
 	import { settingsService } from '$lib/workflows/settings.svelte';
+	import { chatStore } from '$lib/stores/chat.svelte';
 	import LogViewer from '$lib/components/LogViewer.svelte';
 	import FullscreenPanel from '$lib/components/FullscreenPanel.svelte';
 
@@ -302,7 +303,7 @@
 		{/if}
 	</div>
 
-	<!-- AI Chat History Sub-section -->
+	<!-- Chat Data Sub-section (Transcript + Clear All) -->
 	<div class="space-y-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4">
 		<div class="flex items-center justify-between">
 			<h3 class="flex items-center gap-2 text-sm font-semibold text-neutral-200">
@@ -317,20 +318,96 @@
 						d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
 					/>
 				</svg>
-				AI Chat History
+				Chat Data
 			</h3>
-			{#if service.showChatHistory && service.chatHistory.length > 0}
+		</div>
+
+		<p class="text-xs text-neutral-500">
+			Export your conversation or clear all chat data (localStorage, session, and LLM logs).
+		</p>
+
+		<!-- Chat Transcript Export -->
+		<div class="flex items-center gap-2">
+			<button
+				type="button"
+				class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-sm text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+				onclick={() => service.exportChatTranscript()}
+				disabled={chatStore.messageCount === 0}
+				title={chatStore.messageCount === 0
+					? 'No messages to export'
+					: 'Export your conversation as JSON'}
+			>
+				<svg
+					class="h-4 w-4"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+					<polyline points="7 10 12 15 17 10" />
+					<line x1="12" y1="15" x2="12" y2="3" />
+				</svg>
+				<span>Export Transcript</span>
+				{#if chatStore.messageCount > 0}
+					<span class="ml-1 text-xs text-neutral-500">({chatStore.messageCount})</span>
+				{/if}
+			</button>
+
+			<!-- Clear All Chat Data -->
+			<button
+				type="button"
+				class="flex items-center justify-center gap-2 rounded-lg border border-error-500/30 bg-error-500/10 px-3 py-2.5 text-sm text-error-400 transition-all hover:bg-error-500/20 hover:text-error-300"
+				onclick={() => {
+					if (confirm('Clear all chat data? This will delete your conversation, session, and LLM logs.')) {
+						service.clearAllChatData();
+					}
+				}}
+				title="Clear all chat data (conversation, session, and logs)"
+			>
+				<svg
+					class="h-4 w-4"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path
+						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+					/>
+				</svg>
+				<span>Clear All</span>
+			</button>
+		</div>
+	</div>
+
+	<!-- LLM Debug Log Sub-section (technical debugging) -->
+	<div class="space-y-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4">
+		<div class="flex items-center justify-between">
+			<h3 class="flex items-center gap-2 text-sm font-semibold text-neutral-200">
+				<svg
+					class="h-4 w-4 text-neutral-400"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+				</svg>
+				LLM Debug Log
+			</h3>
+			{#if service.showLLMDebugLog && service.llmDebugLog.length > 0}
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
 						class="btn-icon-touch"
-						onclick={() => service.refreshChatHistory()}
+						onclick={() => service.refreshLLMDebugLog()}
 						title="Refresh"
-						aria-label="Refresh chat history"
-						disabled={service.isLoading.chatHistory}
+						aria-label="Refresh LLM debug log"
+						disabled={service.isLoading.llmDebugLog}
 					>
 						<svg
-							class="h-5 w-5 {service.isLoading.chatHistory ? 'animate-spin' : ''}"
+							class="h-5 w-5 {service.isLoading.llmDebugLog ? 'animate-spin' : ''}"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -343,9 +420,9 @@
 					<button
 						type="button"
 						class="btn-icon-touch"
-						onclick={() => service.exportChatHistory()}
+						onclick={() => service.exportLLMDebugLog()}
 						title="Export as JSON"
-						aria-label="Export chat history"
+						aria-label="Export LLM debug log"
 					>
 						<svg
 							class="h-5 w-5"
@@ -359,48 +436,29 @@
 							<line x1="12" y1="15" x2="12" y2="3" />
 						</svg>
 					</button>
-					<button
-						type="button"
-						class="btn-icon-touch"
-						onclick={() => service.clearChatHistory()}
-						title="Clear history"
-						aria-label="Clear chat history"
-					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-							/>
-						</svg>
-					</button>
 				</div>
 			{/if}
 		</div>
 
 		<p class="text-xs text-neutral-500">
-			Raw LLM request/response history. Shows complete messages sent to the AI.
+			Raw LLM request/response pairs. Technical debugging data for developers.
 		</p>
 
 		<button
 			type="button"
 			class="flex w-full items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-sm text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
-			onclick={() => service.toggleChatHistory()}
-			disabled={service.isLoading.chatHistory}
+			onclick={() => service.toggleLLMDebugLog()}
+			disabled={service.isLoading.llmDebugLog}
 		>
-			{#if service.isLoading.chatHistory}
+			{#if service.isLoading.llmDebugLog}
 				<div
 					class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 				></div>
 				<span>Loading...</span>
 			{:else}
-				<span>Show AI Chat History</span>
+				<span>Show LLM Debug Log</span>
 				<svg
-					class="ml-auto h-4 w-4 transition-transform {service.showChatHistory ? 'rotate-180' : ''}"
+					class="ml-auto h-4 w-4 transition-transform {service.showLLMDebugLog ? 'rotate-180' : ''}"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -410,29 +468,29 @@
 			{/if}
 		</button>
 
-		{#if service.showChatHistory}
-			{#if service.errors.chatHistory}
+		{#if service.showLLMDebugLog}
+			{#if service.errors.llmDebugLog}
 				<div
 					class="rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm text-error-500"
 				>
-					{service.errors.chatHistory}
+					{service.errors.llmDebugLog}
 				</div>
-			{:else if service.chatHistory.length === 0}
+			{:else if service.llmDebugLog.length === 0}
 				<div
 					class="rounded-lg border border-neutral-700 bg-neutral-800/50 p-3 text-center text-sm text-neutral-400"
 				>
-					No chat history available. Start a conversation with the AI to see interactions here.
+					No LLM interactions recorded. Start a conversation with the AI to capture debug data.
 				</div>
 			{:else}
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-xs text-neutral-500">
 						<span>LLM interactions</span>
 						<span>
-							{service.chatHistory.length}
-							{service.chatHistory.length === 1 ? 'entry' : 'entries'}
+							{service.llmDebugLog.length}
+							{service.llmDebugLog.length === 1 ? 'entry' : 'entries'}
 						</span>
 					</div>
-					<LogViewer source={{ type: 'json', data: service.chatHistory }} />
+					<LogViewer source={{ type: 'json', data: service.llmDebugLog }} />
 				</div>
 			{/if}
 		{/if}
