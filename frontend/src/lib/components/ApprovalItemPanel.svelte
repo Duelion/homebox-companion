@@ -112,9 +112,7 @@
 	const originalColor = $derived((approval.parameters.color as string | undefined) ?? null);
 
 	// Location field originals (for update_location)
-	const originalParentId = $derived(
-		(approval.parameters.parent_id as string | undefined) ?? null
-	);
+	const originalParentId = $derived((approval.parameters.parent_id as string | undefined) ?? null);
 
 	// Track which approval we've initialized for
 	let initializedForApprovalId = $state<string | null>(null);
@@ -573,7 +571,9 @@
 					{#if approval.display_info?.item_name || approval.display_info?.target_name}
 						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
 							<span class="text-xs text-neutral-500">Updating:</span>
-							<span class="ml-1 text-sm text-neutral-300">{approval.display_info.item_name ?? approval.display_info.target_name}</span>
+							<span class="ml-1 text-sm text-neutral-300"
+								>{approval.display_info.item_name ?? approval.display_info.target_name}</span
+							>
 							{#if approval.display_info.asset_id}
 								<span class="text-xs text-neutral-500">({approval.display_info.asset_id})</span>
 							{/if}

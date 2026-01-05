@@ -151,7 +151,7 @@ def save_field_preferences(preferences: FieldPreferences) -> None:
     defaults = get_defaults()
     overrides = {}
 
-    for field in preferences.model_fields:
+    for field in FieldPreferences.model_fields:
         user_val = getattr(preferences, field)
         default_val = getattr(defaults, field)
         if user_val != default_val:

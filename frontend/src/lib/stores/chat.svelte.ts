@@ -359,12 +359,12 @@ class ChatStore {
 		this._messages = this._messages.map((msg) =>
 			msg.id === messageId
 				? {
-					...msg,
-					toolResults: [
-						...(msg.toolResults || []),
-						{ tool: toolName, executionId, success: false, isExecuting: true },
-					],
-				}
+						...msg,
+						toolResults: [
+							...(msg.toolResults || []),
+							{ tool: toolName, executionId, success: false, isExecuting: true },
+						],
+					}
 				: msg
 		);
 

@@ -296,24 +296,19 @@ class ChatOrchestrator:
         """
         parts: list[str] = []
 
-        # Handle auto-rejections
+        # Handle auto-rejections (compact format)
         if auto_rejections:
             tool_counts: dict[str, int] = {}
             for outcome in auto_rejections:
                 tool_counts[outcome.tool_name] = tool_counts.get(outcome.tool_name, 0) + 1
 
             tool_summary = ", ".join(
-                f"{name} (x{count})" if count > 1 else name
+                f"{name} x{count}" if count > 1 else name
                 for name, count in tool_counts.items()
             )
-            total = sum(tool_counts.values())
-            parts.append(
-                f"{total} pending action{'s were' if total != 1 else ' was'} "
-                f"dismissed when you sent this message: {tool_summary}. "
-                "These were NOT executed."
-            )
+            parts.append(f"Dismissed (NOT executed): {tool_summary}.")
 
-        # Handle explicit frontend outcomes
+        # Handle explicit frontend outcomes (compact format)
         if frontend_outcomes:
             approved = [o for o in frontend_outcomes if o.outcome == "approved"]
             rejected = [o for o in frontend_outcomes if o.outcome == "rejected"]
@@ -323,27 +318,20 @@ class ChatOrchestrator:
                 fail_count = len(approved) - success_count
                 tool_names = ", ".join(o.tool_name for o in approved[:5])
                 if len(approved) > 5:
-                    tool_names += f" (+{len(approved) - 5} more)"
+                    tool_names += f" +{len(approved) - 5}"
 
                 if fail_count == 0:
-                    parts.append(
-                        f"{len(approved)} action{'s were' if len(approved) != 1 else ' was'} "
-                        f"approved and executed successfully: {tool_names}."
-                    )
+                    parts.append(f"{len(approved)} approved OK: {tool_names}.")
                 else:
                     parts.append(
-                        f"{len(approved)} action{'s were' if len(approved) != 1 else ' was'} "
-                        f"approved ({success_count} succeeded, {fail_count} failed): {tool_names}."
+                        f"{len(approved)} approved ({success_count} OK, {fail_count} failed): {tool_names}."
                     )
 
             if rejected:
                 tool_names = ", ".join(o.tool_name for o in rejected[:5])
                 if len(rejected) > 5:
-                    tool_names += f" (+{len(rejected) - 5} more)"
-                parts.append(
-                    f"{len(rejected)} action{'s were' if len(rejected) != 1 else ' was'} "
-                    f"rejected by the user: {tool_names}."
-                )
+                    tool_names += f" +{len(rejected) - 5}"
+                parts.append(f"{len(rejected)} rejected: {tool_names}.")
 
         return " ".join(parts) if parts else None
 

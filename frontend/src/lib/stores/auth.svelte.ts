@@ -15,6 +15,7 @@ import { authLogger as log } from '../utils/logger';
 
 const TOKEN_KEY = 'hbc_token';
 const EXPIRES_KEY = 'hbc_token_expires';
+const EMAIL_KEY = 'hbc_user_email';
 
 /** Token refresh threshold in milliseconds (5 minutes) */
 const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
@@ -25,6 +26,7 @@ const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 
 const storedToken = browser ? localStorage.getItem(TOKEN_KEY) : null;
 const storedExpires = browser ? localStorage.getItem(EXPIRES_KEY) : null;
+const storedEmail = browser ? localStorage.getItem(EMAIL_KEY) : null;
 
 // =============================================================================
 // AUTH STORE CLASS
@@ -40,6 +42,9 @@ class AuthStore {
 
 	/** Token expiration date */
 	private _expiresAt = $state<Date | null>(storedExpires ? new Date(storedExpires) : null);
+
+	/** User email address */
+	private _email = $state<string | null>(storedEmail);
 
 	/** Whether initial auth check has completed */
 	private _initialized = $state(false);
@@ -62,6 +67,11 @@ class AuthStore {
 	/** Get the token expiration date */
 	get expiresAt(): Date | null {
 		return this._expiresAt;
+	}
+
+	/** Get the user email */
+	get email(): string | null {
+		return this._email;
 	}
 
 	/** Check if user is authenticated (reactive via $derived) */
@@ -126,16 +136,24 @@ class AuthStore {
 	 * Set authenticated state atomically with all required side effects.
 	 * This is the canonical way to update auth state.
 	 */
-	setAuthenticatedState(newToken: string, expiresAt: Date): void {
+	setAuthenticatedState(newToken: string, expiresAt: Date, email?: string): void {
 		log.debug('Setting authenticated state, expires:', expiresAt.toISOString());
 		this._token = newToken;
 		this._expiresAt = expiresAt;
 		this._sessionExpired = false;
 
+		// Only update email if provided (preserves existing email on token refresh)
+		if (email !== undefined) {
+			this._email = email;
+		}
+
 		// Persist to localStorage
 		if (browser) {
 			localStorage.setItem(TOKEN_KEY, newToken);
 			localStorage.setItem(EXPIRES_KEY, expiresAt.toISOString());
+			if (email !== undefined) {
+				localStorage.setItem(EMAIL_KEY, email);
+			}
 		}
 
 		// Schedule token refresh
@@ -170,12 +188,14 @@ class AuthStore {
 		stopRefreshTimer();
 		this._token = null;
 		this._expiresAt = null;
+		this._email = null;
 		this._sessionExpired = false;
 
 		// Clear from localStorage
 		if (browser) {
 			localStorage.removeItem(TOKEN_KEY);
 			localStorage.removeItem(EXPIRES_KEY);
+			localStorage.removeItem(EMAIL_KEY);
 		}
 
 		// Clear related stores (non-blocking, errors logged)
@@ -219,6 +239,6 @@ export const authStore = new AuthStore();
 export const tokenNeedsRefresh = () => authStore.tokenNeedsRefresh();
 export const tokenIsExpired = () => authStore.tokenIsExpired();
 export const markSessionExpired = () => authStore.markSessionExpired();
-export const setAuthenticatedState = (token: string, expiresAt: Date) =>
-	authStore.setAuthenticatedState(token, expiresAt);
+export const setAuthenticatedState = (token: string, expiresAt: Date, email?: string) =>
+	authStore.setAuthenticatedState(token, expiresAt, email);
 export const logout = () => authStore.logout();

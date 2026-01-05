@@ -68,7 +68,7 @@
 
 		try {
 			const response = await auth.login(email, password);
-			authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
+			authStore.setAuthenticatedState(response.token, new Date(response.expires_at), email);
 			goto(resolve('/location'));
 		} catch (error) {
 			log.error('Login failed:', error);

@@ -437,20 +437,20 @@
 					idPrefix="review"
 				/>
 
-			<!-- Images panel -->
-			<ImagesPanel
-				bind:images={allImages}
-				customThumbnail={editedItem.customThumbnail}
-				onCustomThumbnailClear={() => {
-					if (editedItem) {
-						editedItem.customThumbnail = undefined;
-					}
-				}}
-				expanded={showImagesPanel}
-				onToggle={toggleImagesPanel}
-				maxFileSizeMb={maxFileSizeMb}
-				maxImages={maxImages}
-			/>
+				<!-- Images panel -->
+				<ImagesPanel
+					bind:images={allImages}
+					customThumbnail={editedItem.customThumbnail}
+					onCustomThumbnailClear={() => {
+						if (editedItem) {
+							editedItem.customThumbnail = undefined;
+						}
+					}}
+					expanded={showImagesPanel}
+					onToggle={toggleImagesPanel}
+					{maxFileSizeMb}
+					{maxImages}
+				/>
 
 				<!-- AI Correction panel -->
 				<AiCorrectionPanel

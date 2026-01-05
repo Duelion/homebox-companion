@@ -22,7 +22,7 @@ export function getIsDemoMode(): boolean {
 }
 
 /** Get default empty preferences */
-function getEmptyPreferences(): FieldPreferences {
+export function getEmptyPreferences(): FieldPreferences {
 	return {
 		output_language: null,
 		default_label_id: null,
