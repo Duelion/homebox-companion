@@ -23,16 +23,3 @@ export function getInputClass(size: FormSize): string {
 export function getLabelClass(size: FormSize): string {
 	return size === 'sm' ? 'label-sm' : 'label';
 }
-
-/**
- * Returns all form-related classes as an object for more flexible usage.
- * Useful when components need multiple class types.
- */
-export function getFormClasses(size: FormSize) {
-	return {
-		input: size === 'sm' ? 'input-sm' : 'input',
-		label: size === 'sm' ? 'label-sm' : 'label',
-		spacing: size === 'sm' ? 'space-y-2.5' : 'space-y-5',
-		gridGap: size === 'sm' ? 'gap-2.5' : 'gap-3',
-	};
-}
