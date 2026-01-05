@@ -221,8 +221,6 @@
 					></div>
 				</div>
 			{/if}
-
 		</div>
 	{/if}
 </section>
-

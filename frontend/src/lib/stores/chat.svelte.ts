@@ -5,7 +5,7 @@
  * messages, streaming state, and pending approvals.
  */
 
-import { chat, type ChatEvent, type PendingApproval } from '../api/chat';
+import { chat, type ChatEvent, type ChatStatusResponse, type PendingApproval } from '../api/chat';
 import { locationNavigator } from '../services/locationNavigator.svelte';
 import { chatLogger as log } from '../utils/logger';
 import { labelStore } from './labels.svelte';
@@ -63,6 +63,15 @@ const LABEL_TOOLS = new Set(['create_label', 'update_label', 'delete_label']);
 /** Tools that modify locations - used for cache invalidation */
 const LOCATION_TOOLS = new Set(['create_location', 'update_location', 'delete_location']);
 
+/**
+ * Storage schema for localStorage persistence.
+ * Includes session_id for backend synchronization.
+ */
+interface ChatStorageData {
+	session_id: string | null;
+	messages: Array<ChatMessage & { timestamp: string }>;
+}
+
 // =============================================================================
 // CHAT STORE CLASS
 // =============================================================================
@@ -112,6 +121,9 @@ class ChatStore {
 	/** Timeout duration for stuck tools (90 seconds) */
 	private static readonly TOOL_TIMEOUT_MS = 90_000;
 
+	/** Backend session ID for synchronization */
+	private _sessionId: string | null = null;
+
 	// =========================================================================
 	// CONSTRUCTOR
 	// =========================================================================
@@ -121,7 +133,7 @@ class ChatStore {
 		this.loadFromStorage();
 	}
 
-	/** localStorage key for persisting chat messages */
+	/** localStorage key for persisting chat data */
 	private static readonly STORAGE_KEY = 'hbc-chat-messages';
 
 	// =========================================================================
@@ -129,19 +141,39 @@ class ChatStore {
 	// =========================================================================
 
 	/**
-	 * Load messages from localStorage on initialization.
+	 * Load messages and session ID from localStorage on initialization.
 	 * Handles Date deserialization and syncs the message ID counter.
+	 * Supports migration from old schema (array) to new schema (object with session_id).
 	 */
 	private loadFromStorage(): void {
 		try {
 			const stored = localStorage.getItem(ChatStore.STORAGE_KEY);
 			if (!stored) return;
 
-			const parsed = JSON.parse(stored) as Array<ChatMessage & { timestamp: string }>;
-			if (!Array.isArray(parsed) || parsed.length === 0) return;
+			const parsed = JSON.parse(stored);
+
+			// Handle migration from old schema (plain array) to new schema (object)
+			let messages: Array<ChatMessage & { timestamp: string }>;
+			if (Array.isArray(parsed)) {
+				// Old schema: just an array of messages, no session_id
+				messages = parsed;
+				this._sessionId = null;
+				log.debug('Migrating from old storage schema (no session_id)');
+			} else if (parsed && typeof parsed === 'object' && 'messages' in parsed) {
+				// New schema: { session_id, messages }
+				const data = parsed as ChatStorageData;
+				messages = data.messages;
+				this._sessionId = data.session_id;
+			} else {
+				log.warn('Unknown storage schema, clearing');
+				this.clearStorage();
+				return;
+			}
+
+			if (!Array.isArray(messages) || messages.length === 0) return;
 
 			// Deserialize timestamps and ensure clean state
-			this._messages = parsed.map((msg) => ({
+			this._messages = messages.map((msg) => ({
 				...msg,
 				timestamp: new Date(msg.timestamp),
 				isStreaming: false, // Never restore streaming state
@@ -159,7 +191,9 @@ class ChatStore {
 			}
 			this.messageIdCounter = maxCounter;
 
-			log.debug(`Loaded ${this._messages.length} messages from storage`);
+			log.debug(
+				`Loaded ${this._messages.length} messages from storage (session_id: ${this._sessionId ?? 'none'})`
+			);
 		} catch (error) {
 			log.warn('Failed to load chat messages from storage:', error);
 			// Don't fail silently - clear corrupted data
@@ -168,7 +202,7 @@ class ChatStore {
 	}
 
 	/**
-	 * Save messages to localStorage.
+	 * Save messages and session ID to localStorage.
 	 * Only saves when not streaming to avoid partial states.
 	 */
 	private saveToStorage(): void {
@@ -183,7 +217,13 @@ class ChatStore {
 				return;
 			}
 
-			const serialized = JSON.stringify(this._messages);
+			// Note: JSON.stringify automatically converts Date objects to ISO strings,
+			// which loadFromStorage() converts back to Date objects on load
+			const data = {
+				session_id: this._sessionId,
+				messages: this._messages,
+			};
+			const serialized = JSON.stringify(data);
 			localStorage.setItem(ChatStore.STORAGE_KEY, serialized);
 			log.trace(`Saved ${this._messages.length} messages to storage`);
 		} catch (error) {
@@ -193,50 +233,93 @@ class ChatStore {
 	}
 
 	/**
-	 * Clear persisted messages from localStorage.
+	 * Clear persisted messages and session ID from localStorage.
 	 */
 	private clearStorage(): void {
 		try {
 			localStorage.removeItem(ChatStore.STORAGE_KEY);
-			log.trace('Cleared chat messages from storage');
+			this._sessionId = null;
+			log.trace('Cleared chat data from storage');
 		} catch (error) {
 			log.warn('Failed to clear chat storage:', error);
 		}
 	}
 
-	/** Track if we've already synced with backend this session */
-	private hasCheckedBackendSync = false;
+	/** Track if we've already validated session this page load */
+	private hasValidatedSession = false;
 
 	/**
-	 * Ensure backend is in sync with frontend state.
+	 * Validate session state with backend and handle mismatches.
 	 *
-	 * If localStorage was empty (no messages loaded), clears the backend
-	 * chat history and LLM logs to ensure a fresh start. This handles the
-	 * case where the user cleared their chat and then refreshed the page -
-	 * without this, stale backend state could persist.
+	 * Fetches the backend session status and compares the session_id with
+	 * the locally stored one. This detects when the backend session was
+	 * reset (server restart, TTL expiry) and the frontend has stale messages.
+	 *
+	 * Behavior:
+	 * - If session IDs match: keep local messages (sync confirmed)
+	 * - If session ID mismatch: clear local messages (backend was reset)
+	 * - If no local session ID but have messages (migration): clear messages
+	 * - If no local messages: store backend session ID for future validation
 	 *
 	 * Should be called once when the chat page mounts.
 	 */
-	async ensureBackendSync(): Promise<void> {
-		// Only check once per session to avoid redundant API calls
-		if (this.hasCheckedBackendSync) return;
-		this.hasCheckedBackendSync = true;
+	async validateSession(): Promise<void> {
+		// Only validate once per page load to avoid redundant API calls
+		if (this.hasValidatedSession) return;
+		this.hasValidatedSession = true;
 
-		// If we have local messages, backend sync is not needed
-		if (this._messages.length > 0) {
-			log.debug('Local messages exist, skipping backend sync');
+		let backendStatus: ChatStatusResponse;
+		try {
+			backendStatus = await chat.getStatus();
+		} catch (error) {
+			// Non-fatal - backend might be unavailable, keep local state
+			log.warn('Failed to fetch backend session status, keeping local state:', error);
 			return;
 		}
 
-		// localStorage was empty - clear backend to ensure fresh start
-		log.info('No local messages, clearing backend to sync state');
-		try {
-			await chat.clearHistory();
-			log.debug('Backend history cleared for fresh session');
-		} catch (error) {
-			// Non-fatal - backend might already be clear or unavailable
-			log.warn('Failed to clear backend history for sync:', error);
+		const backendSessionId = backendStatus.session_id;
+
+		// Case 1: No local messages - just store the backend session ID in memory
+		// It will be persisted to localStorage when the first message is sent
+		if (this._messages.length === 0) {
+			log.debug(`No local messages, storing backend session ID: ${backendSessionId}`);
+			this._sessionId = backendSessionId;
+			// Don't call saveToStorage() - it would clear the session ID since messages is empty
+			return;
 		}
+
+		// Case 2: Local messages exist - check if session IDs match
+		if (this._sessionId === backendSessionId) {
+			log.debug(
+				`Session IDs match (${backendSessionId}), keeping ${this._messages.length} local messages`
+			);
+			return;
+		}
+
+		// Case 3: Session ID mismatch - backend was reset, clear local messages
+		log.info(
+			`Session ID mismatch (local: ${this._sessionId ?? 'none'}, backend: ${backendSessionId}). ` +
+				`Clearing ${this._messages.length} stale local messages.`
+		);
+
+		// Clear all pending tool timeouts
+		for (const timeoutId of this.toolTimeouts.values()) {
+			clearTimeout(timeoutId);
+		}
+		this.toolTimeouts.clear();
+		this.pendingTools.clear();
+
+		// Clear local state and storage
+		this._messages = [];
+		this._pendingApprovals = [];
+		this._recentApprovalOutcomes = [];
+		this._error = null;
+		this.clearStorage();
+
+		// Store the new session ID in memory - will be persisted with first message
+		this._sessionId = backendSessionId;
+
+		log.debug(`Synced to new backend session: ${backendSessionId}`);
 	}
 
 	// =========================================================================
@@ -630,11 +713,11 @@ class ChatStore {
 			this._recentApprovalOutcomes = [];
 			this._error = null;
 
-			// Clear persisted messages from localStorage
+			// Clear persisted messages from localStorage (also clears session ID)
 			this.clearStorage();
 
-			// Reset sync flag so next page mount can re-check backend state
-			this.hasCheckedBackendSync = false;
+			// Reset validation flag so next page mount can re-fetch session status
+			this.hasValidatedSession = false;
 		} catch (error) {
 			this._error = error instanceof Error ? error.message : 'Failed to clear history';
 		}

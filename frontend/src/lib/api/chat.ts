@@ -105,6 +105,15 @@ export interface ChatHealthResponse {
 }
 
 /**
+ * Session status for frontend synchronization.
+ * Used to detect when backend session was reset.
+ */
+export interface ChatStatusResponse {
+	session_id: string;
+	message_count: number;
+}
+
+/**
  * Approval outcome for AI context injection.
  * Sent with the next message to inform the AI about approval decisions.
  */
@@ -353,6 +362,17 @@ export async function getChatHealth(): Promise<ChatHealthResponse> {
 }
 
 /**
+ * Get session status for frontend synchronization.
+ *
+ * Returns the session ID and message count so the frontend can detect
+ * when the backend session has been reset (server restart, TTL expiry).
+ */
+export async function getStatus(): Promise<ChatStatusResponse> {
+	log.debug('Fetching session status');
+	return request<ChatStatusResponse>('/chat/status');
+}
+
+/**
  * LLM interaction entry for debugging export.
  */
 export interface LLMLogEntry {
@@ -391,5 +411,6 @@ export const chat = {
 	rejectAction,
 	clearHistory,
 	getChatHealth,
+	getStatus,
 	getLLMLog,
 };

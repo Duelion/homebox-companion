@@ -68,4 +68,3 @@
 {#if expanded}
 	{@render children()}
 {/if}
-

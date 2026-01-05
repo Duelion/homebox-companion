@@ -114,9 +114,8 @@
 		isEnabled = await chatStore.checkEnabled();
 		log.debug(`Chat enabled: ${isEnabled}`);
 		if (isEnabled) {
-			// Ensure backend is in sync with frontend state
-			// If localStorage was empty, this clears any stale backend history
-			await chatStore.ensureBackendSync();
+			// Validate session state with backend - clears local messages if backend was reset
+			await chatStore.validateSession();
 
 			await chatStore.refreshPendingApprovals();
 			log.debug(`Pending approvals: ${chatStore.pendingApprovals.length}`);

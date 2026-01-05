@@ -109,12 +109,16 @@ class ChatSession:
     conversation session. Sessions are identified by the user's auth token.
 
     Attributes:
+        session_id: Unique identifier for this session instance (for frontend sync)
         messages: List of messages in the conversation
         pending_approvals: Dict mapping approval ID to PendingApproval
     """
 
     def __init__(self):
         """Initialize an empty session."""
+        # Unique session ID for frontend synchronization
+        # Used to detect when backend session was reset (server restart, TTL expiry)
+        self.session_id: str = uuid.uuid4().hex[:12]
         self.messages: list[ChatMessage] = []
         self.pending_approvals: dict[str, PendingApproval] = {}
         self._created_at = datetime.now(UTC)

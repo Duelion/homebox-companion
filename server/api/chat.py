@@ -303,6 +303,29 @@ async def clear_history(
     return ApprovalResponse(success=True, message="History cleared")
 
 
+@router.get("/chat/status")
+async def get_session_status(
+    session: Annotated[ChatSession, Depends(get_session)],
+) -> dict[str, Any]:
+    """Get session status for frontend synchronization.
+
+    Returns the session ID and message count so the frontend can detect
+    when the backend session has been reset (e.g., server restart, TTL expiry).
+    If the frontend's stored session ID doesn't match, it should clear its
+    local messages to avoid showing stale history.
+
+    Returns:
+        Dict with session_id and message_count
+    """
+    if not settings.chat_enabled:
+        raise HTTPException(status_code=503, detail="Chat feature is disabled")
+
+    return {
+        "session_id": session.session_id,
+        "message_count": len(session.messages),
+    }
+
+
 @router.get("/chat/health")
 async def chat_health() -> dict[str, Any]:
     """Health check for chat API.
