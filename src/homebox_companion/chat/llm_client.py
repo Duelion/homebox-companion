@@ -7,40 +7,143 @@ The LLMClient handles:
 - Building the system prompt
 - Calling the LLM with streaming or non-streaming modes
 - Configuration from settings
-- Capturing raw request/response data for debugging
+- Capturing raw request/response data for debugging via loguru
 """
 
 from __future__ import annotations
 
+import json
+import os
 import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from glob import glob
 from typing import Any
 
 import litellm
 from loguru import logger
 
 from homebox_companion.core import config
-
-# Buffer for storing raw LLM interactions
-# This is a module-level list that stores streaming interactions
-_llm_raw_log: list[dict[str, Any]] = []
-_LLM_RAW_LOG_MAX_SIZE = 50
+from homebox_companion.core.logging import LLM_DEBUG_LOG_DIR, get_log_level_value
 
 
-def get_raw_llm_log() -> list[dict[str, Any]]:
-    """Get the raw LLM interaction log.
+def get_raw_llm_log(max_entries: int = 50) -> list[dict[str, Any]]:
+    """Get the raw LLM interaction log from log files.
 
-    Returns a copy to prevent external modification.
+    Reads from log files (newest first) to return the most recent interactions.
+
+    Args:
+        max_entries: Maximum number of entries to return.
+
+    Returns:
+        List of LLM interaction entries, oldest first (chronological order).
     """
-    return list(_llm_raw_log)
+    # Find LLM debug log files, sorted newest first
+    pattern = os.path.join(LLM_DEBUG_LOG_DIR, "llm_debug_*.log")
+    log_files = sorted(glob(pattern), reverse=True)
+
+    # Collect entries from newest file first, reading each file in reverse
+    # so we get the most recent entries across all files
+    all_entries: list[dict[str, Any]] = []
+
+    for log_file in log_files:
+        if len(all_entries) >= max_entries:
+            break
+
+        file_entries: list[dict[str, Any]] = []
+        try:
+            with open(log_file, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        file_entries.append(entry)
+                    except json.JSONDecodeError:
+                        # Skip malformed lines
+                        continue
+        except OSError:
+            # File might have been rotated/deleted
+            continue
+
+        # Take entries from this file, newest first (end of file = newest)
+        # We need (max_entries - len(all_entries)) more entries
+        needed = max_entries - len(all_entries)
+        # Prepend older entries from this file to the front
+        all_entries = file_entries[-needed:] + all_entries
+
+    return all_entries
 
 
-def clear_raw_llm_log() -> None:
-    """Clear the raw LLM log buffer."""
-    global _llm_raw_log
-    _llm_raw_log = []
+
+def _build_log_entry(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None,
+    response_content: str,
+    response_tool_calls: list[dict[str, Any]] | None,
+    latency_ms: int,
+) -> dict[str, Any]:
+    """Build a log entry with detail level based on configured log level.
+
+    Detail levels:
+    - TRACE: Full detail (all messages, complete tool schemas, full response)
+    - DEBUG: Moderate detail (all messages, tool names only, full response)
+    - INFO+: Minimal (timestamp, model, latency, counts/summaries)
+
+    Returns:
+        Dict containing the log entry with appropriate detail level.
+    """
+    level_value = get_log_level_value()
+    model = config.settings.effective_llm_model
+    timestamp = datetime.now(UTC).isoformat()
+
+    # Base entry (always included)
+    entry: dict[str, Any] = {
+        "timestamp": timestamp,
+        "latency_ms": latency_ms,
+        "model": model,
+    }
+
+    if level_value <= logger.level("TRACE").no:
+        # TRACE: Full detail
+        entry["request"] = {
+            "messages": messages,
+            "tools": tools,
+        }
+        entry["response"] = {
+            "content": response_content,
+            "tool_calls": response_tool_calls,
+        }
+    elif level_value <= logger.level("DEBUG").no:
+        # DEBUG: Moderate detail - tool names only, no full schemas
+        entry["request"] = {
+            "messages": messages,
+            "tool_names": [t["function"]["name"] for t in tools] if tools else None,
+        }
+        entry["response"] = {
+            "content": response_content,
+            "tool_calls": response_tool_calls,
+        }
+    else:
+        # INFO+: Minimal - just summaries
+        entry["request"] = {
+            "message_count": len(messages),
+            "tool_count": len(tools) if tools else 0,
+            "tool_names": [t["function"]["name"] for t in tools] if tools else None,
+        }
+        entry["response"] = {
+            "content_length": len(response_content),
+            "tool_call_count": len(response_tool_calls) if response_tool_calls else 0,
+            "tool_calls_summary": (
+                [tc.get("name") for tc in response_tool_calls]
+                if response_tool_calls
+                else None
+            ),
+        }
+
+    return entry
 
 
 def log_streaming_interaction(
@@ -50,10 +153,15 @@ def log_streaming_interaction(
     response_tool_calls: list[dict[str, Any]] | None,
     latency_ms: int,
 ) -> None:
-    """Log a streaming LLM interaction.
+    """Log a streaming LLM interaction to the debug log file.
 
     Called by the orchestrator after streaming completes to capture
     the exact messages sent to the LLM and the reconstructed response.
+
+    The detail level varies based on the configured log level:
+    - TRACE: Full messages, full tool schemas, full response
+    - DEBUG: Full messages, tool names only, full response
+    - INFO+: Counts and summaries only
 
     Args:
         messages: The exact messages sent to the LLM.
@@ -62,30 +170,14 @@ def log_streaming_interaction(
         response_tool_calls: The parsed tool calls from the response.
         latency_ms: Time taken for the streaming request in milliseconds.
     """
-    global _llm_raw_log
-
     try:
-        entry = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "latency_ms": latency_ms,
-            "model": config.settings.effective_llm_model,
-            "request": {
-                "messages": messages,
-                "tools": tools,
-            },
-            "response": {
-                "content": response_content,
-                "tool_calls": response_tool_calls,
-            },
-        }
+        entry = _build_log_entry(
+            messages, tools, response_content, response_tool_calls, latency_ms
+        )
 
-        _llm_raw_log.append(entry)
-
-        # Trim to max size
-        if len(_llm_raw_log) > _LLM_RAW_LOG_MAX_SIZE:
-            _llm_raw_log = _llm_raw_log[-_LLM_RAW_LOG_MAX_SIZE:]
-
-        logger.trace(f"[LLM_LOG] Logged streaming interaction, total: {len(_llm_raw_log)}")
+        # Log with llm_debug=True so it's captured by the dedicated handler
+        logger.bind(llm_debug=True).info(json.dumps(entry))
+        logger.trace("[LLM_LOG] Logged streaming interaction")
 
     except Exception as e:
         logger.warning(f"[LLM_LOG] Failed to log streaming interaction: {e}")
@@ -159,10 +251,13 @@ Search behavior
 
 Response style (default)
 - Lead with the best match.
-- Use markdown links exactly as provided: items as [Name](item.url), locations as [Name](location.url).
+- Use markdown links exactly as provided: items as [Name](item.url), locations as [Name](location.url),
+  labels as [Name](label.url).
 - Keep lists minimal (usually one item per line).
 - Show location only when it answers the question (for example, "where is X") or clearly reduces confusion.
 - Show quantity only when asked or when it materially affects the decision.
+- When listing labels, show only the name as a clickable link; do NOT display IDs unless explicitly requested.
+  Example: "Your labels: [Electronics](url), [Important](url), [Appliances](url)"
 
 Approval handling (writes)
 - Do not ask for textual confirmation to perform writes.

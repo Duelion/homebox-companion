@@ -612,7 +612,7 @@ class ChatStore {
 
 	/**
 	 * Clear all messages and reset state.
-	 * Clears both frontend localStorage and backend session/LLM log.
+	 * Clears both frontend localStorage and backend session.
 	 */
 	async clearHistory(): Promise<void> {
 		try {

@@ -189,9 +189,22 @@ class ListLabelsTool:
         token: str,
         params: Params,
     ) -> ToolResult:
+        from ..core.config import settings
+
         labels = await client.list_labels(token)
         logger.debug(f"list_labels returned {len(labels)} labels")
-        return ToolResult(success=True, data=labels)
+
+        # Add URL to each label for easy linking in chat
+        base_url = settings.effective_link_base_url
+        enriched_labels = [
+            {
+                **label,
+                "url": f"{base_url}/items?labels={label.get('id', '')}"
+            }
+            for label in labels
+        ]
+
+        return ToolResult(success=True, data=enriched_labels)
 
 
 @register_tool
