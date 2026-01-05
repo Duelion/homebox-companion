@@ -849,7 +849,6 @@ class ChatOrchestrator:
                 )
                 # Proceed with raw args - execution will likely fail later, or user sees raw data
 
-
         approval_id = create_approval_id()
         approval = PendingApproval(
             id=approval_id,
