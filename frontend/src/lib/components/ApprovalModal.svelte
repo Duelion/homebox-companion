@@ -24,6 +24,20 @@
 	let processingIds = new SvelteSet<string>();
 	let now = $state(Date.now());
 
+	// Accordion state: track which approval is currently expanded (null = all collapsed)
+	let expandedApprovalId = $state<string | null>(null);
+
+	// Handler for when a panel wants to toggle its expanded state
+	function handleToggleExpand(approvalId: string) {
+		if (expandedApprovalId === approvalId) {
+			// Collapse if already expanded
+			expandedApprovalId = null;
+		} else {
+			// Expand this one, which implicitly collapses any other
+			expandedApprovalId = approvalId;
+		}
+	}
+
 	// Live countdown timer
 	$effect(() => {
 		if (!open || approvals.length === 0) return;
@@ -76,6 +90,10 @@
 
 	async function handleApprove(approvalId: string, modifiedParams?: Record<string, unknown>) {
 		addProcessingId(approvalId);
+		// Collapse the item when approved
+		if (expandedApprovalId === approvalId) {
+			expandedApprovalId = null;
+		}
 		try {
 			await chatStore.approveAction(approvalId, modifiedParams);
 		} finally {
@@ -93,11 +111,15 @@
 	}
 
 	async function handleApproveAll() {
-		// Note: Bulk approve uses original parameters, not any user edits in expanded panels.
-		// This is intentional - users should use individual approve for edited items.
+		// Bulk approve uses original AI-suggested parameters. If a user has made edits
+		// in an expanded panel, they should use the individual approve button on that
+		// specific item to apply their changes.
 		// Capture IDs upfront since approvals array mutates as items are processed.
 		const ids = approvals.map((a) => a.id);
 		ids.forEach((id) => processingIds.add(id));
+
+		// Collapse any expanded panel when approving all
+		expandedApprovalId = null;
 
 		// Process each item individually to handle partial failures gracefully
 		for (const id of ids) {
@@ -156,19 +178,19 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+		class="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
 		onclick={handleBackdropClick}
 	>
 		<div
-			class="flex w-full max-w-md animate-scale-in flex-col overflow-hidden rounded-2xl border border-warning-500/30 bg-neutral-900 shadow-xl"
+			class="animate-scale-in border-warning-500/30 flex w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-neutral-900 shadow-xl"
 		>
 			<!-- Header -->
 			<div
-				class="flex items-center gap-3 border-b border-warning-500/20 bg-warning-500/10 px-5 py-4"
+				class="border-warning-500/20 bg-warning-500/10 flex items-center gap-3 border-b px-5 py-4"
 			>
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-warning-500/20">
+				<div class="bg-warning-500/20 flex h-10 w-10 items-center justify-center rounded-xl">
 					<svg
-						class="h-5 w-5 text-warning-500"
+						class="text-warning-500 h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -212,6 +234,8 @@
 						isProcessing={processingIds.has(approval.id)}
 						onApprove={handleApprove}
 						onReject={handleReject}
+						expanded={expandedApprovalId === approval.id}
+						onToggleExpand={() => handleToggleExpand(approval.id)}
 					/>
 				{/each}
 			</div>

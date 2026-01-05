@@ -244,7 +244,7 @@
 			{/if}
 
 			{#if message.isStreaming}
-				<div class="flex {message.content ? 'justify-start' : 'justify-center'} gap-1 px-2 py-1">
+				<div class="flex justify-center gap-1 px-2 py-1">
 					<span class="typing-dot"></span>
 					<span class="typing-dot animation-delay-160"></span>
 					<span class="typing-dot animation-delay-320"></span>
