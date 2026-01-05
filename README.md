@@ -204,6 +204,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 | `HBC_LLM_API_BASE` | – | Custom API base URL (for proxies or experimental providers) |
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
 | `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
+| `HBC_LLM_STREAM_TIMEOUT` | `300` | Streaming timeout for large responses (e.g., hierarchical views) |
 | `HBC_IMAGE_QUALITY` | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
 
 </details>

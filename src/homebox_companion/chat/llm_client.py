@@ -426,11 +426,17 @@ class LLMClient:
         Returns:
             Dict of kwargs for acompletion.
         """
+        # Use longer timeout for streaming operations (large responses take more time)
+        timeout = (
+            config.settings.llm_stream_timeout if stream
+            else config.settings.llm_timeout
+        )
+
         kwargs: dict[str, Any] = {
             "model": config.settings.effective_llm_model,
             "messages": messages,
             "api_key": config.settings.effective_llm_api_key,
-            "timeout": config.settings.llm_timeout,
+            "timeout": timeout,
             "stream": stream,
         }
 
