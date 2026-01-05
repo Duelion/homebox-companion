@@ -357,7 +357,12 @@ export async function getChatHealth(): Promise<ChatHealthResponse> {
  */
 export interface LLMLogEntry {
 	timestamp: string;
-	request: Array<{ role: string; content: string; tool_calls?: unknown[] }>;
+	latency_ms: number;
+	model: string;
+	request: {
+		messages: Array<{ role: string; content: string; tool_calls?: unknown[] }>;
+		tools?: unknown[] | null;
+	};
 	response: {
 		content: string;
 		tool_calls?: Array<{ name: string; arguments: Record<string, unknown> }> | null;
