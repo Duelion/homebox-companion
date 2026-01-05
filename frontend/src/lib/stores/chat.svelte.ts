@@ -299,7 +299,7 @@ class ChatStore {
 		// Case 3: Session ID mismatch - backend was reset, clear local messages
 		log.info(
 			`Session ID mismatch (local: ${this._sessionId ?? 'none'}, backend: ${backendSessionId}). ` +
-				`Clearing ${this._messages.length} stale local messages.`
+			`Clearing ${this._messages.length} stale local messages.`
 		);
 
 		// Clear all pending tool timeouts
@@ -442,12 +442,12 @@ class ChatStore {
 		this._messages = this._messages.map((msg) =>
 			msg.id === messageId
 				? {
-						...msg,
-						toolResults: [
-							...(msg.toolResults || []),
-							{ tool: toolName, executionId, success: false, isExecuting: true },
-						],
-					}
+					...msg,
+					toolResults: [
+						...(msg.toolResults || []),
+						{ tool: toolName, executionId, success: false, isExecuting: true },
+					],
+				}
 				: msg
 		);
 
@@ -933,7 +933,7 @@ class ChatStore {
 			this._messages = this._messages.map((msg, idx) => {
 				if (idx !== lastAssistantIndex) return msg;
 				// Append rejection text to content
-				const separator = msg.content ? '\n' : '';
+				const separator = msg.content ? '\n\n' : '';
 				return {
 					...msg,
 					content: msg.content + separator + rejectionText,
