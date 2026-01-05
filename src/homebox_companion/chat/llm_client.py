@@ -23,96 +23,11 @@ from loguru import logger
 
 from homebox_companion.core import config
 
-# Enable raw request/response logging in LiteLLM
-litellm.log_raw_request_response = True
 
-# Buffer for storing raw LLM interactions captured by the callback
-# This is a module-level list that the ChatSession can consume
+# Buffer for storing raw LLM interactions
+# This is a module-level list that stores streaming interactions
 _llm_raw_log: list[dict[str, Any]] = []
 _LLM_RAW_LOG_MAX_SIZE = 50
-
-
-def _litellm_success_callback(kwargs: dict, completion_response: Any, start_time: float, end_time: float) -> None:
-    """LiteLLM success callback that captures the exact request/response.
-
-    This callback is invoked by LiteLLM after every successful API call,
-    giving us access to exactly what was sent to and received from the LLM.
-
-    Args:
-        kwargs: The exact kwargs passed to litellm.acompletion
-        completion_response: The raw response from the LLM
-        start_time: Unix timestamp when request started
-        end_time: Unix timestamp when request completed
-    """
-    global _llm_raw_log
-
-    try:
-        # Extract the key data - this is EXACTLY what LiteLLM sent/received
-        entry = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "latency_ms": int((end_time - start_time) * 1000),
-            "model": kwargs.get("model"),
-            "request": {
-                "messages": kwargs.get("messages"),
-                "tools": kwargs.get("tools"),
-                "tool_choice": kwargs.get("tool_choice"),
-                "max_tokens": kwargs.get("max_tokens"),
-                "stream": kwargs.get("stream"),
-            },
-            "response": {
-                "id": getattr(completion_response, "id", None),
-                "model": getattr(completion_response, "model", None),
-                "choices": [],
-                "usage": None,
-            },
-        }
-
-        # Extract choices
-        if hasattr(completion_response, "choices"):
-            for choice in completion_response.choices:
-                choice_data: dict[str, Any] = {
-                    "index": getattr(choice, "index", 0),
-                    "finish_reason": getattr(choice, "finish_reason", None),
-                }
-                if hasattr(choice, "message"):
-                    msg = choice.message
-                    choice_data["message"] = {
-                        "role": getattr(msg, "role", None),
-                        "content": getattr(msg, "content", None),
-                        "tool_calls": None,
-                    }
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        choice_data["message"]["tool_calls"] = [
-                            {
-                                "id": tc.id,
-                                "type": tc.type,
-                                "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments,
-                                },
-                            }
-                            for tc in msg.tool_calls
-                        ]
-                entry["response"]["choices"].append(choice_data)
-
-        # Extract usage
-        if hasattr(completion_response, "usage") and completion_response.usage:
-            entry["response"]["usage"] = {
-                "prompt_tokens": completion_response.usage.prompt_tokens,
-                "completion_tokens": completion_response.usage.completion_tokens,
-                "total_tokens": completion_response.usage.total_tokens,
-            }
-
-        _llm_raw_log.append(entry)
-
-        # Trim to max size
-        if len(_llm_raw_log) > _LLM_RAW_LOG_MAX_SIZE:
-            _llm_raw_log = _llm_raw_log[-_LLM_RAW_LOG_MAX_SIZE:]
-
-        logger.trace(f"[LLM_CALLBACK] Logged raw interaction, total: {len(_llm_raw_log)}")
-
-    except Exception as e:
-        logger.warning(f"[LLM_CALLBACK] Failed to log interaction: {e}")
 
 
 def get_raw_llm_log() -> list[dict[str, Any]]:
@@ -129,8 +44,52 @@ def clear_raw_llm_log() -> None:
     _llm_raw_log = []
 
 
-# Register the callback with LiteLLM
-litellm.success_callback = [_litellm_success_callback]
+def log_streaming_interaction(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None,
+    response_content: str,
+    response_tool_calls: list[dict[str, Any]] | None,
+    latency_ms: int,
+) -> None:
+    """Log a streaming LLM interaction.
+
+    Called by the orchestrator after streaming completes to capture
+    the exact messages sent to the LLM and the reconstructed response.
+
+    Args:
+        messages: The exact messages sent to the LLM.
+        tools: The tool definitions sent to the LLM.
+        response_content: The accumulated response content.
+        response_tool_calls: The parsed tool calls from the response.
+        latency_ms: Time taken for the streaming request in milliseconds.
+    """
+    global _llm_raw_log
+
+    try:
+        entry = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "latency_ms": latency_ms,
+            "model": config.settings.effective_llm_model,
+            "request": {
+                "messages": messages,
+                "tools": tools,
+            },
+            "response": {
+                "content": response_content,
+                "tool_calls": response_tool_calls,
+            },
+        }
+
+        _llm_raw_log.append(entry)
+
+        # Trim to max size
+        if len(_llm_raw_log) > _LLM_RAW_LOG_MAX_SIZE:
+            _llm_raw_log = _llm_raw_log[-_LLM_RAW_LOG_MAX_SIZE:]
+
+        logger.trace(f"[LLM_LOG] Logged streaming interaction, total: {len(_llm_raw_log)}")
+
+    except Exception as e:
+        logger.warning(f"[LLM_LOG] Failed to log streaming interaction: {e}")
 
 # Soft recommendation for max items in responses - used when user doesn't specify a count.
 # When user explicitly requests a specific number (e.g., "show me 80 items"), honor that request.

@@ -23,7 +23,7 @@ from loguru import logger
 
 from ..core.config import settings
 from ..mcp.executor import ToolExecutor
-from .llm_client import LLMClient, TokenUsage
+from .llm_client import LLMClient, TokenUsage, log_streaming_interaction
 from .session import ApprovalOutcome, ChatSession, PendingApproval, create_approval_id
 from .stream import ChatEvent, StreamEmitter
 from .types import ChatMessage, ToolCall
@@ -577,6 +577,22 @@ class ChatOrchestrator:
 
         # Build tool calls from accumulator
         tool_calls, incomplete_calls = accumulator.build()
+
+        # Log the complete LLM interaction (exact request messages + reconstructed response)
+        # This captures what the LiteLLM success_callback doesn't for streaming calls
+        response_tool_calls = None
+        if tool_calls:
+            response_tool_calls = [
+                {"name": tc.name, "arguments": tc.arguments}
+                for tc in tool_calls
+            ]
+        log_streaming_interaction(
+            messages=messages,
+            tools=tools,
+            response_content=full_content,
+            response_tool_calls=response_tool_calls,
+            latency_ms=int(elapsed_ms),
+        )
 
         # Add error responses for incomplete tool calls so LLM doesn't hang
         # waiting for responses it will never receive
