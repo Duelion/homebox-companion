@@ -834,11 +834,27 @@ class ChatOrchestrator:
         # Fetch display-friendly info via executor (encapsulates client access)
         display_info = await self._executor.get_display_info(tool_name, tool_args, token)
 
+        # Normalize parameters using tool schema (handles aliases e.g. serialNumber -> serial_number)
+        # This ensures the frontend always receives snake_case keys regardless of what the LLM sent
+        tool = self._executor.get_tool(tool_name)
+        normalized_args = tool_args
+        if tool:
+            try:
+                # exclude_unset=True preserves only what the LLM actually sent, but normalized
+                # This matches frontend expectations for "fieldsBeingChanged" logic
+                normalized_args = tool.Params(**tool_args).model_dump(exclude_unset=True)
+            except Exception as e:
+                logger.warning(
+                    f"Parameter normalization failed for {tool_name}: {e}. Keeping raw args."
+                )
+                # Proceed with raw args - execution will likely fail later, or user sees raw data
+
+
         approval_id = create_approval_id()
         approval = PendingApproval(
             id=approval_id,
             tool_name=tool_name,
-            parameters=tool_args,
+            parameters=normalized_args,
             tool_call_id=tool_call_id,  # Store for efficient lookup later
             display_info=display_info,
         )
