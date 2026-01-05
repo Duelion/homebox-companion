@@ -232,12 +232,12 @@ class ChatStore {
 		this._messages = this._messages.map((msg) =>
 			msg.id === messageId
 				? {
-						...msg,
-						toolResults: [
-							...(msg.toolResults || []),
-							{ tool: toolName, executionId, success: false, isExecuting: true },
-						],
-					}
+					...msg,
+					toolResults: [
+						...(msg.toolResults || []),
+						{ tool: toolName, executionId, success: false, isExecuting: true },
+					],
+				}
 				: msg
 		);
 
@@ -687,10 +687,17 @@ class ChatStore {
 				return;
 			}
 
+			// Generate rejection confirmation text (similar to approved actions)
+			const summary = itemName ? `'${itemName}'` : '';
+			const rejectionText = summary ? `⊘ ${toolName}: ${summary}` : `⊘ ${toolName}`;
+
 			this._messages = this._messages.map((msg, idx) => {
 				if (idx !== lastAssistantIndex) return msg;
+				// Append rejection text to content
+				const separator = msg.content ? '\n' : '';
 				return {
 					...msg,
+					content: msg.content + separator + rejectionText,
 					executedActions: [...(msg.executedActions || []), rejectedAction],
 				};
 			});

@@ -21,6 +21,7 @@
 		type EffectiveDefaults,
 		type LabelData,
 	} from '$lib/api';
+	import { getLLMLog } from '$lib/api/chat';
 	import {
 		getLogBuffer,
 		clearLogBuffer,
@@ -45,6 +46,10 @@
 	let frontendLogsContainer = $state<HTMLPreElement | null>(null);
 	let frontendLogsFullscreenContainer = $state<HTMLDivElement | null>(null);
 	let frontendLogsFullscreen = $state(false);
+
+	// AI Chat History export state
+	let isExportingChatHistory = $state(false);
+	let chatHistoryExportError = $state<string | null>(null);
 
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
@@ -353,6 +358,32 @@
 		document.body.removeChild(a);
 	}
 
+	async function handleExportChatHistory() {
+		isExportingChatHistory = true;
+		chatHistoryExportError = null;
+
+		try {
+			const interactions = await getLLMLog();
+			const json = JSON.stringify(interactions, null, 2);
+			const blob = new Blob([json], { type: 'application/json' });
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `llm-chat-history-${new Date().toISOString().split('T')[0]}.json`;
+			document.body.appendChild(a);
+			a.click();
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
+			log.success(`Exported ${interactions.length} LLM interactions`);
+		} catch (error) {
+			log.error('Failed to export LLM chat history:', error);
+			chatHistoryExportError =
+				error instanceof Error ? error.message : 'Failed to export chat history';
+		} finally {
+			isExportingChatHistory = false;
+		}
+	}
+
 	// Auto-scroll frontend logs to bottom when loaded or refreshed
 	$effect(() => {
 		if (frontendLogsContainer && frontendLogs.length > 0 && showFrontendLogs) {
@@ -650,14 +681,14 @@
 <div class="animate-in space-y-6">
 	<div>
 		<h1 class="text-h1 font-bold text-neutral-100">Settings</h1>
-		<p class="mt-1 text-body-sm text-neutral-400">App configuration and information</p>
+		<p class="text-body-sm mt-1 text-neutral-400">App configuration and information</p>
 	</div>
 
 	<!-- About Section -->
 	<section class="card space-y-4">
-		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+		<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
 			<svg
-				class="h-5 w-5 text-primary-400"
+				class="text-primary-400 h-5 w-5"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -681,7 +712,7 @@
 							href="https://github.com/Duelion/homebox-companion/releases/latest"
 							target="_blank"
 							rel="noopener noreferrer"
-							class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500 transition-colors hover:bg-warning-500/30"
+							class="bg-warning-500/20 text-warning-500 hover:bg-warning-500/30 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors"
 							title="Click to view release"
 						>
 							<svg
@@ -699,7 +730,7 @@
 						</a>
 					{:else if updateCheckDone}
 						<span
-							class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-xs text-success-500"
+							class="bg-success-500/20 text-success-500 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
 						>
 							<svg
 								class="h-3 w-3"
@@ -744,7 +775,7 @@
 					{/if}
 				</button>
 				{#if updateCheckError}
-					<p class="mt-2 text-xs text-error-500">
+					<p class="text-error-500 mt-2 text-xs">
 						{updateCheckError}
 					</p>
 				{/if}
@@ -761,7 +792,7 @@
 							href={config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
+							class="hover:text-primary-400 flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors"
 							title={config.homebox_url}
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -779,7 +810,7 @@
 						</a>
 						{#if config.is_demo_mode}
 							<span
-								class="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
+								class="bg-warning-500/20 text-warning-500 inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs"
 							>
 								Demo
 							</span>
@@ -796,12 +827,12 @@
 				<!-- Image Quality -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">Image Quality</span>
-					<span class="font-mono text-sm capitalize text-neutral-100">{config.image_quality}</span>
+					<span class="font-mono text-sm text-neutral-100 capitalize">{config.image_quality}</span>
 				</div>
 			{:else if isLoadingConfig}
 				<div class="flex items-center justify-center py-4">
 					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+						class="border-primary-500 h-5 w-5 animate-spin rounded-full border-2 border-t-transparent"
 					></div>
 				</div>
 			{/if}
@@ -848,9 +879,9 @@
 	<!-- Logs Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+			<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -943,7 +974,7 @@
 				<span>Loading logs...</span>
 			{:else}
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -970,7 +1001,7 @@
 		{#if showLogs}
 			{#if logsError}
 				<div
-					class="rounded-xl border border-error-500/30 bg-error-500/10 p-4 text-sm text-error-500"
+					class="border-error-500/30 bg-error-500/10 text-error-500 rounded-xl border p-4 text-sm"
 				>
 					{logsError}
 				</div>
@@ -990,7 +1021,7 @@
 						<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted server data -->
 						<pre
 							bind:this={logsContainer}
-							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all p-4 font-mono text-xs text-neutral-400">{@html colorizedLogs()}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto p-4 font-mono text-xs break-all whitespace-pre-wrap text-neutral-400">{@html colorizedLogs()}</pre>
 						<!-- eslint-enable svelte/no-at-html-tags -->
 					</div>
 				</div>
@@ -1001,9 +1032,9 @@
 	<!-- Frontend Logs Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+			<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1104,7 +1135,7 @@
 			onclick={loadFrontendLogs}
 		>
 			<svg
-				class="h-5 w-5 text-primary-400"
+				class="text-primary-400 h-5 w-5"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -1145,7 +1176,7 @@
 						<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted local storage -->
 						<pre
 							bind:this={frontendLogsContainer}
-							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all p-4 font-mono text-xs text-neutral-400">{@html colorizedFrontendLogs()}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto p-4 font-mono text-xs break-all whitespace-pre-wrap text-neutral-400">{@html colorizedFrontendLogs()}</pre>
 						<!-- eslint-enable svelte/no-at-html-tags -->
 					</div>
 				</div>
@@ -1153,12 +1184,68 @@
 		{/if}
 	</section>
 
+	<!-- AI Chat History Export Section -->
+	<section class="card space-y-4">
+		<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
+			<svg
+				class="text-primary-400 h-5 w-5"
+				fill="none"
+				stroke="currentColor"
+				viewBox="0 0 24 24"
+				stroke-width="1.5"
+			>
+				<path
+					d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+				/>
+			</svg>
+			AI Chat History
+		</h2>
+
+		<p class="text-body-sm text-neutral-400">
+			Export the raw LLM request/response history for debugging. This includes the complete messages
+			array sent to the LLM with system prompt and all context.
+		</p>
+
+		{#if chatHistoryExportError}
+			<div class="border-error-500/30 bg-error-500/10 text-error-500 rounded-xl border p-4 text-sm">
+				{chatHistoryExportError}
+			</div>
+		{/if}
+
+		<button
+			type="button"
+			class="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+			onclick={handleExportChatHistory}
+			disabled={isExportingChatHistory}
+		>
+			{#if isExportingChatHistory}
+				<div
+					class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+				></div>
+				<span>Exporting...</span>
+			{:else}
+				<svg
+					class="text-primary-400 h-5 w-5"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+					<polyline points="7 10 12 15 17 10" />
+					<line x1="12" y1="15" x2="12" y2="3" />
+				</svg>
+				<span>Export AI Chat History (JSON)</span>
+			{/if}
+		</button>
+	</section>
+
 	<!-- AI Output Configuration Section -->
 	<section class="card space-y-4">
 		<div class="flex items-center justify-between">
-			<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+			<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1172,7 +1259,7 @@
 			</h2>
 			{#if showFieldPrefs && saveFieldPrefsState === 'success'}
 				<span
-					class="inline-flex items-center gap-2 rounded-full bg-success-500/20 px-3 py-1.5 text-sm font-medium text-success-500"
+					class="bg-success-500/20 text-success-500 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium"
 				>
 					<svg
 						class="h-4 w-4"
@@ -1205,7 +1292,7 @@
 				<span>Loading...</span>
 			{:else}
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1230,17 +1317,17 @@
 		{#if showFieldPrefs}
 			{#if fieldPrefsError}
 				<div
-					class="rounded-xl border border-error-500/30 bg-error-500/10 p-4 text-sm text-error-500"
+					class="border-error-500/30 bg-error-500/10 text-error-500 rounded-xl border p-4 text-sm"
 				>
 					{fieldPrefsError}
 				</div>
 			{/if}
 
 			<!-- Output Language Setting -->
-			<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+			<div class="border-primary-500/20 bg-primary-600/10 space-y-3 rounded-xl border p-4">
 				<div class="flex items-center gap-2">
 					<svg
-						class="h-5 w-5 text-primary-400"
+						class="text-primary-400 h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1264,8 +1351,8 @@
 					placeholder={effectiveDefaults ? effectiveDefaults.output_language : 'Loading...'}
 					class="input"
 				/>
-				<div class="rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
-					<p class="flex items-start gap-2 text-xs text-warning-500">
+				<div class="border-warning-500/30 bg-warning-500/10 rounded-lg border p-2">
+					<p class="text-warning-500 flex items-start gap-2 text-xs">
 						<svg
 							class="mt-0.5 h-4 w-4 flex-shrink-0"
 							fill="none"
@@ -1286,10 +1373,10 @@
 			</div>
 
 			<!-- Default Label Setting -->
-			<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+			<div class="border-primary-500/20 bg-primary-600/10 space-y-3 rounded-xl border p-4">
 				<div class="flex items-center gap-2">
 					<svg
-						class="h-5 w-5 text-primary-400"
+						class="text-primary-400 h-5 w-5"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -1366,9 +1453,9 @@
 						></div>
 						<span>Saving...</span>
 					{:else if saveFieldPrefsState === 'success'}
-						<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
+						<div class="bg-success-500/20 flex h-8 w-8 items-center justify-center rounded-full">
 							<svg
-								class="h-5 w-5 text-success-500"
+								class="text-success-500 h-5 w-5"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -1409,10 +1496,10 @@
 		{/if}
 
 		<!-- Docker Persistence Warning & Export - Moved up for visibility -->
-		<div class="space-y-3 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4">
+		<div class="border-warning-500/30 bg-warning-500/10 space-y-3 rounded-xl border p-4">
 			<div class="flex items-start gap-2">
 				<svg
-					class="mt-0.5 h-5 w-5 flex-shrink-0 text-warning-500"
+					class="text-warning-500 mt-0.5 h-5 w-5 flex-shrink-0"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1423,7 +1510,7 @@
 					/>
 				</svg>
 				<div>
-					<p class="mb-1 text-sm font-medium text-warning-500">Docker users</p>
+					<p class="text-warning-500 mb-1 text-sm font-medium">Docker users</p>
 					<p class="text-xs text-neutral-400">
 						Customizations are stored in a config file that may be lost when updating your
 						container. Export as environment variables to persist settings.
@@ -1433,7 +1520,7 @@
 
 			<button
 				type="button"
-				class="flex w-full items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/20 px-4 py-2.5 text-sm font-medium text-warning-500 transition-all hover:bg-warning-500/30"
+				class="border-warning-500/30 bg-warning-500/20 text-warning-500 hover:bg-warning-500/30 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all"
 				onclick={toggleEnvExport}
 				disabled={isLoadingExport}
 			>
@@ -1467,7 +1554,7 @@
 					>
 					<button
 						type="button"
-						class="flex min-h-[36px] items-center gap-1 rounded-lg bg-primary-600/20 px-3 py-1.5 text-xs text-primary-400 transition-colors hover:bg-primary-600/30"
+						class="bg-primary-600/20 text-primary-400 hover:bg-primary-600/30 flex min-h-[36px] items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition-colors"
 						onclick={copyEnvVars}
 						aria-label="Copy environment variables"
 					>
@@ -1487,7 +1574,7 @@
 				</div>
 				<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 					<pre
-						class="overflow-x-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{generateEnvVars(
+						class="overflow-x-auto p-4 font-mono text-xs break-words whitespace-pre-wrap text-neutral-400">{generateEnvVars(
 							exportPrefs
 						)}</pre>
 				</div>
@@ -1556,7 +1643,7 @@
 					</div>
 					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 						<pre
-							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{promptPreview}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto p-4 font-mono text-xs break-words whitespace-pre-wrap text-neutral-400">{promptPreview}</pre>
 					</div>
 					<p class="text-xs text-neutral-500">
 						This is what the AI will see when analyzing your images. Labels shown are examples;
@@ -1569,9 +1656,9 @@
 
 	<!-- Account Section -->
 	<section class="card space-y-4">
-		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+		<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
 			<svg
-				class="h-5 w-5 text-primary-400"
+				class="text-primary-400 h-5 w-5"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -1604,7 +1691,7 @@
 		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1690,7 +1777,7 @@
 		<div bind:this={logsFullscreenContainer} class="flex-1 overflow-auto p-4 pb-24">
 			<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted server data -->
 			<pre
-				class="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-neutral-400">{@html colorizedLogs()}</pre>
+				class="font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-neutral-400">{@html colorizedLogs()}</pre>
 			<!-- eslint-enable svelte/no-at-html-tags -->
 		</div>
 	</div>
@@ -1703,7 +1790,7 @@
 		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1742,7 +1829,7 @@
 		<!-- Content -->
 		<div class="flex-1 overflow-auto p-4 pb-24">
 			<pre
-				class="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-neutral-400">{promptPreview}</pre>
+				class="font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-neutral-400">{promptPreview}</pre>
 		</div>
 	</div>
 {/if}
@@ -1754,7 +1841,7 @@
 		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
 				<svg
-					class="h-5 w-5 text-primary-400"
+					class="text-primary-400 h-5 w-5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -1852,7 +1939,7 @@
 		<div bind:this={frontendLogsFullscreenContainer} class="flex-1 overflow-auto p-4 pb-24">
 			<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output from trusted local storage -->
 			<pre
-				class="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-neutral-400">{@html colorizedFrontendLogs()}</pre>
+				class="font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-neutral-400">{@html colorizedFrontendLogs()}</pre>
 			<!-- eslint-enable svelte/no-at-html-tags -->
 		</div>
 	</div>

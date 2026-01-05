@@ -312,3 +312,21 @@ async def chat_health() -> dict[str, Any]:
         "max_history": settings.chat_max_history,
         "approval_timeout_seconds": settings.chat_approval_timeout,
     }
+
+
+@router.get("/chat/llm-log")
+async def get_llm_log(
+    session: Annotated[ChatSession, Depends(get_session)],
+) -> dict[str, Any]:
+    """Export raw LLM interaction log for debugging.
+
+    Returns the complete request/response pairs sent to the LLM,
+    including full messages arrays with system prompt and all context.
+
+    Returns:
+        Dict with 'interactions' list containing raw LLM exchanges
+    """
+    if not settings.chat_enabled:
+        raise HTTPException(status_code=503, detail="Chat feature is disabled")
+
+    return {"interactions": session.get_llm_log()}

@@ -352,6 +352,29 @@ export async function getChatHealth(): Promise<ChatHealthResponse> {
 	return request<ChatHealthResponse>('/chat/health');
 }
 
+/**
+ * LLM interaction entry for debugging export.
+ */
+export interface LLMLogEntry {
+	timestamp: string;
+	request: Array<{ role: string; content: string; tool_calls?: unknown[] }>;
+	response: {
+		content: string;
+		tool_calls?: Array<{ name: string; arguments: Record<string, unknown> }> | null;
+	};
+}
+
+/**
+ * Get raw LLM interaction log for debugging.
+ * Returns the complete request/response pairs sent to the LLM.
+ */
+export async function getLLMLog(): Promise<LLMLogEntry[]> {
+	log.debug('Fetching LLM interaction log');
+	const data = await request<{ interactions: LLMLogEntry[] }>('/chat/llm-log');
+	log.debug(`Received ${data.interactions.length} LLM interactions`);
+	return data.interactions;
+}
+
 // =============================================================================
 // NAMESPACE EXPORT
 // =============================================================================
@@ -363,4 +386,5 @@ export const chat = {
 	rejectAction,
 	clearHistory,
 	getChatHealth,
+	getLLMLog,
 };

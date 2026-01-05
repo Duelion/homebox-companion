@@ -459,7 +459,7 @@ class ChatOrchestrator:
         # Call LLM with streaming
         try:
             stream = self._llm.complete_stream(messages, tools)
-            async for event in self._handle_stream(stream, token, tools):
+            async for event in self._handle_stream(stream, token, tools, messages):
                 yield event
         except Exception as e:
             logger.exception("LLM call failed")
@@ -478,6 +478,7 @@ class ChatOrchestrator:
         stream: AsyncGenerator[Any, None],
         token: str,
         tools: list[dict[str, Any]],
+        messages: list[dict[str, Any]],
         depth: int = 0,
     ) -> AsyncGenerator[ChatEvent, None]:
         """Handle a streaming LLM response.
@@ -488,6 +489,7 @@ class ChatOrchestrator:
             stream: Streaming response from LLM.
             token: Homebox auth token.
             tools: Tool definitions for recursive calls.
+            messages: Messages array sent to LLM (for logging).
             depth: Current recursion depth.
 
         Yields:
@@ -576,6 +578,13 @@ class ChatOrchestrator:
         # Build tool calls from accumulator
         tool_calls, incomplete_calls = accumulator.build()
 
+        # Log raw LLM interaction for debugging export
+        tool_calls_for_log = (
+            [{"name": tc.name, "arguments": tc.arguments} for tc in tool_calls]
+            if tool_calls else None
+        )
+        self._session.log_llm_interaction(messages, full_content, tool_calls_for_log)
+
         # Add error responses for incomplete tool calls so LLM doesn't hang
         # waiting for responses it will never receive
         for tc_id, error_msg in incomplete_calls:
@@ -658,7 +667,7 @@ class ChatOrchestrator:
                 # Pass depth + 1 to prevent any further recursion even if LLM
                 # somehow returns tool calls (shouldn't happen with tools=None)
                 async for event in self._handle_stream(
-                    stream, token, [], depth + 1
+                    stream, token, [], messages, depth + 1
                 ):
                     yield event
             except Exception:
@@ -788,7 +797,8 @@ class ChatOrchestrator:
             result_dict = result.to_dict()
 
             logger.trace(
-                f"[CHAT] Tool '{tc.name}' completed in {execution.elapsed_ms:.0f}ms"
+                f"[CHAT] Tool '{tc.name}' completed in {execution.elapsed_ms:.0f}ms "
+                f"with args: {tc.arguments}"
             )
 
             # Add tool result to history (in order)
@@ -877,7 +887,7 @@ class ChatOrchestrator:
 
         try:
             stream = self._llm.complete_stream(messages, tools)
-            async for event in self._handle_stream(stream, token, tools, depth):
+            async for event in self._handle_stream(stream, token, tools, messages, depth):
                 yield event
         except Exception as e:
             logger.exception("LLM continuation failed")
