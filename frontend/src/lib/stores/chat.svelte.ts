@@ -5,6 +5,7 @@
  * messages, streaming state, and pending approvals.
  */
 
+import { browser } from '$app/environment';
 import { chat, type ChatEvent, type ChatStatusResponse, type PendingApproval } from '../api/chat';
 import { locationNavigator } from '../services/locationNavigator.svelte';
 import { chatLogger as log } from '../utils/logger';
@@ -130,7 +131,10 @@ class ChatStore {
 
 	constructor() {
 		// Load persisted messages from localStorage on initialization
-		this.loadFromStorage();
+		// Guard against SSR/test contexts where localStorage is unavailable
+		if (browser) {
+			this.loadFromStorage();
+		}
 	}
 
 	/** localStorage key for persisting chat data */
