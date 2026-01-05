@@ -296,7 +296,6 @@ async def lifespan(app: FastAPI):
     tool_executor_holder.reset()
     session_store_holder.reset()
     await client_holder.close()
-    # Note: cleanup_llm_clients() is now a no-op with LiteLLM
     logger.info("Shutdown complete")
 
 

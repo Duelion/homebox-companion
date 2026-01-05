@@ -12,15 +12,15 @@ Tools are registered using the @register_tool decorator.
 """
 
 from .executor import ToolExecutor
-from .tools import clear_tool_registry, get_tools, register_tool
+from .tools import get_tools, register_tool
 from .types import DisplayInfo, ToolPermission, ToolResult
 
 __all__ = [
     "ToolExecutor",
     "get_tools",
     "register_tool",
-    "clear_tool_registry",
     "ToolPermission",
     "ToolResult",
     "DisplayInfo",
 ]
+

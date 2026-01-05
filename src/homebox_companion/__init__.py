@@ -44,15 +44,12 @@ except PackageNotFoundError:
 from .ai import (
     CapabilityNotSupportedError,
     JSONRepairError,
-    LLMError,
-    cleanup_llm_clients,
-    cleanup_openai_clients,
+    LLMServiceError,
     encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
     encode_image_to_data_uri,
 )
 from .core import (
-    AuthenticationError,
     HomeboxAuthError,
     HomeboxCompanionError,
     HomeboxConnectionError,
@@ -95,9 +92,8 @@ __all__ = [
     "HomeboxAuthError",
     "HomeboxConnectionError",
     "HomeboxTimeoutError",
-    "AuthenticationError",  # Legacy alias
     # LLM exceptions
-    "LLMError",
+    "LLMServiceError",
     "CapabilityNotSupportedError",
     "JSONRepairError",
     # Homebox client
@@ -117,6 +113,5 @@ __all__ = [
     "encode_image_to_data_uri",
     "encode_image_bytes_to_data_uri",
     "encode_compressed_image_to_base64",
-    "cleanup_llm_clients",
-    "cleanup_openai_clients",  # Deprecated alias
 ]
+

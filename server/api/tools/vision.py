@@ -13,7 +13,7 @@ from loguru import logger
 from homebox_companion import (
     CapabilityNotSupportedError,
     JSONRepairError,
-    LLMError,
+    LLMServiceError,
     analyze_item_details_from_images,
     detect_items_from_bytes,
     encode_compressed_image_to_base64,
@@ -316,7 +316,7 @@ async def detect_items_batch(
                 success=False,
                 error=str(e),
             )
-        except (JSONRepairError, LLMError) as e:
+        except (JSONRepairError, LLMServiceError) as e:
             # LLM service errors
             logger.error(f"LLM error for image {index}: {e}")
             error_msg = str(e)

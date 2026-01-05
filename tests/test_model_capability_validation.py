@@ -33,7 +33,7 @@ import os
 
 import pytest
 
-from homebox_companion.ai.llm import CapabilityNotSupportedError, LLMError, vision_completion
+from homebox_companion.ai.llm import CapabilityNotSupportedError, LLMServiceError, vision_completion
 
 # Use a tiny 1x1 pixel image for testing
 TINY_IMAGE_BASE64 = (
@@ -115,8 +115,8 @@ class TestVisionValidation:
 
         config.settings = config.Settings()
 
-        # Should raise LLMError (from provider), NOT CapabilityNotSupportedError
-        with pytest.raises(LLMError) as exc_info:
+        # Should raise LLMServiceError (from provider), NOT CapabilityNotSupportedError
+        with pytest.raises(LLMServiceError) as exc_info:
             await vision_completion(
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
@@ -219,7 +219,7 @@ class TestUnsafeFlagBehavior:
         they should get a clear error from LiteLLM or the provider about
         vision not being supported.
 
-        Expected: LLMError wrapping litellm.BadRequestError
+        Expected: LLMServiceError wrapping litellm.BadRequestError
         Message: "Invalid content type. image_url is only supported by certain models"
         """
         # Enable unsafe models flag
@@ -231,8 +231,8 @@ class TestUnsafeFlagBehavior:
         config.settings = config.Settings()
 
         # This should NOT raise CapabilityNotSupportedError
-        # but should fail at LiteLLM level (wrapped in LLMError)
-        with pytest.raises(LLMError) as exc_info:
+        # but should fail at LiteLLM level (wrapped in LLMServiceError)
+        with pytest.raises(LLMServiceError) as exc_info:
             await vision_completion(
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
@@ -241,8 +241,8 @@ class TestUnsafeFlagBehavior:
                 model="gpt-3.5-turbo",  # Text-only model
             )
 
-        # Should be LLMError (wrapping LiteLLM's BadRequestError)
-        assert isinstance(exc_info.value, LLMError)
+        # Should be LLMServiceError (wrapping LiteLLM's BadRequestError)
+        assert isinstance(exc_info.value, LLMServiceError)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
         # Note: We don't assert on error message content - third-party messages can change
 
@@ -255,7 +255,7 @@ class TestUnsafeFlagBehavior:
         Models like gpt-4 (non-vision) should fail when images are provided,
         even with the unsafe flag enabled.
 
-        Expected: LLMError wrapping litellm.UnsupportedParamsError
+        Expected: LLMServiceError wrapping litellm.UnsupportedParamsError
         Message: "openai does not support parameters: ['response_format'], for model=gpt-4"
         """
         # Enable unsafe models flag
@@ -266,7 +266,7 @@ class TestUnsafeFlagBehavior:
 
         config.settings = config.Settings()
 
-        with pytest.raises(LLMError) as exc_info:
+        with pytest.raises(LLMServiceError) as exc_info:
             await vision_completion(
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
@@ -275,8 +275,8 @@ class TestUnsafeFlagBehavior:
                 model="gpt-4",  # Text-only model
             )
 
-        # Should be LLMError (wrapping LiteLLM's error)
-        assert isinstance(exc_info.value, LLMError)
+        # Should be LLMServiceError (wrapping LiteLLM's error)
+        assert isinstance(exc_info.value, LLMServiceError)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
         # Note: We don't assert on error message content - third-party messages can change
 

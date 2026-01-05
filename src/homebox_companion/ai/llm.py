@@ -29,10 +29,6 @@ litellm.suppress_debug_info = True
 # Maximum characters to include from malformed response in repair prompt
 MAX_REPAIR_CONTEXT_LENGTH = 2000
 
-# Re-export exceptions for backward compatibility (they're now defined in core.exceptions)
-LLMError = LLMServiceError  # Alias for backward compatibility
-
-
 def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
     """Format messages for readable logging output.
 
@@ -190,7 +186,7 @@ async def _acompletion_with_repair(
 
     Raises:
         JSONRepairError: If JSON parsing fails after repair attempt.
-        LLMError: For other LLM-related errors.
+        LLMServiceError: For other LLM-related errors.
     """
     # Build kwargs for litellm
     kwargs: dict[str, Any] = {
@@ -218,7 +214,7 @@ async def _acompletion_with_repair(
             await acquire_rate_limit(estimated_tokens)
         except Exception as e:
             logger.warning(f"Rate limit wait timeout: {e}")
-            raise LLMError(
+            raise LLMServiceError(
                 "Rate limit wait timeout exceeded. The API rate limit is being hit too frequently. "
                 "Consider increasing HBC_RATE_LIMIT_RPM/HBC_RATE_LIMIT_TPM, reducing batch sizes, "
                 "or disabling rate limiting with HBC_RATE_LIMIT_ENABLED=false if you have higher "
@@ -229,25 +225,25 @@ async def _acompletion_with_repair(
         completion = await litellm.acompletion(**kwargs)
     except litellm.AuthenticationError as e:
         logger.error(f"Authentication failed: {e}")
-        raise LLMError(f"Authentication failed. Check your API key. Error: {e}") from e
+        raise LLMServiceError(f"Authentication failed. Check your API key. Error: {e}") from e
     except litellm.RateLimitError as e:
         logger.warning(f"Rate limit hit: {e}")
-        raise LLMError(f"Rate limit exceeded. Please try again later. Error: {e}") from e
+        raise LLMServiceError(f"Rate limit exceeded. Please try again later. Error: {e}") from e
     except litellm.APIConnectionError as e:
         logger.error(f"Connection error: {e}")
-        raise LLMError(f"Failed to connect to LLM API. Error: {e}") from e
+        raise LLMServiceError(f"Failed to connect to LLM API. Error: {e}") from e
     except litellm.Timeout as e:
         logger.error(f"Request timed out: {e}")
-        raise LLMError(
+        raise LLMServiceError(
             f"LLM request timed out after {config.settings.llm_timeout}s. "
             f"The model may be overloaded. Error: {e}"
         ) from e
     except Exception as e:
         logger.exception(f"LLM call failed: {e}")
-        raise LLMError(f"LLM request failed: {e}") from e
+        raise LLMServiceError(f"LLM request failed: {e}") from e
 
     if not completion.choices:
-        raise LLMError("LLM returned empty response (no choices)")
+        raise LLMServiceError("LLM returned empty response (no choices)")
 
     raw_content = completion.choices[0].message.content
     if raw_content is None:
@@ -294,7 +290,7 @@ async def _acompletion_with_repair(
             await acquire_rate_limit(estimated_tokens)
         except Exception as e:
             logger.warning(f"Rate limit wait timeout on repair request: {e}")
-            raise LLMError(
+            raise LLMServiceError(
                 "Rate limit wait timeout exceeded during JSON repair. "
                 "Consider increasing HBC_RATE_LIMIT_RPM/HBC_RATE_LIMIT_TPM, reducing batch sizes, "
                 "or disabling rate limiting with HBC_RATE_LIMIT_ENABLED=false."
@@ -362,7 +358,7 @@ async def chat_completion(
         Parsed response content as a dictionary.
 
     Raises:
-        LLMError: For API or parsing errors.
+        LLMServiceError: For API or parsing errors.
     """
     api_key = api_key or config.settings.effective_llm_api_key
     model = model or config.settings.effective_llm_model
@@ -410,7 +406,7 @@ async def vision_completion(
     Raises:
         ValueError: If image_data_uris is empty.
         CapabilityNotSupportedError: If model doesn't support vision.
-        LLMError: For API or parsing errors.
+        LLMServiceError: For API or parsing errors.
     """
     if not image_data_uris:
         raise ValueError("vision_completion requires at least one image")
@@ -505,27 +501,3 @@ async def vision_completion(
         expected_keys=expected_keys,
     )
 
-
-def cleanup_llm_clients() -> None:
-    """No-op cleanup function.
-
-    LiteLLM manages its own HTTP clients internally, so this is now a no-op.
-    Kept for API compatibility with existing code that calls this on shutdown.
-    """
-    logger.debug("cleanup_llm_clients called (no-op with LiteLLM)")
-
-
-def cleanup_openai_clients() -> None:
-    """Deprecated: Use cleanup_llm_clients() instead.
-
-    This function is deprecated and will be removed in a future version.
-    """
-    import warnings
-
-    warnings.warn(
-        "cleanup_openai_clients() is deprecated, use cleanup_llm_clients() instead. "
-        "Note: Both are no-ops as LiteLLM manages HTTP clients internally.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    cleanup_llm_clients()

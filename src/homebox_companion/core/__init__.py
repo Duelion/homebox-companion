@@ -2,11 +2,7 @@
 
 from .config import Settings, settings
 from .exceptions import (
-    APIError,
-    AuthenticationError,
     CapabilityNotSupportedError,
-    ConfigurationError,
-    DetectionError,
     HomeboxAPIError,
     HomeboxAuthError,
     HomeboxCompanionError,
@@ -41,10 +37,6 @@ __all__ = [
     "LLMServiceError",
     "CapabilityNotSupportedError",
     "JSONRepairError",
-    "AuthenticationError",  # Legacy alias for HomeboxAuthError
-    "APIError",
-    "ConfigurationError",
-    "DetectionError",
     # Logging
     "logger",
     "setup_logging",

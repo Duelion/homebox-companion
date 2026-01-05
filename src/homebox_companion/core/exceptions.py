@@ -68,11 +68,6 @@ class HomeboxAuthError(HomeboxCompanionError):
     log_level: LogLevel = "warning"
 
 
-# Legacy alias for backward compatibility
-# TODO: Deprecate in next major version
-AuthenticationError = HomeboxAuthError
-
-
 # =============================================================================
 # Connection Errors
 # =============================================================================
@@ -110,45 +105,9 @@ class HomeboxAPIError(HomeboxCompanionError):
     log_level: LogLevel = "error"
 
 
-class APIError(HomeboxCompanionError):
-    """Generic API error - legacy, use more specific exceptions when possible."""
-
-    def __init__(
-        self,
-        message: str,
-        status_code: int | None = None,
-        user_message: str | None = None,
-        context: dict[str, Any] | None = None,
-    ):
-        super().__init__(message, user_message, context)
-        if status_code is not None:
-            self.status_code = status_code
-
-
 # =============================================================================
-# Configuration Errors
+# LLM/AI Errors
 # =============================================================================
-
-
-class ConfigurationError(HomeboxCompanionError):
-    """Configuration or setup issue."""
-
-    status_code = 500
-    error_code = "CONFIG_ERROR"
-    log_level: LogLevel = "error"
-
-
-# =============================================================================
-# Detection/AI Errors
-# =============================================================================
-
-
-class DetectionError(HomeboxCompanionError):
-    """Item detection or AI processing failure."""
-
-    status_code = 500
-    error_code = "DETECTION_ERROR"
-    log_level: LogLevel = "error"
 
 
 class LLMServiceError(HomeboxCompanionError):
@@ -173,3 +132,4 @@ class JSONRepairError(HomeboxCompanionError):
     status_code = 502
     error_code = "JSON_REPAIR_FAILED"
     log_level: LogLevel = "warning"
+

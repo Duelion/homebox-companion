@@ -4,6 +4,7 @@
 from ..core.exceptions import (
     CapabilityNotSupportedError,
     JSONRepairError,
+    LLMServiceError,
 )
 from .images import (
     encode_compressed_image_to_base64,
@@ -11,10 +12,7 @@ from .images import (
     encode_image_to_data_uri,
 )
 from .llm import (
-    LLMError,  # Re-exported from core.exceptions via llm.py
     chat_completion,
-    cleanup_llm_clients,
-    cleanup_openai_clients,
     vision_completion,
 )
 from .model_capabilities import ModelCapabilities, get_model_capabilities
@@ -34,10 +32,8 @@ __all__ = [
     # LLM helpers
     "chat_completion",
     "vision_completion",
-    "cleanup_llm_clients",
-    "cleanup_openai_clients",  # Deprecated alias
     # LLM exceptions
-    "LLMError",
+    "LLMServiceError",
     "CapabilityNotSupportedError",
     "JSONRepairError",
     # Model capabilities

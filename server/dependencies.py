@@ -10,7 +10,7 @@ import httpx
 from fastapi import Depends, Header, HTTPException, UploadFile
 from loguru import logger
 
-from homebox_companion import AuthenticationError, HomeboxClient, settings
+from homebox_companion import HomeboxAuthError, HomeboxClient, settings
 
 if TYPE_CHECKING:
     from homebox_companion.chat.session import ChatSession
@@ -354,7 +354,7 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
         List of label dicts with 'id' and 'name' keys.
 
     Raises:
-        AuthenticationError: If authentication fails (re-raised to caller).
+        HomeboxAuthError: If authentication fails (re-raised to caller).
         RuntimeError: If the API returns an unexpected error (not transient).
     """
     client = get_client()
@@ -365,7 +365,7 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
             for label in raw_labels
             if label.get("id") and label.get("name")
         ]
-    except AuthenticationError:
+    except HomeboxAuthError:
         # Re-raise auth errors - session is invalid and caller needs to know
         logger.warning("Authentication failed while fetching labels for AI context")
         raise
