@@ -113,9 +113,6 @@ class ChatSession:
         pending_approvals: Dict mapping approval ID to PendingApproval
     """
 
-    # Maximum number of LLM interactions to keep in the debug log
-    _LLM_LOG_MAX_SIZE = 50
-
     def __init__(self):
         """Initialize an empty session."""
         self.messages: list[ChatMessage] = []
@@ -125,8 +122,6 @@ class ChatSession:
         self._tool_message_index: dict[str, ChatMessage] = {}
         # Track recent auto-rejections for context injection
         self._recent_auto_rejections: list[ApprovalOutcome] = []
-        # Raw LLM request/response log for debugging export
-        self._llm_log: list[dict[str, Any]] = []
 
     def add_message(self, message: ChatMessage) -> None:
         """Add a message to the conversation history.
@@ -457,56 +452,12 @@ class ChatSession:
 
         return rejected_count
 
-    def log_llm_interaction(
-        self,
-        request: list[dict[str, Any]],
-        response_content: str,
-        tool_calls: list[dict[str, Any]] | None = None,
-    ) -> None:
-        """Record a raw LLM request/response for debugging export.
-
-        Stores the complete messages array sent to the LLM and the response
-        received. Useful for debugging chat issues by seeing the exact
-        data sent to and received from the LLM API.
-
-        Args:
-            request: Complete messages array sent to LLM (including system prompt)
-            response_content: The text content of the LLM response
-            tool_calls: Optional list of tool calls from the response
-        """
-        import copy
-
-        # Deep copy request to prevent reference issues - the messages list
-        # gets modified during the conversation, and we want to capture a
-        # snapshot of what was actually sent at this moment
-        self._llm_log.append({
-            "timestamp": datetime.now(UTC).isoformat(),
-            "request": copy.deepcopy(request),
-            "response": {
-                "content": response_content,
-                "tool_calls": tool_calls,
-            },
-        })
-        # Trim to max size
-        if len(self._llm_log) > self._LLM_LOG_MAX_SIZE:
-            self._llm_log = self._llm_log[-self._LLM_LOG_MAX_SIZE:]
-        logger.trace(f"[SESSION] Logged LLM interaction, total: {len(self._llm_log)}")
-
-    def get_llm_log(self) -> list[dict[str, Any]]:
-        """Get raw LLM interaction log for debugging export.
-
-        Returns:
-            List of interaction dicts, each with timestamp, request, and response
-        """
-        return list(self._llm_log)
-
     def clear(self) -> None:
-        """Clear all messages, pending approvals, indexes, and LLM log."""
+        """Clear all messages, pending approvals, and indexes."""
         self.messages.clear()
         self.pending_approvals.clear()
         self._tool_message_index.clear()
         self._recent_auto_rejections.clear()
-        self._llm_log.clear()
         logger.info("Cleared chat session")
 
 

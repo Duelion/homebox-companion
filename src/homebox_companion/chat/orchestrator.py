@@ -578,13 +578,6 @@ class ChatOrchestrator:
         # Build tool calls from accumulator
         tool_calls, incomplete_calls = accumulator.build()
 
-        # Log raw LLM interaction for debugging export
-        tool_calls_for_log = (
-            [{"name": tc.name, "arguments": tc.arguments} for tc in tool_calls]
-            if tool_calls else None
-        )
-        self._session.log_llm_interaction(messages, full_content, tool_calls_for_log)
-
         # Add error responses for incomplete tool calls so LLM doesn't hang
         # waiting for responses it will never receive
         for tc_id, error_msg in incomplete_calls:
