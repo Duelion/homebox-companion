@@ -16,8 +16,3 @@ import { authStore } from '../stores/auth.svelte';
 export function hasToken(): boolean {
 	return !!authStore.token;
 }
-
-/**
- * @deprecated Use hasToken() instead. This alias exists for backward compatibility.
- */
-export const checkAuth = hasToken;

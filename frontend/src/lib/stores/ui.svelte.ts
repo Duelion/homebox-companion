@@ -230,11 +230,8 @@ class UIStore {
 export const uiStore = new UIStore();
 
 // =============================================================================
-// FUNCTION EXPORTS (backward compatibility)
+// FUNCTION EXPORTS
 // =============================================================================
-
-// These re-export methods as standalone functions for backward compatibility.
-// Prefer using uiStore.method() directly in new code.
 
 export const setLoading = (loading: boolean, message?: string) =>
 	uiStore.setLoading(loading, message);
@@ -245,68 +242,3 @@ export const showToast = (
 	options?: { persistent?: boolean; action?: { label: string; href: string } }
 ) => uiStore.showToast(message, type, duration, options);
 export const dismissToast = (id: number) => uiStore.dismissToast(id);
-export const clearAllToasts = () => uiStore.clearAllToasts();
-
-// =============================================================================
-// DEPRECATED EXPORTS
-// =============================================================================
-//
-// These exports provide limited backward compatibility for code migrating from
-// Svelte 4 stores. They expose a `.value` getter for reactive access but do NOT
-// provide the full Svelte 4 store contract (subscribe, set, update).
-//
-// MIGRATION: Replace usage with direct uiStore property access:
-//   - isLoading.value → uiStore.isLoading
-//   - loadingMessage.value → uiStore.loadingMessage
-//   - toasts.value → uiStore.toasts
-//   - etc.
-//
-// These will be removed in a future version.
-
-/** @deprecated Use uiStore.isLoading directly */
-export const isLoading = {
-	get value() {
-		return uiStore.isLoading;
-	},
-	set: (value: boolean) => uiStore.setLoading(value),
-};
-
-export const loadingMessage = {
-	get value() {
-		return uiStore.loadingMessage;
-	},
-};
-
-export const toasts = {
-	get value() {
-		return uiStore.toasts;
-	},
-};
-
-export const isOnline = {
-	get value() {
-		return uiStore.isOnline;
-	},
-	set: (value: boolean) => uiStore.setOnline(value),
-};
-
-export const appVersion = {
-	get value() {
-		return uiStore.appVersion;
-	},
-	set: (value: string) => uiStore.setAppVersion(value),
-};
-
-export const latestVersion = {
-	get value() {
-		return uiStore.latestVersion;
-	},
-	set: (value: string | null) => uiStore.setLatestVersion(value),
-};
-
-export const updateDismissed = {
-	get value() {
-		return uiStore.updateDismissed;
-	},
-	set: (value: boolean) => uiStore.setUpdateDismissed(value),
-};

@@ -143,34 +143,8 @@ class LabelsStore {
 export const labelStore = new LabelsStore();
 
 // =============================================================================
-// FUNCTION EXPORTS (backward compatibility)
+// FUNCTION EXPORTS
 // =============================================================================
-
-// These re-export methods as standalone functions for backward compatibility.
-// Prefer using labelStore.method() directly in new code.
 
 export const fetchLabels = (forceRefresh = false) => labelStore.fetchLabels(forceRefresh);
 export const clearLabelsCache = () => labelStore.clear();
-export const getLabelName = (labelId: string) => labelStore.getLabelName(labelId);
-
-/**
- * Backward compatibility exports for reactive access.
- * Components should prefer using labelStore.labels directly.
- */
-export const labels = {
-	get value() {
-		return labelStore.labels;
-	},
-};
-
-export const labelsById = {
-	get value() {
-		return labelStore.labelsById;
-	},
-};
-
-export const isLabelsLoading = {
-	get value() {
-		return labelStore.loading;
-	},
-};

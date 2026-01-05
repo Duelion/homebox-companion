@@ -447,8 +447,8 @@ export async function requestBlobUrl(
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal =
 		timeoutMs > 0 && timeoutMs < Infinity
-			? createTimeoutSignal(opts.signal, timeoutMs)
-			: opts.signal;
+			? createTimeoutSignal(options.signal, timeoutMs)
+			: options.signal;
 
 	// First attempt
 	let response: Response;
@@ -471,8 +471,8 @@ export async function requestBlobUrl(
 			// Create a fresh timeout signal for the retry (don't reuse the original)
 			const retrySignal =
 				timeoutMs > 0 && timeoutMs < Infinity
-					? createTimeoutSignal(opts.signal, timeoutMs)
-					: opts.signal;
+					? createTimeoutSignal(options.signal, timeoutMs)
+					: options.signal;
 
 			log.debug(`Retrying blob request ${endpoint} after token refresh`);
 			try {
@@ -517,13 +517,10 @@ export async function requestBlobUrl(
 export async function requestFormData<T>(
 	endpoint: string,
 	formData: FormData,
-	options: FormDataRequestOptions | string = {}
+	options: FormDataRequestOptions = {}
 ): Promise<T> {
-	// Support legacy string errorMessage parameter for backwards compatibility
-	const opts: FormDataRequestOptions =
-		typeof options === 'string' ? { errorMessage: options } : options;
-	const errorMessage = opts.errorMessage ?? 'Request failed';
-	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
+	const errorMessage = options.errorMessage ?? 'Request failed';
+	const timeoutMs = options.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
 	// Helper to build headers with current token and any additional headers
 	const buildHeaders = (): HeadersInit => {
@@ -535,8 +532,8 @@ export async function requestFormData<T>(
 		}
 
 		// Merge any additional headers from options
-		if (opts.headers) {
-			Object.assign(headers, opts.headers);
+		if (options.headers) {
+			Object.assign(headers, options.headers);
 		}
 
 		return headers;
@@ -545,8 +542,8 @@ export async function requestFormData<T>(
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal =
 		timeoutMs > 0 && timeoutMs < Infinity
-			? createTimeoutSignal(opts.signal, timeoutMs)
-			: opts.signal;
+			? createTimeoutSignal(options.signal, timeoutMs)
+			: options.signal;
 
 	// First attempt
 	let response: Response;
@@ -574,8 +571,8 @@ export async function requestFormData<T>(
 			// Create a fresh timeout signal for the retry (don't reuse the original)
 			const retrySignal =
 				timeoutMs > 0 && timeoutMs < Infinity
-					? createTimeoutSignal(opts.signal, timeoutMs)
-					: opts.signal;
+					? createTimeoutSignal(options.signal, timeoutMs)
+					: options.signal;
 
 			log.debug(`Retrying FormData request ${endpoint} after token refresh`);
 			try {
