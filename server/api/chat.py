@@ -289,6 +289,9 @@ async def clear_history(
 ) -> ApprovalResponse:
     """Clear conversation history for this session.
 
+    Also clears the LLM interaction log so exported logs only contain
+    interactions from the current chat session.
+
     Returns:
         Success status
     """
@@ -296,6 +299,12 @@ async def clear_history(
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
 
     session_store_holder.get().delete(token)
+
+    # Clear the LLM interaction log so it only shows current session logs
+    from homebox_companion.chat.llm_client import clear_raw_llm_log
+
+    clear_raw_llm_log()
+
     return ApprovalResponse(success=True, message="History cleared")
 
 
