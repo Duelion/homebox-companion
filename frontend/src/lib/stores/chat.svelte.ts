@@ -204,6 +204,41 @@ class ChatStore {
 		}
 	}
 
+	/** Track if we've already synced with backend this session */
+	private hasCheckedBackendSync = false;
+
+	/**
+	 * Ensure backend is in sync with frontend state.
+	 *
+	 * If localStorage was empty (no messages loaded), clears the backend
+	 * chat history and LLM logs to ensure a fresh start. This handles the
+	 * case where the user cleared their chat and then refreshed the page -
+	 * without this, stale backend state could persist.
+	 *
+	 * Should be called once when the chat page mounts.
+	 */
+	async ensureBackendSync(): Promise<void> {
+		// Only check once per session to avoid redundant API calls
+		if (this.hasCheckedBackendSync) return;
+		this.hasCheckedBackendSync = true;
+
+		// If we have local messages, backend sync is not needed
+		if (this._messages.length > 0) {
+			log.debug('Local messages exist, skipping backend sync');
+			return;
+		}
+
+		// localStorage was empty - clear backend to ensure fresh start
+		log.info('No local messages, clearing backend to sync state');
+		try {
+			await chat.clearHistory();
+			log.debug('Backend history cleared for fresh session');
+		} catch (error) {
+			// Non-fatal - backend might already be clear or unavailable
+			log.warn('Failed to clear backend history for sync:', error);
+		}
+	}
+
 	// =========================================================================
 	// GETTERS
 	// =========================================================================
