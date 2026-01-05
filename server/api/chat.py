@@ -339,22 +339,3 @@ async def chat_health() -> dict[str, Any]:
         "max_history": settings.chat_max_history,
         "approval_timeout_seconds": settings.chat_approval_timeout,
     }
-
-
-@router.get("/chat/llm-log")
-async def get_llm_log() -> dict[str, Any]:
-    """Export raw LLM interaction log for debugging.
-
-    Returns the complete request/response pairs captured by LiteLLM's
-    success callback - this is EXACTLY what was sent to and received
-    from the LLM API.
-
-    Returns:
-        Dict with 'interactions' list containing raw LLM exchanges
-    """
-    if not settings.chat_enabled:
-        raise HTTPException(status_code=503, detail="Chat feature is disabled")
-
-    from homebox_companion.chat.llm_client import get_raw_llm_log
-
-    return {"interactions": get_raw_llm_log()}

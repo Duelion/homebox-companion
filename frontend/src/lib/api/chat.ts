@@ -372,34 +372,6 @@ export async function getStatus(): Promise<ChatStatusResponse> {
 	return request<ChatStatusResponse>('/chat/status');
 }
 
-/**
- * LLM interaction entry for debugging export.
- */
-export interface LLMLogEntry {
-	timestamp: string;
-	latency_ms: number;
-	model: string;
-	request: {
-		messages: Array<{ role: string; content: string; tool_calls?: unknown[] }>;
-		tools?: unknown[] | null;
-	};
-	response: {
-		content: string;
-		tool_calls?: Array<{ name: string; arguments: Record<string, unknown> }> | null;
-	};
-}
-
-/**
- * Get raw LLM interaction log for debugging.
- * Returns the complete request/response pairs sent to the LLM.
- */
-export async function getLLMLog(): Promise<LLMLogEntry[]> {
-	log.debug('Fetching LLM interaction log');
-	const data = await request<{ interactions: LLMLogEntry[] }>('/chat/llm-log');
-	log.debug(`Received ${data.interactions.length} LLM interactions`);
-	return data.interactions;
-}
-
 // =============================================================================
 // NAMESPACE EXPORT
 // =============================================================================
@@ -412,5 +384,4 @@ export const chat = {
 	clearHistory,
 	getChatHealth,
 	getStatus,
-	getLLMLog,
 };

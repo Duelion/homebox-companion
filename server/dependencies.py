@@ -82,11 +82,6 @@ class ClientHolder:
         """
         self._client = None
 
-    @property
-    def is_initialized(self) -> bool:
-        """Check if the client has been initialized."""
-        return self._client is not None
-
 
 # Singleton holder instance - each worker gets its own
 client_holder = ClientHolder()
@@ -140,11 +135,6 @@ class SessionStoreHolder:
         Use this in tests to reset state between test cases.
         """
         self._store = None
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if the store has been initialized."""
-        return self._store is not None
 
 
 # Singleton session store holder
@@ -206,19 +196,6 @@ class ToolExecutorHolder:
         self._executor = None
         self._client_id = None
 
-    def invalidate_cache(self) -> None:
-        """Invalidate the schema cache.
-
-        Useful when tools are modified during testing.
-        """
-        if self._executor is not None:
-            self._executor.invalidate_cache()
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if the executor has been initialized."""
-        return self._executor is not None
-
 
 # Singleton tool executor holder
 tool_executor_holder = ToolExecutorHolder()
@@ -228,14 +205,6 @@ tool_executor_holder = ToolExecutorHolder()
 # CORE DEPENDENCIES (defined first so they can be used in Depends())
 # =============================================================================
 
-
-def set_client(client: HomeboxClient) -> None:
-    """Set the global Homebox client instance.
-
-    This is a convenience wrapper for backward compatibility.
-    Prefer using client_holder.set() directly for clarity.
-    """
-    client_holder.set(client)
 
 
 def get_client() -> HomeboxClient:
@@ -271,14 +240,6 @@ def get_executor(
     """
     return tool_executor_holder.get(client)
 
-
-def get_session_store() -> SessionStoreProtocol:
-    """Get the shared session store.
-
-    This is a FastAPI dependency that returns the shared store instance.
-    Can be overridden in tests using app.dependency_overrides[get_session_store].
-    """
-    return session_store_holder.get()
 
 
 def get_session(

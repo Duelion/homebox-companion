@@ -44,6 +44,11 @@ def _llm_debug_filter(record: loguru.Record) -> bool:
     return record["extra"].get("llm_debug", False)
 
 
+def _exclude_llm_debug_filter(record: loguru.Record) -> bool:
+    """Exclude LLM debug entries from the main log file."""
+    return not record["extra"].get("llm_debug", False)
+
+
 def setup_logging() -> None:
     """Configure loguru for the application.
 
@@ -74,6 +79,7 @@ def setup_logging() -> None:
     )
 
     # File handler with rotation by size OR time (whichever comes first)
+    # Excludes LLM debug logs which go to their own dedicated file
     logger.add(
         "logs/homebox_companion_{time:YYYY-MM-DD}.log",
         rotation="50 MB",  # Rotate if file exceeds 50MB OR at midnight
@@ -84,6 +90,7 @@ def setup_logging() -> None:
             "{name}:{function}:{line} - {message}"
         ),
         level=settings.log_level,
+        filter=_exclude_llm_debug_filter,
     )
 
     # LLM debug log handler - separate file for raw LLM interactions
