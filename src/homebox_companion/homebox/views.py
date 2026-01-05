@@ -102,7 +102,7 @@ class CompactLabelView(BaseModel):
 class CompactItemView(BaseModel):
     """Minimal item view for list responses (reduces token usage).
 
-    Includes only essential fields with truncated description.
+    Includes only essential fields with description truncated to 50 chars.
     Nested location also gets a URL for markdown link generation.
     Labels are included as compact views (id + name only).
     """
@@ -111,7 +111,7 @@ class CompactItemView(BaseModel):
 
     id: str
     name: str
-    description: str = ""  # Truncated to 100 chars
+    description: str = ""  # Truncated to 50 chars
     quantity: int = 1
     asset_id: str | None = Field(default=None, serialization_alias="assetId")
     location: LocationView | None = None
@@ -128,7 +128,7 @@ class CompactItemView(BaseModel):
         """Create a CompactItemView from an API response dictionary.
 
         Uses custom parsing instead of model_validate() to:
-        - Truncate description to 100 chars for token efficiency
+        - Truncate description to 50 chars for token efficiency
         - Build nested LocationView for URL generation
         - Build compact label views (id + name only)
         - Filter out unnecessary fields from the compact representation
@@ -148,9 +148,9 @@ class CompactItemView(BaseModel):
         labels_data = data.get("labels", [])
         labels = [CompactLabelView.from_dict(lbl) for lbl in labels_data if lbl.get("id")]
 
-        # Truncate description
+        # Truncate description (50 chars is enough context for label decisions)
         description = data.get("description") or ""
-        truncated_desc = description[:100] + ("..." if len(description) > 100 else "")
+        truncated_desc = description[:50] + ("..." if len(description) > 50 else "")
 
         # Validate required fields - log warnings but don't fail
         item_id = data.get("id") or ""
