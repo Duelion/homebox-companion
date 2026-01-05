@@ -21,7 +21,7 @@
 		type EffectiveDefaults,
 		type LabelData,
 	} from '$lib/api';
-	import { getLLMLog } from '$lib/api/chat';
+	import { getLLMLog, clearHistory, type LLMLogEntry } from '$lib/api/chat';
 	import {
 		getLogBuffer,
 		clearLogBuffer,
@@ -47,9 +47,11 @@
 	let frontendLogsFullscreenContainer = $state<HTMLDivElement | null>(null);
 	let frontendLogsFullscreen = $state(false);
 
-	// AI Chat History export state
-	let isExportingChatHistory = $state(false);
-	let chatHistoryExportError = $state<string | null>(null);
+	// AI Chat History state (matching Frontend Logs pattern)
+	let chatHistoryLog = $state<LLMLogEntry[]>([]);
+	let showChatHistory = $state(false);
+	let isLoadingChatHistory = $state(false);
+	let chatHistoryError = $state<string | null>(null);
 
 	// Version update state (fetched with force_check to always show updates)
 	let updateAvailable = $state(false);
@@ -358,30 +360,68 @@
 		document.body.removeChild(a);
 	}
 
-	async function handleExportChatHistory() {
-		isExportingChatHistory = true;
-		chatHistoryExportError = null;
-
-		try {
-			const interactions = await getLLMLog();
-			const json = JSON.stringify(interactions, null, 2);
-			const blob = new Blob([json], { type: 'application/json' });
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `llm-chat-history-${new Date().toISOString().split('T')[0]}.json`;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
-			log.success(`Exported ${interactions.length} LLM interactions`);
-		} catch (error) {
-			log.error('Failed to export LLM chat history:', error);
-			chatHistoryExportError =
-				error instanceof Error ? error.message : 'Failed to export chat history';
-		} finally {
-			isExportingChatHistory = false;
+	async function loadChatHistory() {
+		if (showChatHistory) {
+			showChatHistory = false;
+			return;
 		}
+		isLoadingChatHistory = true;
+		chatHistoryError = null;
+		try {
+			chatHistoryLog = await getLLMLog();
+			showChatHistory = true;
+		} catch (error) {
+			log.error('Failed to load chat history:', error);
+			chatHistoryError = error instanceof Error ? error.message : 'Failed to load chat history';
+		} finally {
+			isLoadingChatHistory = false;
+		}
+	}
+
+	async function refreshChatHistory() {
+		isLoadingChatHistory = true;
+		try {
+			chatHistoryLog = await getLLMLog();
+		} catch (error) {
+			log.error('Failed to refresh chat history:', error);
+		} finally {
+			isLoadingChatHistory = false;
+		}
+	}
+
+	function handleExportChatHistory() {
+		if (chatHistoryLog.length === 0) return;
+		const json = JSON.stringify(chatHistoryLog, null, 2);
+		const blob = new Blob([json], { type: 'application/json' });
+		const url = window.URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `llm-chat-history-${new Date().toISOString().split('T')[0]}.json`;
+		document.body.appendChild(a);
+		a.click();
+		window.URL.revokeObjectURL(url);
+		document.body.removeChild(a);
+		log.success(`Exported ${chatHistoryLog.length} LLM interactions`);
+	}
+
+	async function handleClearChatHistory() {
+		try {
+			await clearHistory();
+			chatHistoryLog = [];
+			log.success('Chat history cleared');
+		} catch (error) {
+			log.error('Failed to clear chat history:', error);
+		}
+	}
+
+	// Format a single chat history entry for display
+	function formatChatHistoryEntry(entry: LLMLogEntry): string {
+		const time = entry.timestamp.split('T')[1]?.split('.')[0] || entry.timestamp;
+		const msgCount = entry.request.length;
+		const hasTools = entry.response.tool_calls && entry.response.tool_calls.length > 0;
+		const toolInfo = hasTools ? ` → ${entry.response.tool_calls!.length} tool(s)` : '';
+		const responsePreview = entry.response.content.substring(0, 60) || '(no content)';
+		return `${time} | ${msgCount} msgs${toolInfo} | ${responsePreview}${entry.response.content.length > 60 ? '...' : ''}`;
 	}
 
 	// Auto-scroll frontend logs to bottom when loaded or refreshed
@@ -1184,45 +1224,102 @@
 		{/if}
 	</section>
 
-	<!-- AI Chat History Export Section -->
+	<!-- AI Chat History Section -->
 	<section class="card space-y-4">
-		<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
-			<svg
-				class="text-primary-400 h-5 w-5"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
-				<path
-					d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-				/>
-			</svg>
-			AI Chat History
-		</h2>
+		<div class="flex items-center justify-between">
+			<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
+				<svg
+					class="text-primary-400 h-5 w-5"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path
+						d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+					/>
+				</svg>
+				AI Chat History
+			</h2>
+			{#if showChatHistory && chatHistoryLog.length > 0}
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						class="btn-icon-touch"
+						onclick={refreshChatHistory}
+						title="Refresh"
+						aria-label="Refresh chat history"
+						disabled={isLoadingChatHistory}
+					>
+						<svg
+							class="h-5 w-5 {isLoadingChatHistory ? 'animate-spin' : ''}"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+						>
+							<path d="M23 4v6h-6M1 20v-6h6" />
+							<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="btn-icon-touch"
+						onclick={handleExportChatHistory}
+						title="Export as JSON"
+						aria-label="Export chat history"
+					>
+						<svg
+							class="h-5 w-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+						>
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="7 10 12 15 17 10" />
+							<line x1="12" y1="15" x2="12" y2="3" />
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="btn-icon-touch"
+						onclick={handleClearChatHistory}
+						title="Clear history"
+						aria-label="Clear chat history"
+					>
+						<svg
+							class="h-5 w-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+						>
+							<path
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
+						</svg>
+					</button>
+				</div>
+			{/if}
+		</div>
 
 		<p class="text-body-sm text-neutral-400">
-			Export the raw LLM request/response history for debugging. This includes the complete messages
-			array sent to the LLM with system prompt and all context.
+			View raw LLM request/response history for debugging. Shows the complete messages sent to the
+			LLM.
 		</p>
-
-		{#if chatHistoryExportError}
-			<div class="border-error-500/30 bg-error-500/10 text-error-500 rounded-xl border p-4 text-sm">
-				{chatHistoryExportError}
-			</div>
-		{/if}
 
 		<button
 			type="button"
-			class="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
-			onclick={handleExportChatHistory}
-			disabled={isExportingChatHistory}
+			class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+			onclick={loadChatHistory}
+			disabled={isLoadingChatHistory}
 		>
-			{#if isExportingChatHistory}
+			{#if isLoadingChatHistory}
 				<div
 					class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
 				></div>
-				<span>Exporting...</span>
+				<span>Loading...</span>
 			{:else}
 				<svg
 					class="text-primary-400 h-5 w-5"
@@ -1231,13 +1328,50 @@
 					viewBox="0 0 24 24"
 					stroke-width="1.5"
 				>
-					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-					<polyline points="7 10 12 15 17 10" />
-					<line x1="12" y1="15" x2="12" y2="3" />
+					<path
+						d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+					/>
 				</svg>
-				<span>Export AI Chat History (JSON)</span>
+				<span>Show AI Chat History</span>
+				<svg
+					class="ml-auto h-4 w-4 transition-transform {showChatHistory ? 'rotate-180' : ''}"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<polyline points="6 9 12 15 18 9" />
+				</svg>
 			{/if}
 		</button>
+
+		{#if showChatHistory}
+			{#if chatHistoryError}
+				<div
+					class="border-error-500/30 bg-error-500/10 text-error-500 rounded-xl border p-4 text-sm"
+				>
+					{chatHistoryError}
+				</div>
+			{:else if chatHistoryLog.length === 0}
+				<div
+					class="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4 text-center text-sm text-neutral-400"
+				>
+					No chat history available. Start a conversation with the AI to see interactions here.
+				</div>
+			{:else}
+				<div class="mt-3 space-y-2">
+					<div class="flex items-center justify-between text-xs text-neutral-500">
+						<span>LLM interactions</span>
+						<span>{chatHistoryLog.length} {chatHistoryLog.length === 1 ? 'entry' : 'entries'}</span>
+					</div>
+					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
+						<pre
+							class="max-h-80 overflow-x-auto overflow-y-auto p-4 font-mono text-xs break-all whitespace-pre-wrap text-neutral-400">{chatHistoryLog
+								.map(formatChatHistoryEntry)
+								.join('\n')}</pre>
+					</div>
+				</div>
+			{/if}
+		{/if}
 	</section>
 
 	<!-- AI Output Configuration Section -->
