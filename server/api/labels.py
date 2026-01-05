@@ -18,7 +18,7 @@ async def get_labels(
 ) -> list[dict[str, Any]]:
     """Fetch all available labels.
 
-    Exceptions (AuthenticationError, RuntimeError) are handled by
+    Exceptions (HomeboxAuthError, RuntimeError) are handled by
     the centralized domain_error_handler in app.py.
     """
     return await client.list_labels(token)

@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from homebox_companion import AuthenticationError, HomeboxClient, ItemCreate
+from homebox_companion import HomeboxAuthError, HomeboxClient, ItemCreate
 from homebox_companion.core.exceptions import HomeboxAPIError
 
 # All tests in this module hit the real Homebox demo server
@@ -46,7 +46,7 @@ async def test_login_with_invalid_credentials_raises_error(
     """Login with invalid credentials should raise an error."""
     async with HomeboxClient(base_url=homebox_api_url) as client:
         # Demo server returns 500 for invalid credentials, not 401
-        with pytest.raises((AuthenticationError, RuntimeError)):
+        with pytest.raises((HomeboxAuthError, RuntimeError)):
             await client.login("invalid@example.com", "wrongpassword")
 
 

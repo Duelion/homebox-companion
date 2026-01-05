@@ -18,8 +18,8 @@ from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store
 
 from ..core.config import settings
 from ..core.exceptions import (
-    AuthenticationError,
     HomeboxAPIError,
+    HomeboxAuthError,
     HomeboxConnectionError,
     HomeboxTimeoutError,
 )
@@ -175,7 +175,7 @@ class HomeboxClient:
             Dictionary containing token, expiresAt, and other login response fields.
 
         Raises:
-            AuthenticationError: If authentication fails.
+            HomeboxAuthError: If authentication fails.
         """
         login_url = f"{self.base_url}/users/login"
         logger.debug(f"Login: Attempting connection to {login_url}")
@@ -233,7 +233,7 @@ class HomeboxClient:
         except ValueError as json_err:
             logger.error(f"Login: Failed to parse JSON response: {json_err}")
             logger.error(f"Login: Content-Type was '{content_type}'")
-            raise AuthenticationError(
+            raise HomeboxAuthError(
                 f"Server returned invalid JSON. Content-Type was '{content_type}'. "
                 "This usually indicates a reverse proxy or server configuration issue."
             ) from json_err
@@ -243,7 +243,7 @@ class HomeboxClient:
             logger.error(
                 f"Login: Response JSON missing token field. Keys present: {list(data.keys())}"
             )
-            raise AuthenticationError("Login response did not include a token field.")
+            raise HomeboxAuthError("Login response did not include a token field.")
 
         # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix
         # Strip it for consistent handling (we add it back in request headers)
@@ -268,7 +268,7 @@ class HomeboxClient:
             Dictionary containing token, expiresAt, and other response fields.
 
         Raises:
-            AuthenticationError: If the token is expired or invalid.
+            HomeboxAuthError: If the token is expired or invalid.
             RuntimeError: If the refresh fails for other reasons.
         """
         response = await self.client.get(
@@ -979,7 +979,7 @@ class HomeboxClient:
             Tuple of (content_bytes, content_type).
 
         Raises:
-            AuthenticationError: If authentication fails.
+            HomeboxAuthError: If authentication fails.
             FileNotFoundError: If the attachment is not found (404).
             RuntimeError: If other API errors occur.
         """
@@ -1107,11 +1107,11 @@ class HomeboxClient:
         except ValueError:
             detail = response.text
 
-        # Raise AuthenticationError for 401 so callers can handle session expiry
+        # Raise HomeboxAuthError for 401 so callers can handle session expiry
         # Don't log 401s as errors - they're expected when session expires
         if response.status_code == 401:
             logger.debug(f"{context}: {request_info}-> 401 (unauthenticated)")
-            raise AuthenticationError(f"{context} failed: {detail}")
+            raise HomeboxAuthError(f"{context} failed: {detail}")
 
         # Use domain exception for all other non-success responses
         # This allows centralized exception handling in the FastAPI layer

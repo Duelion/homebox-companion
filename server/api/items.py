@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
-from homebox_companion import AuthenticationError, DetectedItem, HomeboxClient
+from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient
 from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_client, get_token, validate_file_size
@@ -127,7 +127,7 @@ async def create_items(
                             update_data["parentId"] = item_input.parent_id
                         result = await client.update_item(token, item_id, update_data)
                         logger.info("  Updated item with extended fields")
-                    except AuthenticationError:
+                    except HomeboxAuthError:
                         # Auth failure during update - don't delete the item!
                         # The item was created successfully, user just needs fresh token.
                         # Re-raise to trigger the outer auth handler.
@@ -146,7 +146,7 @@ async def create_items(
                         raise update_err
 
             created.append(result)
-        except AuthenticationError:
+        except HomeboxAuthError:
             # Auth failure means all subsequent items will also fail - abort early
             logger.error(f"Authentication failed while creating '{item_input.name}'")
             errors.append(f"Authentication failed for '{item_input.name}'")

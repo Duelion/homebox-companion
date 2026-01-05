@@ -62,20 +62,6 @@ def get_tools() -> list[Tool]:
     return [cls() for cls in _TOOL_REGISTRY]
 
 
-def clear_tool_registry() -> None:
-    """Clear the tool registry.
-
-    This is primarily for testing to ensure a clean slate between test cases.
-    In production, tools are registered at module import time and should not
-    be cleared.
-
-    Warning:
-        After calling this, you must re-import tool modules to re-register
-        tools, or manually call register_tool for each tool class.
-    """
-    _TOOL_REGISTRY.clear()
-
-
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================

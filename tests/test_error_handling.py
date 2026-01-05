@@ -12,7 +12,7 @@ import json
 import httpx
 import pytest
 
-from homebox_companion.core.exceptions import AuthenticationError, HomeboxAPIError
+from homebox_companion.core.exceptions import HomeboxAuthError, HomeboxAPIError
 from homebox_companion.homebox.client import HomeboxClient
 
 # All tests in this module are unit tests (mocked httpx, tmp_path for files)
@@ -23,13 +23,13 @@ class TestHomeboxClientErrorHandling:
     """Test HTTP error handling in HomeboxClient."""
 
     def test_401_response_raises_authentication_error(self) -> None:
-        """401 responses should raise AuthenticationError."""
+        """401 responses should raise HomeboxAuthError."""
         response = httpx.Response(
             401,
             json={"error": "Token expired"},
         )
 
-        with pytest.raises(AuthenticationError, match="Token expired"):
+        with pytest.raises(HomeboxAuthError, match="Token expired"):
             HomeboxClient._ensure_success(response, "Test operation")
 
     def test_404_response_raises_homebox_api_error(self) -> None:
