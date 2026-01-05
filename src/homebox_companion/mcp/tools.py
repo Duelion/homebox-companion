@@ -691,7 +691,7 @@ class UpdateItemTool:
         location_id: str | None = Field(default=None, description="Optional new location ID")
         quantity: int | None = Field(default=None, ge=1, description="Optional new quantity")
         purchase_price: float | None = Field(
-            default=None, ge=0, description="Optional new purchase price"
+            default=None, ge=0, alias="purchasePrice", description="Optional new purchase price"
         )
         label_ids: list[str] | None = Field(
             default=None,
