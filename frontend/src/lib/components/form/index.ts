@@ -8,5 +8,4 @@ export { default as ItemCoreFields } from './ItemCoreFields.svelte';
 export { default as ItemExtendedFields } from './ItemExtendedFields.svelte';
 export { default as LabelSelector } from './LabelSelector.svelte';
 export { default as LocationSelector } from './LocationSelector.svelte';
-export { getFormClasses } from './types';
 export type { FormSize } from './types';
