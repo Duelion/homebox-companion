@@ -414,16 +414,6 @@
 		}
 	}
 
-	// Format a single chat history entry for display
-	function formatChatHistoryEntry(entry: LLMLogEntry): string {
-		const time = entry.timestamp.split('T')[1]?.split('.')[0] || entry.timestamp;
-		const msgCount = entry.request.length;
-		const hasTools = entry.response.tool_calls && entry.response.tool_calls.length > 0;
-		const toolInfo = hasTools ? ` → ${entry.response.tool_calls!.length} tool(s)` : '';
-		const responsePreview = entry.response.content.substring(0, 60) || '(no content)';
-		return `${time} | ${msgCount} msgs${toolInfo} | ${responsePreview}${entry.response.content.length > 60 ? '...' : ''}`;
-	}
-
 	// Auto-scroll frontend logs to bottom when loaded or refreshed
 	$effect(() => {
 		if (frontendLogsContainer && frontendLogs.length > 0 && showFrontendLogs) {
@@ -1365,9 +1355,11 @@
 					</div>
 					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 						<pre
-							class="max-h-80 overflow-x-auto overflow-y-auto p-4 font-mono text-xs break-all whitespace-pre-wrap text-neutral-400">{chatHistoryLog
-								.map(formatChatHistoryEntry)
-								.join('\n')}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto p-4 font-mono text-xs break-all whitespace-pre-wrap text-neutral-400">{JSON.stringify(
+								chatHistoryLog,
+								null,
+								2
+							)}</pre>
 					</div>
 				</div>
 			{/if}
