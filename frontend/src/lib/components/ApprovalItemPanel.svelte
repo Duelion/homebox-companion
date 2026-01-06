@@ -216,7 +216,7 @@
 		return (approval.parameters.item_id as string) ?? 'Unknown';
 	});
 
-	// Check which fields are being changed (for update_item)
+	// Check which fields are being changed (for update actions)
 	const fieldsBeingChanged = $derived.by(() => {
 		if (actionType !== 'update') return [];
 		const fields: string[] = [];
@@ -225,7 +225,12 @@
 		if (approval.parameters.quantity !== undefined) fields.push('quantity');
 		if (approval.parameters.notes !== undefined) fields.push('notes');
 		if (approval.parameters.label_ids !== undefined) fields.push('labels');
-		if (approval.parameters.location_id !== undefined) fields.push('location');
+		// Only add 'location' for item tools, not for location tools
+		// (update_location uses location_id as the entity identifier, not a field to change)
+		// Using endsWith('_location') for defensive future-proofing against new location tools
+		if (approval.parameters.location_id !== undefined && !approval.tool_name.endsWith('_location')) {
+			fields.push('location');
+		}
 		// Extended fields
 		if (approval.parameters.manufacturer !== undefined) fields.push('manufacturer');
 		if (approval.parameters.model_number !== undefined) fields.push('model_number');
