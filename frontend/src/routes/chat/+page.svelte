@@ -13,6 +13,7 @@
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getIsDemoMode } from '$lib/api/settings';
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
@@ -23,6 +24,7 @@
 
 	let messagesContainer: HTMLDivElement | null = $state(null);
 	let isEnabled = $state(true);
+	let isDemoMode = $state(false);
 	let approvalModalOpen = $state(false);
 
 	// Terminal-style auto-scroll: only scroll if user hasn't scrolled up
@@ -111,6 +113,14 @@
 			return;
 		}
 
+		// Check if in demo mode - chat is disabled in demo mode
+		isDemoMode = getIsDemoMode();
+		if (isDemoMode) {
+			isEnabled = false;
+			log.debug('Chat disabled: demo mode');
+			return;
+		}
+
 		isEnabled = await chatStore.checkEnabled();
 		log.debug(`Chat enabled: ${isEnabled}`);
 		if (isEnabled) {
@@ -144,29 +154,54 @@
 	{#if !isEnabled}
 		<!-- Disabled state -->
 		<div class="empty-state min-h-[60vh]">
-			<div class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-error-500/10">
-				<svg
-					class="h-8 w-8 text-error-500"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-					/>
-				</svg>
-			</div>
-			<h2 class="mb-2 text-h3 text-neutral-100">Chat Disabled</h2>
-			<p class="mb-1 text-body-sm text-neutral-400">
-				The chat feature is currently disabled on the server.
-			</p>
-			<p class="mb-1 text-body-sm text-neutral-400">
-				Enable it by setting <code
-					class="mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-sm-tight text-primary-300"
-					>HBC_CHAT_ENABLED=true</code
-				>
-			</p>
+			{#if isDemoMode}
+				<!-- Demo mode specific disabled state -->
+				<div class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-warning-500/10">
+					<svg
+						class="h-8 w-8 text-warning-500"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+					>
+						<path
+							d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+						/>
+					</svg>
+				</div>
+				<h2 class="mb-2 text-h3 text-neutral-100">Chat Unavailable</h2>
+				<p class="mb-3 max-w-xs text-center text-body-sm text-neutral-400">
+					Sorry, the chat feature is disabled in demo mode to prevent misuse.
+				</p>
+				<p class="max-w-xs text-center text-body-sm text-neutral-500">
+					To use chat, please set up your own instance with your own API key.
+				</p>
+			{:else}
+				<!-- Server disabled state -->
+				<div class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-error-500/10">
+					<svg
+						class="h-8 w-8 text-error-500"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+					>
+						<path
+							d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+						/>
+					</svg>
+				</div>
+				<h2 class="mb-2 text-h3 text-neutral-100">Chat Disabled</h2>
+				<p class="mb-1 text-body-sm text-neutral-400">
+					The chat feature is currently disabled on the server.
+				</p>
+				<p class="mb-1 text-body-sm text-neutral-400">
+					Enable it by setting <code
+						class="mt-3 inline-block rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-sm-tight text-primary-300"
+						>HBC_CHAT_ENABLED=true</code
+					>
+				</p>
+			{/if}
 		</div>
 	{:else}
 		<!-- Messages area -->
@@ -194,6 +229,34 @@
 					<p class="mb-6 max-w-xs px-4 text-center text-body text-neutral-400">
 						Ask me about your inventory, locations, or items.
 					</p>
+
+					<!-- Experimental Feature Warning -->
+					<div
+						class="mx-4 mb-6 max-w-sm rounded-xl border border-warning-500/30 bg-warning-500/10 p-4"
+					>
+						<div class="flex items-start gap-2.5">
+							<svg
+								class="mt-0.5 h-5 w-5 flex-shrink-0 text-warning-500"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<path
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+								/>
+							</svg>
+							<div>
+								<p class="mb-1 text-sm font-medium text-warning-500">Experimental Feature</p>
+								<p class="text-xs leading-relaxed text-neutral-400">
+									Chat is still experimental. While many safeguards are in place and it's been
+									tested, please <strong class="text-neutral-300">back up your inventory</strong>
+									before use.
+								</p>
+							</div>
+						</div>
+					</div>
+
 					<div class="flex w-full max-w-sm flex-col gap-2 px-4">
 						<button
 							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
