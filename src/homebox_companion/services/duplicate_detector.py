@@ -339,7 +339,9 @@ class DuplicateDetector:
 
         # Fetch all items
         try:
-            item_summaries = await self._client.list_items(token)
+            response = await self._client.list_items(token)
+            # list_items returns paginated response: {items: [...], page, pageSize, total}
+            item_summaries = response.get("items", [])
         except Exception as e:
             logger.error(f"Failed to fetch items for index rebuild: {e}")
             raise RuntimeError(f"Failed to fetch items from Homebox: {e}") from e
@@ -405,7 +407,9 @@ class DuplicateDetector:
 
         # Fetch all items to compare
         try:
-            item_summaries = await self._client.list_items(token)
+            response = await self._client.list_items(token)
+            # list_items returns paginated response: {items: [...], page, pageSize, total}
+            item_summaries = response.get("items", [])
         except Exception as e:
             logger.warning(f"Failed to fetch items for differential update: {e}")
             return 0
