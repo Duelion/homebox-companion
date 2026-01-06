@@ -88,6 +88,26 @@ export {
 	type ActiveSessionCheck,
 } from './sessions';
 
+// Re-export AI Config APIs
+export {
+	getAIConfig,
+	updateAIConfig,
+	resetAIConfig,
+	testProviderConnection,
+	getDefaultProviderConfig,
+	OLLAMA_VISION_MODELS,
+	OPENAI_MODELS,
+	ANTHROPIC_MODELS,
+	type AIConfigResponse,
+	type AIConfigInput,
+	type OllamaConfigData,
+	type OpenAIConfigData,
+	type AnthropicConfigData,
+	type LiteLLMConfigData,
+	type ProviderInfo,
+	type TestConnectionResponse,
+} from './aiConfig';
+
 // Re-export types from vision for convenience
 export type { DetectOptions, BatchDetectOptions } from './vision';
 
