@@ -13,6 +13,36 @@ from PIL import Image
 DEFAULT_MAX_DIMENSION = 2048  # Most vision models work best with max 2048px images
 DEFAULT_JPEG_QUALITY = 85
 
+# PIL format to MIME type mapping
+_FORMAT_TO_MIME = {
+    "JPEG": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+    "GIF": "image/gif",
+    "BMP": "image/bmp",
+    "TIFF": "image/tiff",
+}
+
+
+def _detect_mime_type(image_bytes: bytes) -> str:
+    """Detect the MIME type of an image from its bytes.
+
+    Args:
+        image_bytes: Raw image data.
+
+    Returns:
+        MIME type string (e.g., "image/jpeg", "image/png").
+        Falls back to "image/jpeg" if detection fails.
+    """
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        fmt = img.format
+        if fmt and fmt.upper() in _FORMAT_TO_MIME:
+            return _FORMAT_TO_MIME[fmt.upper()]
+    except Exception:
+        pass
+    return "image/jpeg"  # Safe fallback for unknown formats
+
 
 def _normalize_image(img: Image.Image) -> Image.Image:
     """Normalize image: handle EXIF orientation and convert to RGB.
@@ -113,7 +143,8 @@ def optimize_image_for_vision(
 
     except Exception as e:
         logger.warning(f"Image optimization failed, using original: {e}")
-        return image_bytes, "image/jpeg"
+        # Return original bytes with their actual MIME type, not hardcoded JPEG
+        return image_bytes, _detect_mime_type(image_bytes)
 
 
 def encode_image_to_data_uri(image_path: Path | str, optimize: bool = True) -> str:
@@ -131,10 +162,11 @@ def encode_image_to_data_uri(image_path: Path | str, optimize: bool = True) -> s
 
     if optimize:
         image_bytes, mime_type = optimize_image_for_vision(image_bytes)
-        suffix = "jpeg"
     else:
-        suffix = path.suffix.lower().lstrip(".") or "jpeg"
+        mime_type = _detect_mime_type(image_bytes)
 
+    # Extract suffix from mime_type (e.g., "image/jpeg" -> "jpeg")
+    suffix = mime_type.split("/")[-1] if "/" in mime_type else "jpeg"
     payload = base64.b64encode(image_bytes).decode("ascii")
     return f"data:image/{suffix};base64,{payload}"
 
@@ -156,10 +188,9 @@ def encode_image_bytes_to_data_uri(
     """
     if optimize:
         image_bytes, mime_type = optimize_image_for_vision(image_bytes)
-        suffix = "jpeg"
-    else:
-        suffix = mime_type.split("/")[-1] if "/" in mime_type else "jpeg"
 
+    # Extract suffix from mime_type (e.g., "image/jpeg" -> "jpeg")
+    suffix = mime_type.split("/")[-1] if "/" in mime_type else "jpeg"
     payload = base64.b64encode(image_bytes).decode("ascii")
     return f"data:image/{suffix};base64,{payload}"
 
@@ -183,9 +214,9 @@ def compress_image_for_upload(
     Returns:
         Tuple of (compressed_bytes, mime_type).
     """
-    # If raw quality requested (no max_dimension), return original
+    # If raw quality requested (no max_dimension), return original with correct MIME type
     if max_dimension is None:
-        return image_bytes, "image/jpeg"
+        return image_bytes, _detect_mime_type(image_bytes)
 
     original_size = len(image_bytes)
 
@@ -220,7 +251,8 @@ def compress_image_for_upload(
 
     except Exception as e:
         logger.warning(f"Image compression failed, using original: {e}")
-        return image_bytes, "image/jpeg"
+        # Return original bytes with their actual MIME type, not hardcoded JPEG
+        return image_bytes, _detect_mime_type(image_bytes)
 
 
 def encode_compressed_image_to_base64(
