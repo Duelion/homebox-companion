@@ -79,6 +79,9 @@ from .tools.vision import (
     detect_items_from_bytes,
 )
 
+# State management (crash recovery)
+from .services import ImageState, StateManager
+
 __all__ = [
     # Version
     "__version__",
@@ -113,5 +116,8 @@ __all__ = [
     "encode_image_to_data_uri",
     "encode_image_bytes_to_data_uri",
     "encode_compressed_image_to_base64",
+    # State management
+    "StateManager",
+    "ImageState",
 ]
 
