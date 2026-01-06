@@ -24,7 +24,8 @@ Use the **AI Chat** to manage your inventory, find locations, or update details 
 <div align="center">
   <a href="https://demo.hbcompanion.duelion.com/" target="_blank">
     <img src=".github/assets/images/demo_button.png" alt="Try Live Demo" width="280">
-    <sub><i>AI Chat is disabled in demo mode.</i></sub>
+    <br>
+    sub><i>AI Chat is disabled in demo mode.</a></sub>
   </a>
 </div>
 
