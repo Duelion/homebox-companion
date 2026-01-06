@@ -229,18 +229,21 @@ async def update_ai_config(input_config: AIConfigInput) -> AIConfigResponse:
 
     Saves the configuration and optionally tests connection for Ollama.
     """
-    logger.info(f"Updating AI config: active_provider={input_config.active_provider}")
+    logger.info(f"[AI_CONFIG] Starting save: active_provider={input_config.active_provider}")
 
     try:
         # Load existing config to preserve any keys not being updated
+        logger.debug("[AI_CONFIG] Loading existing config...")
         existing = load_ai_config()
+        logger.debug("[AI_CONFIG] Existing config loaded")
     except Exception as e:
-        logger.error(f"Failed to load existing config: {e}")
+        logger.error(f"[AI_CONFIG] Failed to load existing config: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load existing config: {e}")
 
     # Build new config
     # Handle API keys - if empty string or "***" pattern, keep existing
     try:
+        logger.debug("[AI_CONFIG] Processing API keys...")
         openai_key = input_config.openai.api_key
         if not openai_key or openai_key.startswith("***") or "..." in (openai_key or ""):
             openai_key = existing.openai.api_key.get_secret_value() if existing.openai.api_key else None
@@ -249,45 +252,57 @@ async def update_ai_config(input_config: AIConfigInput) -> AIConfigResponse:
         if not anthropic_key or anthropic_key.startswith("***") or "..." in (anthropic_key or ""):
             anthropic_key = existing.anthropic.api_key.get_secret_value() if existing.anthropic.api_key else None
 
-        logger.debug(f"Building config: active={input_config.active_provider}, "
-                     f"openai_enabled={input_config.openai.enabled}, "
-                     f"anthropic_enabled={input_config.anthropic.enabled}, "
-                     f"has_anthropic_key={anthropic_key is not None}")
+        logger.debug(f"[AI_CONFIG] Keys processed: has_openai={openai_key is not None}, has_anthropic={anthropic_key is not None}")
 
+        # Build sub-configs first (these are plain BaseModel, not BaseSettings)
+        logger.debug("[AI_CONFIG] Building sub-configs...")
+        ollama_cfg = OllamaConfig(**input_config.ollama.model_dump())
+        openai_cfg = OpenAIConfig(
+            enabled=input_config.openai.enabled,
+            api_key=SecretStr(openai_key) if openai_key else None,
+            model=input_config.openai.model,
+            max_tokens=input_config.openai.max_tokens,
+        )
+        anthropic_cfg = AnthropicConfig(
+            enabled=input_config.anthropic.enabled,
+            api_key=SecretStr(anthropic_key) if anthropic_key else None,
+            model=input_config.anthropic.model,
+            max_tokens=input_config.anthropic.max_tokens,
+        )
+        litellm_cfg = LiteLLMConfig(**input_config.litellm.model_dump())
+        logger.debug("[AI_CONFIG] Sub-configs built")
+
+        # Build main config - this is BaseSettings but we provide all values
+        logger.debug("[AI_CONFIG] Building main AIConfig...")
         new_config = AIConfig(
             active_provider=AIProvider(input_config.active_provider),
             fallback_to_cloud=input_config.fallback_to_cloud,
             fallback_provider=AIProvider(input_config.fallback_provider),
-            ollama=OllamaConfig(**input_config.ollama.model_dump()),
-            openai=OpenAIConfig(
-                enabled=input_config.openai.enabled,
-                api_key=SecretStr(openai_key) if openai_key else None,
-                model=input_config.openai.model,
-                max_tokens=input_config.openai.max_tokens,
-            ),
-            anthropic=AnthropicConfig(
-                enabled=input_config.anthropic.enabled,
-                api_key=SecretStr(anthropic_key) if anthropic_key else None,
-                model=input_config.anthropic.model,
-                max_tokens=input_config.anthropic.max_tokens,
-            ),
-            litellm=LiteLLMConfig(**input_config.litellm.model_dump()),
+            ollama=ollama_cfg,
+            openai=openai_cfg,
+            anthropic=anthropic_cfg,
+            litellm=litellm_cfg,
         )
+        logger.debug("[AI_CONFIG] Main config built successfully")
     except Exception as e:
-        logger.error(f"Failed to build AI config: {e}", exc_info=True)
+        logger.error(f"[AI_CONFIG] Failed to build config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to build config: {e}")
 
     try:
+        logger.debug("[AI_CONFIG] Saving config to file...")
         save_ai_config(new_config)
-        logger.info("AI config saved successfully")
+        logger.info("[AI_CONFIG] Config saved successfully")
     except Exception as e:
-        logger.error(f"Failed to save AI config: {e}", exc_info=True)
+        logger.error(f"[AI_CONFIG] Failed to save config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to save config: {e}")
 
     try:
-        return config_to_response(new_config)
+        logger.debug("[AI_CONFIG] Building response...")
+        response = config_to_response(new_config)
+        logger.debug("[AI_CONFIG] Response built, returning...")
+        return response
     except Exception as e:
-        logger.error(f"Failed to create response: {e}", exc_info=True)
+        logger.error(f"[AI_CONFIG] Failed to create response: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create response: {e}")
 
 
