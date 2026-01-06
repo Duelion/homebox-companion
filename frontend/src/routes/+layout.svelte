@@ -7,7 +7,7 @@
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
-	import { getVersion, getConfig } from '$lib/api';
+	import { getVersion, getConfig, setDemoMode } from '$lib/api';
 	import { setLogLevel } from '$lib/utils/logger';
 	import { initializeAuth } from '$lib/services/tokenRefresh';
 	import { onMount, onDestroy } from 'svelte';
@@ -108,12 +108,13 @@
 			window.addEventListener('online', handleOnline);
 			window.addEventListener('offline', handleOffline);
 
-			// Fetch config and sync log level early (before any logs are generated)
+			// Fetch config, sync log level, and initialize demo mode state early
 			try {
 				const config = await getConfig();
 				setLogLevel(config.log_level);
+				setDemoMode(config.is_demo_mode, config.demo_mode_explicit);
 			} catch {
-				// Config fetch failed - keep default INFO level
+				// Config fetch failed - keep default INFO level and demo mode off
 			}
 
 			// Fetch app version and check for updates

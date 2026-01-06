@@ -13,7 +13,7 @@
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
-	import { getIsDemoModeExplicit } from '$lib/api/settings';
+	import { getIsDemoModeExplicit, setDemoMode, getConfig } from '$lib/api/settings';
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
@@ -111,6 +111,15 @@
 		if (!authStore.isAuthenticated) {
 			goto(resolve('/'));
 			return;
+		}
+
+		// Ensure demo mode state is initialized before checking it
+		// (guards against race condition where this page mounts before layout's config fetch completes)
+		try {
+			const config = await getConfig();
+			setDemoMode(config.is_demo_mode, config.demo_mode_explicit);
+		} catch (error) {
+			log.debug('Failed to fetch config:', error);
 		}
 
 		// Check if in explicit demo mode (HBC_DEMO_MODE env var) - chat is disabled
