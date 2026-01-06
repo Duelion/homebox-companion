@@ -311,7 +311,7 @@ class DuplicateDetector:
             item_summaries = await self._client.list_items(token)
         except Exception as e:
             logger.error(f"Failed to fetch items for index rebuild: {e}")
-            return self.get_status()
+            raise RuntimeError(f"Failed to fetch items from Homebox: {e}") from e
 
         if not item_summaries:
             logger.info("No items in Homebox, index is empty")

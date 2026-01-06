@@ -405,7 +405,26 @@ async def rebuild_duplicate_index(
     """
     logger.info("Starting duplicate index rebuild (manual trigger)")
 
-    status = await detector.rebuild_index(token)
+    try:
+        status = await detector.rebuild_index(token)
+    except AuthenticationError as e:
+        logger.warning(f"Authentication failed during index rebuild: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication failed. Please log in to Homebox first.",
+        ) from e
+    except RuntimeError as e:
+        logger.error(f"Index rebuild failed: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to rebuild index: {e}",
+        ) from e
+    except Exception as e:
+        logger.exception("Unexpected error during index rebuild")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error rebuilding index: {type(e).__name__}",
+        ) from e
 
     return DuplicateIndexRebuildResponse(
         status=DuplicateIndexStatus(
