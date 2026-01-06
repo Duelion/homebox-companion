@@ -137,11 +137,26 @@
 	// Cleanup object URLs on component unmount
 	onDestroy(() => urlManager.cleanup());
 
+	// Track previous status to detect transitions (prevents infinite loops)
+	let previousStatus = $state<string | null>(null);
+
 	// Watch for status changes and navigate accordingly
+	// Uses transition detection to ensure we only act once per status change
 	$effect(() => {
-		if (workflow.state.status === 'confirming') {
+		const currentStatus = workflow.state.status;
+
+		// Only act on actual transitions, not repeated reads
+		if (currentStatus === previousStatus) return;
+
+		const wasReviewing = previousStatus === 'reviewing';
+		previousStatus = currentStatus;
+
+		// Only navigate if we were reviewing and status changed
+		if (!wasReviewing) return;
+
+		if (currentStatus === 'confirming') {
 			goto(resolve('/summary'));
-		} else if (workflow.state.status === 'capturing') {
+		} else if (currentStatus === 'capturing') {
 			// All items were skipped - go back to capture with a message
 			showToast('All items were skipped. Add more photos to continue.', 'info');
 			goto(resolve('/capture'));
