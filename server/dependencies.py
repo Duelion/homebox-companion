@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from homebox_companion.mcp.executor import ToolExecutor
 
 from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
+from homebox_companion.core.ai_config import load_ai_config, AIProvider
 
 
 class ClientHolder:
@@ -275,6 +276,85 @@ def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
     _ = token
 
 
+@dataclass
+class LLMConfig:
+    """Configuration for LLM access.
+
+    Attributes:
+        api_key: The API key for the provider (may be None for Ollama/LiteLLM).
+        model: The model name to use.
+        provider: The provider type (ollama, openai, anthropic, litellm).
+    """
+
+    api_key: str | None
+    model: str
+    provider: str
+
+
+def get_llm_config() -> LLMConfig:
+    """Get LLM configuration from AI config or environment variables.
+
+    This function checks the AI config file first, then falls back to
+    environment variables for backward compatibility.
+
+    Returns:
+        LLMConfig with api_key, model, and provider.
+
+    Raises:
+        HTTPException: 500 if no LLM is properly configured.
+    """
+    # First, try to load from new AI config system
+    try:
+        ai_config = load_ai_config()
+        active_provider = ai_config.active_provider
+
+        if active_provider == AIProvider.OLLAMA:
+            if ai_config.ollama.enabled:
+                return LLMConfig(
+                    api_key=None,  # Ollama doesn't need API key
+                    model=ai_config.ollama.model,
+                    provider="ollama",
+                )
+        elif active_provider == AIProvider.OPENAI:
+            if ai_config.openai.enabled and ai_config.openai.api_key:
+                return LLMConfig(
+                    api_key=ai_config.openai.api_key.get_secret_value(),
+                    model=ai_config.openai.model,
+                    provider="openai",
+                )
+        elif active_provider == AIProvider.ANTHROPIC:
+            if ai_config.anthropic.enabled and ai_config.anthropic.api_key:
+                return LLMConfig(
+                    api_key=ai_config.anthropic.api_key.get_secret_value(),
+                    model=ai_config.anthropic.model,
+                    provider="anthropic",
+                )
+        elif active_provider == AIProvider.LITELLM:
+            if ai_config.litellm.enabled:
+                # LiteLLM uses environment variable or app-provided key
+                return LLMConfig(
+                    api_key=settings.effective_llm_api_key,  # May be None
+                    model=ai_config.litellm.model,
+                    provider="litellm",
+                )
+    except Exception as e:
+        logger.debug(f"Could not load AI config, falling back to env vars: {e}")
+
+    # Fall back to environment variables (backward compatibility)
+    if settings.effective_llm_api_key:
+        return LLMConfig(
+            api_key=settings.effective_llm_api_key,
+            model=settings.effective_llm_model,
+            provider="litellm",  # Env vars use LiteLLM
+        )
+
+    logger.error("LLM API key not configured")
+    raise HTTPException(
+        status_code=500,
+        detail="LLM API key not configured. Configure a provider in Settings or set HBC_LLM_API_KEY.",
+    )
+
+
 def require_llm_configured() -> str:
     """Dependency that ensures LLM API key is configured.
 
@@ -287,13 +367,23 @@ def require_llm_configured() -> str:
     Raises:
         HTTPException: 500 if LLM API key is not configured.
     """
-    if not settings.effective_llm_api_key:
-        logger.error("LLM API key not configured")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
-        )
-    return settings.effective_llm_api_key
+    config = get_llm_config()
+    # For providers that don't need API key (Ollama), return empty string
+    return config.api_key or ""
+
+
+def get_configured_llm() -> LLMConfig:
+    """Dependency that returns the full LLM configuration.
+
+    Use this when you need both the API key and model from the configured provider.
+
+    Returns:
+        LLMConfig with api_key, model, and provider.
+
+    Raises:
+        HTTPException: 500 if no LLM is properly configured.
+    """
+    return get_llm_config()
 
 
 async def validate_file_size(file: UploadFile) -> bytes:
