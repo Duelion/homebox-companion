@@ -21,6 +21,8 @@
 
 	// Local form state for editing
 	let editingConfig = $state<AIConfigInput | null>(null);
+	// Track the last save state to detect transitions (prevents infinite loop)
+	let lastSaveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 
 	// Initialize form state when config loads
 	$effect(() => {
@@ -47,9 +49,16 @@
 		}
 	});
 
-	// Sync editingConfig when aiConfig changes (after save)
+	// Sync editingConfig when save succeeds - uses state transition detection
+	// to prevent infinite loop (otherwise assigning editingConfig triggers re-run)
 	$effect(() => {
-		if (service.aiConfig && service.aiConfigSaveState === 'success' && editingConfig) {
+		const currentSaveState = service.aiConfigSaveState;
+		const wasNotSuccess = lastSaveState !== 'success';
+		const isNowSuccess = currentSaveState === 'success';
+
+		// Only sync on TRANSITION to 'success', not while already in 'success'
+		if (service.aiConfig && wasNotSuccess && isNowSuccess) {
+			console.log('[AI_SECTION] Save succeeded, syncing editingConfig');
 			editingConfig = {
 				active_provider: service.aiConfig.active_provider,
 				fallback_to_cloud: service.aiConfig.fallback_to_cloud,
@@ -70,6 +79,9 @@
 				litellm: { ...service.aiConfig.litellm },
 			};
 		}
+
+		// Always update lastSaveState to track transitions
+		lastSaveState = currentSaveState;
 	});
 
 	async function handleSave() {
@@ -112,14 +124,29 @@
 	}
 
 	function selectProvider(providerId: string) {
+		console.log('[AI_SECTION] selectProvider called:', providerId);
 		if (!editingConfig) return;
 		editingConfig.active_provider = providerId;
 
-		// Enable the selected provider
+		// Auto-enable the selected provider (user can disable it manually)
 		if (providerId === 'ollama') editingConfig.ollama.enabled = true;
 		else if (providerId === 'openai') editingConfig.openai.enabled = true;
 		else if (providerId === 'anthropic') editingConfig.anthropic.enabled = true;
 		else if (providerId === 'litellm') editingConfig.litellm.enabled = true;
+	}
+
+	// Toggle functions for provider enable/disable (handles null check for TypeScript)
+	function toggleOllama() {
+		if (editingConfig) editingConfig.ollama.enabled = !editingConfig.ollama.enabled;
+	}
+	function toggleOpenAI() {
+		if (editingConfig) editingConfig.openai.enabled = !editingConfig.openai.enabled;
+	}
+	function toggleAnthropic() {
+		if (editingConfig) editingConfig.anthropic.enabled = !editingConfig.anthropic.enabled;
+	}
+	function toggleLiteLLM() {
+		if (editingConfig) editingConfig.litellm.enabled = !editingConfig.litellm.enabled;
 	}
 
 	// Get provider display info
@@ -225,154 +252,243 @@
 				</div>
 			</div>
 
-			<!-- Provider-specific settings -->
+			<!-- Provider-specific settings - shown for currently selected provider -->
 			{#if editingConfig.active_provider === 'ollama'}
 				<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
-					<h3 class="text-sm font-medium text-neutral-200">Ollama Settings</h3>
-
-					<div class="space-y-2">
-						<label for="ollama-url" class="block text-xs text-neutral-400">Server URL</label>
-						<input
-							id="ollama-url"
-							type="text"
-							bind:value={editingConfig.ollama.url}
-							class="input w-full"
-							placeholder="http://localhost:11434"
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<label for="ollama-model" class="block text-xs text-neutral-400">Model</label>
-						<select
-							id="ollama-model"
-							bind:value={editingConfig.ollama.model}
-							class="input w-full"
+					<div class="flex items-center justify-between">
+						<h3 class="text-sm font-medium text-neutral-200">Ollama Settings</h3>
+						<button
+							type="button"
+							class="relative h-5 w-9 rounded-full transition-colors {editingConfig.ollama.enabled
+								? 'bg-primary-500'
+								: 'bg-neutral-600'}"
+							onclick={toggleOllama}
+							role="switch"
+							aria-checked={editingConfig.ollama.enabled}
+							aria-label="Enable Ollama"
 						>
-							{#each OLLAMA_VISION_MODELS as model}
-								<option value={model.id}>{model.name}</option>
-							{/each}
-						</select>
+							<span
+								class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform {editingConfig.ollama.enabled
+									? 'translate-x-4'
+									: 'translate-x-0'}"
+							></span>
+						</button>
 					</div>
 
-					<Button
-						variant="secondary"
-						size="sm"
-						onclick={() => handleTestConnection('ollama')}
-						disabled={service.aiConfigTestingProvider === 'ollama'}
-					>
-						{#if service.aiConfigTestingProvider === 'ollama'}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</Button>
+					{#if editingConfig.ollama.enabled}
+						<div class="space-y-2">
+							<label for="ollama-url" class="block text-xs text-neutral-400">Server URL</label>
+							<input
+								id="ollama-url"
+								type="text"
+								bind:value={editingConfig.ollama.url}
+								class="input w-full"
+								placeholder="http://localhost:11434"
+							/>
+						</div>
+
+						<div class="space-y-2">
+							<label for="ollama-model" class="block text-xs text-neutral-400">Model</label>
+							<select
+								id="ollama-model"
+								bind:value={editingConfig.ollama.model}
+								class="input w-full"
+							>
+								{#each OLLAMA_VISION_MODELS as model}
+									<option value={model.id}>{model.name}</option>
+								{/each}
+							</select>
+						</div>
+
+						<Button
+							variant="secondary"
+							size="sm"
+							onclick={() => handleTestConnection('ollama')}
+							disabled={service.aiConfigTestingProvider === 'ollama'}
+						>
+							{#if service.aiConfigTestingProvider === 'ollama'}
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</Button>
+					{:else}
+						<p class="text-xs text-neutral-500">Enable to configure Ollama settings</p>
+					{/if}
 				</div>
 			{:else if editingConfig.active_provider === 'openai'}
 				<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
-					<h3 class="text-sm font-medium text-neutral-200">OpenAI Settings</h3>
-
-					<div class="space-y-2">
-						<label for="openai-key" class="block text-xs text-neutral-400">
-							API Key {service.aiConfig?.openai.has_api_key ? '(configured)' : ''}
-						</label>
-						<input
-							id="openai-key"
-							type="password"
-							bind:value={editingConfig.openai.api_key}
-							class="input w-full"
-							placeholder={service.aiConfig?.openai.has_api_key ? '••••••••' : 'sk-...'}
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<label for="openai-model" class="block text-xs text-neutral-400">Model</label>
-						<select
-							id="openai-model"
-							bind:value={editingConfig.openai.model}
-							class="input w-full"
+					<div class="flex items-center justify-between">
+						<h3 class="text-sm font-medium text-neutral-200">OpenAI Settings</h3>
+						<button
+							type="button"
+							class="relative h-5 w-9 rounded-full transition-colors {editingConfig.openai.enabled
+								? 'bg-primary-500'
+								: 'bg-neutral-600'}"
+							onclick={toggleOpenAI}
+							role="switch"
+							aria-checked={editingConfig.openai.enabled}
+							aria-label="Enable OpenAI"
 						>
-							{#each OPENAI_MODELS as model}
-								<option value={model.id}>{model.name}</option>
-							{/each}
-						</select>
+							<span
+								class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform {editingConfig.openai.enabled
+									? 'translate-x-4'
+									: 'translate-x-0'}"
+							></span>
+						</button>
 					</div>
 
-					<Button
-						variant="secondary"
-						size="sm"
-						onclick={() => handleTestConnection('openai')}
-						disabled={service.aiConfigTestingProvider === 'openai'}
-					>
-						{#if service.aiConfigTestingProvider === 'openai'}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</Button>
+					{#if editingConfig.openai.enabled}
+						<div class="space-y-2">
+							<label for="openai-key" class="block text-xs text-neutral-400">
+								API Key {service.aiConfig?.openai.has_api_key ? '(configured)' : ''}
+							</label>
+							<input
+								id="openai-key"
+								type="password"
+								bind:value={editingConfig.openai.api_key}
+								class="input w-full"
+								placeholder={service.aiConfig?.openai.has_api_key ? '••••••••' : 'sk-...'}
+							/>
+						</div>
+
+						<div class="space-y-2">
+							<label for="openai-model" class="block text-xs text-neutral-400">Model</label>
+							<select
+								id="openai-model"
+								bind:value={editingConfig.openai.model}
+								class="input w-full"
+							>
+								{#each OPENAI_MODELS as model}
+									<option value={model.id}>{model.name}</option>
+								{/each}
+							</select>
+						</div>
+
+						<Button
+							variant="secondary"
+							size="sm"
+							onclick={() => handleTestConnection('openai')}
+							disabled={service.aiConfigTestingProvider === 'openai'}
+						>
+							{#if service.aiConfigTestingProvider === 'openai'}
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</Button>
+					{:else}
+						<p class="text-xs text-neutral-500">Enable to configure OpenAI settings</p>
+					{/if}
 				</div>
 			{:else if editingConfig.active_provider === 'anthropic'}
 				<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
-					<h3 class="text-sm font-medium text-neutral-200">Anthropic Settings</h3>
-
-					<div class="space-y-2">
-						<label for="anthropic-key" class="block text-xs text-neutral-400">
-							API Key {service.aiConfig?.anthropic.has_api_key ? '(configured)' : ''}
-						</label>
-						<input
-							id="anthropic-key"
-							type="password"
-							bind:value={editingConfig.anthropic.api_key}
-							class="input w-full"
-							placeholder={service.aiConfig?.anthropic.has_api_key ? '••••••••' : 'sk-ant-...'}
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<label for="anthropic-model" class="block text-xs text-neutral-400">Model</label>
-						<select
-							id="anthropic-model"
-							bind:value={editingConfig.anthropic.model}
-							class="input w-full"
+					<div class="flex items-center justify-between">
+						<h3 class="text-sm font-medium text-neutral-200">Anthropic Settings</h3>
+						<button
+							type="button"
+							class="relative h-5 w-9 rounded-full transition-colors {editingConfig.anthropic.enabled
+								? 'bg-primary-500'
+								: 'bg-neutral-600'}"
+							onclick={toggleAnthropic}
+							role="switch"
+							aria-checked={editingConfig.anthropic.enabled}
+							aria-label="Enable Anthropic"
 						>
-							{#each ANTHROPIC_MODELS as model}
-								<option value={model.id}>{model.name}</option>
-							{/each}
-						</select>
+							<span
+								class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform {editingConfig.anthropic.enabled
+									? 'translate-x-4'
+									: 'translate-x-0'}"
+							></span>
+						</button>
 					</div>
 
-					<Button
-						variant="secondary"
-						size="sm"
-						onclick={() => handleTestConnection('anthropic')}
-						disabled={service.aiConfigTestingProvider === 'anthropic'}
-					>
-						{#if service.aiConfigTestingProvider === 'anthropic'}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</Button>
+					{#if editingConfig.anthropic.enabled}
+						<div class="space-y-2">
+							<label for="anthropic-key" class="block text-xs text-neutral-400">
+								API Key {service.aiConfig?.anthropic.has_api_key ? '(configured)' : ''}
+							</label>
+							<input
+								id="anthropic-key"
+								type="password"
+								bind:value={editingConfig.anthropic.api_key}
+								class="input w-full"
+								placeholder={service.aiConfig?.anthropic.has_api_key ? '••••••••' : 'sk-ant-...'}
+							/>
+						</div>
+
+						<div class="space-y-2">
+							<label for="anthropic-model" class="block text-xs text-neutral-400">Model</label>
+							<select
+								id="anthropic-model"
+								bind:value={editingConfig.anthropic.model}
+								class="input w-full"
+							>
+								{#each ANTHROPIC_MODELS as model}
+									<option value={model.id}>{model.name}</option>
+								{/each}
+							</select>
+						</div>
+
+						<Button
+							variant="secondary"
+							size="sm"
+							onclick={() => handleTestConnection('anthropic')}
+							disabled={service.aiConfigTestingProvider === 'anthropic'}
+						>
+							{#if service.aiConfigTestingProvider === 'anthropic'}
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</Button>
+					{:else}
+						<p class="text-xs text-neutral-500">Enable to configure Anthropic settings</p>
+					{/if}
 				</div>
 			{:else if editingConfig.active_provider === 'litellm'}
 				<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
-					<h3 class="text-sm font-medium text-neutral-200">Cloud (LiteLLM) Settings</h3>
-					<p class="text-xs text-neutral-400">
-						Uses environment variables for API keys. Configure HBC_LLM_API_KEY in your deployment.
-					</p>
-
-					<div class="space-y-2">
-						<label for="litellm-model" class="block text-xs text-neutral-400">Model</label>
-						<input
-							id="litellm-model"
-							type="text"
-							bind:value={editingConfig.litellm.model}
-							class="input w-full"
-							placeholder="gpt-4o"
-						/>
+					<div class="flex items-center justify-between">
+						<h3 class="text-sm font-medium text-neutral-200">Cloud (LiteLLM) Settings</h3>
+						<button
+							type="button"
+							class="relative h-5 w-9 rounded-full transition-colors {editingConfig.litellm.enabled
+								? 'bg-primary-500'
+								: 'bg-neutral-600'}"
+							onclick={toggleLiteLLM}
+							role="switch"
+							aria-checked={editingConfig.litellm.enabled}
+							aria-label="Enable LiteLLM"
+						>
+							<span
+								class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform {editingConfig.litellm.enabled
+									? 'translate-x-4'
+									: 'translate-x-0'}"
+							></span>
+						</button>
 					</div>
+
+					{#if editingConfig.litellm.enabled}
+						<p class="text-xs text-neutral-400">
+							Uses environment variables for API keys. Configure HBC_LLM_API_KEY in your deployment.
+						</p>
+
+						<div class="space-y-2">
+							<label for="litellm-model" class="block text-xs text-neutral-400">Model</label>
+							<input
+								id="litellm-model"
+								type="text"
+								bind:value={editingConfig.litellm.model}
+								class="input w-full"
+								placeholder="gpt-4o"
+							/>
+						</div>
+					{:else}
+						<p class="text-xs text-neutral-500">Enable to configure LiteLLM settings</p>
+					{/if}
 				</div>
 			{/if}
 
