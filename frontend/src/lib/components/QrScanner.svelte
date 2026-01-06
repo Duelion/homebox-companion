@@ -263,14 +263,14 @@
 />
 
 <!-- Full-screen modal overlay -->
-<div class="fixed inset-0 z-[100] flex flex-col bg-black">
+<div class="fixed inset-0 z-[100] flex flex-col bg-neutral-950">
 	<!-- Header -->
-	<div class="flex items-center justify-between bg-black/80 p-4">
-		<h2 class="font-semibold text-white">Scan Location QR Code</h2>
+	<div class="flex items-center justify-between bg-neutral-950/80 p-4">
+		<h2 class="font-semibold text-neutral-100">Scan Location QR Code</h2>
 		<button
 			type="button"
 			onclick={handleClose}
-			class="p-2 text-white/70 transition-colors hover:text-white"
+			class="p-2 text-neutral-400 transition-colors hover:text-neutral-100"
 			aria-label="Close scanner"
 		>
 			<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -298,7 +298,7 @@
 						/>
 					</svg>
 				</div>
-				<p class="mb-6 text-white/80">{error}</p>
+				<p class="mb-6 text-neutral-300">{error}</p>
 
 				<!-- Action buttons -->
 				<div class="flex flex-col gap-3">
@@ -307,11 +307,11 @@
 						type="button"
 						onclick={triggerFileUpload}
 						disabled={isProcessingFile}
-						class="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
+						class="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-neutral-100 transition-colors hover:bg-primary-500 disabled:opacity-50"
 					>
 						{#if isProcessingFile}
 							<div
-								class="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
+								class="h-5 w-5 animate-spin rounded-full border-2 border-neutral-100 border-t-transparent"
 							></div>
 							<span>Processing...</span>
 						{:else}
@@ -336,7 +336,7 @@
 						<button
 							type="button"
 							onclick={handleRetryCamera}
-							class="rounded-lg bg-white/10 px-4 py-2 text-white transition-colors hover:bg-white/20"
+							class="rounded-lg bg-neutral-800 px-4 py-2 text-neutral-100 transition-colors hover:bg-neutral-700"
 						>
 							Try Camera Again
 						</button>
@@ -345,7 +345,7 @@
 					<button
 						type="button"
 						onclick={handleClose}
-						class="px-4 py-2 text-white/60 transition-colors hover:text-white"
+						class="px-4 py-2 text-neutral-500 transition-colors hover:text-neutral-100"
 					>
 						Cancel
 					</button>
@@ -356,7 +356,7 @@
 				<!-- Video element for QR scanner -->
 				<video
 					bind:this={videoElement}
-					class="rounded-xl bg-black"
+					class="rounded-xl bg-neutral-950"
 					style="width: min(90vw, 400px); height: min(90vw, 400px); object-fit: cover;"
 				>
 					<track kind="captions" label="No captions available" />
@@ -364,12 +364,14 @@
 
 				<!-- Scanning overlay -->
 				{#if isStarting}
-					<div class="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50">
+					<div
+						class="absolute inset-0 flex items-center justify-center rounded-xl bg-neutral-950/50"
+					>
 						<div class="text-center">
 							<div
-								class="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent"
+								class="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-neutral-100 border-t-transparent"
 							></div>
-							<p class="text-sm text-white/80">Starting camera...</p>
+							<p class="text-body-sm text-neutral-300">Starting camera...</p>
 						</div>
 					</div>
 				{/if}
@@ -378,28 +380,28 @@
 	</div>
 
 	<!-- Footer with instructions -->
-	<div class="bg-black/80 p-4 text-center">
+	<div class="bg-neutral-950/80 p-4 text-center">
 		{#if cameraFailed}
-			<p class="text-sm text-white/60">Take a photo of the QR code</p>
+			<p class="text-body-sm text-neutral-500">Take a photo of the QR code</p>
 		{:else}
-			<p class="text-sm text-white/60">Point your camera at a Homebox location QR code</p>
+			<p class="text-body-sm text-neutral-500">Point your camera at a Homebox location QR code</p>
 		{/if}
 	</div>
 </div>
 
 <style>
-	/* Style the qr-scanner overlay - uses primary-500 (#6366f1) from design system */
+	/* Style the qr-scanner overlay - uses CSS custom property for primary color */
 	:global(.scan-region-highlight) {
-		border: 2px solid #6366f1 !important;
+		border: 2px solid theme('colors.primary.500') !important;
 		border-radius: 0.5rem;
 	}
 
 	:global(.scan-region-highlight-svg) {
-		stroke: #6366f1 !important;
+		stroke: theme('colors.primary.500') !important;
 	}
 
 	:global(.code-outline-highlight) {
-		stroke: #6366f1 !important;
+		stroke: theme('colors.primary.500') !important;
 		stroke-width: 3px;
 	}
 </style>

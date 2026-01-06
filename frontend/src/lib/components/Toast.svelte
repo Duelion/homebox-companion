@@ -10,7 +10,7 @@
 		success: 'bg-success-500/20 border-success-500/30 text-success-500',
 		warning: 'bg-warning-500/20 border-warning-500/30 text-warning-500',
 		error: 'bg-error-500/20 border-error-500/30 text-error-500',
-		update: 'bg-amber-900/90 border-amber-500/40 text-amber-300',
+		update: 'bg-warning-900/90 border-warning-500/40 text-warning-500',
 	};
 
 	// Progress bar colors for each type
@@ -19,7 +19,7 @@
 		success: 'bg-success-500',
 		warning: 'bg-warning-500',
 		error: 'bg-error-500',
-		update: 'bg-amber-500',
+		update: 'bg-warning-500',
 	};
 
 	const typeIcons = {
@@ -43,7 +43,7 @@
 
 {#if toasts.length > 0}
 	<div
-		class="pointer-events-none fixed top-4 right-4 left-4 z-50 flex flex-col gap-2 md:right-4 md:left-auto md:w-96"
+		class="pointer-events-none fixed left-4 right-4 top-4 z-50 flex flex-col gap-2 md:left-auto md:right-4 md:w-96"
 	>
 		{#each toasts as toast (toast.id)}
 			<div
@@ -82,7 +82,7 @@
 					</div>
 					<button
 						type="button"
-						class="flex min-h-8 min-w-8 items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:ring-2 focus:ring-white/30 focus:outline-none"
+						class="flex min-h-8 min-w-8 items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
 						aria-label="Dismiss notification"
 						onclick={() => dismissToast(toast.id)}
 					>

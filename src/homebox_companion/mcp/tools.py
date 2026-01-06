@@ -707,7 +707,9 @@ class UpdateItemTool:
         manufacturer: str | None = Field(default=None, description="Optional new manufacturer")
         model_number: str | None = Field(default=None, alias="modelNumber", description="Optional new model number")
         serial_number: str | None = Field(default=None, alias="serialNumber", description="Optional new serial number")
-        purchase_from: str | None = Field(default=None, alias="purchaseFrom", description="Optional new purchase location/vendor")
+        purchase_from: str | None = Field(
+            default=None, alias="purchaseFrom", description="Optional new purchase location"
+        )
 
     async def execute(
         self,
@@ -734,8 +736,12 @@ class UpdateItemTool:
             "notes": params.notes if params.notes is not None else current.get("notes", ""),
             "manufacturer": params.manufacturer if params.manufacturer is not None else current.get("manufacturer", ""),
             "modelNumber": params.model_number if params.model_number is not None else current.get("modelNumber", ""),
-            "serialNumber": params.serial_number if params.serial_number is not None else current.get("serialNumber", ""),
-            "purchaseFrom": params.purchase_from if params.purchase_from is not None else current.get("purchaseFrom", ""),
+            "serialNumber": (
+                params.serial_number if params.serial_number is not None else current.get("serialNumber", "")
+            ),
+            "purchaseFrom": (
+                params.purchase_from if params.purchase_from is not None else current.get("purchaseFrom", "")
+            ),
         }
 
         # Handle purchasePrice - use new value if provided, else preserve current

@@ -323,45 +323,6 @@
 		background-size: 200% 100%;
 	}
 
-	/* Stagger animation delays for lists */
-	.stagger-1 {
-		animation-delay: 0.05s;
-	}
-
-	.stagger-2 {
-		animation-delay: 0.1s;
-	}
-
-	.stagger-3 {
-		animation-delay: 0.15s;
-	}
-
-	.stagger-4 {
-		animation-delay: 0.2s;
-	}
-
-	.stagger-5 {
-		animation-delay: 0.25s;
-	}
-
-	.stagger-6 {
-		animation-delay: 0.3s;
-	}
-
-	.stagger-7 {
-		animation-delay: 0.35s;
-	}
-
-	.stagger-8 {
-		animation-delay: 0.4s;
-	}
-
-	/* Stagger animation with fade in */
-	.animate-stagger {
-		opacity: 0;
-		@apply animate-fade-slide-in;
-	}
-
 	/* Checkmark draw animation for success pages */
 	.checkmark-draw {
 		stroke-dasharray: 50;
@@ -373,12 +334,6 @@
 	.success-scale {
 		transform: scale(0);
 		@apply animate-scale-up;
-	}
-
-	/* Success badge animation */
-	.success-badge {
-		@apply animate-scale-in;
-		z-index: 10;
 	}
 
 	/* Page container with bottom nav offset */

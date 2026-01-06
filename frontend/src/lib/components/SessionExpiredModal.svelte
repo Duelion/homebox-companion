@@ -53,7 +53,7 @@
 {#if sessionExpired}
 	<!-- Non-dismissable modal backdrop -->
 	<div
-		class="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-neutral-950/70 p-4 backdrop-blur-sm"
 	>
 		<div
 			class="w-full max-w-sm animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"

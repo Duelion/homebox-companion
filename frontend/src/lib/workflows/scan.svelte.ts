@@ -555,6 +555,11 @@ class ScanWorkflow {
 		}
 	}
 
+	/** Clear analysis progress (called when animation completes) */
+	clearAnalysisProgress(): void {
+		this.analysisService.clearProgress();
+	}
+
 	/** Check if analysis is in progress */
 	get isAnalyzing(): boolean {
 		return this._status === 'analyzing';

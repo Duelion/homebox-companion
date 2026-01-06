@@ -579,7 +579,7 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="relative z-10 flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateLeft90}
 						aria-label="Rotate 90° left"
 						title="-90°"
@@ -610,7 +610,7 @@
 					/>
 					<button
 						type="button"
-						class="relative z-10 flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateRight90}
 						aria-label="Rotate 90° right"
 						title="+90°"
@@ -636,7 +636,7 @@
 			<div class="flex justify-center">
 				<button
 					type="button"
-					class="min-h-[44px] rounded-lg bg-neutral-800 px-4 py-2 text-sm text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="min-h-touch rounded-lg bg-neutral-800 px-4 py-2 text-sm text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={resetTransform}
 				>
 					Reset to Default

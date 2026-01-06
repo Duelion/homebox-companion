@@ -346,7 +346,8 @@ class SettingsService {
 			this.llmDebugLog = await getLLMDebugLogs(300);
 		} catch (error) {
 			log.error('Failed to refresh LLM debug log:', error);
-			this.errors.llmDebugLog = error instanceof Error ? error.message : 'Failed to load LLM debug log';
+			this.errors.llmDebugLog =
+				error instanceof Error ? error.message : 'Failed to load LLM debug log';
 		} finally {
 			this.isLoading.llmDebugLog = false;
 		}
@@ -359,7 +360,8 @@ class SettingsService {
 			await downloadLLMDebugLogs(this.llmDebugLog.filename);
 		} catch (error) {
 			log.error('Failed to download LLM debug logs:', error);
-			this.errors.llmDebugLog = error instanceof Error ? error.message : 'Failed to download LLM debug logs';
+			this.errors.llmDebugLog =
+				error instanceof Error ? error.message : 'Failed to download LLM debug logs';
 		}
 	}
 

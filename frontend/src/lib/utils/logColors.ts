@@ -16,9 +16,9 @@ import type { LogEntry } from './logger';
 export function getLevelClass(level: string): string {
 	switch (level.trim().toUpperCase()) {
 		case 'TRACE':
-			return 'text-cyan-400 font-semibold';
+			return 'text-accent font-semibold';
 		case 'DEBUG':
-			return 'text-blue-400 font-semibold';
+			return 'text-primary-400 font-semibold';
 		case 'INFO':
 			return 'text-neutral-100 font-semibold';
 		case 'SUCCESS':
@@ -78,7 +78,7 @@ export function colorizeBackendLogs(logs: string): string {
 			return (
 				`<span class="text-success-500">${escapeHtml(timestamp)}</span> | ` +
 				`<span class="${levelClass}">${escapeHtml(level)}</span>| ` +
-				`<span class="text-cyan-400">${escapeHtml(location)}</span>- ` +
+				`<span class="text-accent">${escapeHtml(location)}</span>- ` +
 				`<span class="${levelClass}">${escapeHtml(message)}</span>`
 			);
 		})
@@ -117,13 +117,9 @@ export function colorizeFrontendLogs(entries: LogEntry[]): string {
 			return (
 				`<span class="text-success-500">${escapeHtml(timestamp)}</span> | ` +
 				`<span class="${levelClass}">${escapeHtml(paddedLevel)}</span>| ` +
-				`<span class="text-cyan-400">${escapeHtml(entry.module)}</span>- ` +
+				`<span class="text-accent">${escapeHtml(entry.module)}</span>- ` +
 				`<span class="${levelClass}">${escapeHtml(displayMessage)}</span>`
 			);
 		})
 		.join('\n');
 }
-
-
-
-

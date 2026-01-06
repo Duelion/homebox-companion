@@ -14,11 +14,14 @@ export interface LongPressOptions {
 	onLongPress: () => void;
 	/** Duration in milliseconds before longpress fires (default: 500) */
 	duration?: number;
+	/** If true, the long press action is disabled and will not fire */
+	disabled?: boolean;
 }
 
 export function longpress(node: HTMLElement, options: LongPressOptions) {
 	let duration = options.duration ?? 500;
 	let onLongPress = options.onLongPress;
+	let disabled = options.disabled ?? false;
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 	let startX: number = 0;
 	let startY: number = 0;
@@ -41,6 +44,9 @@ export function longpress(node: HTMLElement, options: LongPressOptions) {
 	style.touchAction = 'manipulation';
 
 	function handleStart(event: TouchEvent | MouseEvent) {
+		// Don't fire if disabled
+		if (disabled) return;
+
 		// Don't preventDefault here - it would block click events on mobile
 		// CSS user-select: none handles text selection prevention
 
@@ -119,6 +125,7 @@ export function longpress(node: HTMLElement, options: LongPressOptions) {
 		update(newOptions: LongPressOptions) {
 			duration = newOptions.duration ?? 500;
 			onLongPress = newOptions.onLongPress;
+			disabled = newOptions.disabled ?? false;
 		},
 		destroy() {
 			handleEnd();

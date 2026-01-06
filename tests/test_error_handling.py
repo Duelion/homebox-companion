@@ -12,7 +12,7 @@ import json
 import httpx
 import pytest
 
-from homebox_companion.core.exceptions import HomeboxAuthError, HomeboxAPIError
+from homebox_companion.core.exceptions import HomeboxAPIError, HomeboxAuthError
 from homebox_companion.homebox.client import HomeboxClient
 
 # All tests in this module are unit tests (mocked httpx, tmp_path for files)

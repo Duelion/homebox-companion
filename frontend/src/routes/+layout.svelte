@@ -184,7 +184,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-yellow-300 {isAuthenticated
+			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning-500 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>

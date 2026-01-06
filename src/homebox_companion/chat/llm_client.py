@@ -26,7 +26,6 @@ from homebox_companion.core import config
 from homebox_companion.core.logging import get_log_level_value
 
 
-
 def _build_log_entry(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None,

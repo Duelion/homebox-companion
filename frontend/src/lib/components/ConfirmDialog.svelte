@@ -41,7 +41,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="animate-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+		class="animate-in fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-sm"
 		onclick={handleBackdropClick}
 	>
 		<div class="mx-4 w-full max-w-sm">

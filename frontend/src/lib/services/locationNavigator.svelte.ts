@@ -348,16 +348,6 @@ class LocationNavigator {
 	// =========================================================================
 
 	/**
-	 * Get the current parent location ID (for creating child locations).
-	 * Returns null if at root level.
-	 */
-	getCurrentParentId(): string | null {
-		const path = locationStore.path;
-		if (path.length === 0) return null;
-		return path[path.length - 1].id;
-	}
-
-	/**
 	 * Get the current parent location info (for creating child locations).
 	 * Returns null if at root level.
 	 */

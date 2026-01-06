@@ -25,7 +25,7 @@ from homebox_companion import (
 
 from .api import api_router
 from .dependencies import client_holder, session_store_holder, tool_executor_holder
-from .middleware import RequestIDMiddleware, request_id_var
+from .middleware import RequestIDMiddleware, SecurityHeadersMiddleware, request_id_var
 
 # GitHub version check cache with async lock for thread safety within a single worker.
 # NOTE: This cache is per-worker. When running with multiple workers (e.g., uvicorn --workers N),
@@ -311,6 +311,9 @@ def create_app() -> FastAPI:
     # Request-ID middleware (must be added first to wrap all requests)
     # Uses pure ASGI middleware to avoid issues with SSE streaming
     app.add_middleware(RequestIDMiddleware)  # type: ignore[arg-type]
+
+    # Security headers middleware (adds X-Content-Type-Options, X-Frame-Options, etc.)
+    app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type]
 
     # CORS middleware for browser access
     # Use HBC_CORS_ORIGINS to restrict origins in production

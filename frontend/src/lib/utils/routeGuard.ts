@@ -131,12 +131,25 @@ export const routeGuards = {
 			return false;
 		}
 
-		// If workflow already has a location and is in capturing/analyzing/partial_analysis state
+		// If workflow already has a location and is in an active state, redirect appropriately
 		const workflow = scanWorkflow;
 		if (workflow.state.locationId) {
 			const status = workflow.state.status;
+			// Block navigation to /location during any active workflow phase
 			if (status === 'capturing' || status === 'analyzing' || status === 'partial_analysis') {
 				goto(resolve('/capture'));
+				return false;
+			}
+			if (status === 'reviewing') {
+				goto(resolve('/review'));
+				return false;
+			}
+			if (status === 'confirming' || status === 'submitting') {
+				goto(resolve('/summary'));
+				return false;
+			}
+			if (status === 'complete') {
+				goto(resolve('/success'));
 				return false;
 			}
 		}

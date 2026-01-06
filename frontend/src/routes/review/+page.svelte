@@ -165,9 +165,14 @@
 			for (const img of allImages) {
 				if (!originalImageSet.has(img)) return true;
 			}
-			// Check if order changed (first image determines primary compressed URL)
-			const originalPrimary = currentItem?.originalFile;
-			if (originalPrimary && allImages[0] !== originalPrimary) return true;
+			// Check if order changed - compare full array order, not just primary
+			// This ensures reordering additional images also invalidates compressed data
+			const originalArray = currentItem?.originalFile
+				? [currentItem.originalFile, ...(currentItem.additionalImages || [])]
+				: [];
+			for (let i = 0; i < allImages.length; i++) {
+				if (allImages[i] !== originalArray[i]) return true;
+			}
 			return false;
 		})();
 
@@ -507,7 +512,10 @@
 						<span>Skip</span>
 					</Button>
 				</div>
-				<div class="flex-1" use:longpress={{ onLongPress: handleLongPressConfirm }}>
+				<div
+					class="flex-1"
+					use:longpress={{ onLongPress: handleLongPressConfirm, disabled: isProcessing }}
+				>
 					<Button variant="primary" full onclick={confirmItem} disabled={isProcessing}>
 						<svg
 							class="h-5 w-5"

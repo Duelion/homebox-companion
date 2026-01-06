@@ -63,3 +63,47 @@ class RequestIDMiddleware:
             finally:
                 # Reset the ContextVar
                 request_id_var.reset(token)
+
+
+class SecurityHeadersMiddleware:
+    """Pure ASGI middleware for security headers.
+
+    Adds common security headers to all HTTP responses:
+    - X-Content-Type-Options: nosniff - Prevents MIME-sniffing attacks
+    - X-Frame-Options: DENY - Prevents clickjacking (legacy)
+    - Content-Security-Policy: frame-ancestors 'none' - Modern clickjacking protection
+    - Referrer-Policy: strict-origin-when-cross-origin - Limits referrer leakage
+    - Permissions-Policy: Restricts browser features
+
+    Note: HSTS is intentionally not included here as it forces HTTPS and is
+    typically handled at the reverse proxy layer. Adding it at the app level
+    could cause issues for users running locally over HTTP.
+    """
+
+    # Headers to add to all responses
+    SECURITY_HEADERS: list[tuple[str, str]] = [
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "DENY"),
+        ("Content-Security-Policy", "frame-ancestors 'none'"),
+        ("Referrer-Policy", "strict-origin-when-cross-origin"),
+        ("Permissions-Policy", "geolocation=(), microphone=(), camera=()"),
+    ]
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message: Message) -> None:
+            """Inject security headers into response headers."""
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(raw=list(message.get("headers", [])))
+                for name, value in self.SECURITY_HEADERS:
+                    headers[name] = value
+                message = {**message, "headers": headers.raw}
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)

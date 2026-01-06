@@ -6,7 +6,7 @@
 	 * individual and bulk approve/reject actions.
 	 * Supports expanding items to view details or edit parameters.
 	 */
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { PendingApproval } from '../api/chat';
 	import { chatStore } from '../stores/chat.svelte';
 	import { showToast } from '../stores/ui.svelte';
@@ -39,7 +39,7 @@
 	}
 
 	// Store user modifications for each approval (used by Approve All)
-	let userModifications = new Map<string, Record<string, unknown> | undefined>();
+	let userModifications = new SvelteMap<string, Record<string, unknown> | undefined>();
 
 	// Handler for when a panel's modified params change
 	function handleParamsChange(
@@ -197,19 +197,19 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-neutral-950/70 p-4 backdrop-blur-sm"
 		onclick={handleBackdropClick}
 	>
 		<div
-			class="animate-scale-in border-warning-500/30 flex w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-neutral-900 shadow-xl"
+			class="flex w-full max-w-md animate-scale-in flex-col overflow-hidden rounded-2xl border border-warning-500/30 bg-neutral-900 shadow-xl"
 		>
 			<!-- Header -->
 			<div
-				class="border-warning-500/20 bg-warning-500/10 flex items-center gap-3 border-b px-5 py-4"
+				class="flex items-center gap-3 border-b border-warning-500/20 bg-warning-500/10 px-5 py-4"
 			>
-				<div class="bg-warning-500/20 flex h-10 w-10 items-center justify-center rounded-xl">
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-warning-500/20">
 					<svg
-						class="text-warning-500 h-5 w-5"
+						class="h-5 w-5 text-warning-500"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"

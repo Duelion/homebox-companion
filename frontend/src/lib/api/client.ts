@@ -447,8 +447,8 @@ export async function requestBlobUrl(
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal =
 		timeoutMs > 0 && timeoutMs < Infinity
-			? createTimeoutSignal(options.signal, timeoutMs)
-			: options.signal;
+			? createTimeoutSignal(opts.signal, timeoutMs)
+			: opts.signal;
 
 	// First attempt
 	let response: Response;
@@ -471,8 +471,8 @@ export async function requestBlobUrl(
 			// Create a fresh timeout signal for the retry (don't reuse the original)
 			const retrySignal =
 				timeoutMs > 0 && timeoutMs < Infinity
-					? createTimeoutSignal(options.signal, timeoutMs)
-					: options.signal;
+					? createTimeoutSignal(opts.signal, timeoutMs)
+					: opts.signal;
 
 			log.debug(`Retrying blob request ${endpoint} after token refresh`);
 			try {

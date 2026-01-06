@@ -229,16 +229,5 @@ class AuthStore {
 
 export const authStore = new AuthStore();
 
-// =============================================================================
-// FUNCTION EXPORTS (backward compatibility)
-// =============================================================================
-
-// These re-export methods as standalone functions for backward compatibility.
-// Prefer using authStore.method() directly in new code.
-
-export const tokenNeedsRefresh = () => authStore.tokenNeedsRefresh();
-export const tokenIsExpired = () => authStore.tokenIsExpired();
+/** Mark the session as expired and show re-auth modal */
 export const markSessionExpired = () => authStore.markSessionExpired();
-export const setAuthenticatedState = (token: string, expiresAt: Date, email?: string) =>
-	authStore.setAuthenticatedState(token, expiresAt, email);
-export const logout = () => authStore.logout();

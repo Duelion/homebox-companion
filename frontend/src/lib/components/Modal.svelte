@@ -35,7 +35,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-neutral-950/60 p-4 backdrop-blur-sm"
 		onclick={handleBackdropClick}
 	>
 		<div
