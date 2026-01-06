@@ -8,9 +8,16 @@ from loguru import logger
 
 from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient
 from homebox_companion.homebox import ItemCreate
+from homebox_companion.services import DuplicateDetector
 
 from ..dependencies import get_client, get_token, validate_file_size
-from ..schemas.items import BatchCreateRequest
+from ..schemas.items import (
+    BatchCreateRequest,
+    DuplicateCheckRequest,
+    DuplicateCheckResponse,
+    DuplicateMatch,
+    ExistingItemInfo,
+)
 
 router = APIRouter()
 
@@ -249,6 +256,77 @@ async def get_item_attachment(
     except FileNotFoundError as e:
         # Route-specific: 404 for missing attachments
         raise HTTPException(status_code=404, detail="Attachment not found") from e
+
+
+@router.post("/items/check-duplicates", response_model=DuplicateCheckResponse)
+async def check_duplicates(
+    request: DuplicateCheckRequest,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
+) -> DuplicateCheckResponse:
+    """Check for potential duplicate items by serial number.
+
+    This endpoint compares the serial numbers of the provided items against
+    existing items in Homebox. Items with matching serial numbers are flagged
+    as potential duplicates.
+
+    Use this before creating items to warn users about possible duplicates.
+    """
+    logger.info(f"Checking {len(request.items)} items for duplicates")
+
+    # Convert request items to dicts for the detector
+    items_to_check = [
+        {
+            "name": item.name,
+            "serial_number": item.serial_number,
+        }
+        for item in request.items
+    ]
+
+    # Count items with serial numbers
+    items_with_serial = sum(1 for item in items_to_check if item.get("serial_number"))
+    logger.debug(f"{items_with_serial} items have serial numbers to check")
+
+    if items_with_serial == 0:
+        return DuplicateCheckResponse(
+            duplicates=[],
+            checked_count=0,
+            message="No items with serial numbers to check",
+        )
+
+    # Run duplicate detection
+    detector = DuplicateDetector(client)
+    matches = await detector.find_duplicates(token, items_to_check)
+
+    # Convert to response schema
+    duplicates = [
+        DuplicateMatch(
+            item_index=match.item_index,
+            item_name=match.item_name,
+            serial_number=match.serial_number,
+            existing_item=ExistingItemInfo(
+                id=match.existing_item.id,
+                name=match.existing_item.name,
+                serial_number=match.existing_item.serial_number,
+                location_id=match.existing_item.location_id,
+                location_name=match.existing_item.location_name,
+            ),
+        )
+        for match in matches
+    ]
+
+    message = (
+        f"Found {len(duplicates)} potential duplicate(s)"
+        if duplicates
+        else "No duplicates found"
+    )
+
+    logger.info(message)
+    return DuplicateCheckResponse(
+        duplicates=duplicates,
+        checked_count=items_with_serial,
+        message=message,
+    )
 
 
 @router.delete("/items/{item_id}")

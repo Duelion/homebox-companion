@@ -19,6 +19,7 @@
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import DuplicateWarningBanner from '$lib/components/DuplicateWarningBanner.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
 
@@ -37,6 +38,12 @@
 	const currentIndex = $derived(workflow.state.currentReviewIndex);
 	const currentItem = $derived(workflow.currentItem);
 	const images = $derived(workflow.state.images);
+	const duplicateMatches = $derived(workflow.state.duplicateMatches);
+
+	// Get duplicate warning for current item (if any)
+	const currentItemDuplicate = $derived(
+		duplicateMatches.find((match) => match.item_index === currentIndex),
+	);
 
 	// Local UI state
 	let editedItem = $state<ReviewItem | null>(null);
@@ -358,6 +365,16 @@
 	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
 
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
+
+	<!-- Duplicate warning for current item -->
+	{#if currentItemDuplicate}
+		<div class="mb-4">
+			<DuplicateWarningBanner
+				duplicates={[currentItemDuplicate]}
+				compact={true}
+			/>
+		</div>
+	{/if}
 
 	{#if editedItem}
 		{@const thumbnail = displayThumbnail}

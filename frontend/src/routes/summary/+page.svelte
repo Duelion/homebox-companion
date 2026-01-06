@@ -15,6 +15,7 @@
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
+	import DuplicateWarningBanner from '$lib/components/DuplicateWarningBanner.svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -29,6 +30,7 @@
 	const itemStatuses = $derived(workflow.state.itemStatuses);
 	const submissionProgress = $derived(workflow.state.submissionProgress);
 	const submissionErrors = $derived(workflow.state.submissionErrors);
+	const duplicateMatches = $derived(workflow.state.duplicateMatches);
 
 	// Local UI state
 	let isSubmitting = $state(false);
@@ -56,6 +58,10 @@
 		await getInitPromise();
 
 		if (!routeGuards.summary()) return;
+
+		// Re-check duplicates when entering summary page
+		// This ensures we have the latest duplicate info for confirmed items
+		workflow.recheckDuplicates();
 	});
 
 	// Cleanup object URLs on component unmount
@@ -198,6 +204,13 @@
 					<span class="font-semibold text-primary-400">{parentItemName}</span>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Duplicate warning banner -->
+	{#if duplicateMatches.length > 0 && !isSubmitting}
+		<div class="mb-4">
+			<DuplicateWarningBanner duplicates={duplicateMatches} />
 		</div>
 	{/if}
 
