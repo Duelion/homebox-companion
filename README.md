@@ -242,6 +242,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 |----------|----------|-------------|
 | `HBC_LLM_API_KEY` | **Yes** | Your OpenAI API key |
 | `HBC_HOMEBOX_URL` | No | Your Homebox instance URL (defaults to demo server) |
+| `HBC_LINK_BASE_URL` | No | Public URL for Homebox links in chat (defaults to `HBC_HOMEBOX_URL`) |
 
 <details>
 <summary>⚙️ Full Configuration Reference</summary>
