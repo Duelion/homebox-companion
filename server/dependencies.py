@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
 from homebox_companion.core.ai_config import load_ai_config, AIProvider
+from homebox_companion.services.duplicate_detector import DuplicateDetector
 
 
 class ClientHolder:
@@ -86,6 +87,44 @@ class ClientHolder:
 
 # Singleton holder instance - each worker gets its own
 client_holder = ClientHolder()
+
+
+class DuplicateDetectorHolder:
+    """Manages the shared DuplicateDetector instance.
+
+    The DuplicateDetector maintains a persistent index of serial numbers
+    for duplicate detection. It should be shared across requests to benefit
+    from caching and incremental updates.
+    """
+
+    def __init__(self) -> None:
+        self._detector: DuplicateDetector | None = None
+
+    def get_or_create(self, client: HomeboxClient) -> DuplicateDetector:
+        """Get the shared detector instance, creating if needed.
+
+        Args:
+            client: The HomeboxClient to use for API calls.
+
+        Returns:
+            The shared DuplicateDetector instance.
+        """
+        if self._detector is None:
+            self._detector = DuplicateDetector(client)
+            logger.debug("Created new DuplicateDetector instance")
+        return self._detector
+
+    def get(self) -> DuplicateDetector | None:
+        """Get the detector if initialized, or None."""
+        return self._detector
+
+    def reset(self) -> None:
+        """Reset the holder (for testing)."""
+        self._detector = None
+
+
+# Singleton holder for duplicate detector
+duplicate_detector_holder = DuplicateDetectorHolder()
 
 
 class SessionStoreHolder:
@@ -215,6 +254,18 @@ def get_client() -> HomeboxClient:
     Can be overridden in tests using app.dependency_overrides[get_client].
     """
     return client_holder.get()
+
+
+def get_duplicate_detector(
+    client: Annotated[HomeboxClient, Depends(get_client)],
+) -> DuplicateDetector:
+    """Get the shared DuplicateDetector instance.
+
+    This is a FastAPI dependency that returns the shared detector instance,
+    creating it if needed. The detector maintains a persistent index of
+    serial numbers for duplicate detection.
+    """
+    return duplicate_detector_holder.get_or_create(client)
 
 
 def get_token(authorization: Annotated[str | None, Header()] = None) -> str:

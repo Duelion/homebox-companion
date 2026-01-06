@@ -8,13 +8,15 @@ from loguru import logger
 
 from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient
 from homebox_companion.homebox import ItemCreate
-from homebox_companion.services import DuplicateDetector
+from homebox_companion.services.duplicate_detector import DuplicateDetector
 
-from ..dependencies import get_client, get_token, validate_file_size
+from ..dependencies import get_client, get_duplicate_detector, get_token, validate_file_size
 from ..schemas.items import (
     BatchCreateRequest,
     DuplicateCheckRequest,
     DuplicateCheckResponse,
+    DuplicateIndexRebuildResponse,
+    DuplicateIndexStatus,
     DuplicateMatch,
     ExistingItemInfo,
 )
@@ -58,6 +60,7 @@ async def create_items(
     request: BatchCreateRequest,
     token: Annotated[str, Depends(get_token)],
     client: Annotated[HomeboxClient, Depends(get_client)],
+    detector: Annotated[DuplicateDetector, Depends(get_duplicate_detector)],
 ) -> JSONResponse:
     """Create multiple items in Homebox.
 
@@ -184,6 +187,15 @@ async def create_items(
             # Non-fatal - log but don't fail the request
             logger.warning(f"Failed to ensure asset IDs: {e}")
 
+        # Add created items to duplicate detection index (incremental update)
+        items_added = 0
+        for item in created:
+            if detector.add_item_to_index(item):
+                items_added += 1
+        if items_added > 0:
+            detector.save()  # Persist changes
+            logger.debug(f"Added {items_added} item(s) to duplicate index")
+
     return JSONResponse(
         content={
             "created": created,
@@ -262,13 +274,18 @@ async def get_item_attachment(
 async def check_duplicates(
     request: DuplicateCheckRequest,
     token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    detector: Annotated[DuplicateDetector, Depends(get_duplicate_detector)],
 ) -> DuplicateCheckResponse:
     """Check for potential duplicate items by serial number.
 
     This endpoint compares the serial numbers of the provided items against
     existing items in Homebox. Items with matching serial numbers are flagged
     as potential duplicates.
+
+    Uses the shared duplicate detection index which is:
+    - Persisted to disk (survives restarts)
+    - Incrementally updated when items are created
+    - Differential updates on startup (only fetches new items)
 
     Use this before creating items to warn users about possible duplicates.
     """
@@ -294,8 +311,7 @@ async def check_duplicates(
             message="No items with serial numbers to check",
         )
 
-    # Run duplicate detection
-    detector = DuplicateDetector(client)
+    # Run duplicate detection (uses shared index with auto-load)
     matches = await detector.find_duplicates(token, items_to_check)
 
     # Convert to response schema
@@ -344,3 +360,61 @@ async def delete_item(
     await client.delete_item(token, item_id)
     logger.info(f"Successfully deleted item {item_id}")
     return {"message": "Item deleted"}
+
+
+# =============================================================================
+# DUPLICATE INDEX MANAGEMENT
+# =============================================================================
+
+
+@router.get("/items/duplicate-index/status", response_model=DuplicateIndexStatus)
+async def get_duplicate_index_status(
+    detector: Annotated[DuplicateDetector, Depends(get_duplicate_detector)],
+) -> DuplicateIndexStatus:
+    """Get the current status of the duplicate detection index.
+
+    Returns information about when the index was last built/updated,
+    how many items are indexed, and whether it's currently loaded.
+    """
+    status = detector.get_status()
+    return DuplicateIndexStatus(
+        last_build_time=status.last_build_time,
+        last_update_time=status.last_update_time,
+        total_items_indexed=status.total_items_indexed,
+        items_with_serials=status.items_with_serials,
+        highest_asset_id=status.highest_asset_id,
+        is_loaded=status.is_loaded,
+    )
+
+
+@router.post("/items/duplicate-index/rebuild", response_model=DuplicateIndexRebuildResponse)
+async def rebuild_duplicate_index(
+    token: Annotated[str, Depends(get_token)],
+    detector: Annotated[DuplicateDetector, Depends(get_duplicate_detector)],
+) -> DuplicateIndexRebuildResponse:
+    """Rebuild the duplicate detection index from scratch.
+
+    This fetches ALL items from Homebox and rebuilds the serial number index.
+    Use this if:
+    - Items were added/modified outside of HomeBox-Companion
+    - The index appears out of sync
+    - You want to ensure complete accuracy
+
+    Note: For large inventories, this may take several seconds as it needs
+    to fetch details for each item to get serial numbers.
+    """
+    logger.info("Starting duplicate index rebuild (manual trigger)")
+
+    status = await detector.rebuild_index(token)
+
+    return DuplicateIndexRebuildResponse(
+        status=DuplicateIndexStatus(
+            last_build_time=status.last_build_time,
+            last_update_time=status.last_update_time,
+            total_items_indexed=status.total_items_indexed,
+            items_with_serials=status.items_with_serials,
+            highest_asset_id=status.highest_asset_id,
+            is_loaded=status.is_loaded,
+        ),
+        message=f"Index rebuilt: {status.items_with_serials} items with serial numbers indexed",
+    )
