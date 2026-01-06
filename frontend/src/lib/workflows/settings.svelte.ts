@@ -634,11 +634,15 @@ class SettingsService {
 	 * Save AI configuration.
 	 */
 	async saveAIConfig(config: AIConfigInput): Promise<void> {
+		console.log('[SETTINGS_SVC] saveAIConfig called');
+		console.log('[SETTINGS_SVC] Setting state to saving...');
 		this.aiConfigSaveState = 'saving';
 		this.errors.aiConfig = null;
+		console.log('[SETTINGS_SVC] State set, scheduling failsafe...');
 
 		// Failsafe: ensure we never get stuck in 'saving' state
 		const failsafeTimeout = this._scheduleTimeout(() => {
+			console.log('[SETTINGS_SVC] Failsafe timeout triggered!');
 			if (this.aiConfigSaveState === 'saving') {
 				log.error('AI config save timed out after 30 seconds');
 				this.errors.aiConfig = 'Save operation timed out. Please try again.';
@@ -649,14 +653,17 @@ class SettingsService {
 			}
 		}, 30000);
 
+		console.log('[SETTINGS_SVC] Calling updateAIConfig API...');
 		try {
 			this.aiConfig = await updateAIConfig(config);
+			console.log('[SETTINGS_SVC] API returned successfully');
 			this.aiConfigSaveState = 'success';
 
 			this._scheduleTimeout(() => {
 				this.aiConfigSaveState = 'idle';
 			}, 2000);
 		} catch (error) {
+			console.error('[SETTINGS_SVC] API call failed:', error);
 			log.error('Failed to save AI config:', error);
 			this.errors.aiConfig = error instanceof Error ? error.message : 'Failed to save AI configuration';
 			this.aiConfigSaveState = 'error';
@@ -665,6 +672,7 @@ class SettingsService {
 				this.aiConfigSaveState = 'idle';
 			}, 3000);
 		} finally {
+			console.log('[SETTINGS_SVC] Finally block, clearing failsafe');
 			// Clear the failsafe timeout since we got a response
 			this._cancelTimeout(failsafeTimeout);
 		}

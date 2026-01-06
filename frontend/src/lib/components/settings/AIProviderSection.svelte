@@ -73,8 +73,18 @@
 	});
 
 	async function handleSave() {
-		if (!editingConfig) return;
-		await service.saveAIConfig(editingConfig);
+		console.log('[AI_SECTION] handleSave called');
+		if (!editingConfig) {
+			console.log('[AI_SECTION] No editingConfig, returning');
+			return;
+		}
+		console.log('[AI_SECTION] Calling saveAIConfig...');
+		try {
+			await service.saveAIConfig(editingConfig);
+			console.log('[AI_SECTION] saveAIConfig completed');
+		} catch (error) {
+			console.error('[AI_SECTION] saveAIConfig failed:', error);
+		}
 	}
 
 	async function handleTestConnection(provider: string) {
