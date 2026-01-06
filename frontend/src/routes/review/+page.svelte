@@ -380,7 +380,13 @@
 <div class="animate-in pb-32">
 	<StepIndicator currentStep={3} />
 
-	<h2 class="mb-1 text-h2 text-neutral-100">Review Items</h2>
+	<div class="mb-1 flex items-center justify-between">
+		<h2 class="text-h2 text-neutral-100">Review Items</h2>
+		<!-- Item counter visible on desktop (hidden on mobile, shown in footer there) -->
+		<span class="hidden rounded-full bg-neutral-800 px-3 py-1 text-body-sm font-medium text-neutral-300 lg:block">
+			{currentIndex + 1} of {detectedItems.length}
+		</span>
+	</div>
 	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
 
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
@@ -398,62 +404,66 @@
 	{#if editedItem}
 		{@const thumbnail = displayThumbnail}
 
+		<!-- Responsive card: stacked on mobile, side-by-side on desktop (lg+) -->
 		<div
-			class="mb-4 overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-900 shadow-md"
+			class="mb-4 overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-900 shadow-md lg:flex lg:flex-row"
 		>
-			<!-- Thumbnail section -->
-			{#if thumbnail}
-				<div class="group relative aspect-video bg-neutral-800">
-					<img src={thumbnail} alt={editedItem.name} class="h-full w-full object-contain" />
-					<!-- Edit overlay - always visible on mobile, hover on desktop -->
-					<button
-						type="button"
-						class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-white/50 md:opacity-0 md:group-hover:opacity-100"
-						onclick={openThumbnailEditor}
-						aria-label="Edit thumbnail image"
+			<!-- Thumbnail section - full width on mobile, left column on desktop -->
+			<div class="lg:w-2/5 lg:shrink-0">
+				{#if thumbnail}
+					<div class="group relative aspect-video bg-neutral-800 lg:aspect-auto lg:h-full lg:min-h-[400px]">
+						<img src={thumbnail} alt={editedItem.name} class="h-full w-full object-contain" />
+						<!-- Edit overlay - always visible on mobile, hover on desktop -->
+						<button
+							type="button"
+							class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-white/50 md:opacity-0 md:group-hover:opacity-100"
+							onclick={openThumbnailEditor}
+							aria-label="Edit thumbnail image"
+						>
+							<svg
+								class="h-4 w-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+							</svg>
+							<span>Edit Thumbnail</span>
+						</button>
+						{#if editedItem.customThumbnail}
+							<span
+								class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
+							>
+								Custom
+							</span>
+						{/if}
+					</div>
+				{:else}
+					<!-- No image placeholder -->
+					<div
+						class="flex aspect-video flex-col items-center justify-center bg-neutral-800 text-neutral-500 lg:aspect-auto lg:h-full lg:min-h-[400px]"
 					>
 						<svg
-							class="h-4 w-4"
+							class="mb-2 h-16 w-16 opacity-40"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
-							stroke-width="1.5"
+							stroke-width="1"
 						>
-							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+							<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+							<circle cx="8.5" cy="8.5" r="1.5" />
+							<polyline points="21 15 16 10 5 21" />
 						</svg>
-						<span>Edit Thumbnail</span>
-					</button>
-					{#if editedItem.customThumbnail}
-						<span
-							class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
-						>
-							Custom
-						</span>
-					{/if}
-				</div>
-			{:else}
-				<!-- No image placeholder -->
-				<div
-					class="flex aspect-video flex-col items-center justify-center bg-neutral-800 text-neutral-500"
-				>
-					<svg
-						class="mb-2 h-16 w-16 opacity-40"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1"
-					>
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-						<circle cx="8.5" cy="8.5" r="1.5" />
-						<polyline points="21 15 16 10 5 21" />
-					</svg>
-					<p class="text-body-sm">No image available</p>
-					<p class="mt-1 text-caption">Add photos below</p>
-				</div>
-			{/if}
+						<p class="text-body-sm">No image available</p>
+						<p class="mt-1 text-caption">Add photos below</p>
+					</div>
+				{/if}
+			</div>
 
-			<div class="space-y-5 p-4">
+			<!-- Form fields - full width on mobile, right column on desktop -->
+			<div class="space-y-5 p-4 lg:flex-1 lg:overflow-y-auto">
 				<!-- Core fields: name, quantity, description -->
 				<ItemCoreFields
 					bind:name={editedItem.name}

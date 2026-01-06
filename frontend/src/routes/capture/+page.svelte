@@ -541,9 +541,9 @@
 		</div>
 	{/if}
 
-	<!-- Image list with collapsible cards -->
+	<!-- Image list with collapsible cards - responsive grid on larger screens -->
 	{#if images.length > 0}
-		<div class="mb-4 space-y-3">
+		<div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 			{#each images as image, index (image.dataUrl)}
 				<div
 					class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-sm transition-all hover:border-neutral-600"
@@ -856,9 +856,9 @@
 				</div>
 			{/each}
 
-			<!-- Add more images button -->
+			<!-- Add more images button - spans full grid width on larger screens -->
 			{#if totalImageCount < maxImages && !showAnalyzingUI}
-				<div class="flex gap-3">
+				<div class="col-span-full flex gap-3 md:col-span-2 lg:col-span-3">
 					<button
 						type="button"
 						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
@@ -1023,7 +1023,7 @@
 	/>
 </div>
 
-<!-- Sticky Analyze button at bottom - above navigation bar -->
+<!-- Sticky Analyze button at bottom - above navigation bar (mobile) or at bottom (desktop) -->
 <div
 	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
 >

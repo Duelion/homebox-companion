@@ -134,8 +134,9 @@
 {/snippet}
 
 <!-- view-transition-name excludes this from the root page transition, preventing jitter -->
+<!-- Hidden on desktop (lg+) where we use header navigation instead -->
 <nav
-	class="glass pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-700"
+	class="glass pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-700 lg:hidden"
 	style="view-transition-name: bottom-nav; transform: translateZ(0); -webkit-transform: translateZ(0);"
 	aria-label="Main navigation"
 >

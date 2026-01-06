@@ -302,13 +302,20 @@
 		padding-top: env(safe-area-inset-top, 0px);
 	}
 
-	/* Position above bottom navigation with safe area */
+	/* Position above bottom navigation with safe area (mobile only) */
 	.bottom-nav-offset {
 		/* Height of bottom nav (h-16 = 4rem) + iOS safe area */
 		bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 		/* Ensure proper stacking and prevent layout shifts on iOS Safari */
 		transform: translateZ(0);
 		-webkit-transform: translateZ(0);
+	}
+
+	/* On desktop (lg+), bottom nav is hidden, so no offset needed */
+	@media (min-width: 1024px) {
+		.bottom-nav-offset {
+			bottom: 0;
+		}
 	}
 
 	/* Skeleton loading animation */

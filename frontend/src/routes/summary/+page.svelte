@@ -225,8 +225,8 @@
 		</div>
 	{/if}
 
-	<!-- Items list with improved cards -->
-	<div class="mb-6 space-y-3">
+	<!-- Items list with improved cards - responsive grid on larger screens -->
+	<div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 		{#each confirmedItems as item, index (`${item.name}-${index}`)}
 			{@const thumbnail = getThumbnail(item)}
 			<div

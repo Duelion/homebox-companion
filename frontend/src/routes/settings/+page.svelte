@@ -44,14 +44,14 @@
 	<title>Settings - Homebox Companion</title>
 </svelte:head>
 
-<div class="animate-in space-y-6">
-	<div>
+<div class="animate-in">
+	<div class="mb-6">
 		<h1 class="text-h1 font-bold text-neutral-100">Settings</h1>
 		<p class="mt-1 text-body-sm text-neutral-400">App configuration and information</p>
 	</div>
 
 	{#if settingsService.errors.init}
-		<div class="card border-error-500/30 bg-error-500/10">
+		<div class="card mb-6 border-error-500/30 bg-error-500/10">
 			<div class="flex items-start gap-3">
 				<svg
 					class="mt-0.5 h-5 w-5 flex-shrink-0 text-error-500"
@@ -79,13 +79,23 @@
 		</div>
 	{/if}
 
-	<AccountSection />
-	<AIProviderSection />
-	<ConnectionSection />
-	<BehaviorSection />
-	<AboutSection />
-	<FieldPrefsSection />
-	<LogsSection />
+	<!-- Settings sections - single column on mobile, two columns on desktop -->
+	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+		<!-- Left column on desktop -->
+		<div class="space-y-6">
+			<AccountSection />
+			<AIProviderSection />
+			<ConnectionSection />
+		</div>
+
+		<!-- Right column on desktop -->
+		<div class="space-y-6">
+			<BehaviorSection />
+			<FieldPrefsSection />
+			<AboutSection />
+			<LogsSection />
+		</div>
+	</div>
 
 	<!-- Bottom spacing for nav -->
 	<div class="h-4"></div>
