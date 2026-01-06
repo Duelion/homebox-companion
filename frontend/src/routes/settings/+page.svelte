@@ -15,6 +15,9 @@
 
 	import AccountSection from '$lib/components/settings/AccountSection.svelte';
 	import AboutSection from '$lib/components/settings/AboutSection.svelte';
+	import AIProviderSection from '$lib/components/settings/AIProviderSection.svelte';
+	import BehaviorSection from '$lib/components/settings/BehaviorSection.svelte';
+	import ConnectionSection from '$lib/components/settings/ConnectionSection.svelte';
 	import FieldPrefsSection from '$lib/components/settings/FieldPrefsSection.svelte';
 	import LogsSection from '$lib/components/settings/LogsSection.svelte';
 
@@ -77,6 +80,9 @@
 	{/if}
 
 	<AccountSection />
+	<AIProviderSection />
+	<ConnectionSection />
+	<BehaviorSection />
 	<AboutSection />
 	<FieldPrefsSection />
 	<LogsSection />
