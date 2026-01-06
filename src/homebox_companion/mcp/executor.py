@@ -236,21 +236,17 @@ class ToolExecutor:
         except Exception as e:
             logger.debug(f"Failed to fetch display info for {tool_name}: {e}")
 
-        # Log display info resolution (success or failure)
+        # Log successful display info resolution
         if target_name:
             logger.debug(f"Resolved display info for {tool_name}: target_name='{target_name}'")
-        else:
-            logger.warning(f"Failed to resolve target_name for {tool_name} with args: {tool_args}")
 
-        result = DisplayInfo(
+        return DisplayInfo(
             action_type=action_type,
             target_name=target_name,
             item_name=item_name,
             asset_id=asset_id,
             location=location,
         )
-        logger.debug(f"DisplayInfo for {tool_name}: {result.model_dump(exclude_none=True)}")
-        return result
 
     def requires_approval(self, tool_name: str) -> bool:
         """Check if a tool requires user approval before execution.

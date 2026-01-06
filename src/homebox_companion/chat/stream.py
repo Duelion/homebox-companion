@@ -203,19 +203,20 @@ class StreamEmitter:
             return f"✗ {tool_name} failed: {error or 'Unknown error'}"
 
         # Build a human-readable summary
-        # Priority: display_info.item_name > data extraction
+        # Priority: display_info.target_name > display_info.item_name > data extraction
         summary = ""
 
-        # First try display_info (has item name for delete/update tools)
-        if display_info and display_info.item_name:
-            summary = f"'{display_info.item_name}'"
+        # First try display_info (has target_name for all entity types, item_name for backward compat)
+        if display_info and (display_info.target_name or display_info.item_name):
+            entity_name = display_info.target_name or display_info.item_name
+            summary = entity_name
         else:
             # Fall back to extracting from data (for backward compatibility)
             try:
                 if isinstance(data, dict):
                     # Common patterns for our tools
                     if "name" in data:
-                        summary = f"'{data['name']}'"
+                        summary = data['name']
                     elif "id" in data:
                         id_str = str(data.get("id", ""))
                         if len(id_str) > 8:

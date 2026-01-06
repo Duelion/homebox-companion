@@ -412,6 +412,11 @@ class ChatStore {
 		return index === -1 ? null : this._messages[index].id;
 	}
 
+	/** Extract entity name from approval display info (unified helper) */
+	private getEntityName(approval: PendingApproval): string | undefined {
+		return approval.display_info?.target_name ?? approval.display_info?.item_name;
+	}
+
 	/** Mark a tool as executing (without a result yet) */
 	private markToolExecuting(toolName: string, executionId?: string): void {
 		// Determine the target message
@@ -570,19 +575,33 @@ class ChatStore {
 			return;
 		}
 
-		// Build rejected actions from pending approvals
-		const rejectedActions: ExecutedAction[] = this._pendingApprovals.map((approval) => ({
-			toolName: approval.tool_name,
-			entityName: approval.display_info?.target_name ?? approval.display_info?.item_name,
-			success: false,
-			rejected: true,
-		}));
+		// Single iteration: build both actions and text
+		const rejectedActionsWithText = this._pendingApprovals.map((approval) => {
+			const entityName = this.getEntityName(approval);
+			return {
+				action: {
+					toolName: approval.tool_name,
+					entityName,
+					success: false,
+					rejected: true,
+				} as ExecutedAction,
+				text: entityName
+					? `⊘ ${approval.tool_name}: ${entityName} (superseded)`
+					: `⊘ ${approval.tool_name} (superseded)`,
+			};
+		});
 
-		// Add rejected actions to the last assistant message
+		const rejectedActions = rejectedActionsWithText.map((r) => r.action);
+		const rejectionTexts = rejectedActionsWithText.map((r) => r.text);
+
+		// Add rejected actions and text to the last assistant message
 		this._messages = this._messages.map((msg, idx) => {
 			if (idx !== lastAssistantIndex) return msg;
+			const separator = msg.content ? '\n\n' : '';
+			const combinedText = rejectionTexts.join('\n');
 			return {
 				...msg,
+				content: msg.content + separator + combinedText,
 				executedActions: [...(msg.executedActions || []), ...rejectedActions],
 			};
 		});
@@ -764,18 +783,32 @@ class ChatStore {
 		// Find the last assistant message to attach rejection indicators
 		const lastAssistantIndex = this.findLastAssistantIndex();
 		if (lastAssistantIndex !== -1) {
-			// Mark expired approvals as rejected actions on the message
-			const expiredActions: ExecutedAction[] = this._pendingApprovals.map((approval) => ({
-				toolName: approval.tool_name,
-				entityName: approval.display_info?.target_name ?? approval.display_info?.item_name,
-				success: false,
-				rejected: true,
-			}));
+			// Single iteration: build both actions and text
+			const expiredActionsWithText = this._pendingApprovals.map((approval) => {
+				const entityName = this.getEntityName(approval);
+				return {
+					action: {
+						toolName: approval.tool_name,
+						entityName,
+						success: false,
+						rejected: true,
+					} as ExecutedAction,
+					text: entityName
+						? `⊘ ${approval.tool_name}: ${entityName} (expired)`
+						: `⊘ ${approval.tool_name} (expired)`,
+				};
+			});
+
+			const expiredActions = expiredActionsWithText.map((r) => r.action);
+			const expirationTexts = expiredActionsWithText.map((r) => r.text);
 
 			this._messages = this._messages.map((msg, idx) => {
 				if (idx !== lastAssistantIndex) return msg;
+				const separator = msg.content ? '\n\n' : '';
+				const combinedText = expirationTexts.join('\n');
 				return {
 					...msg,
+					content: msg.content + separator + combinedText,
 					executedActions: [...(msg.executedActions || []), ...expiredActions],
 				};
 			});
@@ -806,10 +839,7 @@ class ChatStore {
 		// itemName: kept for backward compatibility with AI context (item-specific field)
 		const itemName = approval.display_info?.item_name;
 		// entityName: unified field for all entity types (items, locations, labels)
-		const entityName = approval.display_info?.target_name ?? approval.display_info?.item_name;
-		
-		// Debug: Log display_info to understand what we're receiving
-		log.debug(`approveAction: tool=${toolName}, display_info=`, approval.display_info, `entityName=${entityName}`);
+		const entityName = this.getEntityName(approval);
 
 		try {
 			const result = await chat.approveAction(approvalId, modifiedParams);
@@ -915,10 +945,7 @@ class ChatStore {
 		// itemName: kept for backward compatibility with AI context (item-specific field)
 		const itemName = approval.display_info?.item_name;
 		// entityName: unified field for all entity types (items, locations, labels)
-		const entityName = approval.display_info?.target_name ?? approval.display_info?.item_name;
-		
-		// Debug: Log display_info to understand what we're receiving
-		log.debug(`rejectAction: tool=${toolName}, display_info=`, approval.display_info, `entityName=${entityName}`);
+		const entityName = this.getEntityName(approval);
 
 		try {
 			await chat.rejectAction(approvalId);
@@ -950,8 +977,9 @@ class ChatStore {
 			}
 
 			// Generate rejection confirmation text (similar to approved actions)
-			const summary = entityName ? `'${entityName}'` : '';
-			const rejectionText = summary ? `⊘ ${toolName}: ${summary}` : `⊘ ${toolName}`;
+			const rejectionText = entityName
+				? `⊘ ${toolName}: ${entityName}`
+				: `⊘ ${toolName}`;
 
 			this._messages = this._messages.map((msg, idx) => {
 				if (idx !== lastAssistantIndex) return msg;
@@ -1033,8 +1061,6 @@ class ChatStore {
 
 			case 'approval_required':
 				log.trace(`Approval required for: ${event.data.tool}`, event.data.params);
-				// Debug: Log display_info from event
-				log.debug(`approval_required event: tool=${event.data.tool}, display_info=`, event.data.display_info);
 				this._pendingApprovals = [
 					...this._pendingApprovals,
 					{
