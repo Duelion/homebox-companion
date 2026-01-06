@@ -46,6 +46,48 @@ export {
 	type EffectiveDefaults,
 } from './settings';
 
+// Re-export Ollama APIs
+export {
+	getOllamaStatus,
+	testOllamaConnection,
+	listOllamaModels,
+	pullOllamaModel,
+	getGPUInfo,
+	getRecommendedModel,
+	getOllamaConfig,
+	type OllamaStatus,
+	type OllamaTestRequest,
+	type OllamaTestResponse,
+	type GPUInfo,
+	type ModelInfo,
+	type ModelPullResponse,
+	type OllamaConfig,
+	type RecommendedModelResponse,
+} from './ollama';
+
+// Re-export Sessions APIs (crash recovery)
+export {
+	checkActiveSession,
+	listRecoverableSessions,
+	listAllSessions,
+	getSession,
+	createSession,
+	recoverSession,
+	completeSession,
+	deleteSession,
+	addSessionImage,
+	startImageProcessing,
+	completeImageProcessing,
+	failImageProcessing,
+	type SessionSummary,
+	type SessionImage,
+	type SessionDetail,
+	type SessionCreateRequest,
+	type SessionCreateResponse,
+	type RecoveryResponse,
+	type ActiveSessionCheck,
+} from './sessions';
+
 // Re-export types from vision for convenience
 export type { DetectOptions, BatchDetectOptions } from './vision';
 
