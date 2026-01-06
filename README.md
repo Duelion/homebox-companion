@@ -52,8 +52,7 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - ./homebox-companion:/app/data      # Session data, duplicate index
-      - ./homebox-companion/config:/app/config  # Settings (AI config, preferences)
+      - ./homebox-companion:/app/data  # All persistent data (settings, sessions, indexes)
 
 ```
 
@@ -79,8 +78,7 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - ./homebox-companion:/app/data
-      - ./homebox-companion/config:/app/config
+      - ./homebox-companion:/app/data  # All persistent data
 
   ollama:
     image: ollama/ollama:latest
@@ -159,7 +157,7 @@ All configuration moved from environment variables to the UI:
 | AI Provider/Keys | Settings > AI Provider |
 | Duplicate Detection | Settings > Behavior |
 
-Settings persist in `/app/config` and `/app/data` - mount the volumes and configure once.
+Settings persist in `/app/data` - mount the volume and configure once.
 
 ---
 

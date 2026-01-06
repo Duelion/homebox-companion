@@ -3,7 +3,7 @@
 This module provides storage and retrieval of application-level preferences
 that can be customized by users through the Settings UI.
 
-Settings are persisted to config/app_preferences.json
+Settings are persisted to {data_dir}/app_preferences.json
 """
 
 from __future__ import annotations
@@ -15,9 +15,12 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, Field
 
-# Default storage location
-CONFIG_DIR = Path("config")
-APP_PREFS_FILE = CONFIG_DIR / "app_preferences.json"
+from homebox_companion.core.config import settings
+
+
+def _get_prefs_path() -> Path:
+    """Get the app preferences file path based on settings.data_dir."""
+    return Path(settings.data_dir) / "app_preferences.json"
 
 
 class AppPreferences(BaseModel):
@@ -50,11 +53,12 @@ def load_app_preferences() -> AppPreferences:
     Returns:
         AppPreferences instance with values from file, or defaults.
     """
-    if not APP_PREFS_FILE.exists():
+    prefs_file = _get_prefs_path()
+    if not prefs_file.exists():
         return AppPreferences()
 
     try:
-        file_data = json.loads(APP_PREFS_FILE.read_text(encoding="utf-8"))
+        file_data = json.loads(prefs_file.read_text(encoding="utf-8"))
         return AppPreferences.model_validate(file_data)
     except (json.JSONDecodeError, Exception) as e:
         logger.warning(f"Invalid app preferences file, using defaults: {e}")
@@ -67,10 +71,11 @@ def save_app_preferences(prefs: AppPreferences) -> None:
     Args:
         prefs: The preferences to save.
     """
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    prefs_file = _get_prefs_path()
+    prefs_file.parent.mkdir(parents=True, exist_ok=True)
     data = prefs.model_dump()
-    APP_PREFS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    logger.info("App preferences saved")
+    prefs_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info(f"App preferences saved to {prefs_file}")
 
 
 def get_effective_homebox_url(prefs: AppPreferences) -> str:
