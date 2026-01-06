@@ -169,6 +169,37 @@ class DuplicateDetector:
         normalized = serial.strip().upper()
         return normalized if normalized else None
 
+    @staticmethod
+    def parse_asset_id(asset_id: str | int | None) -> int:
+        """Parse asset ID to integer for comparison.
+
+        Homebox asset IDs can be:
+        - Integers (e.g., 4)
+        - Formatted strings (e.g., "000-004")
+        - None or empty
+
+        Args:
+            asset_id: The asset ID from Homebox API.
+
+        Returns:
+            Integer value of the asset ID, or 0 if unparseable.
+        """
+        if asset_id is None:
+            return 0
+        if isinstance(asset_id, int):
+            return asset_id
+        if isinstance(asset_id, str):
+            # Try to extract numeric part from formatted string like "000-004"
+            # Remove common separators and leading zeros
+            cleaned = asset_id.replace("-", "").replace("_", "").lstrip("0")
+            if cleaned.isdigit():
+                return int(cleaned)
+            # If still not numeric, try to find any digits
+            digits = "".join(c for c in asset_id if c.isdigit())
+            if digits:
+                return int(digits.lstrip("0") or "0")
+        return 0
+
     def get_status(self) -> IndexStatus:
         """Get current index status."""
         return IndexStatus(
@@ -325,7 +356,7 @@ class DuplicateDetector:
 
         # Track highest asset ID from summaries
         for item in item_summaries:
-            asset_id = item.get("assetId", 0)
+            asset_id = self.parse_asset_id(item.get("assetId"))
             if asset_id > self._highest_asset_id:
                 self._highest_asset_id = asset_id
             item_id = item.get("id")
@@ -386,7 +417,7 @@ class DuplicateDetector:
         new_items = []
         for item in item_summaries:
             item_id = item.get("id")
-            asset_id = item.get("assetId", 0)
+            asset_id = self.parse_asset_id(item.get("assetId"))
 
             # Item is new if:
             # 1. Its asset ID is higher than our highest known, OR
@@ -481,7 +512,7 @@ class DuplicateDetector:
             id=detail.get("id", ""),
             name=detail.get("name", "Unknown"),
             serial_number=serial,
-            asset_id=detail.get("assetId", 0),
+            asset_id=self.parse_asset_id(detail.get("assetId")),
             location_id=location.get("id"),
             location_name=location.get("name"),
         )
@@ -504,8 +535,8 @@ class DuplicateDetector:
         if item_id:
             self._known_item_ids.add(item_id)
 
-        asset_id = item.get("assetId", item.get("asset_id", 0))
-        if asset_id and asset_id > self._highest_asset_id:
+        asset_id = self.parse_asset_id(item.get("assetId") or item.get("asset_id"))
+        if asset_id > self._highest_asset_id:
             self._highest_asset_id = asset_id
 
         self._total_items += 1
