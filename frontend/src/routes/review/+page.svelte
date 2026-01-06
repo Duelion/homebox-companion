@@ -137,10 +137,14 @@
 	// Cleanup object URLs on component unmount
 	onDestroy(() => urlManager.cleanup());
 
-	// Watch for status changes
+	// Watch for status changes and navigate accordingly
 	$effect(() => {
 		if (workflow.state.status === 'confirming') {
 			goto(resolve('/summary'));
+		} else if (workflow.state.status === 'capturing') {
+			// All items were skipped - go back to capture with a message
+			showToast('All items were skipped. Add more photos to continue.', 'info');
+			goto(resolve('/capture'));
 		}
 	});
 
