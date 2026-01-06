@@ -28,6 +28,7 @@ export interface ToolResult {
 
 export interface ExecutedAction {
 	toolName: string;
+	entityName?: string; // Display name of the entity affected (item, location, label)
 	success: boolean;
 	error?: string;
 	rejected?: boolean; // True if user rejected this action
@@ -303,7 +304,7 @@ class ChatStore {
 		// Case 3: Session ID mismatch - backend was reset, clear local messages
 		log.info(
 			`Session ID mismatch (local: ${this._sessionId ?? 'none'}, backend: ${backendSessionId}). ` +
-				`Clearing ${this._messages.length} stale local messages.`
+			`Clearing ${this._messages.length} stale local messages.`
 		);
 
 		// Clear all pending tool timeouts
@@ -446,12 +447,12 @@ class ChatStore {
 		this._messages = this._messages.map((msg) =>
 			msg.id === messageId
 				? {
-						...msg,
-						toolResults: [
-							...(msg.toolResults || []),
-							{ tool: toolName, executionId, success: false, isExecuting: true },
-						],
-					}
+					...msg,
+					toolResults: [
+						...(msg.toolResults || []),
+						{ tool: toolName, executionId, success: false, isExecuting: true },
+					],
+				}
 				: msg
 		);
 
@@ -572,6 +573,7 @@ class ChatStore {
 		// Build rejected actions from pending approvals
 		const rejectedActions: ExecutedAction[] = this._pendingApprovals.map((approval) => ({
 			toolName: approval.tool_name,
+			entityName: approval.display_info?.target_name ?? approval.display_info?.item_name,
 			success: false,
 			rejected: true,
 		}));
@@ -765,6 +767,7 @@ class ChatStore {
 			// Mark expired approvals as rejected actions on the message
 			const expiredActions: ExecutedAction[] = this._pendingApprovals.map((approval) => ({
 				toolName: approval.tool_name,
+				entityName: approval.display_info?.target_name ?? approval.display_info?.item_name,
 				success: false,
 				rejected: true,
 			}));
@@ -800,13 +803,17 @@ class ChatStore {
 		}
 
 		const toolName = approval.tool_name;
+		// itemName: kept for backward compatibility with AI context (item-specific field)
 		const itemName = approval.display_info?.item_name;
+		// entityName: unified field for all entity types (items, locations, labels)
+		const entityName = approval.display_info?.target_name ?? approval.display_info?.item_name;
 
 		try {
 			const result = await chat.approveAction(approvalId, modifiedParams);
 			this._pendingApprovals = this._pendingApprovals.filter((a) => a.id !== approvalId);
 
 			// Record outcome for AI context in next message
+			// Note: ApprovalOutcome still uses item_name for backward compatibility
 			this._recentApprovalOutcomes = [
 				...this._recentApprovalOutcomes,
 				{
@@ -820,6 +827,7 @@ class ChatStore {
 			// Add executed action to the last assistant message
 			const executedAction: ExecutedAction = {
 				toolName,
+				entityName,
 				success: result.success,
 				error: result.success ? undefined : result.error,
 			};
@@ -901,13 +909,17 @@ class ChatStore {
 		}
 
 		const toolName = approval.tool_name;
+		// itemName: kept for backward compatibility with AI context (item-specific field)
 		const itemName = approval.display_info?.item_name;
+		// entityName: unified field for all entity types (items, locations, labels)
+		const entityName = approval.display_info?.target_name ?? approval.display_info?.item_name;
 
 		try {
 			await chat.rejectAction(approvalId);
 			this._pendingApprovals = this._pendingApprovals.filter((a) => a.id !== approvalId);
 
 			// Record outcome for AI context in next message
+			// Note: ApprovalOutcome still uses item_name for backward compatibility
 			this._recentApprovalOutcomes = [
 				...this._recentApprovalOutcomes,
 				{
@@ -920,6 +932,7 @@ class ChatStore {
 			// Track rejection on the last assistant message
 			const rejectedAction: ExecutedAction = {
 				toolName,
+				entityName,
 				success: false,
 				rejected: true,
 			};
@@ -931,7 +944,7 @@ class ChatStore {
 			}
 
 			// Generate rejection confirmation text (similar to approved actions)
-			const summary = itemName ? `'${itemName}'` : '';
+			const summary = entityName ? `'${entityName}'` : '';
 			const rejectionText = summary ? `⊘ ${toolName}: ${summary}` : `⊘ ${toolName}`;
 
 			this._messages = this._messages.map((msg, idx) => {

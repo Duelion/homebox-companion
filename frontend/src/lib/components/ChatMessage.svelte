@@ -70,8 +70,10 @@
 	});
 
 	// Group executed actions by tool name with count
+	// Show entity names when available, group only when missing
 	interface GroupedAction {
 		toolName: string;
+		entityName?: string;
 		successCount: number;
 		failCount: number;
 		rejectCount: number;
@@ -83,16 +85,22 @@
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local variable in pure derivation
 		const groups = new Map<
 			string,
-			{ successCount: number; failCount: number; rejectCount: number }
+			{ entityName?: string; successCount: number; failCount: number; rejectCount: number }
 		>();
 		for (const action of message.executedActions) {
-			const existing = groups.get(action.toolName);
+			// Group by tool name + entity name (or just tool name if no entity)
+			// Trim to handle empty/whitespace-only entity names
+			const groupKey = action.entityName?.trim()
+				? `${action.toolName}::${action.entityName}`
+				: action.toolName;
+			const existing = groups.get(groupKey);
 			if (existing) {
 				if (action.rejected) existing.rejectCount++;
 				else if (action.success) existing.successCount++;
 				else existing.failCount++;
 			} else {
-				groups.set(action.toolName, {
+				groups.set(groupKey, {
+					entityName: action.entityName,
 					successCount: action.rejected ? 0 : action.success ? 1 : 0,
 					failCount: action.rejected ? 0 : action.success ? 0 : 1,
 					rejectCount: action.rejected ? 1 : 0,
@@ -101,9 +109,12 @@
 		}
 
 		const grouped: GroupedAction[] = [];
-		for (const [toolName, { successCount, failCount, rejectCount }] of groups) {
+		for (const [groupKey, { entityName, successCount, failCount, rejectCount }] of groups) {
+			// Extract tool name from the group key
+			const toolName = groupKey.includes('::') ? groupKey.split('::')[0] : groupKey;
 			grouped.push({
 				toolName,
+				entityName,
 				successCount,
 				failCount,
 				rejectCount,
@@ -273,15 +284,16 @@
 							</div>
 						{/each}
 						<!-- Executed action badges -->
-						{#each groupedExecutedActions as action (action.toolName)}
+						{#each groupedExecutedActions as action (action.toolName + (action.entityName || ''))}
 							{@const hasSuccess = action.successCount > 0}
 							{@const hasFail = action.failCount > 0}
 							{@const hasReject = action.rejectCount > 0}
+							{@const displayText = action.entityName ? `${action.toolName}: ${action.entityName}` : action.toolName}
 							<!-- Show success badge if any succeeded -->
 							{#if hasSuccess}
 								<div class="chat-tool-badge {badgeStyles.success}">
 									<span class="font-bold">✓</span>
-									<span class="font-mono">{action.toolName}</span>
+									<span class="font-mono">{displayText}</span>
 									{#if action.successCount > 1}
 										<span class="opacity-70">×{action.successCount}</span>
 									{/if}
@@ -291,7 +303,7 @@
 							{#if hasFail}
 								<div class="chat-tool-badge {badgeStyles.error}">
 									<span class="font-bold">✗</span>
-									<span class="font-mono">{action.toolName}</span>
+									<span class="font-mono">{displayText}</span>
 									{#if action.failCount > 1}
 										<span class="opacity-70">×{action.failCount}</span>
 									{/if}
@@ -301,7 +313,7 @@
 							{#if hasReject}
 								<div class="chat-tool-badge {badgeStyles.warning}">
 									<span class="font-bold">⊘</span>
-									<span class="font-mono">{action.toolName}</span>
+									<span class="font-mono">{displayText}</span>
 									{#if action.rejectCount > 1}
 										<span class="opacity-70">×{action.rejectCount}</span>
 									{/if}
