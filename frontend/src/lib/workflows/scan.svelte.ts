@@ -648,12 +648,19 @@ class ScanWorkflow {
 
 	/** Skip current item and move to next */
 	skipItem(): void {
+		console.log('[SCAN] skipItem called, currentIndex:', this.reviewService.currentReviewIndex);
+		console.log('[SCAN] detectedItems.length:', this.reviewService.detectedItems.length);
+		console.log('[SCAN] confirmedItems.length:', this.reviewService.confirmedItems.length);
 		const result = this.reviewService.skipCurrentItem();
+		console.log('[SCAN] skipCurrentItem result:', result);
 		if (result === 'empty') {
+			console.log('[SCAN] All items skipped, calling backToCapture');
 			this.backToCapture();
 		} else if (result === 'complete') {
+			console.log('[SCAN] Review complete, calling finishReview');
 			this.finishReview();
 		}
+		console.log('[SCAN] After skip, status:', this._status);
 	}
 
 	/** Confirm current item and move to next */
@@ -673,15 +680,19 @@ class ScanWorkflow {
 
 	/** Finish review and move to confirmation */
 	finishReview(): void {
+		console.log('[SCAN] finishReview called, hasConfirmedItems:', this.reviewService.hasConfirmedItems);
 		if (!this.reviewService.hasConfirmedItems) {
 			this._error = 'Please confirm at least one item';
+			console.log('[SCAN] No confirmed items, setting error');
 			return;
 		}
+		console.log('[SCAN] Setting status to confirming');
 		this._status = 'confirming';
 	}
 
 	/** Return to capture mode from review */
 	backToCapture(): void {
+		console.log('[SCAN] backToCapture called, setting status to capturing');
 		this._status = 'capturing';
 		this.reviewService.reset();
 		this._error = null;
