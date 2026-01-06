@@ -130,6 +130,8 @@ async def send_message(
     """
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     # TRACE: Log incoming chat message
     logger.trace(f"[API] Incoming chat message: {request.message}")
@@ -160,6 +162,8 @@ async def list_pending_approvals(
     """
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     approvals = session.list_pending_approvals()
 
@@ -197,6 +201,8 @@ async def approve_action(
     """
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     # Create approval service with injected executor
     approval_service = ApprovalService(session, executor)
@@ -272,6 +278,8 @@ async def reject_action(
     """
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     # Use the session's reject_approval method which handles history update
     if not session.reject_approval(approval_id, "user rejected"):
@@ -294,6 +302,8 @@ async def clear_history(
     """
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     session_store_holder.get().delete(token)
 
@@ -319,6 +329,8 @@ async def get_session_status(
     """
     if not settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     return {
         "session_id": session.session_id,
