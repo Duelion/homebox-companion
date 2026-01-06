@@ -216,7 +216,7 @@ class SettingsService {
 			]);
 
 			this.config = configResult;
-			setDemoMode(configResult.is_demo_mode);
+			setDemoMode(configResult.is_demo_mode, configResult.demo_mode_explicit);
 			this.availableLabels = labelsResult;
 
 			// Set update info

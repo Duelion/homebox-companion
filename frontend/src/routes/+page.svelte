@@ -40,7 +40,7 @@
 			// Check if in demo mode and auto-fill credentials
 			try {
 				const config = await getConfig();
-				setDemoMode(config.is_demo_mode);
+				setDemoMode(config.is_demo_mode, config.demo_mode_explicit);
 				if (config.is_demo_mode) {
 					email = 'demo@example.com';
 					password = 'demo';

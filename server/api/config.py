@@ -12,6 +12,9 @@ class ConfigResponse(BaseModel):
     """Safe configuration information for the frontend."""
 
     is_demo_mode: bool
+    # Explicit demo mode from HBC_DEMO_MODE env var only (not URL detection).
+    # Used for security-sensitive features like disabling chat.
+    demo_mode_explicit: bool
     homebox_url: str
     llm_model: str
     update_check_enabled: bool
@@ -30,6 +33,7 @@ async def get_config() -> ConfigResponse:
     """
     return ConfigResponse(
         is_demo_mode=settings.is_demo_mode,
+        demo_mode_explicit=settings.demo_mode,
         homebox_url=settings.homebox_url,
         llm_model=settings.effective_llm_model,
         update_check_enabled=not settings.disable_update_check,

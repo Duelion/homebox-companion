@@ -10,15 +10,22 @@ import { request } from './client';
 
 const DEMO_PREFS_KEY = 'hbc_demo_field_preferences';
 let isDemoMode = false;
+let isDemoModeExplicit = false;
 
 /** Set demo mode status (called after fetching config) */
-export function setDemoMode(demoMode: boolean): void {
+export function setDemoMode(demoMode: boolean, explicitDemoMode: boolean = false): void {
 	isDemoMode = demoMode;
+	isDemoModeExplicit = explicitDemoMode;
 }
 
-/** Get current demo mode status */
+/** Get current demo mode status (includes URL-based detection) */
 export function getIsDemoMode(): boolean {
 	return isDemoMode;
+}
+
+/** Get explicit demo mode status (only HBC_DEMO_MODE env var, for security-sensitive features) */
+export function getIsDemoModeExplicit(): boolean {
+	return isDemoModeExplicit;
 }
 
 /** Get default empty preferences */
@@ -89,6 +96,8 @@ export const getVersion = (forceCheck: boolean = false) =>
 
 export interface ConfigResponse {
 	is_demo_mode: boolean;
+	/** Explicit demo mode from HBC_DEMO_MODE env var only (not URL detection) */
+	demo_mode_explicit: boolean;
 	homebox_url: string;
 	llm_model: string;
 	update_check_enabled: boolean;

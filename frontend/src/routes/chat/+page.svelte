@@ -13,7 +13,7 @@
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
-	import { getIsDemoMode } from '$lib/api/settings';
+	import { getIsDemoModeExplicit } from '$lib/api/settings';
 	import { createLogger } from '$lib/utils/logger';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
@@ -113,11 +113,11 @@
 			return;
 		}
 
-		// Check if in demo mode - chat is disabled in demo mode
-		isDemoMode = getIsDemoMode();
+		// Check if in explicit demo mode (HBC_DEMO_MODE env var) - chat is disabled
+		isDemoMode = getIsDemoModeExplicit();
 		if (isDemoMode) {
 			isEnabled = false;
-			log.debug('Chat disabled: demo mode');
+			log.debug('Chat disabled: explicit demo mode (HBC_DEMO_MODE=true)');
 			return;
 		}
 

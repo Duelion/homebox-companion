@@ -2,14 +2,14 @@
 	import { page } from '$app/stores';
 	import { resolve } from '$app/paths';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
-	import { getIsDemoMode } from '$lib/api/settings';
+	import { getIsDemoModeExplicit } from '$lib/api/settings';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 
 	// Type-safe route type for dynamic paths
 	type AppRoute = Parameters<typeof resolve>[0];
 
-	// Demo mode disables certain features
-	let isDemoMode = $derived(getIsDemoMode());
+	// Explicit demo mode (HBC_DEMO_MODE env var) disables certain features like chat
+	let isDemoModeExplicit = $derived(getIsDemoModeExplicit());
 
 	/**
 	 * Bottom navigation item configuration.
@@ -55,7 +55,7 @@
 			href: '/chat',
 			icon: 'chat',
 			activeRoutes: ['/chat'],
-			disabled: isDemoMode,
+			disabled: isDemoModeExplicit,
 			disabledTooltip: 'Chat is disabled in demo mode',
 		},
 		{
