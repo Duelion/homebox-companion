@@ -90,11 +90,21 @@ export const getAIConfig = () => request<AIConfigResponse>('/settings/ai-config'
 /**
  * Update AI configuration
  */
-export const updateAIConfig = (config: AIConfigInput) =>
-	request<AIConfigResponse>('/settings/ai-config', {
-		method: 'PUT',
-		body: JSON.stringify(config),
-	});
+export const updateAIConfig = async (config: AIConfigInput): Promise<AIConfigResponse> => {
+	console.log('[AI_CONFIG_API] updateAIConfig called');
+	console.log('[AI_CONFIG_API] Config to send:', JSON.stringify(config, null, 2));
+	try {
+		const result = await request<AIConfigResponse>('/settings/ai-config', {
+			method: 'PUT',
+			body: JSON.stringify(config),
+		});
+		console.log('[AI_CONFIG_API] Request completed successfully');
+		return result;
+	} catch (error) {
+		console.error('[AI_CONFIG_API] Request failed:', error);
+		throw error;
+	}
+};
 
 /**
  * Reset AI configuration to defaults
