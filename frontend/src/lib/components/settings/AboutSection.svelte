@@ -9,9 +9,9 @@
 </script>
 
 <section class="card space-y-4">
-	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+	<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
 		<svg
-			class="h-5 w-5 text-primary-400"
+			class="text-primary-400 h-5 w-5"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -34,7 +34,7 @@
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500 transition-colors hover:bg-warning-500/30"
+					class="bg-warning-500/20 text-warning-500 hover:bg-warning-500/30 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors"
 					title="Click to view release"
 				>
 					<svg
@@ -52,7 +52,7 @@
 				</a>
 			{:else if service.updateCheckDone}
 				<span
-					class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-xs text-success-500"
+					class="bg-success-500/20 text-success-500 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
 				>
 					<svg
 						class="h-3 w-3"
@@ -94,7 +94,7 @@
 		</div>
 	</div>
 	{#if service.errors.updateCheck}
-		<p class="text-xs text-error-500">{service.errors.updateCheck}</p>
+		<p class="text-error-500 text-xs">{service.errors.updateCheck}</p>
 	{/if}
 
 	<!-- GitHub Link -->
@@ -125,7 +125,11 @@
 			</svg>
 		</a>
 		<p class="flex items-start gap-1.5 text-xs text-neutral-500">
-			<svg class="mt-0.5 h-3.5 w-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 16 16">
+			<svg
+				class="text-warning-500 mt-0.5 h-3.5 w-3.5 flex-shrink-0"
+				fill="currentColor"
+				viewBox="0 0 16 16"
+			>
 				<path
 					d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"
 				/>
@@ -141,7 +145,7 @@
 		onclick={() => (service.showAboutDetails = !service.showAboutDetails)}
 	>
 		<svg
-			class="h-5 w-5 text-primary-400"
+			class="text-primary-400 h-5 w-5"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -175,7 +179,7 @@
 							href={service.config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
+							class="hover:text-primary-400 flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors"
 							title={service.config.homebox_url}
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -193,7 +197,7 @@
 						</a>
 						{#if service.config.is_demo_mode}
 							<span
-								class="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
+								class="bg-warning-500/20 text-warning-500 inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs"
 							>
 								Demo
 							</span>
@@ -210,14 +214,14 @@
 				<!-- Image Quality -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">Image Quality</span>
-					<span class="font-mono text-sm capitalize text-neutral-100"
+					<span class="font-mono text-sm text-neutral-100 capitalize"
 						>{service.config.image_quality}</span
 					>
 				</div>
 			{:else if service.isLoading.config}
 				<div class="flex items-center justify-center py-4">
 					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+						class="border-primary-500 h-5 w-5 animate-spin rounded-full border-2 border-t-transparent"
 					></div>
 				</div>
 			{/if}
