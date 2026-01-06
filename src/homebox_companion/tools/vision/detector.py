@@ -12,6 +12,10 @@ from .models import DetectedItem
 from .prompts import (
     build_detection_system_prompt,
     build_detection_user_prompt,
+    build_discriminatory_system_prompt,
+    build_discriminatory_user_prompt,
+    build_grouped_detection_system_prompt,
+    build_grouped_detection_user_prompt,
     build_multi_image_system_prompt,
 )
 
@@ -144,5 +148,132 @@ async def _detect_items_from_data_uris(
                 f"    Extended: manufacturer={item.manufacturer}, "
                 f"model={item.model_number}, serial={item.serial_number}"
             )
+
+    return items
+
+
+async def discriminatory_detect_items(
+    image_data_uris: list[str],
+    api_key: str | None = None,
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+    extract_extended_fields: bool = True,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
+) -> list[DetectedItem]:
+    """Re-detect items from images with more discriminatory instructions.
+
+    This function re-analyzes images with specific instructions to be more
+    discriminatory and separate items that might have been grouped together.
+
+    Args:
+        image_data_uris: List of data URI strings for each image.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
+        labels: Optional list of Homebox labels to suggest for items.
+        extract_extended_fields: If True, also extract extended fields.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for AI output (default: English).
+
+    Returns:
+        List of detected items, ideally more specific/separated than before.
+    """
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
+
+    logger.info(f"Discriminatory detection with {len(image_data_uris)} images")
+    logger.debug(f"Extract extended fields: {extract_extended_fields}")
+    logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
+    logger.debug(f"Output language: {output_language or 'English (default)'}")
+
+    system_prompt = build_discriminatory_system_prompt(
+        labels, extract_extended_fields, field_preferences, output_language
+    )
+    user_prompt = build_discriminatory_user_prompt()
+
+    parsed_content = await vision_completion(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        image_data_uris=image_data_uris,
+        api_key=api_key,
+        model=model,
+        expected_keys=["items"],
+    )
+
+    items = DetectedItem.from_raw_items(parsed_content.get("items", []))
+
+    logger.info(f"Discriminatory detection found {len(items)} items")
+    for item in items:
+        logger.debug(f"  Item: {item.name}, qty: {item.quantity}")
+
+    return items
+
+
+async def grouped_detect_items(
+    image_data_uris: list[str],
+    api_key: str | None = None,
+    model: str | None = None,
+    labels: list[dict[str, str]] | None = None,
+    extract_extended_fields: bool = True,
+    extra_instructions: str | None = None,
+    field_preferences: dict[str, str] | None = None,
+    output_language: str | None = None,
+) -> list[DetectedItem]:
+    """Detect items from multiple images with automatic grouping.
+
+    This function analyzes all images together and automatically groups
+    images that show the same physical item. It returns items with
+    `image_indices` indicating which images show each item.
+
+    Use this when:
+    - Uploading multiple images that may show the same item from different angles
+    - You want the AI to automatically determine which images go together
+    - You don't know ahead of time how images should be grouped
+
+    Args:
+        image_data_uris: List of data URI strings for each image.
+        api_key: LLM API key. Defaults to effective_llm_api_key.
+        model: Model name. Defaults to effective_llm_model.
+        labels: Optional list of Homebox labels to suggest for items.
+        extract_extended_fields: If True, also extract extended fields.
+        extra_instructions: Optional user hint about image contents.
+        field_preferences: Optional dict of field customization instructions.
+        output_language: Target language for AI output (default: English).
+
+    Returns:
+        List of detected items, each with `image_indices` indicating which
+        images show that item. Items are unique (no duplicates).
+    """
+    api_key = api_key or settings.effective_llm_api_key
+    model = model or settings.effective_llm_model
+
+    image_count = len(image_data_uris)
+    logger.info(f"Grouped detection with {image_count} images (auto-grouping)")
+    logger.debug(f"Extract extended fields: {extract_extended_fields}")
+    logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
+    logger.debug(f"Output language: {output_language or 'English (default)'}")
+
+    system_prompt = build_grouped_detection_system_prompt(
+        labels, extract_extended_fields, field_preferences, output_language
+    )
+    user_prompt = build_grouped_detection_user_prompt(
+        image_count, extra_instructions, extract_extended_fields
+    )
+
+    parsed_content = await vision_completion(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        image_data_uris=image_data_uris,
+        api_key=api_key,
+        model=model,
+        expected_keys=["items"],
+    )
+
+    items = DetectedItem.from_raw_items(parsed_content.get("items", []))
+
+    logger.info(f"Grouped detection found {len(items)} unique items from {image_count} images")
+    for item in items:
+        indices_str = str(item.image_indices) if item.image_indices else "none"
+        logger.debug(f"  Item: {item.name}, qty: {item.quantity}, images: {indices_str}")
 
     return items

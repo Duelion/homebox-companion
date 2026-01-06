@@ -77,6 +77,8 @@ from .tools.vision import (
     analyze_item_details_from_images,
     correct_item,
     detect_items_from_bytes,
+    discriminatory_detect_items,
+    grouped_detect_items,
 )
 
 # State management (crash recovery)
@@ -110,6 +112,8 @@ __all__ = [
     # Vision tool
     "DetectedItem",
     "detect_items_from_bytes",
+    "discriminatory_detect_items",
+    "grouped_detect_items",
     "analyze_item_details_from_images",
     "correct_item",
     # Image utilities

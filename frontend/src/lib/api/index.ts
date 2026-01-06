@@ -109,7 +109,7 @@ export {
 } from './aiConfig';
 
 // Re-export types from vision for convenience
-export type { DetectOptions, BatchDetectOptions } from './vision';
+export type { DetectOptions, BatchDetectOptions, GroupedDetectOptions } from './vision';
 
 // Re-export domain types for consumers that import from '$lib/api'
 export type {
@@ -127,4 +127,5 @@ export type {
 	CorrectionResponse,
 	BatchDetectionResult,
 	BatchDetectionResponse,
+	GroupedDetectionResponse,
 } from '../types';

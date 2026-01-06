@@ -248,7 +248,10 @@ export interface DetectionResponse {
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
-export interface DetectedItem extends ItemCore, ItemExtended {}
+export interface DetectedItem extends ItemCore, ItemExtended {
+	/** Indices of images showing this item (0-based). Only set in grouped detection mode. */
+	image_indices?: number[] | null;
+}
 
 /** Single image result in batch detection */
 export interface BatchDetectionResult {
@@ -264,6 +267,15 @@ export interface BatchDetectionResponse {
 	total_items: number;
 	successful_images: number;
 	failed_images: number;
+	message: string;
+}
+
+/** Response from grouped/auto-group detection */
+export interface GroupedDetectionResponse {
+	/** Unique items detected across all images, each with image_indices */
+	items: DetectedItem[];
+	/** Total number of images analyzed */
+	total_images: number;
 	message: string;
 }
 

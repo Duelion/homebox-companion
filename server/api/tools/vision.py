@@ -18,6 +18,7 @@ from homebox_companion import (
     detect_items_from_bytes,
     encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
+    grouped_detect_items,
     settings,
 )
 from homebox_companion import (
@@ -41,6 +42,7 @@ from ...schemas.vision import (
     CorrectionResponse,
     DetectedItemResponse,
     DetectionResponse,
+    GroupedDetectionResponse,
 )
 
 router = APIRouter()
@@ -391,6 +393,105 @@ async def detect_items_batch(
         failed_images=failed,
         message=f"Processed {len(results)} images in parallel",
     )
+
+
+@router.post("/detect-grouped", response_model=GroupedDetectionResponse)
+async def detect_items_grouped(
+    images: Annotated[list[UploadFile], File(description="Multiple images to analyze together")],
+    ctx: Annotated[VisionContext, Depends(get_vision_context)],
+    llm_config: Annotated[LLMConfig, Depends(get_configured_llm)],
+    extra_instructions: Annotated[str | None, Form()] = None,
+    extract_extended_fields: Annotated[bool, Form()] = True,
+) -> GroupedDetectionResponse:
+    """Analyze multiple images together with automatic grouping.
+
+    Unlike /detect-batch which processes images independently, this endpoint
+    sends ALL images to the AI in a single request and asks it to:
+    1. Identify unique items across all images
+    2. Group images that show the same physical item
+
+    Use this when:
+    - Multiple images may show the same item from different angles
+    - You want the AI to automatically determine which images go together
+    - You don't know ahead of time how images should be grouped
+
+    Each returned item includes `image_indices` indicating which images show it.
+
+    Args:
+        images: List of image files to analyze together.
+        ctx: Vision context with auth token, labels, and preferences.
+        llm_config: LLM configuration with api_key, model, and provider.
+        extra_instructions: Optional user hint about image contents.
+        extract_extended_fields: If True, also extract extended fields.
+    """
+    logger.info(f"Grouped detection for {len(images)} images")
+
+    if not images:
+        raise HTTPException(status_code=400, detail="At least one image is required")
+
+    if len(images) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Grouped detection requires at least 2 images. Use /detect for single images.",
+        )
+
+    logger.debug(f"Loaded {len(ctx.labels)} labels for context")
+
+    # Read and validate all images
+    validated_images = await validate_files_size(images)
+
+    # Convert to data URIs
+    image_data_uris = [
+        encode_image_bytes_to_data_uri(img_bytes, mime_type)
+        for img_bytes, mime_type in validated_images
+    ]
+
+    try:
+        # Run grouped detection
+        logger.info(f"Starting grouped detection with {len(image_data_uris)} images...")
+        detected = await grouped_detect_items(
+            image_data_uris=image_data_uris,
+            api_key=llm_config.api_key,
+            model=get_llm_model_for_litellm(llm_config),
+            labels=ctx.labels,
+            extract_extended_fields=extract_extended_fields,
+            extra_instructions=extra_instructions,
+            field_preferences=ctx.field_preferences,
+            output_language=ctx.output_language,
+        )
+
+        logger.info(f"Grouped detection found {len(detected)} unique items")
+
+        # Filter out default label from AI suggestions
+        return GroupedDetectionResponse(
+            items=[
+                DetectedItemResponse(
+                    name=item.name,
+                    quantity=item.quantity,
+                    description=item.description,
+                    label_ids=filter_default_label(item.label_ids, ctx.default_label_id),
+                    manufacturer=item.manufacturer,
+                    model_number=item.model_number,
+                    serial_number=item.serial_number,
+                    purchase_price=item.purchase_price,
+                    purchase_from=item.purchase_from,
+                    notes=item.notes,
+                    image_indices=item.image_indices,
+                )
+                for item in detected
+            ],
+            total_images=len(images),
+            message=f"Found {len(detected)} unique items in {len(images)} images",
+        )
+    except CapabilityNotSupportedError as e:
+        logger.error(f"Configuration error for grouped detection: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except (JSONRepairError, LLMError) as e:
+        logger.error(f"LLM error for grouped detection: {e}")
+        error_msg = str(e)
+        if len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
+        raise HTTPException(status_code=500, detail=f"LLM error: {error_msg}") from e
 
 
 @router.post("/analyze", response_model=AdvancedItemDetails)

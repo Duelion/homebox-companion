@@ -27,7 +27,11 @@ class ItemBaseMixin(BaseModel):
 class DetectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
     """Detected item from image analysis."""
 
-    pass
+    # Grouping field - only populated when using grouped/auto-group detection
+    image_indices: list[int] | None = Field(
+        default=None,
+        description="Indices of images showing this item (0-based). Only set in grouped detection mode.",
+    )
 
 
 class CompressedImage(BaseModel):
@@ -61,7 +65,11 @@ class AdvancedItemDetails(ItemExtendedFieldsMixin):
 class CorrectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
     """A corrected item from AI analysis."""
 
-    pass
+    # Grouping field - for consistency with DetectedItemResponse
+    image_indices: list[int] | None = Field(
+        default=None,
+        description="Indices of images showing this item (0-based).",
+    )
 
 
 class CorrectionResponse(BaseModel):
@@ -88,3 +96,18 @@ class BatchDetectionResponse(BaseModel):
     successful_images: int
     failed_images: int
     message: str = "Batch detection complete"
+
+
+class GroupedDetectionResponse(BaseModel):
+    """Response from grouped/auto-group batch detection.
+
+    In grouped mode, all images are analyzed together to identify
+    unique items. Each item includes image_indices showing which
+    images contain that item.
+    """
+
+    items: list[DetectedItemResponse] = Field(
+        description="Unique items detected across all images, with image_indices"
+    )
+    total_images: int = Field(description="Total number of images analyzed")
+    message: str = "Grouped detection complete"
