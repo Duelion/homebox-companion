@@ -4,11 +4,13 @@
   <a href="#"><img src=".github/assets/images/homebox-companion-icon.png" height="200"/></a>
 </div>
 
-<h1 align="center" style="margin-top: -10px;"> Homebox Companion </h1>
+<h1 align="center" style="margin-top: -10px;"> Homebox Companion (Enhanced Fork) </h1>
 
-> **Not affiliated with the Homebox project.** This is an unofficial third-party companion app.
+> **Fork of [Duelion/homebox-companion](https://github.com/Duelion/homebox-companion)** with privacy-first enhancements.
+> Not affiliated with the Homebox project. This is an unofficial third-party companion app.
 
 AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) inventory management.
+
 <table align="center">
   <tr>
     <td><img src=".github/assets/images/01_select_location.png" width="180" alt="Select Location"></td>
@@ -19,95 +21,152 @@ AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) in
 </table>
 
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
-Use the **AI Chat** to manage your inventory, find locations, or update details just by asking.
 
-<div align="center">
-  <a href="https://demo.hbcompanion.duelion.com/" target="_blank">
-    <img src=".github/assets/images/demo_button.png" alt="Try Live Demo" width="280">
-  </a>
-  <br>
-  <sub><i>AI Chat is disabled in demo mode.</i></sub>
-</div>
+## Fork Enhancements
 
-## 🔄 How It Works
+This fork adds the following features while maintaining full compatibility with the upstream project:
 
-```mermaid
-flowchart LR
-    A[🔐 Login<br/>Homebox] --> B[📍 Select<br/>Location]
-    B --> C[📸 Capture<br/>Photos]
-    C --> D[✏️ Review &<br/>Edit Items]
-    D --> E[✅ Submit to<br/>Homebox]
-    
-    B -.-> B1[/Browse, search,<br/>or scan QR/]
-    C -.-> C1[/AI analyzes with<br/>OpenAI GPT-5/]
-    D -.-> D1[/Edit names,<br/>quantities, labels/]
-    
-```
+| Feature | Description |
+|---------|-------------|
+| **Multi-Provider AI** | Switch between OpenAI, Anthropic, and Ollama from the Settings UI |
+| **Local AI (Ollama)** | Privacy-first local processing - images never leave your network |
+| **Duplicate Detection** | Warns when scanned items match existing serial numbers |
+| **In-App Configuration** | Configure everything in the UI - no YAML/env vars required |
+| **Simplified Deployment** | Just mount a volume, configure in browser |
 
-1. **Login** – Authenticate with your existing Homebox credentials
-2. **Select Location** – Browse the location tree, search, or scan a Homebox QR code
-3. **Capture Photos** – Take or upload photos of items (supports multiple photos per item)
-4. **AI Detection** – AI vision (via LiteLLM*) identifies items, quantities, and metadata
-5. **Review & Edit** – Adjust AI suggestions or ask AI to correct mistakes
-6. **Submit** – Items are created in your Homebox inventory with photos attached
+See the [Wiki](../../wiki) for detailed documentation on all features.
 
-> *LiteLLM is a Python adaptor library we use to call OpenAI directly, no Local AI model required (unless you want to), just your API key.
+---
 
-## 💰 OpenAI Cost Estimates
+## Quick Start (This Fork)
 
-**GPT-5 mini** (default) offers the best accuracy. **GPT-5 nano** is 3x cheaper but may need more corrections. Typical cost: **~$0.30 per 100 items** (mini) or **~$0.10 per 100 items** (nano).
-
-*Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.*
-
-## 📋 Requirements
-
-Before you start, you'll need:
-
-- **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
-- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test
-
-> **Compatibility:** Tested with Homebox v0.21+. Earlier versions may have different authentication behavior.
-
-## 🚀 Quick Start
-
-### Try with Demo Server
-
-Want to try it out without setting up Homebox? Use the public demo server:
-
-```bash
-docker run -p 8000:8000 \
-  -e HBC_LLM_API_KEY=sk-your-key \
-  -e HBC_HOMEBOX_URL=https://demo.homebox.software \
-  ghcr.io/duelion/homebox-companion:latest
-```
-
-Open `http://localhost:8000` and login with `demo@example.com` / `demo`
-
-### Docker (Recommended)
+### Simplified Docker Deployment
 
 ```yaml
 # docker-compose.yml
 services:
   homebox-companion:
-    image: ghcr.io/duelion/homebox-companion:latest
+    image: ghcr.io/synssins/homebox-companion:latest
     container_name: homebox-companion
     restart: always
-    environment:
-      - HBC_LLM_API_KEY=sk-your-api-key-here
-      - HBC_HOMEBOX_URL=http://your-homebox-ip:7745
     ports:
       - 8000:8000
+    volumes:
+      - companion-data:/data
+
+volumes:
+  companion-data:
 ```
 
 ```bash
 docker compose up -d
 ```
 
-Open `http://localhost:8000` in your browser.
+Open `http://localhost:8000` and configure everything in the Settings page:
+1. **Connection Settings** - Enter your Homebox URL
+2. **AI Provider** - Configure OpenAI, Anthropic, or Ollama
+3. **Behavior Settings** - Enable duplicate detection
 
-> **Tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
+> **No environment variables required!** All configuration is done in the browser and persists in the data volume.
 
-## ✨ Features
+### Using Local AI (Ollama)
+
+For complete privacy with no cloud dependencies:
+
+```yaml
+services:
+  homebox-companion:
+    image: ghcr.io/synssins/homebox-companion:latest
+    ports:
+      - 8000:8000
+    volumes:
+      - companion-data:/data
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - 11434:11434
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  companion-data:
+  ollama-models:
+```
+
+Then in Settings > AI Provider:
+1. Enable Ollama
+2. Set URL to `http://ollama:11434`
+3. Select a vision model (e.g., `minicpm-v`)
+
+Pull the model first: `docker exec ollama ollama pull minicpm-v`
+
+---
+
+## How It Works
+
+```mermaid
+flowchart LR
+    A[Login<br/>Homebox] --> B[Select<br/>Location]
+    B --> C[Capture<br/>Photos]
+    C --> D[Review &<br/>Edit Items]
+    D --> E[Submit to<br/>Homebox]
+
+    C -.-> C1[/AI analyzes with<br/>your choice of provider/]
+    D -.-> D1[/Duplicate warnings<br/>shown here/]
+```
+
+1. **Login** - Authenticate with your existing Homebox credentials
+2. **Select Location** - Browse the location tree, search, or scan a Homebox QR code
+3. **Capture Photos** - Take or upload photos of items (supports multiple photos per item)
+4. **AI Detection** - AI vision identifies items, quantities, and metadata
+5. **Review & Edit** - Adjust AI suggestions, see duplicate warnings
+6. **Submit** - Items are created in your Homebox inventory with photos attached
+
+---
+
+## Fork-Specific Features
+
+### Multi-Provider AI Configuration
+
+Configure and switch between AI providers directly in the Settings UI:
+
+- **OpenAI** - GPT-4o, GPT-4o-mini (cloud, paid)
+- **Anthropic** - Claude models (cloud, paid)
+- **Ollama** - Local models like minicpm-v, llava (free, private)
+
+Each provider can be enabled/disabled independently. The active provider is shown in a badge on the Settings page.
+
+### Duplicate Detection
+
+Prevents accidentally creating duplicate inventory entries:
+
+- Builds an index of all serial numbers in your Homebox
+- Checks scanned items against the index during review
+- Shows warning banner: "May be duplicate - matches [Item Name]"
+- Non-blocking - you can still add items if desired
+- Persistent index survives container restarts
+
+Enable in Settings > Behavior Settings.
+
+### In-App Settings
+
+All configuration moved from environment variables to the UI:
+
+| Setting | Location |
+|---------|----------|
+| Homebox URL | Settings > Connection |
+| Image Quality | Settings > Connection |
+| AI Provider/Keys | Settings > AI Provider |
+| Duplicate Detection | Settings > Behavior |
+
+Settings persist in `/data` - just mount the volume and configure once.
+
+---
+
+## Original Features
+
+All features from the upstream project are preserved:
 
 ### AI-Powered Detection
 - Identifies multiple items in a single photo
@@ -116,10 +175,10 @@ Open `http://localhost:8000` in your browser.
 - Multi-language support
 
 ### Smart Workflow
-- **Multi-image analysis** – Take photos from multiple angles for better accuracy
-- **Single-item mode** – Force AI to treat a photo as one item (for sets/kits)
-- **AI corrections** – Tell the AI what it got wrong and it re-analyzes
-- **Custom thumbnails** – Crop and select the best image for each item
+- **Multi-image analysis** - Take photos from multiple angles for better accuracy
+- **Single-item mode** - Force AI to treat a photo as one item (for sets/kits)
+- **AI corrections** - Tell the AI what it got wrong and it re-analyzes
+- **Custom thumbnails** - Crop and select the best image for each item
 
 ### Location Management
 - Browse hierarchical location tree
@@ -127,19 +186,13 @@ Open `http://localhost:8000` in your browser.
 - Scan Homebox QR codes
 - Create new locations on the fly
 
-### Customization
-- Configure how AI formats each field (name style, description format, etc.)
-- Set a default label for all detected items
-- Export settings as environment variables for Docker persistence
-
 ### Chat Assistant
-- **Natural language queries** – Ask questions like "How many items do I have?" or "List my labels"
-- **Inventory actions** – Create, update, move, or delete items through conversation
-- **Approval workflow** – Review and approve AI-proposed changes before they're applied
-- **Streaming responses** – Real-time AI responses with tool execution feedback
+- **Natural language queries** - Ask questions like "How many items do I have?"
+- **Inventory actions** - Create, update, move, or delete items through conversation
+- **Approval workflow** - Review AI-proposed changes before they're applied
 
 <details>
-<summary>Available Tools</summary>
+<summary>Available Chat Tools</summary>
 
 The chat assistant has access to 21 tools for interacting with your Homebox inventory:
 
@@ -181,193 +234,78 @@ The chat assistant has access to 21 tools for interacting with your Homebox inve
 
 </details>
 
-## 🤖 LLM Provider Support
+---
 
-Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library to call AI providers. **You don't need to self-host anything** – just get an OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys) and you're ready to go. We officially support and test with OpenAI GPT models only.
+## Configuration
 
-<details>
-<summary>Officially Supported Models</summary>
+### Environment Variables (Optional)
 
-- **GPT-5 mini** (default) – Recommended for best balance of speed and accuracy
-- **GPT-5 nano**
-
-</details>
+While this fork allows full configuration via the UI, environment variables still work for automated deployments:
 
 <details>
-<summary>Using Other Providers (Experimental)</summary>
-
-You can try other LiteLLM-compatible providers at your own risk. The app checks if your chosen model supports the required capabilities using LiteLLM's API:
-
-**Required capabilities:**
-- **Vision** – Checked via `litellm.supports_vision(model)`
-- **Structured outputs** – Checked via `litellm.supports_response_schema(model)`
-
-**Finding model names:**
-
-Model names are passed directly to LiteLLM. Use the exact names from LiteLLM's documentation:
-- [LiteLLM Supported Models](https://docs.litellm.ai/docs/providers)
-
-Common examples:
-- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5-mini`
-- Anthropic: `claude-sonnet-4-5`, `claude-3-5-sonnet-20241022`
-
-> **Note:** Model names must exactly match LiteLLM's expected format. Typos or incorrect formats will cause errors. Check [LiteLLM's provider documentation](https://docs.litellm.ai/docs/providers) for the correct model names.
-
-**Running Local Models:**
-
-You can run models locally using tools like [Ollama](https://ollama.ai/), [LM Studio](https://lmstudio.ai/), or [vLLM](https://docs.vllm.ai/). See [LiteLLM's Local Server documentation](https://docs.litellm.ai/docs/providers/ollama) for setup instructions.
-
-Once your local server is running, configure the app:
-
-```bash
-HBC_LLM_API_KEY=any-value-works-for-local  # Just needs to be non-empty
-HBC_LLM_API_BASE=http://localhost:11434     # Your local server URL
-HBC_LLM_MODEL=ollama/llava:34b              # Your local model name
-HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
-```
-
-**Note:** Local models must support vision (e.g., llava, bakllava, moondream). Performance and accuracy vary widely.
-
-**⚠️ Important:** Other providers (Anthropic, Google, OpenRouter, local models, etc.) are **not officially supported**. If you encounter errors, we may not be able to help. Use at your own risk.
-
-</details>
-
-## ⚙️ Configuration
-
-> **📝 Full reference:** See [`.env.example`](.env.example) for all available environment variables with detailed explanations and examples.
-
-### Essential Settings
-
-For a quick setup, you only need to provide your OpenAI API key. All other settings have sensible defaults.
+<summary>Essential Settings</summary>
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `HBC_LLM_API_KEY` | **Yes** | Your OpenAI API key |
-| `HBC_HOMEBOX_URL` | No | Your Homebox instance URL (defaults to demo server) |
-| `HBC_LINK_BASE_URL` | No | Public URL for Homebox links in chat (defaults to `HBC_HOMEBOX_URL`) |
+| `HBC_LLM_API_KEY` | No* | Your OpenAI API key (*can configure in UI) |
+| `HBC_HOMEBOX_URL` | No* | Your Homebox instance URL (*can configure in UI) |
+
+</details>
 
 <details>
-<summary>⚙️ Full Configuration Reference</summary>
+<summary>Full Configuration Reference</summary>
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HBC_LLM_MODEL` | `gpt-5-mini` | Model to use. Supported: `gpt-5-mini`, `gpt-5-nano`. |
-| `HBC_LLM_API_BASE` | – | Custom API base URL (for proxies or experimental providers) |
-| `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
+| `HBC_LLM_MODEL` | `gpt-4o-mini` | Model to use for cloud AI |
+| `HBC_LLM_API_BASE` | - | Custom API base URL |
 | `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
-| `HBC_LLM_STREAM_TIMEOUT` | `300` | Streaming timeout for large responses (e.g., hierarchical views) |
-| `HBC_IMAGE_QUALITY` | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
-
-</details>
-
-### Advanced Settings
-
-<details>
-<summary>Image Quality</summary>
-
-Control compression applied to images uploaded to Homebox. Compression happens server-side during AI analysis to avoid slowing down mobile devices.
-
-| Quality Level | Max Dimension | JPEG Quality | File Size | Use Case |
-|--------------|---------------|--------------|-----------|----------|
-| `raw` | No limit | Original | Largest | Full quality originals |
-| `high` | 2560px | 85% | Large | Best quality, moderate size |
-| `medium` | 1920px | 75% | Moderate | **Default** - balanced |
-| `low` | 1280px | 60% | Smallest | Faster uploads, smaller storage |
-
-**Example:**
-```bash
-HBC_IMAGE_QUALITY=high
-```
-
-**Note:** This setting only affects images uploaded to Homebox. AI analysis always uses optimized images regardless of this setting.
-
-</details>
-
-<details>
-<summary>Capture Limits</summary>
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HBC_CAPTURE_MAX_IMAGES` | `30` | Maximum photos per capture session |
-| `HBC_CAPTURE_MAX_FILE_SIZE_MB` | `10` | Maximum file size per image in MB |
-
-**Note:** These are experimental settings. It's advisable to keep the default values to minimize data loss risk during capture sessions.
-
-</details>
-
-<details>
-<summary>Rate Limiting</summary>
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HBC_RATE_LIMIT_ENABLED` | `true` | Enable/disable API rate limiting |
-| `HBC_RATE_LIMIT_RPM` | `400` | Requests per minute (80% of Tier 1 limit) |
-| `HBC_RATE_LIMIT_TPM` | `400000` | Tokens per minute (80% of Tier 1 limit) |
-| `HBC_RATE_LIMIT_BURST_MULTIPLIER` | `1.5` | Burst capacity multiplier |
-
-**Note:** Default settings are conservative (80% of OpenAI Tier 1 limits). Only configure if you have a higher-tier account or need to adjust limits.
-
-**Examples for different OpenAI tiers:**
-- Tier 2: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=1600000`
-- Tier 3: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=3200000`
-
-</details>
-
-<details>
-<summary>Server & Logging</summary>
-
-| Variable | Default | Description |
-|----------|---------|-------------|
+| `HBC_IMAGE_QUALITY` | `medium` | Image quality: `raw`, `high`, `medium`, `low` |
 | `HBC_SERVER_HOST` | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
-| `HBC_DISABLE_UPDATE_CHECK` | `false` | Disable update notifications |
-| `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MB |
-| `HBC_CORS_ORIGINS` | `*` | Allowed CORS origins (comma-separated or `*`) |
+| `HBC_DATA_DIR` | `/data` | Data directory for settings persistence |
 
 </details>
 
-<details>
-<summary>AI Output Customization</summary>
+---
 
-Customize how AI formats detected item fields. Set via environment variables or the Settings page (UI takes priority).
+## Tips
 
-| Variable | Description |
-|----------|-------------|
-| `HBC_AI_OUTPUT_LANGUAGE` | Language for AI output (default: English) |
-| `HBC_AI_DEFAULT_LABEL_ID` | Label ID to auto-apply to all items |
-| `HBC_AI_NAME` | Custom instructions for item naming |
-| `HBC_AI_DESCRIPTION` | Custom instructions for descriptions |
-| `HBC_AI_QUANTITY` | Custom instructions for quantity counting |
-| `HBC_AI_MANUFACTURER` | Instructions for manufacturer extraction |
-| `HBC_AI_MODEL_NUMBER` | Instructions for model number extraction |
-| `HBC_AI_SERIAL_NUMBER` | Instructions for serial number extraction |
-| `HBC_AI_PURCHASE_PRICE` | Instructions for price extraction |
-| `HBC_AI_PURCHASE_FROM` | Instructions for retailer extraction |
-| `HBC_AI_NOTES` | Custom instructions for notes |
-| `HBC_AI_NAMING_EXAMPLES` | Example names to guide the AI |
+- **Use local AI for privacy** - Ollama keeps all image processing on your network
+- **Enable duplicate detection** - Prevents accidentally re-adding items you already have
+- **Batch more items** - Images are analyzed in parallel, so more items = faster per-item
+- **Include receipts** - AI can extract purchase price, retailer, and date
+- **Multiple angles** - Include close-ups of labels, serial numbers for accuracy
+- **Long press to confirm all** - On review screen, long-press confirm to accept all items
 
-**Tip:** The Settings page has an "Export as Environment Variables" button.
+---
 
-</details>
+## Compatibility
 
-## 💡 Tips
+- **Upstream compatible** - All original features work unchanged
+- **Homebox v0.21+** - Tested with recent Homebox versions
+- **Environment variables** - All original env vars still work
+- **API compatible** - No breaking changes to API endpoints
 
-- **Batch more items for faster uploads** – Images are analyzed by AI in parallel (up to 30 simultaneously), so adding more items actually feels faster than one at a time.
-- **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
-- **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
-- **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
-- **Use the Settings page** – Customize AI behavior without restarting, then export settings as environment variables for Docker.
-- **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.
+---
 
-## 📄 License
+## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- [Homebox](https://github.com/sysadminsmedia/homebox) – The inventory system this app extends
-- [OpenAI](https://openai.com) – Vision AI capabilities (GPT models)
-- [LiteLLM](https://docs.litellm.ai/) – LLM provider abstraction layer
-- [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) – Backend & frontend frameworks
-<p align="center"> <a href="https://buymeacoffee.com/duelion" target="_blank" rel="noopener noreferrer"> <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="125"> </a> </p>
+- **[Duelion/homebox-companion](https://github.com/Duelion/homebox-companion)** - Original project this fork is based on
+- [Homebox](https://github.com/sysadminsmedia/homebox) - The inventory system this app extends
+- [OpenAI](https://openai.com) - Vision AI capabilities (GPT models)
+- [Ollama](https://ollama.ai) - Local AI runtime
+- [LiteLLM](https://docs.litellm.ai/) - LLM provider abstraction layer
+- [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) - Backend & frontend frameworks
+
+---
+
+<p align="center">
+  <i>Original project by <a href="https://github.com/Duelion">Duelion</a> -
+  <a href="https://buymeacoffee.com/duelion" target="_blank">Buy them a coffee</a></i>
+</p>
