@@ -52,10 +52,9 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - companion-data:/data
+      - ./homebox-companion:/app/data      # Session data, duplicate index
+      - ./homebox-companion/config:/app/config  # Settings (AI config, preferences)
 
-volumes:
-  companion-data:
 ```
 
 ```bash
@@ -80,7 +79,8 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - companion-data:/data
+      - ./homebox-companion:/app/data
+      - ./homebox-companion/config:/app/config
 
   ollama:
     image: ollama/ollama:latest
@@ -90,7 +90,6 @@ services:
       - ollama-models:/root/.ollama
 
 volumes:
-  companion-data:
   ollama-models:
 ```
 
@@ -160,7 +159,7 @@ All configuration moved from environment variables to the UI:
 | AI Provider/Keys | Settings > AI Provider |
 | Duplicate Detection | Settings > Behavior |
 
-Settings persist in `/data` - just mount the volume and configure once.
+Settings persist in `/app/config` and `/app/data` - mount the volumes and configure once.
 
 ---
 
@@ -264,7 +263,7 @@ While this fork allows full configuration via the UI, environment variables stil
 | `HBC_SERVER_HOST` | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
-| `HBC_DATA_DIR` | `/data` | Data directory for settings persistence |
+| `HBC_DATA_DIR` | `./data` | Data directory (becomes `/app/data` in Docker) |
 
 </details>
 
