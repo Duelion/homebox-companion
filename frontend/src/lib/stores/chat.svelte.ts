@@ -807,6 +807,9 @@ class ChatStore {
 		const itemName = approval.display_info?.item_name;
 		// entityName: unified field for all entity types (items, locations, labels)
 		const entityName = approval.display_info?.target_name ?? approval.display_info?.item_name;
+		
+		// Debug: Log display_info to understand what we're receiving
+		log.debug(`approveAction: tool=${toolName}, display_info=`, approval.display_info, `entityName=${entityName}`);
 
 		try {
 			const result = await chat.approveAction(approvalId, modifiedParams);
@@ -913,6 +916,9 @@ class ChatStore {
 		const itemName = approval.display_info?.item_name;
 		// entityName: unified field for all entity types (items, locations, labels)
 		const entityName = approval.display_info?.target_name ?? approval.display_info?.item_name;
+		
+		// Debug: Log display_info to understand what we're receiving
+		log.debug(`rejectAction: tool=${toolName}, display_info=`, approval.display_info, `entityName=${entityName}`);
 
 		try {
 			await chat.rejectAction(approvalId);
@@ -1027,6 +1033,8 @@ class ChatStore {
 
 			case 'approval_required':
 				log.trace(`Approval required for: ${event.data.tool}`, event.data.params);
+				// Debug: Log display_info from event
+				log.debug(`approval_required event: tool=${event.data.tool}, display_info=`, event.data.display_info);
 				this._pendingApprovals = [
 					...this._pendingApprovals,
 					{
