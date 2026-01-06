@@ -19,13 +19,12 @@ AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) in
 </table>
 
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
+Use the **AI Chat** to manage your inventory, find locations, or update details just by asking.
 
 <div align="center">
   <a href="https://demo.hbcompanion.duelion.com/" target="_blank">
     <img src=".github/assets/images/demo_button.png" alt="Try Live Demo" width="280">
   </a>
-  <br>
-  <sub><i>View results in the <a href="https://demo.hb.duelion.com/">Homebox demo instance</a></i></sub>
 </div>
 
 ## 🔄 How It Works
