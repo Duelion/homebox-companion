@@ -3,7 +3,20 @@
 	import { resolve } from '$app/paths';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { getIsDemoModeExplicit } from '$lib/api/settings';
+	import { showToast } from '$lib/stores/ui.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
+
+	/**
+	 * Handle click on a disabled nav item - show toast notification
+	 */
+	function handleDisabledClick(item: NavItem) {
+		if (item.id === 'chat') {
+			showToast(
+				'Chat is disabled in demo mode. Self-host your own instance to use this feature.',
+				'warning'
+			);
+		}
+	}
 
 	// Type-safe route type for dynamic paths
 	type AppRoute = Parameters<typeof resolve>[0];
@@ -132,19 +145,21 @@
 				{@const active = isActive(item, currentPath)}
 				{@const disabled = item.disabled ?? false}
 				<li role="none" class="flex-1">
-				{#if disabled}
-					<!-- Disabled nav item - not clickable, visually muted -->
-					<span
-						role="menuitem"
-						aria-disabled="true"
-						title={item.disabledTooltip}
-						class="relative flex cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-neutral-600"
-					>
-						<span class="flex h-6 w-6 items-center justify-center">
-							{@render navIcon(item.icon)}
-						</span>
-						<span class="text-xs font-medium">{item.label}</span>
+			{#if disabled}
+				<!-- Disabled nav item - shows toast on click explaining why -->
+				<button
+					type="button"
+					role="menuitem"
+					aria-disabled="true"
+					title={item.disabledTooltip}
+					onclick={() => handleDisabledClick(item)}
+					class="relative flex w-full cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-neutral-600"
+				>
+					<span class="flex h-6 w-6 items-center justify-center">
+						{@render navIcon(item.icon)}
 					</span>
+					<span class="text-xs font-medium">{item.label}</span>
+				</button>
 				{:else}
 					<a
 						href={resolve(item.href as AppRoute)}
