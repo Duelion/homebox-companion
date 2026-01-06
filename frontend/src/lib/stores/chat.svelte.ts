@@ -805,7 +805,7 @@ class ChatStore {
 			this._messages = this._messages.map((msg, idx) => {
 				if (idx !== lastAssistantIndex) return msg;
 				const separator = msg.content ? '\n\n' : '';
-				const combinedText = expirationTexts.join('\n');
+				const combinedText = expirationTexts.join('  \n');
 				return {
 					...msg,
 					content: msg.content + separator + combinedText,
