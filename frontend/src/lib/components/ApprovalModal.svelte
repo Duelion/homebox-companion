@@ -38,6 +38,21 @@
 		}
 	}
 
+	// Store user modifications for each approval (used by Approve All)
+	let userModifications = new Map<string, Record<string, unknown> | undefined>();
+
+	// Handler for when a panel's modified params change
+	function handleParamsChange(
+		approvalId: string,
+		modifiedParams: Record<string, unknown> | undefined
+	) {
+		if (modifiedParams) {
+			userModifications.set(approvalId, modifiedParams);
+		} else {
+			userModifications.delete(approvalId);
+		}
+	}
+
 	// Live countdown timer
 	$effect(() => {
 		if (!open || approvals.length === 0) return;
@@ -51,6 +66,8 @@
 
 	function handleClose() {
 		open = false;
+		// Clear user modifications when closing
+		userModifications.clear();
 		onclose?.();
 	}
 
@@ -98,6 +115,7 @@
 			await chatStore.approveAction(approvalId, modifiedParams);
 		} finally {
 			removeProcessingId(approvalId);
+			userModifications.delete(approvalId);
 		}
 	}
 
@@ -111,9 +129,7 @@
 	}
 
 	async function handleApproveAll() {
-		// Bulk approve uses original AI-suggested parameters. If a user has made edits
-		// in an expanded panel, they should use the individual approve button on that
-		// specific item to apply their changes.
+		// Approve all items, using any user modifications that have been made.
 		// Capture IDs upfront since approvals array mutates as items are processed.
 		const ids = approvals.map((a) => a.id);
 		ids.forEach((id) => processingIds.add(id));
@@ -124,11 +140,14 @@
 		// Process each item individually to handle partial failures gracefully
 		for (const id of ids) {
 			try {
-				await chatStore.approveAction(id);
+				// Use stored user modifications if available
+				const modifiedParams = userModifications.get(id);
+				await chatStore.approveAction(id, modifiedParams);
 			} catch {
 				// Error is already captured in chatStore.error - continue with remaining items
 			} finally {
 				processingIds.delete(id);
+				userModifications.delete(id);
 			}
 		}
 	}
@@ -236,6 +255,7 @@
 						onReject={handleReject}
 						expanded={expandedApprovalId === approval.id}
 						onToggleExpand={() => handleToggleExpand(approval.id)}
+						onParamsChange={handleParamsChange}
 					/>
 				{/each}
 			</div>

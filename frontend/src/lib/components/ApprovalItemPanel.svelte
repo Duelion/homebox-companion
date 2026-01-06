@@ -53,6 +53,10 @@
 		onReject: (approvalId: string) => void;
 		expanded?: boolean;
 		onToggleExpand?: () => void;
+		onParamsChange?: (
+			approvalId: string,
+			modifiedParams: Record<string, unknown> | undefined
+		) => void;
 	}
 
 	let {
@@ -62,6 +66,7 @@
 		onReject,
 		expanded = false,
 		onToggleExpand,
+		onParamsChange,
 	}: Props = $props();
 
 	// UI state
@@ -317,6 +322,15 @@
 
 		return Object.keys(mods).length > 0 ? mods : undefined;
 	}
+
+	// Notify parent when modifications change (for Approve All functionality)
+	// Only notify after the panel has been initialized to avoid false positives
+	$effect(() => {
+		if (onParamsChange && initializedForApprovalId === approval.id) {
+			const currentMods = getModifiedParams();
+			onParamsChange(approval.id, currentMods);
+		}
+	});
 
 	// Toggle a label selection
 	function toggleLabel(labelId: string) {
@@ -705,21 +719,94 @@
 						</div>
 					{/if}
 
-					<!-- Extended fields being changed -->
-					{#if hasExtendedFieldsBeingChanged}
-						<ItemExtendedFields
-							bind:manufacturer={editedManufacturer}
-							bind:modelNumber={editedModelNumber}
-							bind:serialNumber={editedSerialNumber}
-							bind:purchasePrice={editedPurchasePrice}
-							bind:purchaseFrom={editedPurchaseFrom}
-							bind:notes={editedNotes}
-							expanded={showExtendedFields}
-							size="sm"
-							disabled={isProcessing}
-							idPrefix="update-{approval.id}"
-							onToggle={toggleExtendedFieldsPanel}
-						/>
+					<!-- Extended fields being changed - render individually to only show changed fields -->
+					{#if fieldsBeingChanged.includes('manufacturer')}
+						<div>
+							<label for="update-manufacturer-{approval.id}" class="label-sm"
+								>New Manufacturer</label
+							>
+							<input
+								type="text"
+								id="update-manufacturer-{approval.id}"
+								bind:value={editedManufacturer}
+								placeholder="Manufacturer"
+								class="input-sm"
+								disabled={isProcessing}
+							/>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('model_number')}
+						<div>
+							<label for="update-model-{approval.id}" class="label-sm">New Model Number</label>
+							<input
+								type="text"
+								id="update-model-{approval.id}"
+								bind:value={editedModelNumber}
+								placeholder="Model Number"
+								class="input-sm"
+								disabled={isProcessing}
+							/>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('serial_number')}
+						<div>
+							<label for="update-serial-{approval.id}" class="label-sm">New Serial Number</label>
+							<input
+								type="text"
+								id="update-serial-{approval.id}"
+								bind:value={editedSerialNumber}
+								placeholder="Serial Number"
+								class="input-sm"
+								disabled={isProcessing}
+							/>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('purchase_price')}
+						<div>
+							<label for="update-price-{approval.id}" class="label-sm">New Purchase Price</label>
+							<input
+								type="number"
+								id="update-price-{approval.id}"
+								step="0.01"
+								min="0"
+								bind:value={editedPurchasePrice}
+								placeholder="0.00"
+								class="input-sm w-32"
+								disabled={isProcessing}
+							/>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('purchase_from')}
+						<div>
+							<label for="update-vendor-{approval.id}" class="label-sm">New Purchased From</label>
+							<input
+								type="text"
+								id="update-vendor-{approval.id}"
+								bind:value={editedPurchaseFrom}
+								placeholder="Vendor"
+								class="input-sm"
+								disabled={isProcessing}
+							/>
+						</div>
+					{/if}
+
+					{#if fieldsBeingChanged.includes('notes') && hasExtendedFieldsBeingChanged}
+						<!-- Notes shown here when part of extended fields update -->
+						<div>
+							<label for="update-notes-ext-{approval.id}" class="label-sm">New Notes</label>
+							<textarea
+								id="update-notes-ext-{approval.id}"
+								bind:value={editedNotes}
+								placeholder="Notes"
+								rows="2"
+								class="input-sm resize-none"
+								disabled={isProcessing}
+							></textarea>
+						</div>
 					{/if}
 
 					{#if fieldsBeingChanged.length === 0}
