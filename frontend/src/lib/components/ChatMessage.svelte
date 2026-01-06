@@ -288,7 +288,9 @@
 							{@const hasSuccess = action.successCount > 0}
 							{@const hasFail = action.failCount > 0}
 							{@const hasReject = action.rejectCount > 0}
-							{@const displayText = action.entityName ? `${action.toolName}: ${action.entityName}` : action.toolName}
+							{@const displayText = action.entityName
+								? `${action.toolName}: ${action.entityName}`
+								: action.toolName}
 							<!-- Show success badge if any succeeded -->
 							{#if hasSuccess}
 								<div class="chat-tool-badge {badgeStyles.success}">

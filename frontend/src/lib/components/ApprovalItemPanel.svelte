@@ -228,7 +228,10 @@
 		// Only add 'location' for item tools, not for location tools
 		// (update_location uses location_id as the entity identifier, not a field to change)
 		// Using endsWith('_location') for defensive future-proofing against new location tools
-		if (approval.parameters.location_id !== undefined && !approval.tool_name.endsWith('_location')) {
+		if (
+			approval.parameters.location_id !== undefined &&
+			!approval.tool_name.endsWith('_location')
+		) {
 			fields.push('location');
 		}
 		// Extended fields

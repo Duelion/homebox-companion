@@ -145,37 +145,37 @@
 				{@const active = isActive(item, currentPath)}
 				{@const disabled = item.disabled ?? false}
 				<li role="none" class="flex-1">
-			{#if disabled}
-				<!-- Disabled nav item - shows toast on click explaining why -->
-				<button
-					type="button"
-					role="menuitem"
-					aria-disabled="true"
-					title={item.disabledTooltip}
-					onclick={() => handleDisabledClick(item)}
-					class="relative flex w-full cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-neutral-600"
-				>
-					<span class="flex h-6 w-6 items-center justify-center">
-						{@render navIcon(item.icon)}
-					</span>
-					<span class="text-xs font-medium">{item.label}</span>
-				</button>
-				{:else}
-					<a
-						href={resolve(item.href as AppRoute)}
-						role="menuitem"
-						aria-current={active ? 'page' : undefined}
-						class="flex flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all duration-200
+					{#if disabled}
+						<!-- Disabled nav item - shows toast on click explaining why -->
+						<button
+							type="button"
+							role="menuitem"
+							aria-disabled="true"
+							title={item.disabledTooltip}
+							onclick={() => handleDisabledClick(item)}
+							class="relative flex w-full cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-neutral-600"
+						>
+							<span class="flex h-6 w-6 items-center justify-center">
+								{@render navIcon(item.icon)}
+							</span>
+							<span class="text-xs font-medium">{item.label}</span>
+						</button>
+					{:else}
+						<a
+							href={resolve(item.href as AppRoute)}
+							role="menuitem"
+							aria-current={active ? 'page' : undefined}
+							class="flex flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all duration-200
 							{active
-							? 'bg-primary-500/10 text-primary-500'
-							: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
-					>
-						<span class="flex h-6 w-6 items-center justify-center">
-							{@render navIcon(item.icon)}
-						</span>
-						<span class="text-xs font-medium">{item.label}</span>
-					</a>
-				{/if}
+								? 'bg-primary-500/10 text-primary-500'
+								: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
+						>
+							<span class="flex h-6 w-6 items-center justify-center">
+								{@render navIcon(item.icon)}
+							</span>
+							<span class="text-xs font-medium">{item.label}</span>
+						</a>
+					{/if}
 				</li>
 			{/each}
 		</ul>

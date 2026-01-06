@@ -44,14 +44,14 @@
 <div class="animate-in space-y-6">
 	<div>
 		<h1 class="text-h1 font-bold text-neutral-100">Settings</h1>
-		<p class="text-body-sm mt-1 text-neutral-400">App configuration and information</p>
+		<p class="mt-1 text-body-sm text-neutral-400">App configuration and information</p>
 	</div>
 
 	{#if settingsService.errors.init}
 		<div class="card border-error-500/30 bg-error-500/10">
 			<div class="flex items-start gap-3">
 				<svg
-					class="text-error-500 mt-0.5 h-5 w-5 flex-shrink-0"
+					class="mt-0.5 h-5 w-5 flex-shrink-0 text-error-500"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -62,11 +62,11 @@
 					/>
 				</svg>
 				<div>
-					<p class="text-error-500 font-medium">Failed to load settings</p>
+					<p class="font-medium text-error-500">Failed to load settings</p>
 					<p class="mt-1 text-sm text-neutral-400">{settingsService.errors.init}</p>
 					<button
 						type="button"
-						class="text-primary-400 hover:text-primary-300 mt-2 text-sm underline"
+						class="mt-2 text-sm text-primary-400 underline hover:text-primary-300"
 						onclick={() => settingsService.initialize()}
 					>
 						Try again
