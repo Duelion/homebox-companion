@@ -484,13 +484,15 @@
 			gpuInfo = gpuResult;
 
 			// Initialize editable form state from loaded config
+			// Leave API key fields empty - the "Key saved" indicator shows if a key exists
+			// Empty field = keep existing key, new value = replace key
 			editableAIConfig = {
 				active_provider: configResult.active_provider,
 				fallback_to_cloud: configResult.fallback_to_cloud,
 				fallback_provider: configResult.fallback_provider,
 				ollama: { ...configResult.ollama },
-				openai: { ...configResult.openai, api_key: configResult.openai.has_api_key ? "********" : null },
-				anthropic: { ...configResult.anthropic, api_key: configResult.anthropic.has_api_key ? "********" : null },
+				openai: { ...configResult.openai, api_key: null },
+				anthropic: { ...configResult.anthropic, api_key: null },
 				litellm: { ...configResult.litellm },
 			};
 
@@ -538,14 +540,15 @@
 			aiConfig = result;
 			aiConfigDirty = false;
 
-			// Update editable state with response (handles masked keys)
+			// Update editable state with response
+			// Clear API key fields after save - the "Key saved" indicator shows if key exists
 			editableAIConfig = {
 				active_provider: result.active_provider,
 				fallback_to_cloud: result.fallback_to_cloud,
 				fallback_provider: result.fallback_provider,
 				ollama: { ...result.ollama },
-				openai: { ...result.openai, api_key: result.openai.has_api_key ? "********" : null },
-				anthropic: { ...result.anthropic, api_key: result.anthropic.has_api_key ? "********" : null },
+				openai: { ...result.openai, api_key: null },
+				anthropic: { ...result.anthropic, api_key: null },
 				litellm: { ...result.litellm },
 			};
 
@@ -1300,15 +1303,32 @@
 						{#if editableAIConfig.openai.enabled}
 							<div class="grid gap-3">
 								<div>
-									<label class="block text-xs text-neutral-400 mb-1">API Key</label>
+									<div class="flex items-center justify-between mb-1">
+										<label class="block text-xs text-neutral-400">API Key</label>
+										{#if aiConfig?.openai?.has_api_key}
+											<span class="inline-flex items-center gap-1 text-xs text-success-500">
+												<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+													<polyline points="20 6 9 17 4 12" />
+												</svg>
+												Key saved
+											</span>
+										{/if}
+									</div>
 									<input
 										type="password"
+										autocomplete="new-password"
 										class="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-neutral-100 font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
 										bind:value={editableAIConfig.openai.api_key}
 										oninput={markAIConfigDirty}
-										placeholder="sk-..."
+										placeholder={aiConfig?.openai?.has_api_key ? "Enter new key to replace" : "sk-..."}
 									/>
-									<p class="text-xs text-neutral-500 mt-1">Starts with sk-</p>
+									<p class="text-xs text-neutral-500 mt-1">
+										{#if aiConfig?.openai?.has_api_key}
+											Leave unchanged to keep existing key, or paste a new key to replace it
+										{:else}
+											Starts with sk-
+										{/if}
+									</p>
 								</div>
 								<div>
 									<label class="block text-xs text-neutral-400 mb-1">Model</label>
@@ -1376,15 +1396,32 @@
 						{#if editableAIConfig.anthropic.enabled}
 							<div class="grid gap-3">
 								<div>
-									<label class="block text-xs text-neutral-400 mb-1">API Key</label>
+									<div class="flex items-center justify-between mb-1">
+										<label class="block text-xs text-neutral-400">API Key</label>
+										{#if aiConfig?.anthropic?.has_api_key}
+											<span class="inline-flex items-center gap-1 text-xs text-success-500">
+												<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+													<polyline points="20 6 9 17 4 12" />
+												</svg>
+												Key saved
+											</span>
+										{/if}
+									</div>
 									<input
 										type="password"
+										autocomplete="new-password"
 										class="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-neutral-100 font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
 										bind:value={editableAIConfig.anthropic.api_key}
 										oninput={markAIConfigDirty}
-										placeholder="sk-ant-..."
+										placeholder={aiConfig?.anthropic?.has_api_key ? "Enter new key to replace" : "sk-ant-..."}
 									/>
-									<p class="text-xs text-neutral-500 mt-1">Starts with sk-ant-</p>
+									<p class="text-xs text-neutral-500 mt-1">
+										{#if aiConfig?.anthropic?.has_api_key}
+											Leave unchanged to keep existing key, or paste a new key to replace it
+										{:else}
+											Starts with sk-ant-
+										{/if}
+									</p>
 								</div>
 								<div>
 									<label class="block text-xs text-neutral-400 mb-1">Model</label>
