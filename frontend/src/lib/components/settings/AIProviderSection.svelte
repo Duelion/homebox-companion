@@ -85,10 +85,14 @@
 			config.url = editingConfig.ollama.url;
 			config.model = editingConfig.ollama.model;
 		} else if (provider === 'openai') {
-			config.api_key = editingConfig.openai.api_key || service.aiConfig?.openai.api_key;
+			// Only use the editing key - don't fall back to masked display key
+			// If no key entered, the test will prompt user to enter one
+			config.api_key = editingConfig.openai.api_key;
 			config.model = editingConfig.openai.model;
 		} else if (provider === 'anthropic') {
-			config.api_key = editingConfig.anthropic.api_key || service.aiConfig?.anthropic.api_key;
+			// Only use the editing key - don't fall back to masked display key
+			// If no key entered, the test will prompt user to enter one
+			config.api_key = editingConfig.anthropic.api_key;
 			config.model = editingConfig.anthropic.model;
 		} else if (provider === 'litellm') {
 			config.model = editingConfig.litellm.model;

@@ -637,6 +637,18 @@ class SettingsService {
 		this.aiConfigSaveState = 'saving';
 		this.errors.aiConfig = null;
 
+		// Failsafe: ensure we never get stuck in 'saving' state
+		const failsafeTimeout = this._scheduleTimeout(() => {
+			if (this.aiConfigSaveState === 'saving') {
+				log.error('AI config save timed out after 30 seconds');
+				this.errors.aiConfig = 'Save operation timed out. Please try again.';
+				this.aiConfigSaveState = 'error';
+				this._scheduleTimeout(() => {
+					this.aiConfigSaveState = 'idle';
+				}, 3000);
+			}
+		}, 30000);
+
 		try {
 			this.aiConfig = await updateAIConfig(config);
 			this.aiConfigSaveState = 'success';
@@ -652,6 +664,9 @@ class SettingsService {
 			this._scheduleTimeout(() => {
 				this.aiConfigSaveState = 'idle';
 			}, 3000);
+		} finally {
+			// Clear the failsafe timeout since we got a response
+			this._cancelTimeout(failsafeTimeout);
 		}
 	}
 
@@ -871,8 +886,9 @@ class SettingsService {
 
 	/**
 	 * Schedule a timeout with cleanup tracking.
+	 * Returns the timeout ID so it can be cancelled early if needed.
 	 */
-	private _scheduleTimeout(callback: () => void, delay: number): void {
+	private _scheduleTimeout(callback: () => void, delay: number): number {
 		const id = window.setTimeout(() => {
 			callback();
 			// Remove from tracking after execution
@@ -882,6 +898,18 @@ class SettingsService {
 			}
 		}, delay);
 		this._timeoutIds.push(id);
+		return id;
+	}
+
+	/**
+	 * Cancel a scheduled timeout and remove it from tracking.
+	 */
+	private _cancelTimeout(id: number): void {
+		window.clearTimeout(id);
+		const idx = this._timeoutIds.indexOf(id);
+		if (idx !== -1) {
+			this._timeoutIds.splice(idx, 1);
+		}
 	}
 
 	/**
