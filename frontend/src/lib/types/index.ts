@@ -383,6 +383,30 @@ export interface DuplicateCheckResponse {
 	message: string;
 }
 
+/** Status of the duplicate detection index */
+export interface DuplicateIndexStatus {
+	/** ISO timestamp of last full build, or null if never built */
+	last_build_time: string | null;
+	/** ISO timestamp of last update (full or differential) */
+	last_update_time: string | null;
+	/** Total number of items in Homebox */
+	total_items_indexed: number;
+	/** Number of items with serial numbers in the index */
+	items_with_serials: number;
+	/** Highest asset ID seen (used for differential updates) */
+	highest_asset_id: number;
+	/** Whether the index is currently loaded in memory */
+	is_loaded: boolean;
+}
+
+/** Response from index rebuild operation */
+export interface DuplicateIndexRebuildResponse {
+	/** Updated index status after rebuild */
+	status: DuplicateIndexStatus;
+	/** Summary message */
+	message: string;
+}
+
 // =============================================================================
 // BACKWARDS COMPATIBILITY
 // Re-export with old names for gradual migration

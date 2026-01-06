@@ -9,6 +9,8 @@ import type {
 	BatchCreateResponse,
 	DuplicateCheckRequest,
 	DuplicateCheckResponse,
+	DuplicateIndexStatus,
+	DuplicateIndexRebuildResponse,
 	ItemSummary,
 } from '../types';
 
@@ -94,6 +96,28 @@ export const items = {
 		return request<DuplicateCheckResponse>('/items/check-duplicates', {
 			method: 'POST',
 			body: JSON.stringify(data),
+			signal,
+		});
+	},
+
+	/**
+	 * Get the current status of the duplicate detection index.
+	 */
+	getDuplicateIndexStatus: (signal?: AbortSignal) => {
+		log.debug('Fetching duplicate index status');
+		return request<DuplicateIndexStatus>('/items/duplicate-index/status', { signal });
+	},
+
+	/**
+	 * Rebuild the duplicate detection index from scratch.
+	 *
+	 * This fetches ALL items from Homebox and rebuilds the serial number index.
+	 * For large inventories, this may take several seconds.
+	 */
+	rebuildDuplicateIndex: (signal?: AbortSignal) => {
+		log.info('Triggering duplicate index rebuild');
+		return request<DuplicateIndexRebuildResponse>('/items/duplicate-index/rebuild', {
+			method: 'POST',
 			signal,
 		});
 	},

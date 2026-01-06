@@ -78,3 +78,40 @@ class DuplicateCheckResponse(BaseModel):
 
     message: str
     """Summary message."""
+
+
+# =============================================================================
+# DUPLICATE INDEX STATUS SCHEMAS
+# =============================================================================
+
+
+class DuplicateIndexStatus(BaseModel):
+    """Status of the duplicate detection index."""
+
+    last_build_time: str | None
+    """ISO timestamp of last full build, or null if never built."""
+
+    last_update_time: str | None
+    """ISO timestamp of last update (full or differential)."""
+
+    total_items_indexed: int
+    """Total number of items in Homebox."""
+
+    items_with_serials: int
+    """Number of items with serial numbers in the index."""
+
+    highest_asset_id: int
+    """Highest asset ID seen (used for differential updates)."""
+
+    is_loaded: bool
+    """Whether the index is currently loaded in memory."""
+
+
+class DuplicateIndexRebuildResponse(BaseModel):
+    """Response from index rebuild operation."""
+
+    status: DuplicateIndexStatus
+    """Updated index status after rebuild."""
+
+    message: str
+    """Summary message."""

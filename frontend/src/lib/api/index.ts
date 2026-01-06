@@ -128,4 +128,6 @@ export type {
 	BatchDetectionResult,
 	BatchDetectionResponse,
 	GroupedDetectionResponse,
+	DuplicateIndexStatus,
+	DuplicateIndexRebuildResponse,
 } from '../types';
