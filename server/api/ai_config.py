@@ -168,25 +168,32 @@ def mask_api_key(key: str | None) -> str | None:
 def config_to_response(config: AIConfig) -> AIConfigResponse:
     """Convert AIConfig to response with masked keys."""
     ollama_dict = config.ollama.model_dump()
-    openai_dict = config.openai.model_dump()
-    anthropic_dict = config.anthropic.model_dump()
     litellm_dict = config.litellm.model_dump()
 
-    # Mask API keys
-    if openai_dict.get("api_key"):
-        openai_dict["api_key"] = mask_api_key(
-            config.openai.api_key.get_secret_value() if config.openai.api_key else None
-        )
+    # Build OpenAI dict with proper API key handling
+    openai_dict = {
+        "enabled": config.openai.enabled,
+        "model": config.openai.model,
+        "max_tokens": config.openai.max_tokens,
+    }
+    if config.openai.api_key:
+        openai_dict["api_key"] = mask_api_key(config.openai.api_key.get_secret_value())
         openai_dict["has_api_key"] = True
     else:
+        openai_dict["api_key"] = None
         openai_dict["has_api_key"] = False
 
-    if anthropic_dict.get("api_key"):
-        anthropic_dict["api_key"] = mask_api_key(
-            config.anthropic.api_key.get_secret_value() if config.anthropic.api_key else None
-        )
+    # Build Anthropic dict with proper API key handling
+    anthropic_dict = {
+        "enabled": config.anthropic.enabled,
+        "model": config.anthropic.model,
+        "max_tokens": config.anthropic.max_tokens,
+    }
+    if config.anthropic.api_key:
+        anthropic_dict["api_key"] = mask_api_key(config.anthropic.api_key.get_secret_value())
         anthropic_dict["has_api_key"] = True
     else:
+        anthropic_dict["api_key"] = None
         anthropic_dict["has_api_key"] = False
 
     return AIConfigResponse(
@@ -224,43 +231,64 @@ async def update_ai_config(input_config: AIConfigInput) -> AIConfigResponse:
     """
     logger.info(f"Updating AI config: active_provider={input_config.active_provider}")
 
-    # Load existing config to preserve any keys not being updated
-    existing = load_ai_config()
+    try:
+        # Load existing config to preserve any keys not being updated
+        existing = load_ai_config()
+    except Exception as e:
+        logger.error(f"Failed to load existing config: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load existing config: {e}")
 
     # Build new config
     # Handle API keys - if empty string or "***" pattern, keep existing
-    openai_key = input_config.openai.api_key
-    if not openai_key or openai_key.startswith("***") or "..." in (openai_key or ""):
-        openai_key = existing.openai.api_key.get_secret_value() if existing.openai.api_key else None
+    try:
+        openai_key = input_config.openai.api_key
+        if not openai_key or openai_key.startswith("***") or "..." in (openai_key or ""):
+            openai_key = existing.openai.api_key.get_secret_value() if existing.openai.api_key else None
 
-    anthropic_key = input_config.anthropic.api_key
-    if not anthropic_key or anthropic_key.startswith("***") or "..." in (anthropic_key or ""):
-        anthropic_key = existing.anthropic.api_key.get_secret_value() if existing.anthropic.api_key else None
+        anthropic_key = input_config.anthropic.api_key
+        if not anthropic_key or anthropic_key.startswith("***") or "..." in (anthropic_key or ""):
+            anthropic_key = existing.anthropic.api_key.get_secret_value() if existing.anthropic.api_key else None
 
-    new_config = AIConfig(
-        active_provider=AIProvider(input_config.active_provider),
-        fallback_to_cloud=input_config.fallback_to_cloud,
-        fallback_provider=AIProvider(input_config.fallback_provider),
-        ollama=OllamaConfig(**input_config.ollama.model_dump()),
-        openai=OpenAIConfig(
-            enabled=input_config.openai.enabled,
-            api_key=SecretStr(openai_key) if openai_key else None,
-            model=input_config.openai.model,
-            max_tokens=input_config.openai.max_tokens,
-        ),
-        anthropic=AnthropicConfig(
-            enabled=input_config.anthropic.enabled,
-            api_key=SecretStr(anthropic_key) if anthropic_key else None,
-            model=input_config.anthropic.model,
-            max_tokens=input_config.anthropic.max_tokens,
-        ),
-        litellm=LiteLLMConfig(**input_config.litellm.model_dump()),
-    )
+        logger.debug(f"Building config: active={input_config.active_provider}, "
+                     f"openai_enabled={input_config.openai.enabled}, "
+                     f"anthropic_enabled={input_config.anthropic.enabled}, "
+                     f"has_anthropic_key={anthropic_key is not None}")
 
-    save_ai_config(new_config)
-    logger.info("AI config saved successfully")
+        new_config = AIConfig(
+            active_provider=AIProvider(input_config.active_provider),
+            fallback_to_cloud=input_config.fallback_to_cloud,
+            fallback_provider=AIProvider(input_config.fallback_provider),
+            ollama=OllamaConfig(**input_config.ollama.model_dump()),
+            openai=OpenAIConfig(
+                enabled=input_config.openai.enabled,
+                api_key=SecretStr(openai_key) if openai_key else None,
+                model=input_config.openai.model,
+                max_tokens=input_config.openai.max_tokens,
+            ),
+            anthropic=AnthropicConfig(
+                enabled=input_config.anthropic.enabled,
+                api_key=SecretStr(anthropic_key) if anthropic_key else None,
+                model=input_config.anthropic.model,
+                max_tokens=input_config.anthropic.max_tokens,
+            ),
+            litellm=LiteLLMConfig(**input_config.litellm.model_dump()),
+        )
+    except Exception as e:
+        logger.error(f"Failed to build AI config: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to build config: {e}")
 
-    return config_to_response(new_config)
+    try:
+        save_ai_config(new_config)
+        logger.info("AI config saved successfully")
+    except Exception as e:
+        logger.error(f"Failed to save AI config: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save config: {e}")
+
+    try:
+        return config_to_response(new_config)
+    except Exception as e:
+        logger.error(f"Failed to create response: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create response: {e}")
 
 
 @router.delete("/settings/ai-config", response_model=AIConfigResponse)
