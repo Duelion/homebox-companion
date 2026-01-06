@@ -338,11 +338,14 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 
 	// Handle other errors
 	if (!response.ok) {
+		// Read body as text first, then try to parse as JSON.
+		// This prevents "Body has already been consumed" errors when json() fails.
+		const text = await response.text();
 		let errorData: unknown;
 		try {
-			errorData = await response.json();
+			errorData = text ? JSON.parse(text) : undefined;
 		} catch {
-			errorData = await response.text();
+			errorData = text;
 		}
 		throw new ApiError(
 			response.status,
@@ -593,11 +596,14 @@ export async function requestFormData<T>(
 
 	// Handle other errors
 	if (!response.ok) {
+		// Read body as text first, then try to parse as JSON.
+		// This prevents "Body has already been consumed" errors when json() fails.
+		const text = await response.text();
 		let errorData: unknown;
 		try {
-			errorData = await response.json();
+			errorData = text ? JSON.parse(text) : undefined;
 		} catch {
-			errorData = await response.text();
+			errorData = text;
 		}
 		throw new ApiError(
 			response.status,

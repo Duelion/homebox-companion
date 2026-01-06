@@ -131,6 +131,55 @@ Open `http://localhost:8000` in your browser.
 - Set a default label for all detected items
 - Export settings as environment variables for Docker persistence
 
+### Chat Assistant
+- **Natural language queries** – Ask questions like "How many items do I have?" or "List my labels"
+- **Inventory actions** – Create, update, move, or delete items through conversation
+- **Approval workflow** – Review and approve AI-proposed changes before they're applied
+- **Streaming responses** – Real-time AI responses with tool execution feedback
+
+<details>
+<summary>Available Tools</summary>
+
+The chat assistant has access to 21 tools for interacting with your Homebox inventory:
+
+**Read-Only** (auto-execute):
+| Tool | Description |
+|------|-------------|
+| `list_locations` | List all locations |
+| `get_location` | Get location details with children |
+| `list_labels` | List all labels |
+| `list_items` | List items with filtering/pagination |
+| `search_items` | Search items by text query |
+| `get_item` | Get full item details |
+| `get_item_by_asset_id` | Look up item by asset ID |
+| `get_item_path` | Get item's full location path |
+| `get_location_tree` | Get hierarchical location tree |
+| `get_statistics` | Get inventory statistics |
+| `get_statistics_by_location` | Item counts by location |
+| `get_statistics_by_label` | Item counts by label |
+| `get_attachment` | Get attachment content |
+
+**Write** (requires approval):
+| Tool | Description |
+|------|-------------|
+| `create_item` | Create a new item |
+| `update_item` | Update item fields |
+| `create_location` | Create a new location |
+| `update_location` | Update location details |
+| `create_label` | Create a new label |
+| `update_label` | Update label details |
+| `upload_attachment` | Upload attachment to item |
+| `ensure_asset_ids` | Assign asset IDs to all items |
+
+**Destructive** (requires approval):
+| Tool | Description |
+|------|-------------|
+| `delete_item` | Delete an item |
+| `delete_location` | Delete a location |
+| `delete_label` | Delete a label |
+
+</details>
+
 ## 🤖 LLM Provider Support
 
 Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library to call AI providers. **You don't need to self-host anything** – just get an OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys) and you're ready to go. We officially support and test with OpenAI GPT models only.
