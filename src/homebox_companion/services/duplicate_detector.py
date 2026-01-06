@@ -2,10 +2,15 @@
 
 This service checks for potential duplicate items by comparing serial numbers
 against existing items in Homebox.
+
+Note: The Homebox API's /items list endpoint returns ItemSummary which does NOT
+include serialNumber. To get serial numbers, we must fetch individual item details
+via /items/{id}. This service fetches details in parallel batches for efficiency.
 """
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -80,35 +85,82 @@ class DuplicateDetector:
         normalized = serial.strip().upper()
         return normalized if normalized else None
 
-    async def build_serial_index(self, token: str) -> dict[str, ExistingItem]:
+    async def build_serial_index(
+        self,
+        token: str,
+        *,
+        max_concurrent: int = 10,
+    ) -> dict[str, ExistingItem]:
         """Fetch all items and build an index by serial number.
+
+        Note: The Homebox /items list endpoint returns ItemSummary which does NOT
+        include serialNumber. We must fetch individual item details to get serials.
+        This method fetches details in parallel batches for efficiency.
 
         Args:
             token: Bearer token for authentication.
+            max_concurrent: Maximum concurrent detail requests (default: 10).
 
         Returns:
             Dictionary mapping normalized serial numbers to existing items.
         """
         logger.debug("Fetching existing items to build serial number index")
 
+        # Step 1: Get list of all items (summary only - no serial numbers)
         try:
-            items = await self._client.list_items(token)
+            item_summaries = await self._client.list_items(token)
         except Exception as e:
             logger.warning(f"Failed to fetch items for duplicate check: {e}")
             return {}
 
+        if not item_summaries:
+            logger.debug("No existing items in Homebox")
+            return {}
+
+        logger.debug(f"Found {len(item_summaries)} items, fetching details for serial numbers...")
+
+        # Step 2: Fetch individual item details in parallel batches
+        # Use semaphore to limit concurrent requests and avoid overwhelming the server
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def fetch_item_detail(item_id: str) -> dict | None:
+            """Fetch single item detail with rate limiting."""
+            async with semaphore:
+                try:
+                    return await self._client.get_item(token, item_id)
+                except Exception as e:
+                    logger.trace(f"Failed to fetch item {item_id}: {e}")
+                    return None
+
+        # Extract IDs and fetch all details concurrently
+        item_ids = [item.get("id") for item in item_summaries if item.get("id")]
+        tasks = [fetch_item_detail(item_id) for item_id in item_ids]
+
+        logger.debug(f"Fetching details for {len(tasks)} items (max {max_concurrent} concurrent)...")
+        item_details = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Step 3: Build the serial number index from detail responses
         index: dict[str, ExistingItem] = {}
         items_with_serial = 0
+        fetch_errors = 0
 
-        for item in items:
-            serial = self.normalize_serial(item.get("serialNumber"))
+        for detail in item_details:
+            # Skip exceptions and None results
+            if isinstance(detail, Exception):
+                fetch_errors += 1
+                continue
+            if not detail:
+                fetch_errors += 1
+                continue
+
+            serial = self.normalize_serial(detail.get("serialNumber"))
             if serial:
                 items_with_serial += 1
                 # Extract location info if available
-                location = item.get("location") or {}
+                location = detail.get("location") or {}
                 index[serial] = ExistingItem(
-                    id=item.get("id", ""),
-                    name=item.get("name", "Unknown"),
+                    id=detail.get("id", ""),
+                    name=detail.get("name", "Unknown"),
                     serial_number=serial,
                     location_id=location.get("id"),
                     location_name=location.get("name"),
@@ -116,8 +168,12 @@ class DuplicateDetector:
 
         logger.info(
             f"Built serial index: {items_with_serial} items with serial numbers "
-            f"out of {len(items)} total items"
+            f"out of {len(item_summaries)} total items"
         )
+
+        if fetch_errors > 0:
+            logger.warning(f"Failed to fetch details for {fetch_errors} items")
+
         self._serial_index = index
         return index
 
