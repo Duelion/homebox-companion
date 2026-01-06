@@ -9,7 +9,7 @@ Supported providers:
 - anthropic: Anthropic API (Claude)
 - litellm: LiteLLM proxy (existing cloud provider)
 
-Settings are persisted to config/ai_config.json
+Settings are persisted to {data_dir}/ai_config.json
 """
 
 from __future__ import annotations
@@ -24,9 +24,12 @@ from loguru import logger
 from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Default storage location
-CONFIG_DIR = Path("config")
-AI_CONFIG_FILE = CONFIG_DIR / "ai_config.json"
+from homebox_companion.core.config import settings
+
+
+def _get_config_path() -> Path:
+    """Get the AI config file path based on settings.data_dir."""
+    return Path(settings.data_dir) / "ai_config.json"
 
 
 class AIProvider(str, Enum):
@@ -171,11 +174,12 @@ def load_ai_config() -> AIConfig:
     """
     defaults = get_ai_defaults()
 
-    if not AI_CONFIG_FILE.exists():
+    config_file = _get_config_path()
+    if not config_file.exists():
         return defaults
 
     try:
-        file_data = json.loads(AI_CONFIG_FILE.read_text(encoding="utf-8"))
+        file_data = json.loads(config_file.read_text(encoding="utf-8"))
 
         # Deep merge for nested provider configs
         merged = defaults.model_dump()
@@ -202,7 +206,8 @@ def save_ai_config(config: AIConfig) -> None:
     Args:
         config: The configuration to save.
     """
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    config_file = _get_config_path()
+    config_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Convert to dict, handling SecretStr
     data = {
@@ -221,8 +226,8 @@ def save_ai_config(config: AIConfig) -> None:
         "litellm": config.litellm.model_dump(),
     }
 
-    AI_CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    logger.info(f"AI config saved: active_provider={config.active_provider.value}")
+    config_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info(f"AI config saved to {config_file}: active_provider={config.active_provider.value}")
 
 
 def reset_ai_config() -> AIConfig:
@@ -231,8 +236,9 @@ def reset_ai_config() -> AIConfig:
     Returns:
         AIConfig with defaults.
     """
-    if AI_CONFIG_FILE.exists():
-        AI_CONFIG_FILE.unlink()
+    config_file = _get_config_path()
+    if config_file.exists():
+        config_file.unlink()
     # Clear the cache so defaults are re-evaluated
     get_ai_defaults.cache_clear()
     return get_ai_defaults()
