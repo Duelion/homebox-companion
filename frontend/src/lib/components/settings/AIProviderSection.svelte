@@ -164,6 +164,21 @@
 				return 'M13 10V3L4 14h7v7l9-11h-7z';
 		}
 	}
+
+	function getProviderDisplayName(providerId: string): string {
+		switch (providerId) {
+			case 'ollama':
+				return 'Ollama';
+			case 'openai':
+				return 'OpenAI';
+			case 'anthropic':
+				return 'Anthropic';
+			case 'litellm':
+				return 'Cloud';
+			default:
+				return providerId;
+		}
+	}
 </script>
 
 <section class="card space-y-4">
@@ -199,6 +214,15 @@
 			<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 		</svg>
 		<span>Configure AI Provider</span>
+		<!-- Show active provider badge -->
+		{#if service.aiConfig}
+			<span class="flex items-center gap-1.5 rounded-full bg-primary-500/20 px-2.5 py-0.5 text-xs font-medium text-primary-400">
+				<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+					<path d={getProviderIcon(service.aiConfig.active_provider)} />
+				</svg>
+				{getProviderDisplayName(service.aiConfig.active_provider)}
+			</span>
+		{/if}
 		{#if service.isLoading.aiConfig}
 			<div
 				class="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"

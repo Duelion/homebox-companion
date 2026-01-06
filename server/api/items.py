@@ -423,7 +423,7 @@ async def rebuild_duplicate_index(
         logger.exception("Unexpected error during index rebuild")
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected error rebuilding index: {type(e).__name__}",
+            detail=f"Unexpected error rebuilding index: {type(e).__name__}: {e}",
         ) from e
 
     return DuplicateIndexRebuildResponse(

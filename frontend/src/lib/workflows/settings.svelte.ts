@@ -252,22 +252,31 @@ class SettingsService {
 
 	/**
 	 * Initialize settings data.
-	 * Fetches config, version info, and labels in parallel.
+	 * Fetches config, version info, labels, and AI config in parallel.
 	 */
 	async initialize(): Promise<void> {
 		this.isLoading.config = true;
 		this.errors.init = null;
 
 		try {
-			const [configResult, versionResult, labelsResult] = await Promise.all([
+			const [configResult, versionResult, labelsResult, aiConfigResult] = await Promise.all([
 				getConfig(),
 				getVersion(true), // Force check for updates
 				labelsApi.list(), // Auth-required call to detect expired sessions early
+				getAIConfig().catch((e) => {
+					log.warn('Failed to load AI config on init:', e);
+					return null;
+				}),
 			]);
 
 			this.config = configResult;
 			setDemoMode(configResult.is_demo_mode, configResult.demo_mode_explicit);
 			this.availableLabels = labelsResult;
+
+			// Load AI config if successful (allows badge to show immediately)
+			if (aiConfigResult) {
+				this.aiConfig = aiConfigResult;
+			}
 
 			// Set update info
 			if (versionResult.update_available && versionResult.latest_version) {
