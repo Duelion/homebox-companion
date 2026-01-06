@@ -4,7 +4,13 @@
 
 import { request, requestFormData, requestBlobUrl, type BlobUrlResult } from './client';
 import { apiLogger as log } from '../utils/logger';
-import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
+import type {
+	BatchCreateRequest,
+	BatchCreateResponse,
+	DuplicateCheckRequest,
+	DuplicateCheckResponse,
+	ItemSummary,
+} from '../types';
 
 export type { BlobUrlResult };
 
@@ -69,6 +75,25 @@ export const items = {
 		log.debug(`Deleting item: ${itemId}`);
 		return request<{ message: string }>(`/items/${itemId}`, {
 			method: 'DELETE',
+			signal,
+		});
+	},
+
+	/**
+	 * Check items for potential duplicates by serial number.
+	 *
+	 * Compares serial numbers of the provided items against existing items
+	 * in Homebox. Items with matching serial numbers are flagged as potential
+	 * duplicates.
+	 *
+	 * Use this before creating items to warn users about possible duplicates.
+	 */
+	checkDuplicates: (data: DuplicateCheckRequest, signal?: AbortSignal) => {
+		const itemsWithSerial = data.items.filter((item) => item.serial_number).length;
+		log.debug(`Checking ${data.items.length} items for duplicates (${itemsWithSerial} with serials)`);
+		return request<DuplicateCheckResponse>('/items/check-duplicates', {
+			method: 'POST',
+			body: JSON.stringify(data),
 			signal,
 		});
 	},

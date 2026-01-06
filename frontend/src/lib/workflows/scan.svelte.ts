@@ -19,6 +19,7 @@ import { CaptureService } from './capture.svelte';
 import { AnalysisService } from './analysis.svelte';
 import { ReviewService } from './review.svelte';
 import { SubmissionService } from './submission.svelte';
+import { items } from '$lib/api/items';
 import type {
 	ScanState,
 	ScanStatus,
@@ -27,6 +28,7 @@ import type {
 	ConfirmedItem,
 	Progress,
 	SubmissionResult,
+	DuplicateMatch
 } from '$lib/types';
 
 // =============================================================================
@@ -68,6 +70,9 @@ class ScanWorkflow {
 	/** Current error message */
 	private _error = $state<string | null>(null);
 
+	/** Potential duplicates detected during review */
+	private _duplicateMatches = $state<DuplicateMatch[]>([]);
+
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
 	// =========================================================================
@@ -93,6 +98,7 @@ class ScanWorkflow {
 		'imageStatuses',
 		'detectedItems',
 		'currentReviewIndex',
+		'duplicateMatches',
 		'confirmedItems',
 		'submissionProgress',
 		'itemStatuses',
@@ -167,6 +173,8 @@ class ScanWorkflow {
 							return workflow.reviewService.detectedItems;
 						case 'currentReviewIndex':
 							return workflow.reviewService.currentReviewIndex;
+						case 'duplicateMatches':
+							return workflow._duplicateMatches;
 						case 'confirmedItems':
 							return workflow.reviewService.confirmedItems;
 						case 'submissionProgress':
@@ -385,6 +393,9 @@ class ScanWorkflow {
 		if (result.success) {
 			this.reviewService.setDetectedItems(result.items);
 
+			// Check for potential duplicates (async, non-blocking)
+			this.checkForDuplicates(result.items);
+
 			// Check if there were partial failures
 			if (result.failedCount > 0) {
 				this._status = 'partial_analysis';
@@ -401,6 +412,52 @@ class ScanWorkflow {
 			this._error = result.error || 'Analysis failed';
 			this._status = 'capturing';
 			log.error(`Analysis failed: ${this._error}, returning to capture mode`);
+		}
+	}
+
+	/**
+	 * Check detected items for potential duplicates against existing items in Homebox.
+	 * This is called asynchronously and non-blocking - the UI will update when results arrive.
+	 */
+	private async checkForDuplicates(detectedItems: ReviewItem[]): Promise<void> {
+		// Clear previous duplicate matches
+		this._duplicateMatches = [];
+
+		// Filter items that have serial numbers (only those can be checked)
+		const itemsWithSerials = detectedItems.filter(item => item.serial_number);
+		if (itemsWithSerials.length === 0) {
+			log.debug('No items with serial numbers to check for duplicates');
+			return;
+		}
+
+		log.info(`Checking ${itemsWithSerials.length} item(s) for potential duplicates`);
+
+		try {
+			// Convert to the format expected by the API
+			const itemsToCheck = detectedItems.map(item => ({
+				name: item.name,
+				quantity: item.quantity,
+				description: item.description,
+				serial_number: item.serial_number,
+				model_number: item.model_number,
+				manufacturer: item.manufacturer,
+				purchase_price: item.purchase_price,
+				purchase_from: item.purchase_from,
+				notes: item.notes,
+				label_ids: item.label_ids,
+			}));
+
+			const response = await items.checkDuplicates({ items: itemsToCheck });
+
+			if (response.duplicates.length > 0) {
+				this._duplicateMatches = response.duplicates;
+				log.warn(`Found ${response.duplicates.length} potential duplicate(s)`);
+			} else {
+				log.debug('No duplicates found');
+			}
+		} catch (error) {
+			// Non-fatal - log but don't disrupt the workflow
+			log.error('Failed to check for duplicates:', error);
 		}
 	}
 
@@ -769,6 +826,42 @@ class ScanWorkflow {
 	}
 
 	// =========================================================================
+	// DUPLICATE DETECTION
+	// =========================================================================
+
+	/** Get current duplicate matches */
+	get duplicateMatches(): DuplicateMatch[] {
+		return this._duplicateMatches;
+	}
+
+	/**
+	 * Re-check confirmed items for duplicates before submission.
+	 * Call this when entering the summary page to ensure latest state.
+	 */
+	async recheckDuplicates(): Promise<void> {
+		const confirmedItems = this.reviewService.confirmedItems;
+		if (confirmedItems.length === 0) return;
+
+		// Convert ConfirmedItems to the format expected by checkForDuplicates
+		const itemsAsReviewItems: ReviewItem[] = confirmedItems.map(item => ({
+			...item,
+			confirmed: undefined
+		})) as unknown as ReviewItem[];
+
+		await this.checkForDuplicates(itemsAsReviewItems);
+	}
+
+	/** Check if an item at a given index has a duplicate warning */
+	hasDuplicateWarning(itemIndex: number): boolean {
+		return this._duplicateMatches.some(match => match.item_index === itemIndex);
+	}
+
+	/** Get the duplicate match for a specific item index */
+	getDuplicateMatch(itemIndex: number): DuplicateMatch | undefined {
+		return this._duplicateMatches.find(match => match.item_index === itemIndex);
+	}
+
+	// =========================================================================
 	// RESET
 	// =========================================================================
 
@@ -785,6 +878,7 @@ class ScanWorkflow {
 		this._parentItemId = null;
 		this._parentItemName = null;
 		this._error = null;
+		this._duplicateMatches = [];
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */

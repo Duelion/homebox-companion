@@ -182,6 +182,8 @@ export interface ScanState {
 	// Review
 	detectedItems: ReviewItem[];
 	currentReviewIndex: number;
+	/** Potential duplicates detected (items that match existing serial numbers) */
+	duplicateMatches: DuplicateMatch[];
 	// Confirmation
 	confirmedItems: ConfirmedItem[];
 	// Submission
@@ -338,6 +340,46 @@ export interface BatchCreateResponse {
 	/** Error messages for items that failed to create */
 	errors: string[];
 	/** Summary message (e.g., "Created 2 items, 1 failed") */
+	message: string;
+}
+
+// =============================================================================
+// DUPLICATE DETECTION TYPES
+// =============================================================================
+
+/** Summary of an existing item in Homebox */
+export interface ExistingItemInfo {
+	id: string;
+	name: string;
+	serial_number: string;
+	location_id?: string | null;
+	location_name?: string | null;
+}
+
+/** A match between a new item and an existing item */
+export interface DuplicateMatch {
+	/** Index of the new item in the submitted list */
+	item_index: number;
+	/** Name of the new item */
+	item_name: string;
+	/** The matching serial number (normalized to uppercase) */
+	serial_number: string;
+	/** The existing item that matches */
+	existing_item: ExistingItemInfo;
+}
+
+/** Request to check for duplicate items */
+export interface DuplicateCheckRequest {
+	items: ItemInput[];
+}
+
+/** Response from duplicate check */
+export interface DuplicateCheckResponse {
+	/** List of items that have matching serial numbers in Homebox */
+	duplicates: DuplicateMatch[];
+	/** Number of items that had serial numbers to check */
+	checked_count: number;
+	/** Summary message */
 	message: string;
 }
 
