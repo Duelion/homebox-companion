@@ -54,20 +54,34 @@ class URLContentFetcher:
 
     # Known retailer domains that typically have product prices
     RETAILER_DOMAINS = {
+        # Home improvement
         "homedepot.com",
         "lowes.com",
         "menards.com",
-        "bestbuy.com",
+        "acehardware.com",
+        "northerntool.com",
+        # General retail
         "amazon.com",
         "walmart.com",
         "target.com",
-        "acehardware.com",
-        "northerntool.com",
+        "bestbuy.com",
+        # Tools
         "grainger.com",
         "zoro.com",
         "toolnut.com",
         "cpooutlets.com",
         "acmetools.com",
+        # Electronics
+        "digikey.com",
+        "mouser.com",
+        "newark.com",
+        "arrow.com",
+        "adafruit.com",
+        "sparkfun.com",
+        # Industrial/specialty
+        "mcmaster.com",
+        "mscdirect.com",
+        "uline.com",
     }
 
     def __init__(self, timeout: float = 10.0):
