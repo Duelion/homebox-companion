@@ -38,31 +38,37 @@
 			service.showConnectionSettings = false;
 		}
 		// Initialize local values from loaded preferences
-		if (service.appPreferences) {
-			localCacheTTL = service.appPreferences.enrichment_cache_ttl_hours;
-			ttlInitialized = true;
-			localSearchProvider = service.appPreferences.search_provider || 'none';
-			localTavilyKey = service.appPreferences.search_tavily_api_key || '';
-			localGoogleKey = service.appPreferences.search_google_api_key || '';
-			localGoogleEngineId = service.appPreferences.search_google_engine_id || '';
-			localSearxngUrl = service.appPreferences.search_searxng_url || '';
-			searchProviderInitialized = true;
-		}
+		initializeLocalState();
 	});
 
-	// Sync local values when preferences load (but only once)
-	$effect(() => {
-		if (!ttlInitialized && service.appPreferences) {
+	// Helper to initialize local state from service (only runs once per flag)
+	function initializeLocalState() {
+		if (!service.appPreferences) return;
+
+		if (!ttlInitialized) {
 			localCacheTTL = service.appPreferences.enrichment_cache_ttl_hours;
 			ttlInitialized = true;
 		}
-		if (!searchProviderInitialized && service.appPreferences) {
+		if (!searchProviderInitialized) {
 			localSearchProvider = service.appPreferences.search_provider || 'none';
 			localTavilyKey = service.appPreferences.search_tavily_api_key || '';
 			localGoogleKey = service.appPreferences.search_google_api_key || '';
 			localGoogleEngineId = service.appPreferences.search_google_engine_id || '';
 			localSearxngUrl = service.appPreferences.search_searxng_url || '';
 			searchProviderInitialized = true;
+		}
+	}
+
+	// Sync local values when preferences load (but only once)
+	// Guard with flags to prevent any chance of re-running after initialization
+	$effect(() => {
+		// Only run if not yet initialized and preferences are available
+		const needsTTL = !ttlInitialized;
+		const needsSearch = !searchProviderInitialized;
+		const hasPrefs = !!service.appPreferences;
+
+		if (hasPrefs && (needsTTL || needsSearch)) {
+			initializeLocalState();
 		}
 	});
 

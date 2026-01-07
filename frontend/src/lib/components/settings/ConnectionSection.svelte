@@ -14,10 +14,11 @@
 
 	// Local form state for editing
 	let editingPrefs = $state<AppPreferencesInput | null>(null);
+	let prefsInitialized = $state(false);
 
-	// Initialize form state when preferences load
+	// Initialize form state when preferences load (only once)
 	$effect(() => {
-		if (service.appPreferences && !editingPrefs) {
+		if (!prefsInitialized && service.appPreferences) {
 			editingPrefs = {
 				homebox_url_override: service.appPreferences.homebox_url_override,
 				image_quality_override: service.appPreferences.image_quality_override,
@@ -31,27 +32,13 @@
 				search_google_engine_id: service.appPreferences.search_google_engine_id,
 				search_searxng_url: service.appPreferences.search_searxng_url,
 			};
+			prefsInitialized = true;
 		}
 	});
 
-	// Sync editingPrefs when appPreferences changes (after save)
-	$effect(() => {
-		if (service.appPreferences && service.connectionSettingsSaveState === 'success' && editingPrefs) {
-			editingPrefs = {
-				homebox_url_override: service.appPreferences.homebox_url_override,
-				image_quality_override: service.appPreferences.image_quality_override,
-				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
-				enrichment_enabled: service.appPreferences.enrichment_enabled,
-				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
-				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
-				search_provider: service.appPreferences.search_provider,
-				search_tavily_api_key: service.appPreferences.search_tavily_api_key,
-				search_google_api_key: service.appPreferences.search_google_api_key,
-				search_google_engine_id: service.appPreferences.search_google_engine_id,
-				search_searxng_url: service.appPreferences.search_searxng_url,
-			};
-		}
-	});
+	// NOTE: Removed the "sync on save success" $effect - it was causing an infinite loop
+	// because it read editingPrefs in the condition and wrote to it in the body.
+	// The local editingPrefs already has the correct values (user's input), no need to sync.
 
 	async function handleSave() {
 		if (!editingPrefs) return;
