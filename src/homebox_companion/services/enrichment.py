@@ -21,12 +21,13 @@ Privacy considerations:
 
 import hashlib
 import json
-import logging
 import re
 import time
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
+
+from loguru import logger
 
 if TYPE_CHECKING:
     from homebox_companion.providers.base import BaseProvider
@@ -39,8 +40,6 @@ from homebox_companion.services.search_providers import (
     GoogleCSESearchProvider,
     SearXNGSearchProvider,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

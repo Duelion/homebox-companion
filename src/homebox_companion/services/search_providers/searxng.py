@@ -17,16 +17,14 @@ Public instances: https://searx.space
 Self-hosting: https://docs.searxng.org
 """
 
-import logging
 from typing import Any
 from urllib.parse import urlencode, urljoin
 
 import httpx
+from loguru import logger
 
 from homebox_companion.services.debug_logger import debug_log
 from .base import BaseSearchProvider, SearchResult, SearchResponse
-
-logger = logging.getLogger(__name__)
 
 
 class SearXNGSearchProvider(BaseSearchProvider):
