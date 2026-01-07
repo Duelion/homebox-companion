@@ -130,10 +130,26 @@ export type ScanStatus =
 	| 'capturing' // Adding/configuring images
 	| 'analyzing' // AI processing (async)
 	| 'partial_analysis' // Analysis complete with some failures
+	| 'grouping' // Adjusting AI-suggested image groups (desktop only)
 	| 'reviewing' // Editing detected items
 	| 'confirming' // Summary before submit
 	| 'submitting' // Creating items in Homebox
 	| 'complete'; // Success
+
+/** Analysis mode - how images should be processed */
+export type AnalysisMode =
+	| 'quick' // Each image analyzed separately (default)
+	| 'grouped'; // All images sent together, AI groups them automatically
+
+/** Image group from grouped detection or manual grouping */
+export interface ImageGroup {
+	/** Unique ID for this group */
+	id: string;
+	/** Detected item info (may be partial before confirmation) */
+	item: DetectedItem | null;
+	/** Indices of images in this group (from captured images array) */
+	imageIndices: number[];
+}
 
 /** Status of individual item submission */
 export type ItemSubmissionStatus =
@@ -175,10 +191,15 @@ export interface ScanState {
 	parentItemName: string | null;
 	// Capture
 	images: CapturedImage[];
+	// Analysis mode
+	analysisMode: AnalysisMode;
 	// Analysis
 	analysisProgress: Progress | null;
 	/** Per-image analysis status for UI feedback */
 	imageStatuses: Record<number, ImageAnalysisStatus>;
+	// Grouped detection
+	/** Image groups from grouped detection (only used in grouped mode) */
+	imageGroups: ImageGroup[];
 	// Review
 	detectedItems: ReviewItem[];
 	currentReviewIndex: number;
