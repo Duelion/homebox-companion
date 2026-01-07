@@ -29,6 +29,8 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from homebox_companion.providers.base import BaseProvider
 
+from homebox_companion.services.debug_logger import debug_log
+
 logger = logging.getLogger(__name__)
 
 
@@ -309,14 +311,22 @@ Respond with ONLY the JSON, no other text."""
         Returns:
             EnrichmentResult with detailed specs
         """
+        debug_log("ENRICHMENT", "enrich() called", {
+            "manufacturer": manufacturer,
+            "model_number": model_number,
+            "product_name": product_name,
+        })
+
         # Must have model number to enrich
         if not model_number or not model_number.strip():
             logger.debug("No model number provided, skipping enrichment")
+            debug_log("ENRICHMENT", "Skipping - no model number provided", level="DEBUG")
             return EnrichmentResult.empty(product_name)
 
         # Must have AI provider
         if not self.ai_provider:
             logger.warning("No AI provider configured for enrichment")
+            debug_log("ENRICHMENT", "No AI provider configured", level="WARNING")
             return EnrichmentResult.empty(product_name)
 
         model_number = model_number.strip()
@@ -325,11 +335,25 @@ Respond with ONLY the JSON, no other text."""
         # Check cache first
         cached = self.cache.get(manufacturer, model_number)
         if cached is not None:
+            debug_log("ENRICHMENT", "Cache hit", {
+                "manufacturer": manufacturer,
+                "model_number": model_number,
+                "enriched": cached.enriched,
+            })
             return cached
 
         # Perform AI lookup
         logger.info(f"Enriching specs for {manufacturer} {model_number}")
+        debug_log("ENRICHMENT", f"Starting AI enrichment for {manufacturer} {model_number}")
         result = await self._ai_enrich(manufacturer, model_number, product_name)
+
+        debug_log("ENRICHMENT", "AI enrichment complete", {
+            "enriched": result.enriched,
+            "confidence": result.confidence,
+            "source": result.source,
+            "has_description": bool(result.description),
+            "feature_count": len(result.features),
+        })
 
         # Cache result (even if not enriched, to avoid repeated failed lookups)
         self.cache.set(manufacturer, model_number, result)
@@ -355,12 +379,23 @@ Respond with ONLY the JSON, no other text."""
                 hint=hint,
             )
 
+            debug_log("ENRICHMENT", "Calling AI provider", {
+                "provider": type(self.ai_provider).__name__,
+                "prompt_length": len(prompt),
+            })
+
             # Call AI provider
             response = await self.ai_provider.complete(prompt)
 
             if not response:
                 logger.warning("Empty response from AI provider")
+                debug_log("ENRICHMENT", "Empty response from AI provider", level="WARNING")
                 return EnrichmentResult.empty(product_name)
+
+            debug_log("ENRICHMENT", "AI response received", {
+                "response_length": len(response),
+                "response_preview": response[:200] if len(response) > 200 else response,
+            })
 
             # Parse JSON response
             return self._parse_ai_response(
@@ -369,6 +404,7 @@ Respond with ONLY the JSON, no other text."""
 
         except Exception as e:
             logger.error(f"AI enrichment failed: {e}")
+            debug_log("ENRICHMENT", f"AI enrichment failed: {e}", level="ERROR")
             return EnrichmentResult.empty(product_name)
 
     def _parse_ai_response(
@@ -465,9 +501,13 @@ Respond with ONLY the JSON, no other text."""
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse AI response as JSON: {e}")
+            debug_log("ENRICHMENT", f"JSON parse error: {e}", {
+                "response_preview": response[:500] if response else "",
+            }, level="WARNING")
             return EnrichmentResult.empty(product_name)
         except Exception as e:
             logger.error(f"Error parsing AI response: {e}")
+            debug_log("ENRICHMENT", f"Error parsing AI response: {e}", level="ERROR")
             return EnrichmentResult.empty(product_name)
 
     def format_description(self, result: EnrichmentResult) -> str:

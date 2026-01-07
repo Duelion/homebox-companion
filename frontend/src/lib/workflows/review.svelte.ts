@@ -94,6 +94,15 @@ export class ReviewService {
 		);
 	}
 
+	/** Update a specific item by index (used by auto-enrichment) */
+	updateItemAtIndex(index: number, updates: Partial<ReviewItem>): void {
+		if (index < 0 || index >= this._detectedItems.length) return;
+
+		this._detectedItems = this._detectedItems.map((item, i) =>
+			i === index ? { ...item, ...updates } : item
+		);
+	}
+
 	// =========================================================================
 	// NAVIGATION
 	// =========================================================================

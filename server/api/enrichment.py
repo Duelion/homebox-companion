@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from homebox_companion.core.app_preferences import load_app_preferences
 from homebox_companion.core.config import settings
 from homebox_companion.services.enrichment import EnrichmentService, EnrichmentResult
+from homebox_companion.services.debug_logger import debug_log
 
 from ..dependencies import require_auth, get_vision_context
 
@@ -111,9 +112,21 @@ async def enrich_product(
 
     Requires enrichment to be enabled in settings.
     """
+    debug_log("ENRICHMENT_API", "POST /enrichment/lookup called", {
+        "manufacturer": request.manufacturer,
+        "model_number": request.model_number,
+        "product_name": request.product_name,
+    })
+
     # Check if enrichment is enabled
     prefs = load_app_preferences()
+    debug_log("ENRICHMENT_API", "Loaded app preferences", {
+        "enrichment_enabled": prefs.enrichment_enabled,
+        "enrichment_auto_enrich": prefs.enrichment_auto_enrich,
+    })
+
     if not prefs.enrichment_enabled:
+        debug_log("ENRICHMENT_API", "Enrichment disabled in preferences", level="WARNING")
         raise HTTPException(
             status_code=400,
             detail="Enrichment is disabled. Enable it in Settings.",
@@ -124,8 +137,10 @@ async def enrich_product(
 
     # Set the AI provider from vision context
     if vision_ctx.provider:
+        debug_log("ENRICHMENT_API", f"Using AI provider: {type(vision_ctx.provider).__name__}")
         service.set_provider(vision_ctx.provider)
     else:
+        debug_log("ENRICHMENT_API", "No AI provider available", level="ERROR")
         raise HTTPException(
             status_code=503,
             detail="AI provider not available. Please configure an AI provider in Settings.",
@@ -138,9 +153,15 @@ async def enrich_product(
             model_number=request.model_number,
             product_name=request.product_name,
         )
+        debug_log("ENRICHMENT_API", "Enrichment complete", {
+            "enriched": result.enriched,
+            "source": result.source,
+            "confidence": result.confidence,
+        })
         return EnrichResponse.from_result(result, service)
     except Exception as e:
         logger.error(f"Enrichment failed: {e}")
+        debug_log("ENRICHMENT_API", f"Enrichment failed: {e}", level="ERROR")
         raise HTTPException(status_code=500, detail=f"Enrichment failed: {str(e)}")
 
 
