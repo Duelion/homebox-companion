@@ -495,10 +495,12 @@ Respond with ONLY the JSON, no other text."""
             EnrichmentResult if successful, None to fall back to AI-only
         """
         if not self._search_provider or not self.ai_provider:
+            logger.warning("Web search skipped: no search provider or AI provider")
             return None
 
         try:
             # Search for product specifications
+            logger.info(f"Calling {self._search_provider.provider_name} for: {manufacturer} {model_number}")
             search_response = await self._search_provider.search_product(
                 manufacturer=manufacturer,
                 model_number=model_number,
@@ -506,10 +508,12 @@ Respond with ONLY the JSON, no other text."""
             )
 
             if not search_response.success:
+                logger.warning(f"Web search failed: {search_response.error}")
                 debug_log("ENRICHMENT", f"Web search failed: {search_response.error}", level="WARNING")
                 return None
 
             if not search_response.results:
+                logger.info("Web search returned no results")
                 debug_log("ENRICHMENT", "Web search returned no results")
                 return None
 
@@ -608,7 +612,7 @@ Respond with ONLY the JSON, no other text."""
             )
 
         except Exception as e:
-            logger.error(f"AI enrichment failed: {e}", exc_info=True)
+            logger.exception(f"AI enrichment failed: {e}")
             debug_log("ENRICHMENT", f"AI enrichment failed: {e}", level="ERROR")
             return EnrichmentResult.empty(product_name)
 
