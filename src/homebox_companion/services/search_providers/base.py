@@ -8,9 +8,8 @@ between Tavily, Google CSE, SearXNG, or any future providers.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
-import logging
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass
@@ -120,9 +119,11 @@ class BaseSearchProvider(ABC):
         product_name: str = "",
     ) -> SearchResponse:
         """
-        Search for product specifications.
+        Search for product specifications and pricing.
 
-        Builds an optimized query for finding product specs.
+        Performs multiple searches to gather comprehensive product information:
+        1. Specifications and features
+        2. Pricing (MSRP, retail price)
 
         Args:
             manufacturer: Product manufacturer
@@ -130,19 +131,43 @@ class BaseSearchProvider(ABC):
             product_name: Optional product name hint
 
         Returns:
-            SearchResponse with results
+            SearchResponse with combined results from all searches
         """
-        # Build search query optimized for product specs
-        parts = []
+        # Build base product identifier
+        base_parts = []
         if manufacturer:
-            parts.append(manufacturer)
+            base_parts.append(manufacturer)
         if model_number:
-            parts.append(model_number)
-        if product_name and product_name != model_number:
-            parts.append(product_name)
-        parts.append("specifications")
+            base_parts.append(model_number)
 
-        query = " ".join(parts)
-        logger.debug(f"Product search query: {query}")
+        base_query = " ".join(base_parts)
 
-        return await self.search(query, max_results=5, include_content=True)
+        # Search queries to run
+        queries = [
+            f"{base_query} specifications features specs",
+            f"{base_query} MSRP price retail",
+        ]
+
+        # Collect all results
+        all_results: list[SearchResult] = []
+        seen_urls: set[str] = set()
+
+        for query in queries:
+            logger.info(f"Product search query: {query}")
+            response = await self.search(query, max_results=3, include_content=True)
+
+            if response.success:
+                for result in response.results:
+                    # Deduplicate by URL
+                    if result.url not in seen_urls:
+                        seen_urls.add(result.url)
+                        all_results.append(result)
+
+        # Return combined response
+        combined_query = f"{base_query} (specs + pricing)"
+        return SearchResponse(
+            query=combined_query,
+            results=all_results[:6],  # Limit to top 6 unique results
+            total_results=len(all_results),
+            provider=self.provider_name,
+        )
