@@ -432,6 +432,7 @@ Respond with ONLY the JSON, no other text."""
         # Check cache first
         cached = self.cache.get(manufacturer, model_number)
         if cached is not None:
+            logger.info(f"Enrichment cache hit for {manufacturer} {model_number}: enriched={cached.enriched}")
             debug_log("ENRICHMENT", "Cache hit", {
                 "manufacturer": manufacturer,
                 "model_number": model_number,
@@ -439,6 +440,8 @@ Respond with ONLY the JSON, no other text."""
                 "source": cached.source,
             })
             return cached
+
+        logger.info(f"Enrichment cache miss for {manufacturer} {model_number}, will query AI")
 
         # Try web search first if configured
         result: EnrichmentResult | None = None
