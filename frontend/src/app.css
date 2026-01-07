@@ -39,22 +39,46 @@
 @layer components {
 	/* Icon button - compact */
 	.btn-icon {
-		@apply rounded-lg p-2 text-base-content/60 transition-colors duration-150 hover:bg-base-300 hover:text-base-content focus:outline-none focus:ring-2 focus:ring-primary/50 active:bg-base-300/80;
+		@apply rounded-lg p-2 transition-colors duration-150 hover:bg-base-300 hover:text-base-content focus:outline-none focus:ring-2 active:bg-base-300;
+		color: oklch(var(--bc) / 0.6);
+		--tw-ring-color: oklch(var(--p) / 0.5);
+	}
+	.btn-icon:active {
+		background-color: oklch(var(--b3) / 0.8);
 	}
 
 	/* Input styles */
 	.input {
-		@apply w-full rounded-xl border border-base-content/20 bg-base-200 px-4 py-3 text-base-content transition-all duration-150 placeholder:text-base-content/40 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:border-base-content/10 disabled:bg-base-100 disabled:text-base-content/30;
+		@apply w-full rounded-xl bg-base-200 px-4 py-3 text-base-content transition-all duration-150 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
+		border: 1px solid oklch(var(--bc) / 0.2);
+		--tw-ring-color: oklch(var(--p) / 0.2);
+	}
+	.input::placeholder {
+		color: oklch(var(--bc) / 0.4);
+	}
+	.input:disabled {
+		border-color: oklch(var(--bc) / 0.1);
+		color: oklch(var(--bc) / 0.3);
 	}
 
 	/* Compact input variant for modals and dense UIs */
 	.input-sm {
-		@apply w-full rounded-lg border border-base-content/20 bg-base-200 px-3 py-2 text-sm text-base-content transition-all duration-150 placeholder:text-base-content/40 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:border-base-content/10 disabled:bg-base-100 disabled:text-base-content/30;
+		@apply w-full rounded-lg bg-base-200 px-3 py-2 text-sm text-base-content transition-all duration-150 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
+		border: 1px solid oklch(var(--bc) / 0.2);
+		--tw-ring-color: oklch(var(--p) / 0.2);
+	}
+	.input-sm::placeholder {
+		color: oklch(var(--bc) / 0.4);
+	}
+	.input-sm:disabled {
+		border-color: oklch(var(--bc) / 0.1);
+		color: oklch(var(--bc) / 0.3);
 	}
 
 	/* Input error state */
 	.input-error {
-		@apply border-error focus:border-error focus:ring-error/20;
+		@apply border-error focus:border-error focus:ring-2;
+		--tw-ring-color: oklch(var(--er) / 0.2);
 	}
 
 	/* Expandable input - base styles for use with expandable action */
@@ -65,35 +89,49 @@
 
 	/* Label styles */
 	.label {
-		@apply mb-2 block text-body-sm font-medium text-base-content/75;
+		@apply mb-2 block text-body-sm font-medium;
+		color: oklch(var(--bc) / 0.75);
 	}
 
 	/* Compact label for modals and dense UIs */
 	.label-sm {
-		@apply mb-1 block text-xs font-medium text-base-content/60;
+		@apply mb-1 block text-xs font-medium;
+		color: oklch(var(--bc) / 0.6);
 	}
 
 	/* Label chip / badge styles */
 	.label-chip {
-		@apply cursor-pointer rounded-lg border border-base-content/20 bg-base-200 px-3 py-1.5 text-sm text-base-content/75 transition-all duration-150 hover:border-base-content/30 hover:bg-base-300;
+		@apply cursor-pointer rounded-lg bg-base-200 px-3 py-1.5 text-sm transition-all duration-150 hover:bg-base-300;
+		border: 1px solid oklch(var(--bc) / 0.2);
+		color: oklch(var(--bc) / 0.75);
+	}
+	.label-chip:hover {
+		border-color: oklch(var(--bc) / 0.3);
 	}
 
 	.label-chip-selected {
-		@apply rounded-lg border-2 border-primary bg-primary/20 px-3 py-1.5 text-sm font-medium text-primary shadow-sm ring-2 ring-primary/20;
+		@apply rounded-lg border-2 border-primary px-3 py-1.5 text-sm font-medium text-primary shadow-sm ring-2;
+		background-color: oklch(var(--p) / 0.2);
+		--tw-ring-color: oklch(var(--p) / 0.2);
 	}
 
 	/* Touch-target icon button */
 	.btn-icon-touch {
-		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-base-content/60 transition-all hover:bg-base-300 hover:text-base-content;
+		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 transition-all hover:bg-base-300 hover:text-base-content;
+		color: oklch(var(--bc) / 0.6);
 	}
 
 	/* Card base styles - use for lightweight card-like containers without importing Card.svelte */
 	.card {
-		@apply rounded-xl border border-base-content/20 bg-base-200 p-4 shadow-sm;
+		@apply rounded-xl bg-base-200 p-4 shadow-sm;
+		border: 1px solid oklch(var(--bc) / 0.2);
 	}
 
 	.card-interactive {
-		@apply card cursor-pointer transition-all hover:border-base-content/30 hover:bg-base-300 hover:shadow-md active:scale-[0.99];
+		@apply card cursor-pointer transition-all hover:bg-base-300 hover:shadow-md active:scale-[0.99];
+	}
+	.card-interactive:hover {
+		border-color: oklch(var(--bc) / 0.3);
 	}
 
 	/* ==========================================================================
@@ -112,16 +150,22 @@
 
 	/* Metadata row (timestamp, tokens) */
 	.chat-meta {
-		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-xs text-base-content/40;
+		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-xs;
+		color: oklch(var(--bc) / 0.4);
 	}
 
 	/* Tool accordion section */
 	.chat-tools-section {
-		@apply mt-1.5 border-t border-white/10 pt-1.5;
+		@apply mt-1.5 pt-1.5;
+		border-top: 1px solid oklch(1 0 0 / 0.1);
 	}
 
 	.chat-tools-summary {
-		@apply flex cursor-pointer select-none items-center gap-1 text-xs text-base-content/60 hover:text-base-content/75;
+		@apply flex cursor-pointer select-none items-center gap-1 text-xs;
+		color: oklch(var(--bc) / 0.6);
+	}
+	.chat-tools-summary:hover {
+		color: oklch(var(--bc) / 0.75);
 	}
 
 	.chat-tools-grid {
@@ -190,11 +234,13 @@
 	}
 
 	.markdown-content code {
-		@apply rounded bg-primary/10 px-1 py-0.5 font-mono text-[0.85em];
+		@apply rounded px-1 py-0.5 font-mono text-[0.85em];
+		background-color: oklch(var(--p) / 0.1);
 	}
 
 	.markdown-content pre {
-		@apply my-1.5 overflow-x-auto rounded-lg bg-black/30 p-2;
+		@apply my-1.5 overflow-x-auto rounded-lg p-2;
+		background-color: oklch(0 0 0 / 0.3);
 	}
 
 	.markdown-content pre code {
@@ -227,15 +273,17 @@
 
 	.markdown-content th,
 	.markdown-content td {
-		@apply border border-base-content/30 px-3 py-2 text-left;
+		@apply px-3 py-2 text-left;
+		border: 1px solid oklch(var(--bc) / 0.3);
 	}
 
 	.markdown-content th {
-		@apply bg-base-300/50 font-semibold text-base-content;
+		@apply font-semibold text-base-content;
+		background-color: oklch(var(--b3) / 0.5);
 	}
 
 	.markdown-content tr:nth-child(even) {
-		@apply bg-base-300/30;
+		background-color: oklch(var(--b3) / 0.3);
 	}
 
 	/* GFM Task Lists */
@@ -250,22 +298,28 @@
 
 	/* Links */
 	.markdown-content a {
-		@apply text-primary underline transition-colors hover:text-primary/80;
+		@apply text-primary underline transition-colors;
+	}
+	.markdown-content a:hover {
+		color: oklch(var(--p) / 0.8);
 	}
 
 	/* Blockquotes */
 	.markdown-content blockquote {
-		@apply my-3 border-l-4 border-primary/50 pl-4 italic text-base-content/60;
+		@apply my-3 pl-4 italic;
+		border-left: 4px solid oklch(var(--p) / 0.5);
+		color: oklch(var(--bc) / 0.6);
 	}
 
 	/* Horizontal Rule */
 	.markdown-content hr {
-		@apply my-4 border-base-content/30;
+		@apply my-4;
+		border-color: oklch(var(--bc) / 0.3);
 	}
 
 	/* Strikethrough */
 	.markdown-content del {
-		@apply text-base-content/40;
+		color: oklch(var(--bc) / 0.4);
 	}
 }
 
@@ -289,7 +343,8 @@
 	 */
 
 	.glass {
-		@apply bg-base-200/80 backdrop-blur-lg;
+		@apply backdrop-blur-lg;
+		background-color: oklch(var(--b2) / 0.8);
 	}
 
 	/* iOS safe area padding for bottom navigation */
@@ -350,12 +405,16 @@
 
 	/* Fixed bottom panel above nav */
 	.fixed-bottom-panel {
-		@apply bottom-nav-offset fixed left-0 right-0 z-40 border-t border-base-content/10 bg-base-100/95 backdrop-blur-lg;
+		@apply bottom-nav-offset fixed left-0 right-0 z-40 backdrop-blur-lg;
+		border-top: 1px solid oklch(var(--bc) / 0.1);
+		background-color: oklch(var(--b1) / 0.95);
 	}
 
 	/* Chat input container - adapts position for mobile virtual keyboard */
 	.chat-input-keyboard-aware {
-		@apply bottom-nav-offset fixed left-0 right-0 z-50 border-t border-base-content/10 bg-base-100/95 backdrop-blur-lg;
+		@apply bottom-nav-offset fixed left-0 right-0 z-50 backdrop-blur-lg;
+		border-top: 1px solid oklch(var(--bc) / 0.1);
+		background-color: oklch(var(--b1) / 0.95);
 		/* Ensure proper stacking and prevent layout shifts on iOS Safari */
 		transform: translateZ(0);
 		-webkit-transform: translateZ(0);
