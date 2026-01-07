@@ -27,9 +27,9 @@ RUN uv sync --no-dev --quiet
 COPY --from=frontend-builder /app/frontend/build ./server/static/
 
 # Create data directory and non-root user for security
-RUN mkdir -p /app/data \
+RUN mkdir -p /data \
     && useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appuser /app /data
 
 # Copy and setup entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
@@ -41,7 +41,7 @@ EXPOSE 8000
 # Set default environment variables
 ENV HBC_SERVER_HOST=0.0.0.0
 ENV HBC_SERVER_PORT=8000
-ENV HBC_DATA_DIR=/app/data
+ENV HBC_DATA_DIR=/data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

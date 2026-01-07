@@ -52,7 +52,7 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - ./homebox-companion:/app/data  # All persistent data (settings, sessions, indexes)
+      - ./homebox-companion:/data  # All persistent data (settings, sessions, indexes)
 
 ```
 
