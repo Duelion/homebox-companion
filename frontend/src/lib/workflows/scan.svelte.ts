@@ -15,11 +15,14 @@
  */
 
 import { workflowLogger as log } from '$lib/utils/logger';
+import { debugLog } from '$lib/api/debug';
 import { CaptureService } from './capture.svelte';
 import { AnalysisService } from './analysis.svelte';
 import { ReviewService } from './review.svelte';
 import { SubmissionService } from './submission.svelte';
 import { items } from '$lib/api/items';
+import { enrichProduct } from '$lib/api/enrichment';
+import { getAppPreferences } from '$lib/api/appPreferences';
 import type {
 	ScanState,
 	ScanStatus,
@@ -379,21 +382,28 @@ class ScanWorkflow {
 	/** Start image analysis - coordinates with AnalysisService */
 	async startAnalysis(): Promise<void> {
 		log.info('ScanWorkflow.startAnalysis() called');
+		debugLog.info('WORKFLOW', 'startAnalysis called', {
+			status: this._status,
+			imageCount: this.captureService.count,
+		});
 
 		// Prevent starting a new analysis if one is already in progress
 		if (this._status === 'analyzing') {
 			log.warn('Analysis already in progress (status check), ignoring duplicate request');
+			debugLog.warning('WORKFLOW', 'Analysis already in progress, ignoring duplicate request');
 			this._error = 'Analysis already in progress';
 			return;
 		}
 
 		if (!this.captureService.hasImages) {
 			log.warn('No images to analyze, returning early');
+			debugLog.warning('WORKFLOW', 'No images to analyze');
 			this._error = 'Please add at least one image';
 			return;
 		}
 
 		log.info(`Starting analysis for ${this.captureService.count} image(s)`);
+		debugLog.info('WORKFLOW', `Starting analysis for ${this.captureService.count} image(s)`);
 
 		// Set status BEFORE any async operations to prevent duplicate triggers
 		this._status = 'analyzing';
@@ -405,14 +415,23 @@ class ScanWorkflow {
 		// Check if cancelled (status may have changed)
 		if (this._status !== 'analyzing') {
 			log.debug('Analysis was cancelled or status changed during processing');
+			debugLog.info('WORKFLOW', 'Analysis cancelled or status changed');
 			return;
 		}
 
 		if (result.success) {
+			debugLog.info('WORKFLOW', 'Analysis successful', {
+				itemCount: result.items.length,
+				failedCount: result.failedCount,
+			});
+
 			this.reviewService.setDetectedItems(result.items);
 
 			// Check for potential duplicates (async, non-blocking)
 			this.checkForDuplicates(result.items);
+
+			// Auto-enrich if enabled (async, non-blocking)
+			this.autoEnrichItems(result.items);
 
 			// Check if there were partial failures
 			if (result.failedCount > 0) {
@@ -430,6 +449,7 @@ class ScanWorkflow {
 			this._error = result.error || 'Analysis failed';
 			this._status = 'capturing';
 			log.error(`Analysis failed: ${this._error}, returning to capture mode`);
+			debugLog.error('WORKFLOW', 'Analysis failed', { error: this._error });
 		}
 	}
 
@@ -445,10 +465,12 @@ class ScanWorkflow {
 		const itemsWithSerials = detectedItems.filter(item => item.serial_number);
 		if (itemsWithSerials.length === 0) {
 			log.debug('No items with serial numbers to check for duplicates');
+			debugLog.debug('DUPLICATES', 'No items with serial numbers to check');
 			return;
 		}
 
 		log.info(`Checking ${itemsWithSerials.length} item(s) for potential duplicates`);
+		debugLog.info('DUPLICATES', `Checking ${itemsWithSerials.length} item(s) for duplicates`);
 
 		try {
 			// Convert to the format expected by the API
@@ -470,12 +492,149 @@ class ScanWorkflow {
 			if (response.duplicates.length > 0) {
 				this._duplicateMatches = response.duplicates;
 				log.warn(`Found ${response.duplicates.length} potential duplicate(s)`);
+				debugLog.warning('DUPLICATES', `Found ${response.duplicates.length} potential duplicate(s)`, {
+					duplicates: response.duplicates.map(d => ({ serial: d.serial_number, name: d.existing_item.name })),
+				});
 			} else {
 				log.debug('No duplicates found');
+				debugLog.debug('DUPLICATES', 'No duplicates found');
 			}
 		} catch (error) {
 			// Non-fatal - log but don't disrupt the workflow
 			log.error('Failed to check for duplicates:', error);
+			debugLog.error('DUPLICATES', 'Failed to check for duplicates', {
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
+	/**
+	 * Auto-enrich detected items with product specifications.
+	 * This is called asynchronously and non-blocking - items update in place as enrichment completes.
+	 *
+	 * Only runs if:
+	 * - Enrichment is enabled in app preferences
+	 * - Auto-enrich is enabled in app preferences
+	 * - Items have a model_number (required for enrichment lookup)
+	 */
+	private async autoEnrichItems(detectedItems: ReviewItem[]): Promise<void> {
+		debugLog.info('ENRICHMENT', 'autoEnrichItems called', { itemCount: detectedItems.length });
+
+		try {
+			// Check app preferences for enrichment settings
+			const prefs = await getAppPreferences();
+			debugLog.info('ENRICHMENT', 'Fetched app preferences', {
+				enrichment_enabled: prefs.enrichment_enabled,
+				enrichment_auto_enrich: prefs.enrichment_auto_enrich,
+			});
+
+			if (!prefs.enrichment_enabled) {
+				log.debug('Enrichment is disabled, skipping auto-enrich');
+				debugLog.info('ENRICHMENT', 'Enrichment disabled in preferences, skipping');
+				return;
+			}
+
+			if (!prefs.enrichment_auto_enrich) {
+				log.debug('Auto-enrich is disabled, skipping');
+				debugLog.info('ENRICHMENT', 'Auto-enrich disabled in preferences, skipping');
+				return;
+			}
+
+			// Filter items that have model numbers (required for enrichment)
+			const itemsToEnrich = detectedItems.filter(
+				(item) => item.model_number && item.model_number.trim() !== ''
+			);
+
+			if (itemsToEnrich.length === 0) {
+				log.debug('No items with model numbers to enrich');
+				debugLog.info('ENRICHMENT', 'No items with model numbers to enrich');
+				return;
+			}
+
+			log.info(`Auto-enriching ${itemsToEnrich.length} item(s)`);
+			debugLog.info('ENRICHMENT', `Starting auto-enrich for ${itemsToEnrich.length} item(s)`, {
+				items: itemsToEnrich.map((i) => ({
+					name: i.name,
+					model: i.model_number,
+					manufacturer: i.manufacturer,
+				})),
+			});
+
+			// Enrich each item (sequentially to avoid overloading the AI)
+			for (const item of itemsToEnrich) {
+				try {
+					debugLog.debug('ENRICHMENT', `Enriching item: ${item.name}`, {
+						model_number: item.model_number,
+						manufacturer: item.manufacturer,
+					});
+
+					const result = await enrichProduct({
+						manufacturer: item.manufacturer || '',
+						model_number: item.model_number || '',
+						product_name: item.name,
+					});
+
+					debugLog.info('ENRICHMENT', `Enrichment result for ${item.name}`, {
+						enriched: result.enriched,
+						source: result.source,
+						confidence: result.confidence,
+						hasDescription: !!result.formatted_description,
+					});
+
+					if (result.enriched && result.confidence >= 0.5) {
+						// Update the item with enriched data
+						// Only update fields that the enrichment provides and that aren't already set
+						const updates: Partial<ReviewItem> = {};
+
+						// Always update description with enriched data if available
+						if (result.formatted_description) {
+							updates.description = result.formatted_description;
+						}
+
+						// Update name if enrichment found a better one and original is generic
+						if (result.name && (!item.name || item.name === item.model_number)) {
+							updates.name = result.name;
+						}
+
+						// Update purchase_price with MSRP if not set
+						if (result.msrp && !item.purchase_price) {
+							updates.purchase_price = result.msrp;
+						}
+
+						// Apply updates to the review service
+						const itemIndex = detectedItems.indexOf(item);
+						if (itemIndex >= 0 && Object.keys(updates).length > 0) {
+							this.reviewService.updateItemAtIndex(itemIndex, updates);
+							log.info(`Enriched item: ${item.name}`);
+							debugLog.info('ENRICHMENT', `Applied enrichment to ${item.name}`, {
+								updates,
+								itemIndex,
+							});
+						}
+					} else {
+						debugLog.debug('ENRICHMENT', `Skipped enrichment for ${item.name}`, {
+							enriched: result.enriched,
+							confidence: result.confidence,
+							reason: !result.enriched ? 'not enriched' : 'low confidence',
+						});
+					}
+				} catch (itemError) {
+					// Non-fatal - log but continue with other items
+					log.error(`Failed to enrich item ${item.name}:`, itemError);
+					debugLog.error('ENRICHMENT', `Failed to enrich item ${item.name}`, {
+						error: itemError instanceof Error ? itemError.message : String(itemError),
+					});
+				}
+			}
+
+			log.info('Auto-enrichment complete');
+			debugLog.info('ENRICHMENT', 'Auto-enrichment complete');
+		} catch (error) {
+			// Non-fatal - log but don't disrupt the workflow
+			log.error('Failed to auto-enrich items:', error);
+			debugLog.error('ENRICHMENT', 'Auto-enrich failed', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 
