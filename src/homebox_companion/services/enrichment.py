@@ -19,6 +19,7 @@ Privacy considerations:
 - Web search is optional - works without external APIs
 """
 
+import asyncio
 import hashlib
 import json
 import re
@@ -27,6 +28,7 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+import httpx
 from loguru import logger
 
 if TYPE_CHECKING:
@@ -36,11 +38,160 @@ from homebox_companion.services.debug_logger import debug_log
 from homebox_companion.services.search_providers import (
     BaseSearchProvider,
     SearchResponse,
+    SearchResult,
     TavilySearchProvider,
     GoogleCSESearchProvider,
     SearXNGSearchProvider,
 )
 
+
+# =============================================================================
+# URL CONTENT FETCHER
+# =============================================================================
+
+class URLContentFetcher:
+    """Fetches and extracts content from retailer URLs."""
+
+    # Known retailer domains that typically have product prices
+    RETAILER_DOMAINS = {
+        "homedepot.com",
+        "lowes.com",
+        "menards.com",
+        "bestbuy.com",
+        "amazon.com",
+        "walmart.com",
+        "target.com",
+        "acehardware.com",
+        "northerntool.com",
+        "grainger.com",
+        "zoro.com",
+        "toolnut.com",
+        "cpooutlets.com",
+        "acmetools.com",
+    }
+
+    def __init__(self, timeout: float = 10.0):
+        self.timeout = timeout
+
+    def is_retailer_url(self, url: str) -> bool:
+        """Check if URL is from a known retailer."""
+        url_lower = url.lower()
+        return any(domain in url_lower for domain in self.RETAILER_DOMAINS)
+
+    def _strip_html(self, html: str) -> str:
+        """Strip HTML tags and extract text content."""
+        # Remove script and style blocks
+        html = re.sub(r'<script[^>]*>.*?</script>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
+        html = re.sub(r'<style[^>]*>.*?</style>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
+        # Remove HTML tags
+        text = re.sub(r'<[^>]+>', ' ', html)
+        # Decode common HTML entities
+        text = text.replace('&nbsp;', ' ').replace('&amp;', '&')
+        text = text.replace('&lt;', '<').replace('&gt;', '>')
+        text = text.replace('&quot;', '"').replace('&#39;', "'")
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    def _extract_price_context(self, text: str, window: int = 200) -> str:
+        """Extract text around price mentions."""
+        # Find price patterns
+        price_pattern = r'\$[\d,]+\.?\d*'
+        matches = list(re.finditer(price_pattern, text))
+
+        if not matches:
+            return ""
+
+        # Get context around each price mention
+        contexts = []
+        for match in matches[:5]:  # Limit to first 5 prices
+            start = max(0, match.start() - window)
+            end = min(len(text), match.end() + window)
+            context = text[start:end].strip()
+            if context:
+                contexts.append(context)
+
+        return "\n---\n".join(contexts)
+
+    async def fetch_url_content(self, url: str) -> str | None:
+        """Fetch and extract text content from a URL."""
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Accept": "text/html,application/xhtml+xml",
+                }
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+
+                # Only process HTML
+                content_type = response.headers.get("content-type", "")
+                if "text/html" not in content_type:
+                    return None
+
+                html = response.text
+                text = self._strip_html(html)
+
+                # Extract price context for efficiency
+                price_context = self._extract_price_context(text)
+                if price_context:
+                    return price_context
+
+                # If no prices found, return a chunk of the page
+                return text[:3000] if len(text) > 3000 else text
+
+        except Exception as e:
+            logger.debug(f"Failed to fetch {url}: {e}")
+            return None
+
+    async def fetch_retailer_content(
+        self,
+        search_results: list[SearchResult],
+        max_urls: int = 2,
+    ) -> str:
+        """
+        Fetch content from retailer URLs in search results.
+
+        Args:
+            search_results: List of search results to check
+            max_urls: Maximum number of URLs to fetch
+
+        Returns:
+            Combined content from retailer pages
+        """
+        # Find retailer URLs
+        retailer_urls = []
+        for result in search_results:
+            if self.is_retailer_url(result.url):
+                retailer_urls.append(result.url)
+                if len(retailer_urls) >= max_urls:
+                    break
+
+        if not retailer_urls:
+            logger.debug("No retailer URLs found in search results")
+            return ""
+
+        logger.info(f"Fetching content from {len(retailer_urls)} retailer URLs")
+
+        # Fetch URLs in parallel
+        tasks = [self.fetch_url_content(url) for url in retailer_urls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Combine successful results
+        contents = []
+        for url, result in zip(retailer_urls, results):
+            if isinstance(result, str) and result:
+                logger.info(f"Fetched {len(result)} chars from {url[:50]}...")
+                contents.append(f"From {url}:\n{result}")
+            elif isinstance(result, Exception):
+                logger.debug(f"Failed to fetch {url}: {result}")
+
+        return "\n\n".join(contents)
+
+
+# =============================================================================
+# DATA CLASSES
+# =============================================================================
 
 @dataclass
 class EnrichmentResult:
@@ -520,29 +671,44 @@ Respond with ONLY the JSON, no other text."""
                 debug_log("ENRICHMENT", "Web search returned no results")
                 return None
 
-            # Get combined content from search results
+            # Get combined content from search snippets
             search_content = search_response.get_combined_content(max_results=5)
-            if not search_content or len(search_content) < 50:
-                debug_log("ENRICHMENT", "Web search content too short to be useful")
-                return None
 
-            # Log what we're sending to the AI
-            logger.info(f"Web search returned {len(search_response.results)} results, combined content: {len(search_content)} chars")
+            # Log search results
+            logger.info(f"Web search returned {len(search_response.results)} results, snippet content: {len(search_content)} chars")
             for i, result in enumerate(search_response.results[:5]):
                 snippet_preview = (result.snippet[:100] + "...") if len(result.snippet) > 100 else result.snippet
                 logger.debug(f"  Result {i+1}: {result.title[:50]} | {snippet_preview}")
 
+            # Fetch actual page content from retailer URLs to get prices
+            content_fetcher = URLContentFetcher(timeout=10.0)
+            retailer_content = await content_fetcher.fetch_retailer_content(
+                search_response.results,
+                max_urls=2,
+            )
+
+            # Combine snippets with retailer page content
+            combined_content = search_content
+            if retailer_content:
+                logger.info(f"Adding {len(retailer_content)} chars of retailer page content")
+                combined_content = f"{search_content}\n\n--- Retailer Page Content ---\n{retailer_content}"
+
+            if not combined_content or len(combined_content) < 50:
+                debug_log("ENRICHMENT", "Web search content too short to be useful")
+                return None
+
             debug_log("ENRICHMENT", "Parsing web search results with AI", {
                 "result_count": len(search_response.results),
-                "content_length": len(search_content),
-                "content_preview": search_content[:500],
+                "snippet_length": len(search_content),
+                "retailer_content_length": len(retailer_content),
+                "total_content_length": len(combined_content),
             })
 
             # Parse with AI
             prompt = self.WEB_SEARCH_PARSE_PROMPT.format(
                 manufacturer=manufacturer or "Unknown",
                 model_number=model_number,
-                search_content=search_content[:8000],  # Limit content size
+                search_content=combined_content[:8000],  # Limit content size
             )
 
             response = await self.ai_provider.complete(prompt)
