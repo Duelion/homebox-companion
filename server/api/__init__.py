@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from .auth import router as auth_router
 from .chat import router as chat_router
 from .config import router as config_router
+from .debug import router as debug_router
 from .field_preferences import router as field_preferences_router
 from .items import router as items_router
 from .labels import router as labels_router
@@ -37,5 +38,6 @@ api_router.include_router(sessions_router, tags=["sessions"])
 api_router.include_router(ai_config_router, tags=["ai-config"])
 api_router.include_router(app_preferences_router, tags=["settings"])
 api_router.include_router(enrichment_router, tags=["enrichment"])
+api_router.include_router(debug_router, tags=["debug"])
 
 __all__ = ["api_router"]
