@@ -71,66 +71,67 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primary (Indigo) - full tonal scale
+        // Primary - uses DaisyUI theme variable via CSS custom property
         primary: {
           50: '#eef2ff',
           100: '#e0e7ff',
           200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
+          300: 'var(--color-primary-300, #a5b4fc)',
+          400: 'var(--color-primary-400, #818cf8)',
+          500: 'var(--color-primary-500, #6366f1)',
           600: '#4f46e5',
           700: '#4338ca',
           800: '#3730a3',
           900: '#312e81',
-          DEFAULT: '#6366f1', // Backwards compatibility
-          hover: '#818cf8',   // Backwards compatibility
-          light: '#a5b4fc',   // Backwards compatibility
+          DEFAULT: 'var(--color-primary-500, #6366f1)',
+          hover: 'var(--color-primary-400, #818cf8)',
+          light: 'var(--color-primary-300, #a5b4fc)',
         },
 
-        // Neutral scale for backgrounds, text, and borders
+        // Neutral scale - uses DaisyUI theme variables via CSS custom properties
+        // Fallback values are the original "homebox" theme colors
         neutral: {
-          950: '#0a0a0f',  // App background
-          900: '#13131f',  // Card background
-          800: '#1e1e2e',  // Elevated surface
-          700: '#2a2a3e',  // Borders, hover states
-          600: '#3a3a4e',  // Active borders
-          500: '#64748b',  // Dim text
-          400: '#94a3b8',  // Muted text
-          300: '#cbd5e1',  // Secondary text
-          200: '#e2e8f0',  // Body text
-          100: '#f1f5f9',  // Headings
+          950: 'var(--color-neutral-950, #0a0a0f)',  // App background
+          900: 'var(--color-neutral-900, #13131f)',  // Card background
+          800: 'var(--color-neutral-800, #1e1e2e)',  // Elevated surface
+          700: 'var(--color-neutral-700, #2a2a3e)',  // Borders, hover states
+          600: 'var(--color-neutral-600, #3a3a4e)',  // Active borders
+          500: 'var(--color-neutral-500, #64748b)',  // Dim text
+          400: 'var(--color-neutral-400, #94a3b8)',  // Muted text
+          300: 'var(--color-neutral-300, #cbd5e1)',  // Secondary text
+          200: 'var(--color-neutral-200, #e2e8f0)',  // Body text
+          100: 'var(--color-neutral-100, #f1f5f9)',  // Headings
         },
 
-        // Semantic colors with full scales
+        // Semantic colors - uses DaisyUI theme variables for main colors
         success: {
           50: '#ecfdf5',
           100: '#d1fae5',
-          500: '#10b981',
+          500: 'var(--color-success-500, #10b981)',
           600: '#059669',
           700: '#047857',
           900: '#064e3b',
-          DEFAULT: '#10b981',
+          DEFAULT: 'var(--color-success-500, #10b981)',
           bg: 'rgba(16, 185, 129, 0.1)',
         },
         warning: {
           50: '#fffbeb',
           100: '#fef3c7',
-          500: '#f59e0b',
+          500: 'var(--color-warning-500, #f59e0b)',
           600: '#d97706',
           700: '#b45309',
           900: '#78350f',
-          DEFAULT: '#f59e0b',
+          DEFAULT: 'var(--color-warning-500, #f59e0b)',
           bg: 'rgba(245, 158, 11, 0.1)',
         },
         error: {
           50: '#fef2f2',
           100: '#fee2e2',
-          500: '#ef4444',
+          500: 'var(--color-error-500, #ef4444)',
           600: '#dc2626',
           700: '#b91c1c',
           900: '#7f1d1d',
-          DEFAULT: '#ef4444',
+          DEFAULT: 'var(--color-error-500, #ef4444)',
           bg: 'rgba(239, 68, 68, 0.1)',
         },
 
