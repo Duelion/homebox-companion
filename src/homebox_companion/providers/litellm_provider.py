@@ -117,7 +117,7 @@ class LiteLLMProvider:
             kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            logger.debug(f"LiteLLM completion: model={self.model}, provider={self.provider_type}")
+            logger.info(f"LiteLLM completion starting: model={self.model}, provider={self.provider_type}")
 
             # Run synchronous litellm.completion in a thread pool
             response = await asyncio.to_thread(
@@ -127,7 +127,8 @@ class LiteLLMProvider:
 
             # Extract the response text
             content = response.choices[0].message.content
-            logger.debug(f"LiteLLM completion successful: {len(content)} chars")
+            logger.info(f"LiteLLM completion successful: {len(content) if content else 0} chars")
+            logger.debug(f"LiteLLM response preview: {(content or '')[:200]}")
             return content or ""
 
         except Exception as e:
