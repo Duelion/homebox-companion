@@ -5,6 +5,7 @@
 	 * Includes:
 	 * - Enable/disable enrichment toggle
 	 * - Auto-enrich after detection toggle
+	 * - Web search provider configuration (Tavily, Google CSE, SearXNG)
 	 * - Cache TTL configuration
 	 * - Clear cache button
 	 */
@@ -21,6 +22,14 @@
 	let localCacheTTL = $state(24);
 	let ttlInitialized = $state(false);
 
+	// Local state for search provider settings
+	let localSearchProvider = $state('none');
+	let localTavilyKey = $state('');
+	let localGoogleKey = $state('');
+	let localGoogleEngineId = $state('');
+	let localSearxngUrl = $state('');
+	let searchProviderInitialized = $state(false);
+
 	// Load app preferences on mount if not already loaded
 	onMount(async () => {
 		if (!service.appPreferences) {
@@ -28,37 +37,70 @@
 			// Close it since we just wanted to load the data
 			service.showConnectionSettings = false;
 		}
-		// Initialize local TTL from loaded preferences
+		// Initialize local values from loaded preferences
 		if (service.appPreferences) {
 			localCacheTTL = service.appPreferences.enrichment_cache_ttl_hours;
 			ttlInitialized = true;
+			localSearchProvider = service.appPreferences.search_provider || 'none';
+			localTavilyKey = service.appPreferences.search_tavily_api_key || '';
+			localGoogleKey = service.appPreferences.search_google_api_key || '';
+			localGoogleEngineId = service.appPreferences.search_google_engine_id || '';
+			localSearxngUrl = service.appPreferences.search_searxng_url || '';
+			searchProviderInitialized = true;
 		}
 	});
 
-	// Sync local TTL when preferences load (but only once)
+	// Sync local values when preferences load (but only once)
 	$effect(() => {
 		if (!ttlInitialized && service.appPreferences) {
 			localCacheTTL = service.appPreferences.enrichment_cache_ttl_hours;
 			ttlInitialized = true;
 		}
+		if (!searchProviderInitialized && service.appPreferences) {
+			localSearchProvider = service.appPreferences.search_provider || 'none';
+			localTavilyKey = service.appPreferences.search_tavily_api_key || '';
+			localGoogleKey = service.appPreferences.search_google_api_key || '';
+			localGoogleEngineId = service.appPreferences.search_google_engine_id || '';
+			localSearxngUrl = service.appPreferences.search_searxng_url || '';
+			searchProviderInitialized = true;
+		}
 	});
+
+	// Helper to build full preferences object for saving
+	function buildPrefsForSave(overrides: Partial<{
+		enrichment_enabled: boolean;
+		enrichment_auto_enrich: boolean;
+		enrichment_cache_ttl_hours: number;
+		search_provider: string;
+		search_tavily_api_key: string | null;
+		search_google_api_key: string | null;
+		search_google_engine_id: string | null;
+		search_searxng_url: string | null;
+	}>) {
+		if (!service.appPreferences) return null;
+		return {
+			homebox_url_override: service.appPreferences.homebox_url_override,
+			image_quality_override: service.appPreferences.image_quality_override,
+			duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
+			enrichment_enabled: overrides.enrichment_enabled ?? service.appPreferences.enrichment_enabled,
+			enrichment_auto_enrich: overrides.enrichment_auto_enrich ?? service.appPreferences.enrichment_auto_enrich,
+			enrichment_cache_ttl_hours: overrides.enrichment_cache_ttl_hours ?? service.appPreferences.enrichment_cache_ttl_hours,
+			search_provider: overrides.search_provider ?? service.appPreferences.search_provider,
+			search_tavily_api_key: overrides.search_tavily_api_key !== undefined ? overrides.search_tavily_api_key : service.appPreferences.search_tavily_api_key,
+			search_google_api_key: overrides.search_google_api_key !== undefined ? overrides.search_google_api_key : service.appPreferences.search_google_api_key,
+			search_google_engine_id: overrides.search_google_engine_id !== undefined ? overrides.search_google_engine_id : service.appPreferences.search_google_engine_id,
+			search_searxng_url: overrides.search_searxng_url !== undefined ? overrides.search_searxng_url : service.appPreferences.search_searxng_url,
+		};
+	}
 
 	async function handleToggleEnabled() {
 		if (isSaving || !service.appPreferences) return;
-
-		const currentEnabled = service.appPreferences.enrichment_enabled;
-		const newEnabled = !currentEnabled;
+		const prefs = buildPrefsForSave({ enrichment_enabled: !service.appPreferences.enrichment_enabled });
+		if (!prefs) return;
 
 		isSaving = true;
 		try {
-			await service.saveAppPreferences({
-				homebox_url_override: service.appPreferences.homebox_url_override,
-				image_quality_override: service.appPreferences.image_quality_override,
-				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
-				enrichment_enabled: newEnabled,
-				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
-				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
-			});
+			await service.saveAppPreferences(prefs);
 		} finally {
 			isSaving = false;
 		}
@@ -66,20 +108,12 @@
 
 	async function handleToggleAutoEnrich() {
 		if (isSaving || !service.appPreferences) return;
-
-		const currentAutoEnrich = service.appPreferences.enrichment_auto_enrich;
-		const newAutoEnrich = !currentAutoEnrich;
+		const prefs = buildPrefsForSave({ enrichment_auto_enrich: !service.appPreferences.enrichment_auto_enrich });
+		if (!prefs) return;
 
 		isSaving = true;
 		try {
-			await service.saveAppPreferences({
-				homebox_url_override: service.appPreferences.homebox_url_override,
-				image_quality_override: service.appPreferences.image_quality_override,
-				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
-				enrichment_enabled: service.appPreferences.enrichment_enabled,
-				enrichment_auto_enrich: newAutoEnrich,
-				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
-			});
+			await service.saveAppPreferences(prefs);
 		} finally {
 			isSaving = false;
 		}
@@ -94,16 +128,48 @@
 		if (isSaving || !service.appPreferences) return;
 		if (localCacheTTL === service.appPreferences.enrichment_cache_ttl_hours) return;
 
+		const prefs = buildPrefsForSave({ enrichment_cache_ttl_hours: localCacheTTL });
+		if (!prefs) return;
+
 		isSaving = true;
 		try {
-			await service.saveAppPreferences({
-				homebox_url_override: service.appPreferences.homebox_url_override,
-				image_quality_override: service.appPreferences.image_quality_override,
-				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
-				enrichment_enabled: service.appPreferences.enrichment_enabled,
-				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
-				enrichment_cache_ttl_hours: localCacheTTL,
-			});
+			await service.saveAppPreferences(prefs);
+		} finally {
+			isSaving = false;
+		}
+	}
+
+	async function handleSearchProviderChange(e: Event) {
+		const newProvider = (e.target as HTMLSelectElement).value;
+		localSearchProvider = newProvider;
+
+		if (isSaving || !service.appPreferences) return;
+
+		const prefs = buildPrefsForSave({ search_provider: newProvider });
+		if (!prefs) return;
+
+		isSaving = true;
+		try {
+			await service.saveAppPreferences(prefs);
+		} finally {
+			isSaving = false;
+		}
+	}
+
+	async function handleSaveSearchCredentials() {
+		if (isSaving || !service.appPreferences) return;
+
+		const prefs = buildPrefsForSave({
+			search_tavily_api_key: localTavilyKey || null,
+			search_google_api_key: localGoogleKey || null,
+			search_google_engine_id: localGoogleEngineId || null,
+			search_searxng_url: localSearxngUrl || null,
+		});
+		if (!prefs) return;
+
+		isSaving = true;
+		try {
+			await service.saveAppPreferences(prefs);
 		} finally {
 			isSaving = false;
 		}
@@ -112,6 +178,14 @@
 	// Computed values for display (read directly from service)
 	const isEnabled = $derived(service.appPreferences?.enrichment_enabled ?? false);
 	const isAutoEnrich = $derived(service.appPreferences?.enrichment_auto_enrich ?? false);
+
+	// Search provider display names
+	const providerNames: Record<string, string> = {
+		none: 'AI Knowledge Only',
+		tavily: 'Tavily',
+		google_cse: 'Google Custom Search',
+		searxng: 'SearXNG',
+	};
 </script>
 
 <section class="card space-y-4">
@@ -131,8 +205,7 @@
 	</h2>
 
 	<p class="text-xs text-neutral-400">
-		Enrichment uses your configured AI provider to look up detailed product specifications from its
-		training knowledge. No external APIs or services required.
+		Enrichment looks up detailed product specifications using web search and/or AI knowledge.
 	</p>
 
 	{#if service.isLoading.appPreferences}
@@ -169,8 +242,9 @@
 			</button>
 		</div>
 
-		<!-- Auto-Enrich Toggle (only shown when enrichment is enabled) -->
+		<!-- Settings shown when enrichment is enabled -->
 		{#if isEnabled}
+			<!-- Auto-Enrich Toggle -->
 			<div
 				class="flex items-center justify-between rounded-xl border border-neutral-700 bg-neutral-800/30 p-4"
 			>
@@ -199,11 +273,165 @@
 				</button>
 			</div>
 
+			<!-- Web Search Provider Settings -->
+			<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
+				<h3 class="text-sm font-medium text-neutral-200">Web Search Provider</h3>
+				<p class="text-xs text-neutral-400">
+					Choose a search provider for looking up product specifications. Web search provides more accurate
+					and up-to-date information than AI knowledge alone.
+				</p>
+
+				<div class="space-y-3">
+					<div class="flex items-center gap-3">
+						<label for="search-provider" class="text-xs text-neutral-400 w-24">Provider:</label>
+						<select
+							id="search-provider"
+							value={localSearchProvider}
+							onchange={handleSearchProviderChange}
+							disabled={isSaving}
+							class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+						>
+							<option value="none">AI Knowledge Only (No Web Search)</option>
+							<option value="tavily">Tavily (Recommended)</option>
+							<option value="google_cse">Google Custom Search</option>
+							<option value="searxng">SearXNG (Self-Hosted)</option>
+						</select>
+					</div>
+
+					<!-- Tavily Settings -->
+					{#if localSearchProvider === 'tavily'}
+						<div class="space-y-2 border-t border-neutral-700 pt-3">
+							<p class="text-xs text-neutral-400">
+								Tavily is an AI-optimized search API with clean content extraction.
+								Get your API key at <a href="https://tavily.com" target="_blank" rel="noopener noreferrer" class="text-primary-400 hover:underline">tavily.com</a>
+							</p>
+							<div class="flex items-center gap-3">
+								<label for="tavily-key" class="text-xs text-neutral-400 w-24">API Key:</label>
+								<input
+									id="tavily-key"
+									type="password"
+									bind:value={localTavilyKey}
+									placeholder="tvly-..."
+									disabled={isSaving}
+									class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+								/>
+							</div>
+							<div class="flex justify-end">
+								<Button
+									variant="primary"
+									size="sm"
+									onclick={handleSaveSearchCredentials}
+									disabled={isSaving}
+								>
+									{isSaving ? 'Saving...' : 'Save API Key'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Google CSE Settings -->
+					{#if localSearchProvider === 'google_cse'}
+						<div class="space-y-2 border-t border-neutral-700 pt-3">
+							<p class="text-xs text-neutral-400">
+								Google Custom Search requires an API key and Search Engine ID.
+								See documentation for setup instructions.
+							</p>
+							<div class="flex items-center gap-3">
+								<label for="google-key" class="text-xs text-neutral-400 w-24">API Key:</label>
+								<input
+									id="google-key"
+									type="password"
+									bind:value={localGoogleKey}
+									placeholder="AIza..."
+									disabled={isSaving}
+									class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+								/>
+							</div>
+							<div class="flex items-center gap-3">
+								<label for="google-cx" class="text-xs text-neutral-400 w-24">Engine ID:</label>
+								<input
+									id="google-cx"
+									type="text"
+									bind:value={localGoogleEngineId}
+									placeholder="Search Engine ID (cx)"
+									disabled={isSaving}
+									class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+								/>
+							</div>
+							<div class="flex justify-end">
+								<Button
+									variant="primary"
+									size="sm"
+									onclick={handleSaveSearchCredentials}
+									disabled={isSaving}
+								>
+									{isSaving ? 'Saving...' : 'Save Credentials'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+
+					<!-- SearXNG Settings -->
+					{#if localSearchProvider === 'searxng'}
+						<div class="space-y-2 border-t border-neutral-700 pt-3">
+							<p class="text-xs text-neutral-400">
+								SearXNG is a self-hosted metasearch engine. No API key required - just the URL to your instance.
+								JSON API must be enabled on the instance.
+							</p>
+							<div class="flex items-center gap-3">
+								<label for="searxng-url" class="text-xs text-neutral-400 w-24">Instance URL:</label>
+								<input
+									id="searxng-url"
+									type="url"
+									bind:value={localSearxngUrl}
+									placeholder="https://searx.example.com"
+									disabled={isSaving}
+									class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+								/>
+							</div>
+							<div class="flex justify-end">
+								<Button
+									variant="primary"
+									size="sm"
+									onclick={handleSaveSearchCredentials}
+									disabled={isSaving}
+								>
+									{isSaving ? 'Saving...' : 'Save URL'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Provider Status -->
+					{#if localSearchProvider !== 'none'}
+						<div class="flex items-center gap-2 text-xs">
+							{#if (localSearchProvider === 'tavily' && localTavilyKey) ||
+								(localSearchProvider === 'google_cse' && localGoogleKey && localGoogleEngineId) ||
+								(localSearchProvider === 'searxng' && localSearxngUrl)}
+								<span class="flex items-center gap-1 text-success-500">
+									<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+									</svg>
+									{providerNames[localSearchProvider]} configured
+								</span>
+							{:else}
+								<span class="flex items-center gap-1 text-warning-500">
+									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+										<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+									</svg>
+									Credentials required
+								</span>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			</div>
+
 			<!-- Cache Settings -->
 			<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
 				<h3 class="text-sm font-medium text-neutral-200">Cache Settings</h3>
 				<p class="text-xs text-neutral-400">
-					Enrichment results are cached locally to avoid repeated AI calls for the same product.
+					Enrichment results are cached locally to avoid repeated lookups for the same product.
 				</p>
 
 				<div class="flex items-center gap-4">
@@ -286,8 +514,8 @@
 			<div class="text-xs text-neutral-400">
 				<p class="font-medium text-neutral-300">Privacy Notice</p>
 				<p class="mt-1">
-					Enrichment sends manufacturer name and model number to your configured AI provider. Serial
-					numbers are never sent. All results are cached locally on your server.
+					Enrichment sends manufacturer name and model number to your configured search provider and AI.
+					Serial numbers are never sent. All results are cached locally on your server.
 				</p>
 			</div>
 		</div>

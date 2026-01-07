@@ -2,19 +2,21 @@
 Enrichment Service - AI-powered product specification lookup.
 
 This service enhances AI-extracted product data with detailed specifications
-using the SAME AI provider already configured for item detection. No additional
-API keys or external services are required.
+using either:
+1. Web search (Tavily, Google CSE, or SearXNG) + AI parsing
+2. AI training knowledge alone (fallback)
 
-The AI uses its training knowledge to elaborate on products given a
-manufacturer and model number, providing features, typical MSRP, release
-year, and other specifications.
+The enrichment flow:
+1. If web search is configured, search for product specifications
+2. Parse search results with AI to extract structured data
+3. Fall back to AI-only if search fails or isn't configured
 
 Privacy considerations:
 - Disabled by default (opt-in)
-- Only manufacturer and model number are sent to the AI
+- Only manufacturer and model number are sent
 - Serial numbers are NEVER sent externally
 - Results are cached locally to minimize API calls
-- Uses existing AI provider - no new accounts needed
+- Web search is optional - works without external APIs
 """
 
 import hashlib
@@ -30,6 +32,13 @@ if TYPE_CHECKING:
     from homebox_companion.providers.base import BaseProvider
 
 from homebox_companion.services.debug_logger import debug_log
+from homebox_companion.services.search_providers import (
+    BaseSearchProvider,
+    SearchResponse,
+    TavilySearchProvider,
+    GoogleCSESearchProvider,
+    SearXNGSearchProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -238,14 +247,20 @@ class EnrichmentParser:
 
 class EnrichmentService:
     """
-    Service to enrich product data using the existing AI provider.
+    Service to enrich product data using web search and/or AI.
 
-    This uses the SAME AI provider already configured for item detection,
-    so no additional API keys or external services are required.
-    The AI uses its training knowledge to elaborate on products.
+    Enrichment modes:
+    1. Web search + AI parsing (recommended): Search for product specs, then
+       use AI to extract structured data from the results.
+    2. AI-only (fallback): Use AI's training knowledge directly.
+
+    Supported search providers:
+    - Tavily: AI-optimized search with clean content extraction
+    - Google CSE: Google's programmable search engine
+    - SearXNG: Self-hosted metasearch (no API key needed)
     """
 
-    # Prompt for AI enrichment
+    # Prompt for AI-only enrichment (no web search)
     ENRICHMENT_PROMPT = """You are a product specification expert. Given a manufacturer and model number, provide detailed product information from your knowledge.
 
 Respond in JSON format with these fields:
@@ -273,6 +288,36 @@ Model: {model_number}
 
 Respond with ONLY the JSON, no other text."""
 
+    # Prompt for parsing web search results
+    WEB_SEARCH_PARSE_PROMPT = """You are a product specification expert. Extract detailed product information from the following web search results.
+
+Respond in JSON format with these fields:
+{
+  "name": "Full official product name",
+  "description": "2-3 sentence product description",
+  "features": ["Feature 1", "Feature 2", ...],
+  "msrp": 999.99,
+  "release_year": 2023,
+  "category": "Product category"
+}
+
+Rules:
+- Extract only factual information found in the search results
+- Set msrp to null if not found in the results
+- Set release_year to null if not found
+- Features should be specific specs found in the results
+- Keep features list to 5-8 items maximum
+- If the search results don't contain useful product information, return {{"name": "", "enriched": false}}
+
+Product being searched:
+Manufacturer: {manufacturer}
+Model: {model_number}
+
+Web search results:
+{search_content}
+
+Respond with ONLY the JSON, no other text."""
+
     def __init__(
         self,
         cache_dir: Path,
@@ -289,10 +334,56 @@ Respond with ONLY the JSON, no other text."""
         """
         self.cache = EnrichmentCache(cache_dir / "enrichment_cache", cache_ttl)
         self.ai_provider = ai_provider
+        self._search_provider: BaseSearchProvider | None = None
 
     def set_provider(self, provider: "BaseProvider") -> None:
         """Set or update the AI provider."""
         self.ai_provider = provider
+
+    def configure_search_provider(
+        self,
+        provider_type: str,
+        tavily_api_key: str | None = None,
+        google_api_key: str | None = None,
+        google_engine_id: str | None = None,
+        searxng_url: str | None = None,
+    ) -> None:
+        """
+        Configure the web search provider.
+
+        Args:
+            provider_type: One of 'none', 'tavily', 'google_cse', 'searxng'
+            tavily_api_key: API key for Tavily
+            google_api_key: API key for Google CSE
+            google_engine_id: Search Engine ID for Google CSE
+            searxng_url: URL for SearXNG instance
+        """
+        if provider_type == "tavily" and tavily_api_key:
+            self._search_provider = TavilySearchProvider(api_key=tavily_api_key)
+            logger.info("Configured Tavily search provider")
+        elif provider_type == "google_cse" and google_api_key and google_engine_id:
+            self._search_provider = GoogleCSESearchProvider(
+                api_key=google_api_key,
+                search_engine_id=google_engine_id,
+            )
+            logger.info("Configured Google CSE search provider")
+        elif provider_type == "searxng" and searxng_url:
+            self._search_provider = SearXNGSearchProvider(instance_url=searxng_url)
+            logger.info(f"Configured SearXNG search provider: {searxng_url}")
+        else:
+            self._search_provider = None
+            if provider_type != "none":
+                logger.warning(f"Search provider '{provider_type}' not configured - missing credentials")
+
+    @property
+    def search_provider(self) -> BaseSearchProvider | None:
+        """Get the configured search provider, if any."""
+        return self._search_provider
+
+    @property
+    def has_search_provider(self) -> bool:
+        """Check if a search provider is configured and ready."""
+        return self._search_provider is not None and self._search_provider.is_configured()
 
     async def enrich(
         self,
@@ -302,6 +393,11 @@ Respond with ONLY the JSON, no other text."""
     ) -> EnrichmentResult:
         """
         Enrich product data with detailed specifications.
+
+        Enrichment strategy:
+        1. Check cache first
+        2. If web search is configured, use it + AI parsing
+        3. Fall back to AI-only if search fails or not configured
 
         Args:
             manufacturer: Product manufacturer
@@ -315,6 +411,7 @@ Respond with ONLY the JSON, no other text."""
             "manufacturer": manufacturer,
             "model_number": model_number,
             "product_name": product_name,
+            "has_search_provider": self.has_search_provider,
         })
 
         # Must have model number to enrich
@@ -339,15 +436,33 @@ Respond with ONLY the JSON, no other text."""
                 "manufacturer": manufacturer,
                 "model_number": model_number,
                 "enriched": cached.enriched,
+                "source": cached.source,
             })
             return cached
 
-        # Perform AI lookup
-        logger.info(f"Enriching specs for {manufacturer} {model_number}")
-        debug_log("ENRICHMENT", f"Starting AI enrichment for {manufacturer} {model_number}")
-        result = await self._ai_enrich(manufacturer, model_number, product_name)
+        # Try web search first if configured
+        result: EnrichmentResult | None = None
+        if self.has_search_provider:
+            logger.info(f"Using web search for {manufacturer} {model_number}")
+            debug_log("ENRICHMENT", f"Starting web search enrichment via {self._search_provider.provider_name}")
+            result = await self._web_search_enrich(manufacturer, model_number, product_name)
 
-        debug_log("ENRICHMENT", "AI enrichment complete", {
+            if result and result.enriched:
+                debug_log("ENRICHMENT", "Web search enrichment successful", {
+                    "source": result.source,
+                    "confidence": result.confidence,
+                })
+            else:
+                debug_log("ENRICHMENT", "Web search didn't return useful results, falling back to AI-only")
+                result = None  # Fall through to AI-only
+
+        # Fall back to AI-only enrichment
+        if result is None:
+            logger.info(f"Using AI-only enrichment for {manufacturer} {model_number}")
+            debug_log("ENRICHMENT", f"Starting AI-only enrichment for {manufacturer} {model_number}")
+            result = await self._ai_enrich(manufacturer, model_number, product_name)
+
+        debug_log("ENRICHMENT", "Enrichment complete", {
             "enriched": result.enriched,
             "confidence": result.confidence,
             "source": result.source,
@@ -359,6 +474,91 @@ Respond with ONLY the JSON, no other text."""
         self.cache.set(manufacturer, model_number, result)
 
         return result
+
+    async def _web_search_enrich(
+        self,
+        manufacturer: str,
+        model_number: str,
+        product_name: str,
+    ) -> EnrichmentResult | None:
+        """
+        Enrich using web search + AI parsing.
+
+        Args:
+            manufacturer: Product manufacturer
+            model_number: Model/part number
+            product_name: Optional product name hint
+
+        Returns:
+            EnrichmentResult if successful, None to fall back to AI-only
+        """
+        if not self._search_provider or not self.ai_provider:
+            return None
+
+        try:
+            # Search for product specifications
+            search_response = await self._search_provider.search_product(
+                manufacturer=manufacturer,
+                model_number=model_number,
+                product_name=product_name,
+            )
+
+            if not search_response.success:
+                debug_log("ENRICHMENT", f"Web search failed: {search_response.error}", level="WARNING")
+                return None
+
+            if not search_response.results:
+                debug_log("ENRICHMENT", "Web search returned no results")
+                return None
+
+            # Get combined content from search results
+            search_content = search_response.get_combined_content(max_results=3)
+            if not search_content or len(search_content) < 50:
+                debug_log("ENRICHMENT", "Web search content too short to be useful")
+                return None
+
+            debug_log("ENRICHMENT", "Parsing web search results with AI", {
+                "result_count": len(search_response.results),
+                "content_length": len(search_content),
+            })
+
+            # Parse with AI
+            prompt = self.WEB_SEARCH_PARSE_PROMPT.format(
+                manufacturer=manufacturer or "Unknown",
+                model_number=model_number,
+                search_content=search_content[:8000],  # Limit content size
+            )
+
+            response = await self.ai_provider.complete(prompt)
+
+            if not response:
+                debug_log("ENRICHMENT", "Empty AI response when parsing search results", level="WARNING")
+                return None
+
+            # Parse the AI response
+            result = self._parse_ai_response(response, manufacturer, model_number, product_name)
+
+            if result.enriched:
+                # Mark source as web search
+                result = EnrichmentResult(
+                    enriched=result.enriched,
+                    source=f"web_search:{self._search_provider.provider_name.lower()}",
+                    name=result.name,
+                    description=result.description,
+                    features=result.features,
+                    msrp=result.msrp,
+                    release_year=result.release_year,
+                    category=result.category,
+                    additional_specs=result.additional_specs,
+                    confidence=min(result.confidence + 0.1, 1.0),  # Boost confidence for web search
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Web search enrichment failed: {e}")
+            debug_log("ENRICHMENT", f"Web search enrichment failed: {e}", level="ERROR")
+            return None
 
     async def _ai_enrich(
         self,
