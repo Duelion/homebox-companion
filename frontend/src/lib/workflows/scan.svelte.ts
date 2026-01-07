@@ -23,6 +23,7 @@ import { SubmissionService } from './submission.svelte';
 import { items } from '$lib/api/items';
 import { enrichProduct } from '$lib/api/enrichment';
 import { getAppPreferences } from '$lib/api/appPreferences';
+import { locationStore } from '$lib/stores/locations.svelte';
 import type {
 	ScanState,
 	ScanStatus,
@@ -1348,6 +1349,8 @@ class ScanWorkflow {
 		this._duplicateMatches = [];
 		this._analysisMode = 'quick';
 		this._imageGroups = [];
+		// Also reset location store so location page shows full list
+		locationStore.reset();
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */
