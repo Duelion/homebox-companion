@@ -787,11 +787,13 @@ Respond with ONLY the JSON, no other text."""
             # Get combined content from search snippets
             search_content = search_response.get_combined_content(max_results=5)
 
-            # Log search results
+            # Log search results with full snippets to help debug price extraction
             logger.info(f"Web search returned {len(search_response.results)} results, snippet content: {len(search_content)} chars")
             for i, result in enumerate(search_response.results[:5]):
-                snippet_preview = (result.snippet[:100] + "...") if len(result.snippet) > 100 else result.snippet
-                logger.debug(f"  Result {i+1}: {result.title[:50]} | {snippet_preview}")
+                # Log full snippet at INFO level to see if prices are in search results
+                logger.info(f"  Result {i+1}: {result.url[:60]}")
+                logger.info(f"    Title: {result.title}")
+                logger.info(f"    Snippet: {result.snippet[:200]}")
 
             # Fetch actual page content from retailer URLs to get prices
             content_fetcher = URLContentFetcher(
