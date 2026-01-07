@@ -4,6 +4,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { vision } from '$lib/api/vision';
 	import { getConfig } from '$lib/api/settings';
+	import { enrichProduct } from '$lib/api/enrichment';
+	import { getAppPreferences } from '$lib/api/appPreferences';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
@@ -54,6 +56,10 @@
 	let isProcessing = $state(false);
 	let allImages = $state<File[]>([]);
 	let showConfirmAllDialog = $state(false);
+
+	// Enrichment state
+	let enrichmentEnabled = $state(false);
+	let isEnriching = $state(false);
 
 	// Track original images to detect modifications (for invalidating compressed URLs)
 	let originalImageSet = $state<Set<File>>(new Set());
@@ -124,11 +130,15 @@
 
 		if (!routeGuards.review()) return;
 
-		// Load capture limits from config
+		// Load capture limits and enrichment settings from config
 		try {
-			const config = await getConfig();
+			const [config, appPrefs] = await Promise.all([
+				getConfig(),
+				getAppPreferences().catch(() => null),
+			]);
 			maxImages = config.capture_max_images;
 			maxFileSizeMb = config.capture_max_file_size_mb;
+			enrichmentEnabled = appPrefs?.enrichment_enabled ?? false;
 		} catch (error) {
 			log.warn('Failed to load capture config, using defaults', error);
 		}
@@ -260,6 +270,47 @@
 			editedItem.label_ids = currentLabels.filter((id) => id !== labelId);
 		} else {
 			editedItem.label_ids = [...currentLabels, labelId];
+		}
+	}
+
+	async function handleEnrichItem() {
+		if (!editedItem) return;
+
+		// Check if we have enough data to enrich
+		if (!editedItem.model_number && !editedItem.manufacturer) {
+			showToast('Model number or manufacturer required for enrichment', 'error');
+			return;
+		}
+
+		isEnriching = true;
+
+		try {
+			const response = await enrichProduct({
+				manufacturer: editedItem.manufacturer || '',
+				model_number: editedItem.model_number || '',
+				product_name: editedItem.name,
+			});
+
+			if (response.enriched) {
+				// Update the item with enriched data
+				if (response.name && response.name !== editedItem.name) {
+					editedItem.name = response.name;
+				}
+				if (response.formatted_description) {
+					editedItem.description = response.formatted_description;
+				}
+				// Expand extended fields to show the enriched data
+				showExtendedFields = true;
+				showToast(`Enriched from ${response.source} (${Math.round(response.confidence * 100)}% confidence)`, 'success');
+			} else {
+				showToast('No additional data found for this product', 'info');
+			}
+		} catch (error) {
+			log.error('Enrichment failed:', error);
+			const message = error instanceof Error ? error.message : 'Enrichment failed';
+			showToast(message, 'error');
+		} finally {
+			isEnriching = false;
 		}
 	}
 
@@ -487,6 +538,32 @@
 					onToggle={toggleExtendedFields}
 					idPrefix="review"
 				/>
+
+				<!-- Enrich button (only shown when enrichment is enabled) -->
+				{#if enrichmentEnabled}
+					<button
+						type="button"
+						class="flex w-full items-center justify-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-sm font-medium text-primary-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+						onclick={handleEnrichItem}
+						disabled={isEnriching || isProcessing || (!editedItem.model_number && !editedItem.manufacturer)}
+					>
+						{#if isEnriching}
+							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+							<span>Enriching...</span>
+						{:else}
+							<svg
+								class="h-4 w-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="1.5"
+							>
+								<path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+							</svg>
+							<span>Enrich Product Info</span>
+						{/if}
+					</button>
+				{/if}
 
 				<!-- Images panel -->
 				<ImagesPanel
