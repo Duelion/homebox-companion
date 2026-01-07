@@ -46,6 +46,22 @@ class AppPreferences(BaseModel):
         description="Enable duplicate detection by serial number",
     )
 
+    # Enrichment settings
+    enrichment_enabled: bool = Field(
+        default=False,
+        description="Enable AI-powered product specification enrichment",
+    )
+    enrichment_auto_enrich: bool = Field(
+        default=False,
+        description="Automatically enrich items after AI detection",
+    )
+    enrichment_cache_ttl_hours: int = Field(
+        default=24,
+        ge=1,
+        le=168,
+        description="Cache duration for enrichment results (hours)",
+    )
+
 
 def load_app_preferences() -> AppPreferences:
     """Load application preferences from file.

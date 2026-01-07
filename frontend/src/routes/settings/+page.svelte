@@ -18,6 +18,7 @@
 	import AIProviderSection from '$lib/components/settings/AIProviderSection.svelte';
 	import BehaviorSection from '$lib/components/settings/BehaviorSection.svelte';
 	import ConnectionSection from '$lib/components/settings/ConnectionSection.svelte';
+	import EnrichmentSection from '$lib/components/settings/EnrichmentSection.svelte';
 	import FieldPrefsSection from '$lib/components/settings/FieldPrefsSection.svelte';
 	import LogsSection from '$lib/components/settings/LogsSection.svelte';
 
@@ -91,6 +92,7 @@
 		<!-- Right column on desktop -->
 		<div class="space-y-6">
 			<BehaviorSection />
+			<EnrichmentSection />
 			<FieldPrefsSection />
 			<AboutSection />
 			<LogsSection />

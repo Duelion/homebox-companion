@@ -40,6 +40,7 @@ import {
 	type AppPreferencesResponse,
 	type AppPreferencesInput,
 } from '$lib/api/appPreferences';
+import { clearEnrichmentCache } from '$lib/api/enrichment';
 import type { DuplicateIndexStatus } from '$lib/types';
 
 // =============================================================================
@@ -242,6 +243,14 @@ class SettingsService {
 	appPreferences = $state<AppPreferencesResponse | null>(null);
 	showConnectionSettings = $state(false);
 	connectionSettingsSaveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
+
+	// =========================================================================
+	// ENRICHMENT STATE
+	// =========================================================================
+
+	enrichmentCacheClearing = $state(false);
+	enrichmentCacheMessage = $state<string | null>(null);
+	enrichmentCacheMessageType = $state<'success' | 'error' | null>(null);
 
 	// Track cleanup timeouts
 	private _timeoutIds: number[] = [];
@@ -865,6 +874,35 @@ class SettingsService {
 	}
 
 	// =========================================================================
+	// ENRICHMENT
+	// =========================================================================
+
+	/**
+	 * Clear the enrichment cache.
+	 */
+	async clearEnrichmentCache(): Promise<void> {
+		this.enrichmentCacheClearing = true;
+		this.enrichmentCacheMessage = null;
+
+		try {
+			const result = await clearEnrichmentCache();
+			this.enrichmentCacheMessage = result.message;
+			this.enrichmentCacheMessageType = 'success';
+
+			this._scheduleTimeout(() => {
+				this.enrichmentCacheMessage = null;
+				this.enrichmentCacheMessageType = null;
+			}, 5000);
+		} catch (error) {
+			log.error('Failed to clear enrichment cache:', error);
+			this.enrichmentCacheMessage = error instanceof Error ? error.message : 'Failed to clear cache';
+			this.enrichmentCacheMessageType = 'error';
+		} finally {
+			this.enrichmentCacheClearing = false;
+		}
+	}
+
+	// =========================================================================
 	// VERSION CHECK
 	// =========================================================================
 
@@ -983,6 +1021,11 @@ class SettingsService {
 		this.appPreferences = null;
 		this.showConnectionSettings = false;
 		this.connectionSettingsSaveState = 'idle';
+
+		// Enrichment state
+		this.enrichmentCacheClearing = false;
+		this.enrichmentCacheMessage = null;
+		this.enrichmentCacheMessageType = null;
 
 		this.isLoading = {
 			config: true,
