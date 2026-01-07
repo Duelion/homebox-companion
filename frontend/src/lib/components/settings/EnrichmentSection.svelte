@@ -14,6 +14,13 @@
 
 	const service = settingsService;
 
+	// Local state to prevent rapid toggling during save
+	let isSaving = $state(false);
+
+	// Local state for TTL input (allows editing without immediate save)
+	let localCacheTTL = $state(24);
+	let ttlInitialized = $state(false);
+
 	// Load app preferences on mount if not already loaded
 	onMount(async () => {
 		if (!service.appPreferences) {
@@ -21,64 +28,90 @@
 			// Close it since we just wanted to load the data
 			service.showConnectionSettings = false;
 		}
+		// Initialize local TTL from loaded preferences
+		if (service.appPreferences) {
+			localCacheTTL = service.appPreferences.enrichment_cache_ttl_hours;
+			ttlInitialized = true;
+		}
 	});
 
-	// Derived values from appPreferences
-	const enabled = $derived(service.appPreferences?.enrichment_enabled ?? false);
-	const autoEnrich = $derived(service.appPreferences?.enrichment_auto_enrich ?? false);
-	const cacheTTL = $derived(service.appPreferences?.enrichment_cache_ttl_hours ?? 24);
-
-	// Local state for TTL input (allows editing without immediate save)
-	let localCacheTTL = $state(24);
-
-	// Sync local TTL with server value when it changes
+	// Sync local TTL when preferences load (but only once)
 	$effect(() => {
-		localCacheTTL = cacheTTL;
+		if (!ttlInitialized && service.appPreferences) {
+			localCacheTTL = service.appPreferences.enrichment_cache_ttl_hours;
+			ttlInitialized = true;
+		}
 	});
 
-	async function setEnabled(value: boolean) {
-		if (!service.appPreferences) return;
+	async function handleToggleEnabled() {
+		if (isSaving || !service.appPreferences) return;
 
-		await service.saveAppPreferences({
-			homebox_url_override: service.appPreferences.homebox_url_override,
-			image_quality_override: service.appPreferences.image_quality_override,
-			duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
-			enrichment_enabled: value,
-			enrichment_auto_enrich: autoEnrich,
-			enrichment_cache_ttl_hours: cacheTTL,
-		});
+		const currentEnabled = service.appPreferences.enrichment_enabled;
+		const newEnabled = !currentEnabled;
+
+		isSaving = true;
+		try {
+			await service.saveAppPreferences({
+				homebox_url_override: service.appPreferences.homebox_url_override,
+				image_quality_override: service.appPreferences.image_quality_override,
+				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
+				enrichment_enabled: newEnabled,
+				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
+				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
+			});
+		} finally {
+			isSaving = false;
+		}
 	}
 
-	async function setAutoEnrich(value: boolean) {
-		if (!service.appPreferences) return;
+	async function handleToggleAutoEnrich() {
+		if (isSaving || !service.appPreferences) return;
 
-		await service.saveAppPreferences({
-			homebox_url_override: service.appPreferences.homebox_url_override,
-			image_quality_override: service.appPreferences.image_quality_override,
-			duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
-			enrichment_enabled: enabled,
-			enrichment_auto_enrich: value,
-			enrichment_cache_ttl_hours: cacheTTL,
-		});
+		const currentAutoEnrich = service.appPreferences.enrichment_auto_enrich;
+		const newAutoEnrich = !currentAutoEnrich;
+
+		isSaving = true;
+		try {
+			await service.saveAppPreferences({
+				homebox_url_override: service.appPreferences.homebox_url_override,
+				image_quality_override: service.appPreferences.image_quality_override,
+				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
+				enrichment_enabled: service.appPreferences.enrichment_enabled,
+				enrichment_auto_enrich: newAutoEnrich,
+				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
+			});
+		} finally {
+			isSaving = false;
+		}
 	}
 
-	function handleCacheTTLInput(value: number) {
-		localCacheTTL = Math.max(1, Math.min(168, value || 24));
+	function handleCacheTTLInput(e: Event) {
+		const value = parseInt((e.target as HTMLInputElement).value) || 24;
+		localCacheTTL = Math.max(1, Math.min(168, value));
 	}
 
 	async function handleCacheTTLBlur() {
-		if (!service.appPreferences) return;
-		if (localCacheTTL === cacheTTL) return;
+		if (isSaving || !service.appPreferences) return;
+		if (localCacheTTL === service.appPreferences.enrichment_cache_ttl_hours) return;
 
-		await service.saveAppPreferences({
-			homebox_url_override: service.appPreferences.homebox_url_override,
-			image_quality_override: service.appPreferences.image_quality_override,
-			duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
-			enrichment_enabled: enabled,
-			enrichment_auto_enrich: autoEnrich,
-			enrichment_cache_ttl_hours: localCacheTTL,
-		});
+		isSaving = true;
+		try {
+			await service.saveAppPreferences({
+				homebox_url_override: service.appPreferences.homebox_url_override,
+				image_quality_override: service.appPreferences.image_quality_override,
+				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
+				enrichment_enabled: service.appPreferences.enrichment_enabled,
+				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
+				enrichment_cache_ttl_hours: localCacheTTL,
+			});
+		} finally {
+			isSaving = false;
+		}
 	}
+
+	// Computed values for display (read directly from service)
+	const isEnabled = $derived(service.appPreferences?.enrichment_enabled ?? false);
+	const isAutoEnrich = $derived(service.appPreferences?.enrichment_auto_enrich ?? false);
 </script>
 
 <section class="card space-y-4">
@@ -119,16 +152,17 @@
 			</div>
 			<button
 				type="button"
-				class="relative h-6 w-11 rounded-full transition-colors {enabled
+				class="relative h-6 w-11 rounded-full transition-colors {isEnabled
 					? 'bg-primary-500'
-					: 'bg-neutral-600'}"
-				onclick={() => setEnabled(!enabled)}
+					: 'bg-neutral-600'} {isSaving ? 'opacity-50' : ''}"
+				onclick={handleToggleEnabled}
+				disabled={isSaving}
 				role="switch"
-				aria-checked={enabled}
+				aria-checked={isEnabled}
 				aria-label="Toggle enrichment"
 			>
 				<span
-					class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform {enabled
+					class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform {isEnabled
 						? 'translate-x-5'
 						: 'translate-x-0'}"
 				></span>
@@ -136,7 +170,7 @@
 		</div>
 
 		<!-- Auto-Enrich Toggle (only shown when enrichment is enabled) -->
-		{#if enabled}
+		{#if isEnabled}
 			<div
 				class="flex items-center justify-between rounded-xl border border-neutral-700 bg-neutral-800/30 p-4"
 			>
@@ -148,16 +182,17 @@
 				</div>
 				<button
 					type="button"
-					class="relative h-6 w-11 rounded-full transition-colors {autoEnrich
+					class="relative h-6 w-11 rounded-full transition-colors {isAutoEnrich
 						? 'bg-primary-500'
-						: 'bg-neutral-600'}"
-					onclick={() => setAutoEnrich(!autoEnrich)}
+						: 'bg-neutral-600'} {isSaving ? 'opacity-50' : ''}"
+					onclick={handleToggleAutoEnrich}
+					disabled={isSaving}
 					role="switch"
-					aria-checked={autoEnrich}
+					aria-checked={isAutoEnrich}
 					aria-label="Toggle auto-enrich"
 				>
 					<span
-						class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform {autoEnrich
+						class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform {isAutoEnrich
 							? 'translate-x-5'
 							: 'translate-x-0'}"
 					></span>
@@ -179,10 +214,11 @@
 							type="number"
 							min="1"
 							max="168"
-							bind:value={localCacheTTL}
-							oninput={(e) => handleCacheTTLInput(parseInt(e.currentTarget.value))}
+							value={localCacheTTL}
+							oninput={handleCacheTTLInput}
 							onblur={handleCacheTTLBlur}
-							class="w-20 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+							disabled={isSaving}
+							class="w-20 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
 						/>
 						<span class="text-xs text-neutral-400">hours (1-168)</span>
 					</div>
