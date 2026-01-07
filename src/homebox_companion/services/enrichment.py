@@ -137,20 +137,35 @@ class URLContentFetcher:
 
     def _extract_price_context(self, text: str, window: int = 200) -> str:
         """Extract text around price mentions."""
-        # Find price patterns
-        price_pattern = r'\$[\d,]+\.?\d*'
-        matches = list(re.finditer(price_pattern, text))
+        # Find price patterns - support multiple formats:
+        # $199.00, $199, USD 199.00, 199.00 USD, €199, £199
+        price_patterns = [
+            r'\$[\d,]+\.?\d*',           # $199.00
+            r'USD\s*[\d,]+\.?\d*',        # USD 199.00
+            r'[\d,]+\.?\d*\s*USD',        # 199.00 USD
+            r'€[\d,]+\.?\d*',             # €199.00
+            r'£[\d,]+\.?\d*',             # £199.00
+            r'(?:price|cost|msrp)[:\s]*[\d,]+\.?\d*',  # price: 199.00
+        ]
 
-        if not matches:
+        all_matches = []
+        for pattern in price_patterns:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            all_matches.extend(matches)
+
+        if not all_matches:
             return ""
+
+        # Sort by position and deduplicate overlapping matches
+        all_matches.sort(key=lambda m: m.start())
 
         # Get context around each price mention
         contexts = []
-        for match in matches[:5]:  # Limit to first 5 prices
+        for match in all_matches[:5]:  # Limit to first 5 prices
             start = max(0, match.start() - window)
             end = min(len(text), match.end() + window)
             context = text[start:end].strip()
-            if context:
+            if context and context not in contexts:
                 contexts.append(context)
 
         return "\n---\n".join(contexts)
@@ -192,6 +207,8 @@ class URLContentFetcher:
 
                 text = self._strip_html(html)
                 logger.info(f"Stripped to {len(text)} chars of text")
+                # Log a preview of the text for debugging
+                logger.debug(f"Text preview: {text[:500]}...")
 
                 # Extract price context for efficiency
                 price_context = self._extract_price_context(text)
