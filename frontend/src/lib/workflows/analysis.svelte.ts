@@ -11,7 +11,7 @@
 import { vision, fieldPreferences } from '$lib/api/index';
 import { labelStore } from '$lib/stores/labels.svelte';
 import { workflowLogger as log } from '$lib/utils/logger';
-import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus } from '$lib/types';
+import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus, ImageGroup, DetectedItem } from '$lib/types';
 
 // =============================================================================
 // CONCURRENCY CONTROL
@@ -72,6 +72,13 @@ export interface AnalysisResult {
 	error?: string;
 	/** Number of images that failed to process */
 	failedCount: number;
+}
+
+export interface GroupedAnalysisResult {
+	success: boolean;
+	/** Image groups with detected items and their associated image indices */
+	groups: ImageGroup[];
+	error?: string;
 }
 
 // =============================================================================
@@ -518,5 +525,167 @@ export class AnalysisService {
 	/** Get count of failed images */
 	get failedCount(): number {
 		return Object.values(this.imageStatuses).filter((status) => status === 'failed').length;
+	}
+
+	// =========================================================================
+	// GROUPED ANALYSIS (for desktop image grouping feature)
+	// =========================================================================
+
+	/**
+	 * Analyze all images together using grouped detection.
+	 * The AI analyzes all images in a single request and automatically groups
+	 * images that show the same physical item.
+	 *
+	 * @param images - Array of captured images to analyze
+	 * @returns Grouped analysis result with image groups
+	 */
+	async analyzeGrouped(images: CapturedImage[]): Promise<GroupedAnalysisResult> {
+		if (images.length === 0) {
+			return { success: false, groups: [], error: 'No images to analyze' };
+		}
+
+		// Prevent starting a new analysis if one is in progress
+		if (this.abortController) {
+			log.warn('Analysis already in progress, ignoring duplicate request');
+			return { success: false, groups: [], error: 'Analysis already in progress' };
+		}
+
+		log.info(`Starting grouped analysis for ${images.length} image(s)`);
+
+		// Initialize analysis state
+		this.abortController = new AbortController();
+		this.progress = {
+			current: 0,
+			total: 1, // Single grouped request
+			message: 'Analyzing and grouping images...',
+		};
+
+		// Mark all images as analyzing
+		const initialStatuses: Record<number, ImageAnalysisStatus> = {};
+		for (let i = 0; i < images.length; i++) {
+			initialStatuses[i] = 'analyzing';
+		}
+		this.imageStatuses = initialStatuses;
+
+		try {
+			// Load default label first
+			await this.loadDefaultLabel();
+
+			// Collect all image files
+			const allFiles: File[] = [];
+			for (const image of images) {
+				allFiles.push(image.file);
+				// Note: We don't include additionalFiles here since grouped detection
+				// treats each uploaded image as potentially showing a different item
+			}
+
+			// Call the grouped detection API
+			const response = await vision.detectGrouped(allFiles, {
+				extractExtendedFields: true,
+				signal: this.abortController.signal,
+			});
+
+			// Check if cancelled
+			if (this.abortController?.signal.aborted) {
+				return { success: false, groups: [], error: 'Analysis cancelled' };
+			}
+
+			// Update progress
+			this.progress = {
+				current: 1,
+				total: 1,
+				message: 'Processing results...',
+			};
+
+			// Mark all images as success
+			const successStatuses: Record<number, ImageAnalysisStatus> = {};
+			for (let i = 0; i < images.length; i++) {
+				successStatuses[i] = 'success';
+			}
+			this.imageStatuses = successStatuses;
+
+			// Ensure labels are loaded
+			try {
+				await labelStore.fetchLabels();
+			} catch (error) {
+				log.warn('Failed to fetch labels:', error);
+			}
+
+			// Validate default label
+			const currentLabels = labelStore.labels;
+			const validDefaultLabelId =
+				this.defaultLabelId && currentLabels.some((l) => l.id === this.defaultLabelId)
+					? this.defaultLabelId
+					: null;
+
+			// Convert response items to ImageGroups
+			const groups: ImageGroup[] = response.items.map((item, index) => {
+				// Add default label if configured and valid
+				let labelIds = item.label_ids ?? [];
+				if (validDefaultLabelId && !labelIds.includes(validDefaultLabelId)) {
+					labelIds = [...labelIds, validDefaultLabelId];
+				}
+
+				const itemWithLabels: DetectedItem = {
+					...item,
+					label_ids: labelIds,
+				};
+
+				return {
+					id: `group-${index}-${Date.now()}`,
+					item: itemWithLabels,
+					imageIndices: item.image_indices ?? [0], // Default to first image if not specified
+				};
+			});
+
+			// Add ungrouped images (images not assigned to any group)
+			const assignedIndices = new Set(groups.flatMap((g) => g.imageIndices));
+			const ungroupedIndices: number[] = [];
+			for (let i = 0; i < images.length; i++) {
+				if (!assignedIndices.has(i)) {
+					ungroupedIndices.push(i);
+				}
+			}
+
+			// Create individual groups for ungrouped images
+			for (const index of ungroupedIndices) {
+				groups.push({
+					id: `ungrouped-${index}-${Date.now()}`,
+					item: null, // No detected item yet
+					imageIndices: [index],
+				});
+			}
+
+			log.info(`Grouped analysis complete: ${groups.length} groups from ${images.length} images`);
+
+			return {
+				success: true,
+				groups,
+			};
+		} catch (error) {
+			// Mark all images as failed
+			const failedStatuses: Record<number, ImageAnalysisStatus> = {};
+			for (let i = 0; i < images.length; i++) {
+				failedStatuses[i] = 'failed';
+			}
+			this.imageStatuses = failedStatuses;
+
+			if (
+				this.abortController?.signal.aborted ||
+				(error instanceof Error && error.name === 'AbortError')
+			) {
+				log.debug('Grouped analysis cancelled by user');
+				return { success: false, groups: [], error: 'Analysis cancelled' };
+			}
+
+			log.error('Grouped analysis failed', error);
+			return {
+				success: false,
+				groups: [],
+				error: error instanceof Error ? error.message : 'Analysis failed',
+			};
+		} finally {
+			this.abortController = null;
+		}
 	}
 }

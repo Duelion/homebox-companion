@@ -28,7 +28,9 @@ import type {
 	ConfirmedItem,
 	Progress,
 	SubmissionResult,
-	DuplicateMatch
+	DuplicateMatch,
+	AnalysisMode,
+	ImageGroup
 } from '$lib/types';
 
 // =============================================================================
@@ -73,6 +75,12 @@ class ScanWorkflow {
 	/** Potential duplicates detected during review */
 	private _duplicateMatches = $state<DuplicateMatch[]>([]);
 
+	/** Analysis mode: quick (default) or grouped */
+	private _analysisMode = $state<AnalysisMode>('quick');
+
+	/** Image groups from grouped detection (only used in grouped mode) */
+	private _imageGroups = $state<ImageGroup[]>([]);
+
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
 	// =========================================================================
@@ -94,8 +102,10 @@ class ScanWorkflow {
 		'parentItemId',
 		'parentItemName',
 		'images',
+		'analysisMode',
 		'analysisProgress',
 		'imageStatuses',
+		'imageGroups',
 		'detectedItems',
 		'currentReviewIndex',
 		'duplicateMatches',
@@ -115,6 +125,7 @@ class ScanWorkflow {
 		'locationPath',
 		'parentItemId',
 		'parentItemName',
+		'analysisMode',
 		'error',
 		'analysisProgress',
 	]);
@@ -165,10 +176,14 @@ class ScanWorkflow {
 							return workflow._parentItemName;
 						case 'images':
 							return workflow.captureService.images;
+						case 'analysisMode':
+							return workflow._analysisMode;
 						case 'analysisProgress':
 							return workflow.analysisService.progress;
 						case 'imageStatuses':
 							return workflow.analysisService.imageStatuses;
+						case 'imageGroups':
+							return workflow._imageGroups;
 						case 'detectedItems':
 							return workflow.reviewService.detectedItems;
 						case 'currentReviewIndex':
@@ -243,6 +258,9 @@ class ScanWorkflow {
 							return true;
 						case 'analysisProgress':
 							workflow.analysisService.progress = value as Progress | null;
+							return true;
+						case 'analysisMode':
+							workflow._analysisMode = value as AnalysisMode;
 							return true;
 						default:
 							// TypeScript exhaustiveness check - should never reach here
@@ -623,6 +641,284 @@ class ScanWorkflow {
 	}
 
 	// =========================================================================
+	// ANALYSIS MODE & GROUPED DETECTION
+	// =========================================================================
+
+	/** Set the analysis mode (quick or grouped) */
+	setAnalysisMode(mode: AnalysisMode): void {
+		this._analysisMode = mode;
+		// Clear any existing groups when switching modes
+		if (mode === 'quick') {
+			this._imageGroups = [];
+		}
+		log.debug(`Analysis mode set to: ${mode}`);
+	}
+
+	/** Get current analysis mode */
+	get analysisMode(): AnalysisMode {
+		return this._analysisMode;
+	}
+
+	/** Get current image groups */
+	get imageGroups(): ImageGroup[] {
+		return this._imageGroups;
+	}
+
+	/**
+	 * Start grouped analysis - sends all images to AI for automatic grouping.
+	 * Only available on larger screens (desktop/tablet).
+	 */
+	async startGroupedAnalysis(): Promise<void> {
+		log.info('ScanWorkflow.startGroupedAnalysis() called');
+
+		if (this._status === 'analyzing') {
+			log.warn('Analysis already in progress, ignoring duplicate request');
+			this._error = 'Analysis already in progress';
+			return;
+		}
+
+		if (!this.captureService.hasImages) {
+			log.warn('No images to analyze, returning early');
+			this._error = 'Please add at least one image';
+			return;
+		}
+
+		log.info(`Starting grouped analysis for ${this.captureService.count} image(s)`);
+
+		// Set status before async operations
+		this._status = 'analyzing';
+		this._error = null;
+
+		const result = await this.analysisService.analyzeGrouped(this.captureService.images);
+
+		// Check if cancelled
+		if (this._status !== 'analyzing') {
+			log.debug('Grouped analysis was cancelled or status changed');
+			return;
+		}
+
+		if (result.success) {
+			// Store the image groups
+			this._imageGroups = result.groups;
+
+			// Convert groups to review items for review phase
+			const reviewItems: ReviewItem[] = [];
+			for (const group of result.groups) {
+				if (group.item) {
+					// Use the first image in the group as the source
+					const primaryIndex = group.imageIndices[0] ?? 0;
+					const primaryImage = this.captureService.getImage(primaryIndex);
+
+					reviewItems.push({
+						...group.item,
+						sourceImageIndex: primaryIndex,
+						originalFile: primaryImage?.file,
+						// Collect additional images from other indices in the group
+						additionalImages: group.imageIndices
+							.slice(1)
+							.map((idx) => this.captureService.getImage(idx)?.file)
+							.filter((f): f is File => f !== undefined),
+					});
+				}
+			}
+
+			this.reviewService.setDetectedItems(reviewItems);
+
+			// Check for duplicates
+			this.checkForDuplicates(reviewItems);
+
+			// Transition to grouping phase for manual adjustments (desktop only)
+			// or directly to reviewing if no groups need adjustment
+			if (this._imageGroups.some((g) => g.imageIndices.length > 1 || g.item === null)) {
+				// Has multi-image groups or undetected images - show grouping editor
+				this._status = 'grouping';
+				log.info(`Grouped analysis complete, ${result.groups.length} groups detected. Showing grouping editor.`);
+			} else {
+				// All single-image groups with detections - skip to review
+				this._status = 'reviewing';
+				log.info(`Grouped analysis complete, ${reviewItems.length} items detected. Skipping to review.`);
+			}
+		} else {
+			this._error = result.error || 'Grouped analysis failed';
+			this._status = 'capturing';
+			log.error(`Grouped analysis failed: ${this._error}`);
+		}
+	}
+
+	// =========================================================================
+	// IMAGE GROUP MANAGEMENT (for desktop grouping editor)
+	// =========================================================================
+
+	/**
+	 * Move an image from one group to another.
+	 * Used in the desktop grouping editor.
+	 */
+	moveImageToGroup(imageIndex: number, targetGroupId: string): void {
+		// Find and remove from current group
+		const updatedGroups = this._imageGroups.map((group) => {
+			if (group.imageIndices.includes(imageIndex)) {
+				return {
+					...group,
+					imageIndices: group.imageIndices.filter((idx) => idx !== imageIndex),
+				};
+			}
+			return group;
+		});
+
+		// Add to target group
+		const finalGroups = updatedGroups.map((group) => {
+			if (group.id === targetGroupId) {
+				return {
+					...group,
+					imageIndices: [...group.imageIndices, imageIndex],
+				};
+			}
+			return group;
+		});
+
+		// Remove empty groups
+		this._imageGroups = finalGroups.filter((g) => g.imageIndices.length > 0);
+
+		log.debug(`Moved image ${imageIndex} to group ${targetGroupId}`);
+	}
+
+	/**
+	 * Create a new group with the specified images.
+	 * Used when dragging images to a "new group" zone.
+	 */
+	createNewGroup(imageIndices: number[]): string {
+		const newGroupId = `group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+		// Remove images from existing groups
+		const updatedGroups = this._imageGroups.map((group) => ({
+			...group,
+			imageIndices: group.imageIndices.filter((idx) => !imageIndices.includes(idx)),
+		}));
+
+		// Remove empty groups and add the new one
+		this._imageGroups = [
+			...updatedGroups.filter((g) => g.imageIndices.length > 0),
+			{
+				id: newGroupId,
+				item: null, // No detection yet
+				imageIndices,
+			},
+		];
+
+		log.debug(`Created new group ${newGroupId} with images: ${imageIndices.join(', ')}`);
+		return newGroupId;
+	}
+
+	/**
+	 * Merge multiple groups into one.
+	 * The first group's detected item is preserved.
+	 */
+	mergeGroups(groupIds: string[]): void {
+		if (groupIds.length < 2) return;
+
+		const groupsToMerge = this._imageGroups.filter((g) => groupIds.includes(g.id));
+		if (groupsToMerge.length < 2) return;
+
+		// Combine all image indices
+		const mergedIndices = groupsToMerge.flatMap((g) => g.imageIndices);
+
+		// Use the first group's item (or first non-null item)
+		const detectedItem = groupsToMerge.find((g) => g.item !== null)?.item ?? null;
+
+		// Create merged group
+		const mergedGroup: ImageGroup = {
+			id: groupsToMerge[0].id,
+			item: detectedItem,
+			imageIndices: [...new Set(mergedIndices)], // Remove duplicates
+		};
+
+		// Replace groups
+		this._imageGroups = [
+			...this._imageGroups.filter((g) => !groupIds.includes(g.id)),
+			mergedGroup,
+		];
+
+		log.debug(`Merged ${groupIds.length} groups into ${mergedGroup.id}`);
+	}
+
+	/**
+	 * Split a group so each image becomes its own group.
+	 */
+	splitGroup(groupId: string): void {
+		const groupToSplit = this._imageGroups.find((g) => g.id === groupId);
+		if (!groupToSplit || groupToSplit.imageIndices.length <= 1) return;
+
+		// Create individual groups for each image
+		const newGroups: ImageGroup[] = groupToSplit.imageIndices.map((imageIndex, i) => ({
+			id: `split-${groupId}-${i}-${Date.now()}`,
+			item: i === 0 ? groupToSplit.item : null, // First image keeps the detection
+			imageIndices: [imageIndex],
+		}));
+
+		// Replace the original group with the new individual groups
+		this._imageGroups = [
+			...this._imageGroups.filter((g) => g.id !== groupId),
+			...newGroups,
+		];
+
+		log.debug(`Split group ${groupId} into ${newGroups.length} individual groups`);
+	}
+
+	/**
+	 * Confirm the grouping and proceed to review.
+	 * Converts the current groups into review items.
+	 */
+	confirmGrouping(): void {
+		if (this._status !== 'grouping') {
+			log.warn('Not in grouping state, ignoring confirm request');
+			return;
+		}
+
+		// Filter groups that have both an item and at least one image
+		const validGroups = this._imageGroups.filter(
+			(g) => g.item !== null && g.imageIndices.length > 0
+		);
+
+		if (validGroups.length === 0) {
+			this._error = 'No valid item groups to review';
+			return;
+		}
+
+		// Convert groups to review items
+		const reviewItems: ReviewItem[] = validGroups.map((group) => {
+			const primaryIndex = group.imageIndices[0];
+			const primaryImage = this.captureService.getImage(primaryIndex);
+
+			return {
+				...group.item!,
+				sourceImageIndex: primaryIndex,
+				originalFile: primaryImage?.file,
+				additionalImages: group.imageIndices
+					.slice(1)
+					.map((idx) => this.captureService.getImage(idx)?.file)
+					.filter((f): f is File => f !== undefined),
+			};
+		});
+
+		this.reviewService.setDetectedItems(reviewItems);
+		this.checkForDuplicates(reviewItems);
+		this._status = 'reviewing';
+
+		log.info(`Grouping confirmed, ${reviewItems.length} items ready for review`);
+	}
+
+	/**
+	 * Go back from grouping to capture.
+	 */
+	backFromGrouping(): void {
+		if (this._status !== 'grouping') return;
+		this._status = 'capturing';
+		this._imageGroups = [];
+		this._error = null;
+		log.debug('Returned from grouping to capture');
+	}
+
+	// =========================================================================
 	// REVIEW ACTIONS (delegated to ReviewService)
 	// =========================================================================
 
@@ -890,6 +1186,8 @@ class ScanWorkflow {
 		this._parentItemName = null;
 		this._error = null;
 		this._duplicateMatches = [];
+		this._analysisMode = 'quick';
+		this._imageGroups = [];
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */
