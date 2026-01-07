@@ -383,7 +383,7 @@
 
 	/* Typing indicator animation */
 	.typing-dot {
-		@apply h-1.5 w-1.5 animate-typing-dot rounded-full bg-primary-500;
+		@apply h-1.5 w-1.5 animate-typing-dot rounded-full bg-primary;
 	}
 
 	.animation-delay-160 {
@@ -396,12 +396,12 @@
 
 	/* Tool execution spinner */
 	.tool-spinner {
-		@apply inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-primary-500 border-t-transparent;
+		@apply inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-primary border-t-transparent;
 	}
 
 	/* Streaming glow animation */
 	.streaming-glow {
-		@apply animate-stream-glow border-primary-500;
+		@apply animate-stream-glow border-primary;
 	}
 
 	/* Tool accordion */

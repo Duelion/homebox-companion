@@ -678,7 +678,7 @@
 	input[type='range']::-webkit-slider-thumb {
 		-webkit-appearance: none;
 		appearance: none;
-		@apply -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full bg-primary-500 transition-all duration-fast;
+		@apply -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full bg-primary transition-all duration-fast;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 	}
 
@@ -696,7 +696,7 @@
 	}
 
 	input[type='range']::-moz-range-thumb {
-		@apply h-[22px] w-[22px] cursor-pointer rounded-full border-0 bg-primary-500;
+		@apply h-[22px] w-[22px] cursor-pointer rounded-full border-0 bg-primary;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 	}
 
