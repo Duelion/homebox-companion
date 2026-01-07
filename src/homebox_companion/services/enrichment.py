@@ -587,6 +587,7 @@ Respond with ONLY the JSON, no other text."""
             })
 
             # Call AI provider
+            logger.info(f"Calling AI provider: {type(self.ai_provider).__name__}")
             response = await self.ai_provider.complete(prompt)
 
             if not response:
@@ -594,6 +595,8 @@ Respond with ONLY the JSON, no other text."""
                 debug_log("ENRICHMENT", "Empty response from AI provider", level="WARNING")
                 return EnrichmentResult.empty(product_name)
 
+            logger.info(f"AI response received: {len(response)} chars")
+            logger.debug(f"AI response: {response[:500]}")
             debug_log("ENRICHMENT", "AI response received", {
                 "response_length": len(response),
                 "response_preview": response[:200] if len(response) > 200 else response,
@@ -605,7 +608,7 @@ Respond with ONLY the JSON, no other text."""
             )
 
         except Exception as e:
-            logger.error(f"AI enrichment failed: {e}")
+            logger.error(f"AI enrichment failed: {e}", exc_info=True)
             debug_log("ENRICHMENT", f"AI enrichment failed: {e}", level="ERROR")
             return EnrichmentResult.empty(product_name)
 
