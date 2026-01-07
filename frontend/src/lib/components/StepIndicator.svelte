@@ -15,20 +15,21 @@
 		{#if index > 0}
 			<!-- Connecting line between steps -->
 			<span
-				class="h-[3px] max-w-12 flex-1 rounded-full transition-colors duration-300"
-				class:bg-success-600={step < currentStep}
-				class:bg-primary-600={step === currentStep}
-				class:bg-neutral-700={step > currentStep}
+				class="h-[3px] max-w-12 flex-1 rounded-full transition-colors duration-300 {step < currentStep
+					? 'bg-success'
+					: step === currentStep
+						? 'bg-primary'
+						: 'bg-base-content/20'}"
 			></span>
 		{/if}
 		<!-- Step circle -->
 		<span
 			class="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold shadow-sm transition-all duration-300 {step ===
 			currentStep
-				? 'bg-primary-600 text-white ring-4 ring-primary-500/20'
+				? 'bg-primary text-primary-content ring-4 ring-primary/20'
 				: step < currentStep
-					? 'bg-success-600 text-white'
-					: 'border border-neutral-700 bg-neutral-800 text-neutral-400'}"
+					? 'bg-success text-success-content'
+					: 'border border-base-content/20 bg-base-300 text-base-content/60'}"
 		>
 			{#if step < currentStep}
 				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

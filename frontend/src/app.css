@@ -39,22 +39,22 @@
 @layer components {
 	/* Icon button - compact */
 	.btn-icon {
-		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 active:bg-neutral-700;
+		@apply rounded-lg p-2 text-base-content/60 transition-colors duration-150 hover:bg-base-300 hover:text-base-content focus:outline-none focus:ring-2 focus:ring-primary/50 active:bg-base-300/80;
 	}
 
 	/* Input styles */
 	.input {
-		@apply w-full rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
+		@apply w-full rounded-xl border border-base-content/20 bg-base-200 px-4 py-3 text-base-content transition-all duration-150 placeholder:text-base-content/40 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:border-base-content/10 disabled:bg-base-100 disabled:text-base-content/30;
 	}
 
 	/* Compact input variant for modals and dense UIs */
 	.input-sm {
-		@apply w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
+		@apply w-full rounded-lg border border-base-content/20 bg-base-200 px-3 py-2 text-sm text-base-content transition-all duration-150 placeholder:text-base-content/40 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:border-base-content/10 disabled:bg-base-100 disabled:text-base-content/30;
 	}
 
 	/* Input error state */
 	.input-error {
-		@apply border-error-500 focus:border-error-500 focus:ring-error-500/20;
+		@apply border-error focus:border-error focus:ring-error/20;
 	}
 
 	/* Expandable input - base styles for use with expandable action */
@@ -65,35 +65,35 @@
 
 	/* Label styles */
 	.label {
-		@apply mb-2 block text-body-sm font-medium text-neutral-300;
+		@apply mb-2 block text-body-sm font-medium text-base-content/75;
 	}
 
 	/* Compact label for modals and dense UIs */
 	.label-sm {
-		@apply mb-1 block text-xs font-medium text-neutral-400;
+		@apply mb-1 block text-xs font-medium text-base-content/60;
 	}
 
 	/* Label chip / badge styles */
 	.label-chip {
-		@apply cursor-pointer rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-300 transition-all duration-150 hover:border-neutral-600 hover:bg-neutral-800;
+		@apply cursor-pointer rounded-lg border border-base-content/20 bg-base-200 px-3 py-1.5 text-sm text-base-content/75 transition-all duration-150 hover:border-base-content/30 hover:bg-base-300;
 	}
 
 	.label-chip-selected {
-		@apply rounded-lg border-2 border-primary-500 bg-primary-500/20 px-3 py-1.5 text-sm font-medium text-primary-300 shadow-sm ring-2 ring-primary-500/20;
+		@apply rounded-lg border-2 border-primary bg-primary/20 px-3 py-1.5 text-sm font-medium text-primary shadow-sm ring-2 ring-primary/20;
 	}
 
 	/* Touch-target icon button */
 	.btn-icon-touch {
-		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100;
+		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-base-content/60 transition-all hover:bg-base-300 hover:text-base-content;
 	}
 
 	/* Card base styles - use for lightweight card-like containers without importing Card.svelte */
 	.card {
-		@apply rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm;
+		@apply rounded-xl border border-base-content/20 bg-base-200 p-4 shadow-sm;
 	}
 
 	.card-interactive {
-		@apply card cursor-pointer transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:shadow-md active:scale-[0.99];
+		@apply card cursor-pointer transition-all hover:border-base-content/30 hover:bg-base-300 hover:shadow-md active:scale-[0.99];
 	}
 
 	/* ==========================================================================
@@ -112,7 +112,7 @@
 
 	/* Metadata row (timestamp, tokens) */
 	.chat-meta {
-		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-xs text-neutral-500;
+		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-xs text-base-content/40;
 	}
 
 	/* Tool accordion section */
@@ -121,7 +121,7 @@
 	}
 
 	.chat-tools-summary {
-		@apply flex cursor-pointer select-none items-center gap-1 text-xs text-neutral-400 hover:text-neutral-300;
+		@apply flex cursor-pointer select-none items-center gap-1 text-xs text-base-content/60 hover:text-base-content/75;
 	}
 
 	.chat-tools-grid {
@@ -182,7 +182,7 @@
 
 	.markdown-content strong {
 		font-weight: 600;
-		@apply text-neutral-100;
+		@apply text-base-content;
 	}
 
 	.markdown-content em {
@@ -190,7 +190,7 @@
 	}
 
 	.markdown-content code {
-		@apply rounded bg-primary-500/10 px-1 py-0.5 font-mono text-[0.85em];
+		@apply rounded bg-primary/10 px-1 py-0.5 font-mono text-[0.85em];
 	}
 
 	.markdown-content pre {
@@ -204,7 +204,7 @@
 	.markdown-content h1,
 	.markdown-content h2,
 	.markdown-content h3 {
-		@apply font-semibold text-neutral-100;
+		@apply font-semibold text-base-content;
 		margin: 0.5rem 0 0.25rem;
 	}
 
@@ -227,20 +227,20 @@
 
 	.markdown-content th,
 	.markdown-content td {
-		@apply border border-neutral-600 px-3 py-2 text-left;
+		@apply border border-base-content/30 px-3 py-2 text-left;
 	}
 
 	.markdown-content th {
-		@apply bg-neutral-700/50 font-semibold text-neutral-100;
+		@apply bg-base-300/50 font-semibold text-base-content;
 	}
 
 	.markdown-content tr:nth-child(even) {
-		@apply bg-neutral-800/30;
+		@apply bg-base-300/30;
 	}
 
 	/* GFM Task Lists */
 	.markdown-content input[type='checkbox'] {
-		@apply mr-2 accent-primary-500;
+		@apply mr-2 accent-primary;
 	}
 
 	.markdown-content li:has(input[type='checkbox']) {
@@ -250,22 +250,22 @@
 
 	/* Links */
 	.markdown-content a {
-		@apply text-primary-400 underline transition-colors hover:text-primary-300;
+		@apply text-primary underline transition-colors hover:text-primary/80;
 	}
 
 	/* Blockquotes */
 	.markdown-content blockquote {
-		@apply my-3 border-l-4 border-primary-500/50 pl-4 italic text-neutral-400;
+		@apply my-3 border-l-4 border-primary/50 pl-4 italic text-base-content/60;
 	}
 
 	/* Horizontal Rule */
 	.markdown-content hr {
-		@apply my-4 border-neutral-600;
+		@apply my-4 border-base-content/30;
 	}
 
 	/* Strikethrough */
 	.markdown-content del {
-		@apply text-neutral-500;
+		@apply text-base-content/40;
 	}
 }
 
@@ -289,7 +289,7 @@
 	 */
 
 	.glass {
-		@apply bg-neutral-900/80 backdrop-blur-lg;
+		@apply bg-base-200/80 backdrop-blur-lg;
 	}
 
 	/* iOS safe area padding for bottom navigation */
@@ -320,12 +320,12 @@
 
 	/* Skeleton loading animation */
 	.skeleton {
-		@apply animate-shimmer rounded bg-neutral-800;
+		@apply animate-shimmer rounded bg-base-300;
 		background: linear-gradient(
 			90deg,
-			theme('colors.neutral.800') 25%,
-			theme('colors.neutral.700') 50%,
-			theme('colors.neutral.800') 75%
+			oklch(var(--b3)) 25%,
+			oklch(var(--b2)) 50%,
+			oklch(var(--b3)) 75%
 		);
 		background-size: 200% 100%;
 	}
@@ -350,12 +350,12 @@
 
 	/* Fixed bottom panel above nav */
 	.fixed-bottom-panel {
-		@apply bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur-lg;
+		@apply bottom-nav-offset fixed left-0 right-0 z-40 border-t border-base-content/10 bg-base-100/95 backdrop-blur-lg;
 	}
 
 	/* Chat input container - adapts position for mobile virtual keyboard */
 	.chat-input-keyboard-aware {
-		@apply bottom-nav-offset fixed left-0 right-0 z-50 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur-lg;
+		@apply bottom-nav-offset fixed left-0 right-0 z-50 border-t border-base-content/10 bg-base-100/95 backdrop-blur-lg;
 		/* Ensure proper stacking and prevent layout shifts on iOS Safari */
 		transform: translateZ(0);
 		-webkit-transform: translateZ(0);

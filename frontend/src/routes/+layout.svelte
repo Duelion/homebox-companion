@@ -144,11 +144,11 @@
 	});
 </script>
 
-<div class="flex min-h-dvh min-h-screen flex-col bg-neutral-950">
+<div class="flex min-h-dvh min-h-screen flex-col bg-base-100">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
-		class="glass fixed left-0 right-0 top-0 z-40 border-b border-neutral-700"
+		class="glass fixed left-0 right-0 top-0 z-40 border-b border-base-content/20"
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
@@ -156,7 +156,7 @@
 				<!-- Left: Logo and title -->
 				<a
 					href={resolve(isAuthenticated ? '/location' : '/')}
-					class="flex items-center gap-2 overflow-visible font-semibold text-neutral-200"
+					class="flex items-center gap-2 overflow-visible font-semibold text-base-content"
 				>
 					<svg
 						class="h-7 w-7 shrink-0 text-primary"
@@ -181,8 +181,8 @@
 							href={resolve('/chat')}
 							class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
 								{$page.url.pathname.startsWith('/chat')
-								? 'bg-primary-500/10 text-primary-500'
-								: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content/60 hover:bg-base-300/50 hover:text-base-content'}"
 						>
 							<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75">
 								<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -193,8 +193,8 @@
 							href={resolve('/location')}
 							class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
 								{$page.url.pathname.startsWith('/location') || $page.url.pathname.startsWith('/capture') || $page.url.pathname.startsWith('/review') || $page.url.pathname.startsWith('/summary') || $page.url.pathname.startsWith('/success')
-								? 'bg-primary-500/10 text-primary-500'
-								: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content/60 hover:bg-base-300/50 hover:text-base-content'}"
 						>
 							<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75">
 								<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
@@ -207,8 +207,8 @@
 							href={resolve('/settings')}
 							class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
 								{$page.url.pathname.startsWith('/settings')
-								? 'bg-primary-500/10 text-primary-500'
-								: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content/60 hover:bg-base-300/50 hover:text-base-content'}"
 						>
 							<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75">
 								<circle cx="12" cy="12" r="3" />
@@ -235,7 +235,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning-500 {isAuthenticated
+			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
@@ -255,7 +255,7 @@
 	<!-- Footer with version - only shown on login page (not authenticated) -->
 	{#if !isAuthenticated}
 		<footer
-			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-neutral-950 py-3 text-center text-xs text-neutral-500"
+			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-base-100 py-3 text-center text-xs text-base-content/40"
 		>
 			{#if appVersion}
 				<span>v{appVersion}</span>
@@ -286,7 +286,7 @@
 				href="https://github.com/Duelion/homebox-companion"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center gap-1 transition-colors hover:text-neutral-400"
+				class="inline-flex items-center gap-1 transition-colors hover:text-base-content/60"
 				title="Star on GitHub"
 			>
 				<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 16 16">

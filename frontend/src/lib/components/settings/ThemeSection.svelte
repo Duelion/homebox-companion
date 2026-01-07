@@ -20,9 +20,9 @@
 </script>
 
 <section class="card space-y-4">
-	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-base-content">
 		<svg
-			class="h-5 w-5 text-primary-400"
+			class="h-5 w-5 text-primary"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -35,21 +35,21 @@
 		Theme Settings
 	</h2>
 
-	<p class="text-xs text-neutral-400">
+	<p class="text-xs text-base-content/60">
 		Choose a theme to match your Homebox setup. Theme settings are stored in your browser.
 	</p>
 
 	<!-- Dark Themes -->
 	<div class="space-y-2">
-		<h3 class="text-sm font-medium text-neutral-300">Dark Themes</h3>
+		<h3 class="text-sm font-medium text-base-content/75">Dark Themes</h3>
 		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 			{#each darkThemes as theme}
 				<button
 					type="button"
 					class="group relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all
 						{currentTheme === theme.name
-						? 'border-primary-500 bg-primary-500/10 ring-2 ring-primary-500/20'
-						: 'border-neutral-700 bg-neutral-800/50 hover:border-neutral-600 hover:bg-neutral-800'}"
+						? 'border-primary bg-primary/10 ring-2 ring-primary/20'
+						: 'border-base-content/20 bg-base-300/50 hover:border-base-content/30 hover:bg-base-300'}"
 					onclick={() => selectTheme(theme.name)}
 					data-theme={theme.name}
 				>
@@ -62,7 +62,7 @@
 					<span class="text-xs font-medium text-base-content">{theme.label}</span>
 					{#if currentTheme === theme.name}
 						<div class="absolute right-2 top-2">
-							<svg class="h-4 w-4 text-primary-500" fill="currentColor" viewBox="0 0 20 20">
+							<svg class="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
 								<path
 									fill-rule="evenodd"
 									d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -78,15 +78,15 @@
 
 	<!-- Light Themes -->
 	<div class="space-y-2">
-		<h3 class="text-sm font-medium text-neutral-300">Light Themes</h3>
+		<h3 class="text-sm font-medium text-base-content/75">Light Themes</h3>
 		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 			{#each lightThemes as theme}
 				<button
 					type="button"
 					class="group relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all
 						{currentTheme === theme.name
-						? 'border-primary-500 bg-primary-500/10 ring-2 ring-primary-500/20'
-						: 'border-neutral-700 bg-neutral-800/50 hover:border-neutral-600 hover:bg-neutral-800'}"
+						? 'border-primary bg-primary/10 ring-2 ring-primary/20'
+						: 'border-base-content/20 bg-base-300/50 hover:border-base-content/30 hover:bg-base-300'}"
 					onclick={() => selectTheme(theme.name)}
 					data-theme={theme.name}
 				>
@@ -99,7 +99,7 @@
 					<span class="text-xs font-medium text-base-content">{theme.label}</span>
 					{#if currentTheme === theme.name}
 						<div class="absolute right-2 top-2">
-							<svg class="h-4 w-4 text-primary-500" fill="currentColor" viewBox="0 0 20 20">
+							<svg class="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
 								<path
 									fill-rule="evenodd"
 									d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -114,10 +114,10 @@
 	</div>
 
 	<!-- Quick toggle -->
-	<div class="flex items-center gap-3 border-t border-neutral-700 pt-4">
+	<div class="flex items-center gap-3 border-t border-base-content/20 pt-4">
 		<button
 			type="button"
-			class="flex items-center gap-2 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
+			class="flex items-center gap-2 rounded-lg border border-base-content/30 bg-base-300 px-3 py-2 text-sm text-base-content/75 transition-colors hover:bg-base-300/80"
 			onclick={() => themeStore.toggleLightDark()}
 		>
 			{#if themeStore.isDark}
@@ -134,6 +134,6 @@
 				Switch to Dark
 			{/if}
 		</button>
-		<span class="text-xs text-neutral-500">Quick toggle between light and dark modes</span>
+		<span class="text-xs text-base-content/40">Quick toggle between light and dark modes</span>
 	</div>
 </section>

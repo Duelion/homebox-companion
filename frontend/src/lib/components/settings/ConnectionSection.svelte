@@ -53,9 +53,9 @@
 </script>
 
 <section class="card space-y-4">
-	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-base-content">
 		<svg
-			class="h-5 w-5 text-primary-400"
+			class="h-5 w-5 text-primary"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -71,11 +71,11 @@
 	<!-- Toggle Button -->
 	<button
 		type="button"
-		class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+		class="flex w-full items-center gap-2 rounded-xl border border-base-content/20 bg-base-300/50 px-4 py-3 text-base-content/60 transition-all hover:bg-base-300 hover:text-base-content"
 		onclick={() => service.toggleConnectionSettings()}
 	>
 		<svg
-			class="h-5 w-5 text-primary-400"
+			class="h-5 w-5 text-primary"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -102,21 +102,21 @@
 	</button>
 
 	{#if service.errors.appPreferences}
-		<div class="rounded-xl border border-error-500/30 bg-error-500/10 p-3">
-			<p class="text-sm text-error-500">{service.errors.appPreferences}</p>
+		<div class="rounded-xl border border-error/30 bg-error/10 p-3">
+			<p class="text-sm text-error">{service.errors.appPreferences}</p>
 		</div>
 	{/if}
 
 	{#if service.showConnectionSettings && editingPrefs && service.appPreferences}
-		<div class="space-y-4 border-t border-neutral-800 pt-4">
+		<div class="space-y-4 border-t border-base-content/10 pt-4">
 			<!-- Homebox URL -->
 			<div class="space-y-2">
 				<div class="flex items-center justify-between">
-					<label for="homebox-url" class="text-sm font-medium text-neutral-300">Homebox URL</label>
+					<label for="homebox-url" class="text-sm font-medium text-base-content/75">Homebox URL</label>
 					{#if editingPrefs.homebox_url_override}
 						<button
 							type="button"
-							class="text-xs text-neutral-500 hover:text-neutral-300"
+							class="text-xs text-base-content/40 hover:text-base-content/75"
 							onclick={() => clearOverride('homebox_url_override')}
 						>
 							Use default
@@ -130,7 +130,7 @@
 					class="input w-full"
 					placeholder={service.appPreferences.effective_homebox_url}
 				/>
-				<p class="text-xs text-neutral-500">
+				<p class="text-xs text-base-content/40">
 					{#if editingPrefs.homebox_url_override}
 						Override active. Clear to use default.
 					{:else}
@@ -142,11 +142,11 @@
 			<!-- Image Quality -->
 			<div class="space-y-2">
 				<div class="flex items-center justify-between">
-					<label for="image-quality" class="text-sm font-medium text-neutral-300">Image Quality</label>
+					<label for="image-quality" class="text-sm font-medium text-base-content/75">Image Quality</label>
 					{#if editingPrefs.image_quality_override}
 						<button
 							type="button"
-							class="text-xs text-neutral-500 hover:text-neutral-300"
+							class="text-xs text-base-content/40 hover:text-base-content/75"
 							onclick={() => clearOverride('image_quality_override')}
 						>
 							Use default
@@ -163,7 +163,7 @@
 						<option value={quality}>{quality.charAt(0).toUpperCase() + quality.slice(1)}</option>
 					{/each}
 				</select>
-				<p class="text-xs text-neutral-500">
+				<p class="text-xs text-base-content/40">
 					{#if editingPrefs.image_quality_override}
 						Using override: {editingPrefs.image_quality_override}
 					{:else}
@@ -173,7 +173,7 @@
 			</div>
 
 			<!-- Save Button -->
-			<div class="flex items-center gap-3 border-t border-neutral-800 pt-4">
+			<div class="flex items-center gap-3 border-t border-base-content/10 pt-4">
 				<Button
 					variant="primary"
 					onclick={handleSave}
