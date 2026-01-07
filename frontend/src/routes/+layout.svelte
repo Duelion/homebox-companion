@@ -7,6 +7,7 @@
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
+	import { themeStore } from '$lib/stores/theme.svelte';
 	import { getVersion, getConfig, setDemoMode } from '$lib/api';
 	import { setLogLevel } from '$lib/utils/logger';
 	import { initializeAuth } from '$lib/services/tokenRefresh';
@@ -95,6 +96,9 @@
 	// Fetch version on mount and register event listeners
 	onMount(async () => {
 		if (browser) {
+			// Initialize theme from localStorage (must happen early to avoid flash)
+			themeStore.initialize();
+
 			// Disable per-page "animate-in" when View Transitions are supported
 			// (prevents double-animations on modern browsers; falls back cleanly elsewhere)
 			if ('startViewTransition' in document) {
