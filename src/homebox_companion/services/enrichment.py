@@ -302,9 +302,12 @@ Respond in JSON format with these fields:
 
 Rules:
 - Extract only factual information found in the search results
-- Set msrp to null if not found in the results
+- For msrp: Look for prices like "$159.00", "MSRP: $199", "Price: 149.99", etc.
+  - Use the MSRP/list price if available, otherwise use the most common retail price
+  - Extract just the numeric value (e.g., 159.00 not "$159.00")
+  - Set to null ONLY if no price is mentioned anywhere in the results
 - Set release_year to null if not found
-- Features should be specific specs found in the results
+- Features should be specific specs found in the results (power, speed, dimensions, etc.)
 - Keep features list to 5-8 items maximum
 - If the search results don't contain useful product information, return {{"name": "", "enriched": false}}
 
@@ -518,14 +521,21 @@ Respond with ONLY the JSON, no other text."""
                 return None
 
             # Get combined content from search results
-            search_content = search_response.get_combined_content(max_results=3)
+            search_content = search_response.get_combined_content(max_results=5)
             if not search_content or len(search_content) < 50:
                 debug_log("ENRICHMENT", "Web search content too short to be useful")
                 return None
 
+            # Log what we're sending to the AI
+            logger.info(f"Web search returned {len(search_response.results)} results, combined content: {len(search_content)} chars")
+            for i, result in enumerate(search_response.results[:5]):
+                snippet_preview = (result.snippet[:100] + "...") if len(result.snippet) > 100 else result.snippet
+                logger.debug(f"  Result {i+1}: {result.title[:50]} | {snippet_preview}")
+
             debug_log("ENRICHMENT", "Parsing web search results with AI", {
                 "result_count": len(search_response.results),
                 "content_length": len(search_content),
+                "content_preview": search_content[:500],
             })
 
             # Parse with AI
