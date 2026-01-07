@@ -118,8 +118,12 @@ class URLContentFetcher:
         try:
             async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Accept": "text/html,application/xhtml+xml",
+                    # Use a more complete User-Agent to avoid bot detection
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept-Encoding": "gzip, deflate",
+                    "Connection": "keep-alive",
                 }
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
@@ -127,18 +131,40 @@ class URLContentFetcher:
                 # Only process HTML
                 content_type = response.headers.get("content-type", "")
                 if "text/html" not in content_type:
+                    logger.debug(f"Skipping non-HTML content: {content_type}")
                     return None
 
                 html = response.text
+                logger.debug(f"Fetched {len(html)} bytes of HTML from {url[:50]}")
+
                 text = self._strip_html(html)
+                logger.debug(f"Stripped HTML to {len(text)} chars of text")
 
                 # Extract price context for efficiency
                 price_context = self._extract_price_context(text)
                 if price_context:
+                    logger.debug(f"Found price context: {len(price_context)} chars")
                     return price_context
 
-                # If no prices found, return a chunk of the page
-                return text[:3000] if len(text) > 3000 else text
+                # If no prices found in text, try to find JSON-LD structured data
+                # Many retailers embed price in JSON-LD schema
+                json_ld_match = re.search(r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html, re.DOTALL | re.IGNORECASE)
+                if json_ld_match:
+                    json_ld_content = json_ld_match.group(1).strip()
+                    # Look for price patterns in the JSON-LD
+                    price_in_json = re.search(r'"price"[:\s]*["\']?([\d,.]+)["\']?', json_ld_content)
+                    if price_in_json:
+                        logger.debug(f"Found price in JSON-LD: {price_in_json.group(1)}")
+                        return f"Product price from structured data: ${price_in_json.group(1)}\n\n{text[:2000]}"
+
+                # Return page content even without explicit prices
+                # The AI might still extract useful specs
+                if len(text) > 100:
+                    logger.debug(f"No prices found, returning {min(len(text), 2000)} chars of content")
+                    return text[:2000]
+
+                logger.debug(f"Page content too short: {len(text)} chars")
+                return None
 
         except Exception as e:
             logger.debug(f"Failed to fetch {url}: {e}")
