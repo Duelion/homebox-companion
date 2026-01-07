@@ -558,6 +558,10 @@ Respond with ONLY the JSON, no other text."""
                     additional_specs=result.additional_specs,
                     confidence=min(result.confidence + 0.1, 1.0),  # Boost confidence for web search
                 )
+                logger.info(f"Web search enrichment: name='{result.name}', features={len(result.features)}, "
+                           f"msrp={result.msrp}, year={result.release_year}, category='{result.category}'")
+            else:
+                logger.info("Web search enrichment: no useful data extracted")
 
             return result
 
@@ -600,16 +604,25 @@ Respond with ONLY the JSON, no other text."""
                 return EnrichmentResult.empty(product_name)
 
             logger.info(f"AI response received: {len(response)} chars")
-            logger.debug(f"AI response: {response[:500]}")
+            logger.debug(f"AI raw response: {response[:500]}")
             debug_log("ENRICHMENT", "AI response received", {
                 "response_length": len(response),
                 "response_preview": response[:200] if len(response) > 200 else response,
             })
 
             # Parse JSON response
-            return self._parse_ai_response(
+            result = self._parse_ai_response(
                 response, manufacturer, model_number, product_name
             )
+
+            # Log what was found
+            if result.enriched:
+                logger.info(f"Enrichment result: name='{result.name}', features={len(result.features)}, "
+                           f"msrp={result.msrp}, year={result.release_year}, category='{result.category}'")
+            else:
+                logger.info(f"Enrichment returned no data for {manufacturer} {model_number}")
+
+            return result
 
         except Exception as e:
             logger.exception(f"AI enrichment failed: {e}")
