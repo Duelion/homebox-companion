@@ -149,15 +149,15 @@ class URLContentFetcher:
                     return None
 
                 html = response.text
-                logger.debug(f"Fetched {len(html)} bytes of HTML from {url[:50]}")
+                logger.info(f"Fetched {len(html)} bytes of HTML from {url[:60]}...")
 
                 text = self._strip_html(html)
-                logger.debug(f"Stripped HTML to {len(text)} chars of text")
+                logger.info(f"Stripped to {len(text)} chars of text")
 
                 # Extract price context for efficiency
                 price_context = self._extract_price_context(text)
                 if price_context:
-                    logger.debug(f"Found price context: {len(price_context)} chars")
+                    logger.info(f"Found price context: {len(price_context)} chars with prices")
                     return price_context
 
                 # If no prices found in text, try to find JSON-LD structured data
@@ -168,20 +168,26 @@ class URLContentFetcher:
                     # Look for price patterns in the JSON-LD
                     price_in_json = re.search(r'"price"[:\s]*["\']?([\d,.]+)["\']?', json_ld_content)
                     if price_in_json:
-                        logger.debug(f"Found price in JSON-LD: {price_in_json.group(1)}")
+                        logger.info(f"Found price in JSON-LD structured data: ${price_in_json.group(1)}")
                         return f"Product price from structured data: ${price_in_json.group(1)}\n\n{text[:2000]}"
 
                 # Return page content even without explicit prices
                 # The AI might still extract useful specs
                 if len(text) > 100:
-                    logger.debug(f"No prices found, returning {min(len(text), 2000)} chars of content")
+                    logger.info(f"No prices found in text, returning {min(len(text), 2000)} chars anyway")
                     return text[:2000]
 
-                logger.debug(f"Page content too short: {len(text)} chars")
+                logger.warning(f"Page content too short after stripping: {len(text)} chars")
                 return None
 
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"HTTP {e.response.status_code} fetching {url[:60]}")
+            return None
+        except httpx.TimeoutException:
+            logger.warning(f"Timeout fetching {url[:60]}")
+            return None
         except Exception as e:
-            logger.debug(f"Failed to fetch {url}: {e}")
+            logger.warning(f"Failed to fetch {url[:60]}: {type(e).__name__}: {e}")
             return None
 
     async def fetch_retailer_content(
