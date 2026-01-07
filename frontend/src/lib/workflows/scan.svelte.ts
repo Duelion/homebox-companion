@@ -1109,8 +1109,9 @@ class ScanWorkflow {
 		const result = this.reviewService.skipCurrentItem();
 		console.log('[SCAN] skipCurrentItem result:', result);
 		if (result === 'empty') {
-			console.log('[SCAN] All items skipped, calling backToCapture');
-			this.backToCapture();
+			// All items were skipped - do a full reset back to step 1 (Select Location)
+			console.log('[SCAN] All items skipped, calling reset for full workflow restart');
+			this.reset();
 		} else if (result === 'complete') {
 			console.log('[SCAN] Review complete, calling finishReview');
 			this.finishReview();

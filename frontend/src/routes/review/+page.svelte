@@ -166,9 +166,13 @@
 
 		if (currentStatus === 'confirming') {
 			goto(resolve('/summary'));
+		} else if (currentStatus === 'idle') {
+			// All items were skipped - full reset, go back to location selection
+			showToast('All items were skipped. Starting fresh.', 'info');
+			goto(resolve('/location'));
 		} else if (currentStatus === 'capturing') {
-			// All items were skipped - go back to capture with a message
-			showToast('All items were skipped. Add more photos to continue.', 'info');
+			// User went back to capture (not all skipped) - go back to capture
+			showToast('Add more photos to continue.', 'info');
 			goto(resolve('/capture'));
 		}
 	});

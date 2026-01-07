@@ -9,16 +9,19 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from homebox_companion.core.ai_config import load_ai_config, AIProvider
 from homebox_companion.core.app_preferences import load_app_preferences
 from homebox_companion.core.config import settings
+from homebox_companion.providers import OllamaProvider, LiteLLMProvider
 from homebox_companion.services.enrichment import EnrichmentService, EnrichmentResult
 from homebox_companion.services.debug_logger import debug_log
 
-from ..dependencies import require_auth, get_vision_context
+from ..dependencies import require_auth, LLMConfig, get_configured_llm
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,32 @@ def configure_search_provider(service: EnrichmentService) -> None:
         google_engine_id=prefs.search_google_engine_id,
         searxng_url=prefs.search_searxng_url,
     )
+
+
+def create_ai_provider(llm_config: LLMConfig) -> OllamaProvider | LiteLLMProvider:
+    """Create an AI provider instance based on LLM configuration.
+
+    Args:
+        llm_config: LLM configuration with provider type, model, and API key.
+
+    Returns:
+        Provider instance with complete() method for text completion.
+    """
+    if llm_config.provider == "ollama":
+        # Get Ollama URL from AI config
+        ai_config = load_ai_config()
+        return OllamaProvider(
+            base_url=ai_config.ollama.url,
+            model=llm_config.model,
+            timeout=ai_config.ollama.timeout,
+        )
+    else:
+        # OpenAI, Anthropic, and LiteLLM all use LiteLLMProvider
+        return LiteLLMProvider(
+            api_key=llm_config.api_key,
+            model=llm_config.model,
+            provider_type=llm_config.provider,
+        )
 
 
 # =============================================================================
@@ -114,7 +143,7 @@ class ClearCacheResponse(BaseModel):
 @router.post("/enrichment/lookup", response_model=EnrichResponse)
 async def enrich_product(
     request: EnrichRequest,
-    vision_ctx=Depends(get_vision_context),
+    llm_config: Annotated[LLMConfig, Depends(get_configured_llm)],
 ) -> EnrichResponse:
     """
     Enrich product data with detailed specifications.
@@ -128,6 +157,8 @@ async def enrich_product(
         "manufacturer": request.manufacturer,
         "model_number": request.model_number,
         "product_name": request.product_name,
+        "llm_provider": llm_config.provider,
+        "llm_model": llm_config.model,
     })
 
     # Validate that we have at least a model number
@@ -155,15 +186,19 @@ async def enrich_product(
     # Get the enrichment service
     service = get_enrichment_service()
 
-    # Set the AI provider from vision context
-    if vision_ctx.provider:
-        debug_log("ENRICHMENT_API", f"Using AI provider: {type(vision_ctx.provider).__name__}")
-        service.set_provider(vision_ctx.provider)
-    else:
-        debug_log("ENRICHMENT_API", "No AI provider available", level="ERROR")
+    # Create and set the AI provider based on LLM config
+    try:
+        ai_provider = create_ai_provider(llm_config)
+        debug_log("ENRICHMENT_API", f"Created AI provider: {type(ai_provider).__name__}", {
+            "provider_type": llm_config.provider,
+            "model": llm_config.model,
+        })
+        service.set_provider(ai_provider)
+    except Exception as e:
+        debug_log("ENRICHMENT_API", f"Failed to create AI provider: {e}", level="ERROR")
         raise HTTPException(
             status_code=503,
-            detail="AI provider not available. Please configure an AI provider in Settings.",
+            detail=f"Failed to create AI provider: {str(e)}",
         )
 
     # Configure search provider from preferences
