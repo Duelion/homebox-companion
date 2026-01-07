@@ -21,6 +21,8 @@ export interface AppPreferencesResponse {
 	search_google_api_key: string | null;
 	search_google_engine_id: string | null;
 	search_searxng_url: string | null;
+	// Custom retailer domains
+	enrichment_retailer_domains: string[];
 	// Effective values
 	effective_homebox_url: string;
 	effective_image_quality: string;
@@ -40,6 +42,8 @@ export interface AppPreferencesInput {
 	search_google_api_key: string | null;
 	search_google_engine_id: string | null;
 	search_searxng_url: string | null;
+	// Custom retailer domains
+	enrichment_retailer_domains: string[];
 }
 
 // =============================================================================

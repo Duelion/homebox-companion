@@ -45,6 +45,8 @@ class AppPreferencesInput(BaseModel):
     search_google_api_key: str | None = None
     search_google_engine_id: str | None = None
     search_searxng_url: str | None = None
+    # Custom retailer domains for price fetching
+    enrichment_retailer_domains: list[str] = []
 
 
 class AppPreferencesResponse(BaseModel):
@@ -66,6 +68,9 @@ class AppPreferencesResponse(BaseModel):
     search_google_api_key: str | None
     search_google_engine_id: str | None
     search_searxng_url: str | None
+
+    # Custom retailer domains
+    enrichment_retailer_domains: list[str] = []
 
     # Effective values (after applying overrides to defaults)
     effective_homebox_url: str
@@ -102,6 +107,7 @@ async def get_app_preferences() -> AppPreferencesResponse:
         search_google_api_key=prefs.search_google_api_key,
         search_google_engine_id=prefs.search_google_engine_id,
         search_searxng_url=prefs.search_searxng_url,
+        enrichment_retailer_domains=prefs.enrichment_retailer_domains,
         effective_homebox_url=get_effective_homebox_url(prefs),
         effective_image_quality=get_effective_image_quality(prefs),
     )
@@ -138,6 +144,13 @@ async def update_app_preferences(
     if searxng_url is not None:
         searxng_url = searxng_url.strip() or None
 
+    # Clean up retailer domains (remove empty strings, normalize)
+    retailer_domains = [
+        d.strip().lower()
+        for d in input_prefs.enrichment_retailer_domains
+        if d and d.strip()
+    ]
+
     prefs = AppPreferences(
         homebox_url_override=homebox_url,
         image_quality_override=image_quality,
@@ -150,6 +163,7 @@ async def update_app_preferences(
         search_google_api_key=google_key,
         search_google_engine_id=google_engine_id,
         search_searxng_url=searxng_url,
+        enrichment_retailer_domains=retailer_domains,
     )
 
     save_app_preferences(prefs)
@@ -166,6 +180,7 @@ async def update_app_preferences(
         search_google_api_key=prefs.search_google_api_key,
         search_google_engine_id=prefs.search_google_engine_id,
         search_searxng_url=prefs.search_searxng_url,
+        enrichment_retailer_domains=prefs.enrichment_retailer_domains,
         effective_homebox_url=get_effective_homebox_url(prefs),
         effective_image_quality=get_effective_image_quality(prefs),
     )

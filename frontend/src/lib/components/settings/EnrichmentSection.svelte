@@ -30,6 +30,11 @@
 	let localSearxngUrl = $state('');
 	let searchProviderInitialized = $state(false);
 
+	// Local state for custom retailer domains
+	let localRetailerDomains = $state<string[]>([]);
+	let newDomainInput = $state('');
+	let retailerDomainsInitialized = $state(false);
+
 	// Load app preferences on mount if not already loaded
 	onMount(async () => {
 		if (!service.appPreferences) {
@@ -57,6 +62,10 @@
 			localSearxngUrl = service.appPreferences.search_searxng_url || '';
 			searchProviderInitialized = true;
 		}
+		if (!retailerDomainsInitialized) {
+			localRetailerDomains = [...(service.appPreferences.enrichment_retailer_domains || [])];
+			retailerDomainsInitialized = true;
+		}
 	}
 
 	// Sync local values when preferences load (but only once)
@@ -82,6 +91,7 @@
 		search_google_api_key: string | null;
 		search_google_engine_id: string | null;
 		search_searxng_url: string | null;
+		enrichment_retailer_domains: string[];
 	}>) {
 		if (!service.appPreferences) return null;
 		return {
@@ -96,6 +106,7 @@
 			search_google_api_key: overrides.search_google_api_key !== undefined ? overrides.search_google_api_key : service.appPreferences.search_google_api_key,
 			search_google_engine_id: overrides.search_google_engine_id !== undefined ? overrides.search_google_engine_id : service.appPreferences.search_google_engine_id,
 			search_searxng_url: overrides.search_searxng_url !== undefined ? overrides.search_searxng_url : service.appPreferences.search_searxng_url,
+			enrichment_retailer_domains: overrides.enrichment_retailer_domains ?? service.appPreferences.enrichment_retailer_domains ?? [],
 		};
 	}
 
@@ -176,6 +187,51 @@
 		isSaving = true;
 		try {
 			await service.saveAppPreferences(prefs);
+		} finally {
+			isSaving = false;
+		}
+	}
+
+	async function handleAddRetailerDomain() {
+		const domain = newDomainInput.trim().toLowerCase();
+		if (!domain || isSaving || !service.appPreferences) return;
+
+		// Basic validation - should look like a domain
+		if (!domain.includes('.') || domain.includes(' ')) {
+			return;
+		}
+
+		// Don't add duplicates
+		if (localRetailerDomains.includes(domain)) {
+			newDomainInput = '';
+			return;
+		}
+
+		const updatedDomains = [...localRetailerDomains, domain];
+		const prefs = buildPrefsForSave({ enrichment_retailer_domains: updatedDomains });
+		if (!prefs) return;
+
+		isSaving = true;
+		try {
+			await service.saveAppPreferences(prefs);
+			localRetailerDomains = updatedDomains;
+			newDomainInput = '';
+		} finally {
+			isSaving = false;
+		}
+	}
+
+	async function handleRemoveRetailerDomain(domain: string) {
+		if (isSaving || !service.appPreferences) return;
+
+		const updatedDomains = localRetailerDomains.filter((d) => d !== domain);
+		const prefs = buildPrefsForSave({ enrichment_retailer_domains: updatedDomains });
+		if (!prefs) return;
+
+		isSaving = true;
+		try {
+			await service.saveAppPreferences(prefs);
+			localRetailerDomains = updatedDomains;
 		} finally {
 			isSaving = false;
 		}
@@ -498,6 +554,61 @@
 					>
 						{service.enrichmentCacheMessage}
 					</div>
+				{/if}
+			</div>
+
+			<!-- Custom Retailer Domains -->
+			<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
+				<h3 class="text-sm font-medium text-neutral-200">Custom Retailer Domains</h3>
+				<p class="text-xs text-neutral-400">
+					Add additional retailer domains to fetch price information from. Built-in domains include
+					Home Depot, Lowes, Amazon, Best Buy, Digikey, and many more.
+				</p>
+
+				<!-- Add domain input -->
+				<div class="flex items-center gap-2">
+					<input
+						type="text"
+						bind:value={newDomainInput}
+						placeholder="example-store.com"
+						disabled={isSaving}
+						onkeydown={(e) => e.key === 'Enter' && handleAddRetailerDomain()}
+						class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+					/>
+					<Button
+						variant="secondary"
+						size="sm"
+						onclick={handleAddRetailerDomain}
+						disabled={isSaving || !newDomainInput.trim()}
+					>
+						Add
+					</Button>
+				</div>
+
+				<!-- Domain list -->
+				{#if localRetailerDomains.length > 0}
+					<div class="flex flex-wrap gap-2">
+						{#each localRetailerDomains as domain}
+							<span
+								class="inline-flex items-center gap-1 rounded-full bg-neutral-700 px-2.5 py-1 text-xs text-neutral-200"
+							>
+								{domain}
+								<button
+									type="button"
+									onclick={() => handleRemoveRetailerDomain(domain)}
+									disabled={isSaving}
+									class="ml-1 rounded-full p-0.5 hover:bg-neutral-600 disabled:opacity-50"
+									aria-label="Remove {domain}"
+								>
+									<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+										<path d="M6 18L18 6M6 6l12 12" />
+									</svg>
+								</button>
+							</span>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-xs text-neutral-500 italic">No custom domains added. Using built-in list only.</p>
 				{/if}
 			</div>
 		{/if}

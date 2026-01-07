@@ -31,6 +31,7 @@
 				search_google_api_key: service.appPreferences.search_google_api_key,
 				search_google_engine_id: service.appPreferences.search_google_engine_id,
 				search_searxng_url: service.appPreferences.search_searxng_url,
+				enrichment_retailer_domains: service.appPreferences.enrichment_retailer_domains,
 			};
 			prefsInitialized = true;
 		}

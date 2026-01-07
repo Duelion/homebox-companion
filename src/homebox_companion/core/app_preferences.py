@@ -84,6 +84,12 @@ class AppPreferences(BaseModel):
         description="SearXNG instance URL (e.g., https://searx.example.com)",
     )
 
+    # Custom retailer domains for price fetching
+    enrichment_retailer_domains: list[str] = Field(
+        default_factory=list,
+        description="Additional retailer domains to fetch prices from (e.g., microcenter.com)",
+    )
+
 
 def load_app_preferences() -> AppPreferences:
     """Load application preferences from file.

@@ -52,8 +52,8 @@ from homebox_companion.services.search_providers import (
 class URLContentFetcher:
     """Fetches and extracts content from retailer URLs."""
 
-    # Known retailer domains that typically have product prices
-    RETAILER_DOMAINS = {
+    # Built-in retailer domains that typically have product prices
+    DEFAULT_RETAILER_DOMAINS = {
         # Home improvement
         "homedepot.com",
         "lowes.com",
@@ -65,6 +65,8 @@ class URLContentFetcher:
         "walmart.com",
         "target.com",
         "bestbuy.com",
+        "costco.com",
+        "samsclub.com",
         # Tools
         "grainger.com",
         "zoro.com",
@@ -78,19 +80,45 @@ class URLContentFetcher:
         "arrow.com",
         "adafruit.com",
         "sparkfun.com",
+        "microcenter.com",
+        "newegg.com",
+        "bhphotovideo.com",
         # Industrial/specialty
         "mcmaster.com",
         "mscdirect.com",
         "uline.com",
+        # Home goods / appliances
+        "wayfair.com",
+        "ikea.com",
+        "williams-sonoma.com",
+        "crateandbarrel.com",
+        "bedbathandbeyond.com",
+        "appliancesconnection.com",
+        "ajmadison.com",
     }
 
-    def __init__(self, timeout: float = 10.0):
+    def __init__(self, timeout: float = 10.0, custom_domains: list[str] | None = None):
+        """
+        Initialize the URL content fetcher.
+
+        Args:
+            timeout: Request timeout in seconds
+            custom_domains: Additional retailer domains to recognize
+        """
         self.timeout = timeout
+        # Combine default domains with custom ones
+        self._retailer_domains = set(self.DEFAULT_RETAILER_DOMAINS)
+        if custom_domains:
+            # Normalize custom domains (lowercase, strip whitespace)
+            normalized = {d.lower().strip() for d in custom_domains if d.strip()}
+            self._retailer_domains.update(normalized)
+            if normalized:
+                logger.info(f"Added {len(normalized)} custom retailer domains")
 
     def is_retailer_url(self, url: str) -> bool:
         """Check if URL is from a known retailer."""
         url_lower = url.lower()
-        return any(domain in url_lower for domain in self.RETAILER_DOMAINS)
+        return any(domain in url_lower for domain in self._retailer_domains)
 
     def _strip_html(self, html: str) -> str:
         """Strip HTML tags and extract text content."""
@@ -534,10 +562,17 @@ Respond with ONLY the JSON, no other text."""
         self.cache = EnrichmentCache(cache_dir / "enrichment_cache", cache_ttl)
         self.ai_provider = ai_provider
         self._search_provider: BaseSearchProvider | None = None
+        self._custom_retailer_domains: list[str] = []
 
     def set_provider(self, provider: "BaseProvider") -> None:
         """Set or update the AI provider."""
         self.ai_provider = provider
+
+    def set_custom_retailer_domains(self, domains: list[str]) -> None:
+        """Set custom retailer domains for price fetching."""
+        self._custom_retailer_domains = domains
+        if domains:
+            logger.info(f"Set {len(domains)} custom retailer domains")
 
     def configure_search_provider(
         self,
@@ -727,7 +762,10 @@ Respond with ONLY the JSON, no other text."""
                 logger.debug(f"  Result {i+1}: {result.title[:50]} | {snippet_preview}")
 
             # Fetch actual page content from retailer URLs to get prices
-            content_fetcher = URLContentFetcher(timeout=10.0)
+            content_fetcher = URLContentFetcher(
+                timeout=10.0,
+                custom_domains=self._custom_retailer_domains,
+            )
             retailer_content = await content_fetcher.fetch_retailer_content(
                 search_response.results,
                 max_urls=2,
