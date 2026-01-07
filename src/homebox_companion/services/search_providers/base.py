@@ -145,12 +145,13 @@ class BaseSearchProvider(ABC):
         # Search queries to run:
         # 1. General specs search
         # 2. General pricing search
-        # 3. Site-specific search targeting major retailers
+        # 3. Site-specific search targeting retailers (avoid Amazon/HD which have aggressive bot protection)
         queries = [
             f"{base_query} specifications features specs",
             f"{base_query} MSRP price retail",
-            # Add site-specific query for retailers (most search engines support site: operator)
-            f"{base_query} site:homedepot.com OR site:lowes.com OR site:amazon.com",
+            # Target retailers with less aggressive bot protection
+            # Lowes, Menards (home improvement), Digikey, Mouser (electronics), Grainger (industrial)
+            f"{base_query} site:lowes.com OR site:digikey.com OR site:mouser.com OR site:grainger.com",
         ]
 
         # Collect all results
