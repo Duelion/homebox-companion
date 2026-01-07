@@ -142,10 +142,15 @@ class BaseSearchProvider(ABC):
 
         base_query = " ".join(base_parts)
 
-        # Search queries to run
+        # Search queries to run:
+        # 1. General specs search
+        # 2. General pricing search
+        # 3. Site-specific search targeting major retailers
         queries = [
             f"{base_query} specifications features specs",
             f"{base_query} MSRP price retail",
+            # Add site-specific query for retailers (most search engines support site: operator)
+            f"{base_query} site:homedepot.com OR site:lowes.com OR site:amazon.com",
         ]
 
         # Collect all results
@@ -167,7 +172,7 @@ class BaseSearchProvider(ABC):
         combined_query = f"{base_query} (specs + pricing)"
         return SearchResponse(
             query=combined_query,
-            results=all_results[:6],  # Limit to top 6 unique results
+            results=all_results[:8],  # Limit to top 8 unique results
             total_results=len(all_results),
             provider=self.provider_name,
         )

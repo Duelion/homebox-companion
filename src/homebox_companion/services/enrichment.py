@@ -236,13 +236,17 @@ class URLContentFetcher:
         # Find retailer URLs
         retailer_urls = []
         for result in search_results:
-            if self.is_retailer_url(result.url):
+            is_retailer = self.is_retailer_url(result.url)
+            logger.debug(f"URL check: {result.url[:60]} -> retailer={is_retailer}")
+            if is_retailer:
                 retailer_urls.append(result.url)
                 if len(retailer_urls) >= max_urls:
                     break
 
         if not retailer_urls:
-            logger.debug("No retailer URLs found in search results")
+            # Log the actual URLs we received to help debugging
+            all_urls = [r.url for r in search_results[:5]]
+            logger.info(f"No retailer URLs found in {len(search_results)} results. URLs: {all_urls}")
             return ""
 
         logger.info(f"Fetching content from {len(retailer_urls)} retailer URLs")
