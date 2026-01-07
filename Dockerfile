@@ -10,8 +10,8 @@ RUN npm run build --silent 2>/dev/null
 FROM python:3.12-slim
 WORKDIR /app
 
-# Install uv for dependency management and curl for health checks
-RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl \
+# Install uv for dependency management, curl for health checks, gosu for privilege drop
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl gosu \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -q uv
 
@@ -30,7 +30,10 @@ COPY --from=frontend-builder /app/frontend/build ./server/static/
 RUN mkdir -p /app/data \
     && useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
-USER appuser
+
+# Copy and setup entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expose the default port
 EXPOSE 8000
@@ -43,6 +46,9 @@ ENV HBC_DATA_DIR=/app/data
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/api/version || exit 1
+
+# Entrypoint fixes permissions then drops to appuser
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Run the server
 CMD ["uv", "run", "python", "-m", "server.app"]
