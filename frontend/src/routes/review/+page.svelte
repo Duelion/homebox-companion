@@ -303,6 +303,10 @@
 				if (response.formatted_description) {
 					editedItem.description = response.formatted_description;
 				}
+				// Update purchase price with MSRP if not already set
+				if (response.msrp && !editedItem.purchase_price) {
+					editedItem.purchase_price = response.msrp;
+				}
 				// Expand extended fields to show the enriched data
 				showExtendedFields = true;
 				showToast(`Enriched from ${response.source} (${Math.round(response.confidence * 100)}% confidence)`, 'success');
