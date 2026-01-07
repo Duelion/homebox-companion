@@ -263,14 +263,14 @@ class EnrichmentService:
     ENRICHMENT_PROMPT = """You are a product specification expert. Given a manufacturer and model number, provide detailed product information from your knowledge.
 
 Respond in JSON format with these fields:
-{
+{{
   "name": "Full official product name",
   "description": "2-3 sentence product description",
   "features": ["Feature 1", "Feature 2", ...],
   "msrp": 999.99,
   "release_year": 2023,
   "category": "Product category"
-}
+}}
 
 Rules:
 - Only include information you are confident about
@@ -278,7 +278,7 @@ Rules:
 - Set release_year to null if unknown
 - Features should be specific specs (e.g., "4K resolution", "20W speakers")
 - Keep features list to 5-8 items maximum
-- If you don't recognize this product, return {"name": "", "enriched": false}
+- If you don't recognize this product, return {{"name": "", "enriched": false}}
 
 Product to look up:
 Manufacturer: {manufacturer}
@@ -291,14 +291,14 @@ Respond with ONLY the JSON, no other text."""
     WEB_SEARCH_PARSE_PROMPT = """You are a product specification expert. Extract detailed product information from the following web search results.
 
 Respond in JSON format with these fields:
-{
+{{
   "name": "Full official product name",
   "description": "2-3 sentence product description",
   "features": ["Feature 1", "Feature 2", ...],
   "msrp": 999.99,
   "release_year": 2023,
   "category": "Product category"
-}
+}}
 
 Rules:
 - Extract only factual information found in the search results
