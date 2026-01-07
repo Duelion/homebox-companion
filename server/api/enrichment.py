@@ -45,7 +45,7 @@ def get_enrichment_service() -> EnrichmentService:
 
 
 def configure_search_provider(service: EnrichmentService) -> None:
-    """Configure the search provider from app preferences."""
+    """Configure the search provider and custom retailer domains from app preferences."""
     prefs = load_app_preferences()
     service.configure_search_provider(
         provider_type=prefs.search_provider,
@@ -54,6 +54,9 @@ def configure_search_provider(service: EnrichmentService) -> None:
         google_engine_id=prefs.search_google_engine_id,
         searxng_url=prefs.search_searxng_url,
     )
+    # Set custom retailer domains for price fetching
+    if prefs.enrichment_retailer_domains:
+        service.set_custom_retailer_domains(prefs.enrichment_retailer_domains)
 
 
 def create_ai_provider(llm_config: LLMConfig) -> OllamaProvider | LiteLLMProvider:
