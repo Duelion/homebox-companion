@@ -12,6 +12,9 @@ export interface AppPreferencesResponse {
 	homebox_url_override: string | null;
 	image_quality_override: string | null;
 	duplicate_detection_enabled: boolean;
+	enrichment_enabled: boolean;
+	enrichment_auto_enrich: boolean;
+	enrichment_cache_ttl_hours: number;
 	effective_homebox_url: string;
 	effective_image_quality: string;
 	image_quality_options: string[];
@@ -21,6 +24,9 @@ export interface AppPreferencesInput {
 	homebox_url_override: string | null;
 	image_quality_override: string | null;
 	duplicate_detection_enabled: boolean;
+	enrichment_enabled: boolean;
+	enrichment_auto_enrich: boolean;
+	enrichment_cache_ttl_hours: number;
 }
 
 // =============================================================================

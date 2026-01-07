@@ -22,6 +22,9 @@
 				homebox_url_override: service.appPreferences.homebox_url_override,
 				image_quality_override: service.appPreferences.image_quality_override,
 				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
+				enrichment_enabled: service.appPreferences.enrichment_enabled,
+				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
+				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
 			};
 		}
 	});
@@ -33,6 +36,9 @@
 				homebox_url_override: service.appPreferences.homebox_url_override,
 				image_quality_override: service.appPreferences.image_quality_override,
 				duplicate_detection_enabled: service.appPreferences.duplicate_detection_enabled,
+				enrichment_enabled: service.appPreferences.enrichment_enabled,
+				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
+				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
 			};
 		}
 	});

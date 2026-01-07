@@ -1,0 +1,155 @@
+"""Enrichment API endpoints.
+
+Provides endpoints for:
+- Enriching product data with AI-powered specification lookup
+- Managing enrichment cache
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from homebox_companion.core.app_preferences import load_app_preferences
+from homebox_companion.core.config import settings
+from homebox_companion.services.enrichment import EnrichmentService, EnrichmentResult
+
+from ..dependencies import require_auth, get_vision_context
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(dependencies=[Depends(require_auth)])
+
+# Singleton enrichment service (lazy initialized)
+_enrichment_service: EnrichmentService | None = None
+
+
+def get_enrichment_service() -> EnrichmentService:
+    """Get or create the enrichment service singleton."""
+    global _enrichment_service
+    if _enrichment_service is None:
+        prefs = load_app_preferences()
+        cache_ttl = prefs.enrichment_cache_ttl_hours * 3600  # Convert to seconds
+        _enrichment_service = EnrichmentService(
+            cache_dir=Path(settings.data_dir),
+            cache_ttl=cache_ttl,
+        )
+    return _enrichment_service
+
+
+# =============================================================================
+# Request/Response Models
+# =============================================================================
+
+
+class EnrichRequest(BaseModel):
+    """Request to enrich a product."""
+
+    manufacturer: str = Field(default="", description="Product manufacturer")
+    model_number: str = Field(..., min_length=1, description="Product model number")
+    product_name: str = Field(default="", description="Optional product name hint")
+
+
+class EnrichResponse(BaseModel):
+    """Response with enriched product data."""
+
+    enriched: bool = Field(description="Whether enrichment was successful")
+    source: str = Field(description="Source of data (ai_knowledge, cache, none)")
+    name: str = Field(description="Full product name")
+    description: str = Field(default="", description="Product description")
+    features: list[str] = Field(default_factory=list, description="Product features")
+    msrp: float | None = Field(default=None, description="Original MSRP if known")
+    release_year: int | None = Field(default=None, description="Release year if known")
+    category: str = Field(default="", description="Product category")
+    confidence: float = Field(default=0.0, description="Confidence score 0-1")
+    formatted_description: str = Field(
+        default="", description="Pre-formatted description for Homebox"
+    )
+
+    @classmethod
+    def from_result(cls, result: EnrichmentResult, service: EnrichmentService) -> "EnrichResponse":
+        """Create response from EnrichmentResult."""
+        return cls(
+            enriched=result.enriched,
+            source=result.source,
+            name=result.name,
+            description=result.description,
+            features=result.features,
+            msrp=result.msrp,
+            release_year=result.release_year,
+            category=result.category,
+            confidence=result.confidence,
+            formatted_description=service.format_description(result) if result.enriched else "",
+        )
+
+
+class ClearCacheResponse(BaseModel):
+    """Response from clearing the cache."""
+
+    cleared_count: int = Field(description="Number of entries cleared")
+    message: str = Field(description="Status message")
+
+
+# =============================================================================
+# Endpoints
+# =============================================================================
+
+
+@router.post("/enrichment/lookup", response_model=EnrichResponse)
+async def enrich_product(
+    request: EnrichRequest,
+    vision_ctx=Depends(get_vision_context),
+) -> EnrichResponse:
+    """
+    Enrich product data with detailed specifications.
+
+    Uses the configured AI provider to look up product details from its
+    training knowledge. Results are cached to avoid repeated API calls.
+
+    Requires enrichment to be enabled in settings.
+    """
+    # Check if enrichment is enabled
+    prefs = load_app_preferences()
+    if not prefs.enrichment_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Enrichment is disabled. Enable it in Settings.",
+        )
+
+    # Get the enrichment service
+    service = get_enrichment_service()
+
+    # Set the AI provider from vision context
+    if vision_ctx.provider:
+        service.set_provider(vision_ctx.provider)
+    else:
+        raise HTTPException(
+            status_code=503,
+            detail="AI provider not available. Please configure an AI provider in Settings.",
+        )
+
+    # Perform enrichment
+    try:
+        result = await service.enrich(
+            manufacturer=request.manufacturer,
+            model_number=request.model_number,
+            product_name=request.product_name,
+        )
+        return EnrichResponse.from_result(result, service)
+    except Exception as e:
+        logger.error(f"Enrichment failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Enrichment failed: {str(e)}")
+
+
+@router.delete("/enrichment/cache", response_model=ClearCacheResponse)
+async def clear_enrichment_cache() -> ClearCacheResponse:
+    """Clear the enrichment cache."""
+    service = get_enrichment_service()
+    count = service.clear_cache()
+    return ClearCacheResponse(
+        cleared_count=count,
+        message=f"Cleared {count} cached enrichment result(s)",
+    )

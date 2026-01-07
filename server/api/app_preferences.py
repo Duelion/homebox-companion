@@ -36,6 +36,9 @@ class AppPreferencesInput(BaseModel):
     homebox_url_override: str | None = None
     image_quality_override: str | None = None
     duplicate_detection_enabled: bool = True
+    enrichment_enabled: bool = False
+    enrichment_auto_enrich: bool = False
+    enrichment_cache_ttl_hours: int = 24
 
 
 class AppPreferencesResponse(BaseModel):
@@ -45,6 +48,11 @@ class AppPreferencesResponse(BaseModel):
     homebox_url_override: str | None
     image_quality_override: str | None
     duplicate_detection_enabled: bool
+
+    # Enrichment settings
+    enrichment_enabled: bool
+    enrichment_auto_enrich: bool
+    enrichment_cache_ttl_hours: int
 
     # Effective values (after applying overrides to defaults)
     effective_homebox_url: str
@@ -70,6 +78,9 @@ async def get_app_preferences() -> AppPreferencesResponse:
         homebox_url_override=prefs.homebox_url_override,
         image_quality_override=prefs.image_quality_override,
         duplicate_detection_enabled=prefs.duplicate_detection_enabled,
+        enrichment_enabled=prefs.enrichment_enabled,
+        enrichment_auto_enrich=prefs.enrichment_auto_enrich,
+        enrichment_cache_ttl_hours=prefs.enrichment_cache_ttl_hours,
         effective_homebox_url=get_effective_homebox_url(prefs),
         effective_image_quality=get_effective_image_quality(prefs),
     )
@@ -93,6 +104,9 @@ async def update_app_preferences(
         homebox_url_override=homebox_url,
         image_quality_override=image_quality,
         duplicate_detection_enabled=input_prefs.duplicate_detection_enabled,
+        enrichment_enabled=input_prefs.enrichment_enabled,
+        enrichment_auto_enrich=input_prefs.enrichment_auto_enrich,
+        enrichment_cache_ttl_hours=input_prefs.enrichment_cache_ttl_hours,
     )
 
     save_app_preferences(prefs)
@@ -101,6 +115,9 @@ async def update_app_preferences(
         homebox_url_override=prefs.homebox_url_override,
         image_quality_override=prefs.image_quality_override,
         duplicate_detection_enabled=prefs.duplicate_detection_enabled,
+        enrichment_enabled=prefs.enrichment_enabled,
+        enrichment_auto_enrich=prefs.enrichment_auto_enrich,
+        enrichment_cache_ttl_hours=prefs.enrichment_cache_ttl_hours,
         effective_homebox_url=get_effective_homebox_url(prefs),
         effective_image_quality=get_effective_image_quality(prefs),
     )
