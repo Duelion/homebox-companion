@@ -2,35 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ==========================================================================
-   Theme Color Mapping
-   Maps our custom neutral colors to DaisyUI theme CSS variables.
-   This allows themes to work with our existing color classes.
-   ========================================================================== */
-:root {
-	/* Map neutral scale to DaisyUI base colors */
-	--color-neutral-950: oklch(var(--b1)); /* App background */
-	--color-neutral-900: oklch(var(--b2)); /* Card background */
-	--color-neutral-800: oklch(var(--b3)); /* Elevated surface */
-	--color-neutral-700: oklch(var(--b3) / 0.8); /* Borders */
-	--color-neutral-600: oklch(var(--bc) / 0.2); /* Active borders */
-	--color-neutral-500: oklch(var(--bc) / 0.4); /* Dim text */
-	--color-neutral-400: oklch(var(--bc) / 0.6); /* Muted text */
-	--color-neutral-300: oklch(var(--bc) / 0.75); /* Secondary text */
-	--color-neutral-200: oklch(var(--bc) / 0.9); /* Body text */
-	--color-neutral-100: oklch(var(--bc)); /* Headings */
-
-	/* Map primary scale to DaisyUI primary */
-	--color-primary-500: oklch(var(--p));
-	--color-primary-400: oklch(var(--p) / 0.85);
-	--color-primary-300: oklch(var(--p) / 0.7);
-
-	/* Map semantic colors */
-	--color-success-500: oklch(var(--su));
-	--color-warning-500: oklch(var(--wa));
-	--color-error-500: oklch(var(--er));
-}
-
 /* Base styles */
 @layer base {
 	html {
@@ -42,9 +13,6 @@
 		min-height: 100dvh;
 		/* Disable native pull-to-refresh on mobile Chrome */
 		overscroll-behavior-y: none;
-		/* Use theme background color */
-		background-color: oklch(var(--b1));
-		color: oklch(var(--bc));
 	}
 
 	/* Custom scrollbar */

@@ -438,7 +438,7 @@ class EnrichmentParser:
                 seen.add(f.lower())
                 unique_features.append(f)
 
-        return unique_features[:10]  # Limit to 10 features
+        return unique_features  # No limit - include all relevant features
 
     @staticmethod
     def extract_price(text: str) -> float | None:
@@ -533,8 +533,14 @@ Rules:
 - Only include information you are confident about
 - Set msrp to null if unknown
 - Set release_year to null if unknown
-- Features should be specific specs (e.g., "4K resolution", "20W speakers")
-- Keep features list to 5-8 items maximum
+- Features should focus on VALUE-RELEVANT specifications that affect replacement cost:
+  - Technology standards (Dolby Vision, HDR10+, Wi-Fi 6E, Bluetooth 5.3, etc.)
+  - Certifications (Energy Star, UL, IP ratings, MIL-STD, etc.)
+  - Performance specs (wattage, resolution, capacity, speed ratings)
+  - Build quality indicators (materials, construction type)
+  - Professional/consumer grade designation
+- Include ALL relevant features - do not limit the list
+- Avoid generic features like "easy to use" or counts of ports/inputs
 - If you don't recognize this product, return {{"name": "", "enriched": false}}
 
 Product to look up:
@@ -564,8 +570,14 @@ Rules:
   - Extract just the numeric value (e.g., 159.00 not "$159.00")
   - Set to null ONLY if no price is mentioned anywhere in the results
 - Set release_year to null if not found
-- Features should be specific specs found in the results (power, speed, dimensions, etc.)
-- Keep features list to 5-8 items maximum
+- Features should focus on VALUE-RELEVANT specifications that affect replacement cost:
+  - Technology standards (Dolby Vision, HDR10+, Wi-Fi 6E, Bluetooth 5.3, etc.)
+  - Certifications (Energy Star, UL, IP ratings, MIL-STD, etc.)
+  - Performance specs (wattage, resolution, capacity, speed ratings)
+  - Build quality indicators (materials, construction type)
+  - Professional/consumer grade designation
+- Include ALL relevant features found - do not limit the list
+- Avoid generic features like "easy to use" or counts of ports/inputs
 - If the search results don't contain useful product information, return {{"name": "", "enriched": false}}
 
 Product being searched:
@@ -965,7 +977,7 @@ Respond with ONLY the JSON, no other text."""
             # Validate features is a list of strings
             if not isinstance(features, list):
                 features = []
-            features = [str(f) for f in features if f][:8]
+            features = [str(f) for f in features if f]  # No limit - include all relevant features
 
             # Validate msrp
             if msrp is not None:
