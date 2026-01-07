@@ -26,8 +26,9 @@ RUN uv sync --no-dev --quiet
 # Copy built frontend to server static directory
 COPY --from=frontend-builder /app/frontend/build ./server/static/
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser \
+# Create data directory and non-root user for security
+RUN mkdir -p /app/data \
+    && useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
 USER appuser
 
@@ -37,6 +38,7 @@ EXPOSE 8000
 # Set default environment variables
 ENV HBC_SERVER_HOST=0.0.0.0
 ENV HBC_SERVER_PORT=8000
+ENV HBC_DATA_DIR=/app/data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
