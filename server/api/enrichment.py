@@ -62,7 +62,7 @@ class EnrichRequest(BaseModel):
     """Request to enrich a product."""
 
     manufacturer: str = Field(default="", description="Product manufacturer")
-    model_number: str = Field(..., min_length=1, description="Product model number")
+    model_number: str = Field(default="", description="Product model number (required for enrichment)")
     product_name: str = Field(default="", description="Optional product name hint")
 
 
@@ -129,6 +129,14 @@ async def enrich_product(
         "model_number": request.model_number,
         "product_name": request.product_name,
     })
+
+    # Validate that we have at least a model number
+    if not request.model_number or not request.model_number.strip():
+        debug_log("ENRICHMENT_API", "No model number provided", level="WARNING")
+        raise HTTPException(
+            status_code=400,
+            detail="Model number is required for enrichment.",
+        )
 
     # Check if enrichment is enabled
     prefs = load_app_preferences()

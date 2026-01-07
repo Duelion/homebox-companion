@@ -276,9 +276,9 @@
 	async function handleEnrichItem() {
 		if (!editedItem) return;
 
-		// Check if we have enough data to enrich
-		if (!editedItem.model_number && !editedItem.manufacturer) {
-			showToast('Model number or manufacturer required for enrichment', 'error');
+		// Model number is required for enrichment
+		if (!editedItem.model_number || !editedItem.model_number.trim()) {
+			showToast('Model number is required for enrichment', 'error');
 			return;
 		}
 
@@ -545,7 +545,7 @@
 						type="button"
 						class="flex w-full items-center justify-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-sm font-medium text-primary-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50"
 						onclick={handleEnrichItem}
-						disabled={isEnriching || isProcessing || (!editedItem.model_number && !editedItem.manufacturer)}
+						disabled={isEnriching || isProcessing || !editedItem.model_number?.trim()}
 					>
 						{#if isEnriching}
 							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
