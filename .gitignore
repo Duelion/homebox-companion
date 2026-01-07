@@ -52,6 +52,10 @@ PROMPTS.md
 ENRICHMENT.md
 ARCHITECTURE.md
 CLAUDE.md
+AGENTS.md
+FEATURES_ADDED.txt
+PR_DOCUMENTATION.md
+SESSION_STATE.md
 .gitignore.suggested
 homebox_api.json
 litellm_docs.txt
@@ -60,3 +64,8 @@ all_models_capabilities.csv
 temp_test_expiry.py
 demo/DEPLOYMENT_GUIDE.md
 demo/README.md
+
+# Screenshots and temporary files
+*.png
+!.github/assets/images/*.png
+!frontend/static/*.png
