@@ -41,6 +41,18 @@ def get_enrichment_service() -> EnrichmentService:
     return _enrichment_service
 
 
+def configure_search_provider(service: EnrichmentService) -> None:
+    """Configure the search provider from app preferences."""
+    prefs = load_app_preferences()
+    service.configure_search_provider(
+        provider_type=prefs.search_provider,
+        tavily_api_key=prefs.search_tavily_api_key,
+        google_api_key=prefs.search_google_api_key,
+        google_engine_id=prefs.search_google_engine_id,
+        searxng_url=prefs.search_searxng_url,
+    )
+
+
 # =============================================================================
 # Request/Response Models
 # =============================================================================
@@ -145,6 +157,13 @@ async def enrich_product(
             status_code=503,
             detail="AI provider not available. Please configure an AI provider in Settings.",
         )
+
+    # Configure search provider from preferences
+    configure_search_provider(service)
+    debug_log("ENRICHMENT_API", "Search provider configured", {
+        "has_search_provider": service.has_search_provider,
+        "provider": service.search_provider.provider_name if service.search_provider else "none",
+    })
 
     # Perform enrichment
     try:

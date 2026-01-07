@@ -25,6 +25,11 @@
 				enrichment_enabled: service.appPreferences.enrichment_enabled,
 				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
 				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
+				search_provider: service.appPreferences.search_provider,
+				search_tavily_api_key: service.appPreferences.search_tavily_api_key,
+				search_google_api_key: service.appPreferences.search_google_api_key,
+				search_google_engine_id: service.appPreferences.search_google_engine_id,
+				search_searxng_url: service.appPreferences.search_searxng_url,
 			};
 		}
 	});
@@ -39,6 +44,11 @@
 				enrichment_enabled: service.appPreferences.enrichment_enabled,
 				enrichment_auto_enrich: service.appPreferences.enrichment_auto_enrich,
 				enrichment_cache_ttl_hours: service.appPreferences.enrichment_cache_ttl_hours,
+				search_provider: service.appPreferences.search_provider,
+				search_tavily_api_key: service.appPreferences.search_tavily_api_key,
+				search_google_api_key: service.appPreferences.search_google_api_key,
+				search_google_engine_id: service.appPreferences.search_google_engine_id,
+				search_searxng_url: service.appPreferences.search_searxng_url,
 			};
 		}
 	});

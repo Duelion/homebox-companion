@@ -62,6 +62,28 @@ class AppPreferences(BaseModel):
         description="Cache duration for enrichment results (hours)",
     )
 
+    # Web search settings for enrichment
+    search_provider: str = Field(
+        default="none",
+        description="Web search provider for enrichment (none, tavily, google_cse, searxng)",
+    )
+    search_tavily_api_key: str | None = Field(
+        default=None,
+        description="Tavily API key (get at https://tavily.com)",
+    )
+    search_google_api_key: str | None = Field(
+        default=None,
+        description="Google Cloud API key for Custom Search",
+    )
+    search_google_engine_id: str | None = Field(
+        default=None,
+        description="Google Programmable Search Engine ID (cx)",
+    )
+    search_searxng_url: str | None = Field(
+        default=None,
+        description="SearXNG instance URL (e.g., https://searx.example.com)",
+    )
+
 
 def load_app_preferences() -> AppPreferences:
     """Load application preferences from file.

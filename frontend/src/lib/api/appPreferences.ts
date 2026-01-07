@@ -15,6 +15,13 @@ export interface AppPreferencesResponse {
 	enrichment_enabled: boolean;
 	enrichment_auto_enrich: boolean;
 	enrichment_cache_ttl_hours: number;
+	// Web search settings
+	search_provider: string;
+	search_tavily_api_key: string | null;
+	search_google_api_key: string | null;
+	search_google_engine_id: string | null;
+	search_searxng_url: string | null;
+	// Effective values
 	effective_homebox_url: string;
 	effective_image_quality: string;
 	image_quality_options: string[];
@@ -27,6 +34,12 @@ export interface AppPreferencesInput {
 	enrichment_enabled: boolean;
 	enrichment_auto_enrich: boolean;
 	enrichment_cache_ttl_hours: number;
+	// Web search settings
+	search_provider: string;
+	search_tavily_api_key: string | null;
+	search_google_api_key: string | null;
+	search_google_engine_id: string | null;
+	search_searxng_url: string | null;
 }
 
 // =============================================================================
