@@ -158,36 +158,24 @@
 	// Uses transition detection to ensure we only act once per status change
 	$effect(() => {
 		const currentStatus = workflow.state.status;
-		console.log('[REVIEW PAGE EFFECT] Status check - current:', currentStatus, 'previous:', previousStatus);
 
 		// Only act on actual transitions, not repeated reads
-		if (currentStatus === previousStatus) {
-			console.log('[REVIEW PAGE EFFECT] Same status, skipping');
-			return;
-		}
+		if (currentStatus === previousStatus) return;
 
 		const wasReviewing = previousStatus === 'reviewing';
-		console.log('[REVIEW PAGE EFFECT] Transition detected, wasReviewing:', wasReviewing);
 		previousStatus = currentStatus;
 
 		// Only navigate if we were reviewing and status changed
-		if (!wasReviewing) {
-			console.log('[REVIEW PAGE EFFECT] Was not reviewing, skipping navigation');
-			return;
-		}
+		if (!wasReviewing) return;
 
-		console.log('[REVIEW PAGE EFFECT] Was reviewing, checking new status:', currentStatus);
 		if (currentStatus === 'confirming') {
-			console.log('[REVIEW PAGE EFFECT] Navigating to /summary');
 			goto(resolve('/summary'));
 		} else if (currentStatus === 'idle') {
 			// All items were skipped - full reset, go back to location selection
-			console.log('[REVIEW PAGE EFFECT] Navigating to /location (all skipped)');
 			showToast('All items were skipped. Starting fresh.', 'info');
 			goto(resolve('/location'));
 		} else if (currentStatus === 'capturing') {
 			// User went back to capture (not all skipped) - go back to capture
-			console.log('[REVIEW PAGE EFFECT] Navigating to /capture');
 			showToast('Add more photos to continue.', 'info');
 			goto(resolve('/capture'));
 		}
@@ -254,18 +242,10 @@
 	}
 
 	function confirmItem() {
-		console.log('[REVIEW PAGE] confirmItem called');
-		console.log('[REVIEW PAGE] editedItem:', editedItem?.name, 'currentIndex:', currentIndex);
 		const item = prepareItemForConfirmation();
-		console.log('[REVIEW PAGE] prepareItemForConfirmation returned:', item?.name ?? 'null');
-		if (!item) {
-			console.log('[REVIEW PAGE] No item returned, returning early');
-			return;
-		}
+		if (!item) return;
 
-		console.log('[REVIEW PAGE] Calling workflow.confirmItem');
 		workflow.confirmItem(item);
-		console.log('[REVIEW PAGE] After workflow.confirmItem, status:', workflow.state.status);
 
 		// Scroll to top for next item
 		window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -145,19 +145,13 @@ export class ReviewService {
 	 * @returns true if there are more items to review, false if review is complete
 	 */
 	confirmCurrentItem(item: ReviewItem): boolean {
-		console.log('[REVIEW SERVICE] confirmCurrentItem called, item:', item.name);
-		console.log('[REVIEW SERVICE] currentIndex:', this._currentReviewIndex, 'detectedItems.length:', this._detectedItems.length);
 		const confirmed: ConfirmedItem = { ...item, confirmed: true };
 		this._confirmedItems = [...this._confirmedItems, confirmed];
-		console.log('[REVIEW SERVICE] Added to confirmedItems, count now:', this._confirmedItems.length);
 
-		console.log('[REVIEW SERVICE] hasNext:', this.hasNext);
 		if (this.hasNext) {
 			this.nextItem();
-			console.log('[REVIEW SERVICE] Moved to next, currentIndex now:', this._currentReviewIndex);
 			return true;
 		}
-		console.log('[REVIEW SERVICE] No next item, returning false');
 		return false;
 	}
 
