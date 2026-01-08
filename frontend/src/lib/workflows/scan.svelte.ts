@@ -33,6 +33,7 @@ import type {
 	Progress,
 	SubmissionResult,
 	DuplicateMatch,
+	UpdateDecision,
 	AnalysisMode,
 	ImageGroup
 } from '$lib/types';
@@ -79,6 +80,9 @@ class ScanWorkflow {
 	/** Potential duplicates detected during review */
 	private _duplicateMatches = $state<DuplicateMatch[]>([]);
 
+	/** Items marked for update instead of create (user chose "Update Existing") */
+	private _updateDecisions = $state<UpdateDecision[]>([]);
+
 	/** Analysis mode: quick (default) or grouped */
 	private _analysisMode = $state<AnalysisMode>('quick');
 
@@ -113,6 +117,7 @@ class ScanWorkflow {
 		'detectedItems',
 		'currentReviewIndex',
 		'duplicateMatches',
+		'updateDecisions',
 		'confirmedItems',
 		'submissionProgress',
 		'itemStatuses',
@@ -194,6 +199,8 @@ class ScanWorkflow {
 							return workflow.reviewService.currentReviewIndex;
 						case 'duplicateMatches':
 							return workflow._duplicateMatches;
+						case 'updateDecisions':
+							return workflow._updateDecisions;
 						case 'confirmedItems':
 							return workflow.reviewService.confirmedItems;
 						case 'submissionProgress':
@@ -494,7 +501,7 @@ class ScanWorkflow {
 				this._duplicateMatches = response.duplicates;
 				log.warn(`Found ${response.duplicates.length} potential duplicate(s)`);
 				debugLog.warning('DUPLICATES', `Found ${response.duplicates.length} potential duplicate(s)`, {
-					duplicates: response.duplicates.map(d => ({ serial: d.serial_number, name: d.existing_item.name })),
+					duplicates: response.duplicates.map(d => ({ match_value: d.match_value, match_type: d.match_type, name: d.existing_item.name })),
 				});
 			} else {
 				log.debug('No duplicates found');
@@ -1211,6 +1218,7 @@ class ScanWorkflow {
 			items,
 			this._locationId,
 			this._parentItemId,
+			this._updateDecisions,
 			options
 		);
 
@@ -1265,7 +1273,8 @@ class ScanWorkflow {
 		const result = await this.submissionService.retryFailed(
 			items,
 			this._locationId,
-			this._parentItemId
+			this._parentItemId,
+			this._updateDecisions
 		);
 
 		if (result.sessionExpired) {
@@ -1330,6 +1339,83 @@ class ScanWorkflow {
 	}
 
 	// =========================================================================
+	// UPDATE DECISION MANAGEMENT (for merge-on-duplicate feature)
+	// =========================================================================
+
+	/** Get current update decisions */
+	get updateDecisions(): UpdateDecision[] {
+		return this._updateDecisions;
+	}
+
+	/**
+	 * Mark an item to be updated (merged) instead of created.
+	 * Called when user clicks "Update Existing" on a duplicate warning.
+	 *
+	 * @param itemIndex - Index of the item in detectedItems/confirmedItems
+	 * @param match - The duplicate match containing target item info
+	 */
+	markForUpdate(itemIndex: number, match: DuplicateMatch): void {
+		// Remove any existing decision for this item
+		this._updateDecisions = this._updateDecisions.filter(d => d.itemIndex !== itemIndex);
+
+		// Determine which field to exclude from update (the field that caused the match)
+		let matchField: string;
+		switch (match.match_type) {
+			case 'serial_number':
+				matchField = 'serial_number';
+				break;
+			case 'manufacturer_model':
+				matchField = 'manufacturer_model';
+				break;
+			case 'fuzzy_name':
+				matchField = 'name';
+				break;
+			default:
+				matchField = match.match_type;
+		}
+
+		const decision: UpdateDecision = {
+			itemIndex,
+			targetItemId: match.existing_item.id,
+			targetItemName: match.existing_item.name,
+			matchType: match.match_type,
+			matchField,
+		};
+
+		this._updateDecisions = [...this._updateDecisions, decision];
+		log.info(`Marked item ${itemIndex} for update to existing item: ${match.existing_item.name} (${match.existing_item.id})`);
+	}
+
+	/**
+	 * Remove update decision for an item (will create new instead).
+	 * Called when user clicks "Create new instead" on a confirmed update.
+	 *
+	 * @param itemIndex - Index of the item to mark for creation
+	 */
+	markForCreate(itemIndex: number): void {
+		const hadDecision = this._updateDecisions.some(d => d.itemIndex === itemIndex);
+		this._updateDecisions = this._updateDecisions.filter(d => d.itemIndex !== itemIndex);
+		if (hadDecision) {
+			log.info(`Removed update decision for item ${itemIndex}, will create new`);
+		}
+	}
+
+	/**
+	 * Get the update decision for a specific item index.
+	 * Returns undefined if the item will be created as new.
+	 */
+	getUpdateDecision(itemIndex: number): UpdateDecision | undefined {
+		return this._updateDecisions.find(d => d.itemIndex === itemIndex);
+	}
+
+	/**
+	 * Check if an item is marked for update (vs create).
+	 */
+	isMarkedForUpdate(itemIndex: number): boolean {
+		return this._updateDecisions.some(d => d.itemIndex === itemIndex);
+	}
+
+	// =========================================================================
 	// RESET
 	// =========================================================================
 
@@ -1347,6 +1433,7 @@ class ScanWorkflow {
 		this._parentItemName = null;
 		this._error = null;
 		this._duplicateMatches = [];
+		this._updateDecisions = [];
 		this._analysisMode = 'quick';
 		this._imageGroups = [];
 		// Also reset location store so location page shows full list

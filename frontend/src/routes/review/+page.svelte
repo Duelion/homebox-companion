@@ -47,6 +47,10 @@
 		duplicateMatches.find((match) => match.item_index === currentIndex),
 	);
 
+	// Get update decision for current item (if user chose "Update Existing")
+	const currentUpdateDecision = $derived(workflow.getUpdateDecision(currentIndex));
+	const isCurrentItemMarkedForUpdate = $derived(workflow.isMarkedForUpdate(currentIndex));
+
 	// Local UI state
 	let editedItem = $state<ReviewItem | null>(null);
 	let showExtendedFields = $state(false);
@@ -377,6 +381,25 @@
 		}
 	}
 
+	/**
+	 * Handle user clicking "Update Existing" on duplicate warning.
+	 * Marks the current item for update (merge) instead of create.
+	 */
+	function handleUpdateExisting() {
+		if (!currentItemDuplicate) return;
+		workflow.markForUpdate(currentIndex, currentItemDuplicate);
+		showToast(`Will update "${currentItemDuplicate.existing_item.name}"`, 'success');
+	}
+
+	/**
+	 * Handle user clicking "Create new instead" on confirmed update banner.
+	 * Removes the update decision, item will be created as new.
+	 */
+	function handleCreateNew() {
+		workflow.markForCreate(currentIndex);
+		showToast('Will create as new item', 'info');
+	}
+
 	// Derived images with data URLs for thumbnail editor
 	const availableImages = $derived(
 		allImages.map((file) => ({
@@ -450,12 +473,15 @@
 
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
 
-	<!-- Duplicate warning for current item -->
+	<!-- Duplicate warning or update confirmation for current item -->
 	{#if currentItemDuplicate}
 		<div class="mb-4">
 			<DuplicateWarningBanner
-				duplicates={[currentItemDuplicate]}
-				compact={true}
+				match={currentItemDuplicate}
+				isMarkedForUpdate={isCurrentItemMarkedForUpdate}
+				updateDecision={currentUpdateDecision}
+				onUpdateExisting={handleUpdateExisting}
+				onCreateNew={handleCreateNew}
 			/>
 		</div>
 	{/if}

@@ -129,3 +129,52 @@ class DuplicateIndexRebuildResponse(BaseModel):
 
     message: str
     """Summary message."""
+
+
+# =============================================================================
+# MERGE ITEM SCHEMAS (Update existing item on duplicate)
+# =============================================================================
+
+
+class MergeItemRequest(BaseModel):
+    """Request to merge new data into an existing item.
+
+    Only empty fields on the existing item will be filled (additive merge).
+    Fields that already have values are preserved.
+    The exclude_field prevents updating the field that caused the duplicate match.
+    """
+
+    name: str | None = None
+    description: str | None = None
+    manufacturer: str | None = None
+    model_number: str | None = None
+    serial_number: str | None = None
+    purchase_price: float | None = None
+    purchase_from: str | None = None
+    notes: str | None = None
+    label_ids: list[str] | None = None
+
+    exclude_field: str | None = None
+    """Field to never update (the match cause).
+
+    Values: 'serial_number', 'manufacturer_model' (excludes both), 'name'
+    """
+
+
+class MergeItemResponse(BaseModel):
+    """Response from merge operation."""
+
+    id: str
+    """ID of the updated item."""
+
+    name: str
+    """Name of the updated item."""
+
+    fields_updated: list[str]
+    """List of field names that were updated."""
+
+    fields_skipped: list[str]
+    """List of field names that were skipped (already had values or excluded)."""
+
+    message: str
+    """Summary message."""

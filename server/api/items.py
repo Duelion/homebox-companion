@@ -19,6 +19,8 @@ from ..schemas.items import (
     DuplicateIndexStatus,
     DuplicateMatch,
     ExistingItemInfo,
+    MergeItemRequest,
+    MergeItemResponse,
 )
 
 router = APIRouter()
@@ -370,6 +372,156 @@ async def delete_item(
     await client.delete_item(token, item_id)
     logger.info(f"Successfully deleted item {item_id}")
     return {"message": "Item deleted"}
+
+
+# =============================================================================
+# MERGE ITEM (Update existing on duplicate)
+# =============================================================================
+
+
+@router.post("/items/{item_id}/merge", response_model=MergeItemResponse)
+async def merge_item(
+    item_id: str,
+    request: MergeItemRequest,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
+) -> MergeItemResponse:
+    """Merge new data into an existing item (additive-only).
+
+    This endpoint updates an existing item with new data, but ONLY fills in
+    fields that are currently empty. Existing values are never overwritten.
+
+    Use this when a duplicate is detected and the user chooses to update
+    the existing item rather than create a new one.
+
+    The exclude_field parameter prevents updating the field that caused the
+    duplicate match:
+    - 'serial_number': Skip serial_number field
+    - 'manufacturer_model': Skip both manufacturer AND model_number
+    - 'name': Skip name field
+
+    Photos should be uploaded separately using POST /items/{item_id}/attachments.
+    """
+    logger.info(f"Merging data into item {item_id}")
+    logger.debug(f"Exclude field: {request.exclude_field}")
+
+    # Fetch the existing item
+    try:
+        existing = await client.get_item(token, item_id)
+    except FileNotFoundError as e:
+        logger.warning(f"Item {item_id} not found for merge")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Item {item_id} not found. It may have been deleted.",
+        ) from e
+
+    # Determine which fields to exclude
+    excluded_fields: set[str] = set()
+    if request.exclude_field:
+        if request.exclude_field == "manufacturer_model":
+            excluded_fields.add("manufacturer")
+            excluded_fields.add("model_number")
+        else:
+            excluded_fields.add(request.exclude_field)
+
+    # Helper to check if existing field is empty
+    def is_empty(value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str) and not value.strip():
+            return True
+        if isinstance(value, (list, dict)) and not value:
+            return True
+        return False
+
+    # Build the update payload, tracking what we update
+    fields_updated: list[str] = []
+    fields_skipped: list[str] = []
+
+    # Start with required base fields from existing item
+    update_data: dict[str, Any] = {
+        "name": existing.get("name"),
+        "description": existing.get("description", ""),
+        "quantity": existing.get("quantity", 1),
+        "locationId": existing.get("location", {}).get("id"),
+        "labelIds": [
+            lbl.get("id") for lbl in existing.get("labels", []) if lbl.get("id")
+        ],
+    }
+
+    # Map of request field -> (API field name, existing value path)
+    field_mappings = {
+        "name": ("name", existing.get("name")),
+        "description": ("description", existing.get("description")),
+        "manufacturer": ("manufacturer", existing.get("manufacturer")),
+        "model_number": ("modelNumber", existing.get("modelNumber")),
+        "serial_number": ("serialNumber", existing.get("serialNumber")),
+        "purchase_price": ("purchasePrice", existing.get("purchasePrice")),
+        "purchase_from": ("purchaseFrom", existing.get("purchaseFrom")),
+        "notes": ("notes", existing.get("notes")),
+    }
+
+    # Process each field
+    for req_field, (api_field, existing_value) in field_mappings.items():
+        new_value = getattr(request, req_field, None)
+
+        if req_field in excluded_fields:
+            fields_skipped.append(f"{req_field} (excluded - match field)")
+            continue
+
+        if new_value is None:
+            # No new value provided
+            continue
+
+        if not is_empty(existing_value):
+            fields_skipped.append(f"{req_field} (already has value)")
+            continue
+
+        # Update the field
+        update_data[api_field] = new_value
+        fields_updated.append(req_field)
+        logger.debug(f"  Updating {req_field}: {new_value}")
+
+    # Handle labels specially - append new labels to existing
+    if request.label_ids:
+        existing_label_ids = set(update_data.get("labelIds", []))
+        new_label_ids = set(request.label_ids)
+        labels_to_add = new_label_ids - existing_label_ids
+
+        if labels_to_add:
+            update_data["labelIds"] = list(existing_label_ids | new_label_ids)
+            fields_updated.append(f"label_ids (+{len(labels_to_add)} new)")
+            logger.debug(f"  Adding {len(labels_to_add)} new labels")
+        else:
+            fields_skipped.append("label_ids (all already present)")
+
+    # Perform the update
+    try:
+        result = await client.update_item(token, item_id, update_data)
+        logger.info(
+            f"Merged item {item_id}: {len(fields_updated)} updated, "
+            f"{len(fields_skipped)} skipped"
+        )
+    except Exception as e:
+        logger.error(f"Failed to merge item {item_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update item: {e}",
+        ) from e
+
+    # Build response message
+    if fields_updated:
+        message = f"Updated {len(fields_updated)} field(s): {', '.join(fields_updated)}"
+    else:
+        message = "No fields updated (all already had values or were excluded)"
+
+    return MergeItemResponse(
+        id=result.get("id", item_id),
+        name=result.get("name", existing.get("name", "")),
+        fields_updated=fields_updated,
+        fields_skipped=fields_skipped,
+        message=message,
+    )
 
 
 # =============================================================================
