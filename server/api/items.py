@@ -477,22 +477,27 @@ async def merge_item(
     for req_field, (api_field, existing_value) in field_mappings.items():
         new_value = getattr(request, req_field, None)
 
+        # 1. Match field is excluded - values are identical by definition of match
         if req_field in excluded_fields:
             fields_skipped.append(f"{req_field} (excluded - match field)")
             # Keep existing value (already in update_data)
             continue
 
+        # 2. Companion has no meaningful value - keep Homebox (don't erase)
         if new_value is None or is_empty(new_value):
             # No meaningful new value provided (None, empty string, 0, etc.)
             # Keep existing value - don't populate with defaults
             continue
 
-        if not is_empty(existing_value):
-            fields_skipped.append(f"{req_field} (already has value)")
-            # Keep existing value (already in update_data)
+        # 3. Values are identical - no change needed
+        if new_value == existing_value:
+            fields_skipped.append(f"{req_field} (identical)")
             continue
 
-        # Update the field with new value
+        # 4. Companion has real value different from Homebox - update
+        # This handles both empty Homebox AND incorrect Homebox values
+        if not is_empty(existing_value):
+            logger.debug(f"  Overwriting {req_field}: '{existing_value}' -> '{new_value}'")
         update_data[api_field] = new_value
         fields_updated.append(req_field)
         logger.debug(f"  Updating {req_field}: {new_value}")
