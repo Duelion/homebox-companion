@@ -3,10 +3,12 @@
 	 * ThemeSection - Theme selector matching Homebox theme options.
 	 *
 	 * Displays all DaisyUI themes in a grid for easy selection.
-	 * Uses data-theme attribute on each button to show accurate color previews.
+	 * Uses probeThemeColors utility to dynamically read colors from CSS.
 	 * Persists selection to localStorage.
 	 */
+	import { onMount } from 'svelte';
 	import { themeStore, THEME_INFO, type ThemeName } from '$lib/stores/theme.svelte';
+	import { probeThemeColors, type ThemeColorMap } from '$lib/utils/themeColors';
 
 	// Reactive derived values from store
 	const currentTheme = $derived(themeStore.theme);
@@ -19,6 +21,13 @@
 	// Group themes by light/dark for better organization
 	const darkThemes = THEME_INFO.filter((t) => t.isDark);
 	const lightThemes = THEME_INFO.filter((t) => !t.isDark);
+
+	// Theme colors - probed from CSS at runtime
+	let themeColors = $state<ThemeColorMap | null>(null);
+
+	onMount(() => {
+		themeColors = probeThemeColors();
+	});
 </script>
 
 <section class="card space-y-4">
@@ -46,20 +55,26 @@
 		<h3 class="text-sm font-medium text-base-content/75">Dark Themes</h3>
 		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 			{#each darkThemes as theme (theme.name)}
+				{@const colors = themeColors?.[theme.name]}
 				<button
 					type="button"
-					data-theme={theme.name}
 					class="group relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all
 						{currentTheme === theme.name
 						? 'border-primary bg-primary/10 ring-2 ring-primary/20'
 						: 'border-base-content/20 bg-base-100 hover:border-base-content/30 hover:bg-base-200'}"
 					onclick={() => selectTheme(theme.name)}
 				>
-					<!-- Theme preview colors using DaisyUI classes - inherit from data-theme -->
+					<!-- Theme preview colors -->
 					<div class="mb-2 flex gap-1">
-						<div class="h-4 w-4 rounded bg-primary"></div>
-						<div class="h-4 w-4 rounded bg-secondary"></div>
-						<div class="h-4 w-4 rounded bg-accent"></div>
+						{#if colors}
+							<div class="h-4 w-4 rounded" style="background-color: {colors.primary}"></div>
+							<div class="h-4 w-4 rounded" style="background-color: {colors.secondary}"></div>
+							<div class="h-4 w-4 rounded" style="background-color: {colors.accent}"></div>
+						{:else}
+							<div class="h-4 w-4 animate-pulse rounded bg-base-300"></div>
+							<div class="h-4 w-4 animate-pulse rounded bg-base-300"></div>
+							<div class="h-4 w-4 animate-pulse rounded bg-base-300"></div>
+						{/if}
 					</div>
 					<span class="text-xs font-medium text-base-content">{theme.label}</span>
 					{#if currentTheme === theme.name}
@@ -83,20 +98,26 @@
 		<h3 class="text-sm font-medium text-base-content/75">Light Themes</h3>
 		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 			{#each lightThemes as theme (theme.name)}
+				{@const colors = themeColors?.[theme.name]}
 				<button
 					type="button"
-					data-theme={theme.name}
 					class="group relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all
 						{currentTheme === theme.name
 						? 'border-primary bg-primary/10 ring-2 ring-primary/20'
 						: 'border-base-content/20 bg-base-100 hover:border-base-content/30 hover:bg-base-200'}"
 					onclick={() => selectTheme(theme.name)}
 				>
-					<!-- Theme preview colors using DaisyUI classes - inherit from data-theme -->
+					<!-- Theme preview colors -->
 					<div class="mb-2 flex gap-1">
-						<div class="h-4 w-4 rounded bg-primary"></div>
-						<div class="h-4 w-4 rounded bg-secondary"></div>
-						<div class="h-4 w-4 rounded bg-accent"></div>
+						{#if colors}
+							<div class="h-4 w-4 rounded" style="background-color: {colors.primary}"></div>
+							<div class="h-4 w-4 rounded" style="background-color: {colors.secondary}"></div>
+							<div class="h-4 w-4 rounded" style="background-color: {colors.accent}"></div>
+						{:else}
+							<div class="h-4 w-4 animate-pulse rounded bg-base-300"></div>
+							<div class="h-4 w-4 animate-pulse rounded bg-base-300"></div>
+							<div class="h-4 w-4 animate-pulse rounded bg-base-300"></div>
+						{/if}
 					</div>
 					<span class="text-xs font-medium text-base-content">{theme.label}</span>
 					{#if currentTheme === theme.name}
