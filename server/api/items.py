@@ -424,7 +424,7 @@ async def merge_item(
         else:
             excluded_fields.add(request.exclude_field)
 
-    # Helper to check if existing field is empty
+    # Helper to check if existing field is "empty" (should be filled)
     def is_empty(value: Any) -> bool:
         if value is None:
             return True
@@ -432,14 +432,19 @@ async def merge_item(
             return True
         if isinstance(value, (list, dict)) and not value:
             return True
+        # Treat numeric 0 as empty for price fields (not a real price)
+        if isinstance(value, (int, float)) and value == 0:
+            return True
         return False
 
     # Build the update payload, tracking what we update
     fields_updated: list[str] = []
     fields_skipped: list[str] = []
 
-    # Start with required base fields from existing item
+    # Start with ALL fields from existing item to preserve them
+    # Homebox's PUT replaces fields, so we must include everything
     update_data: dict[str, Any] = {
+        # Required base fields
         "name": existing.get("name"),
         "description": existing.get("description", ""),
         "quantity": existing.get("quantity", 1),
@@ -447,9 +452,16 @@ async def merge_item(
         "labelIds": [
             lbl.get("id") for lbl in existing.get("labels", []) if lbl.get("id")
         ],
+        # Extended fields - MUST include existing values to preserve them
+        "manufacturer": existing.get("manufacturer"),
+        "modelNumber": existing.get("modelNumber"),
+        "serialNumber": existing.get("serialNumber"),
+        "purchasePrice": existing.get("purchasePrice"),
+        "purchaseFrom": existing.get("purchaseFrom"),
+        "notes": existing.get("notes"),
     }
 
-    # Map of request field -> (API field name, existing value path)
+    # Map of request field -> (API field name, existing value)
     field_mappings = {
         "name": ("name", existing.get("name")),
         "description": ("description", existing.get("description")),
@@ -461,23 +473,25 @@ async def merge_item(
         "notes": ("notes", existing.get("notes")),
     }
 
-    # Process each field
+    # Process each field - only UPDATE if conditions are met
     for req_field, (api_field, existing_value) in field_mappings.items():
         new_value = getattr(request, req_field, None)
 
         if req_field in excluded_fields:
             fields_skipped.append(f"{req_field} (excluded - match field)")
+            # Keep existing value (already in update_data)
             continue
 
         if new_value is None:
-            # No new value provided
+            # No new value provided - keep existing
             continue
 
         if not is_empty(existing_value):
             fields_skipped.append(f"{req_field} (already has value)")
+            # Keep existing value (already in update_data)
             continue
 
-        # Update the field
+        # Update the field with new value
         update_data[api_field] = new_value
         fields_updated.append(req_field)
         logger.debug(f"  Updating {req_field}: {new_value}")
