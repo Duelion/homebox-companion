@@ -482,8 +482,9 @@ async def merge_item(
             # Keep existing value (already in update_data)
             continue
 
-        if new_value is None:
-            # No new value provided - keep existing
+        if new_value is None or is_empty(new_value):
+            # No meaningful new value provided (None, empty string, 0, etc.)
+            # Keep existing value - don't populate with defaults
             continue
 
         if not is_empty(existing_value):
