@@ -207,10 +207,19 @@
 		</div>
 	{/if}
 
-	<!-- Duplicate warning banner -->
+	<!-- Duplicate warnings for items -->
 	{#if duplicateMatches.length > 0 && !isSubmitting}
-		<div class="mb-4">
-			<DuplicateWarningBanner duplicates={duplicateMatches} />
+		<div class="mb-4 space-y-2">
+			{#each duplicateMatches as match (match.item_index)}
+				{@const updateDecision = workflow.getUpdateDecision(match.item_index)}
+				{@const isMarkedForUpdate = workflow.isMarkedForUpdate(match.item_index)}
+				<DuplicateWarningBanner
+					{match}
+					{isMarkedForUpdate}
+					{updateDecision}
+					compact={true}
+				/>
+			{/each}
 		</div>
 	{/if}
 
