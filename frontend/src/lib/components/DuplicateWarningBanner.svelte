@@ -80,6 +80,9 @@
 				return { class: 'bg-base-300 text-base-content', label: confidence };
 		}
 	}
+
+	// Compute badge outside template for cleaner code
+	const confidenceBadge = $derived(getConfidenceBadge(match.confidence));
 </script>
 
 {#if isMarkedForUpdate && updateDecision}
@@ -157,9 +160,8 @@
 						<h4 class="text-body-sm font-semibold text-warning">
 							Potential Duplicate Detected
 						</h4>
-						{@const badge = getConfidenceBadge(match.confidence)}
-						<span class="text-xxs px-1.5 py-0.5 rounded-full {badge.class}">
-							{badge.label} confidence
+						<span class="text-xxs px-1.5 py-0.5 rounded-full {confidenceBadge.class}">
+							{confidenceBadge.label} confidence
 						</span>
 					</div>
 
