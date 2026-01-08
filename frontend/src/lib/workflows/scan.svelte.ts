@@ -1129,16 +1129,9 @@ class ScanWorkflow {
 
 	/** Confirm current item and move to next */
 	confirmItem(item: ReviewItem): void {
-		console.log('[SCAN] confirmItem called, item:', item.name);
-		console.log('[SCAN] currentReviewIndex:', this.reviewService.currentReviewIndex, 'detectedCount:', this.reviewService.detectedCount);
 		const hasMore = this.reviewService.confirmCurrentItem(item);
-		console.log('[SCAN] confirmCurrentItem returned hasMore:', hasMore);
-		console.log('[SCAN] confirmedCount now:', this.reviewService.confirmedCount);
 		if (!hasMore) {
-			console.log('[SCAN] No more items, calling finishReview');
 			this.finishReview();
-		} else {
-			console.log('[SCAN] More items to review, currentIndex now:', this.reviewService.currentReviewIndex);
 		}
 	}
 
