@@ -10,10 +10,11 @@ RUN npm run build --silent 2>/dev/null
 FROM python:3.12-slim
 WORKDIR /app
 
-# Install uv for dependency management, curl for health checks, gosu for privilege drop
+# Install curl for health checks, gosu for privilege drop, and uv for dependency management
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl gosu \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir -q uv
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv
 
 # Copy Python project files
 COPY pyproject.toml uv.lock ./
