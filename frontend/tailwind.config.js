@@ -97,6 +97,28 @@ export default {
           200: '#e2e8f0',
           100: '#f1f5f9',  // Deprecated: use text-base-content
         },
+        // Semantic color aliases for use with opacity modifiers (e.g., bg-primary-500/20)
+        // These match the DaisyUI "homebox" theme values
+        'primary': {
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
+        },
+        'success': {
+          400: '#34d399',
+          500: '#10b981',
+          600: '#059669',
+        },
+        'warning': {
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
+        },
+        'error': {
+          400: '#f87171',
+          500: '#ef4444',
+          600: '#dc2626',
+        },
       },
 
       // Typography scale with line-height and letter-spacing
