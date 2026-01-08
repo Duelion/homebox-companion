@@ -42,6 +42,8 @@ class ExistingItemInfo(BaseModel):
     serial_number: str
     location_id: str | None = None
     location_name: str | None = None
+    manufacturer: str | None = None
+    model_number: str | None = None
 
 
 class DuplicateMatch(BaseModel):
@@ -53,8 +55,17 @@ class DuplicateMatch(BaseModel):
     item_name: str
     """Name of the new item."""
 
-    serial_number: str
-    """The matching serial number (normalized to uppercase)."""
+    match_type: str
+    """How the duplicate was detected: 'serial_number', 'manufacturer_model', or 'fuzzy_name'."""
+
+    match_value: str
+    """The value that matched (serial, manufacturer+model key, or similar name)."""
+
+    confidence: str
+    """Confidence level: 'high', 'medium-high', 'medium', or 'low'."""
+
+    similarity_score: float = 1.0
+    """Similarity score (1.0 for exact matches, 0.0-1.0 for fuzzy name matches)."""
 
     existing_item: ExistingItemInfo
     """The existing item that matches."""
@@ -99,6 +110,9 @@ class DuplicateIndexStatus(BaseModel):
 
     items_with_serials: int
     """Number of items with serial numbers in the index."""
+
+    items_with_model: int = 0
+    """Number of items with manufacturer+model in the index."""
 
     highest_asset_id: int
     """Highest asset ID seen (used for differential updates)."""

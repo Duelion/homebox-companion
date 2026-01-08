@@ -276,11 +276,12 @@ async def check_duplicates(
     token: Annotated[str, Depends(get_token)],
     detector: Annotated[DuplicateDetector, Depends(get_duplicate_detector)],
 ) -> DuplicateCheckResponse:
-    """Check for potential duplicate items by serial number.
+    """Check for potential duplicate items using multiple strategies.
 
-    This endpoint compares the serial numbers of the provided items against
-    existing items in Homebox. Items with matching serial numbers are flagged
-    as potential duplicates.
+    This endpoint compares items against existing items in Homebox using:
+    1. Serial number matching (exact, high confidence)
+    2. Manufacturer + Model matching (exact, high confidence)
+    3. Fuzzy name matching (similarity threshold, medium confidence)
 
     Uses the shared duplicate detection index which is:
     - Persisted to disk (survives restarts)
@@ -291,25 +292,29 @@ async def check_duplicates(
     """
     logger.info(f"Checking {len(request.items)} items for duplicates")
 
-    # Convert request items to dicts for the detector
+    # Convert request items to dicts for the detector (include all matching fields)
     items_to_check = [
         {
             "name": item.name,
             "serial_number": item.serial_number,
+            "manufacturer": item.manufacturer,
+            "model_number": item.model_number,
         }
         for item in request.items
     ]
 
-    # Count items with serial numbers
+    # Count items with checkable data
     items_with_serial = sum(1 for item in items_to_check if item.get("serial_number"))
-    logger.debug(f"{items_with_serial} items have serial numbers to check")
+    items_with_model = sum(
+        1 for item in items_to_check
+        if item.get("manufacturer") and item.get("model_number")
+    )
+    items_with_name = sum(1 for item in items_to_check if len(item.get("name", "")) >= 5)
 
-    if items_with_serial == 0:
-        return DuplicateCheckResponse(
-            duplicates=[],
-            checked_count=0,
-            message="No items with serial numbers to check",
-        )
+    logger.debug(
+        f"Items to check: {items_with_serial} with serial, "
+        f"{items_with_model} with manufacturer+model, {items_with_name} with names"
+    )
 
     # Run duplicate detection (uses shared index with auto-load)
     matches = await detector.find_duplicates(token, items_to_check)
@@ -319,13 +324,18 @@ async def check_duplicates(
         DuplicateMatch(
             item_index=match.item_index,
             item_name=match.item_name,
-            serial_number=match.serial_number,
+            match_type=match.match_type.value,  # Enum to string
+            match_value=match.match_value,
+            confidence=match.confidence,
+            similarity_score=match.similarity_score,
             existing_item=ExistingItemInfo(
                 id=match.existing_item.id,
                 name=match.existing_item.name,
                 serial_number=match.existing_item.serial_number,
                 location_id=match.existing_item.location_id,
                 location_name=match.existing_item.location_name,
+                manufacturer=match.existing_item.manufacturer,
+                model_number=match.existing_item.model_number,
             ),
         )
         for match in matches
@@ -340,7 +350,7 @@ async def check_duplicates(
     logger.info(message)
     return DuplicateCheckResponse(
         duplicates=duplicates,
-        checked_count=items_with_serial,
+        checked_count=len(items_to_check),
         message=message,
     )
 
@@ -382,6 +392,7 @@ async def get_duplicate_index_status(
         last_update_time=status.last_update_time,
         total_items_indexed=status.total_items_indexed,
         items_with_serials=status.items_with_serials,
+        items_with_model=status.items_with_model,
         highest_asset_id=status.highest_asset_id,
         is_loaded=status.is_loaded,
     )
@@ -432,8 +443,12 @@ async def rebuild_duplicate_index(
             last_update_time=status.last_update_time,
             total_items_indexed=status.total_items_indexed,
             items_with_serials=status.items_with_serials,
+            items_with_model=status.items_with_model,
             highest_asset_id=status.highest_asset_id,
             is_loaded=status.is_loaded,
         ),
-        message=f"Index rebuilt: {status.items_with_serials} items with serial numbers indexed",
+        message=(
+            f"Index rebuilt: {status.items_with_serials} serials, "
+            f"{status.items_with_model} manufacturer+model pairs indexed"
+        ),
     )
