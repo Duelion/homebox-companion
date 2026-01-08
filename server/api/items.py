@@ -477,25 +477,31 @@ async def merge_item(
     for req_field, (api_field, existing_value) in field_mappings.items():
         new_value = getattr(request, req_field, None)
 
-        # 1. Match field is excluded - values are identical by definition of match
-        if req_field in excluded_fields:
-            fields_skipped.append(f"{req_field} (excluded - match field)")
-            # Keep existing value (already in update_data)
-            continue
-
-        # 2. Companion has no meaningful value - keep Homebox (don't erase)
+        # 1. Companion has no meaningful value - keep Homebox (don't erase)
         if new_value is None or is_empty(new_value):
             # No meaningful new value provided (None, empty string, 0, etc.)
             # Keep existing value - don't populate with defaults
             continue
 
-        # 3. Values are identical - no change needed
+        # 2. Values are identical - no change needed (includes match field case)
         if new_value == existing_value:
-            fields_skipped.append(f"{req_field} (identical)")
+            if req_field in excluded_fields:
+                fields_skipped.append(f"{req_field} (match field - identical)")
+            else:
+                fields_skipped.append(f"{req_field} (identical)")
             continue
 
+        # 3. Match field but values are DIFFERENT - this means index may be stale
+        #    or Homebox was manually edited. Companion value should be used.
+        #    (If they truly matched, step 2 would have caught it)
+        if req_field in excluded_fields:
+            logger.info(
+                f"  Match field {req_field} has different values! "
+                f"Homebox='{existing_value}' Companion='{new_value}' - updating"
+            )
+
         # 4. Companion has real value different from Homebox - update
-        # This handles both empty Homebox AND incorrect Homebox values
+        # This handles empty Homebox, incorrect Homebox, AND stale match fields
         if not is_empty(existing_value):
             logger.debug(f"  Overwriting {req_field}: '{existing_value}' -> '{new_value}'")
         update_data[api_field] = new_value
