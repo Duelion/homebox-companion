@@ -3,12 +3,14 @@
 	 * ThemeSection - Theme selector matching Homebox theme options.
 	 *
 	 * Displays all DaisyUI themes in a grid for easy selection.
+	 * Uses data-theme attribute on each button to show accurate color previews.
 	 * Persists selection to localStorage.
 	 */
 	import { themeStore, THEME_INFO, type ThemeName } from '$lib/stores/theme.svelte';
 
-	// Current theme from store
+	// Reactive derived values from store
 	const currentTheme = $derived(themeStore.theme);
+	const isDark = $derived(themeStore.isDark);
 
 	function selectTheme(theme: ThemeName) {
 		themeStore.setTheme(theme);
@@ -43,23 +45,23 @@
 	<div class="space-y-2">
 		<h3 class="text-sm font-medium text-base-content/75">Dark Themes</h3>
 		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-			{#each darkThemes as theme}
+			{#each darkThemes as theme (theme.name)}
 				<button
 					type="button"
+					data-theme={theme.name}
 					class="group relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all
 						{currentTheme === theme.name
 						? 'border-primary bg-primary/10 ring-2 ring-primary/20'
-						: 'border-base-content/20 bg-base-300/50 hover:border-base-content/30 hover:bg-base-300'}"
+						: 'border-base-content/20 bg-base-100 hover:border-base-content/30 hover:bg-base-200'}"
 					onclick={() => selectTheme(theme.name)}
-					data-theme={theme.name}
 				>
-					<!-- Theme preview colors - use inline styles to pick up data-theme CSS variables -->
+					<!-- Theme preview colors using DaisyUI classes - inherit from data-theme -->
 					<div class="mb-2 flex gap-1">
-						<div class="h-4 w-4 rounded" style="background-color: var(--color-primary)"></div>
-						<div class="h-4 w-4 rounded" style="background-color: var(--color-secondary)"></div>
-						<div class="h-4 w-4 rounded" style="background-color: var(--color-accent)"></div>
+						<div class="h-4 w-4 rounded bg-primary"></div>
+						<div class="h-4 w-4 rounded bg-secondary"></div>
+						<div class="h-4 w-4 rounded bg-accent"></div>
 					</div>
-					<span class="text-xs font-medium" style="color: var(--color-base-content)">{theme.label}</span>
+					<span class="text-xs font-medium text-base-content">{theme.label}</span>
 					{#if currentTheme === theme.name}
 						<div class="absolute right-2 top-2">
 							<svg class="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -80,23 +82,23 @@
 	<div class="space-y-2">
 		<h3 class="text-sm font-medium text-base-content/75">Light Themes</h3>
 		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-			{#each lightThemes as theme}
+			{#each lightThemes as theme (theme.name)}
 				<button
 					type="button"
+					data-theme={theme.name}
 					class="group relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all
 						{currentTheme === theme.name
 						? 'border-primary bg-primary/10 ring-2 ring-primary/20'
-						: 'border-base-content/20 bg-base-300/50 hover:border-base-content/30 hover:bg-base-300'}"
+						: 'border-base-content/20 bg-base-100 hover:border-base-content/30 hover:bg-base-200'}"
 					onclick={() => selectTheme(theme.name)}
-					data-theme={theme.name}
 				>
-					<!-- Theme preview colors - use inline styles to pick up data-theme CSS variables -->
+					<!-- Theme preview colors using DaisyUI classes - inherit from data-theme -->
 					<div class="mb-2 flex gap-1">
-						<div class="h-4 w-4 rounded" style="background-color: var(--color-primary)"></div>
-						<div class="h-4 w-4 rounded" style="background-color: var(--color-secondary)"></div>
-						<div class="h-4 w-4 rounded" style="background-color: var(--color-accent)"></div>
+						<div class="h-4 w-4 rounded bg-primary"></div>
+						<div class="h-4 w-4 rounded bg-secondary"></div>
+						<div class="h-4 w-4 rounded bg-accent"></div>
 					</div>
-					<span class="text-xs font-medium" style="color: var(--color-base-content)">{theme.label}</span>
+					<span class="text-xs font-medium text-base-content">{theme.label}</span>
 					{#if currentTheme === theme.name}
 						<div class="absolute right-2 top-2">
 							<svg class="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -120,7 +122,7 @@
 			class="flex items-center gap-2 rounded-lg border border-base-content/30 bg-base-300 px-3 py-2 text-sm text-base-content/75 transition-colors hover:bg-base-300/80"
 			onclick={() => themeStore.toggleLightDark()}
 		>
-			{#if themeStore.isDark}
+			{#if isDark}
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path
 						d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
