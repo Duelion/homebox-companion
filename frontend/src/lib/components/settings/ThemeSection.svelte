@@ -55,11 +55,11 @@
 				>
 					<!-- Theme preview colors - use inline styles to pick up data-theme CSS variables -->
 					<div class="mb-2 flex gap-1">
-						<div class="h-4 w-4 rounded" style="background-color: oklch(var(--p))"></div>
-						<div class="h-4 w-4 rounded" style="background-color: oklch(var(--s))"></div>
-						<div class="h-4 w-4 rounded" style="background-color: oklch(var(--a))"></div>
+						<div class="h-4 w-4 rounded" style="background-color: var(--color-primary)"></div>
+						<div class="h-4 w-4 rounded" style="background-color: var(--color-secondary)"></div>
+						<div class="h-4 w-4 rounded" style="background-color: var(--color-accent)"></div>
 					</div>
-					<span class="text-xs font-medium" style="color: oklch(var(--bc))">{theme.label}</span>
+					<span class="text-xs font-medium" style="color: var(--color-base-content)">{theme.label}</span>
 					{#if currentTheme === theme.name}
 						<div class="absolute right-2 top-2">
 							<svg class="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -92,11 +92,11 @@
 				>
 					<!-- Theme preview colors - use inline styles to pick up data-theme CSS variables -->
 					<div class="mb-2 flex gap-1">
-						<div class="h-4 w-4 rounded" style="background-color: oklch(var(--p))"></div>
-						<div class="h-4 w-4 rounded" style="background-color: oklch(var(--s))"></div>
-						<div class="h-4 w-4 rounded" style="background-color: oklch(var(--a))"></div>
+						<div class="h-4 w-4 rounded" style="background-color: var(--color-primary)"></div>
+						<div class="h-4 w-4 rounded" style="background-color: var(--color-secondary)"></div>
+						<div class="h-4 w-4 rounded" style="background-color: var(--color-accent)"></div>
 					</div>
-					<span class="text-xs font-medium" style="color: oklch(var(--bc))">{theme.label}</span>
+					<span class="text-xs font-medium" style="color: var(--color-base-content)">{theme.label}</span>
 					{#if currentTheme === theme.name}
 						<div class="absolute right-2 top-2">
 							<svg class="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
