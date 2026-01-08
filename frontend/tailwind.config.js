@@ -81,44 +81,27 @@ export default {
       //
       // See: https://daisyui.com/docs/colors/
       colors: {
-        // Legacy neutral scale - DEPRECATED, use DaisyUI semantic colors instead:
+        // Legacy neutral scale - kept for backwards compatibility with existing components
+        // Prefer DaisyUI semantic colors for new code:
         //   bg-base-100 (lightest), bg-base-200, bg-base-300 (darkest surface)
         //   text-base-content, text-base-content/60, text-base-content/40
         //   border-base-content/20
         neutral: {
-          950: '#0a0a0f',  // Deprecated: use bg-base-100
-          900: '#13131f',  // Deprecated: use bg-base-200
-          800: '#1e1e2e',  // Deprecated: use bg-base-300
-          700: '#2a2a3e',  // Deprecated: use border-base-content/20
+          950: '#0a0a0f',
+          900: '#13131f',
+          800: '#1e1e2e',
+          700: '#2a2a3e',
           600: '#3a3a4e',
           500: '#64748b',
-          400: '#94a3b8',  // Deprecated: use text-base-content/60
+          400: '#94a3b8',
           300: '#cbd5e1',
           200: '#e2e8f0',
-          100: '#f1f5f9',  // Deprecated: use text-base-content
+          100: '#f1f5f9',
         },
-        // Semantic color aliases for use with opacity modifiers (e.g., bg-primary-500/20)
-        // These match the DaisyUI "homebox" theme values
-        'primary': {
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-        },
-        'success': {
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-        },
-        'warning': {
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
-        },
-        'error': {
-          400: '#f87171',
-          500: '#ef4444',
-          600: '#dc2626',
-        },
+        // NOTE: DO NOT define 'primary', 'success', 'warning', 'error' here!
+        // DaisyUI provides these as semantic colors via CSS variables.
+        // Defining them here shadows DaisyUI's classes (bg-primary, etc.) and breaks theming.
+        // Use DaisyUI's opacity syntax instead: bg-primary/50, text-success/80, etc.
       },
 
       // Typography scale with line-height and letter-spacing
