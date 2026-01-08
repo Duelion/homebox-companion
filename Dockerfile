@@ -2,9 +2,9 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --silent --no-progress 2>/dev/null
+RUN npm ci --silent --no-progress
 COPY frontend/ ./
-RUN npm run build --silent 2>/dev/null
+RUN npm run build
 
 # Stage 2: Python runtime
 FROM python:3.12-slim
