@@ -49,9 +49,12 @@
 
 	/* Input styles */
 	.input {
-		@apply w-full rounded-xl bg-base-200 px-4 py-3 text-base-content transition-all duration-150 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
+		@apply w-full rounded-xl bg-base-200 px-4 py-3 text-base-content transition-all duration-150 focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
 		border: 1px solid oklch(var(--bc) / 0.2);
 		--tw-ring-color: oklch(var(--p) / 0.2);
+	}
+	.input:focus {
+		border-color: oklch(var(--p));
 	}
 	.input::placeholder {
 		color: oklch(var(--bc) / 0.4);
@@ -63,9 +66,12 @@
 
 	/* Compact input variant for modals and dense UIs */
 	.input-sm {
-		@apply w-full rounded-lg bg-base-200 px-3 py-2 text-sm text-base-content transition-all duration-150 focus:border-primary focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
+		@apply w-full rounded-lg bg-base-200 px-3 py-2 text-sm text-base-content transition-all duration-150 focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
 		border: 1px solid oklch(var(--bc) / 0.2);
 		--tw-ring-color: oklch(var(--p) / 0.2);
+	}
+	.input-sm:focus {
+		border-color: oklch(var(--p));
 	}
 	.input-sm::placeholder {
 		color: oklch(var(--bc) / 0.4);
@@ -77,8 +83,12 @@
 
 	/* Input error state */
 	.input-error {
-		@apply border-error focus:border-error focus:ring-2;
+		@apply focus:ring-2;
+		border-color: oklch(var(--er));
 		--tw-ring-color: oklch(var(--er) / 0.2);
+	}
+	.input-error:focus {
+		border-color: oklch(var(--er));
 	}
 
 	/* Expandable input - base styles for use with expandable action */
@@ -110,7 +120,9 @@
 	}
 
 	.label-chip-selected {
-		@apply rounded-lg border-2 border-primary px-3 py-1.5 text-sm font-medium text-primary shadow-sm ring-2;
+		@apply rounded-lg border-2 px-3 py-1.5 text-sm font-medium shadow-sm ring-2;
+		border-color: oklch(var(--p));
+		color: oklch(var(--p));
 		background-color: oklch(var(--p) / 0.2);
 		--tw-ring-color: oklch(var(--p) / 0.2);
 	}
@@ -288,7 +300,8 @@
 
 	/* GFM Task Lists */
 	.markdown-content input[type='checkbox'] {
-		@apply mr-2 accent-primary;
+		@apply mr-2;
+		accent-color: oklch(var(--p));
 	}
 
 	.markdown-content li:has(input[type='checkbox']) {
@@ -298,7 +311,8 @@
 
 	/* Links */
 	.markdown-content a {
-		@apply text-primary underline transition-colors;
+		@apply underline transition-colors;
+		color: oklch(var(--p));
 	}
 	.markdown-content a:hover {
 		color: oklch(var(--p) / 0.8);

@@ -136,10 +136,11 @@
 		<div class="pointer-events-none absolute inset-0">
 			{#each notches as notch (notch.position)}
 				<div
-					class="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 transition-colors duration-300"
-					class:bg-primary={notch.completed && !isComplete}
-					class:bg-success={notch.completed && isComplete}
-					class:bg-base-content/30={!notch.completed}
+					class="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 transition-colors duration-300 {notch.completed
+						? isComplete
+							? 'bg-success'
+							: 'bg-primary'
+						: 'bg-base-content/30'}"
 					style="left: {notch.position}%"
 				></div>
 			{/each}
