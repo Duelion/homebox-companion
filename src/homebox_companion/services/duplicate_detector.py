@@ -1,25 +1,37 @@
 """Duplicate detection service for preventing duplicate items.
 
-This service checks for potential duplicate items by comparing serial numbers
-against existing items in Homebox.
+This service checks for potential duplicate items using multiple strategies:
+1. Serial number matching (exact, normalized)
+2. Manufacturer + Model number matching (exact)
+3. Fuzzy name matching (similarity threshold)
+
+The multi-strategy approach helps catch duplicates even when:
+- AI misreads serial numbers (e.g., adding extra digits)
+- Serial numbers are not available
+- Items are entered with slight name variations
 
 Features:
 - Persistent index storage (survives restarts)
 - Differential updates using asset IDs (only fetch new items)
 - Manual rebuild capability
 - Incremental updates when items are created
+- Uses export endpoint for efficient bulk data retrieval
 
 Note: The Homebox API's /items list endpoint returns ItemSummary which does NOT
-include serialNumber. To get serial numbers, we must fetch individual item details
-via /items/{id}. This service fetches details in parallel batches for efficiency.
+include serialNumber. This service uses the /items/export endpoint for efficient
+bulk retrieval of all item data including serial numbers, manufacturers, and models.
 """
 
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +46,26 @@ if TYPE_CHECKING:
 # Default path for persisted index
 INDEX_FILE = Path(settings.data_dir) / "duplicate_index.json"
 
+# Fuzzy matching threshold (0.0 to 1.0) - names must be this similar to match
+# 0.85 means 85% similar, catches typos and minor variations
+DEFAULT_NAME_SIMILARITY_THRESHOLD = 0.85
+
+# Minimum name length for fuzzy matching (avoid matching short generic names)
+MIN_NAME_LENGTH_FOR_FUZZY = 5
+
+
+class MatchType(Enum):
+    """Type of duplicate match found."""
+
+    SERIAL_NUMBER = "serial_number"
+    """Exact serial number match (highest confidence)."""
+
+    MANUFACTURER_MODEL = "manufacturer_model"
+    """Same manufacturer + model number (high confidence)."""
+
+    FUZZY_NAME = "fuzzy_name"
+    """Similar item name (medium confidence, may be false positive)."""
+
 
 @dataclass
 class ExistingItem:
@@ -45,6 +77,8 @@ class ExistingItem:
     asset_id: int = 0
     location_id: str | None = None
     location_name: str | None = None
+    manufacturer: str | None = None
+    model_number: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -60,6 +94,8 @@ class ExistingItem:
             asset_id=data.get("asset_id", 0),
             location_id=data.get("location_id"),
             location_name=data.get("location_name"),
+            manufacturer=data.get("manufacturer"),
+            model_number=data.get("model_number"),
         )
 
 
@@ -73,11 +109,32 @@ class DuplicateMatch:
     item_name: str
     """Name of the new item."""
 
-    serial_number: str
-    """The matching serial number (normalized)."""
-
     existing_item: ExistingItem
     """The existing item that matches."""
+
+    match_type: MatchType
+    """How the duplicate was detected."""
+
+    match_value: str
+    """The value that matched (serial, manufacturer+model, or name)."""
+
+    similarity_score: float = 1.0
+    """Similarity score (1.0 for exact matches, 0.0-1.0 for fuzzy)."""
+
+    @property
+    def confidence(self) -> str:
+        """Human-readable confidence level."""
+        if self.match_type == MatchType.SERIAL_NUMBER:
+            return "high"
+        elif self.match_type == MatchType.MANUFACTURER_MODEL:
+            return "high"
+        else:
+            if self.similarity_score >= 0.95:
+                return "medium-high"
+            elif self.similarity_score >= 0.90:
+                return "medium"
+            else:
+                return "low"
 
 
 @dataclass
@@ -96,6 +153,9 @@ class IndexStatus:
     items_with_serials: int
     """Number of items with serial numbers in index."""
 
+    items_with_model: int
+    """Number of items with manufacturer+model in index."""
+
     highest_asset_id: int
     """Highest asset ID seen (for differential updates)."""
 
@@ -104,16 +164,21 @@ class IndexStatus:
 
 
 class DuplicateDetector:
-    """Detects potential duplicate items by serial number.
+    """Detects potential duplicate items using multiple strategies.
 
     This service helps prevent accidentally adding duplicate items to Homebox
-    by checking serial numbers against existing inventory.
+    by checking against existing inventory using:
+    1. Serial number matching (exact, normalized)
+    2. Manufacturer + Model number matching (exact)
+    3. Fuzzy name matching (similarity threshold)
 
     Features:
+    - Multi-strategy duplicate detection
     - Builds index on first use or startup
     - Persists index to disk for fast restarts
     - Differential updates using asset IDs
     - Manual rebuild and incremental update support
+    - Uses export endpoint for efficient bulk retrieval
 
     Usage:
         detector = DuplicateDetector(homebox_client)
@@ -121,7 +186,7 @@ class DuplicateDetector:
         # Load persisted index (fast) then update with new items
         await detector.load_or_build(token)
 
-        # Check for duplicates
+        # Check for duplicates (returns matches with type and confidence)
         matches = await detector.find_duplicates(token, items)
 
         # After creating items, update index incrementally
@@ -135,18 +200,30 @@ class DuplicateDetector:
         self,
         client: HomeboxClient,
         index_path: Path | None = None,
+        name_similarity_threshold: float = DEFAULT_NAME_SIMILARITY_THRESHOLD,
     ) -> None:
         """Initialize the duplicate detector.
 
         Args:
             client: The HomeboxClient instance for API calls.
             index_path: Path to store persistent index. Defaults to config dir.
+            name_similarity_threshold: Minimum similarity (0.0-1.0) for fuzzy name matching.
         """
         self._client = client
         self._index_path = index_path or INDEX_FILE
+        self._name_similarity_threshold = name_similarity_threshold
 
         # In-memory index state
+        # Primary index: normalized serial number -> item
         self._serial_index: dict[str, ExistingItem] = {}
+
+        # Secondary index: normalized "manufacturer|model" -> item
+        self._model_index: dict[str, ExistingItem] = {}
+
+        # Tertiary index: all items for fuzzy name matching
+        self._all_items: list[ExistingItem] = []
+
+        # Tracking state
         self._known_item_ids: set[str] = set()
         self._highest_asset_id: int = 0
         self._total_items: int = 0
@@ -200,6 +277,62 @@ class DuplicateDetector:
                 return int(digits.lstrip("0") or "0")
         return 0
 
+    @staticmethod
+    def normalize_manufacturer_model(manufacturer: str | None, model: str | None) -> str | None:
+        """Create a normalized key from manufacturer and model number.
+
+        Args:
+            manufacturer: The manufacturer name.
+            model: The model number.
+
+        Returns:
+            Normalized "MANUFACTURER|MODEL" key or None if either is empty.
+        """
+        if not manufacturer or not model:
+            return None
+        mfr = manufacturer.strip().upper()
+        mdl = model.strip().upper()
+        if not mfr or not mdl:
+            return None
+        return f"{mfr}|{mdl}"
+
+    @staticmethod
+    def normalize_name(name: str | None) -> str | None:
+        """Normalize a name for comparison.
+
+        Args:
+            name: The item name to normalize.
+
+        Returns:
+            Lowercase, trimmed name with extra whitespace removed, or None if empty.
+        """
+        if not name:
+            return None
+        # Lowercase, strip, collapse multiple spaces
+        normalized = " ".join(name.lower().split())
+        return normalized if normalized else None
+
+    @staticmethod
+    def compute_name_similarity(name1: str, name2: str) -> float:
+        """Compute similarity ratio between two names.
+
+        Uses SequenceMatcher for fuzzy matching which handles:
+        - Typos and character transpositions
+        - Minor word variations
+        - Partial matches
+
+        Args:
+            name1: First name to compare.
+            name2: Second name to compare.
+
+        Returns:
+            Similarity ratio from 0.0 (completely different) to 1.0 (identical).
+        """
+        # Normalize both names for comparison
+        n1 = " ".join(name1.lower().split())
+        n2 = " ".join(name2.lower().split())
+        return SequenceMatcher(None, n1, n2).ratio()
+
     def get_status(self) -> IndexStatus:
         """Get current index status."""
         return IndexStatus(
@@ -207,9 +340,92 @@ class DuplicateDetector:
             last_update_time=self._last_update_time.isoformat() if self._last_update_time else None,
             total_items_indexed=self._total_items,
             items_with_serials=len(self._serial_index),
+            items_with_model=len(self._model_index),
             highest_asset_id=self._highest_asset_id,
             is_loaded=self._is_loaded,
         )
+
+    def _parse_export_csv(self, csv_data: str) -> list[dict[str, Any]]:
+        """Parse CSV export data from Homebox.
+
+        CSV columns from Homebox export:
+        HB.import_ref, HB.location, HB.labels, HB.asset_id, HB.archived, HB.url,
+        HB.name, HB.quantity, HB.description, HB.insured, HB.notes, HB.purchase_price,
+        HB.purchase_from, HB.purchase_time, HB.manufacturer, HB.model_number,
+        HB.serial_number, HB.lifetime_warranty, HB.warranty_expires, HB.warranty_details,
+        HB.sold_to, HB.sold_price, HB.sold_time, HB.sold_notes
+
+        Args:
+            csv_data: Raw CSV string from export endpoint.
+
+        Returns:
+            List of dicts with normalized field names.
+        """
+        items = []
+        reader = csv.DictReader(io.StringIO(csv_data))
+
+        for row in reader:
+            # Extract item ID from URL (last path segment)
+            url = row.get("HB.url", "")
+            item_id = url.split("/")[-1] if url else ""
+
+            items.append({
+                "id": item_id,
+                "name": row.get("HB.name", ""),
+                "serial_number": row.get("HB.serial_number", ""),
+                "manufacturer": row.get("HB.manufacturer", ""),
+                "model_number": row.get("HB.model_number", ""),
+                "asset_id": row.get("HB.asset_id", ""),
+                "location": row.get("HB.location", ""),
+                "description": row.get("HB.description", ""),
+            })
+
+        return items
+
+    def _add_to_all_indices(self, item_data: dict[str, Any]) -> None:
+        """Add an item to all applicable indices.
+
+        Args:
+            item_data: Item dict with id, name, serial_number, manufacturer,
+                      model_number, asset_id, location.
+        """
+        item_id = item_data.get("id", "")
+        name = item_data.get("name", "Unknown")
+        serial = self.normalize_serial(item_data.get("serial_number"))
+        manufacturer = item_data.get("manufacturer")
+        model = item_data.get("model_number")
+        asset_id = self.parse_asset_id(item_data.get("asset_id"))
+        location = item_data.get("location")
+
+        # Track item ID and highest asset ID
+        if item_id:
+            self._known_item_ids.add(item_id)
+        if asset_id > self._highest_asset_id:
+            self._highest_asset_id = asset_id
+
+        # Create ExistingItem
+        existing_item = ExistingItem(
+            id=item_id,
+            name=name,
+            serial_number=serial or "",
+            asset_id=asset_id,
+            location_id=None,  # Not available from CSV
+            location_name=location,
+            manufacturer=manufacturer,
+            model_number=model,
+        )
+
+        # Add to serial index if serial exists
+        if serial:
+            self._serial_index[serial] = existing_item
+
+        # Add to model index if manufacturer and model exist
+        model_key = self.normalize_manufacturer_model(manufacturer, model)
+        if model_key:
+            self._model_index[model_key] = existing_item
+
+        # Always add to all_items for fuzzy name matching
+        self._all_items.append(existing_item)
 
     def _save_to_disk(self) -> None:
         """Persist index to disk."""
@@ -217,7 +433,7 @@ class DuplicateDetector:
             self._index_path.parent.mkdir(parents=True, exist_ok=True)
 
             data = {
-                "version": 1,
+                "version": 2,  # Bumped for multi-index support
                 "last_build_time": self._last_build_time.isoformat() if self._last_build_time else None,
                 "last_update_time": self._last_update_time.isoformat() if self._last_update_time else None,
                 "highest_asset_id": self._highest_asset_id,
@@ -227,6 +443,11 @@ class DuplicateDetector:
                     serial: item.to_dict()
                     for serial, item in self._serial_index.items()
                 },
+                "model_index": {
+                    key: item.to_dict()
+                    for key, item in self._model_index.items()
+                },
+                "all_items": [item.to_dict() for item in self._all_items],
             }
 
             with open(self._index_path, "w", encoding="utf-8") as f:
@@ -250,9 +471,10 @@ class DuplicateDetector:
             with open(self._index_path, encoding="utf-8") as f:
                 data = json.load(f)
 
-            # Check version compatibility
-            if data.get("version", 0) != 1:
-                logger.warning("Duplicate index version mismatch, will rebuild")
+            # Check version compatibility - version 2 required for multi-index support
+            version = data.get("version", 0)
+            if version < 2:
+                logger.info("Duplicate index version 1 detected, will rebuild for multi-index support")
                 return False
 
             # Restore state
@@ -276,9 +498,22 @@ class DuplicateDetector:
                 for serial, item_data in data.get("serial_index", {}).items()
             }
 
+            # Restore model index
+            self._model_index = {
+                key: ExistingItem.from_dict(item_data)
+                for key, item_data in data.get("model_index", {}).items()
+            }
+
+            # Restore all items list for fuzzy name matching
+            self._all_items = [
+                ExistingItem.from_dict(item_data)
+                for item_data in data.get("all_items", [])
+            ]
+
             self._is_loaded = True
             logger.info(
                 f"Loaded duplicate index from disk: {len(self._serial_index)} serials, "
+                f"{len(self._model_index)} models, {len(self._all_items)} items for name matching, "
                 f"highest asset ID: {self._highest_asset_id}"
             )
             return True
@@ -317,36 +552,42 @@ class DuplicateDetector:
         *,
         max_concurrent: int = 10,
     ) -> IndexStatus:
-        """Full rebuild of the serial number index.
+        """Full rebuild of all duplicate detection indices.
 
-        Fetches ALL items from Homebox and rebuilds the index from scratch.
-        This is slower than differential update but ensures complete accuracy.
+        Uses the /items/export endpoint for efficient bulk retrieval of all
+        item data in a single API call. Builds three indices:
+        1. Serial number index (exact match)
+        2. Manufacturer+Model index (exact match)
+        3. All items list (for fuzzy name matching)
 
         Args:
             token: Bearer token for authentication.
-            max_concurrent: Maximum concurrent API requests.
+            max_concurrent: Maximum concurrent API requests (unused with export).
 
         Returns:
             Updated index status.
         """
-        logger.info("Starting full rebuild of duplicate index...")
+        logger.info("Starting full rebuild of duplicate index using export endpoint...")
 
         # Clear existing state
         self._serial_index = {}
+        self._model_index = {}
+        self._all_items = []
         self._known_item_ids = set()
         self._highest_asset_id = 0
         self._total_items = 0
 
-        # Fetch all items
+        # Fetch all items via export endpoint (single API call!)
         try:
-            response = await self._client.list_items(token)
-            # list_items returns paginated response: {items: [...], page, pageSize, total}
-            item_summaries = response.get("items", [])
+            csv_data = await self._client.export_items(token)
         except Exception as e:
-            logger.error(f"Failed to fetch items for index rebuild: {e}")
-            raise RuntimeError(f"Failed to fetch items from Homebox: {e}") from e
+            logger.error(f"Failed to export items for index rebuild: {e}")
+            raise RuntimeError(f"Failed to export items from Homebox: {e}") from e
 
-        if not item_summaries:
+        # Parse CSV and build indices
+        items_parsed = self._parse_export_csv(csv_data)
+
+        if not items_parsed:
             logger.info("No items in Homebox, index is empty")
             self._last_build_time = datetime.now(timezone.utc)
             self._last_update_time = self._last_build_time
@@ -354,23 +595,11 @@ class DuplicateDetector:
             self._save_to_disk()
             return self.get_status()
 
-        self._total_items = len(item_summaries)
+        self._total_items = len(items_parsed)
 
-        # Track highest asset ID from summaries
-        for item in item_summaries:
-            asset_id = self.parse_asset_id(item.get("assetId"))
-            if asset_id > self._highest_asset_id:
-                self._highest_asset_id = asset_id
-            item_id = item.get("id")
-            if item_id:
-                self._known_item_ids.add(item_id)
-
-        # Fetch details for all items in parallel
-        await self._fetch_and_index_items(
-            token,
-            item_summaries,
-            max_concurrent=max_concurrent,
-        )
+        # Build all indices from parsed items
+        for item_data in items_parsed:
+            self._add_to_all_indices(item_data)
 
         # Update timestamps
         self._last_build_time = datetime.now(timezone.utc)
@@ -381,7 +610,8 @@ class DuplicateDetector:
         self._save_to_disk()
 
         logger.info(
-            f"Index rebuild complete: {len(self._serial_index)} items with serials "
+            f"Index rebuild complete: {len(self._serial_index)} serials, "
+            f"{len(self._model_index)} models, {len(self._all_items)} items "
             f"out of {self._total_items} total items"
         )
         return self.get_status()
@@ -499,41 +729,60 @@ class DuplicateDetector:
             self._add_detail_to_index(detail)
 
     def _add_detail_to_index(self, detail: dict) -> bool:
-        """Add a single item detail to the index.
+        """Add a single item detail to all indices.
 
         Args:
             detail: Full item detail from API.
 
         Returns:
-            True if item had a serial number and was indexed.
+            True if item was indexed (always True for valid items).
         """
+        item_id = detail.get("id", "")
+        name = detail.get("name", "Unknown")
         serial = self.normalize_serial(detail.get("serialNumber"))
-        if not serial:
-            return False
-
+        manufacturer = detail.get("manufacturer")
+        model = detail.get("modelNumber")
         location = detail.get("location") or {}
-        self._serial_index[serial] = ExistingItem(
-            id=detail.get("id", ""),
-            name=detail.get("name", "Unknown"),
-            serial_number=serial,
+
+        # Create ExistingItem
+        existing_item = ExistingItem(
+            id=item_id,
+            name=name,
+            serial_number=serial or "",
             asset_id=self.parse_asset_id(detail.get("assetId")),
-            location_id=location.get("id"),
-            location_name=location.get("name"),
+            location_id=location.get("id") if isinstance(location, dict) else None,
+            location_name=location.get("name") if isinstance(location, dict) else None,
+            manufacturer=manufacturer,
+            model_number=model,
         )
+
+        # Add to serial index if serial exists
+        if serial:
+            self._serial_index[serial] = existing_item
+
+        # Add to model index if manufacturer and model exist
+        model_key = self.normalize_manufacturer_model(manufacturer, model)
+        if model_key:
+            self._model_index[model_key] = existing_item
+
+        # Always add to all_items for fuzzy name matching
+        self._all_items.append(existing_item)
+
         return True
 
     def add_item_to_index(self, item: dict) -> bool:
-        """Add a newly created item to the index.
+        """Add a newly created item to all indices.
 
         Call this after successfully creating an item in Homebox to keep
-        the index up-to-date without a full rebuild.
+        the indices up-to-date without a full rebuild.
 
         Args:
             item: Item data (from creation response or detection).
-                  Must have 'id' and optionally 'serialNumber'/'serial_number'.
+                  Should have 'id', 'name', and optionally 'serialNumber',
+                  'manufacturer', 'modelNumber'.
 
         Returns:
-            True if item was added to index (had serial number).
+            True if item was added to any index (always True for valid items).
         """
         item_id = item.get("id")
         if item_id:
@@ -545,27 +794,50 @@ class DuplicateDetector:
 
         self._total_items += 1
 
-        # Get serial number (support both cases)
+        # Get item data (support both camelCase and snake_case)
+        name = item.get("name", "Unknown")
         serial = item.get("serialNumber") or item.get("serial_number")
-        normalized = self.normalize_serial(serial)
-
-        if not normalized:
-            return False
-
+        manufacturer = item.get("manufacturer")
+        model = item.get("modelNumber") or item.get("model_number")
         location = item.get("location") or {}
-        self._serial_index[normalized] = ExistingItem(
+
+        normalized_serial = self.normalize_serial(serial)
+
+        # Create ExistingItem
+        existing_item = ExistingItem(
             id=item_id or "",
-            name=item.get("name", "Unknown"),
-            serial_number=normalized,
+            name=name,
+            serial_number=normalized_serial or "",
             asset_id=asset_id,
-            location_id=location.get("id"),
-            location_name=location.get("name"),
+            location_id=location.get("id") if isinstance(location, dict) else None,
+            location_name=location.get("name") if isinstance(location, dict) else location,
+            manufacturer=manufacturer,
+            model_number=model,
         )
+
+        # Add to serial index if serial exists
+        if normalized_serial:
+            self._serial_index[normalized_serial] = existing_item
+
+        # Add to model index if manufacturer and model exist
+        model_key = self.normalize_manufacturer_model(manufacturer, model)
+        if model_key:
+            self._model_index[model_key] = existing_item
+
+        # Always add to all_items for fuzzy name matching
+        self._all_items.append(existing_item)
 
         self._last_update_time = datetime.now(timezone.utc)
 
-        # Save periodically (every 10 items or so, handled by caller)
-        logger.debug(f"Added item to index: {item.get('name')} (serial: {normalized})")
+        # Log what was indexed
+        indexed = []
+        if normalized_serial:
+            indexed.append(f"serial: {normalized_serial}")
+        if model_key:
+            indexed.append(f"model: {model_key}")
+        indexed.append("name")
+
+        logger.debug(f"Added item to index: '{name}' ({', '.join(indexed)})")
         return True
 
     def save(self) -> None:
@@ -581,69 +853,142 @@ class DuplicateDetector:
         items: list[dict],
         *,
         ensure_loaded: bool = True,
+        check_serial: bool = True,
+        check_model: bool = True,
+        check_name: bool = True,
     ) -> list[DuplicateMatch]:
-        """Find potential duplicates by checking serial numbers.
+        """Find potential duplicates using multiple detection strategies.
+
+        Checks for duplicates using three strategies (in order of confidence):
+        1. Serial number matching (exact, highest confidence)
+        2. Manufacturer + Model matching (exact, high confidence)
+        3. Fuzzy name matching (similarity threshold, medium confidence)
 
         Args:
             token: Bearer token for authentication.
-            items: List of item dicts to check (must have 'serial_number' or 'serialNumber').
+            items: List of item dicts to check.
             ensure_loaded: If True and index not loaded, load/build first.
+            check_serial: Enable serial number matching.
+            check_model: Enable manufacturer+model matching.
+            check_name: Enable fuzzy name matching.
 
         Returns:
-            List of DuplicateMatch objects for items with matching serials.
+            List of DuplicateMatch objects with match type and confidence.
         """
         # Ensure index is loaded
         if ensure_loaded and not self._is_loaded:
             await self.load_or_build(token)
 
-        if not self._serial_index:
-            logger.debug("No existing items with serial numbers, skipping duplicate check")
+        if not self._all_items:
+            logger.debug("No existing items in index, skipping duplicate check")
             return []
 
         matches: list[DuplicateMatch] = []
-        checked_count = 0
+        # Track which items already matched (to avoid duplicate matches)
+        matched_existing_ids: set[str] = set()
 
         for i, item in enumerate(items):
-            # Support both snake_case and camelCase
-            serial = item.get("serial_number") or item.get("serialNumber")
-            normalized = self.normalize_serial(serial)
+            item_name = item.get("name", "Unknown")
+            item_matched_ids: set[str] = set()  # Track matches for this item
 
-            if not normalized:
-                continue
+            # Strategy 1: Serial number matching (highest confidence)
+            if check_serial:
+                serial = item.get("serial_number") or item.get("serialNumber")
+                normalized_serial = self.normalize_serial(serial)
 
-            checked_count += 1
+                if normalized_serial and normalized_serial in self._serial_index:
+                    existing = self._serial_index[normalized_serial]
+                    if existing.id not in item_matched_ids:
+                        matches.append(
+                            DuplicateMatch(
+                                item_index=i,
+                                item_name=item_name,
+                                existing_item=existing,
+                                match_type=MatchType.SERIAL_NUMBER,
+                                match_value=normalized_serial,
+                                similarity_score=1.0,
+                            )
+                        )
+                        item_matched_ids.add(existing.id)
+                        logger.warning(
+                            f"Serial match: '{item_name}' serial '{normalized_serial}' "
+                            f"matches '{existing.name}' (ID: {existing.id})"
+                        )
 
-            if normalized in self._serial_index:
-                existing = self._serial_index[normalized]
-                item_name = item.get("name", "Unknown")
-                matches.append(
-                    DuplicateMatch(
-                        item_index=i,
-                        item_name=item_name,
-                        serial_number=normalized,
-                        existing_item=existing,
-                    )
-                )
-                logger.warning(
-                    f"Potential duplicate found: '{item_name}' has serial '{normalized}' "
-                    f"matching existing item '{existing.name}' (ID: {existing.id})"
-                )
+            # Strategy 2: Manufacturer + Model matching (high confidence)
+            if check_model:
+                manufacturer = item.get("manufacturer")
+                model = item.get("model_number") or item.get("modelNumber")
+                model_key = self.normalize_manufacturer_model(manufacturer, model)
+
+                if model_key and model_key in self._model_index:
+                    existing = self._model_index[model_key]
+                    if existing.id not in item_matched_ids:
+                        matches.append(
+                            DuplicateMatch(
+                                item_index=i,
+                                item_name=item_name,
+                                existing_item=existing,
+                                match_type=MatchType.MANUFACTURER_MODEL,
+                                match_value=model_key,
+                                similarity_score=1.0,
+                            )
+                        )
+                        item_matched_ids.add(existing.id)
+                        logger.warning(
+                            f"Model match: '{item_name}' ({model_key}) "
+                            f"matches '{existing.name}' (ID: {existing.id})"
+                        )
+
+            # Strategy 3: Fuzzy name matching (medium confidence)
+            if check_name and len(item_name) >= MIN_NAME_LENGTH_FOR_FUZZY:
+                for existing in self._all_items:
+                    if existing.id in item_matched_ids:
+                        continue  # Already matched via serial or model
+
+                    if len(existing.name) < MIN_NAME_LENGTH_FOR_FUZZY:
+                        continue  # Skip short names
+
+                    similarity = self.compute_name_similarity(item_name, existing.name)
+                    if similarity >= self._name_similarity_threshold:
+                        matches.append(
+                            DuplicateMatch(
+                                item_index=i,
+                                item_name=item_name,
+                                existing_item=existing,
+                                match_type=MatchType.FUZZY_NAME,
+                                match_value=existing.name,
+                                similarity_score=similarity,
+                            )
+                        )
+                        item_matched_ids.add(existing.id)
+                        logger.info(
+                            f"Name match ({similarity:.0%}): '{item_name}' "
+                            f"similar to '{existing.name}' (ID: {existing.id})"
+                        )
+
+        # Summary logging
+        serial_matches = sum(1 for m in matches if m.match_type == MatchType.SERIAL_NUMBER)
+        model_matches = sum(1 for m in matches if m.match_type == MatchType.MANUFACTURER_MODEL)
+        name_matches = sum(1 for m in matches if m.match_type == MatchType.FUZZY_NAME)
 
         logger.info(
-            f"Duplicate check complete: {len(matches)} potential duplicates found "
-            f"out of {checked_count} items with serial numbers"
+            f"Duplicate check complete: {len(matches)} potential duplicates "
+            f"({serial_matches} serial, {model_matches} model, {name_matches} name)"
         )
         return matches
 
     def clear_cache(self) -> None:
-        """Clear the in-memory index.
+        """Clear all in-memory indices.
 
         The persisted index on disk is NOT deleted. Call rebuild_index()
         for a fresh start, or delete the index file manually.
         """
         self._serial_index = {}
+        self._model_index = {}
+        self._all_items = []
         self._known_item_ids = set()
         self._highest_asset_id = 0
         self._total_items = 0
         self._is_loaded = False
-        logger.debug("In-memory serial number index cleared")
+        logger.debug("In-memory duplicate indices cleared")
