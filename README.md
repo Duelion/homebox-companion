@@ -38,9 +38,6 @@ This fork adds the following features while maintaining full compatibility with 
 | **Configurable Timeouts** | Adjust AI timeout for slow models (30-600s) |
 | **Token Usage Display** | Optional display of AI token consumption |
 | **Custom API Endpoints** | OpenAI-compatible endpoints (Azure, LiteLLM proxy, etc.) |
-| **PWA Support** | Install as app on mobile devices |
-| **Pull-to-Refresh** | Native mobile gesture support |
-| **Offline Indicator** | Shows when network connection is lost |
 | **In-App Configuration** | Configure everything in the UI - no env vars required |
 
 ---
@@ -148,11 +145,9 @@ flowchart LR
 
 The interface adapts to any screen size:
 
-- **Mobile** - Single-column layout, bottom navigation, pull-to-refresh
+- **Mobile** - Single-column layout, bottom navigation
 - **Tablet** - Two-column settings, optimized touch targets
 - **Desktop** - Multi-column layout, expanded navigation
-
-Install as a PWA on mobile for app-like experience with offline indicator.
 
 ### Multi-Provider AI
 
