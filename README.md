@@ -30,9 +30,13 @@ This fork adds the following features while maintaining full compatibility with 
 |---------|-------------|
 | **Multi-Provider AI** | Switch between OpenAI, Anthropic, and Ollama from the Settings UI |
 | **Local AI (Ollama)** | Privacy-first local processing - images never leave your network |
-| **Duplicate Detection** | Warns when scanned items match existing serial numbers |
+| **Product Enrichment** | AI-powered spec lookup fills in product details from web search |
+| **Duplicate Detection** | Multi-strategy matching (serial, manufacturer+model, fuzzy name) |
+| **Update Existing Items** | Merge new photos/data into existing items when duplicates found |
+| **Provider Fallback** | Auto-retry with backup provider if primary fails |
+| **Token Usage Display** | Optional display of AI token consumption |
+| **Custom API Endpoints** | OpenAI-compatible endpoints (Azure, LiteLLM proxy, etc.) |
 | **In-App Configuration** | Configure everything in the UI - no YAML/env vars required |
-| **Simplified Deployment** | Just mount a volume, configure in browser |
 
 See the [Wiki](../../wiki) for detailed documentation on all features.
 
@@ -132,19 +136,55 @@ Configure and switch between AI providers directly in the Settings UI:
 - **Anthropic** - Claude models (cloud, paid)
 - **Ollama** - Local models like minicpm-v, llava (free, private)
 
-Each provider can be enabled/disabled independently. The active provider is shown in a badge on the Settings page.
+Each provider can be enabled/disabled independently. The active provider is shown with a ⭐ badge on the Settings page.
+
+**Custom API Endpoints**: OpenAI supports custom `api_base` URLs for:
+- Azure OpenAI deployments
+- LiteLLM proxy servers
+- Any OpenAI-compatible API
+
+**Provider Fallback**: Enable automatic retry with a backup provider if the primary fails.
+
+**Configurable Timeout**: Ollama users can adjust the timeout (30-600s) for slow vision models on CPU.
+
+### Product Enrichment
+
+AI-powered specification lookup to automatically fill in product details:
+
+- Searches the web for product specifications using the manufacturer and model number
+- Fills in description, features, MSRP, release year, and category
+- Uses configured search provider (Tavily, Google Custom Search, or SearXNG)
+- Caches results to avoid repeated lookups
+- Privacy-first: Serial numbers are never sent externally
+
+Enable in Settings > Enrichment. Configure your preferred search provider API.
 
 ### Duplicate Detection
 
-Prevents accidentally creating duplicate inventory entries:
+Multi-strategy detection prevents accidentally creating duplicate entries:
 
-- Builds an index of all serial numbers in your Homebox
-- Checks scanned items against the index during review
-- Shows warning banner: "May be duplicate - matches [Item Name]"
-- Non-blocking - you can still add items if desired
-- Persistent index survives container restarts
+| Strategy | Description |
+|----------|-------------|
+| **Serial Number** | Exact match on serial numbers |
+| **Manufacturer + Model** | Matches same manufacturer AND model number |
+| **Fuzzy Name** | Similar product names (configurable threshold) |
+
+When duplicates are found during review:
+- Warning banner shows matched item with confidence score
+- **Update Existing**: Merge new photos and fill empty fields into the existing item
+- **Create New**: Override and create a new item anyway
+- Match field is protected (won't overwrite the field that caused the match)
 
 Enable in Settings > Behavior Settings.
+
+### Token Usage Display
+
+Optional display showing AI token consumption for each analysis:
+- Input tokens (image + prompt)
+- Output tokens (AI response)
+- Helps monitor API costs
+
+Enable in Settings > Behavior Settings > Show Token Usage.
 
 ### In-App Settings
 
@@ -155,7 +195,12 @@ All configuration moved from environment variables to the UI:
 | Homebox URL | Settings > Connection |
 | Image Quality | Settings > Connection |
 | AI Provider/Keys | Settings > AI Provider |
+| Ollama Timeout | Settings > AI Provider > Ollama |
+| Provider Fallback | Settings > AI Provider |
 | Duplicate Detection | Settings > Behavior |
+| Token Usage Display | Settings > Behavior |
+| Enrichment | Settings > Enrichment |
+| Search Provider | Settings > Enrichment |
 
 Settings persist in `/app/data` - mount the volume and configure once.
 
@@ -252,16 +297,44 @@ While this fork allows full configuration via the UI, environment variables stil
 <details>
 <summary>Full Configuration Reference</summary>
 
+**Core Settings**
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HBC_LLM_MODEL` | `gpt-4o-mini` | Model to use for cloud AI |
-| `HBC_LLM_API_BASE` | - | Custom API base URL |
-| `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
+| `HBC_HOMEBOX_URL` | - | Your Homebox instance URL |
 | `HBC_IMAGE_QUALITY` | `medium` | Image quality: `raw`, `high`, `medium`, `low` |
+| `HBC_DATA_DIR` | `./data` | Data directory (becomes `/app/data` in Docker) |
 | `HBC_SERVER_HOST` | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
-| `HBC_DATA_DIR` | `./data` | Data directory (becomes `/app/data` in Docker) |
+
+**AI Provider Settings**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_LLM_API_KEY` | - | OpenAI/Anthropic API key |
+| `HBC_LLM_MODEL` | `gpt-4o-mini` | Model to use for cloud AI |
+| `HBC_LLM_API_BASE` | - | Custom API base URL (Azure, LiteLLM, etc.) |
+| `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
+| `HBC_OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
+| `HBC_OLLAMA_MODEL` | `minicpm-v` | Ollama model for vision |
+| `HBC_OLLAMA_TIMEOUT` | `120` | Ollama request timeout in seconds |
+
+**Feature Flags**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_CHAT_ENABLED` | `false` | Enable chat assistant feature |
+| `HBC_DUPLICATE_DETECTION` | `true` | Enable duplicate item detection |
+| `HBC_SHOW_TOKEN_USAGE` | `false` | Show AI token usage in UI |
+
+**Enrichment Settings**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_ENRICHMENT_ENABLED` | `false` | Enable product enrichment |
+| `HBC_ENRICHMENT_AUTO` | `false` | Auto-enrich on scan |
+| `HBC_SEARCH_PROVIDER` | `none` | Search provider: `tavily`, `google`, `searxng`, `none` |
+| `HBC_SEARCH_TAVILY_API_KEY` | - | Tavily API key |
+| `HBC_SEARCH_GOOGLE_API_KEY` | - | Google Custom Search API key |
+| `HBC_SEARCH_GOOGLE_ENGINE_ID` | - | Google Custom Search Engine ID |
+| `HBC_SEARCH_SEARXNG_URL` | - | SearXNG instance URL |
 
 </details>
 
@@ -271,6 +344,10 @@ While this fork allows full configuration via the UI, environment variables stil
 
 - **Use local AI for privacy** - Ollama keeps all image processing on your network
 - **Enable duplicate detection** - Prevents accidentally re-adding items you already have
+- **Use "Update Existing"** - When a duplicate is found, merge new photos into the existing item
+- **Enable enrichment** - Let AI fill in product specs automatically from web search
+- **Increase Ollama timeout** - Vision models on CPU can be slow; try 300-600s
+- **Set up provider fallback** - Use Ollama as primary, cloud as backup for reliability
 - **Batch more items** - Images are analyzed in parallel, so more items = faster per-item
 - **Include receipts** - AI can extract purchase price, retailer, and date
 - **Multiple angles** - Include close-ups of labels, serial numbers for accuracy
