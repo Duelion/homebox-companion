@@ -110,7 +110,7 @@ def filter_default_label(label_ids: list[str] | None, default_label_id: str | No
 def get_llm_model_for_litellm(llm_config: LLMConfig) -> str:
     """Get the model name formatted for LiteLLM.
 
-    For OpenAI and Anthropic providers, we need to prefix the model name
+    For Ollama and Anthropic providers, we need to prefix the model name
     so LiteLLM routes to the correct provider.
 
     Args:
@@ -119,14 +119,18 @@ def get_llm_model_for_litellm(llm_config: LLMConfig) -> str:
     Returns:
         Model name formatted for LiteLLM.
     """
-    if llm_config.provider == "anthropic":
+    if llm_config.provider == "ollama":
+        # Ollama models need prefix for LiteLLM routing
+        if not llm_config.model.startswith("ollama/"):
+            return f"ollama/{llm_config.model}"
+    elif llm_config.provider == "anthropic":
         # Anthropic models need prefix for LiteLLM
         if not llm_config.model.startswith("anthropic/"):
             return f"anthropic/{llm_config.model}"
     elif llm_config.provider == "openai":
         # OpenAI models work as-is with LiteLLM
         pass
-    # For ollama and litellm, use model as-is
+    # For litellm provider, use model as-is (user controls the full model string)
     return llm_config.model
 
 
@@ -149,7 +153,7 @@ async def run_with_fallback(
         operation_name: Name of the operation for logging.
         async_fn: Async function to call.
         *args, **kwargs: Arguments to pass to the function.
-            The function should accept 'api_key' and 'model' kwargs.
+            The function should accept 'api_key', 'model', and 'api_base' kwargs.
 
     Returns:
         Result from the async function.
@@ -163,6 +167,7 @@ async def run_with_fallback(
             *args,
             api_key=primary_config.api_key,
             model=get_llm_model_for_litellm(primary_config),
+            api_base=primary_config.api_base,
             **kwargs,
         )
     except Exception as primary_error:
@@ -190,6 +195,7 @@ async def run_with_fallback(
                 *args,
                 api_key=fallback_config.api_key,
                 model=get_llm_model_for_litellm(fallback_config),
+                api_base=fallback_config.api_base,
                 **kwargs,
             )
             logger.info(f"[FALLBACK] Fallback to '{fallback_config.provider}' succeeded")

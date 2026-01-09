@@ -29,6 +29,7 @@ async def detect_items_from_bytes(
     api_key: str | None = None,
     mime_type: str = "image/jpeg",
     model: str | None = None,
+    api_base: str | None = None,
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
@@ -44,6 +45,7 @@ async def detect_items_from_bytes(
         api_key: LLM API key. Defaults to effective_llm_api_key.
         mime_type: MIME type of the primary image.
         model: Model name. Defaults to effective_llm_model.
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
         labels: Optional list of Homebox labels to suggest for items.
         single_item: If True, treat everything in the image as a single item.
         extra_instructions: Optional user hint about what's in the image.
@@ -68,7 +70,8 @@ async def detect_items_from_bytes(
         image_data_uris,
         api_key or settings.effective_llm_api_key,
         model or settings.effective_llm_model,
-        labels,
+        api_base=api_base,
+        labels=labels,
         single_item=single_item,
         extra_instructions=extra_instructions,
         extract_extended_fields=extract_extended_fields,
@@ -81,6 +84,7 @@ async def _detect_items_from_data_uris(
     image_data_uris: list[str],
     api_key: str,
     model: str,
+    api_base: str | None = None,
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
@@ -94,6 +98,7 @@ async def _detect_items_from_data_uris(
         image_data_uris: List of base64-encoded image data URIs.
         api_key: LLM API key.
         model: LLM model name.
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
         labels: Optional list of Homebox labels for item tagging.
         single_item: If True, treat everything as a single item.
         extra_instructions: User-provided hint about image contents.
@@ -134,6 +139,7 @@ async def _detect_items_from_data_uris(
         image_data_uris=image_data_uris,
         api_key=api_key,
         model=model,
+        api_base=api_base,
         expected_keys=["items"],
     )
 
@@ -156,6 +162,7 @@ async def discriminatory_detect_items(
     image_data_uris: list[str],
     api_key: str | None = None,
     model: str | None = None,
+    api_base: str | None = None,
     labels: list[dict[str, str]] | None = None,
     extract_extended_fields: bool = True,
     field_preferences: dict[str, str] | None = None,
@@ -170,6 +177,7 @@ async def discriminatory_detect_items(
         image_data_uris: List of data URI strings for each image.
         api_key: LLM API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
         labels: Optional list of Homebox labels to suggest for items.
         extract_extended_fields: If True, also extract extended fields.
         field_preferences: Optional dict of field customization instructions.
@@ -197,6 +205,7 @@ async def discriminatory_detect_items(
         image_data_uris=image_data_uris,
         api_key=api_key,
         model=model,
+        api_base=api_base,
         expected_keys=["items"],
     )
 
@@ -213,6 +222,7 @@ async def grouped_detect_items(
     image_data_uris: list[str],
     api_key: str | None = None,
     model: str | None = None,
+    api_base: str | None = None,
     labels: list[dict[str, str]] | None = None,
     extract_extended_fields: bool = True,
     extra_instructions: str | None = None,
@@ -234,6 +244,7 @@ async def grouped_detect_items(
         image_data_uris: List of data URI strings for each image.
         api_key: LLM API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
         labels: Optional list of Homebox labels to suggest for items.
         extract_extended_fields: If True, also extract extended fields.
         extra_instructions: Optional user hint about image contents.
@@ -266,6 +277,7 @@ async def grouped_detect_items(
         image_data_uris=image_data_uris,
         api_key=api_key,
         model=model,
+        api_base=api_base,
         expected_keys=["items"],
     )
 

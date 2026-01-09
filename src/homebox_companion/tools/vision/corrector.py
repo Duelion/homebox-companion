@@ -21,6 +21,7 @@ async def correct_item(
     correction_instructions: str,
     api_key: str | None = None,
     model: str | None = None,
+    api_base: str | None = None,
     labels: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
@@ -38,6 +39,7 @@ async def correct_item(
             or how to fix the detection.
         api_key: LLM API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
         labels: Optional list of Homebox labels to suggest for items.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -103,6 +105,7 @@ async def correct_item(
         image_data_uris=[image_data_uri],
         api_key=api_key,
         model=model,
+        api_base=api_base,
         expected_keys=["items"],
     )
 

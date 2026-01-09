@@ -342,6 +342,7 @@ async def chat_completion(
     *,
     api_key: str | None = None,
     model: str | None = None,
+    api_base: str | None = None,
     response_format: dict[str, str] | None = None,
     expected_keys: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -351,6 +352,8 @@ async def chat_completion(
         messages: List of message dicts for the conversation.
         api_key: API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
+            If not provided, falls back to config.settings.llm_api_base.
         response_format: Optional response format (e.g., {"type": "json_object"}).
         expected_keys: Optional keys to validate in JSON response.
 
@@ -362,6 +365,8 @@ async def chat_completion(
     """
     api_key = api_key or config.settings.effective_llm_api_key
     model = model or config.settings.effective_llm_model
+    # Use passed api_base if provided, otherwise fall back to global config
+    effective_api_base = api_base if api_base is not None else config.settings.llm_api_base
 
     # Determine response format based on capabilities (if validation enabled)
     effective_response_format = response_format
@@ -375,7 +380,7 @@ async def chat_completion(
         messages,
         model=model,
         api_key=api_key,
-        api_base=config.settings.llm_api_base,
+        api_base=effective_api_base,
         response_format=effective_response_format,
         expected_keys=expected_keys,
     )
@@ -388,6 +393,7 @@ async def vision_completion(
     *,
     api_key: str | None = None,
     model: str | None = None,
+    api_base: str | None = None,
     expected_keys: list[str] | None = None,
 ) -> dict[str, Any]:
     """Send a vision completion request with images to the LLM.
@@ -398,6 +404,8 @@ async def vision_completion(
         image_data_uris: List of base64-encoded image data URIs.
         api_key: API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
+            If not provided, falls back to config.settings.llm_api_base.
         expected_keys: Optional keys to validate in JSON response.
 
     Returns:
@@ -413,6 +421,8 @@ async def vision_completion(
 
     api_key = api_key or config.settings.effective_llm_api_key
     model = model or config.settings.effective_llm_model
+    # Use passed api_base if provided, otherwise fall back to global config
+    effective_api_base = api_base if api_base is not None else config.settings.llm_api_base
 
     # Determine capabilities and response format
     response_format: dict[str, str] | None = None
@@ -496,7 +506,7 @@ async def vision_completion(
         messages,
         model=model,
         api_key=api_key,
-        api_base=config.settings.llm_api_base,
+        api_base=effective_api_base,
         response_format=response_format,
         expected_keys=expected_keys,
     )

@@ -335,11 +335,13 @@ class LLMConfig:
         api_key: The API key for the provider (may be None for Ollama/LiteLLM).
         model: The model name to use.
         provider: The provider type (ollama, openai, anthropic, litellm).
+        api_base: Optional custom API base URL (e.g., Ollama server URL).
     """
 
     api_key: str | None
     model: str
     provider: str
+    api_base: str | None = None
 
 
 def get_llm_config() -> LLMConfig:
@@ -365,6 +367,7 @@ def get_llm_config() -> LLMConfig:
                     api_key=None,  # Ollama doesn't need API key
                     model=ai_config.ollama.model,
                     provider="ollama",
+                    api_base=ai_config.ollama.url,
                 )
         elif active_provider == AIProvider.OPENAI:
             if ai_config.openai.enabled and ai_config.openai.api_key:
@@ -387,6 +390,7 @@ def get_llm_config() -> LLMConfig:
                     api_key=settings.effective_llm_api_key,  # May be None
                     model=ai_config.litellm.model,
                     provider="litellm",
+                    api_base=settings.llm_api_base,  # From HBC_LLM_API_BASE env var
                 )
     except Exception as e:
         logger.debug(f"Could not load AI config, falling back to env vars: {e}")
@@ -397,6 +401,7 @@ def get_llm_config() -> LLMConfig:
             api_key=settings.effective_llm_api_key,
             model=settings.effective_llm_model,
             provider="litellm",  # Env vars use LiteLLM
+            api_base=settings.llm_api_base,  # From HBC_LLM_API_BASE env var
         )
 
     logger.error("LLM API key not configured")
@@ -464,6 +469,7 @@ def get_fallback_llm_config() -> LLMConfig | None:
                     api_key=None,
                     model=ai_config.ollama.model,
                     provider="ollama",
+                    api_base=ai_config.ollama.url,
                 )
         elif fallback_provider == AIProvider.OPENAI:
             if ai_config.openai.enabled and ai_config.openai.api_key:
@@ -485,6 +491,7 @@ def get_fallback_llm_config() -> LLMConfig | None:
                     api_key=settings.effective_llm_api_key,
                     model=ai_config.litellm.model,
                     provider="litellm",
+                    api_base=settings.llm_api_base,
                 )
 
         return None
