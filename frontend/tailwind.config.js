@@ -36,6 +36,7 @@ export default {
       // Custom "homebox" theme that matches the Homebox default
       {
         homebox: {
+          'color-scheme': 'dark',
           'primary': '#6366f1',
           'primary-content': '#ffffff',
           'secondary': '#818cf8',
