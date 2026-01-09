@@ -103,7 +103,6 @@ export {
 	type OllamaConfigData,
 	type OpenAIConfigData,
 	type AnthropicConfigData,
-	type LiteLLMConfigData,
 	type ProviderInfo,
 	type TestConnectionResponse,
 } from './aiConfig';

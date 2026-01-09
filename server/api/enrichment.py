@@ -77,11 +77,12 @@ def create_ai_provider(llm_config: LLMConfig) -> OllamaProvider | LiteLLMProvide
             timeout=ai_config.ollama.timeout,
         )
     else:
-        # OpenAI, Anthropic, and LiteLLM all use LiteLLMProvider
+        # OpenAI and Anthropic use LiteLLMProvider
         return LiteLLMProvider(
             api_key=llm_config.api_key,
             model=llm_config.model,
             provider_type=llm_config.provider,
+            api_base=llm_config.api_base,
         )
 
 

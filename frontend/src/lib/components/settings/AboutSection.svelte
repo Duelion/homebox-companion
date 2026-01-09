@@ -17,8 +17,6 @@
 				return 'OpenAI';
 			case 'anthropic':
 				return 'Anthropic';
-			case 'litellm':
-				return 'Cloud';
 			default:
 				return providerId;
 		}

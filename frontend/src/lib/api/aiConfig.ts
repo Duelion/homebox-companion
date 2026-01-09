@@ -18,6 +18,7 @@ export interface OllamaConfigData {
 export interface OpenAIConfigData {
 	enabled: boolean;
 	api_key: string | null;
+	api_base: string | null;
 	has_api_key?: boolean;
 	model: string;
 	max_tokens: number;
@@ -29,11 +30,6 @@ export interface AnthropicConfigData {
 	has_api_key?: boolean;
 	model: string;
 	max_tokens: number;
-}
-
-export interface LiteLLMConfigData {
-	enabled: boolean;
-	model: string;
 }
 
 export interface ProviderInfo {
@@ -52,7 +48,6 @@ export interface AIConfigResponse {
 	ollama: OllamaConfigData;
 	openai: OpenAIConfigData;
 	anthropic: AnthropicConfigData;
-	litellm: LiteLLMConfigData;
 	providers: ProviderInfo[];
 }
 
@@ -63,7 +58,6 @@ export interface AIConfigInput {
 	ollama: OllamaConfigData;
 	openai: Omit<OpenAIConfigData, 'has_api_key'>;
 	anthropic: Omit<AnthropicConfigData, 'has_api_key'>;
-	litellm: LiteLLMConfigData;
 }
 
 export interface TestConnectionRequest {
@@ -141,8 +135,9 @@ export function getDefaultProviderConfig(provider: string): Record<string, unkno
 			};
 		case 'openai':
 			return {
-				enabled: false,
+				enabled: true,
 				api_key: null,
+				api_base: null,
 				model: 'gpt-4o',
 				max_tokens: 4096,
 			};
@@ -152,11 +147,6 @@ export function getDefaultProviderConfig(provider: string): Record<string, unkno
 				api_key: null,
 				model: 'claude-sonnet-4-20250514',
 				max_tokens: 4096,
-			};
-		case 'litellm':
-			return {
-				enabled: true,
-				model: 'gpt-4o',
 			};
 		default:
 			return {};

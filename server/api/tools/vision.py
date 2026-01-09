@@ -150,7 +150,7 @@ def get_llm_model_for_litellm(llm_config: LLMConfig) -> str:
     elif llm_config.provider == "openai":
         # OpenAI models work as-is with LiteLLM
         pass
-    # For litellm provider, use model as-is (user controls the full model string)
+    # Default: use model as-is
     return llm_config.model
 
 

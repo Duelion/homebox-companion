@@ -52,6 +52,7 @@ class LiteLLMProvider:
         model: str,
         provider_type: str = "openai",
         timeout: float = 120.0,
+        api_base: str | None = None,
     ):
         """Initialize the LiteLLM provider.
 
@@ -60,11 +61,13 @@ class LiteLLMProvider:
             model: Model name to use
             provider_type: Provider type (openai, anthropic, litellm)
             timeout: Request timeout in seconds
+            api_base: Optional custom API base URL (for self-hosted endpoints)
         """
         self.api_key = api_key
         self.model = model
         self.provider_type = provider_type
         self.timeout = timeout
+        self.api_base = api_base
 
     def _get_litellm_model(self) -> str:
         """Get the model name formatted for LiteLLM.
@@ -113,6 +116,9 @@ class LiteLLMProvider:
         if self.api_key:
             kwargs["api_key"] = self.api_key
 
+        if self.api_base:
+            kwargs["api_base"] = self.api_base
+
         if format_json:
             kwargs["response_format"] = {"type": "json_object"}
 
@@ -142,8 +148,8 @@ class LiteLLMProvider:
         Returns:
             True if the provider appears to be configured.
         """
-        # For API-key based providers, check if key is set
+        # For API-key based providers, check if key is set or api_base is configured
         if self.provider_type in ("openai", "anthropic"):
-            return bool(self.api_key)
-        # For litellm proxy, assume it's available if model is set
-        return bool(self.model)
+            return bool(self.api_key) or bool(self.api_base)
+        # For litellm proxy, assume it's available if model is set or api_base is configured
+        return bool(self.model) or bool(self.api_base)

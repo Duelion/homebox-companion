@@ -332,10 +332,10 @@ class LLMConfig:
     """Configuration for LLM access.
 
     Attributes:
-        api_key: The API key for the provider (may be None for Ollama/LiteLLM).
+        api_key: The API key for the provider (may be None for Ollama or self-hosted endpoints).
         model: The model name to use.
-        provider: The provider type (ollama, openai, anthropic, litellm).
-        api_base: Optional custom API base URL (e.g., Ollama server URL).
+        provider: The provider type (ollama, openai, anthropic).
+        api_base: Optional custom API base URL (e.g., Ollama server URL or OpenAI-compatible endpoint).
     """
 
     api_key: str | None
@@ -370,11 +370,12 @@ def get_llm_config() -> LLMConfig:
                     api_base=ai_config.ollama.url,
                 )
         elif active_provider == AIProvider.OPENAI:
-            if ai_config.openai.enabled and ai_config.openai.api_key:
+            if ai_config.openai.enabled and (ai_config.openai.api_key or ai_config.openai.api_base):
                 return LLMConfig(
-                    api_key=ai_config.openai.api_key.get_secret_value(),
+                    api_key=ai_config.openai.api_key.get_secret_value() if ai_config.openai.api_key else None,
                     model=ai_config.openai.model,
                     provider="openai",
+                    api_base=ai_config.openai.api_base,
                 )
         elif active_provider == AIProvider.ANTHROPIC:
             if ai_config.anthropic.enabled and ai_config.anthropic.api_key:
@@ -382,15 +383,6 @@ def get_llm_config() -> LLMConfig:
                     api_key=ai_config.anthropic.api_key.get_secret_value(),
                     model=ai_config.anthropic.model,
                     provider="anthropic",
-                )
-        elif active_provider == AIProvider.LITELLM:
-            if ai_config.litellm.enabled:
-                # LiteLLM uses environment variable or app-provided key
-                return LLMConfig(
-                    api_key=settings.effective_llm_api_key,  # May be None
-                    model=ai_config.litellm.model,
-                    provider="litellm",
-                    api_base=settings.llm_api_base,  # From HBC_LLM_API_BASE env var
                 )
     except Exception as e:
         logger.debug(f"Could not load AI config, falling back to env vars: {e}")
@@ -400,7 +392,7 @@ def get_llm_config() -> LLMConfig:
         return LLMConfig(
             api_key=settings.effective_llm_api_key,
             model=settings.effective_llm_model,
-            provider="litellm",  # Env vars use LiteLLM
+            provider="openai",  # Env vars use OpenAI-compatible endpoint
             api_base=settings.llm_api_base,  # From HBC_LLM_API_BASE env var
         )
 
@@ -472,11 +464,12 @@ def get_fallback_llm_config() -> LLMConfig | None:
                     api_base=ai_config.ollama.url,
                 )
         elif fallback_provider == AIProvider.OPENAI:
-            if ai_config.openai.enabled and ai_config.openai.api_key:
+            if ai_config.openai.enabled and (ai_config.openai.api_key or ai_config.openai.api_base):
                 return LLMConfig(
-                    api_key=ai_config.openai.api_key.get_secret_value(),
+                    api_key=ai_config.openai.api_key.get_secret_value() if ai_config.openai.api_key else None,
                     model=ai_config.openai.model,
                     provider="openai",
+                    api_base=ai_config.openai.api_base,
                 )
         elif fallback_provider == AIProvider.ANTHROPIC:
             if ai_config.anthropic.enabled and ai_config.anthropic.api_key:
@@ -484,14 +477,6 @@ def get_fallback_llm_config() -> LLMConfig | None:
                     api_key=ai_config.anthropic.api_key.get_secret_value(),
                     model=ai_config.anthropic.model,
                     provider="anthropic",
-                )
-        elif fallback_provider == AIProvider.LITELLM:
-            if ai_config.litellm.enabled:
-                return LLMConfig(
-                    api_key=settings.effective_llm_api_key,
-                    model=ai_config.litellm.model,
-                    provider="litellm",
-                    api_base=settings.llm_api_base,
                 )
 
         return None

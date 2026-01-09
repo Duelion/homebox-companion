@@ -33,6 +33,7 @@
 				openai: {
 					enabled: service.aiConfig.openai.enabled,
 					api_key: null,
+					api_base: service.aiConfig.openai.api_base,
 					model: service.aiConfig.openai.model,
 					max_tokens: service.aiConfig.openai.max_tokens,
 				},
@@ -42,7 +43,6 @@
 					model: service.aiConfig.anthropic.model,
 					max_tokens: service.aiConfig.anthropic.max_tokens,
 				},
-				litellm: { ...service.aiConfig.litellm },
 			};
 		}
 	});
@@ -62,6 +62,7 @@
 				openai: {
 					enabled: service.aiConfig.openai.enabled,
 					api_key: null,
+					api_base: service.aiConfig.openai.api_base,
 					model: service.aiConfig.openai.model,
 					max_tokens: service.aiConfig.openai.max_tokens,
 				},
@@ -71,7 +72,6 @@
 					model: service.aiConfig.anthropic.model,
 					max_tokens: service.aiConfig.anthropic.max_tokens,
 				},
-				litellm: { ...service.aiConfig.litellm },
 			};
 		}
 		lastSaveState = currentSaveState;
@@ -92,6 +92,7 @@
 		} else if (provider === 'openai') {
 			// Pass api_key if user entered one, otherwise pass use_stored flag
 			config.api_key = editingConfig.openai.api_key;
+			config.api_base = editingConfig.openai.api_base;
 			config.model = editingConfig.openai.model;
 			// Signal to use stored key if no new key provided
 			if (!editingConfig.openai.api_key && service.aiConfig?.openai.has_api_key) {
@@ -103,8 +104,6 @@
 			if (!editingConfig.anthropic.api_key && service.aiConfig?.anthropic.has_api_key) {
 				config.use_stored_key = true;
 			}
-		} else if (provider === 'litellm') {
-			config.model = editingConfig.litellm.model;
 		}
 
 		await service.testAIProviderConnection(provider, config);
@@ -126,9 +125,6 @@
 	function toggleAnthropic() {
 		if (editingConfig) editingConfig.anthropic.enabled = !editingConfig.anthropic.enabled;
 	}
-	function toggleLiteLLM() {
-		if (editingConfig) editingConfig.litellm.enabled = !editingConfig.litellm.enabled;
-	}
 
 	// Save current provider's config only
 	async function saveProviderConfig(providerId: string) {
@@ -146,6 +142,7 @@
 			editingConfig.openai = {
 				enabled: service.aiConfig.openai.enabled,
 				api_key: null,
+				api_base: service.aiConfig.openai.api_base,
 				model: service.aiConfig.openai.model,
 				max_tokens: service.aiConfig.openai.max_tokens,
 			};
@@ -156,8 +153,6 @@
 				model: service.aiConfig.anthropic.model,
 				max_tokens: service.aiConfig.anthropic.max_tokens,
 			};
-		} else if (providerId === 'litellm') {
-			editingConfig.litellm = { ...service.aiConfig.litellm };
 		}
 	}
 
@@ -169,8 +164,6 @@
 				return 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z';
 			case 'anthropic':
 				return 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
-			case 'litellm':
-				return 'M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z';
 			default:
 				return 'M13 10V3L4 14h7v7l9-11h-7z';
 		}
@@ -184,8 +177,6 @@
 				return 'OpenAI';
 			case 'anthropic':
 				return 'Anthropic';
-			case 'litellm':
-				return 'Cloud';
 			default:
 				return providerId;
 		}
@@ -263,8 +254,7 @@
 							</svg>
 						{:else if (provider.id === 'ollama' && editingConfig.ollama.enabled) ||
 								(provider.id === 'openai' && editingConfig.openai.enabled) ||
-								(provider.id === 'anthropic' && editingConfig.anthropic.enabled) ||
-								(provider.id === 'litellm' && editingConfig.litellm.enabled)}
+								(provider.id === 'anthropic' && editingConfig.anthropic.enabled)}
 							<svg class="h-4 w-4 flex-shrink-0 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
@@ -360,6 +350,12 @@
 							API Key {service.aiConfig?.openai.has_api_key ? '(saved)' : ''}
 						</label>
 						<input id="openai-key" type="password" bind:value={editingConfig.openai.api_key} class="input w-full" placeholder={service.aiConfig?.openai.has_api_key ? 'Enter new key to update' : 'sk-...'} />
+					</div>
+					<div class="space-y-2">
+						<label for="openai-base" class="block text-xs text-neutral-400">
+							API Base URL <span class="text-neutral-500">(optional, for compatible endpoints)</span>
+						</label>
+						<input id="openai-base" type="text" bind:value={editingConfig.openai.api_base} class="input w-full" placeholder="https://api.openai.com/v1" />
 					</div>
 					<div class="space-y-2">
 						<label for="openai-model" class="block text-xs text-neutral-400">Model</label>
@@ -461,65 +457,6 @@
 							type="button"
 							class="flex h-8 w-8 items-center justify-center rounded-lg border border-error/30 bg-error/10 text-error transition-all hover:bg-error/20"
 							onclick={() => discardProviderChanges('anthropic')}
-							title="Discard changes"
-						>
-							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
-						</button>
-					</div>
-				{/if}
-			</div>
-		{:else if editingConfig.active_provider === 'litellm'}
-			<div class="space-y-3 border-t border-neutral-700 pt-3">
-				<div class="flex items-center justify-between">
-					<h3 class="text-sm font-medium text-neutral-200">Cloud (LiteLLM) Settings</h3>
-					<button
-						type="button"
-						class="relative h-5 w-9 rounded-full transition-colors {editingConfig.litellm.enabled ? 'bg-primary-500' : 'bg-neutral-600'}"
-						onclick={toggleLiteLLM}
-						role="switch"
-						aria-checked={editingConfig.litellm.enabled}
-					>
-						<span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform {editingConfig.litellm.enabled ? 'translate-x-4' : 'translate-x-0'}"></span>
-					</button>
-				</div>
-
-				{#if editingConfig.litellm.enabled}
-					<p class="text-xs text-neutral-400">
-						Uses environment variables for API keys. Configure HBC_LLM_API_KEY in your deployment.
-					</p>
-					<div class="space-y-2">
-						<label for="litellm-model" class="block text-xs text-neutral-400">Model</label>
-						<input id="litellm-model" type="text" bind:value={editingConfig.litellm.model} class="input w-full" placeholder="gpt-4o" />
-					</div>
-					<div class="flex items-center gap-2">
-						<Button variant="secondary" size="sm" onclick={() => handleTestConnection('litellm')} disabled={service.aiConfigTestingProvider === 'litellm'}>
-							{#if service.aiConfigTestingProvider === 'litellm'}
-								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-								Testing...
-							{:else}
-								Test Connection
-							{/if}
-						</Button>
-						<!-- Save button (green check) -->
-						<button
-							type="button"
-							class="flex h-8 w-8 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-all hover:bg-success/20 disabled:opacity-50"
-							onclick={() => saveProviderConfig('litellm')}
-							disabled={service.aiConfigSaveState === 'saving'}
-							title="Save Cloud settings"
-						>
-							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-						</button>
-						<!-- Discard button (red X) -->
-						<button
-							type="button"
-							class="flex h-8 w-8 items-center justify-center rounded-lg border border-error/30 bg-error/10 text-error transition-all hover:bg-error/20"
-							onclick={() => discardProviderChanges('litellm')}
 							title="Discard changes"
 						>
 							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">

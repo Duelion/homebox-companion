@@ -19,7 +19,6 @@ from homebox_companion.core.ai_config import (
     AIConfig,
     AIProvider,
     AnthropicConfig,
-    LiteLLMConfig,
     OllamaConfig,
     OpenAIConfig,
     load_ai_config,
@@ -50,10 +49,14 @@ class OllamaConfigInput(BaseModel):
 
 
 class OpenAIConfigInput(BaseModel):
-    """OpenAI configuration input from frontend."""
+    """OpenAI configuration input from frontend.
 
-    enabled: bool = False
+    Supports both direct OpenAI API and compatible endpoints via api_base.
+    """
+
+    enabled: bool = True  # Default enabled as primary cloud provider
     api_key: str | None = None  # Plain string from frontend
+    api_base: str | None = None  # Custom API base URL for compatible endpoints
     model: str = "gpt-4o"
     max_tokens: int = 4096
 
@@ -67,23 +70,15 @@ class AnthropicConfigInput(BaseModel):
     max_tokens: int = 4096
 
 
-class LiteLLMConfigInput(BaseModel):
-    """LiteLLM configuration input from frontend."""
-
-    enabled: bool = True
-    model: str = "gpt-4o"
-
-
 class AIConfigInput(BaseModel):
     """AI configuration input from frontend."""
 
-    active_provider: str = "litellm"
+    active_provider: str = "openai"
     fallback_to_cloud: bool = True
-    fallback_provider: str = "litellm"
+    fallback_provider: str = "openai"
     ollama: OllamaConfigInput = Field(default_factory=OllamaConfigInput)
     openai: OpenAIConfigInput = Field(default_factory=OpenAIConfigInput)
     anthropic: AnthropicConfigInput = Field(default_factory=AnthropicConfigInput)
-    litellm: LiteLLMConfigInput = Field(default_factory=LiteLLMConfigInput)
 
 
 class AIConfigResponse(BaseModel):
@@ -95,7 +90,6 @@ class AIConfigResponse(BaseModel):
     ollama: dict[str, Any]
     openai: dict[str, Any]
     anthropic: dict[str, Any]
-    litellm: dict[str, Any]
     providers: list[dict[str, Any]]  # List of available providers with status
 
 
@@ -134,7 +128,7 @@ def get_provider_list(config: AIConfig) -> list[dict[str, Any]]:
         {
             "id": "openai",
             "name": "OpenAI",
-            "description": "GPT-4 Vision and other OpenAI models",
+            "description": "GPT-4 Vision and OpenAI-compatible endpoints",
             "enabled": config.openai.enabled,
             "configured": config.is_provider_configured(AIProvider.OPENAI),
             "requires_api_key": True,
@@ -146,14 +140,6 @@ def get_provider_list(config: AIConfig) -> list[dict[str, Any]]:
             "enabled": config.anthropic.enabled,
             "configured": config.is_provider_configured(AIProvider.ANTHROPIC),
             "requires_api_key": True,
-        },
-        {
-            "id": "litellm",
-            "name": "Cloud (LiteLLM)",
-            "description": "Default cloud provider via LiteLLM",
-            "enabled": config.litellm.enabled,
-            "configured": config.is_provider_configured(AIProvider.LITELLM),
-            "requires_api_key": False,
         },
     ]
 
@@ -170,12 +156,12 @@ def mask_api_key(key: str | None) -> str | None:
 def config_to_response(config: AIConfig) -> AIConfigResponse:
     """Convert AIConfig to response with masked keys."""
     ollama_dict = config.ollama.model_dump()
-    litellm_dict = config.litellm.model_dump()
 
     # Build OpenAI dict with proper API key handling
     openai_dict = {
         "enabled": config.openai.enabled,
         "model": config.openai.model,
+        "api_base": config.openai.api_base,
         "max_tokens": config.openai.max_tokens,
     }
     if config.openai.api_key:
@@ -205,7 +191,6 @@ def config_to_response(config: AIConfig) -> AIConfigResponse:
         ollama=ollama_dict,
         openai=openai_dict,
         anthropic=anthropic_dict,
-        litellm=litellm_dict,
         providers=get_provider_list(config),
     )
 
@@ -262,6 +247,7 @@ async def update_ai_config(input_config: AIConfigInput) -> AIConfigResponse:
         openai_cfg = OpenAIConfig(
             enabled=input_config.openai.enabled,
             api_key=SecretStr(openai_key) if openai_key else None,
+            api_base=input_config.openai.api_base,
             model=input_config.openai.model,
             max_tokens=input_config.openai.max_tokens,
         )
@@ -271,7 +257,6 @@ async def update_ai_config(input_config: AIConfigInput) -> AIConfigResponse:
             model=input_config.anthropic.model,
             max_tokens=input_config.anthropic.max_tokens,
         )
-        litellm_cfg = LiteLLMConfig(**input_config.litellm.model_dump())
         logger.debug("[AI_CONFIG] Sub-configs built")
 
         # Build main config - this is BaseSettings but we provide all values
@@ -283,7 +268,6 @@ async def update_ai_config(input_config: AIConfigInput) -> AIConfigResponse:
             ollama=ollama_cfg,
             openai=openai_cfg,
             anthropic=anthropic_cfg,
-            litellm=litellm_cfg,
         )
         logger.debug("[AI_CONFIG] Main config built successfully")
     except Exception as e:
@@ -320,8 +304,7 @@ async def delete_ai_config() -> AIConfigResponse:
 async def test_provider_connection(request: TestConnectionRequest) -> TestConnectionResponse:
     """Test connection to an AI provider.
 
-    For Ollama: Tests server connection and model availability.
-    For OpenAI/Anthropic: Validates API key format (full test would incur cost).
+    For all providers: Makes a small API call to verify connectivity.
     """
     provider = request.provider
     config = request.config
@@ -378,40 +361,89 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
             )
 
     elif provider == "openai":
+        model = config.get("model", "gpt-4o")
         api_key = config.get("api_key")
+        api_base = config.get("api_base")
         use_stored_key = config.get("use_stored_key", False)
 
-        # If use_stored_key is set, load the stored key from config
+        # If use_stored_key is set, load the stored key/base from config
         if use_stored_key and (not api_key or api_key.startswith("***")):
             stored_config = load_ai_config()
             if stored_config.openai.api_key:
                 api_key = stored_config.openai.api_key.get_secret_value()
+            if not api_base and stored_config.openai.api_base:
+                api_base = stored_config.openai.api_base
 
+        # If still no api_key, try environment variable fallback
         if not api_key or api_key.startswith("***"):
+            settings = get_settings()
+            api_key = settings.effective_llm_api_key or None
+
+        # Require either an API key or a custom api_base (self-hosted endpoints may not need auth)
+        if not api_key and not api_base:
             return TestConnectionResponse(
                 success=False,
                 provider=provider,
-                message="API key is required. Please enter an API key or save one first.",
-                details={},
+                message="API key is required. Enter an API key, set HBC_LLM_API_KEY environment variable, or configure a custom API base URL.",
+                details={"model": model},
             )
 
-        # Basic validation - check format
-        if api_key.startswith("sk-") and len(api_key) > 20:
+        try:
+            # Create provider with configured credentials
+            openai_provider = LiteLLMProvider(
+                api_key=api_key,
+                model=model,
+                provider_type="openai",
+                timeout=30.0,  # Use shorter timeout for test
+                api_base=api_base,
+            )
+
+            # Try a minimal completion to verify connectivity
+            test_response = await openai_provider.complete(
+                prompt="Respond with only the word 'OK'",
+                system="You are a test assistant. Respond only with 'OK'.",
+            )
+
             return TestConnectionResponse(
                 success=True,
                 provider=provider,
-                message="API key format is valid. Full validation would require an API call.",
-                details={"model": config.get("model", "gpt-4o")},
+                message=f"Connected to OpenAI. Model '{model}' is responding.",
+                details={
+                    "model": model,
+                    "api_base": api_base,
+                    "response": test_response[:50] if test_response else "OK",
+                },
             )
-        else:
+
+        except LiteLLMProviderError as e:
+            error_msg = str(e)
+            logger.error(f"OpenAI connection test failed: {error_msg}")
+            # Provide helpful message for common errors
+            if "AuthenticationError" in error_msg or "API key" in error_msg.lower():
+                return TestConnectionResponse(
+                    success=False,
+                    provider=provider,
+                    message="Authentication failed. Check your API key.",
+                    details={"model": model, "api_base": api_base, "error": error_msg},
+                )
             return TestConnectionResponse(
                 success=False,
                 provider=provider,
-                message="Invalid API key format. OpenAI keys start with 'sk-'",
-                details={},
+                message=f"Connection failed: {error_msg}",
+                details={"model": model, "api_base": api_base, "error": error_msg},
+            )
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"OpenAI connection test failed: {error_msg}")
+            return TestConnectionResponse(
+                success=False,
+                provider=provider,
+                message=f"Connection failed: {error_msg}",
+                details={"model": model, "api_base": api_base, "error": error_msg},
             )
 
     elif provider == "anthropic":
+        model = config.get("model", "claude-sonnet-4-20250514")
         api_key = config.get("api_key")
         use_stored_key = config.get("use_stored_key", False)
 
@@ -426,44 +458,20 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
                 success=False,
                 provider=provider,
                 message="API key is required. Please enter an API key or save one first.",
-                details={},
+                details={"model": model},
             )
-
-        # Basic validation - check format
-        if api_key.startswith("sk-ant-") and len(api_key) > 20:
-            return TestConnectionResponse(
-                success=True,
-                provider=provider,
-                message="API key format is valid. Full validation would require an API call.",
-                details={"model": config.get("model", "claude-sonnet-4-20250514")},
-            )
-        else:
-            return TestConnectionResponse(
-                success=False,
-                provider=provider,
-                message="Invalid API key format. Anthropic keys start with 'sk-ant-'",
-                details={},
-            )
-
-    elif provider == "litellm":
-        model = config.get("model", "gpt-4o")
 
         try:
-            # Get API key from settings if available, but LiteLLM can also
-            # use standard env vars (OPENAI_API_KEY, etc.) directly
-            settings = get_settings()
-            api_key = settings.effective_llm_api_key or None
-
-            # Create provider - LiteLLM will use env vars if api_key is None
-            litellm_provider = LiteLLMProvider(
+            # Create provider with configured credentials
+            anthropic_provider = LiteLLMProvider(
                 api_key=api_key,
                 model=model,
-                provider_type="litellm",
+                provider_type="anthropic",
                 timeout=30.0,  # Use shorter timeout for test
             )
 
             # Try a minimal completion to verify connectivity
-            test_response = await litellm_provider.complete(
+            test_response = await anthropic_provider.complete(
                 prompt="Respond with only the word 'OK'",
                 system="You are a test assistant. Respond only with 'OK'.",
             )
@@ -471,7 +479,7 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
             return TestConnectionResponse(
                 success=True,
                 provider=provider,
-                message=f"Connected to LiteLLM. Model '{model}' is responding.",
+                message=f"Connected to Anthropic. Model '{model}' is responding.",
                 details={
                     "model": model,
                     "response": test_response[:50] if test_response else "OK",
@@ -480,13 +488,13 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
 
         except LiteLLMProviderError as e:
             error_msg = str(e)
-            logger.error(f"LiteLLM connection test failed: {error_msg}")
+            logger.error(f"Anthropic connection test failed: {error_msg}")
             # Provide helpful message for common errors
             if "AuthenticationError" in error_msg or "API key" in error_msg.lower():
                 return TestConnectionResponse(
                     success=False,
                     provider=provider,
-                    message="Authentication failed. Ensure OPENAI_API_KEY or HBC_LLM_API_KEY is set.",
+                    message="Authentication failed. Check your API key.",
                     details={"model": model, "error": error_msg},
                 )
             return TestConnectionResponse(
@@ -497,7 +505,7 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
             )
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"LiteLLM connection test failed: {error_msg}")
+            logger.error(f"Anthropic connection test failed: {error_msg}")
             return TestConnectionResponse(
                 success=False,
                 provider=provider,
