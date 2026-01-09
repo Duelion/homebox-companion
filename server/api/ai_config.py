@@ -28,7 +28,7 @@ from homebox_companion.core.ai_config import (
 )
 from homebox_companion.providers.ollama import OllamaProvider
 from homebox_companion.providers.litellm_provider import LiteLLMProvider, LiteLLMProviderError
-from homebox_companion.core.settings import Settings
+from homebox_companion.core.config import Settings
 
 from ..dependencies import require_auth
 
