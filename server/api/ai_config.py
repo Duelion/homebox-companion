@@ -28,7 +28,7 @@ from homebox_companion.core.ai_config import (
 )
 from homebox_companion.providers.ollama import OllamaProvider
 from homebox_companion.providers.litellm_provider import LiteLLMProvider, LiteLLMProviderError
-from homebox_companion.core.config import Settings
+from homebox_companion.core.config import get_settings
 
 from ..dependencies import require_auth
 
@@ -450,7 +450,7 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
 
         try:
             # Load settings to get the effective LLM API key
-            settings = Settings()
+            settings = get_settings()
             api_key = settings.effective_llm_api_key
 
             if not api_key:
