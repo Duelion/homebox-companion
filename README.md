@@ -38,7 +38,6 @@ This fork adds the following features while maintaining full compatibility with 
 | **Configurable Timeouts** | Adjust AI timeout for slow models (30-600s) |
 | **Token Usage Display** | Optional display of AI token consumption |
 | **Custom API Endpoints** | OpenAI-compatible endpoints (Azure, LiteLLM proxy, etc.) |
-| **Theme Support** | Multiple DaisyUI themes (dark mode default) |
 | **PWA Support** | Install as app on mobile devices |
 | **Pull-to-Refresh** | Native mobile gesture support |
 | **Offline Indicator** | Shows when network connection is lost |
