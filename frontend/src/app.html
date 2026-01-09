@@ -10,6 +10,23 @@
 		<meta http-equiv="Pragma" content="no-cache" />
 		<meta http-equiv="Expires" content="0" />
 		<meta name="theme-color" content="#1a1025" />
+		<!-- Inline theme script: runs before render to prevent flash of wrong theme -->
+		<script>
+			(function() {
+				var THEME_KEY = 'hbc-theme';
+				var DEFAULT = 'homebox';
+				var DARK_THEMES = ['homebox','dark','synthwave','halloween','forest','aqua','black','luxury','dracula','business','night','coffee'];
+				try {
+					var stored = localStorage.getItem(THEME_KEY);
+					var theme = stored || DEFAULT;
+					document.documentElement.setAttribute('data-theme', theme);
+					document.documentElement.style.colorScheme = DARK_THEMES.indexOf(theme) !== -1 ? 'dark' : 'light';
+				} catch (e) {
+					document.documentElement.setAttribute('data-theme', DEFAULT);
+					document.documentElement.style.colorScheme = 'dark';
+				}
+			})();
+		</script>
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="Homebox" />

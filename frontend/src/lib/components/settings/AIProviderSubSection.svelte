@@ -202,8 +202,8 @@
 	<span>AI Provider</span>
 	{#if service.aiConfig}
 		<span class="flex items-center gap-1.5 rounded-full bg-primary-500/20 px-2.5 py-0.5 text-xs font-medium text-primary-400">
-			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-				<path d={getProviderIcon(service.aiConfig.active_provider)} />
+			<svg class="h-3 w-3 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+				<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
 			</svg>
 			{getProviderDisplayName(service.aiConfig.active_provider)}
 		</span>
@@ -292,6 +292,21 @@
 								<option value={model.id}>{model.name}</option>
 							{/each}
 						</select>
+					</div>
+					<div class="space-y-2">
+						<div class="flex items-center gap-1.5">
+							<label for="ollama-timeout" class="block text-xs text-neutral-400">Timeout (seconds)</label>
+							<div class="group relative">
+								<button type="button" class="flex h-4 w-4 items-center justify-center rounded-full bg-neutral-600 text-[10px] font-medium text-neutral-300 hover:bg-neutral-500" aria-label="Timeout info">
+									i
+								</button>
+								<div class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-48 -translate-x-1/2 rounded-lg bg-neutral-900 p-2 text-xs text-neutral-300 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+									Vision models can be slow, especially on CPU. Increase this if you see timeout errors during image analysis.
+									<div class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-neutral-900"></div>
+								</div>
+							</div>
+						</div>
+						<input id="ollama-timeout" type="number" min="30" max="600" step="30" bind:value={editingConfig.ollama.timeout} class="input w-full" placeholder="120" />
 					</div>
 					<div class="flex items-center gap-2">
 						<Button variant="secondary" size="sm" onclick={() => handleTestConnection('ollama')} disabled={service.aiConfigTestingProvider === 'ollama'}>
