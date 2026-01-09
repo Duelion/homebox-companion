@@ -2,8 +2,36 @@
 export default {
   content: ['./src/**/*.{html,js,svelte,ts}'],
   // DaisyUI themes matching Homebox
+  // IMPORTANT: The first theme is the default fallback - keep "homebox" first!
   daisyui: {
     themes: [
+      // Custom "homebox" theme MUST be first (DaisyUI uses first theme as default)
+      {
+        homebox: {
+          'color-scheme': 'dark',
+          'primary': '#6366f1',
+          'primary-content': '#ffffff',
+          'secondary': '#818cf8',
+          'secondary-content': '#ffffff',
+          'accent': '#22d3ee',
+          'accent-content': '#000000',
+          'neutral': '#1e1e2e',
+          'neutral-content': '#f1f5f9',
+          'base-100': '#0a0a0f',
+          'base-200': '#13131f',
+          'base-300': '#1e1e2e',
+          'base-content': '#f1f5f9',
+          'info': '#3abff8',
+          'info-content': '#000000',
+          'success': '#10b981',
+          'success-content': '#000000',
+          'warning': '#f59e0b',
+          'warning-content': '#000000',
+          'error': '#ef4444',
+          'error-content': '#ffffff',
+        },
+      },
+      // Standard DaisyUI themes
       'light',
       'dark',
       'cupcake',
@@ -33,32 +61,6 @@ export default {
       'night',
       'coffee',
       'winter',
-      // Custom "homebox" theme that matches the Homebox default
-      {
-        homebox: {
-          'color-scheme': 'dark',
-          'primary': '#6366f1',
-          'primary-content': '#ffffff',
-          'secondary': '#818cf8',
-          'secondary-content': '#ffffff',
-          'accent': '#22d3ee',
-          'accent-content': '#000000',
-          'neutral': '#1e1e2e',
-          'neutral-content': '#f1f5f9',
-          'base-100': '#0a0a0f',
-          'base-200': '#13131f',
-          'base-300': '#1e1e2e',
-          'base-content': '#f1f5f9',
-          'info': '#3abff8',
-          'info-content': '#000000',
-          'success': '#10b981',
-          'success-content': '#000000',
-          'warning': '#f59e0b',
-          'warning-content': '#000000',
-          'error': '#ef4444',
-          'error-content': '#ffffff',
-        },
-      },
     ],
     // Don't add extra base styles - we have our own
     base: true,

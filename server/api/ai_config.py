@@ -312,27 +312,18 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
     if provider == "ollama":
         url = config.get("url", "http://localhost:11434")
         model = config.get("model", "minicpm-v")
+        timeout = config.get("timeout", 120)
 
         try:
-            async with OllamaProvider(base_url=url, model=model) as ollama:
-                result = await ollama.test_connection()
+            async with OllamaProvider(base_url=url, model=model, timeout=float(timeout)) as ollama:
+                # Test with inference to verify the model actually responds
+                result = await ollama.test_connection(test_inference=True)
 
                 if result.get("connected"):
                     model_available = result.get("model_available", False)
                     available_models = result.get("available_models", [])
 
-                    if model_available:
-                        return TestConnectionResponse(
-                            success=True,
-                            provider=provider,
-                            message=f"Connected to Ollama. Model '{model}' is ready.",
-                            details={
-                                "url": url,
-                                "model": model,
-                                "available_models": available_models,
-                            },
-                        )
-                    else:
+                    if not model_available:
                         return TestConnectionResponse(
                             success=True,
                             provider=provider,
@@ -344,6 +335,38 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
                                 "available_models": available_models,
                             },
                         )
+
+                    # Check inference test results
+                    inference_tested = result.get("inference_tested", False)
+                    inference_success = result.get("inference_success", False)
+
+                    if inference_tested and not inference_success:
+                        inference_error = result.get("inference_error", "Unknown error")
+                        return TestConnectionResponse(
+                            success=False,
+                            provider=provider,
+                            message=f"Connected to Ollama, but model failed inference test: {inference_error}",
+                            details={
+                                "url": url,
+                                "model": model,
+                                "timeout": timeout,
+                                "available_models": available_models,
+                                "inference_error": inference_error,
+                            },
+                        )
+
+                    return TestConnectionResponse(
+                        success=True,
+                        provider=provider,
+                        message=f"Connected to Ollama. Model '{model}' is responding.",
+                        details={
+                            "url": url,
+                            "model": model,
+                            "timeout": timeout,
+                            "available_models": available_models,
+                            "response": result.get("inference_response", "OK"),
+                        },
+                    )
                 else:
                     return TestConnectionResponse(
                         success=False,

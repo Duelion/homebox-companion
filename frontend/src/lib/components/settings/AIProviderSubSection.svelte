@@ -89,6 +89,7 @@
 		if (provider === 'ollama') {
 			config.url = editingConfig.ollama.url;
 			config.model = editingConfig.ollama.model;
+			config.timeout = editingConfig.ollama.timeout;
 		} else if (provider === 'openai') {
 			// Pass api_key if user entered one, otherwise pass use_stored flag
 			config.api_key = editingConfig.openai.api_key;
