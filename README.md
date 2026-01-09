@@ -37,7 +37,6 @@ This fork adds the following features while maintaining full compatibility with 
 | **Provider Fallback** | Auto-retry with backup provider if primary fails |
 | **Configurable Timeouts** | Adjust AI timeout for slow models (30-600s) |
 | **Token Usage Display** | Optional display of AI token consumption |
-| **Custom API Endpoints** | OpenAI-compatible endpoints (Azure, LiteLLM proxy, etc.) |
 | **In-App Configuration** | Configure everything in the UI - no env vars required |
 
 ---
