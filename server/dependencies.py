@@ -437,6 +437,74 @@ def get_configured_llm() -> LLMConfig:
     return get_llm_config()
 
 
+def get_fallback_llm_config() -> LLMConfig | None:
+    """Get the fallback LLM configuration if enabled.
+
+    Returns:
+        LLMConfig for the fallback provider, or None if fallback is disabled
+        or the fallback provider is not properly configured.
+    """
+    try:
+        ai_config = load_ai_config()
+
+        # Check if fallback is enabled
+        if not ai_config.fallback_to_cloud:
+            return None
+
+        fallback_provider = ai_config.fallback_provider
+
+        # Don't fallback to the same provider
+        if fallback_provider == ai_config.active_provider:
+            return None
+
+        # Get fallback provider config
+        if fallback_provider == AIProvider.OLLAMA:
+            if ai_config.ollama.enabled:
+                return LLMConfig(
+                    api_key=None,
+                    model=ai_config.ollama.model,
+                    provider="ollama",
+                )
+        elif fallback_provider == AIProvider.OPENAI:
+            if ai_config.openai.enabled and ai_config.openai.api_key:
+                return LLMConfig(
+                    api_key=ai_config.openai.api_key.get_secret_value(),
+                    model=ai_config.openai.model,
+                    provider="openai",
+                )
+        elif fallback_provider == AIProvider.ANTHROPIC:
+            if ai_config.anthropic.enabled and ai_config.anthropic.api_key:
+                return LLMConfig(
+                    api_key=ai_config.anthropic.api_key.get_secret_value(),
+                    model=ai_config.anthropic.model,
+                    provider="anthropic",
+                )
+        elif fallback_provider == AIProvider.LITELLM:
+            if ai_config.litellm.enabled:
+                return LLMConfig(
+                    api_key=settings.effective_llm_api_key,
+                    model=ai_config.litellm.model,
+                    provider="litellm",
+                )
+
+        return None
+    except Exception as e:
+        logger.debug(f"Could not load fallback config: {e}")
+        return None
+
+
+def get_configured_llm_with_fallback() -> tuple[LLMConfig, LLMConfig | None]:
+    """Get both primary and fallback LLM configurations.
+
+    Returns:
+        Tuple of (primary_config, fallback_config).
+        fallback_config is None if fallback is disabled.
+    """
+    primary = get_llm_config()
+    fallback = get_fallback_llm_config()
+    return primary, fallback
+
+
 async def validate_file_size(file: UploadFile) -> bytes:
     """Read and validate file size against configured limit.
 

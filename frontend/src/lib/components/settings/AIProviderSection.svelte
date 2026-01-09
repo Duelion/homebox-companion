@@ -266,7 +266,12 @@
 							<div class="min-w-0 flex-1">
 								<p class="truncate text-sm font-medium">{provider.name}</p>
 							</div>
-							{#if provider.configured}
+							<!-- Gold filled star for selected provider -->
+							{#if editingConfig.active_provider === provider.id}
+								<svg class="h-4 w-4 flex-shrink-0 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+									<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+								</svg>
+							{:else if provider.configured}
 								<svg class="h-4 w-4 flex-shrink-0 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 									<polyline points="20 6 9 17 4 12" />
 								</svg>
@@ -274,6 +279,56 @@
 						</button>
 					{/each}
 				</div>
+			</div>
+
+			<!-- Fallback Provider Section -->
+			<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
+				<div class="flex items-center justify-between">
+					<div>
+						<h3 class="text-sm font-medium text-neutral-200">Fallback Provider</h3>
+						<p class="text-xs text-neutral-500">Use a backup provider if primary fails</p>
+					</div>
+					<button
+						type="button"
+						class="relative h-5 w-9 rounded-full transition-colors {editingConfig.fallback_to_cloud
+							? 'bg-primary-500'
+							: 'bg-neutral-600'}"
+						onclick={() => {
+							if (editingConfig) editingConfig.fallback_to_cloud = !editingConfig.fallback_to_cloud;
+						}}
+						role="switch"
+						aria-checked={editingConfig.fallback_to_cloud}
+						aria-label="Enable fallback provider"
+					>
+						<span
+							class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform {editingConfig.fallback_to_cloud
+								? 'translate-x-4'
+								: 'translate-x-0'}"
+						></span>
+					</button>
+				</div>
+
+				{#if editingConfig.fallback_to_cloud}
+					<div class="space-y-2">
+						<label for="fallback-provider" class="block text-xs text-neutral-400">
+							Fallback to
+						</label>
+						<select
+							id="fallback-provider"
+							bind:value={editingConfig.fallback_provider}
+							class="input w-full"
+						>
+							{#each service.aiConfig?.providers || [] as provider}
+								{#if provider.id !== editingConfig.active_provider && provider.configured}
+									<option value={provider.id}>{provider.name}</option>
+								{/if}
+							{/each}
+						</select>
+						<p class="text-xs text-neutral-500">
+							If the primary provider times out or fails, the request will automatically retry with this provider.
+						</p>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Provider-specific settings - shown for currently selected provider -->
