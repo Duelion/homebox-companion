@@ -4,26 +4,26 @@
 	 */
 	import { uiStore } from '$lib/stores/ui.svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
+	import CollapsibleSection from './CollapsibleSection.svelte';
 
 	const service = settingsService;
 </script>
 
-<section class="card space-y-4">
-	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-base-content">
-		<svg
-			class="h-5 w-5 text-primary"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-			stroke-width="1.5"
-		>
-			<circle cx="12" cy="12" r="10" />
-			<line x1="12" y1="16" x2="12" y2="12" />
-			<line x1="12" y1="8" x2="12.01" y2="8" />
-		</svg>
-		About
-	</h2>
+{#snippet icon()}
+	<svg
+		class="h-5 w-5 text-primary"
+		fill="none"
+		stroke="currentColor"
+		viewBox="0 0 24 24"
+		stroke-width="1.5"
+	>
+		<circle cx="12" cy="12" r="10" />
+		<line x1="12" y1="16" x2="12" y2="12" />
+		<line x1="12" y1="8" x2="12.01" y2="8" />
+	</svg>
+{/snippet}
 
+<CollapsibleSection title="About" {icon}>
 	<!-- Version - Always visible -->
 	<div class="flex items-center justify-between">
 		<span class="text-base-content/60">Version</span>
@@ -227,4 +227,4 @@
 			{/if}
 		</div>
 	{/if}
-</section>
+</CollapsibleSection>

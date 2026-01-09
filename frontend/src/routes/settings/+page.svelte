@@ -47,15 +47,15 @@
 
 <div class="animate-in">
 	<div class="mb-6">
-		<h1 class="text-h1 font-bold text-neutral-100">Settings</h1>
-		<p class="mt-1 text-body-sm text-neutral-400">App configuration and information</p>
+		<h1 class="text-h1 font-bold text-base-content">Settings</h1>
+		<p class="mt-1 text-body-sm text-base-content/60">App configuration and information</p>
 	</div>
 
 	{#if settingsService.errors.init}
-		<div class="card mb-6 border-error-500/30 bg-error-500/10">
+		<div class="card mb-6 border-error/30 bg-error/10">
 			<div class="flex items-start gap-3">
 				<svg
-					class="mt-0.5 h-5 w-5 flex-shrink-0 text-error-500"
+					class="mt-0.5 h-5 w-5 flex-shrink-0 text-error"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -66,11 +66,11 @@
 					/>
 				</svg>
 				<div>
-					<p class="font-medium text-error-500">Failed to load settings</p>
-					<p class="mt-1 text-sm text-neutral-400">{settingsService.errors.init}</p>
+					<p class="font-medium text-error">Failed to load settings</p>
+					<p class="mt-1 text-sm text-base-content/60">{settingsService.errors.init}</p>
 					<button
 						type="button"
-						class="mt-2 text-sm text-primary-400 underline hover:text-primary-300"
+						class="mt-2 text-sm text-primary underline hover:text-primary/80"
 						onclick={() => settingsService.initialize()}
 					>
 						Try again
@@ -81,20 +81,31 @@
 	{/if}
 
 	<!-- Settings sections - single column on mobile, two columns on desktop -->
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-		<!-- Left column on desktop -->
-		<div class="space-y-6">
+	<!-- Mobile order: Account, About, AI, Behavior, Enrichment, FieldPrefs, Connection, Logs -->
+	<!-- Desktop: Left (Account, AI, Behavior, Connection), Right (About, Enrichment, FieldPrefs, Logs) -->
+	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+		<div class="order-1">
 			<AccountSection />
+		</div>
+		<div class="order-2">
+			<AboutSection />
+		</div>
+		<div class="order-3">
 			<AIProviderSection />
+		</div>
+		<div class="order-4 lg:order-5">
+			<BehaviorSection />
+		</div>
+		<div class="order-5 lg:order-4">
+			<EnrichmentSection />
+		</div>
+		<div class="order-6">
+			<FieldPrefsSection />
+		</div>
+		<div class="order-7">
 			<ConnectionSection />
 		</div>
-
-		<!-- Right column on desktop -->
-		<div class="space-y-6">
-			<BehaviorSection />
-			<EnrichmentSection />
-			<FieldPrefsSection />
-			<AboutSection />
+		<div class="order-8">
 			<LogsSection />
 		</div>
 	</div>

@@ -9,6 +9,7 @@
 	import { onMount } from 'svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import CollapsibleSection from './CollapsibleSection.svelte';
 
 	const service = settingsService;
 
@@ -33,36 +34,37 @@
 	);
 </script>
 
-<section class="card space-y-4">
-	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
-		<svg
-			class="h-5 w-5 text-primary-400"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-			stroke-width="1.5"
-		>
-			<path
-				d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-			/>
-			<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-		</svg>
-		Behavior Settings
-	</h2>
+{#snippet icon()}
+	<svg
+		class="h-5 w-5 text-primary"
+		fill="none"
+		stroke="currentColor"
+		viewBox="0 0 24 24"
+		stroke-width="1.5"
+	>
+		<path
+			d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+		/>
+		<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+	</svg>
+{/snippet}
 
+<CollapsibleSection title="Behavior Settings" {icon}>
 	<!-- Duplicate Detection Toggle -->
-	<div class="flex items-center justify-between rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
+	<div
+		class="flex items-center justify-between rounded-xl border border-base-content/10 bg-base-200/50 p-4"
+	>
 		<div class="flex-1">
-			<h3 class="text-sm font-medium text-neutral-200">Duplicate Detection</h3>
-			<p class="mt-1 text-xs text-neutral-400">
+			<h3 class="text-sm font-medium text-base-content">Duplicate Detection</h3>
+			<p class="mt-1 text-xs text-base-content/60">
 				Warn when adding items with serial numbers that already exist in Homebox.
 			</p>
 		</div>
 		<button
 			type="button"
 			class="relative h-6 w-11 rounded-full transition-colors {service.duplicateDetectionEnabled
-				? 'bg-primary-500'
-				: 'bg-neutral-600'}"
+				? 'bg-primary'
+				: 'bg-base-content/30'}"
 			onclick={() => service.setDuplicateDetectionEnabled(!service.duplicateDetectionEnabled)}
 			role="switch"
 			aria-checked={service.duplicateDetectionEnabled}
@@ -77,12 +79,12 @@
 	</div>
 
 	<!-- Serial Number Index Status -->
-	<div class="space-y-3 rounded-xl border border-neutral-700 bg-neutral-800/30 p-4">
+	<div class="space-y-3 rounded-xl border border-base-content/10 bg-base-200/50 p-4">
 		<div class="flex items-center justify-between">
-			<h3 class="text-sm font-medium text-neutral-200">Serial Number Index</h3>
+			<h3 class="text-sm font-medium text-base-content">Serial Number Index</h3>
 			{#if service.isLoading.duplicateIndex}
 				<div
-					class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+					class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
 				></div>
 			{/if}
 		</div>
@@ -91,49 +93,73 @@
 			<div class="space-y-2 text-xs">
 				<!-- Status indicators -->
 				<div class="flex items-center justify-between">
-					<span class="text-neutral-400">Status</span>
+					<span class="text-base-content/60">Status</span>
 					{#if indexNeedsInit}
-						<span class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-warning-500">
-							<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-								<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+						<span
+							class="inline-flex items-center gap-1 rounded-full bg-warning/20 px-2 py-0.5 text-warning"
+						>
+							<svg
+								class="h-3 w-3"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+							>
+								<path
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+								/>
 							</svg>
 							Index not yet built
 						</span>
 					{:else if service.duplicateIndexStatus.is_loaded}
-						<span class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-success-500">
-							<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<span
+							class="inline-flex items-center gap-1 rounded-full bg-success/20 px-2 py-0.5 text-success"
+						>
+							<svg
+								class="h-3 w-3"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+							>
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
 							Ready
 						</span>
 					{:else}
-						<span class="text-neutral-400">Not loaded</span>
+						<span class="text-base-content/60">Not loaded</span>
 					{/if}
 				</div>
 
 				<div class="flex items-center justify-between">
-					<span class="text-neutral-400">Total items indexed</span>
-					<span class="font-mono text-neutral-200">{service.duplicateIndexStatus.total_items_indexed}</span>
+					<span class="text-base-content/60">Total items indexed</span>
+					<span class="font-mono text-base-content"
+						>{service.duplicateIndexStatus.total_items_indexed}</span
+					>
 				</div>
 
 				<div class="flex items-center justify-between">
-					<span class="text-neutral-400">Items with serial numbers</span>
-					<span class="font-mono text-neutral-200">{service.duplicateIndexStatus.items_with_serials}</span>
+					<span class="text-base-content/60">Items with serial numbers</span>
+					<span class="font-mono text-base-content"
+						>{service.duplicateIndexStatus.items_with_serials}</span
+					>
 				</div>
 
 				<div class="flex items-center justify-between">
-					<span class="text-neutral-400">Last updated</span>
-					<span class="text-neutral-200">{formatDate(service.duplicateIndexStatus.last_update_time)}</span>
+					<span class="text-base-content/60">Last updated</span>
+					<span class="text-base-content"
+						>{formatDate(service.duplicateIndexStatus.last_update_time)}</span
+					>
 				</div>
 			</div>
 		{:else if service.errors.duplicateIndex}
-			<p class="text-xs text-error-500">{service.errors.duplicateIndex}</p>
+			<p class="text-xs text-error">{service.errors.duplicateIndex}</p>
 		{:else}
-			<p class="text-xs text-neutral-400">Loading index status...</p>
+			<p class="text-xs text-base-content/60">Loading index status...</p>
 		{/if}
 
 		<!-- Rebuild Button -->
-		<div class="border-t border-neutral-700 pt-3">
+		<div class="border-t border-base-content/10 pt-3">
 			<Button
 				variant="secondary"
 				size="sm"
@@ -141,16 +167,26 @@
 				disabled={service.isLoading.duplicateIndex}
 			>
 				{#if service.isLoading.duplicateIndex}
-					<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+					<div
+						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+					></div>
 					Rebuilding...
 				{:else}
-					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-						<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+					<svg
+						class="h-4 w-4"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+					>
+						<path
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
 					</svg>
 					Rebuild Index
 				{/if}
 			</Button>
-			<p class="mt-2 text-xs text-neutral-500">
+			<p class="mt-2 text-xs text-base-content/50">
 				Rebuilds the serial number index from all items in Homebox.
 			</p>
 		</div>
@@ -159,11 +195,11 @@
 		{#if service.duplicateIndexMessage}
 			<div
 				class="mt-2 rounded-lg p-2 text-xs {service.duplicateIndexMessageType === 'success'
-					? 'bg-success-500/10 text-success-500'
-					: 'bg-error-500/10 text-error-500'}"
+					? 'bg-success/10 text-success'
+					: 'bg-error/10 text-error'}"
 			>
 				{service.duplicateIndexMessage}
 			</div>
 		{/if}
 	</div>
-</section>
+</CollapsibleSection>

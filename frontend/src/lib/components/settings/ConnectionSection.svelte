@@ -8,6 +8,7 @@
 	 */
 	import { settingsService } from '$lib/workflows/settings.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import CollapsibleSection from './CollapsibleSection.svelte';
 	import type { AppPreferencesInput } from '$lib/api/appPreferences';
 
 	const service = settingsService;
@@ -31,15 +32,11 @@
 				search_google_api_key: service.appPreferences.search_google_api_key,
 				search_google_engine_id: service.appPreferences.search_google_engine_id,
 				search_searxng_url: service.appPreferences.search_searxng_url,
-				enrichment_retailer_domains: service.appPreferences.enrichment_retailer_domains,
+				enrichment_retailer_domains: service.appPreferences.enrichment_retailer_domains
 			};
 			prefsInitialized = true;
 		}
 	});
-
-	// NOTE: Removed the "sync on save success" $effect - it was causing an infinite loop
-	// because it read editingPrefs in the condition and wrote to it in the body.
-	// The local editingPrefs already has the correct values (user's input), no need to sync.
 
 	async function handleSave() {
 		if (!editingPrefs) return;
@@ -52,22 +49,21 @@
 	}
 </script>
 
-<section class="card space-y-4">
-	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-base-content">
-		<svg
-			class="h-5 w-5 text-primary"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-			stroke-width="1.5"
-		>
-			<path
-				d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
-			/>
-		</svg>
-		Connection Settings
-	</h2>
+{#snippet icon()}
+	<svg
+		class="h-5 w-5 text-primary"
+		fill="none"
+		stroke="currentColor"
+		viewBox="0 0 24 24"
+		stroke-width="1.5"
+	>
+		<path
+			d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+		/>
+	</svg>
+{/snippet}
 
+<CollapsibleSection title="Connection Settings" {icon} defaultCollapsed={true}>
 	<!-- Toggle Button -->
 	<button
 		type="button"
@@ -81,7 +77,9 @@
 			viewBox="0 0 24 24"
 			stroke-width="1.5"
 		>
-			<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+			<path
+				d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+			/>
 			<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 		</svg>
 		<span>Configure Connection</span>
@@ -91,7 +89,9 @@
 			></div>
 		{:else}
 			<svg
-				class="ml-auto h-4 w-4 transition-transform {service.showConnectionSettings ? 'rotate-180' : ''}"
+				class="ml-auto h-4 w-4 transition-transform {service.showConnectionSettings
+					? 'rotate-180'
+					: ''}"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -112,7 +112,9 @@
 			<!-- Homebox URL -->
 			<div class="space-y-2">
 				<div class="flex items-center justify-between">
-					<label for="homebox-url" class="text-sm font-medium text-base-content/75">Homebox URL</label>
+					<label for="homebox-url" class="text-sm font-medium text-base-content/75"
+						>Homebox URL</label
+					>
 					{#if editingPrefs.homebox_url_override}
 						<button
 							type="button"
@@ -142,7 +144,9 @@
 			<!-- Image Quality -->
 			<div class="space-y-2">
 				<div class="flex items-center justify-between">
-					<label for="image-quality" class="text-sm font-medium text-base-content/75">Image Quality</label>
+					<label for="image-quality" class="text-sm font-medium text-base-content/75"
+						>Image Quality</label
+					>
 					{#if editingPrefs.image_quality_override}
 						<button
 							type="button"
@@ -153,11 +157,7 @@
 						</button>
 					{/if}
 				</div>
-				<select
-					id="image-quality"
-					bind:value={editingPrefs.image_quality_override}
-					class="input w-full"
-				>
+				<select id="image-quality" bind:value={editingPrefs.image_quality_override} class="input w-full">
 					<option value={null}>Default ({service.appPreferences.effective_image_quality})</option>
 					{#each service.appPreferences.image_quality_options as quality}
 						<option value={quality}>{quality.charAt(0).toUpperCase() + quality.slice(1)}</option>
@@ -180,10 +180,18 @@
 					disabled={service.connectionSettingsSaveState === 'saving'}
 				>
 					{#if service.connectionSettingsSaveState === 'saving'}
-						<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+						<div
+							class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+						></div>
 						Saving...
 					{:else if service.connectionSettingsSaveState === 'success'}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+						<svg
+							class="h-4 w-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+						>
 							<polyline points="20 6 9 17 4 12" />
 						</svg>
 						Saved!
@@ -194,4 +202,4 @@
 			</div>
 		</div>
 	{/if}
-</section>
+</CollapsibleSection>

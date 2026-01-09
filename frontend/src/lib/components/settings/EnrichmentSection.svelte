@@ -12,6 +12,7 @@
 	import { onMount } from 'svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import CollapsibleSection from './CollapsibleSection.svelte';
 
 	const service = settingsService;
 
@@ -250,23 +251,22 @@
 	};
 </script>
 
-<section class="card space-y-4">
-	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
-		<svg
-			class="h-5 w-5 text-primary-400"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-			stroke-width="1.5"
-		>
-			<path
-				d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-			/>
-		</svg>
-		Enrichment Settings
-	</h2>
+{#snippet icon()}
+	<svg
+		class="h-5 w-5 text-primary"
+		fill="none"
+		stroke="currentColor"
+		viewBox="0 0 24 24"
+		stroke-width="1.5"
+	>
+		<path
+			d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+		/>
+	</svg>
+{/snippet}
 
-	<p class="text-xs text-neutral-400">
+<CollapsibleSection title="Enrichment Settings" {icon}>
+	<p class="text-xs text-base-content/60">
 		Enrichment looks up detailed product specifications using web search and/or AI knowledge.
 	</p>
 
@@ -637,4 +637,4 @@
 			</div>
 		</div>
 	</div>
-</section>
+</CollapsibleSection>
