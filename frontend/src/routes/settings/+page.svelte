@@ -21,7 +21,6 @@
 	import EnrichmentSection from '$lib/components/settings/EnrichmentSection.svelte';
 	import FieldPrefsSection from '$lib/components/settings/FieldPrefsSection.svelte';
 	import LogsSection from '$lib/components/settings/LogsSection.svelte';
-	import ThemeSection from '$lib/components/settings/ThemeSection.svelte';
 
 	onMount(async () => {
 		// Wait for auth initialization to complete to avoid race conditions
@@ -86,7 +85,6 @@
 		<!-- Left column on desktop -->
 		<div class="space-y-6">
 			<AccountSection />
-			<ThemeSection />
 			<AIProviderSection />
 			<ConnectionSection />
 		</div>
