@@ -449,19 +449,12 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
         model = config.get("model", "gpt-4o")
 
         try:
-            # Load settings to get the effective LLM API key
+            # Get API key from settings if available, but LiteLLM can also
+            # use standard env vars (OPENAI_API_KEY, etc.) directly
             settings = get_settings()
-            api_key = settings.effective_llm_api_key
+            api_key = settings.effective_llm_api_key or None
 
-            if not api_key:
-                return TestConnectionResponse(
-                    success=False,
-                    provider=provider,
-                    message="No API key configured. Set HBC_LLM_API_KEY environment variable.",
-                    details={"model": model},
-                )
-
-            # Create provider and attempt a minimal test completion
+            # Create provider - LiteLLM will use env vars if api_key is None
             litellm_provider = LiteLLMProvider(
                 api_key=api_key,
                 model=model,
@@ -486,20 +479,30 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
             )
 
         except LiteLLMProviderError as e:
-            logger.error(f"LiteLLM connection test failed: {e}")
+            error_msg = str(e)
+            logger.error(f"LiteLLM connection test failed: {error_msg}")
+            # Provide helpful message for common errors
+            if "AuthenticationError" in error_msg or "API key" in error_msg.lower():
+                return TestConnectionResponse(
+                    success=False,
+                    provider=provider,
+                    message="Authentication failed. Ensure OPENAI_API_KEY or HBC_LLM_API_KEY is set.",
+                    details={"model": model, "error": error_msg},
+                )
             return TestConnectionResponse(
                 success=False,
                 provider=provider,
-                message=f"Connection failed: {str(e)}",
-                details={"model": model, "error": str(e)},
+                message=f"Connection failed: {error_msg}",
+                details={"model": model, "error": error_msg},
             )
         except Exception as e:
-            logger.error(f"LiteLLM connection test failed: {e}")
+            error_msg = str(e)
+            logger.error(f"LiteLLM connection test failed: {error_msg}")
             return TestConnectionResponse(
                 success=False,
                 provider=provider,
-                message=f"Connection failed: {str(e)}",
-                details={"model": model, "error": str(e)},
+                message=f"Connection failed: {error_msg}",
+                details={"model": model, "error": error_msg},
             )
 
     else:
