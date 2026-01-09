@@ -113,11 +113,8 @@
 	function selectProvider(providerId: string) {
 		if (!editingConfig) return;
 		editingConfig.active_provider = providerId;
-
-		if (providerId === 'ollama') editingConfig.ollama.enabled = true;
-		else if (providerId === 'openai') editingConfig.openai.enabled = true;
-		else if (providerId === 'anthropic') editingConfig.anthropic.enabled = true;
-		else if (providerId === 'litellm') editingConfig.litellm.enabled = true;
+		// Don't auto-enable - preserve current enabled state
+		// User must deliberately toggle the switch to enable/disable
 	}
 
 	function toggleOllama() {
@@ -131,6 +128,37 @@
 	}
 	function toggleLiteLLM() {
 		if (editingConfig) editingConfig.litellm.enabled = !editingConfig.litellm.enabled;
+	}
+
+	// Save current provider's config only
+	async function saveProviderConfig(providerId: string) {
+		if (!editingConfig) return;
+		await service.saveAIConfig(editingConfig);
+	}
+
+	// Discard changes for a specific provider (reset to server state)
+	function discardProviderChanges(providerId: string) {
+		if (!editingConfig || !service.aiConfig) return;
+
+		if (providerId === 'ollama') {
+			editingConfig.ollama = { ...service.aiConfig.ollama };
+		} else if (providerId === 'openai') {
+			editingConfig.openai = {
+				enabled: service.aiConfig.openai.enabled,
+				api_key: null,
+				model: service.aiConfig.openai.model,
+				max_tokens: service.aiConfig.openai.max_tokens,
+			};
+		} else if (providerId === 'anthropic') {
+			editingConfig.anthropic = {
+				enabled: service.aiConfig.anthropic.enabled,
+				api_key: null,
+				model: service.aiConfig.anthropic.model,
+				max_tokens: service.aiConfig.anthropic.max_tokens,
+			};
+		} else if (providerId === 'litellm') {
+			editingConfig.litellm = { ...service.aiConfig.litellm };
+		}
 	}
 
 	function getProviderIcon(providerId: string): string {
@@ -233,7 +261,10 @@
 							<svg class="h-4 w-4 flex-shrink-0 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
 								<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
 							</svg>
-						{:else if provider.configured}
+						{:else if (provider.id === 'ollama' && editingConfig.ollama.enabled) ||
+								(provider.id === 'openai' && editingConfig.openai.enabled) ||
+								(provider.id === 'anthropic' && editingConfig.anthropic.enabled) ||
+								(provider.id === 'litellm' && editingConfig.litellm.enabled)}
 							<svg class="h-4 w-4 flex-shrink-0 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
@@ -272,14 +303,40 @@
 							{/each}
 						</select>
 					</div>
-					<Button variant="secondary" size="sm" onclick={() => handleTestConnection('ollama')} disabled={service.aiConfigTestingProvider === 'ollama'}>
-						{#if service.aiConfigTestingProvider === 'ollama'}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</Button>
+					<div class="flex items-center gap-2">
+						<Button variant="secondary" size="sm" onclick={() => handleTestConnection('ollama')} disabled={service.aiConfigTestingProvider === 'ollama'}>
+							{#if service.aiConfigTestingProvider === 'ollama'}
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</Button>
+						<!-- Save button (green check) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-all hover:bg-success/20 disabled:opacity-50"
+							onclick={() => saveProviderConfig('ollama')}
+							disabled={service.aiConfigSaveState === 'saving'}
+							title="Save Ollama settings"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</button>
+						<!-- Discard button (red X) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-error/30 bg-error/10 text-error transition-all hover:bg-error/20"
+							onclick={() => discardProviderChanges('ollama')}
+							title="Discard changes"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<line x1="18" y1="6" x2="6" y2="18" />
+								<line x1="6" y1="6" x2="18" y2="18" />
+							</svg>
+						</button>
+					</div>
 				{/if}
 			</div>
 		{:else if editingConfig.active_provider === 'openai'}
@@ -312,14 +369,40 @@
 							{/each}
 						</select>
 					</div>
-					<Button variant="secondary" size="sm" onclick={() => handleTestConnection('openai')} disabled={service.aiConfigTestingProvider === 'openai'}>
-						{#if service.aiConfigTestingProvider === 'openai'}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</Button>
+					<div class="flex items-center gap-2">
+						<Button variant="secondary" size="sm" onclick={() => handleTestConnection('openai')} disabled={service.aiConfigTestingProvider === 'openai'}>
+							{#if service.aiConfigTestingProvider === 'openai'}
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</Button>
+						<!-- Save button (green check) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-all hover:bg-success/20 disabled:opacity-50"
+							onclick={() => saveProviderConfig('openai')}
+							disabled={service.aiConfigSaveState === 'saving'}
+							title="Save OpenAI settings"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</button>
+						<!-- Discard button (red X) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-error/30 bg-error/10 text-error transition-all hover:bg-error/20"
+							onclick={() => discardProviderChanges('openai')}
+							title="Discard changes"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<line x1="18" y1="6" x2="6" y2="18" />
+								<line x1="6" y1="6" x2="18" y2="18" />
+							</svg>
+						</button>
+					</div>
 				{/if}
 			</div>
 		{:else if editingConfig.active_provider === 'anthropic'}
@@ -352,14 +435,40 @@
 							{/each}
 						</select>
 					</div>
-					<Button variant="secondary" size="sm" onclick={() => handleTestConnection('anthropic')} disabled={service.aiConfigTestingProvider === 'anthropic'}>
-						{#if service.aiConfigTestingProvider === 'anthropic'}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</Button>
+					<div class="flex items-center gap-2">
+						<Button variant="secondary" size="sm" onclick={() => handleTestConnection('anthropic')} disabled={service.aiConfigTestingProvider === 'anthropic'}>
+							{#if service.aiConfigTestingProvider === 'anthropic'}
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</Button>
+						<!-- Save button (green check) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-all hover:bg-success/20 disabled:opacity-50"
+							onclick={() => saveProviderConfig('anthropic')}
+							disabled={service.aiConfigSaveState === 'saving'}
+							title="Save Anthropic settings"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</button>
+						<!-- Discard button (red X) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-error/30 bg-error/10 text-error transition-all hover:bg-error/20"
+							onclick={() => discardProviderChanges('anthropic')}
+							title="Discard changes"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<line x1="18" y1="6" x2="6" y2="18" />
+								<line x1="6" y1="6" x2="18" y2="18" />
+							</svg>
+						</button>
+					</div>
 				{/if}
 			</div>
 		{:else if editingConfig.active_provider === 'litellm'}
@@ -385,14 +494,40 @@
 						<label for="litellm-model" class="block text-xs text-neutral-400">Model</label>
 						<input id="litellm-model" type="text" bind:value={editingConfig.litellm.model} class="input w-full" placeholder="gpt-4o" />
 					</div>
-					<Button variant="secondary" size="sm" onclick={() => handleTestConnection('litellm')} disabled={service.aiConfigTestingProvider === 'litellm'}>
-						{#if service.aiConfigTestingProvider === 'litellm'}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</Button>
+					<div class="flex items-center gap-2">
+						<Button variant="secondary" size="sm" onclick={() => handleTestConnection('litellm')} disabled={service.aiConfigTestingProvider === 'litellm'}>
+							{#if service.aiConfigTestingProvider === 'litellm'}
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</Button>
+						<!-- Save button (green check) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-all hover:bg-success/20 disabled:opacity-50"
+							onclick={() => saveProviderConfig('litellm')}
+							disabled={service.aiConfigSaveState === 'saving'}
+							title="Save Cloud settings"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</button>
+						<!-- Discard button (red X) -->
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-lg border border-error/30 bg-error/10 text-error transition-all hover:bg-error/20"
+							onclick={() => discardProviderChanges('litellm')}
+							title="Discard changes"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+								<line x1="18" y1="6" x2="6" y2="18" />
+								<line x1="6" y1="6" x2="18" y2="18" />
+							</svg>
+						</button>
+					</div>
 				{/if}
 			</div>
 		{/if}

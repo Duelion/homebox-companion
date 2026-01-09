@@ -27,6 +27,8 @@ from homebox_companion.core.ai_config import (
     save_ai_config,
 )
 from homebox_companion.providers.ollama import OllamaProvider
+from homebox_companion.providers.litellm_provider import LiteLLMProvider, LiteLLMProviderError
+from homebox_companion.core.settings import Settings
 
 from ..dependencies import require_auth
 
@@ -444,12 +446,61 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
             )
 
     elif provider == "litellm":
-        return TestConnectionResponse(
-            success=True,
-            provider=provider,
-            message="LiteLLM (cloud) provider is always available.",
-            details={"model": config.get("model", "gpt-4o")},
-        )
+        model = config.get("model", "gpt-4o")
+
+        try:
+            # Load settings to get the effective LLM API key
+            settings = Settings()
+            api_key = settings.effective_llm_api_key
+
+            if not api_key:
+                return TestConnectionResponse(
+                    success=False,
+                    provider=provider,
+                    message="No API key configured. Set HBC_LLM_API_KEY environment variable.",
+                    details={"model": model},
+                )
+
+            # Create provider and attempt a minimal test completion
+            litellm_provider = LiteLLMProvider(
+                api_key=api_key,
+                model=model,
+                provider_type="litellm",
+                timeout=30.0,  # Use shorter timeout for test
+            )
+
+            # Try a minimal completion to verify connectivity
+            test_response = await litellm_provider.complete(
+                prompt="Respond with only the word 'OK'",
+                system="You are a test assistant. Respond only with 'OK'.",
+            )
+
+            return TestConnectionResponse(
+                success=True,
+                provider=provider,
+                message=f"Connected to LiteLLM. Model '{model}' is responding.",
+                details={
+                    "model": model,
+                    "response": test_response[:50] if test_response else "OK",
+                },
+            )
+
+        except LiteLLMProviderError as e:
+            logger.error(f"LiteLLM connection test failed: {e}")
+            return TestConnectionResponse(
+                success=False,
+                provider=provider,
+                message=f"Connection failed: {str(e)}",
+                details={"model": model, "error": str(e)},
+            )
+        except Exception as e:
+            logger.error(f"LiteLLM connection test failed: {e}")
+            return TestConnectionResponse(
+                success=False,
+                provider=provider,
+                message=f"Connection failed: {str(e)}",
+                details={"model": model, "error": str(e)},
+            )
 
     else:
         raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
