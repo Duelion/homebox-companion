@@ -144,7 +144,7 @@
 	});
 </script>
 
-<div class="flex min-h-dvh min-h-screen flex-col bg-base-100">
+<div class="flex min-h-dvh min-h-screen flex-col bg-base-100" style="background-color: #0a0a0f;">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
@@ -256,6 +256,7 @@
 	{#if !isAuthenticated}
 		<footer
 			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-base-100 py-3 text-center text-xs text-base-content/40"
+			style="background-color: #0a0a0f;"
 		>
 			{#if appVersion}
 				<span>v{appVersion}</span>
