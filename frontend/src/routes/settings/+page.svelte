@@ -17,7 +17,6 @@
 	import AboutSection from '$lib/components/settings/AboutSection.svelte';
 	import AIConfigurationSection from '$lib/components/settings/AIConfigurationSection.svelte';
 	import ConnectionSection from '$lib/components/settings/ConnectionSection.svelte';
-	import FieldPrefsSection from '$lib/components/settings/FieldPrefsSection.svelte';
 	import LogsSection from '$lib/components/settings/LogsSection.svelte';
 
 	onMount(async () => {
@@ -78,33 +77,19 @@
 		</div>
 	{/if}
 
-	<!-- Settings sections - single column on mobile, two independent columns on desktop -->
-	<!-- Using flex layout to ensure columns don't affect each other -->
-	<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-		<!-- Left Column - Desktop only structure -->
-		<div class="flex flex-1 flex-col gap-6">
+	<!-- Settings sections - responsive layout -->
+	<div class="space-y-6">
+		<!-- Top row: Account and About side by side on desktop -->
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<AccountSection />
-			<!-- AI Configuration section only visible on desktop - mobile shows individual sections below -->
-			<div class="hidden lg:block">
-				<AIConfigurationSection />
-			</div>
-			<div class="hidden lg:block">
-				<ConnectionSection />
-			</div>
+			<AboutSection />
 		</div>
 
-		<!-- Right Column - Desktop only structure -->
-		<div class="hidden flex-1 flex-col gap-6 lg:flex">
-			<AboutSection />
-			<FieldPrefsSection />
-			<LogsSection />
-		</div>
+		<!-- AI Configuration - full width, contains all AI-related settings -->
+		<AIConfigurationSection />
 
-		<!-- Mobile-only sections (shown in desired order) -->
-		<div class="flex flex-col gap-6 lg:hidden">
-			<AboutSection />
-			<AIConfigurationSection />
-			<FieldPrefsSection />
+		<!-- Bottom row: Connection and Logs side by side on desktop -->
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<ConnectionSection />
 			<LogsSection />
 		</div>
