@@ -28,23 +28,27 @@ This fork adds the following features while maintaining full compatibility with 
 
 | Feature | Description |
 |---------|-------------|
-| **Multi-Provider AI** | Switch between OpenAI, Anthropic, and Ollama from the Settings UI |
+| **Responsive Web UI** | Mobile-first design adapts to phone, tablet, and desktop |
+| **Multi-Provider AI** | Switch between OpenAI, Anthropic, and Ollama from Settings |
 | **Local AI (Ollama)** | Privacy-first local processing - images never leave your network |
 | **Product Enrichment** | AI-powered spec lookup fills in product details from web search |
 | **Duplicate Detection** | Multi-strategy matching (serial, manufacturer+model, fuzzy name) |
 | **Update Existing Items** | Merge new photos/data into existing items when duplicates found |
 | **Provider Fallback** | Auto-retry with backup provider if primary fails |
+| **Configurable Timeouts** | Adjust AI timeout for slow models (30-600s) |
 | **Token Usage Display** | Optional display of AI token consumption |
 | **Custom API Endpoints** | OpenAI-compatible endpoints (Azure, LiteLLM proxy, etc.) |
-| **In-App Configuration** | Configure everything in the UI - no YAML/env vars required |
-
-See the [Wiki](../../wiki) for detailed documentation on all features.
+| **Theme Support** | Multiple DaisyUI themes (dark mode default) |
+| **PWA Support** | Install as app on mobile devices |
+| **Pull-to-Refresh** | Native mobile gesture support |
+| **Offline Indicator** | Shows when network connection is lost |
+| **In-App Configuration** | Configure everything in the UI - no env vars required |
 
 ---
 
-## Quick Start (This Fork)
+## Quick Start
 
-### Simplified Docker Deployment
+### Docker Deployment
 
 ```yaml
 # docker-compose.yml
@@ -56,51 +60,64 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - ./homebox-companion:/data  # All persistent data (settings, sessions, indexes)
-
+      - ./homebox-companion:/data
 ```
 
 ```bash
 docker compose up -d
 ```
 
-Open `http://localhost:8000` and configure everything in the Settings page:
-1. **Connection Settings** - Enter your Homebox URL
+Open `http://localhost:8000` and configure in the Settings page:
+1. **Connection** - Enter your Homebox URL
 2. **AI Provider** - Configure OpenAI, Anthropic, or Ollama
-3. **Behavior Settings** - Enable duplicate detection
+3. **Behavior** - Enable duplicate detection, token usage display
 
-> **No environment variables required!** All configuration is done in the browser and persists in the data volume.
+> **No environment variables required!** All configuration is done in the browser and persists in the `/data` volume.
 
-### Using Local AI (Ollama)
+### With Local AI (Ollama)
 
 For complete privacy with no cloud dependencies:
 
 ```yaml
+# docker-compose.yml
 services:
   homebox-companion:
     image: ghcr.io/synssins/homebox-companion:latest
+    container_name: homebox-companion
+    restart: always
     ports:
       - 8000:8000
     volumes:
-      - ./homebox-companion:/app/data  # All persistent data
+      - ./homebox-companion:/data
 
   ollama:
     image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
     ports:
       - 11434:11434
     volumes:
-      - ollama-models:/root/.ollama
+      - ./ollama:/root/.ollama
+    # For NVIDIA GPU support, uncomment:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+```
 
-volumes:
-  ollama-models:
+After starting, pull a vision model:
+```bash
+docker exec ollama ollama pull minicpm-v
 ```
 
 Then in Settings > AI Provider:
 1. Enable Ollama
 2. Set URL to `http://ollama:11434`
-3. Select a vision model (e.g., `minicpm-v`)
-
-Pull the model first: `docker exec ollama ollama pull minicpm-v`
+3. Select model: `minicpm-v`
+4. Click "Test Connection" to verify
 
 ---
 
@@ -118,109 +135,101 @@ flowchart LR
 ```
 
 1. **Login** - Authenticate with your existing Homebox credentials
-2. **Select Location** - Browse the location tree, search, or scan a Homebox QR code
-3. **Capture Photos** - Take or upload photos of items (supports multiple photos per item)
+2. **Select Location** - Browse location tree, search, or scan a Homebox QR code
+3. **Capture Photos** - Take or upload photos (supports multiple photos per item)
 4. **AI Detection** - AI vision identifies items, quantities, and metadata
-5. **Review & Edit** - Adjust AI suggestions, see duplicate warnings
-6. **Submit** - Items are created in your Homebox inventory with photos attached
+5. **Review & Edit** - Adjust AI suggestions, see duplicate warnings, enrich product data
+6. **Submit** - Items created in Homebox with photos attached
 
 ---
 
-## Fork-Specific Features
+## Features
 
-### Multi-Provider AI Configuration
+### Responsive Web UI
 
-Configure and switch between AI providers directly in the Settings UI:
+The interface adapts to any screen size:
 
-- **OpenAI** - GPT-4o, GPT-4o-mini (cloud, paid)
-- **Anthropic** - Claude models (cloud, paid)
-- **Ollama** - Local models like minicpm-v, llava (free, private)
+- **Mobile** - Single-column layout, bottom navigation, pull-to-refresh
+- **Tablet** - Two-column settings, optimized touch targets
+- **Desktop** - Multi-column layout, expanded navigation
 
-Each provider can be enabled/disabled independently. The active provider is shown with a ⭐ badge on the Settings page.
+Install as a PWA on mobile for app-like experience with offline indicator.
 
-**Custom API Endpoints**: OpenAI supports custom `api_base` URLs for:
-- Azure OpenAI deployments
-- LiteLLM proxy servers
-- Any OpenAI-compatible API
+### Multi-Provider AI
 
-**Provider Fallback**: Enable automatic retry with a backup provider if the primary fails.
+Configure and switch between AI providers in Settings:
 
-**Configurable Timeout**: Ollama users can adjust the timeout (30-600s) for slow vision models on CPU.
+| Provider | Privacy | Cost | Speed |
+|----------|---------|------|-------|
+| **Ollama** | 🟢 Local | Free | Variable (GPU dependent) |
+| **OpenAI** | 🔴 Cloud | ~$0.01/img | Fast |
+| **Anthropic** | 🔴 Cloud | ~$0.01/img | Fast |
+
+**Features:**
+- Enable/disable providers independently
+- Active provider shown with ⭐ badge
+- Custom API endpoints (Azure, LiteLLM proxy, OpenRouter)
+- Provider fallback - auto-retry with backup if primary fails
+- Configurable timeout (30-600s) for slow models
 
 ### Product Enrichment
 
-AI-powered specification lookup to automatically fill in product details:
+AI-powered specification lookup:
 
-- Searches the web for product specifications using the manufacturer and model number
-- Fills in description, features, MSRP, release year, and category
-- Uses configured search provider (Tavily, Google Custom Search, or SearXNG)
+- Searches web for product specs using manufacturer + model
+- Fills in description, features, MSRP, release year, category
+- Supports Tavily, Google Custom Search, or SearXNG
 - Caches results to avoid repeated lookups
-- Privacy-first: Serial numbers are never sent externally
+- Privacy-first: Serial numbers never sent externally
 
-Enable in Settings > Enrichment. Configure your preferred search provider API.
+Enable in Settings > Enrichment.
 
 ### Duplicate Detection
 
-Multi-strategy detection prevents accidentally creating duplicate entries:
+Multi-strategy detection prevents duplicate entries:
 
 | Strategy | Description |
 |----------|-------------|
 | **Serial Number** | Exact match on serial numbers |
-| **Manufacturer + Model** | Matches same manufacturer AND model number |
+| **Manufacturer + Model** | Matches same manufacturer AND model |
 | **Fuzzy Name** | Similar product names (configurable threshold) |
 
-When duplicates are found during review:
+When duplicates found:
 - Warning banner shows matched item with confidence score
-- **Update Existing**: Merge new photos and fill empty fields into the existing item
-- **Create New**: Override and create a new item anyway
-- Match field is protected (won't overwrite the field that caused the match)
+- **Update Existing** - Merge new photos, fill empty fields
+- **Create New** - Override and create anyway
+- Protected fields - Won't overwrite the match field
 
-Enable in Settings > Behavior Settings.
+### In-App Configuration
 
-### Token Usage Display
+All settings configurable in the browser:
 
-Optional display showing AI token consumption for each analysis:
-- Input tokens (image + prompt)
-- Output tokens (AI response)
-- Helps monitor API costs
-
-Enable in Settings > Behavior Settings > Show Token Usage.
-
-### In-App Settings
-
-All configuration moved from environment variables to the UI:
-
-| Setting | Location |
+| Section | Settings |
 |---------|----------|
-| Homebox URL | Settings > Connection |
-| Image Quality | Settings > Connection |
-| AI Provider/Keys | Settings > AI Provider |
-| Ollama Timeout | Settings > AI Provider > Ollama |
-| Provider Fallback | Settings > AI Provider |
-| Duplicate Detection | Settings > Behavior |
-| Token Usage Display | Settings > Behavior |
-| Enrichment | Settings > Enrichment |
-| Search Provider | Settings > Enrichment |
+| **Connection** | Homebox URL, Image Quality |
+| **AI Provider** | Provider selection, API keys, models, timeouts |
+| **Behavior** | Duplicate detection, Token usage display |
+| **Enrichment** | Enable/disable, Search provider, Cache duration |
 
-Settings persist in `/app/data` - mount the volume and configure once.
+Settings persist in `/data` volume.
 
 ---
 
-## Original Features
+## Original Features (Preserved)
 
-All features from the upstream project are preserved:
+All upstream features work unchanged:
 
 ### AI-Powered Detection
 - Identifies multiple items in a single photo
-- Extracts manufacturer, model, serial number, price when visible
+- Extracts manufacturer, model, serial number, price
 - Suggests labels from your existing Homebox labels
 - Multi-language support
 
 ### Smart Workflow
-- **Multi-image analysis** - Take photos from multiple angles for better accuracy
-- **Single-item mode** - Force AI to treat a photo as one item (for sets/kits)
-- **AI corrections** - Tell the AI what it got wrong and it re-analyzes
-- **Custom thumbnails** - Crop and select the best image for each item
+- **Multi-image analysis** - Multiple angles for better accuracy
+- **Single-item mode** - Force AI to treat photo as one item
+- **AI corrections** - Tell AI what it got wrong, re-analyzes
+- **Custom thumbnails** - Crop and select best image per item
 
 ### Location Management
 - Browse hierarchical location tree
@@ -229,52 +238,9 @@ All features from the upstream project are preserved:
 - Create new locations on the fly
 
 ### Chat Assistant
-- **Natural language queries** - Ask questions like "How many items do I have?"
-- **Inventory actions** - Create, update, move, or delete items through conversation
-- **Approval workflow** - Review AI-proposed changes before they're applied
-
-<details>
-<summary>Available Chat Tools</summary>
-
-The chat assistant has access to 21 tools for interacting with your Homebox inventory:
-
-**Read-Only** (auto-execute):
-| Tool | Description |
-|------|-------------|
-| `list_locations` | List all locations |
-| `get_location` | Get location details with children |
-| `list_labels` | List all labels |
-| `list_items` | List items with filtering/pagination |
-| `search_items` | Search items by text query |
-| `get_item` | Get full item details |
-| `get_item_by_asset_id` | Look up item by asset ID |
-| `get_item_path` | Get item's full location path |
-| `get_location_tree` | Get hierarchical location tree |
-| `get_statistics` | Get inventory statistics |
-| `get_statistics_by_location` | Item counts by location |
-| `get_statistics_by_label` | Item counts by label |
-| `get_attachment` | Get attachment content |
-
-**Write** (requires approval):
-| Tool | Description |
-|------|-------------|
-| `create_item` | Create a new item |
-| `update_item` | Update item fields |
-| `create_location` | Create a new location |
-| `update_location` | Update location details |
-| `create_label` | Create a new label |
-| `update_label` | Update label details |
-| `upload_attachment` | Upload attachment to item |
-| `ensure_asset_ids` | Assign asset IDs to all items |
-
-**Destructive** (requires approval):
-| Tool | Description |
-|------|-------------|
-| `delete_item` | Delete an item |
-| `delete_location` | Delete a location |
-| `delete_label` | Delete a label |
-
-</details>
+- Natural language queries about your inventory
+- Create, update, move, or delete items through conversation
+- Approval workflow for destructive actions
 
 ---
 
@@ -282,28 +248,17 @@ The chat assistant has access to 21 tools for interacting with your Homebox inve
 
 ### Environment Variables (Optional)
 
-While this fork allows full configuration via the UI, environment variables still work for automated deployments:
+While all settings can be configured in the UI, environment variables work for automated deployments:
 
 <details>
-<summary>Essential Settings</summary>
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `HBC_LLM_API_KEY` | No* | Your OpenAI API key (*can configure in UI) |
-| `HBC_HOMEBOX_URL` | No* | Your Homebox instance URL (*can configure in UI) |
-
-</details>
-
-<details>
-<summary>Full Configuration Reference</summary>
+<summary>Click to expand full reference</summary>
 
 **Core Settings**
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HBC_HOMEBOX_URL` | - | Your Homebox instance URL |
 | `HBC_IMAGE_QUALITY` | `medium` | Image quality: `raw`, `high`, `medium`, `low` |
-| `HBC_DATA_DIR` | `./data` | Data directory (becomes `/app/data` in Docker) |
-| `HBC_SERVER_HOST` | `0.0.0.0` | Server bind address |
+| `HBC_DATA_DIR` | `/data` | Data directory path |
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
 
@@ -311,47 +266,57 @@ While this fork allows full configuration via the UI, environment variables stil
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HBC_LLM_API_KEY` | - | OpenAI/Anthropic API key |
-| `HBC_LLM_MODEL` | `gpt-4o-mini` | Model to use for cloud AI |
-| `HBC_LLM_API_BASE` | - | Custom API base URL (Azure, LiteLLM, etc.) |
-| `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
+| `HBC_LLM_MODEL` | `gpt-4o-mini` | Cloud AI model |
+| `HBC_LLM_API_BASE` | - | Custom API base URL |
+| `HBC_LLM_TIMEOUT` | `120` | Request timeout (seconds) |
 | `HBC_OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `HBC_OLLAMA_MODEL` | `minicpm-v` | Ollama model for vision |
-| `HBC_OLLAMA_TIMEOUT` | `120` | Ollama request timeout in seconds |
+| `HBC_OLLAMA_MODEL` | `minicpm-v` | Ollama vision model |
+| `HBC_OLLAMA_TIMEOUT` | `120` | Ollama timeout (seconds) |
 
 **Feature Flags**
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HBC_CHAT_ENABLED` | `false` | Enable chat assistant feature |
-| `HBC_DUPLICATE_DETECTION` | `true` | Enable duplicate item detection |
-| `HBC_SHOW_TOKEN_USAGE` | `false` | Show AI token usage in UI |
+| `HBC_DUPLICATE_DETECTION` | `true` | Enable duplicate detection |
+| `HBC_SHOW_TOKEN_USAGE` | `false` | Show AI token usage |
+| `HBC_CHAT_ENABLED` | `false` | Enable chat assistant |
 
 **Enrichment Settings**
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HBC_ENRICHMENT_ENABLED` | `false` | Enable product enrichment |
-| `HBC_ENRICHMENT_AUTO` | `false` | Auto-enrich on scan |
-| `HBC_SEARCH_PROVIDER` | `none` | Search provider: `tavily`, `google`, `searxng`, `none` |
+| `HBC_SEARCH_PROVIDER` | `none` | `tavily`, `google`, `searxng`, or `none` |
 | `HBC_SEARCH_TAVILY_API_KEY` | - | Tavily API key |
-| `HBC_SEARCH_GOOGLE_API_KEY` | - | Google Custom Search API key |
-| `HBC_SEARCH_GOOGLE_ENGINE_ID` | - | Google Custom Search Engine ID |
+| `HBC_SEARCH_GOOGLE_API_KEY` | - | Google API key |
+| `HBC_SEARCH_GOOGLE_ENGINE_ID` | - | Google Search Engine ID |
 | `HBC_SEARCH_SEARXNG_URL` | - | SearXNG instance URL |
 
 </details>
+
+### Data Volume
+
+Mount `/data` to persist all configuration:
+
+```
+/data/
+├── app_preferences.json    # UI settings
+├── ai_config.json          # AI provider config
+├── enrichment_cache.json   # Cached product specs
+└── duplicate_index.json    # Serial number index
+```
 
 ---
 
 ## Tips
 
-- **Use local AI for privacy** - Ollama keeps all image processing on your network
-- **Enable duplicate detection** - Prevents accidentally re-adding items you already have
-- **Use "Update Existing"** - When a duplicate is found, merge new photos into the existing item
-- **Enable enrichment** - Let AI fill in product specs automatically from web search
-- **Increase Ollama timeout** - Vision models on CPU can be slow; try 300-600s
-- **Set up provider fallback** - Use Ollama as primary, cloud as backup for reliability
-- **Batch more items** - Images are analyzed in parallel, so more items = faster per-item
-- **Include receipts** - AI can extract purchase price, retailer, and date
-- **Multiple angles** - Include close-ups of labels, serial numbers for accuracy
-- **Long press to confirm all** - On review screen, long-press confirm to accept all items
+- **Use local AI for privacy** - Ollama keeps all processing on your network
+- **Enable duplicate detection** - Prevents re-adding existing items
+- **Use "Update Existing"** - Merge new photos into existing items
+- **Enable enrichment** - Auto-fill product specs from web search
+- **Increase Ollama timeout** - Vision models on CPU need 300-600s
+- **Set up fallback** - Ollama primary, cloud backup for reliability
+- **Test connection** - Verifies model responds within timeout
+- **Multiple angles** - Include close-ups of labels, serial numbers
+- **Long press confirm** - Accept all items at once on review screen
 
 ---
 
@@ -360,22 +325,23 @@ While this fork allows full configuration via the UI, environment variables stil
 - **Upstream compatible** - All original features work unchanged
 - **Homebox v0.21+** - Tested with recent Homebox versions
 - **Environment variables** - All original env vars still work
-- **API compatible** - No breaking changes to API endpoints
+- **API compatible** - No breaking changes to endpoints
 
 ---
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+GNU General Public License v3.0 - see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- **[Duelion/homebox-companion](https://github.com/Duelion/homebox-companion)** - Original project this fork is based on
-- [Homebox](https://github.com/sysadminsmedia/homebox) - The inventory system this app extends
-- [OpenAI](https://openai.com) - Vision AI capabilities (GPT models)
+- **[Duelion/homebox-companion](https://github.com/Duelion/homebox-companion)** - Original project
+- [Homebox](https://github.com/sysadminsmedia/homebox) - The inventory system
+- [OpenAI](https://openai.com) - Vision AI (GPT models)
 - [Ollama](https://ollama.ai) - Local AI runtime
-- [LiteLLM](https://docs.litellm.ai/) - LLM provider abstraction layer
-- [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) - Backend & frontend frameworks
+- [LiteLLM](https://docs.litellm.ai/) - LLM provider abstraction
+- [FastAPI](https://fastapi.tiangolo.com) & [SvelteKit](https://kit.svelte.dev) - Backend & frontend
+- [DaisyUI](https://daisyui.com) - UI component library
 
 ---
 
