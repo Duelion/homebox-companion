@@ -377,11 +377,19 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
 
     elif provider == "openai":
         api_key = config.get("api_key")
+        use_stored_key = config.get("use_stored_key", False)
+
+        # If use_stored_key is set, load the stored key from config
+        if use_stored_key and (not api_key or api_key.startswith("***")):
+            stored_config = load_ai_config()
+            if stored_config.openai.api_key:
+                api_key = stored_config.openai.api_key.get_secret_value()
+
         if not api_key or api_key.startswith("***"):
             return TestConnectionResponse(
                 success=False,
                 provider=provider,
-                message="API key is required",
+                message="API key is required. Please enter an API key or save one first.",
                 details={},
             )
 
@@ -403,11 +411,19 @@ async def test_provider_connection(request: TestConnectionRequest) -> TestConnec
 
     elif provider == "anthropic":
         api_key = config.get("api_key")
+        use_stored_key = config.get("use_stored_key", False)
+
+        # If use_stored_key is set, load the stored key from config
+        if use_stored_key and (not api_key or api_key.startswith("***")):
+            stored_config = load_ai_config()
+            if stored_config.anthropic.api_key:
+                api_key = stored_config.anthropic.api_key.get_secret_value()
+
         if not api_key or api_key.startswith("***"):
             return TestConnectionResponse(
                 success=False,
                 provider=provider,
-                message="API key is required",
+                message="API key is required. Please enter an API key or save one first.",
                 details={},
             )
 

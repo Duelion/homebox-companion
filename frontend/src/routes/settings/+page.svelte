@@ -15,10 +15,8 @@
 
 	import AccountSection from '$lib/components/settings/AccountSection.svelte';
 	import AboutSection from '$lib/components/settings/AboutSection.svelte';
-	import AIProviderSection from '$lib/components/settings/AIProviderSection.svelte';
-	import BehaviorSection from '$lib/components/settings/BehaviorSection.svelte';
+	import AIConfigurationSection from '$lib/components/settings/AIConfigurationSection.svelte';
 	import ConnectionSection from '$lib/components/settings/ConnectionSection.svelte';
-	import EnrichmentSection from '$lib/components/settings/EnrichmentSection.svelte';
 	import FieldPrefsSection from '$lib/components/settings/FieldPrefsSection.svelte';
 	import LogsSection from '$lib/components/settings/LogsSection.svelte';
 
@@ -80,32 +78,34 @@
 		</div>
 	{/if}
 
-	<!-- Settings sections - single column on mobile, two columns on desktop -->
-	<!-- Mobile order: Account, About, AI, Behavior, Enrichment, FieldPrefs, Connection, Logs -->
-	<!-- Desktop: Left (Account, AI, Behavior, Connection), Right (About, Enrichment, FieldPrefs, Logs) -->
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-		<div class="order-1">
+	<!-- Settings sections - single column on mobile, two independent columns on desktop -->
+	<!-- Using flex layout to ensure columns don't affect each other -->
+	<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+		<!-- Left Column - Desktop only structure -->
+		<div class="flex flex-1 flex-col gap-6">
 			<AccountSection />
+			<!-- AI Configuration section only visible on desktop - mobile shows individual sections below -->
+			<div class="hidden lg:block">
+				<AIConfigurationSection />
+			</div>
+			<div class="hidden lg:block">
+				<ConnectionSection />
+			</div>
 		</div>
-		<div class="order-2">
+
+		<!-- Right Column - Desktop only structure -->
+		<div class="hidden flex-1 flex-col gap-6 lg:flex">
 			<AboutSection />
-		</div>
-		<div class="order-3">
-			<AIProviderSection />
-		</div>
-		<div class="order-4 lg:order-5">
-			<BehaviorSection />
-		</div>
-		<div class="order-5 lg:order-4">
-			<EnrichmentSection />
-		</div>
-		<div class="order-6">
 			<FieldPrefsSection />
+			<LogsSection />
 		</div>
-		<div class="order-7">
+
+		<!-- Mobile-only sections (shown in desired order) -->
+		<div class="flex flex-col gap-6 lg:hidden">
+			<AboutSection />
+			<AIConfigurationSection />
+			<FieldPrefsSection />
 			<ConnectionSection />
-		</div>
-		<div class="order-8">
 			<LogsSection />
 		</div>
 	</div>

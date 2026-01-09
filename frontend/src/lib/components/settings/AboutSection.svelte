@@ -7,6 +7,38 @@
 	import CollapsibleSection from './CollapsibleSection.svelte';
 
 	const service = settingsService;
+
+	// Get display name for provider
+	function getProviderDisplayName(providerId: string): string {
+		switch (providerId) {
+			case 'ollama':
+				return 'Ollama';
+			case 'openai':
+				return 'OpenAI';
+			case 'anthropic':
+				return 'Anthropic';
+			case 'litellm':
+				return 'Cloud';
+			default:
+				return providerId;
+		}
+	}
+
+	// Derive the effective Homebox URL (from appPreferences or config)
+	const effectiveHomeboxUrl = $derived(
+		service.appPreferences?.effective_homebox_url || service.config?.homebox_url || 'Not configured'
+	);
+
+	// Derive the current AI provider and model
+	const currentAiInfo = $derived.by(() => {
+		if (!service.aiConfig) return 'Not configured';
+		const provider = service.aiConfig.active_provider;
+		const providerConfig = service.aiConfig[provider as keyof typeof service.aiConfig];
+		if (typeof providerConfig === 'object' && providerConfig !== null && 'model' in providerConfig) {
+			return `${getProviderDisplayName(provider)} - ${providerConfig.model}`;
+		}
+		return getProviderDisplayName(provider);
+	});
 </script>
 
 {#snippet icon()}
@@ -176,14 +208,14 @@
 					<div class="flex min-w-0 items-center gap-2">
 						<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
 						<a
-							href={service.config.homebox_url}
+							href={effectiveHomeboxUrl}
 							target="_blank"
 							rel="noopener noreferrer"
 							class="flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-base-content transition-colors hover:text-primary"
-							title={service.config.homebox_url}
+							title={effectiveHomeboxUrl}
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
-							<span class="truncate">{service.config.homebox_url}</span>
+							<span class="truncate">{effectiveHomeboxUrl}</span>
 							<svg
 								class="h-3 w-3 flex-shrink-0 opacity-70"
 								fill="none"
@@ -195,7 +227,7 @@
 								<line x1="10" y1="14" x2="21" y2="3" />
 							</svg>
 						</a>
-						{#if service.config.is_demo_mode}
+						{#if service.config?.is_demo_mode}
 							<span
 								class="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-warning/20 px-2 py-0.5 text-xs text-warning"
 							>
@@ -207,8 +239,8 @@
 
 				<!-- AI Model -->
 				<div class="flex items-center justify-between border-t border-base-content/10 py-2">
-					<span class="text-base-content/60">AI Model</span>
-					<span class="font-mono text-sm text-base-content">{service.config.llm_model}</span>
+					<span class="text-base-content/60">AI Provider</span>
+					<span class="font-mono text-sm text-base-content">{currentAiInfo}</span>
 				</div>
 
 				<!-- Image Quality -->
