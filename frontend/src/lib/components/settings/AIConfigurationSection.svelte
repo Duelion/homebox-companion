@@ -14,6 +14,7 @@
 	import AIProviderSubSection from './AIProviderSubSection.svelte';
 	import BehaviorSubSection from './BehaviorSubSection.svelte';
 	import EnrichmentSubSection from './EnrichmentSubSection.svelte';
+	import FieldPrefsSubSection from './FieldPrefsSubSection.svelte';
 
 	const service = settingsService;
 
@@ -71,10 +72,13 @@
 		<!-- AI Provider -->
 		<AIProviderSubSection />
 
+		<!-- AI Output (field preferences) -->
+		<FieldPrefsSubSection />
+
 		<!-- Enrichment -->
 		<EnrichmentSubSection />
 
-		<!-- Behavior / AI Output -->
+		<!-- Behavior (duplicate detection, token usage) -->
 		<BehaviorSubSection />
 	</div>
 </CollapsibleSection>
