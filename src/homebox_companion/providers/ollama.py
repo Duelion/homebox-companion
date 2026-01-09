@@ -152,8 +152,12 @@ Be precise - only include what you can clearly read."""
         except Exception:
             return False
 
-    async def test_connection(self) -> dict[str, Any]:
+    async def test_connection(self, test_inference: bool = False) -> dict[str, Any]:
         """Test connection to Ollama and return status details.
+
+        Args:
+            test_inference: If True, also run a small inference test to verify
+                           the model can respond within the configured timeout.
 
         Returns:
             Dict with connection status, model availability, and available models.
@@ -172,7 +176,7 @@ Be precise - only include what you can clearly read."""
             model_names = [m["name"] for m in models]
             model_available = any(m["name"].startswith(self.model) for m in models)
 
-            return {
+            result = {
                 "status": "connected",
                 "connected": True,
                 "url": self.base_url,
@@ -180,6 +184,28 @@ Be precise - only include what you can clearly read."""
                 "model_available": model_available,
                 "available_models": model_names,
             }
+
+            # If model is available and inference test requested, try a completion
+            if model_available and test_inference:
+                try:
+                    logger.debug(f"Running inference test with {self.model} (timeout: {self.timeout}s)")
+                    test_response = await self.complete(
+                        prompt="Respond with only the word 'OK'",
+                        system="You are a test assistant. Respond only with 'OK'.",
+                    )
+                    result["inference_tested"] = True
+                    result["inference_success"] = True
+                    result["inference_response"] = test_response[:50] if test_response else "OK"
+                except httpx.TimeoutException:
+                    result["inference_tested"] = True
+                    result["inference_success"] = False
+                    result["inference_error"] = f"Model timed out after {self.timeout}s. Try increasing the timeout."
+                except Exception as e:
+                    result["inference_tested"] = True
+                    result["inference_success"] = False
+                    result["inference_error"] = str(e)
+
+            return result
 
         except httpx.ConnectError:
             return {
