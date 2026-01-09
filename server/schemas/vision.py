@@ -3,6 +3,15 @@
 from pydantic import BaseModel, Field
 
 
+class TokenUsageResponse(BaseModel):
+    """Token usage statistics from LLM call."""
+
+    prompt_tokens: int = Field(default=0, description="Number of tokens in the prompt")
+    completion_tokens: int = Field(default=0, description="Number of tokens in the completion")
+    total_tokens: int = Field(default=0, description="Total tokens used")
+    provider: str = Field(default="unknown", description="LLM provider name")
+
+
 # Base mixin for item extended fields to reduce duplication
 class ItemExtendedFieldsMixin(BaseModel):
     """Mixin containing extended fields shared across item schemas."""
@@ -49,6 +58,9 @@ class DetectionResponse(BaseModel):
     compressed_images: list[CompressedImage] = Field(
         default_factory=list, description="Compressed versions of images for Homebox upload"
     )
+    usage: TokenUsageResponse | None = Field(
+        default=None, description="Token usage statistics (if enabled)"
+    )
 
 
 class AdvancedItemDetails(ItemExtendedFieldsMixin):
@@ -86,6 +98,9 @@ class BatchDetectionResult(BaseModel):
     success: bool
     items: list[DetectedItemResponse] = Field(default_factory=list)
     error: str | None = None
+    usage: TokenUsageResponse | None = Field(
+        default=None, description="Token usage statistics for this image"
+    )
 
 
 class BatchDetectionResponse(BaseModel):
@@ -96,6 +111,9 @@ class BatchDetectionResponse(BaseModel):
     successful_images: int
     failed_images: int
     message: str = "Batch detection complete"
+    total_usage: TokenUsageResponse | None = Field(
+        default=None, description="Aggregated token usage across all images"
+    )
 
 
 class GroupedDetectionResponse(BaseModel):
@@ -111,3 +129,6 @@ class GroupedDetectionResponse(BaseModel):
     )
     total_images: int = Field(description="Total number of images analyzed")
     message: str = "Grouped detection complete"
+    usage: TokenUsageResponse | None = Field(
+        default=None, description="Token usage statistics (if enabled)"
+    )

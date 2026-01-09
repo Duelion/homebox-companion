@@ -45,6 +45,10 @@ class AppPreferences(BaseModel):
         default=True,
         description="Enable duplicate detection by serial number",
     )
+    show_token_usage: bool = Field(
+        default=False,
+        description="Display AI token usage counts in detection results",
+    )
 
     # Enrichment settings
     enrichment_enabled: bool = Field(

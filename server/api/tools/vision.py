@@ -43,6 +43,7 @@ from ...schemas.vision import (
     DetectedItemResponse,
     DetectionResponse,
     GroupedDetectionResponse,
+    TokenUsageResponse,
 )
 
 router = APIRouter()
@@ -85,6 +86,25 @@ def _get_compression_semaphore() -> asyncio.Semaphore:
         _COMPRESSION_SEMAPHORE_LOOP = current_loop
 
     return _COMPRESSION_SEMAPHORE
+
+
+def convert_usage_to_response(usage) -> TokenUsageResponse | None:
+    """Convert internal TokenUsage to response schema.
+
+    Args:
+        usage: TokenUsage object from detection result.
+
+    Returns:
+        TokenUsageResponse schema or None if no usage data.
+    """
+    if usage is None:
+        return None
+    return TokenUsageResponse(
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        provider=usage.provider,
+    )
 
 
 def filter_default_label(label_ids: list[str] | None, default_label_id: str | None) -> list[str]:
@@ -307,9 +327,9 @@ async def detect_items(
     detection_task = run_detection()
     compression_task = compress_all_images()
 
-    detected, compressed_images = await asyncio.gather(detection_task, compression_task)
+    detection_result, compressed_images = await asyncio.gather(detection_task, compression_task)
 
-    logger.info(f"Detected {len(detected)} items, compressed {len(compressed_images)} images")
+    logger.info(f"Detected {len(detection_result.items)} items, compressed {len(compressed_images)} images")
 
     # Filter out default label from AI suggestions (frontend will auto-add it)
     return DetectionResponse(
@@ -326,9 +346,10 @@ async def detect_items(
                 purchase_from=item.purchase_from,
                 notes=item.notes,
             )
-            for item in detected
+            for item in detection_result.items
         ],
         compressed_images=compressed_images,
+        usage=convert_usage_to_response(detection_result.usage),
     )
 
 
@@ -397,7 +418,7 @@ async def detect_items_batch(
 
         try:
             # Use fallback wrapper for detection
-            detected = await run_with_fallback(
+            detection_result = await run_with_fallback(
                 primary_config=llm_config,
                 fallback_config=fallback_config,
                 operation_name=f"detect_items_batch[{index}]",
@@ -429,8 +450,9 @@ async def detect_items_batch(
                         purchase_from=item.purchase_from,
                         notes=item.notes,
                     )
-                    for item in detected
+                    for item in detection_result.items
                 ],
+                usage=convert_usage_to_response(detection_result.usage),
             )
         except CapabilityNotSupportedError as e:
             # Configuration/capability errors - provide clear message
@@ -478,6 +500,28 @@ async def detect_items_batch(
     failed = len(results) - successful
     total_items = sum(len(r.items) for r in results)
 
+    # Aggregate token usage across all successful results
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
+    total_total_tokens = 0
+    provider = "unknown"
+    for r in results:
+        if r.usage:
+            total_prompt_tokens += r.usage.prompt_tokens
+            total_completion_tokens += r.usage.completion_tokens
+            total_total_tokens += r.usage.total_tokens
+            provider = r.usage.provider  # Use the last provider
+
+    # Only include total_usage if any tokens were counted
+    total_usage = None
+    if total_total_tokens > 0:
+        total_usage = TokenUsageResponse(
+            prompt_tokens=total_prompt_tokens,
+            completion_tokens=total_completion_tokens,
+            total_tokens=total_total_tokens,
+            provider=provider,
+        )
+
     logger.info(
         f"Batch detection complete: {successful}/{len(results)} images successful, "
         f"{total_items} total items detected"
@@ -489,6 +533,7 @@ async def detect_items_batch(
         successful_images=successful,
         failed_images=failed,
         message=f"Processed {len(results)} images in parallel",
+        total_usage=total_usage,
     )
 
 
@@ -549,7 +594,7 @@ async def detect_items_grouped(
     try:
         # Run grouped detection with fallback support
         logger.info(f"Starting grouped detection with {len(image_data_uris)} images...")
-        detected = await run_with_fallback(
+        detection_result = await run_with_fallback(
             primary_config=llm_config,
             fallback_config=fallback_config,
             operation_name="grouped_detect_items",
@@ -562,7 +607,7 @@ async def detect_items_grouped(
             output_language=ctx.output_language,
         )
 
-        logger.info(f"Grouped detection found {len(detected)} unique items")
+        logger.info(f"Grouped detection found {len(detection_result.items)} unique items")
 
         # Filter out default label from AI suggestions
         return GroupedDetectionResponse(
@@ -580,10 +625,11 @@ async def detect_items_grouped(
                     notes=item.notes,
                     image_indices=item.image_indices,
                 )
-                for item in detected
+                for item in detection_result.items
             ],
             total_images=len(images),
-            message=f"Found {len(detected)} unique items in {len(images)} images",
+            message=f"Found {len(detection_result.items)} unique items in {len(images)} images",
+            usage=convert_usage_to_response(detection_result.usage),
         )
     except CapabilityNotSupportedError as e:
         logger.error(f"Configuration error for grouped detection: {e}")

@@ -7,9 +7,13 @@ DetectedItem as a Pydantic BaseModel for automatic validation.
 
 from __future__ import annotations
 
-from typing import Annotated, Iterable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Annotated, Any, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    from ...ai.llm import TokenUsage
 
 
 class DetectedItem(BaseModel):
@@ -199,3 +203,23 @@ class DetectedItem(BaseModel):
                 )
             )
         return detected
+
+
+@dataclass
+class DetectionResult:
+    """Result from item detection including both items and token usage.
+
+    Attributes:
+        items: List of detected items from the image(s).
+        usage: Token usage statistics from the LLM call(s).
+    """
+
+    items: list[DetectedItem] = field(default_factory=list)
+    usage: TokenUsage | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "items": [item.model_dump() for item in self.items],
+            "usage": self.usage.to_dict() if self.usage else None,
+        }

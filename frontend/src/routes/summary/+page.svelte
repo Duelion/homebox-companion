@@ -16,6 +16,8 @@
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import DuplicateWarningBanner from '$lib/components/DuplicateWarningBanner.svelte';
+	import TokenUsageDisplay from '$lib/components/TokenUsageDisplay.svelte';
+	import { settingsService } from '$lib/workflows/settings.svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -31,6 +33,10 @@
 	const submissionProgress = $derived(workflow.state.submissionProgress);
 	const submissionErrors = $derived(workflow.state.submissionErrors);
 	const duplicateMatches = $derived(workflow.state.duplicateMatches);
+
+	// Token usage display (from last analysis, only shown when enabled)
+	const lastTokenUsage = $derived(workflow.state.lastTokenUsage);
+	const showTokenUsage = $derived(settingsService.showTokenUsage && lastTokenUsage !== null);
 
 	// Local UI state
 	let isSubmitting = $state(false);
@@ -392,6 +398,13 @@
 				{totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} will be uploaded
 			</li>
 		</ul>
+
+		<!-- Token usage (when enabled) -->
+		{#if showTokenUsage}
+			<div class="mt-3 border-t border-neutral-700 pt-3">
+				<TokenUsageDisplay usage={lastTokenUsage} />
+			</div>
+		{/if}
 	</div>
 
 	<!-- Error details (shown when there are submission errors) -->

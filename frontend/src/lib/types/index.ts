@@ -217,6 +217,8 @@ export interface ScanState {
 	lastSubmissionResult: SubmissionResult | null;
 	/** Error messages from the last submission attempt (for displaying specific failure reasons) */
 	submissionErrors: string[];
+	/** Token usage from last AI analysis (for display when enabled) */
+	lastTokenUsage: TokenUsage | null;
 	// Error handling
 	error: string | null;
 }
@@ -259,6 +261,14 @@ export interface MergeItem extends ItemCore, ItemExtended {}
 // API TYPES - Responses
 // =============================================================================
 
+/** Token usage statistics from LLM call */
+export interface TokenUsage {
+	prompt_tokens: number;
+	completion_tokens: number;
+	total_tokens: number;
+	provider: string;
+}
+
 /** Compressed image from backend */
 export interface CompressedImage {
 	data: string; // Base64-encoded image
@@ -270,6 +280,7 @@ export interface DetectionResponse {
 	items: DetectedItem[];
 	message: string;
 	compressed_images: CompressedImage[];
+	usage?: TokenUsage | null;
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
@@ -284,6 +295,7 @@ export interface BatchDetectionResult {
 	success: boolean;
 	items: DetectedItem[];
 	error?: string | null;
+	usage?: TokenUsage | null;
 }
 
 /** Response from batch detection */
@@ -293,6 +305,7 @@ export interface BatchDetectionResponse {
 	successful_images: number;
 	failed_images: number;
 	message: string;
+	total_usage?: TokenUsage | null;
 }
 
 /** Response from grouped/auto-group detection */
@@ -302,6 +315,7 @@ export interface GroupedDetectionResponse {
 	/** Total number of images analyzed */
 	total_images: number;
 	message: string;
+	usage?: TokenUsage | null;
 }
 
 /** Response from advanced analysis */

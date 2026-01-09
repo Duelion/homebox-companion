@@ -36,6 +36,7 @@ class AppPreferencesInput(BaseModel):
     homebox_url_override: str | None = None
     image_quality_override: str | None = None
     duplicate_detection_enabled: bool = True
+    show_token_usage: bool = False
     enrichment_enabled: bool = False
     enrichment_auto_enrich: bool = False
     enrichment_cache_ttl_hours: int = 24
@@ -56,6 +57,7 @@ class AppPreferencesResponse(BaseModel):
     homebox_url_override: str | None
     image_quality_override: str | None
     duplicate_detection_enabled: bool
+    show_token_usage: bool
 
     # Enrichment settings
     enrichment_enabled: bool
@@ -99,6 +101,7 @@ async def get_app_preferences() -> AppPreferencesResponse:
         homebox_url_override=prefs.homebox_url_override,
         image_quality_override=prefs.image_quality_override,
         duplicate_detection_enabled=prefs.duplicate_detection_enabled,
+        show_token_usage=prefs.show_token_usage,
         enrichment_enabled=prefs.enrichment_enabled,
         enrichment_auto_enrich=prefs.enrichment_auto_enrich,
         enrichment_cache_ttl_hours=prefs.enrichment_cache_ttl_hours,
@@ -155,6 +158,7 @@ async def update_app_preferences(
         homebox_url_override=homebox_url,
         image_quality_override=image_quality,
         duplicate_detection_enabled=input_prefs.duplicate_detection_enabled,
+        show_token_usage=input_prefs.show_token_usage,
         enrichment_enabled=input_prefs.enrichment_enabled,
         enrichment_auto_enrich=input_prefs.enrichment_auto_enrich,
         enrichment_cache_ttl_hours=input_prefs.enrichment_cache_ttl_hours,
@@ -172,6 +176,7 @@ async def update_app_preferences(
         homebox_url_override=prefs.homebox_url_override,
         image_quality_override=prefs.image_quality_override,
         duplicate_detection_enabled=prefs.duplicate_detection_enabled,
+        show_token_usage=prefs.show_token_usage,
         enrichment_enabled=prefs.enrichment_enabled,
         enrichment_auto_enrich=prefs.enrichment_auto_enrich,
         enrichment_cache_ttl_hours=prefs.enrichment_cache_ttl_hours,

@@ -11,7 +11,7 @@
 import { vision, fieldPreferences } from '$lib/api/index';
 import { labelStore } from '$lib/stores/labels.svelte';
 import { workflowLogger as log } from '$lib/utils/logger';
-import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus, ImageGroup, DetectedItem } from '$lib/types';
+import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus, ImageGroup, DetectedItem, TokenUsage } from '$lib/types';
 
 // =============================================================================
 // CONCURRENCY CONTROL
@@ -72,6 +72,8 @@ export interface AnalysisResult {
 	error?: string;
 	/** Number of images that failed to process */
 	failedCount: number;
+	/** Aggregated token usage from all detection calls */
+	usage?: TokenUsage | null;
 }
 
 export interface GroupedAnalysisResult {
@@ -79,6 +81,8 @@ export interface GroupedAnalysisResult {
 	/** Image groups with detected items and their associated image indices */
 	groups: ImageGroup[];
 	error?: string;
+	/** Token usage from grouped detection */
+	usage?: TokenUsage | null;
 }
 
 // =============================================================================
@@ -185,6 +189,7 @@ export class AnalysisService {
 						image,
 						items: response.items,
 						compressedImages: response.compressed_images || [],
+						usage: response.usage || null,
 					};
 				} catch (error) {
 					// Re-throw abort errors to be handled at the top level
@@ -238,9 +243,23 @@ export class AnalysisService {
 				? this.defaultLabelId
 				: null;
 
+		// Aggregate token usage from all successful results
+		let totalPromptTokens = 0;
+		let totalCompletionTokens = 0;
+		let totalTokens = 0;
+		let provider = 'unknown';
+
 		// Process results
 		for (const result of results) {
 			if (result.success) {
+				// Aggregate token usage
+				if (result.usage) {
+					totalPromptTokens += result.usage.prompt_tokens;
+					totalCompletionTokens += result.usage.completion_tokens;
+					totalTokens += result.usage.total_tokens;
+					provider = result.usage.provider; // Use the last provider
+				}
+
 				// Get compressed images for this result
 				const compressedImages = result.compressedImages || [];
 
@@ -278,6 +297,16 @@ export class AnalysisService {
 			}
 		}
 
+		// Build aggregated usage (only if tokens were counted)
+		const aggregatedUsage: TokenUsage | null = totalTokens > 0
+			? {
+					prompt_tokens: totalPromptTokens,
+					completion_tokens: totalCompletionTokens,
+					total_tokens: totalTokens,
+					provider,
+			  }
+			: null;
+
 		// Handle results
 		const failedCount = results.filter((r) => !r.success).length;
 
@@ -287,6 +316,7 @@ export class AnalysisService {
 				items: [],
 				error: 'All images failed to analyze. Please try again.',
 				failedCount,
+				usage: aggregatedUsage,
 			};
 		}
 
@@ -296,15 +326,24 @@ export class AnalysisService {
 				items: [],
 				error: 'No items detected in the images',
 				failedCount,
+				usage: aggregatedUsage,
 			};
 		}
 
 		// Success
 		log.debug(`Analysis complete! Detected ${allDetectedItems.length} item(s)`);
+		if (aggregatedUsage) {
+			log.debug(
+				`Token usage: ${aggregatedUsage.prompt_tokens} prompt, ` +
+					`${aggregatedUsage.completion_tokens} completion, ` +
+					`${aggregatedUsage.total_tokens} total (${aggregatedUsage.provider})`
+			);
+		}
 		return {
 			success: true,
 			items: allDetectedItems,
 			failedCount,
+			usage: aggregatedUsage,
 		};
 	}
 
@@ -657,10 +696,18 @@ export class AnalysisService {
 			}
 
 			log.info(`Grouped analysis complete: ${groups.length} groups from ${images.length} images`);
+			if (response.usage) {
+				log.debug(
+					`Token usage: ${response.usage.prompt_tokens} prompt, ` +
+						`${response.usage.completion_tokens} completion, ` +
+						`${response.usage.total_tokens} total (${response.usage.provider})`
+				);
+			}
 
 			return {
 				success: true,
 				groups,
+				usage: response.usage || null,
 			};
 		} catch (error) {
 			// Mark all images as failed
