@@ -35,7 +35,8 @@ import type {
 	DuplicateMatch,
 	UpdateDecision,
 	AnalysisMode,
-	ImageGroup
+	ImageGroup,
+	TokenUsage,
 } from '$lib/types';
 
 // =============================================================================
@@ -89,6 +90,9 @@ class ScanWorkflow {
 	/** Image groups from grouped detection (only used in grouped mode) */
 	private _imageGroups = $state<ImageGroup[]>([]);
 
+	/** Last token usage from AI analysis (for display when setting enabled) */
+	private _lastTokenUsage = $state<TokenUsage | null>(null);
+
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
 	// =========================================================================
@@ -123,6 +127,7 @@ class ScanWorkflow {
 		'itemStatuses',
 		'lastSubmissionResult',
 		'submissionErrors',
+		'lastTokenUsage',
 		'error',
 	]);
 
@@ -211,6 +216,8 @@ class ScanWorkflow {
 							return workflow.submissionService.lastResult;
 						case 'submissionErrors':
 							return workflow.submissionService.lastErrors;
+						case 'lastTokenUsage':
+							return workflow._lastTokenUsage;
 						case 'error':
 							return workflow._error;
 						default: {
@@ -434,6 +441,7 @@ class ScanWorkflow {
 			});
 
 			this.reviewService.setDetectedItems(result.items);
+			this._lastTokenUsage = result.usage || null;
 
 			// Check for potential duplicates (async, non-blocking)
 			this.checkForDuplicates(result.items);
@@ -890,6 +898,7 @@ class ScanWorkflow {
 			}
 
 			this.reviewService.setDetectedItems(reviewItems);
+			this._lastTokenUsage = result.usage || null;
 
 			// Check for duplicates
 			this.checkForDuplicates(reviewItems);
@@ -1436,6 +1445,7 @@ class ScanWorkflow {
 		this._updateDecisions = [];
 		this._analysisMode = 'quick';
 		this._imageGroups = [];
+		this._lastTokenUsage = null;
 		// Also reset location store so location page shows full list
 		locationStore.reset();
 	}

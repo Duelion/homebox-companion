@@ -24,6 +24,8 @@
 	import DuplicateWarningBanner from '$lib/components/DuplicateWarningBanner.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
+	import { settingsService } from '$lib/workflows/settings.svelte';
+	import TokenUsageDisplay from '$lib/components/TokenUsageDisplay.svelte';
 
 	// Capture limits (loaded from config, with safe defaults)
 	let maxImages = $state(30);
@@ -50,6 +52,10 @@
 	// Get update decision for current item (if user chose "Update Existing")
 	const currentUpdateDecision = $derived(workflow.getUpdateDecision(currentIndex));
 	const isCurrentItemMarkedForUpdate = $derived(workflow.isMarkedForUpdate(currentIndex));
+
+	// Token usage display (from last analysis, only shown when enabled)
+	const lastTokenUsage = $derived(workflow.state.lastTokenUsage);
+	const showTokenUsage = $derived(settingsService.showTokenUsage && lastTokenUsage !== null);
 
 	// Local UI state
 	let editedItem = $state<ReviewItem | null>(null);
@@ -470,6 +476,13 @@
 		</span>
 	</div>
 	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
+
+	<!-- Token usage display (when enabled in settings) -->
+	{#if showTokenUsage}
+		<div class="mb-4">
+			<TokenUsageDisplay usage={lastTokenUsage} />
+		</div>
+	{/if}
 
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
 
