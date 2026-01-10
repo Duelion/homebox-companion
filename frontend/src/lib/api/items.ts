@@ -4,7 +4,17 @@
 
 import { request, requestFormData, requestBlobUrl, type BlobUrlResult } from './client';
 import { apiLogger as log } from '../utils/logger';
-import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
+import type {
+	BatchCreateRequest,
+	BatchCreateResponse,
+	DuplicateCheckRequest,
+	DuplicateCheckResponse,
+	DuplicateIndexStatus,
+	DuplicateIndexRebuildResponse,
+	ItemSummary,
+	MergeItemRequest,
+	MergeItemResponse,
+} from '../types';
 
 export type { BlobUrlResult };
 
@@ -70,6 +80,71 @@ export const items = {
 		return request<{ message: string }>(`/items/${itemId}`, {
 			method: 'DELETE',
 			signal,
+		});
+	},
+
+	/**
+	 * Check items for potential duplicates by serial number.
+	 *
+	 * Compares serial numbers of the provided items against existing items
+	 * in Homebox. Items with matching serial numbers are flagged as potential
+	 * duplicates.
+	 *
+	 * Use this before creating items to warn users about possible duplicates.
+	 */
+	checkDuplicates: (data: DuplicateCheckRequest, signal?: AbortSignal) => {
+		const itemsWithSerial = data.items.filter((item) => item.serial_number).length;
+		log.debug(`Checking ${data.items.length} items for duplicates (${itemsWithSerial} with serials)`);
+		return request<DuplicateCheckResponse>('/items/check-duplicates', {
+			method: 'POST',
+			body: JSON.stringify(data),
+			signal,
+		});
+	},
+
+	/**
+	 * Get the current status of the duplicate detection index.
+	 */
+	getDuplicateIndexStatus: (signal?: AbortSignal) => {
+		log.debug('Fetching duplicate index status');
+		return request<DuplicateIndexStatus>('/items/duplicate-index/status', { signal });
+	},
+
+	/**
+	 * Rebuild the duplicate detection index from scratch.
+	 *
+	 * This fetches ALL items from Homebox and rebuilds the serial number index.
+	 * For large inventories, this may take several seconds.
+	 */
+	rebuildDuplicateIndex: (signal?: AbortSignal) => {
+		log.info('Triggering duplicate index rebuild');
+		return request<DuplicateIndexRebuildResponse>('/items/duplicate-index/rebuild', {
+			method: 'POST',
+			signal,
+		});
+	},
+
+	/**
+	 * Merge new data into an existing Homebox item.
+	 *
+	 * This performs an additive merge - only empty fields on the existing item
+	 * are filled with new values. Fields that already have values are preserved.
+	 *
+	 * Use this when updating an existing item from a duplicate detection match,
+	 * allowing users to add photos and fill in missing details without
+	 * overwriting existing data.
+	 *
+	 * @param itemId - The ID of the existing item to update
+	 * @param data - The fields to merge (only non-null values with empty targets are applied)
+	 * @param options - Request options including abort signal
+	 * @returns Details of which fields were updated vs skipped
+	 */
+	merge: (itemId: string, data: MergeItemRequest, options: { signal?: AbortSignal } = {}) => {
+		log.debug(`Merging data into item ${itemId}, exclude_field=${data.exclude_field ?? 'none'}`);
+		return request<MergeItemResponse>(`/items/${itemId}/merge`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+			signal: options.signal,
 		});
 	},
 };

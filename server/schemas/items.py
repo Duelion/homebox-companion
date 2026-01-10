@@ -27,3 +27,154 @@ class BatchCreateRequest(BaseModel):
 
     items: list[ItemInput]
     location_id: str | None = None
+
+
+# =============================================================================
+# DUPLICATE CHECK SCHEMAS
+# =============================================================================
+
+
+class ExistingItemInfo(BaseModel):
+    """Summary of an existing item in Homebox."""
+
+    id: str
+    name: str
+    serial_number: str
+    location_id: str | None = None
+    location_name: str | None = None
+    manufacturer: str | None = None
+    model_number: str | None = None
+
+
+class DuplicateMatch(BaseModel):
+    """A match between a new item and an existing item."""
+
+    item_index: int
+    """Index of the new item in the submitted list."""
+
+    item_name: str
+    """Name of the new item."""
+
+    match_type: str
+    """How the duplicate was detected: 'serial_number', 'manufacturer_model', or 'fuzzy_name'."""
+
+    match_value: str
+    """The value that matched (serial, manufacturer+model key, or similar name)."""
+
+    confidence: str
+    """Confidence level: 'high', 'medium-high', 'medium', or 'low'."""
+
+    similarity_score: float = 1.0
+    """Similarity score (1.0 for exact matches, 0.0-1.0 for fuzzy name matches)."""
+
+    existing_item: ExistingItemInfo
+    """The existing item that matches."""
+
+
+class DuplicateCheckRequest(BaseModel):
+    """Request to check for duplicate items by serial number."""
+
+    items: list[ItemInput]
+    """Items to check for duplicates."""
+
+
+class DuplicateCheckResponse(BaseModel):
+    """Response from duplicate check."""
+
+    duplicates: list[DuplicateMatch]
+    """List of items that have matching serial numbers in Homebox."""
+
+    checked_count: int
+    """Number of items that had serial numbers to check."""
+
+    message: str
+    """Summary message."""
+
+
+# =============================================================================
+# DUPLICATE INDEX STATUS SCHEMAS
+# =============================================================================
+
+
+class DuplicateIndexStatus(BaseModel):
+    """Status of the duplicate detection index."""
+
+    last_build_time: str | None
+    """ISO timestamp of last full build, or null if never built."""
+
+    last_update_time: str | None
+    """ISO timestamp of last update (full or differential)."""
+
+    total_items_indexed: int
+    """Total number of items in Homebox."""
+
+    items_with_serials: int
+    """Number of items with serial numbers in the index."""
+
+    items_with_model: int = 0
+    """Number of items with manufacturer+model in the index."""
+
+    highest_asset_id: int
+    """Highest asset ID seen (used for differential updates)."""
+
+    is_loaded: bool
+    """Whether the index is currently loaded in memory."""
+
+
+class DuplicateIndexRebuildResponse(BaseModel):
+    """Response from index rebuild operation."""
+
+    status: DuplicateIndexStatus
+    """Updated index status after rebuild."""
+
+    message: str
+    """Summary message."""
+
+
+# =============================================================================
+# MERGE ITEM SCHEMAS (Update existing item on duplicate)
+# =============================================================================
+
+
+class MergeItemRequest(BaseModel):
+    """Request to merge new data into an existing item.
+
+    Only empty fields on the existing item will be filled (additive merge).
+    Fields that already have values are preserved.
+    The exclude_field prevents updating the field that caused the duplicate match.
+    """
+
+    name: str | None = None
+    description: str | None = None
+    manufacturer: str | None = None
+    model_number: str | None = None
+    serial_number: str | None = None
+    purchase_price: float | None = None
+    purchase_from: str | None = None
+    notes: str | None = None
+    label_ids: list[str] | None = None
+
+    exclude_field: str | None = None
+    """Field to never update (the match cause).
+
+    Values: 'serial_number', 'manufacturer_model' (excludes both), 'name'
+    """
+
+
+class MergeItemResponse(BaseModel):
+    """Response from merge operation."""
+
+    id: str
+    """ID of the updated item."""
+
+    name: str
+    """Name of the updated item."""
+
+    fields_updated: list[str]
+    """List of field names that were updated."""
+
+    fields_skipped: list[str]
+    """List of field names that were skipped (already had values or excluded)."""
+
+    message: str
+    """Summary message."""

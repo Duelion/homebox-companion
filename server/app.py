@@ -257,6 +257,18 @@ async def lifespan(app: FastAPI):
     logger.info(f"LLM Model: {settings.effective_llm_model}")
     logger.info(f"Log level: {settings.log_level}")
 
+    # Ensure data directories exist at startup
+    from pathlib import Path
+    data_dir = Path(settings.data_dir)
+    enrichment_cache_dir = data_dir / "enrichment_cache"
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        enrichment_cache_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Data directory: {data_dir.absolute()}")
+        logger.debug(f"Enrichment cache: {enrichment_cache_dir.absolute()}")
+    except Exception as e:
+        logger.warning(f"Failed to create data directories: {e}")
+
     if settings.using_legacy_openai_env:
         logger.warning(
             "DEPRECATION WARNING: You are using legacy environment variables "

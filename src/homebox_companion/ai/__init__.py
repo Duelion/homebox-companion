@@ -14,6 +14,8 @@ from .images import (
 from .llm import (
     chat_completion,
     vision_completion,
+    CompletionResult,
+    TokenUsage,
 )
 from .model_capabilities import ModelCapabilities, get_model_capabilities
 from .prompts import (
@@ -32,6 +34,8 @@ __all__ = [
     # LLM helpers
     "chat_completion",
     "vision_completion",
+    "CompletionResult",
+    "TokenUsage",
     # LLM exceptions
     "LLMServiceError",
     "CapabilityNotSupportedError",
