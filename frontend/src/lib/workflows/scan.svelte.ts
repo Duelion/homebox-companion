@@ -15,15 +15,10 @@
  */
 
 import { workflowLogger as log } from '$lib/utils/logger';
-import { debugLog } from '$lib/api/debug';
 import { CaptureService } from './capture.svelte';
 import { AnalysisService } from './analysis.svelte';
 import { ReviewService } from './review.svelte';
 import { SubmissionService } from './submission.svelte';
-import { items } from '$lib/api/items';
-import { enrichProduct } from '$lib/api/enrichment';
-import { getAppPreferences } from '$lib/api/appPreferences';
-import { locationStore } from '$lib/stores/locations.svelte';
 import type {
 	ScanState,
 	ScanStatus,
@@ -32,11 +27,6 @@ import type {
 	ConfirmedItem,
 	Progress,
 	SubmissionResult,
-	DuplicateMatch,
-	UpdateDecision,
-	AnalysisMode,
-	ImageGroup,
-	TokenUsage,
 } from '$lib/types';
 
 // =============================================================================
@@ -78,21 +68,6 @@ class ScanWorkflow {
 	/** Current error message */
 	private _error = $state<string | null>(null);
 
-	/** Potential duplicates detected during review */
-	private _duplicateMatches = $state<DuplicateMatch[]>([]);
-
-	/** Items marked for update instead of create (user chose "Update Existing") */
-	private _updateDecisions = $state<UpdateDecision[]>([]);
-
-	/** Analysis mode: quick (default) or grouped */
-	private _analysisMode = $state<AnalysisMode>('quick');
-
-	/** Image groups from grouped detection (only used in grouped mode) */
-	private _imageGroups = $state<ImageGroup[]>([]);
-
-	/** Last token usage from AI analysis (for display when setting enabled) */
-	private _lastTokenUsage = $state<TokenUsage | null>(null);
-
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
 	// =========================================================================
@@ -114,20 +89,15 @@ class ScanWorkflow {
 		'parentItemId',
 		'parentItemName',
 		'images',
-		'analysisMode',
 		'analysisProgress',
 		'imageStatuses',
-		'imageGroups',
 		'detectedItems',
 		'currentReviewIndex',
-		'duplicateMatches',
-		'updateDecisions',
 		'confirmedItems',
 		'submissionProgress',
 		'itemStatuses',
 		'lastSubmissionResult',
 		'submissionErrors',
-		'lastTokenUsage',
 		'error',
 	]);
 
@@ -139,7 +109,6 @@ class ScanWorkflow {
 		'locationPath',
 		'parentItemId',
 		'parentItemName',
-		'analysisMode',
 		'error',
 		'analysisProgress',
 	]);
@@ -190,22 +159,14 @@ class ScanWorkflow {
 							return workflow._parentItemName;
 						case 'images':
 							return workflow.captureService.images;
-						case 'analysisMode':
-							return workflow._analysisMode;
 						case 'analysisProgress':
 							return workflow.analysisService.progress;
 						case 'imageStatuses':
 							return workflow.analysisService.imageStatuses;
-						case 'imageGroups':
-							return workflow._imageGroups;
 						case 'detectedItems':
 							return workflow.reviewService.detectedItems;
 						case 'currentReviewIndex':
 							return workflow.reviewService.currentReviewIndex;
-						case 'duplicateMatches':
-							return workflow._duplicateMatches;
-						case 'updateDecisions':
-							return workflow._updateDecisions;
 						case 'confirmedItems':
 							return workflow.reviewService.confirmedItems;
 						case 'submissionProgress':
@@ -216,8 +177,6 @@ class ScanWorkflow {
 							return workflow.submissionService.lastResult;
 						case 'submissionErrors':
 							return workflow.submissionService.lastErrors;
-						case 'lastTokenUsage':
-							return workflow._lastTokenUsage;
 						case 'error':
 							return workflow._error;
 						default: {
@@ -276,9 +235,6 @@ class ScanWorkflow {
 							return true;
 						case 'analysisProgress':
 							workflow.analysisService.progress = value as Progress | null;
-							return true;
-						case 'analysisMode':
-							workflow._analysisMode = value as AnalysisMode;
 							return true;
 						default:
 							// TypeScript exhaustiveness check - should never reach here
@@ -397,28 +353,21 @@ class ScanWorkflow {
 	/** Start image analysis - coordinates with AnalysisService */
 	async startAnalysis(): Promise<void> {
 		log.info('ScanWorkflow.startAnalysis() called');
-		debugLog.info('WORKFLOW', 'startAnalysis called', {
-			status: this._status,
-			imageCount: this.captureService.count,
-		});
 
 		// Prevent starting a new analysis if one is already in progress
 		if (this._status === 'analyzing') {
 			log.warn('Analysis already in progress (status check), ignoring duplicate request');
-			debugLog.warning('WORKFLOW', 'Analysis already in progress, ignoring duplicate request');
 			this._error = 'Analysis already in progress';
 			return;
 		}
 
 		if (!this.captureService.hasImages) {
 			log.warn('No images to analyze, returning early');
-			debugLog.warning('WORKFLOW', 'No images to analyze');
 			this._error = 'Please add at least one image';
 			return;
 		}
 
 		log.info(`Starting analysis for ${this.captureService.count} image(s)`);
-		debugLog.info('WORKFLOW', `Starting analysis for ${this.captureService.count} image(s)`);
 
 		// Set status BEFORE any async operations to prevent duplicate triggers
 		this._status = 'analyzing';
@@ -430,24 +379,11 @@ class ScanWorkflow {
 		// Check if cancelled (status may have changed)
 		if (this._status !== 'analyzing') {
 			log.debug('Analysis was cancelled or status changed during processing');
-			debugLog.info('WORKFLOW', 'Analysis cancelled or status changed');
 			return;
 		}
 
 		if (result.success) {
-			debugLog.info('WORKFLOW', 'Analysis successful', {
-				itemCount: result.items.length,
-				failedCount: result.failedCount,
-			});
-
 			this.reviewService.setDetectedItems(result.items);
-			this._lastTokenUsage = result.usage || null;
-
-			// Check for potential duplicates (async, non-blocking)
-			this.checkForDuplicates(result.items);
-
-			// Auto-enrich if enabled (async, non-blocking)
-			this.autoEnrichItems(result.items);
 
 			// Check if there were partial failures
 			if (result.failedCount > 0) {
@@ -465,192 +401,6 @@ class ScanWorkflow {
 			this._error = result.error || 'Analysis failed';
 			this._status = 'capturing';
 			log.error(`Analysis failed: ${this._error}, returning to capture mode`);
-			debugLog.error('WORKFLOW', 'Analysis failed', { error: this._error });
-		}
-	}
-
-	/**
-	 * Check detected items for potential duplicates against existing items in Homebox.
-	 * This is called asynchronously and non-blocking - the UI will update when results arrive.
-	 */
-	private async checkForDuplicates(detectedItems: ReviewItem[]): Promise<void> {
-		// Clear previous duplicate matches
-		this._duplicateMatches = [];
-
-		// Filter items that have serial numbers (only those can be checked)
-		const itemsWithSerials = detectedItems.filter(item => item.serial_number);
-		if (itemsWithSerials.length === 0) {
-			log.debug('No items with serial numbers to check for duplicates');
-			debugLog.debug('DUPLICATES', 'No items with serial numbers to check');
-			return;
-		}
-
-		log.info(`Checking ${itemsWithSerials.length} item(s) for potential duplicates`);
-		debugLog.info('DUPLICATES', `Checking ${itemsWithSerials.length} item(s) for duplicates`);
-
-		try {
-			// Convert to the format expected by the API
-			const itemsToCheck = detectedItems.map(item => ({
-				name: item.name,
-				quantity: item.quantity,
-				description: item.description,
-				serial_number: item.serial_number,
-				model_number: item.model_number,
-				manufacturer: item.manufacturer,
-				purchase_price: item.purchase_price,
-				purchase_from: item.purchase_from,
-				notes: item.notes,
-				label_ids: item.label_ids,
-			}));
-
-			const response = await items.checkDuplicates({ items: itemsToCheck });
-
-			if (response.duplicates.length > 0) {
-				this._duplicateMatches = response.duplicates;
-				log.warn(`Found ${response.duplicates.length} potential duplicate(s)`);
-				debugLog.warning('DUPLICATES', `Found ${response.duplicates.length} potential duplicate(s)`, {
-					duplicates: response.duplicates.map(d => ({ match_value: d.match_value, match_type: d.match_type, name: d.existing_item.name })),
-				});
-			} else {
-				log.debug('No duplicates found');
-				debugLog.debug('DUPLICATES', 'No duplicates found');
-			}
-		} catch (error) {
-			// Non-fatal - log but don't disrupt the workflow
-			log.error('Failed to check for duplicates:', error);
-			debugLog.error('DUPLICATES', 'Failed to check for duplicates', {
-				error: error instanceof Error ? error.message : String(error),
-			});
-		}
-	}
-
-	/**
-	 * Auto-enrich detected items with product specifications.
-	 * This is called asynchronously and non-blocking - items update in place as enrichment completes.
-	 *
-	 * Only runs if:
-	 * - Enrichment is enabled in app preferences
-	 * - Auto-enrich is enabled in app preferences
-	 * - Items have a model_number (required for enrichment lookup)
-	 */
-	private async autoEnrichItems(detectedItems: ReviewItem[]): Promise<void> {
-		debugLog.info('ENRICHMENT', 'autoEnrichItems called', { itemCount: detectedItems.length });
-
-		try {
-			// Check app preferences for enrichment settings
-			const prefs = await getAppPreferences();
-			debugLog.info('ENRICHMENT', 'Fetched app preferences', {
-				enrichment_enabled: prefs.enrichment_enabled,
-				enrichment_auto_enrich: prefs.enrichment_auto_enrich,
-			});
-
-			if (!prefs.enrichment_enabled) {
-				log.debug('Enrichment is disabled, skipping auto-enrich');
-				debugLog.info('ENRICHMENT', 'Enrichment disabled in preferences, skipping');
-				return;
-			}
-
-			if (!prefs.enrichment_auto_enrich) {
-				log.debug('Auto-enrich is disabled, skipping');
-				debugLog.info('ENRICHMENT', 'Auto-enrich disabled in preferences, skipping');
-				return;
-			}
-
-			// Filter items that have model numbers (required for enrichment)
-			const itemsToEnrich = detectedItems.filter(
-				(item) => item.model_number && item.model_number.trim() !== ''
-			);
-
-			if (itemsToEnrich.length === 0) {
-				log.debug('No items with model numbers to enrich');
-				debugLog.info('ENRICHMENT', 'No items with model numbers to enrich');
-				return;
-			}
-
-			log.info(`Auto-enriching ${itemsToEnrich.length} item(s)`);
-			debugLog.info('ENRICHMENT', `Starting auto-enrich for ${itemsToEnrich.length} item(s)`, {
-				items: itemsToEnrich.map((i) => ({
-					name: i.name,
-					model: i.model_number,
-					manufacturer: i.manufacturer,
-				})),
-			});
-
-			// Enrich each item (sequentially to avoid overloading the AI)
-			for (const item of itemsToEnrich) {
-				try {
-					debugLog.debug('ENRICHMENT', `Enriching item: ${item.name}`, {
-						model_number: item.model_number,
-						manufacturer: item.manufacturer,
-					});
-
-					const result = await enrichProduct({
-						manufacturer: item.manufacturer || '',
-						model_number: item.model_number || '',
-						product_name: item.name,
-					});
-
-					debugLog.info('ENRICHMENT', `Enrichment result for ${item.name}`, {
-						enriched: result.enriched,
-						source: result.source,
-						confidence: result.confidence,
-						hasDescription: !!result.formatted_description,
-					});
-
-					if (result.enriched && result.confidence >= 0.5) {
-						// Update the item with enriched data
-						// Only update fields that the enrichment provides and that aren't already set
-						const updates: Partial<ReviewItem> = {};
-
-						// Always update description with enriched data if available
-						if (result.formatted_description) {
-							updates.description = result.formatted_description;
-						}
-
-						// Update name if enrichment found a better one and original is generic
-						if (result.name && (!item.name || item.name === item.model_number)) {
-							updates.name = result.name;
-						}
-
-						// Update purchase_price with MSRP if not set
-						if (result.msrp && !item.purchase_price) {
-							updates.purchase_price = result.msrp;
-						}
-
-						// Apply updates to the review service
-						const itemIndex = detectedItems.indexOf(item);
-						if (itemIndex >= 0 && Object.keys(updates).length > 0) {
-							this.reviewService.updateItemAtIndex(itemIndex, updates);
-							log.info(`Enriched item: ${item.name}`);
-							debugLog.info('ENRICHMENT', `Applied enrichment to ${item.name}`, {
-								updates,
-								itemIndex,
-							});
-						}
-					} else {
-						debugLog.debug('ENRICHMENT', `Skipped enrichment for ${item.name}`, {
-							enriched: result.enriched,
-							confidence: result.confidence,
-							reason: !result.enriched ? 'not enriched' : 'low confidence',
-						});
-					}
-				} catch (itemError) {
-					// Non-fatal - log but continue with other items
-					log.error(`Failed to enrich item ${item.name}:`, itemError);
-					debugLog.error('ENRICHMENT', `Failed to enrich item ${item.name}`, {
-						error: itemError instanceof Error ? itemError.message : String(itemError),
-					});
-				}
-			}
-
-			log.info('Auto-enrichment complete');
-			debugLog.info('ENRICHMENT', 'Auto-enrichment complete');
-		} catch (error) {
-			// Non-fatal - log but don't disrupt the workflow
-			log.error('Failed to auto-enrich items:', error);
-			debugLog.error('ENRICHMENT', 'Auto-enrich failed', {
-				error: error instanceof Error ? error.message : String(error),
-			});
 		}
 	}
 
@@ -816,285 +566,6 @@ class ScanWorkflow {
 	}
 
 	// =========================================================================
-	// ANALYSIS MODE & GROUPED DETECTION
-	// =========================================================================
-
-	/** Set the analysis mode (quick or grouped) */
-	setAnalysisMode(mode: AnalysisMode): void {
-		this._analysisMode = mode;
-		// Clear any existing groups when switching modes
-		if (mode === 'quick') {
-			this._imageGroups = [];
-		}
-		log.debug(`Analysis mode set to: ${mode}`);
-	}
-
-	/** Get current analysis mode */
-	get analysisMode(): AnalysisMode {
-		return this._analysisMode;
-	}
-
-	/** Get current image groups */
-	get imageGroups(): ImageGroup[] {
-		return this._imageGroups;
-	}
-
-	/**
-	 * Start grouped analysis - sends all images to AI for automatic grouping.
-	 * Only available on larger screens (desktop/tablet).
-	 */
-	async startGroupedAnalysis(): Promise<void> {
-		log.info('ScanWorkflow.startGroupedAnalysis() called');
-
-		if (this._status === 'analyzing') {
-			log.warn('Analysis already in progress, ignoring duplicate request');
-			this._error = 'Analysis already in progress';
-			return;
-		}
-
-		if (!this.captureService.hasImages) {
-			log.warn('No images to analyze, returning early');
-			this._error = 'Please add at least one image';
-			return;
-		}
-
-		log.info(`Starting grouped analysis for ${this.captureService.count} image(s)`);
-
-		// Set status before async operations
-		this._status = 'analyzing';
-		this._error = null;
-
-		const result = await this.analysisService.analyzeGrouped(this.captureService.images);
-
-		// Check if cancelled
-		if (this._status !== 'analyzing') {
-			log.debug('Grouped analysis was cancelled or status changed');
-			return;
-		}
-
-		if (result.success) {
-			// Store the image groups
-			this._imageGroups = result.groups;
-
-			// Convert groups to review items for review phase
-			const reviewItems: ReviewItem[] = [];
-			for (const group of result.groups) {
-				if (group.item) {
-					// Use the first image in the group as the source
-					const primaryIndex = group.imageIndices[0] ?? 0;
-					const primaryImage = this.captureService.getImage(primaryIndex);
-
-					reviewItems.push({
-						...group.item,
-						sourceImageIndex: primaryIndex,
-						originalFile: primaryImage?.file,
-						// Collect additional images from other indices in the group
-						additionalImages: group.imageIndices
-							.slice(1)
-							.map((idx) => this.captureService.getImage(idx)?.file)
-							.filter((f): f is File => f !== undefined),
-					});
-				}
-			}
-
-			this.reviewService.setDetectedItems(reviewItems);
-			this._lastTokenUsage = result.usage || null;
-
-			// Check for duplicates
-			this.checkForDuplicates(reviewItems);
-
-			// Transition to grouping phase for manual adjustments (desktop only)
-			// or directly to reviewing if no groups need adjustment
-			if (this._imageGroups.some((g) => g.imageIndices.length > 1 || g.item === null)) {
-				// Has multi-image groups or undetected images - show grouping editor
-				this._status = 'grouping';
-				log.info(`Grouped analysis complete, ${result.groups.length} groups detected. Showing grouping editor.`);
-			} else {
-				// All single-image groups with detections - skip to review
-				this._status = 'reviewing';
-				log.info(`Grouped analysis complete, ${reviewItems.length} items detected. Skipping to review.`);
-			}
-		} else {
-			this._error = result.error || 'Grouped analysis failed';
-			this._status = 'capturing';
-			log.error(`Grouped analysis failed: ${this._error}`);
-		}
-	}
-
-	// =========================================================================
-	// IMAGE GROUP MANAGEMENT (for desktop grouping editor)
-	// =========================================================================
-
-	/**
-	 * Move an image from one group to another.
-	 * Used in the desktop grouping editor.
-	 */
-	moveImageToGroup(imageIndex: number, targetGroupId: string): void {
-		// Find and remove from current group
-		const updatedGroups = this._imageGroups.map((group) => {
-			if (group.imageIndices.includes(imageIndex)) {
-				return {
-					...group,
-					imageIndices: group.imageIndices.filter((idx) => idx !== imageIndex),
-				};
-			}
-			return group;
-		});
-
-		// Add to target group
-		const finalGroups = updatedGroups.map((group) => {
-			if (group.id === targetGroupId) {
-				return {
-					...group,
-					imageIndices: [...group.imageIndices, imageIndex],
-				};
-			}
-			return group;
-		});
-
-		// Remove empty groups
-		this._imageGroups = finalGroups.filter((g) => g.imageIndices.length > 0);
-
-		log.debug(`Moved image ${imageIndex} to group ${targetGroupId}`);
-	}
-
-	/**
-	 * Create a new group with the specified images.
-	 * Used when dragging images to a "new group" zone.
-	 */
-	createNewGroup(imageIndices: number[]): string {
-		const newGroupId = `group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-		// Remove images from existing groups
-		const updatedGroups = this._imageGroups.map((group) => ({
-			...group,
-			imageIndices: group.imageIndices.filter((idx) => !imageIndices.includes(idx)),
-		}));
-
-		// Remove empty groups and add the new one
-		this._imageGroups = [
-			...updatedGroups.filter((g) => g.imageIndices.length > 0),
-			{
-				id: newGroupId,
-				item: null, // No detection yet
-				imageIndices,
-			},
-		];
-
-		log.debug(`Created new group ${newGroupId} with images: ${imageIndices.join(', ')}`);
-		return newGroupId;
-	}
-
-	/**
-	 * Merge multiple groups into one.
-	 * The first group's detected item is preserved.
-	 */
-	mergeGroups(groupIds: string[]): void {
-		if (groupIds.length < 2) return;
-
-		const groupsToMerge = this._imageGroups.filter((g) => groupIds.includes(g.id));
-		if (groupsToMerge.length < 2) return;
-
-		// Combine all image indices
-		const mergedIndices = groupsToMerge.flatMap((g) => g.imageIndices);
-
-		// Use the first group's item (or first non-null item)
-		const detectedItem = groupsToMerge.find((g) => g.item !== null)?.item ?? null;
-
-		// Create merged group
-		const mergedGroup: ImageGroup = {
-			id: groupsToMerge[0].id,
-			item: detectedItem,
-			imageIndices: [...new Set(mergedIndices)], // Remove duplicates
-		};
-
-		// Replace groups
-		this._imageGroups = [
-			...this._imageGroups.filter((g) => !groupIds.includes(g.id)),
-			mergedGroup,
-		];
-
-		log.debug(`Merged ${groupIds.length} groups into ${mergedGroup.id}`);
-	}
-
-	/**
-	 * Split a group so each image becomes its own group.
-	 */
-	splitGroup(groupId: string): void {
-		const groupToSplit = this._imageGroups.find((g) => g.id === groupId);
-		if (!groupToSplit || groupToSplit.imageIndices.length <= 1) return;
-
-		// Create individual groups for each image
-		const newGroups: ImageGroup[] = groupToSplit.imageIndices.map((imageIndex, i) => ({
-			id: `split-${groupId}-${i}-${Date.now()}`,
-			item: i === 0 ? groupToSplit.item : null, // First image keeps the detection
-			imageIndices: [imageIndex],
-		}));
-
-		// Replace the original group with the new individual groups
-		this._imageGroups = [
-			...this._imageGroups.filter((g) => g.id !== groupId),
-			...newGroups,
-		];
-
-		log.debug(`Split group ${groupId} into ${newGroups.length} individual groups`);
-	}
-
-	/**
-	 * Confirm the grouping and proceed to review.
-	 * Converts the current groups into review items.
-	 */
-	confirmGrouping(): void {
-		if (this._status !== 'grouping') {
-			log.warn('Not in grouping state, ignoring confirm request');
-			return;
-		}
-
-		// Filter groups that have both an item and at least one image
-		const validGroups = this._imageGroups.filter(
-			(g) => g.item !== null && g.imageIndices.length > 0
-		);
-
-		if (validGroups.length === 0) {
-			this._error = 'No valid item groups to review';
-			return;
-		}
-
-		// Convert groups to review items
-		const reviewItems: ReviewItem[] = validGroups.map((group) => {
-			const primaryIndex = group.imageIndices[0];
-			const primaryImage = this.captureService.getImage(primaryIndex);
-
-			return {
-				...group.item!,
-				sourceImageIndex: primaryIndex,
-				originalFile: primaryImage?.file,
-				additionalImages: group.imageIndices
-					.slice(1)
-					.map((idx) => this.captureService.getImage(idx)?.file)
-					.filter((f): f is File => f !== undefined),
-			};
-		});
-
-		this.reviewService.setDetectedItems(reviewItems);
-		this.checkForDuplicates(reviewItems);
-		this._status = 'reviewing';
-
-		log.info(`Grouping confirmed, ${reviewItems.length} items ready for review`);
-	}
-
-	/**
-	 * Go back from grouping to capture.
-	 */
-	backFromGrouping(): void {
-		if (this._status !== 'grouping') return;
-		this._status = 'capturing';
-		this._imageGroups = [];
-		this._error = null;
-		log.debug('Returned from grouping to capture');
-	}
-
-	// =========================================================================
 	// REVIEW ACTIONS (delegated to ReviewService)
 	// =========================================================================
 
@@ -1120,20 +591,12 @@ class ScanWorkflow {
 
 	/** Skip current item and move to next */
 	skipItem(): void {
-		console.log('[SCAN] skipItem called, currentIndex:', this.reviewService.currentReviewIndex);
-		console.log('[SCAN] detectedItems.length:', this.reviewService.detectedItems.length);
-		console.log('[SCAN] confirmedItems.length:', this.reviewService.confirmedItems.length);
 		const result = this.reviewService.skipCurrentItem();
-		console.log('[SCAN] skipCurrentItem result:', result);
 		if (result === 'empty') {
-			// All items were skipped - do a full reset back to step 1 (Select Location)
-			console.log('[SCAN] All items skipped, calling reset for full workflow restart');
-			this.reset();
+			this.backToCapture();
 		} else if (result === 'complete') {
-			console.log('[SCAN] Review complete, calling finishReview');
 			this.finishReview();
 		}
-		console.log('[SCAN] After skip, status:', this._status);
 	}
 
 	/** Confirm current item and move to next */
@@ -1153,19 +616,15 @@ class ScanWorkflow {
 
 	/** Finish review and move to confirmation */
 	finishReview(): void {
-		console.log('[SCAN] finishReview called, hasConfirmedItems:', this.reviewService.hasConfirmedItems);
 		if (!this.reviewService.hasConfirmedItems) {
 			this._error = 'Please confirm at least one item';
-			console.log('[SCAN] No confirmed items, setting error');
 			return;
 		}
-		console.log('[SCAN] Setting status to confirming');
 		this._status = 'confirming';
 	}
 
 	/** Return to capture mode from review */
 	backToCapture(): void {
-		console.log('[SCAN] backToCapture called, setting status to capturing');
 		this._status = 'capturing';
 		this.reviewService.reset();
 		this._error = null;
@@ -1227,7 +686,6 @@ class ScanWorkflow {
 			items,
 			this._locationId,
 			this._parentItemId,
-			this._updateDecisions,
 			options
 		);
 
@@ -1282,8 +740,7 @@ class ScanWorkflow {
 		const result = await this.submissionService.retryFailed(
 			items,
 			this._locationId,
-			this._parentItemId,
-			this._updateDecisions
+			this._parentItemId
 		);
 
 		if (result.sessionExpired) {
@@ -1312,119 +769,6 @@ class ScanWorkflow {
 	}
 
 	// =========================================================================
-	// DUPLICATE DETECTION
-	// =========================================================================
-
-	/** Get current duplicate matches */
-	get duplicateMatches(): DuplicateMatch[] {
-		return this._duplicateMatches;
-	}
-
-	/**
-	 * Re-check confirmed items for duplicates before submission.
-	 * Call this when entering the summary page to ensure latest state.
-	 */
-	async recheckDuplicates(): Promise<void> {
-		const confirmedItems = this.reviewService.confirmedItems;
-		if (confirmedItems.length === 0) return;
-
-		// Convert ConfirmedItems to the format expected by checkForDuplicates
-		const itemsAsReviewItems: ReviewItem[] = confirmedItems.map(item => ({
-			...item,
-			confirmed: undefined
-		})) as unknown as ReviewItem[];
-
-		await this.checkForDuplicates(itemsAsReviewItems);
-	}
-
-	/** Check if an item at a given index has a duplicate warning */
-	hasDuplicateWarning(itemIndex: number): boolean {
-		return this._duplicateMatches.some(match => match.item_index === itemIndex);
-	}
-
-	/** Get the duplicate match for a specific item index */
-	getDuplicateMatch(itemIndex: number): DuplicateMatch | undefined {
-		return this._duplicateMatches.find(match => match.item_index === itemIndex);
-	}
-
-	// =========================================================================
-	// UPDATE DECISION MANAGEMENT (for merge-on-duplicate feature)
-	// =========================================================================
-
-	/** Get current update decisions */
-	get updateDecisions(): UpdateDecision[] {
-		return this._updateDecisions;
-	}
-
-	/**
-	 * Mark an item to be updated (merged) instead of created.
-	 * Called when user clicks "Update Existing" on a duplicate warning.
-	 *
-	 * @param itemIndex - Index of the item in detectedItems/confirmedItems
-	 * @param match - The duplicate match containing target item info
-	 */
-	markForUpdate(itemIndex: number, match: DuplicateMatch): void {
-		// Remove any existing decision for this item
-		this._updateDecisions = this._updateDecisions.filter(d => d.itemIndex !== itemIndex);
-
-		// Determine which field to exclude from update (the field that caused the match)
-		let matchField: string;
-		switch (match.match_type) {
-			case 'serial_number':
-				matchField = 'serial_number';
-				break;
-			case 'manufacturer_model':
-				matchField = 'manufacturer_model';
-				break;
-			case 'fuzzy_name':
-				matchField = 'name';
-				break;
-			default:
-				matchField = match.match_type;
-		}
-
-		const decision: UpdateDecision = {
-			itemIndex,
-			targetItemId: match.existing_item.id,
-			targetItemName: match.existing_item.name,
-			matchType: match.match_type,
-			matchField,
-		};
-
-		this._updateDecisions = [...this._updateDecisions, decision];
-		log.info(`Marked item ${itemIndex} for update to existing item: ${match.existing_item.name} (${match.existing_item.id})`);
-	}
-
-	/**
-	 * Remove update decision for an item (will create new instead).
-	 * Called when user clicks "Create new instead" on a confirmed update.
-	 *
-	 * @param itemIndex - Index of the item to mark for creation
-	 */
-	markForCreate(itemIndex: number): void {
-		const hadDecision = this._updateDecisions.some(d => d.itemIndex === itemIndex);
-		this._updateDecisions = this._updateDecisions.filter(d => d.itemIndex !== itemIndex);
-		if (hadDecision) {
-			log.info(`Removed update decision for item ${itemIndex}, will create new`);
-		}
-	}
-
-	/**
-	 * Get the update decision for a specific item index.
-	 * Returns undefined if the item will be created as new.
-	 */
-	getUpdateDecision(itemIndex: number): UpdateDecision | undefined {
-		return this._updateDecisions.find(d => d.itemIndex === itemIndex);
-	}
-
-	/**
-	 * Check if an item is marked for update (vs create).
-	 */
-	isMarkedForUpdate(itemIndex: number): boolean {
-		return this._updateDecisions.some(d => d.itemIndex === itemIndex);
-	}
-
-	// =========================================================================
 	// RESET
 	// =========================================================================
 
@@ -1441,13 +785,6 @@ class ScanWorkflow {
 		this._parentItemId = null;
 		this._parentItemName = null;
 		this._error = null;
-		this._duplicateMatches = [];
-		this._updateDecisions = [];
-		this._analysisMode = 'quick';
-		this._imageGroups = [];
-		this._lastTokenUsage = null;
-		// Also reset location store so location page shows full list
-		locationStore.reset();
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */

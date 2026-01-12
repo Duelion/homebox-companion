@@ -6,7 +6,6 @@
 	import { settingsService, FIELD_META } from '$lib/workflows/settings.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import FullscreenPanel from '$lib/components/FullscreenPanel.svelte';
-	import CollapsibleSection from './CollapsibleSection.svelte';
 
 	const service = settingsService;
 
@@ -41,39 +40,41 @@
 	});
 </script>
 
-{#snippet icon()}
-	<svg
-		class="h-5 w-5 text-primary"
-		fill="none"
-		stroke="currentColor"
-		viewBox="0 0 24 24"
-		stroke-width="1.5"
-	>
-		<path
-			d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4"
-		/>
-	</svg>
-{/snippet}
-
-<CollapsibleSection title="Configure AI Output" {icon}>
-	{#if service.showFieldPrefs && service.saveState === 'success'}
-		<span
-			class="inline-flex items-center gap-2 rounded-full bg-success/20 px-3 py-1.5 text-sm font-medium text-success"
-		>
+<section class="card space-y-4">
+	<div class="flex items-center justify-between">
+		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 			<svg
-				class="h-4 w-4"
+				class="h-5 w-5 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
-				stroke-width="2.5"
+				stroke-width="1.5"
 			>
-				<polyline points="20 6 9 17 4 12" />
+				<path
+					d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4"
+				/>
 			</svg>
-			Saved
-		</span>
-	{/if}
+			Configure AI Output
+		</h2>
+		{#if service.showFieldPrefs && service.saveState === 'success'}
+			<span
+				class="inline-flex items-center gap-2 rounded-full bg-success-500/20 px-3 py-1.5 text-sm font-medium text-success-500"
+			>
+				<svg
+					class="h-4 w-4"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="2.5"
+				>
+					<polyline points="20 6 9 17 4 12" />
+				</svg>
+				Saved
+			</span>
+		{/if}
+	</div>
 
-	<p class="text-body-sm text-base-content/60">
+	<p class="text-body-sm text-neutral-400">
 		Customize how the AI generates item data. Leave fields empty to use default behavior.
 	</p>
 
@@ -435,7 +436,7 @@
 			</div>
 		{/if}
 	</div>
-</CollapsibleSection>
+</section>
 
 <!-- Fullscreen Prompt Preview Modal -->
 <FullscreenPanel

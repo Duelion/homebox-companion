@@ -9,50 +9,10 @@ from __future__ import annotations
 
 import copy
 import json
-from dataclasses import dataclass, field
 from typing import Any
 
 import litellm
 from loguru import logger
-
-
-@dataclass
-class TokenUsage:
-    """Token usage statistics from an LLM completion.
-
-    Attributes:
-        prompt_tokens: Number of tokens in the input/prompt.
-        completion_tokens: Number of tokens in the output/completion.
-        total_tokens: Total tokens used (prompt + completion).
-        provider: The provider that was used (e.g., 'openai', 'anthropic', 'ollama').
-    """
-
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    provider: str = "unknown"
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "prompt_tokens": self.prompt_tokens,
-            "completion_tokens": self.completion_tokens,
-            "total_tokens": self.total_tokens,
-            "provider": self.provider,
-        }
-
-
-@dataclass
-class CompletionResult:
-    """Result from an LLM completion including both content and usage.
-
-    Attributes:
-        content: The parsed response content as a dictionary.
-        usage: Token usage statistics (may have zero values if not available).
-    """
-
-    content: dict[str, Any] = field(default_factory=dict)
-    usage: TokenUsage = field(default_factory=TokenUsage)
 
 from ..core import config
 from ..core.exceptions import (
@@ -202,25 +162,6 @@ def _parse_json_response(
     return parsed, None
 
 
-def _extract_provider_from_model(model: str) -> str:
-    """Extract the provider name from a model string.
-
-    Args:
-        model: Model identifier (e.g., 'gpt-4o', 'anthropic/claude-3', 'ollama/llava').
-
-    Returns:
-        Provider name (e.g., 'openai', 'anthropic', 'ollama').
-    """
-    if "/" in model:
-        return model.split("/")[0]
-    # Default provider mappings
-    if model.startswith("gpt-") or model.startswith("o1-") or model.startswith("o3-"):
-        return "openai"
-    if model.startswith("claude-"):
-        return "anthropic"
-    return "unknown"
-
-
 async def _acompletion_with_repair(
     messages: list[dict[str, Any]],
     *,
@@ -229,7 +170,7 @@ async def _acompletion_with_repair(
     api_base: str | None = None,
     response_format: dict[str, str] | None = None,
     expected_keys: list[str] | None = None,
-) -> CompletionResult:
+) -> dict[str, Any]:
     """Call LiteLLM with optional JSON repair on failure.
 
     Args:
@@ -241,7 +182,7 @@ async def _acompletion_with_repair(
         expected_keys: Keys to check in JSON response (triggers repair if missing).
 
     Returns:
-        CompletionResult containing parsed JSON response and token usage.
+        Parsed JSON response as a dictionary.
 
     Raises:
         JSONRepairError: If JSON parsing fails after repair attempt.
@@ -311,16 +252,12 @@ async def _acompletion_with_repair(
 
     logger.trace(f"<<< RESPONSE FROM LLM ({model}) <<<\n{'=' * 60}\n{raw_content}\n{'=' * 60}")
 
-    # Capture token usage
-    usage = TokenUsage(provider=_extract_provider_from_model(model))
+    # Log token usage
     if completion.usage:
-        usage.prompt_tokens = completion.usage.prompt_tokens or 0
-        usage.completion_tokens = completion.usage.completion_tokens or 0
-        usage.total_tokens = completion.usage.total_tokens or 0
         logger.debug(
             f"LLM response received ({len(raw_content)} chars) | "
-            f"Tokens: {usage.total_tokens} total "
-            f"({usage.prompt_tokens} input, {usage.completion_tokens} output)"
+            f"Tokens: {completion.usage.total_tokens} total "
+            f"({completion.usage.prompt_tokens} input, {completion.usage.completion_tokens} output)"
         )
     else:
         logger.debug(f"LLM response received ({len(raw_content)} chars)")
@@ -328,7 +265,7 @@ async def _acompletion_with_repair(
     # Parse and validate
     parsed, error = _parse_json_response(raw_content, expected_keys)
     if error is None:
-        return CompletionResult(content=parsed, usage=usage)
+        return parsed
 
     # Repair attempt (one retry only)
     logger.warning(f"JSON validation failed, attempting repair: {error}")
@@ -386,16 +323,10 @@ async def _acompletion_with_repair(
         f"<<< REPAIR RESPONSE FROM LLM ({model}) <<<\n{'=' * 60}\n{repaired_content}\n{'=' * 60}"
     )
 
-    # Accumulate usage from repair call
-    if repair_completion.usage:
-        usage.prompt_tokens += repair_completion.usage.prompt_tokens or 0
-        usage.completion_tokens += repair_completion.usage.completion_tokens or 0
-        usage.total_tokens += repair_completion.usage.total_tokens or 0
-
     repaired_parsed, repaired_error = _parse_json_response(repaired_content, expected_keys)
     if repaired_error is None:
         logger.info("JSON repair successful")
-        return CompletionResult(content=repaired_parsed, usage=usage)
+        return repaired_parsed
 
     # Repair failed
     logger.error(f"JSON repair failed: {repaired_error}")
@@ -411,31 +342,26 @@ async def chat_completion(
     *,
     api_key: str | None = None,
     model: str | None = None,
-    api_base: str | None = None,
     response_format: dict[str, str] | None = None,
     expected_keys: list[str] | None = None,
-) -> CompletionResult:
+) -> dict[str, Any]:
     """Send a chat completion request to the configured LLM.
 
     Args:
         messages: List of message dicts for the conversation.
         api_key: API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
-        api_base: Optional custom API base URL (e.g., Ollama server URL).
-            If not provided, falls back to config.settings.llm_api_base.
         response_format: Optional response format (e.g., {"type": "json_object"}).
         expected_keys: Optional keys to validate in JSON response.
 
     Returns:
-        CompletionResult containing parsed response and token usage.
+        Parsed response content as a dictionary.
 
     Raises:
         LLMServiceError: For API or parsing errors.
     """
     api_key = api_key or config.settings.effective_llm_api_key
     model = model or config.settings.effective_llm_model
-    # Use passed api_base if provided, otherwise fall back to global config
-    effective_api_base = api_base if api_base is not None else config.settings.llm_api_base
 
     # Determine response format based on capabilities (if validation enabled)
     effective_response_format = response_format
@@ -449,7 +375,7 @@ async def chat_completion(
         messages,
         model=model,
         api_key=api_key,
-        api_base=effective_api_base,
+        api_base=config.settings.llm_api_base,
         response_format=effective_response_format,
         expected_keys=expected_keys,
     )
@@ -462,9 +388,8 @@ async def vision_completion(
     *,
     api_key: str | None = None,
     model: str | None = None,
-    api_base: str | None = None,
     expected_keys: list[str] | None = None,
-) -> CompletionResult:
+) -> dict[str, Any]:
     """Send a vision completion request with images to the LLM.
 
     Args:
@@ -473,12 +398,10 @@ async def vision_completion(
         image_data_uris: List of base64-encoded image data URIs.
         api_key: API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
-        api_base: Optional custom API base URL (e.g., Ollama server URL).
-            If not provided, falls back to config.settings.llm_api_base.
         expected_keys: Optional keys to validate in JSON response.
 
     Returns:
-        CompletionResult containing parsed response and token usage.
+        Parsed response content as a dictionary.
 
     Raises:
         ValueError: If image_data_uris is empty.
@@ -490,8 +413,6 @@ async def vision_completion(
 
     api_key = api_key or config.settings.effective_llm_api_key
     model = model or config.settings.effective_llm_model
-    # Use passed api_base if provided, otherwise fall back to global config
-    effective_api_base = api_base if api_base is not None else config.settings.llm_api_base
 
     # Determine capabilities and response format
     response_format: dict[str, str] | None = None
@@ -575,7 +496,7 @@ async def vision_completion(
         messages,
         model=model,
         api_key=api_key,
-        api_base=effective_api_base,
+        api_base=config.settings.llm_api_base,
         response_format=response_format,
         expected_keys=expected_keys,
     )

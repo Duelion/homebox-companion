@@ -39,56 +39,22 @@
 @layer components {
 	/* Icon button - compact */
 	.btn-icon {
-		@apply rounded-lg p-2 transition-colors duration-150 hover:bg-base-300 hover:text-base-content focus:outline-none focus:ring-2 active:bg-base-300;
-		color: oklch(var(--bc) / 0.6);
-		--tw-ring-color: oklch(var(--p) / 0.5);
-	}
-	.btn-icon:active {
-		background-color: oklch(var(--b3) / 0.8);
+		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 active:bg-neutral-700;
 	}
 
 	/* Input styles */
 	.input {
-		@apply w-full rounded-xl bg-base-200 px-4 py-3 text-base-content transition-all duration-150 focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
-		border: 1px solid oklch(var(--bc) / 0.2);
-		--tw-ring-color: oklch(var(--p) / 0.2);
-	}
-	.input:focus {
-		border-color: oklch(var(--p));
-	}
-	.input::placeholder {
-		color: oklch(var(--bc) / 0.4);
-	}
-	.input:disabled {
-		border-color: oklch(var(--bc) / 0.1);
-		color: oklch(var(--bc) / 0.3);
+		@apply w-full rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
 	}
 
 	/* Compact input variant for modals and dense UIs */
 	.input-sm {
-		@apply w-full rounded-lg bg-base-200 px-3 py-2 text-sm text-base-content transition-all duration-150 focus:bg-base-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-base-100;
-		border: 1px solid oklch(var(--bc) / 0.2);
-		--tw-ring-color: oklch(var(--p) / 0.2);
-	}
-	.input-sm:focus {
-		border-color: oklch(var(--p));
-	}
-	.input-sm::placeholder {
-		color: oklch(var(--bc) / 0.4);
-	}
-	.input-sm:disabled {
-		border-color: oklch(var(--bc) / 0.1);
-		color: oklch(var(--bc) / 0.3);
+		@apply w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
 	}
 
 	/* Input error state */
 	.input-error {
-		@apply focus:ring-2;
-		border-color: oklch(var(--er));
-		--tw-ring-color: oklch(var(--er) / 0.2);
-	}
-	.input-error:focus {
-		border-color: oklch(var(--er));
+		@apply border-error-500 focus:border-error-500 focus:ring-error-500/20;
 	}
 
 	/* Expandable input - base styles for use with expandable action */
@@ -99,51 +65,35 @@
 
 	/* Label styles */
 	.label {
-		@apply mb-2 block text-body-sm font-medium;
-		color: oklch(var(--bc) / 0.75);
+		@apply mb-2 block text-body-sm font-medium text-neutral-300;
 	}
 
 	/* Compact label for modals and dense UIs */
 	.label-sm {
-		@apply mb-1 block text-xs font-medium;
-		color: oklch(var(--bc) / 0.6);
+		@apply mb-1 block text-xs font-medium text-neutral-400;
 	}
 
 	/* Label chip / badge styles */
 	.label-chip {
-		@apply cursor-pointer rounded-lg bg-base-200 px-3 py-1.5 text-sm transition-all duration-150 hover:bg-base-300;
-		border: 1px solid oklch(var(--bc) / 0.2);
-		color: oklch(var(--bc) / 0.75);
-	}
-	.label-chip:hover {
-		border-color: oklch(var(--bc) / 0.3);
+		@apply cursor-pointer rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-300 transition-all duration-150 hover:border-neutral-600 hover:bg-neutral-800;
 	}
 
 	.label-chip-selected {
-		@apply rounded-lg border-2 px-3 py-1.5 text-sm font-medium shadow-sm ring-2;
-		border-color: oklch(var(--p));
-		color: oklch(var(--p));
-		background-color: oklch(var(--p) / 0.2);
-		--tw-ring-color: oklch(var(--p) / 0.2);
+		@apply rounded-lg border-2 border-primary-500 bg-primary-500/20 px-3 py-1.5 text-sm font-medium text-primary-300 shadow-sm ring-2 ring-primary-500/20;
 	}
 
 	/* Touch-target icon button */
 	.btn-icon-touch {
-		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 transition-all hover:bg-base-300 hover:text-base-content;
-		color: oklch(var(--bc) / 0.6);
+		@apply flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100;
 	}
 
 	/* Card base styles - use for lightweight card-like containers without importing Card.svelte */
 	.card {
-		@apply rounded-xl bg-base-200 p-4 shadow-sm;
-		border: 1px solid oklch(var(--bc) / 0.2);
+		@apply rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm;
 	}
 
 	.card-interactive {
-		@apply card cursor-pointer transition-all hover:bg-base-300 hover:shadow-md active:scale-[0.99];
-	}
-	.card-interactive:hover {
-		border-color: oklch(var(--bc) / 0.3);
+		@apply card cursor-pointer transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:shadow-md active:scale-[0.99];
 	}
 
 	/* ==========================================================================
@@ -162,22 +112,16 @@
 
 	/* Metadata row (timestamp, tokens) */
 	.chat-meta {
-		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-xs;
-		color: oklch(var(--bc) / 0.4);
+		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-xs text-neutral-500;
 	}
 
 	/* Tool accordion section */
 	.chat-tools-section {
-		@apply mt-1.5 pt-1.5;
-		border-top: 1px solid oklch(1 0 0 / 0.1);
+		@apply mt-1.5 border-t border-white/10 pt-1.5;
 	}
 
 	.chat-tools-summary {
-		@apply flex cursor-pointer select-none items-center gap-1 text-xs;
-		color: oklch(var(--bc) / 0.6);
-	}
-	.chat-tools-summary:hover {
-		color: oklch(var(--bc) / 0.75);
+		@apply flex cursor-pointer select-none items-center gap-1 text-xs text-neutral-400 hover:text-neutral-300;
 	}
 
 	.chat-tools-grid {
@@ -238,7 +182,7 @@
 
 	.markdown-content strong {
 		font-weight: 600;
-		@apply text-base-content;
+		@apply text-neutral-100;
 	}
 
 	.markdown-content em {
@@ -246,13 +190,11 @@
 	}
 
 	.markdown-content code {
-		@apply rounded px-1 py-0.5 font-mono text-[0.85em];
-		background-color: oklch(var(--p) / 0.1);
+		@apply rounded bg-primary-500/10 px-1 py-0.5 font-mono text-[0.85em];
 	}
 
 	.markdown-content pre {
-		@apply my-1.5 overflow-x-auto rounded-lg p-2;
-		background-color: oklch(0 0 0 / 0.3);
+		@apply my-1.5 overflow-x-auto rounded-lg bg-black/30 p-2;
 	}
 
 	.markdown-content pre code {
@@ -262,7 +204,7 @@
 	.markdown-content h1,
 	.markdown-content h2,
 	.markdown-content h3 {
-		@apply font-semibold text-base-content;
+		@apply font-semibold text-neutral-100;
 		margin: 0.5rem 0 0.25rem;
 	}
 
@@ -285,23 +227,20 @@
 
 	.markdown-content th,
 	.markdown-content td {
-		@apply px-3 py-2 text-left;
-		border: 1px solid oklch(var(--bc) / 0.3);
+		@apply border border-neutral-600 px-3 py-2 text-left;
 	}
 
 	.markdown-content th {
-		@apply font-semibold text-base-content;
-		background-color: oklch(var(--b3) / 0.5);
+		@apply bg-neutral-700/50 font-semibold text-neutral-100;
 	}
 
 	.markdown-content tr:nth-child(even) {
-		background-color: oklch(var(--b3) / 0.3);
+		@apply bg-neutral-800/30;
 	}
 
 	/* GFM Task Lists */
 	.markdown-content input[type='checkbox'] {
-		@apply mr-2;
-		accent-color: oklch(var(--p));
+		@apply mr-2 accent-primary-500;
 	}
 
 	.markdown-content li:has(input[type='checkbox']) {
@@ -311,29 +250,22 @@
 
 	/* Links */
 	.markdown-content a {
-		@apply underline transition-colors;
-		color: oklch(var(--p));
-	}
-	.markdown-content a:hover {
-		color: oklch(var(--p) / 0.8);
+		@apply text-primary-400 underline transition-colors hover:text-primary-300;
 	}
 
 	/* Blockquotes */
 	.markdown-content blockquote {
-		@apply my-3 pl-4 italic;
-		border-left: 4px solid oklch(var(--p) / 0.5);
-		color: oklch(var(--bc) / 0.6);
+		@apply my-3 border-l-4 border-primary-500/50 pl-4 italic text-neutral-400;
 	}
 
 	/* Horizontal Rule */
 	.markdown-content hr {
-		@apply my-4;
-		border-color: oklch(var(--bc) / 0.3);
+		@apply my-4 border-neutral-600;
 	}
 
 	/* Strikethrough */
 	.markdown-content del {
-		color: oklch(var(--bc) / 0.4);
+		@apply text-neutral-500;
 	}
 }
 
@@ -357,8 +289,7 @@
 	 */
 
 	.glass {
-		@apply backdrop-blur-lg;
-		background-color: oklch(var(--b2) / 0.8);
+		@apply bg-neutral-900/80 backdrop-blur-lg;
 	}
 
 	/* iOS safe area padding for bottom navigation */
@@ -371,7 +302,7 @@
 		padding-top: env(safe-area-inset-top, 0px);
 	}
 
-	/* Position above bottom navigation with safe area (mobile only) */
+	/* Position above bottom navigation with safe area */
 	.bottom-nav-offset {
 		/* Height of bottom nav (h-16 = 4rem) + iOS safe area */
 		bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
@@ -380,21 +311,14 @@
 		-webkit-transform: translateZ(0);
 	}
 
-	/* On desktop (lg+), bottom nav is hidden, so no offset needed */
-	@media (min-width: 1024px) {
-		.bottom-nav-offset {
-			bottom: 0;
-		}
-	}
-
 	/* Skeleton loading animation */
 	.skeleton {
-		@apply animate-shimmer rounded bg-base-300;
+		@apply animate-shimmer rounded bg-neutral-800;
 		background: linear-gradient(
 			90deg,
-			oklch(var(--b3)) 25%,
-			oklch(var(--b2)) 50%,
-			oklch(var(--b3)) 75%
+			theme('colors.neutral.800') 25%,
+			theme('colors.neutral.700') 50%,
+			theme('colors.neutral.800') 75%
 		);
 		background-size: 200% 100%;
 	}
@@ -419,16 +343,12 @@
 
 	/* Fixed bottom panel above nav */
 	.fixed-bottom-panel {
-		@apply bottom-nav-offset fixed left-0 right-0 z-40 backdrop-blur-lg;
-		border-top: 1px solid oklch(var(--bc) / 0.1);
-		background-color: oklch(var(--b1) / 0.95);
+		@apply bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur-lg;
 	}
 
 	/* Chat input container - adapts position for mobile virtual keyboard */
 	.chat-input-keyboard-aware {
-		@apply bottom-nav-offset fixed left-0 right-0 z-50 backdrop-blur-lg;
-		border-top: 1px solid oklch(var(--bc) / 0.1);
-		background-color: oklch(var(--b1) / 0.95);
+		@apply bottom-nav-offset fixed left-0 right-0 z-50 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur-lg;
 		/* Ensure proper stacking and prevent layout shifts on iOS Safari */
 		transform: translateZ(0);
 		-webkit-transform: translateZ(0);

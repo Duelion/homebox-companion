@@ -4,8 +4,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { vision } from '$lib/api/vision';
 	import { getConfig } from '$lib/api/settings';
-	import { enrichProduct } from '$lib/api/enrichment';
-	import { getAppPreferences } from '$lib/api/appPreferences';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
@@ -21,11 +19,8 @@
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import DuplicateWarningBanner from '$lib/components/DuplicateWarningBanner.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
-	import { settingsService } from '$lib/workflows/settings.svelte';
-	import TokenUsageDisplay from '$lib/components/TokenUsageDisplay.svelte';
 
 	// Capture limits (loaded from config, with safe defaults)
 	let maxImages = $state(30);
@@ -42,20 +37,6 @@
 	const currentIndex = $derived(workflow.state.currentReviewIndex);
 	const currentItem = $derived(workflow.currentItem);
 	const images = $derived(workflow.state.images);
-	const duplicateMatches = $derived(workflow.state.duplicateMatches);
-
-	// Get duplicate warning for current item (if any)
-	const currentItemDuplicate = $derived(
-		duplicateMatches.find((match) => match.item_index === currentIndex),
-	);
-
-	// Get update decision for current item (if user chose "Update Existing")
-	const currentUpdateDecision = $derived(workflow.getUpdateDecision(currentIndex));
-	const isCurrentItemMarkedForUpdate = $derived(workflow.isMarkedForUpdate(currentIndex));
-
-	// Token usage display (from last analysis, only shown when enabled)
-	const lastTokenUsage = $derived(workflow.state.lastTokenUsage);
-	const showTokenUsage = $derived(settingsService.showTokenUsage && lastTokenUsage !== null);
 
 	// Local UI state
 	let editedItem = $state<ReviewItem | null>(null);
@@ -66,10 +47,6 @@
 	let isProcessing = $state(false);
 	let allImages = $state<File[]>([]);
 	let showConfirmAllDialog = $state(false);
-
-	// Enrichment state
-	let enrichmentEnabled = $state(false);
-	let isEnriching = $state(false);
 
 	// Track original images to detect modifications (for invalidating compressed URLs)
 	let originalImageSet = $state<Set<File>>(new Set());
@@ -140,15 +117,11 @@
 
 		if (!routeGuards.review()) return;
 
-		// Load capture limits and enrichment settings from config
+		// Load capture limits from config
 		try {
-			const [config, appPrefs] = await Promise.all([
-				getConfig(),
-				getAppPreferences().catch(() => null),
-			]);
+			const config = await getConfig();
 			maxImages = config.capture_max_images;
 			maxFileSizeMb = config.capture_max_file_size_mb;
-			enrichmentEnabled = appPrefs?.enrichment_enabled ?? false;
 		} catch (error) {
 			log.warn('Failed to load capture config, using defaults', error);
 		}
@@ -157,33 +130,10 @@
 	// Cleanup object URLs on component unmount
 	onDestroy(() => urlManager.cleanup());
 
-	// Track previous status to detect transitions (prevents infinite loops)
-	let previousStatus = $state<string | null>(null);
-
-	// Watch for status changes and navigate accordingly
-	// Uses transition detection to ensure we only act once per status change
+	// Watch for status changes
 	$effect(() => {
-		const currentStatus = workflow.state.status;
-
-		// Only act on actual transitions, not repeated reads
-		if (currentStatus === previousStatus) return;
-
-		const wasReviewing = previousStatus === 'reviewing';
-		previousStatus = currentStatus;
-
-		// Only navigate if we were reviewing and status changed
-		if (!wasReviewing) return;
-
-		if (currentStatus === 'confirming') {
+		if (workflow.state.status === 'confirming') {
 			goto(resolve('/summary'));
-		} else if (currentStatus === 'idle') {
-			// All items were skipped - full reset, go back to location selection
-			showToast('All items were skipped. Starting fresh.', 'info');
-			goto(resolve('/location'));
-		} else if (currentStatus === 'capturing') {
-			// User went back to capture (not all skipped) - go back to capture
-			showToast('Add more photos to continue.', 'info');
-			goto(resolve('/capture'));
 		}
 	});
 
@@ -287,51 +237,6 @@
 		}
 	}
 
-	async function handleEnrichItem() {
-		if (!editedItem) return;
-
-		// Model number is required for enrichment
-		if (!editedItem.model_number || !editedItem.model_number.trim()) {
-			showToast('Model number is required for enrichment', 'error');
-			return;
-		}
-
-		isEnriching = true;
-
-		try {
-			const response = await enrichProduct({
-				manufacturer: editedItem.manufacturer || '',
-				model_number: editedItem.model_number || '',
-				product_name: editedItem.name,
-			});
-
-			if (response.enriched) {
-				// Update the item with enriched data
-				if (response.name && response.name !== editedItem.name) {
-					editedItem.name = response.name;
-				}
-				if (response.formatted_description) {
-					editedItem.description = response.formatted_description;
-				}
-				// Update purchase price with MSRP if not already set
-				if (response.msrp && !editedItem.purchase_price) {
-					editedItem.purchase_price = response.msrp;
-				}
-				// Expand extended fields to show the enriched data
-				showExtendedFields = true;
-				showToast(`Enriched from ${response.source} (${Math.round(response.confidence * 100)}% confidence)`, 'success');
-			} else {
-				showToast('No additional data found for this product', 'info');
-			}
-		} catch (error) {
-			log.error('Enrichment failed:', error);
-			const message = error instanceof Error ? error.message : 'Enrichment failed';
-			showToast(message, 'error');
-		} finally {
-			isEnriching = false;
-		}
-	}
-
 	async function handleAiCorrection(correctionPrompt: string) {
 		if (!editedItem) return;
 
@@ -385,25 +290,6 @@
 		} finally {
 			isProcessing = false;
 		}
-	}
-
-	/**
-	 * Handle user clicking "Update Existing" on duplicate warning.
-	 * Marks the current item for update (merge) instead of create.
-	 */
-	function handleUpdateExisting() {
-		if (!currentItemDuplicate) return;
-		workflow.markForUpdate(currentIndex, currentItemDuplicate);
-		showToast(`Will update "${currentItemDuplicate.existing_item.name}"`, 'success');
-	}
-
-	/**
-	 * Handle user clicking "Create new instead" on confirmed update banner.
-	 * Removes the update decision, item will be created as new.
-	 */
-	function handleCreateNew() {
-		workflow.markForCreate(currentIndex);
-		showToast('Will create as new item', 'info');
 	}
 
 	// Derived images with data URLs for thumbnail editor
@@ -468,100 +354,70 @@
 <div class="animate-in pb-32">
 	<StepIndicator currentStep={3} />
 
-	<div class="mb-1 flex items-center justify-between">
-		<h2 class="text-h2 text-neutral-100">Review Items</h2>
-		<!-- Item counter visible on desktop (hidden on mobile, shown in footer there) -->
-		<span class="hidden rounded-full bg-neutral-800 px-3 py-1 text-body-sm font-medium text-neutral-300 lg:block">
-			{currentIndex + 1} of {detectedItems.length}
-		</span>
-	</div>
+	<h2 class="mb-1 text-h2 text-neutral-100">Review Items</h2>
 	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
 
-	<!-- Token usage display (when enabled in settings) -->
-	{#if showTokenUsage}
-		<div class="mb-4">
-			<TokenUsageDisplay usage={lastTokenUsage} />
-		</div>
-	{/if}
-
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
-
-	<!-- Duplicate warning or update confirmation for current item -->
-	{#if currentItemDuplicate}
-		<div class="mb-4">
-			<DuplicateWarningBanner
-				match={currentItemDuplicate}
-				isMarkedForUpdate={isCurrentItemMarkedForUpdate}
-				updateDecision={currentUpdateDecision}
-				onUpdateExisting={handleUpdateExisting}
-				onCreateNew={handleCreateNew}
-			/>
-		</div>
-	{/if}
 
 	{#if editedItem}
 		{@const thumbnail = displayThumbnail}
 
-		<!-- Responsive card: stacked on mobile, side-by-side on desktop (lg+) -->
 		<div
-			class="mb-4 overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-900 shadow-md lg:flex lg:flex-row"
+			class="mb-4 overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-900 shadow-md"
 		>
-			<!-- Thumbnail section - full width on mobile, left column on desktop -->
-			<div class="lg:w-2/5 lg:shrink-0">
-				{#if thumbnail}
-					<div class="group relative aspect-video bg-neutral-800 lg:aspect-auto lg:h-full lg:min-h-[400px]">
-						<img src={thumbnail} alt={editedItem.name} class="h-full w-full object-contain" />
-						<!-- Edit overlay - always visible on mobile, hover on desktop -->
-						<button
-							type="button"
-							class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-white/50 md:opacity-0 md:group-hover:opacity-100"
-							onclick={openThumbnailEditor}
-							aria-label="Edit thumbnail image"
-						>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-							</svg>
-							<span>Edit Thumbnail</span>
-						</button>
-						{#if editedItem.customThumbnail}
-							<span
-								class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
-							>
-								Custom
-							</span>
-						{/if}
-					</div>
-				{:else}
-					<!-- No image placeholder -->
-					<div
-						class="flex aspect-video flex-col items-center justify-center bg-neutral-800 text-neutral-500 lg:aspect-auto lg:h-full lg:min-h-[400px]"
+			<!-- Thumbnail section -->
+			{#if thumbnail}
+				<div class="group relative aspect-video bg-neutral-800">
+					<img src={thumbnail} alt={editedItem.name} class="h-full w-full object-contain" />
+					<!-- Edit overlay - always visible on mobile, hover on desktop -->
+					<button
+						type="button"
+						class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-white/50 md:opacity-0 md:group-hover:opacity-100"
+						onclick={openThumbnailEditor}
+						aria-label="Edit thumbnail image"
 					>
 						<svg
-							class="mb-2 h-16 w-16 opacity-40"
+							class="h-4 w-4"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
-							stroke-width="1"
+							stroke-width="1.5"
 						>
-							<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-							<circle cx="8.5" cy="8.5" r="1.5" />
-							<polyline points="21 15 16 10 5 21" />
+							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
 						</svg>
-						<p class="text-body-sm">No image available</p>
-						<p class="mt-1 text-caption">Add photos below</p>
-					</div>
-				{/if}
-			</div>
+						<span>Edit Thumbnail</span>
+					</button>
+					{#if editedItem.customThumbnail}
+						<span
+							class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
+						>
+							Custom
+						</span>
+					{/if}
+				</div>
+			{:else}
+				<!-- No image placeholder -->
+				<div
+					class="flex aspect-video flex-col items-center justify-center bg-neutral-800 text-neutral-500"
+				>
+					<svg
+						class="mb-2 h-16 w-16 opacity-40"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="1"
+					>
+						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+						<circle cx="8.5" cy="8.5" r="1.5" />
+						<polyline points="21 15 16 10 5 21" />
+					</svg>
+					<p class="text-body-sm">No image available</p>
+					<p class="mt-1 text-caption">Add photos below</p>
+				</div>
+			{/if}
 
-			<!-- Form fields - full width on mobile, right column on desktop -->
-			<div class="space-y-5 p-4 lg:flex-1 lg:overflow-y-auto">
+			<div class="space-y-5 p-4">
 				<!-- Core fields: name, quantity, description -->
 				<ItemCoreFields
 					bind:name={editedItem.name}
@@ -585,32 +441,6 @@
 					onToggle={toggleExtendedFields}
 					idPrefix="review"
 				/>
-
-				<!-- Enrich button (only shown when enrichment is enabled) -->
-				{#if enrichmentEnabled}
-					<button
-						type="button"
-						class="flex w-full items-center justify-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-sm font-medium text-primary-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-						onclick={handleEnrichItem}
-						disabled={isEnriching || isProcessing || !editedItem.model_number?.trim()}
-					>
-						{#if isEnriching}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-							<span>Enriching...</span>
-						{:else}
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-							</svg>
-							<span>Enrich Product Info</span>
-						{/if}
-					</button>
-				{/if}
 
 				<!-- Images panel -->
 				<ImagesPanel

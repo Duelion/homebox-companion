@@ -9,8 +9,6 @@ Two-tier preference model:
 
 The defaults are resolved once at import time and cached. User overrides from
 the settings UI are stored in a sparse JSON file and overlaid on top.
-
-Settings are persisted to {data_dir}/field_preferences.json
 """
 
 from __future__ import annotations
@@ -23,12 +21,9 @@ from loguru import logger
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from homebox_companion.core.config import settings
-
-
-def _get_prefs_path() -> Path:
-    """Get the field preferences file path based on settings.data_dir."""
-    return Path(settings.data_dir) / "field_preferences.json"
+# Default storage location
+CONFIG_DIR = Path("config")
+PREFERENCES_FILE = CONFIG_DIR / "field_preferences.json"
 
 
 class FieldPreferences(BaseSettings):
@@ -123,20 +118,19 @@ def load_field_preferences() -> FieldPreferences:
     """Load preferences: defaults + user overrides from file.
 
     Priority (highest first):
-    1. File-based user overrides ({data_dir}/field_preferences.json)
+    1. File-based user overrides (config/field_preferences.json)
     2. Defaults (hardcoded + environment variables)
 
     Returns:
         FieldPreferences instance with merged values.
     """
     defaults = get_defaults()
-    prefs_file = _get_prefs_path()
 
-    if not prefs_file.exists():
+    if not PREFERENCES_FILE.exists():
         return defaults
 
     try:
-        file_data = json.loads(prefs_file.read_text(encoding="utf-8"))
+        file_data = json.loads(PREFERENCES_FILE.read_text(encoding="utf-8"))
         # User overrides on top of defaults
         merged = defaults.model_dump() | {k: v for k, v in file_data.items() if v is not None}
         return FieldPreferences.model_validate(merged)
@@ -163,9 +157,8 @@ def save_field_preferences(preferences: FieldPreferences) -> None:
         if user_val != default_val:
             overrides[field] = user_val
 
-    prefs_file = _get_prefs_path()
-    prefs_file.parent.mkdir(parents=True, exist_ok=True)
-    prefs_file.write_text(json.dumps(overrides, indent=2), encoding="utf-8")
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    PREFERENCES_FILE.write_text(json.dumps(overrides, indent=2), encoding="utf-8")
 
 
 def reset_field_preferences() -> FieldPreferences:
@@ -174,7 +167,6 @@ def reset_field_preferences() -> FieldPreferences:
     Returns:
         FieldPreferences with defaults (user overrides cleared).
     """
-    prefs_file = _get_prefs_path()
-    if prefs_file.exists():
-        prefs_file.unlink()
+    if PREFERENCES_FILE.exists():
+        PREFERENCES_FILE.unlink()
     return get_defaults()

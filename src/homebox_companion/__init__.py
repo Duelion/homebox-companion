@@ -77,12 +77,7 @@ from .tools.vision import (
     analyze_item_details_from_images,
     correct_item,
     detect_items_from_bytes,
-    discriminatory_detect_items,
-    grouped_detect_items,
 )
-
-# State management (crash recovery)
-from .services import ImageState, StateManager
 
 __all__ = [
     # Version
@@ -112,16 +107,11 @@ __all__ = [
     # Vision tool
     "DetectedItem",
     "detect_items_from_bytes",
-    "discriminatory_detect_items",
-    "grouped_detect_items",
     "analyze_item_details_from_images",
     "correct_item",
     # Image utilities
     "encode_image_to_data_uri",
     "encode_image_bytes_to_data_uri",
     "encode_compressed_image_to_base64",
-    # State management
-    "StateManager",
-    "ImageState",
 ]
 

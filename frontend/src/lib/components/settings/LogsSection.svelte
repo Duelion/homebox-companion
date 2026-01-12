@@ -8,7 +8,6 @@
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import LogViewer from '$lib/components/LogViewer.svelte';
 	import LogPanel from '$lib/components/settings/LogPanel.svelte';
-	import CollapsibleSection from './CollapsibleSection.svelte';
 
 	const service = settingsService;
 
@@ -53,12 +52,13 @@
 	</svg>
 {/snippet}
 
-{#snippet icon()}
-	{@render logsIcon('h-5 w-5 text-primary')}
-{/snippet}
+<section class="card space-y-4">
+	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+		{@render logsIcon('h-5 w-5 text-primary-400')}
+		Logs & Debugging
+	</h2>
 
-<CollapsibleSection title="Logs & Debugging" {icon} defaultCollapsed={true}>
-	<p class="text-body-sm text-base-content/60">
+	<p class="text-body-sm text-neutral-400">
 		View application logs, frontend console output, and AI interaction history for debugging.
 	</p>
 
@@ -226,4 +226,4 @@
 			{/snippet}
 		</LogPanel>
 	{/if}
-</CollapsibleSection>
+</section>

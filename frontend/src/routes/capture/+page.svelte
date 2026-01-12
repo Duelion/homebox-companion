@@ -83,7 +83,6 @@
 	let imageStatuses = $derived(workflow.state.imageStatuses);
 	let locationPath = $derived(workflow.state.locationPath);
 	let parentItemName = $derived(workflow.state.parentItemName);
-	let analysisMode = $derived(workflow.state.analysisMode);
 
 	// Analysis status counts (computed once for efficiency)
 	let failedImageCount = $derived(
@@ -346,7 +345,7 @@
 			log.debug('Auth check passed');
 
 			// Before workflow call
-			log.info(`Starting workflow analysis for ${workflow.state.images.length} image(s) in ${analysisMode} mode`);
+			log.info(`Starting workflow analysis for ${workflow.state.images.length} image(s)`);
 			analysisAnimationComplete = false;
 			// Collapse all expanded cards when analysis starts
 			expandedImages.clear();
@@ -354,18 +353,8 @@
 			setTimeout(() => {
 				window.scrollTo({ top: 0, behavior: 'smooth' });
 			}, 100);
-
-			// Use grouped analysis on desktop when grouped mode is selected
-			if (analysisMode === 'grouped') {
-				await workflow.startGroupedAnalysis();
-				// Handle grouping status - navigate to grouping editor
-				if (workflow.state.status === 'grouping') {
-					goto(resolve('/grouping'));
-				}
-			} else {
-				await workflow.startAnalysis();
-			}
-			log.debug('Workflow analysis completed');
+			await workflow.startAnalysis();
+			log.debug('Workflow.startAnalysis() completed');
 		} catch (error) {
 			// Error logging
 			log.error('Analysis failed with exception', error);
@@ -422,111 +411,6 @@
 					<span class="font-semibold text-primary-400">{parentItemName}</span>
 				</div>
 			{/if}
-		</div>
-	{/if}
-
-	<!-- Analysis Mode Selector (desktop only - lg+ screens) -->
-	{#if images.length >= 2 && !showAnalyzingUI}
-		<div class="mb-4 hidden lg:block">
-			<div class="rounded-xl border border-neutral-700 bg-neutral-900 p-4">
-				<div class="mb-3 flex items-center justify-between">
-					<div class="flex items-center gap-2">
-						<svg
-							class="h-5 w-5 text-primary-400"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-						</svg>
-						<span class="text-body-sm font-medium text-neutral-200">Analysis Mode</span>
-					</div>
-				</div>
-
-				<!-- Mode toggle buttons -->
-				<div class="flex gap-2">
-					<button
-						type="button"
-						class="flex flex-1 items-center gap-3 rounded-lg border p-3 transition-all {analysisMode === 'quick'
-							? 'border-primary-500 bg-primary-500/10'
-							: 'border-neutral-700 hover:border-neutral-600 hover:bg-neutral-800'}"
-						onclick={() => workflow.setAnalysisMode('quick')}
-						disabled={isAnalyzing}
-					>
-						<div class="flex h-10 w-10 items-center justify-center rounded-lg {analysisMode === 'quick' ? 'bg-primary-500/20' : 'bg-neutral-800'}">
-							<svg
-								class="h-5 w-5 {analysisMode === 'quick' ? 'text-primary-400' : 'text-neutral-400'}"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M13 10V3L4 14h7v7l9-11h-7z" />
-							</svg>
-						</div>
-						<div class="text-left">
-							<div class="text-body-sm font-medium {analysisMode === 'quick' ? 'text-primary-100' : 'text-neutral-200'}">
-								Quick Mode
-							</div>
-							<div class="text-caption {analysisMode === 'quick' ? 'text-primary-300/70' : 'text-neutral-500'}">
-								Each image analyzed separately
-							</div>
-						</div>
-					</button>
-
-					<button
-						type="button"
-						class="flex flex-1 items-center gap-3 rounded-lg border p-3 transition-all {analysisMode === 'grouped'
-							? 'border-primary-500 bg-primary-500/10'
-							: 'border-neutral-700 hover:border-neutral-600 hover:bg-neutral-800'}"
-						onclick={() => workflow.setAnalysisMode('grouped')}
-						disabled={isAnalyzing}
-					>
-						<div class="flex h-10 w-10 items-center justify-center rounded-lg {analysisMode === 'grouped' ? 'bg-primary-500/20' : 'bg-neutral-800'}">
-							<svg
-								class="h-5 w-5 {analysisMode === 'grouped' ? 'text-primary-400' : 'text-neutral-400'}"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<rect x="3" y="3" width="7" height="7" rx="1" />
-								<rect x="14" y="3" width="7" height="7" rx="1" />
-								<rect x="3" y="14" width="7" height="7" rx="1" />
-								<rect x="14" y="14" width="7" height="7" rx="1" />
-							</svg>
-						</div>
-						<div class="text-left">
-							<div class="text-body-sm font-medium {analysisMode === 'grouped' ? 'text-primary-100' : 'text-neutral-200'}">
-								Grouped Mode
-							</div>
-							<div class="text-caption {analysisMode === 'grouped' ? 'text-primary-300/70' : 'text-neutral-500'}">
-								AI groups images of same item
-							</div>
-						</div>
-					</button>
-				</div>
-
-				<!-- Grouped mode explanation -->
-				{#if analysisMode === 'grouped'}
-					<div class="mt-3 flex items-start gap-2 rounded-lg bg-primary-500/5 p-3">
-						<svg
-							class="mt-0.5 h-4 w-4 shrink-0 text-primary-400"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-						<p class="text-caption text-primary-200/80">
-							Photos of the same item (front/back, different angles) will be automatically grouped together.
-							You can adjust groups before proceeding to review.
-						</p>
-					</div>
-				{/if}
-			</div>
 		</div>
 	{/if}
 
@@ -657,9 +541,9 @@
 		</div>
 	{/if}
 
-	<!-- Image list with collapsible cards - responsive grid on larger screens -->
+	<!-- Image list with collapsible cards -->
 	{#if images.length > 0}
-		<div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+		<div class="mb-4 space-y-3">
 			{#each images as image, index (image.dataUrl)}
 				<div
 					class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-sm transition-all hover:border-neutral-600"
@@ -972,9 +856,9 @@
 				</div>
 			{/each}
 
-			<!-- Add more images button - spans full grid width on larger screens -->
+			<!-- Add more images button -->
 			{#if totalImageCount < maxImages && !showAnalyzingUI}
-				<div class="col-span-full flex gap-3 md:col-span-2 lg:col-span-3">
+				<div class="flex gap-3">
 					<button
 						type="button"
 						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
@@ -1139,7 +1023,7 @@
 	/>
 </div>
 
-<!-- Sticky Analyze button at bottom - above navigation bar (mobile) or at bottom (desktop) -->
+<!-- Sticky Analyze button at bottom - above navigation bar -->
 <div
 	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
 >

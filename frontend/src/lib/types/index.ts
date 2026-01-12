@@ -130,26 +130,10 @@ export type ScanStatus =
 	| 'capturing' // Adding/configuring images
 	| 'analyzing' // AI processing (async)
 	| 'partial_analysis' // Analysis complete with some failures
-	| 'grouping' // Adjusting AI-suggested image groups (desktop only)
 	| 'reviewing' // Editing detected items
 	| 'confirming' // Summary before submit
 	| 'submitting' // Creating items in Homebox
 	| 'complete'; // Success
-
-/** Analysis mode - how images should be processed */
-export type AnalysisMode =
-	| 'quick' // Each image analyzed separately (default)
-	| 'grouped'; // All images sent together, AI groups them automatically
-
-/** Image group from grouped detection or manual grouping */
-export interface ImageGroup {
-	/** Unique ID for this group */
-	id: string;
-	/** Detected item info (may be partial before confirmation) */
-	item: DetectedItem | null;
-	/** Indices of images in this group (from captured images array) */
-	imageIndices: number[];
-}
 
 /** Status of individual item submission */
 export type ItemSubmissionStatus =
@@ -191,22 +175,13 @@ export interface ScanState {
 	parentItemName: string | null;
 	// Capture
 	images: CapturedImage[];
-	// Analysis mode
-	analysisMode: AnalysisMode;
 	// Analysis
 	analysisProgress: Progress | null;
 	/** Per-image analysis status for UI feedback */
 	imageStatuses: Record<number, ImageAnalysisStatus>;
-	// Grouped detection
-	/** Image groups from grouped detection (only used in grouped mode) */
-	imageGroups: ImageGroup[];
 	// Review
 	detectedItems: ReviewItem[];
 	currentReviewIndex: number;
-	/** Potential duplicates detected (items that match existing serial numbers) */
-	duplicateMatches: DuplicateMatch[];
-	/** Items marked for update instead of create (user chose "Update Existing") */
-	updateDecisions: UpdateDecision[];
 	// Confirmation
 	confirmedItems: ConfirmedItem[];
 	// Submission
@@ -217,8 +192,6 @@ export interface ScanState {
 	lastSubmissionResult: SubmissionResult | null;
 	/** Error messages from the last submission attempt (for displaying specific failure reasons) */
 	submissionErrors: string[];
-	/** Token usage from last AI analysis (for display when enabled) */
-	lastTokenUsage: TokenUsage | null;
 	// Error handling
 	error: string | null;
 }
@@ -261,14 +234,6 @@ export interface MergeItem extends ItemCore, ItemExtended {}
 // API TYPES - Responses
 // =============================================================================
 
-/** Token usage statistics from LLM call */
-export interface TokenUsage {
-	prompt_tokens: number;
-	completion_tokens: number;
-	total_tokens: number;
-	provider: string;
-}
-
 /** Compressed image from backend */
 export interface CompressedImage {
 	data: string; // Base64-encoded image
@@ -280,14 +245,10 @@ export interface DetectionResponse {
 	items: DetectedItem[];
 	message: string;
 	compressed_images: CompressedImage[];
-	usage?: TokenUsage | null;
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
-export interface DetectedItem extends ItemCore, ItemExtended {
-	/** Indices of images showing this item (0-based). Only set in grouped detection mode. */
-	image_indices?: number[] | null;
-}
+export interface DetectedItem extends ItemCore, ItemExtended {}
 
 /** Single image result in batch detection */
 export interface BatchDetectionResult {
@@ -295,7 +256,6 @@ export interface BatchDetectionResult {
 	success: boolean;
 	items: DetectedItem[];
 	error?: string | null;
-	usage?: TokenUsage | null;
 }
 
 /** Response from batch detection */
@@ -305,17 +265,6 @@ export interface BatchDetectionResponse {
 	successful_images: number;
 	failed_images: number;
 	message: string;
-	total_usage?: TokenUsage | null;
-}
-
-/** Response from grouped/auto-group detection */
-export interface GroupedDetectionResponse {
-	/** Unique items detected across all images, each with image_indices */
-	items: DetectedItem[];
-	/** Total number of images analyzed */
-	total_images: number;
-	message: string;
-	usage?: TokenUsage | null;
 }
 
 /** Response from advanced analysis */
@@ -377,125 +326,6 @@ export interface BatchCreateResponse {
 	/** Error messages for items that failed to create */
 	errors: string[];
 	/** Summary message (e.g., "Created 2 items, 1 failed") */
-	message: string;
-}
-
-// =============================================================================
-// DUPLICATE DETECTION TYPES
-// =============================================================================
-
-/** Summary of an existing item in Homebox */
-export interface ExistingItemInfo {
-	id: string;
-	name: string;
-	serial_number: string;
-	location_id?: string | null;
-	location_name?: string | null;
-	manufacturer?: string | null;
-	model_number?: string | null;
-}
-
-/** A match between a new item and an existing item */
-export interface DuplicateMatch {
-	/** Index of the new item in the submitted list */
-	item_index: number;
-	/** Name of the new item */
-	item_name: string;
-	/** How the duplicate was detected: 'serial_number', 'manufacturer_model', or 'fuzzy_name' */
-	match_type: string;
-	/** The value that matched (serial, manufacturer+model key, or similar name) */
-	match_value: string;
-	/** Confidence level: 'high', 'medium-high', 'medium', or 'low' */
-	confidence: string;
-	/** Similarity score (1.0 for exact matches, 0.0-1.0 for fuzzy name matches) */
-	similarity_score: number;
-	/** The existing item that matches */
-	existing_item: ExistingItemInfo;
-}
-
-/** Request to check for duplicate items */
-export interface DuplicateCheckRequest {
-	items: ItemInput[];
-}
-
-/** Response from duplicate check */
-export interface DuplicateCheckResponse {
-	/** List of items that have matching serial numbers in Homebox */
-	duplicates: DuplicateMatch[];
-	/** Number of items that had serial numbers to check */
-	checked_count: number;
-	/** Summary message */
-	message: string;
-}
-
-/** Status of the duplicate detection index */
-export interface DuplicateIndexStatus {
-	/** ISO timestamp of last full build, or null if never built */
-	last_build_time: string | null;
-	/** ISO timestamp of last update (full or differential) */
-	last_update_time: string | null;
-	/** Total number of items in Homebox */
-	total_items_indexed: number;
-	/** Number of items with serial numbers in the index */
-	items_with_serials: number;
-	/** Highest asset ID seen (used for differential updates) */
-	highest_asset_id: number;
-	/** Whether the index is currently loaded in memory */
-	is_loaded: boolean;
-}
-
-/** Response from index rebuild operation */
-export interface DuplicateIndexRebuildResponse {
-	/** Updated index status after rebuild */
-	status: DuplicateIndexStatus;
-	/** Summary message */
-	message: string;
-}
-
-// =============================================================================
-// UPDATE EXISTING ITEM TYPES (Merge on duplicate)
-// =============================================================================
-
-/** Decision to update an existing item instead of creating new */
-export interface UpdateDecision {
-	/** Index of the item in detectedItems/confirmedItems */
-	itemIndex: number;
-	/** ID of the existing Homebox item to update */
-	targetItemId: string;
-	/** Name of the existing item (for display) */
-	targetItemName: string;
-	/** How the duplicate was detected */
-	matchType: string;
-	/** The field to exclude from update (the match cause) */
-	matchField: string;
-}
-
-/** Request to merge new data into an existing item */
-export interface MergeItemRequest {
-	name?: string | null;
-	description?: string | null;
-	manufacturer?: string | null;
-	model_number?: string | null;
-	serial_number?: string | null;
-	purchase_price?: number | null;
-	purchase_from?: string | null;
-	notes?: string | null;
-	label_ids?: string[] | null;
-	/** Field to never update (the match cause): 'serial_number', 'manufacturer_model', 'name' */
-	exclude_field?: string | null;
-}
-
-/** Response from merge operation */
-export interface MergeItemResponse {
-	/** ID of the updated item */
-	id: string;
-	/** Name of the updated item */
-	name: string;
-	/** List of field names that were updated */
-	fields_updated: string[];
-	/** List of field names that were skipped (already had values or excluded) */
-	fields_skipped: string[];
-	/** Summary message */
 	message: string;
 }
 

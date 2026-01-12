@@ -15,7 +15,6 @@ async def analyze_item_details_from_images(
     item_description: str | None,
     api_key: str | None = None,
     model: str | None = None,
-    api_base: str | None = None,
     labels: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
@@ -28,7 +27,6 @@ async def analyze_item_details_from_images(
         item_description: Optional initial description of the item.
         api_key: LLM API key. Defaults to effective_llm_api_key.
         model: Model name. Defaults to effective_llm_model.
-        api_base: Optional custom API base URL (e.g., Ollama server URL).
         labels: Optional list of Homebox labels to suggest.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -62,7 +60,6 @@ async def analyze_item_details_from_images(
         image_data_uris=image_data_uris,
         api_key=api_key,
         model=model,
-        api_base=api_base,
     )
 
     logger.info(f"Analysis complete. Fields: {list(parsed_content.keys())}")

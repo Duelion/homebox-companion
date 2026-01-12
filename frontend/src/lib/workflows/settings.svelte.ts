@@ -22,26 +22,8 @@ import {
 	type EffectiveDefaults,
 } from '$lib/api/settings';
 import { labels as labelsApi, type LabelData } from '$lib/api';
-import { items as itemsApi } from '$lib/api/items';
 import { getLogBuffer, clearLogBuffer, exportLogs, type LogEntry } from '$lib/utils/logger';
 import { chatStore } from '$lib/stores/chat.svelte';
-import {
-	getAIConfig,
-	updateAIConfig,
-	resetAIConfig,
-	testProviderConnection,
-	type AIConfigResponse,
-	type AIConfigInput,
-	type TestConnectionResponse,
-} from '$lib/api/aiConfig';
-import {
-	getAppPreferences,
-	updateAppPreferences,
-	type AppPreferencesResponse,
-	type AppPreferencesInput,
-} from '$lib/api/appPreferences';
-import { clearEnrichmentCache } from '$lib/api/enrichment';
-import type { DuplicateIndexStatus } from '$lib/types';
 
 // =============================================================================
 // FIELD METADATA
@@ -184,9 +166,6 @@ class SettingsService {
 		fieldPrefs: false,
 		promptPreview: false,
 		updateCheck: false,
-		aiConfig: false,
-		duplicateIndex: false,
-		appPreferences: false,
 	});
 
 	// =========================================================================
@@ -205,9 +184,6 @@ class SettingsService {
 		llmDebugLog: null as string | null,
 		fieldPrefs: null as string | null,
 		updateCheck: null as string | null,
-		aiConfig: null as string | null,
-		duplicateIndex: null as string | null,
-		appPreferences: null as string | null,
 	});
 
 	// =========================================================================
@@ -216,47 +192,6 @@ class SettingsService {
 
 	showAboutDetails = $state(false);
 	updateCheckDone = $state(false);
-
-	// =========================================================================
-	// AI PROVIDER CONFIG STATE
-	// =========================================================================
-
-	aiConfig = $state<AIConfigResponse | null>(null);
-	showAIConfig = $state(false);
-	aiConfigSaveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
-	aiConfigTestResult = $state<TestConnectionResponse | null>(null);
-	aiConfigTestingProvider = $state<string | null>(null);
-
-	// =========================================================================
-	// DUPLICATE INDEX STATE
-	// =========================================================================
-
-	duplicateIndexStatus = $state<DuplicateIndexStatus | null>(null);
-	duplicateDetectionEnabled = $state(true);
-	duplicateIndexMessage = $state<string | null>(null);
-	duplicateIndexMessageType = $state<'success' | 'error' | null>(null);
-
-	// =========================================================================
-	// TOKEN USAGE DISPLAY STATE
-	// =========================================================================
-
-	showTokenUsage = $state(false);
-
-	// =========================================================================
-	// APP PREFERENCES STATE (Connection settings, etc.)
-	// =========================================================================
-
-	appPreferences = $state<AppPreferencesResponse | null>(null);
-	showConnectionSettings = $state(false);
-	connectionSettingsSaveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
-
-	// =========================================================================
-	// ENRICHMENT STATE
-	// =========================================================================
-
-	enrichmentCacheClearing = $state(false);
-	enrichmentCacheMessage = $state<string | null>(null);
-	enrichmentCacheMessageType = $state<'success' | 'error' | null>(null);
 
 	// Track cleanup timeouts
 	private _timeoutIds: number[] = [];
@@ -267,31 +202,22 @@ class SettingsService {
 
 	/**
 	 * Initialize settings data.
-	 * Fetches config, version info, labels, and AI config in parallel.
+	 * Fetches config, version info, and labels in parallel.
 	 */
 	async initialize(): Promise<void> {
 		this.isLoading.config = true;
 		this.errors.init = null;
 
 		try {
-			const [configResult, versionResult, labelsResult, aiConfigResult] = await Promise.all([
+			const [configResult, versionResult, labelsResult] = await Promise.all([
 				getConfig(),
 				getVersion(true), // Force check for updates
 				labelsApi.list(), // Auth-required call to detect expired sessions early
-				getAIConfig().catch((e) => {
-					log.warn('Failed to load AI config on init:', e);
-					return null;
-				}),
 			]);
 
 			this.config = configResult;
 			setDemoMode(configResult.is_demo_mode, configResult.demo_mode_explicit);
 			this.availableLabels = labelsResult;
-
-			// Load AI config if successful (allows badge to show immediately)
-			if (aiConfigResult) {
-				this.aiConfig = aiConfigResult;
-			}
 
 			// Set update info
 			if (versionResult.update_available && versionResult.latest_version) {
@@ -628,299 +554,6 @@ class SettingsService {
 	}
 
 	// =========================================================================
-	// AI PROVIDER CONFIG
-	// =========================================================================
-
-	/**
-	 * Toggle AI config section visibility and load data if needed.
-	 */
-	async toggleAIConfig(): Promise<void> {
-		if (this.aiConfig) {
-			this.showAIConfig = !this.showAIConfig;
-			return;
-		}
-
-		this.isLoading.aiConfig = true;
-		this.errors.aiConfig = null;
-
-		try {
-			this.aiConfig = await getAIConfig();
-			this.showAIConfig = true;
-		} catch (error) {
-			log.error('Failed to load AI config:', error);
-			this.errors.aiConfig = error instanceof Error ? error.message : 'Failed to load AI configuration';
-		} finally {
-			this.isLoading.aiConfig = false;
-		}
-	}
-
-	/**
-	 * Save AI configuration.
-	 */
-	async saveAIConfig(config: AIConfigInput): Promise<void> {
-		console.log('[SETTINGS_SVC] saveAIConfig called');
-		console.log('[SETTINGS_SVC] Setting state to saving...');
-		this.aiConfigSaveState = 'saving';
-		this.errors.aiConfig = null;
-		console.log('[SETTINGS_SVC] State set, scheduling failsafe...');
-
-		// Failsafe: ensure we never get stuck in 'saving' state
-		const failsafeTimeout = this._scheduleTimeout(() => {
-			console.log('[SETTINGS_SVC] Failsafe timeout triggered!');
-			if (this.aiConfigSaveState === 'saving') {
-				log.error('AI config save timed out after 30 seconds');
-				this.errors.aiConfig = 'Save operation timed out. Please try again.';
-				this.aiConfigSaveState = 'error';
-				this._scheduleTimeout(() => {
-					this.aiConfigSaveState = 'idle';
-				}, 3000);
-			}
-		}, 30000);
-
-		console.log('[SETTINGS_SVC] Calling updateAIConfig API...');
-		try {
-			this.aiConfig = await updateAIConfig(config);
-			console.log('[SETTINGS_SVC] API returned successfully');
-			this.aiConfigSaveState = 'success';
-
-			this._scheduleTimeout(() => {
-				this.aiConfigSaveState = 'idle';
-			}, 2000);
-		} catch (error) {
-			console.error('[SETTINGS_SVC] API call failed:', error);
-			log.error('Failed to save AI config:', error);
-			this.errors.aiConfig = error instanceof Error ? error.message : 'Failed to save AI configuration';
-			this.aiConfigSaveState = 'error';
-
-			this._scheduleTimeout(() => {
-				this.aiConfigSaveState = 'idle';
-			}, 3000);
-		} finally {
-			console.log('[SETTINGS_SVC] Finally block, clearing failsafe');
-			// Clear the failsafe timeout since we got a response
-			this._cancelTimeout(failsafeTimeout);
-		}
-	}
-
-	/**
-	 * Reset AI configuration to defaults.
-	 */
-	async resetAIConfigToDefaults(): Promise<void> {
-		this.aiConfigSaveState = 'saving';
-		this.errors.aiConfig = null;
-
-		try {
-			this.aiConfig = await resetAIConfig();
-			this.aiConfigSaveState = 'success';
-
-			this._scheduleTimeout(() => {
-				this.aiConfigSaveState = 'idle';
-			}, 2000);
-		} catch (error) {
-			log.error('Failed to reset AI config:', error);
-			this.errors.aiConfig = error instanceof Error ? error.message : 'Failed to reset AI configuration';
-			this.aiConfigSaveState = 'error';
-
-			this._scheduleTimeout(() => {
-				this.aiConfigSaveState = 'idle';
-			}, 3000);
-		}
-	}
-
-	/**
-	 * Test connection to an AI provider.
-	 */
-	async testAIProviderConnection(provider: string, config: Record<string, unknown>): Promise<void> {
-		this.aiConfigTestingProvider = provider;
-		this.aiConfigTestResult = null;
-
-		try {
-			this.aiConfigTestResult = await testProviderConnection(provider, config);
-		} catch (error) {
-			log.error('Failed to test AI provider:', error);
-			this.aiConfigTestResult = {
-				success: false,
-				provider,
-				message: error instanceof Error ? error.message : 'Connection test failed',
-				details: {},
-			};
-		} finally {
-			this.aiConfigTestingProvider = null;
-		}
-	}
-
-	/**
-	 * Clear the test result.
-	 */
-	clearAIConfigTestResult(): void {
-		this.aiConfigTestResult = null;
-	}
-
-	// =========================================================================
-	// DUPLICATE DETECTION INDEX
-	// =========================================================================
-
-	/**
-	 * Load duplicate index status.
-	 */
-	async loadDuplicateIndexStatus(): Promise<void> {
-		this.isLoading.duplicateIndex = true;
-		this.errors.duplicateIndex = null;
-
-		try {
-			this.duplicateIndexStatus = await itemsApi.getDuplicateIndexStatus();
-		} catch (error) {
-			log.error('Failed to load duplicate index status:', error);
-			this.errors.duplicateIndex = error instanceof Error ? error.message : 'Failed to load index status';
-		} finally {
-			this.isLoading.duplicateIndex = false;
-		}
-	}
-
-	/**
-	 * Rebuild the duplicate detection index.
-	 */
-	async rebuildDuplicateIndex(): Promise<void> {
-		this.isLoading.duplicateIndex = true;
-		this.errors.duplicateIndex = null;
-		this.duplicateIndexMessage = null;
-
-		try {
-			const result = await itemsApi.rebuildDuplicateIndex();
-			this.duplicateIndexStatus = result.status;
-			this.duplicateIndexMessage = result.message;
-			this.duplicateIndexMessageType = 'success';
-
-			this._scheduleTimeout(() => {
-				this.duplicateIndexMessage = null;
-				this.duplicateIndexMessageType = null;
-			}, 5000);
-		} catch (error) {
-			log.error('Failed to rebuild duplicate index:', error);
-			const errorMessage = error instanceof Error ? error.message : 'Failed to rebuild index';
-
-			// Parse specific error types
-			if (errorMessage.includes('401') || errorMessage.includes('auth')) {
-				this.duplicateIndexMessage = 'Authentication failed. Please log in again.';
-			} else if (errorMessage.includes('connect') || errorMessage.includes('network')) {
-				this.duplicateIndexMessage = 'Cannot connect to Homebox. Check your connection.';
-			} else {
-				this.duplicateIndexMessage = errorMessage;
-			}
-			this.duplicateIndexMessageType = 'error';
-		} finally {
-			this.isLoading.duplicateIndex = false;
-		}
-	}
-
-	/**
-	 * Toggle duplicate detection setting.
-	 */
-	setDuplicateDetectionEnabled(enabled: boolean): void {
-		this.duplicateDetectionEnabled = enabled;
-		// This would normally persist to app preferences API
-		// For now, just update local state (will be integrated with app preferences)
-		log.info(`Duplicate detection ${enabled ? 'enabled' : 'disabled'}`);
-	}
-
-	/**
-	 * Toggle token usage display setting.
-	 */
-	setShowTokenUsage(enabled: boolean): void {
-		this.showTokenUsage = enabled;
-		log.info(`Token usage display ${enabled ? 'enabled' : 'disabled'}`);
-	}
-
-	// =========================================================================
-	// APP PREFERENCES (Connection Settings)
-	// =========================================================================
-
-	/**
-	 * Toggle connection settings section and load data if needed.
-	 */
-	async toggleConnectionSettings(): Promise<void> {
-		if (this.appPreferences) {
-			this.showConnectionSettings = !this.showConnectionSettings;
-			return;
-		}
-
-		this.isLoading.appPreferences = true;
-		this.errors.appPreferences = null;
-
-		try {
-			this.appPreferences = await getAppPreferences();
-			// Sync duplicate detection enabled state
-			this.duplicateDetectionEnabled = this.appPreferences.duplicate_detection_enabled;
-			// Sync token usage display state
-			this.showTokenUsage = this.appPreferences.show_token_usage;
-			this.showConnectionSettings = true;
-		} catch (error) {
-			log.error('Failed to load app preferences:', error);
-			this.errors.appPreferences = error instanceof Error ? error.message : 'Failed to load preferences';
-		} finally {
-			this.isLoading.appPreferences = false;
-		}
-	}
-
-	/**
-	 * Save app preferences (connection settings).
-	 */
-	async saveAppPreferences(prefs: AppPreferencesInput): Promise<void> {
-		this.connectionSettingsSaveState = 'saving';
-		this.errors.appPreferences = null;
-
-		try {
-			this.appPreferences = await updateAppPreferences(prefs);
-			// Sync duplicate detection enabled state
-			this.duplicateDetectionEnabled = this.appPreferences.duplicate_detection_enabled;
-			// Sync token usage display state
-			this.showTokenUsage = this.appPreferences.show_token_usage;
-			this.connectionSettingsSaveState = 'success';
-
-			this._scheduleTimeout(() => {
-				this.connectionSettingsSaveState = 'idle';
-			}, 2000);
-		} catch (error) {
-			log.error('Failed to save app preferences:', error);
-			this.errors.appPreferences = error instanceof Error ? error.message : 'Failed to save preferences';
-			this.connectionSettingsSaveState = 'error';
-
-			this._scheduleTimeout(() => {
-				this.connectionSettingsSaveState = 'idle';
-			}, 3000);
-		}
-	}
-
-	// =========================================================================
-	// ENRICHMENT
-	// =========================================================================
-
-	/**
-	 * Clear the enrichment cache.
-	 */
-	async clearEnrichmentCache(): Promise<void> {
-		this.enrichmentCacheClearing = true;
-		this.enrichmentCacheMessage = null;
-
-		try {
-			const result = await clearEnrichmentCache();
-			this.enrichmentCacheMessage = result.message;
-			this.enrichmentCacheMessageType = 'success';
-
-			this._scheduleTimeout(() => {
-				this.enrichmentCacheMessage = null;
-				this.enrichmentCacheMessageType = null;
-			}, 5000);
-		} catch (error) {
-			log.error('Failed to clear enrichment cache:', error);
-			this.enrichmentCacheMessage = error instanceof Error ? error.message : 'Failed to clear cache';
-			this.enrichmentCacheMessageType = 'error';
-		} finally {
-			this.enrichmentCacheClearing = false;
-		}
-	}
-
-	// =========================================================================
 	// VERSION CHECK
 	// =========================================================================
 
@@ -959,9 +592,8 @@ class SettingsService {
 
 	/**
 	 * Schedule a timeout with cleanup tracking.
-	 * Returns the timeout ID so it can be cancelled early if needed.
 	 */
-	private _scheduleTimeout(callback: () => void, delay: number): number {
+	private _scheduleTimeout(callback: () => void, delay: number): void {
 		const id = window.setTimeout(() => {
 			callback();
 			// Remove from tracking after execution
@@ -971,18 +603,6 @@ class SettingsService {
 			}
 		}, delay);
 		this._timeoutIds.push(id);
-		return id;
-	}
-
-	/**
-	 * Cancel a scheduled timeout and remove it from tracking.
-	 */
-	private _cancelTimeout(id: number): void {
-		window.clearTimeout(id);
-		const idx = this._timeoutIds.indexOf(id);
-		if (idx !== -1) {
-			this._timeoutIds.splice(idx, 1);
-		}
 	}
 
 	/**
@@ -1022,32 +642,6 @@ class SettingsService {
 		this.updateCheckDone = false;
 		this.saveState = 'idle';
 
-		// AI config state
-		this.aiConfig = null;
-		this.showAIConfig = false;
-		this.aiConfigSaveState = 'idle';
-		this.aiConfigTestResult = null;
-		this.aiConfigTestingProvider = null;
-
-		// Duplicate index state
-		this.duplicateIndexStatus = null;
-		this.duplicateDetectionEnabled = true;
-		this.duplicateIndexMessage = null;
-		this.duplicateIndexMessageType = null;
-
-		// Token usage display state
-		this.showTokenUsage = false;
-
-		// App preferences state
-		this.appPreferences = null;
-		this.showConnectionSettings = false;
-		this.connectionSettingsSaveState = 'idle';
-
-		// Enrichment state
-		this.enrichmentCacheClearing = false;
-		this.enrichmentCacheMessage = null;
-		this.enrichmentCacheMessageType = null;
-
 		this.isLoading = {
 			config: true,
 			serverLogs: false,
@@ -1055,9 +649,6 @@ class SettingsService {
 			fieldPrefs: false,
 			promptPreview: false,
 			updateCheck: false,
-			aiConfig: false,
-			duplicateIndex: false,
-			appPreferences: false,
 		};
 
 		this.errors = {
@@ -1066,9 +657,6 @@ class SettingsService {
 			llmDebugLog: null,
 			fieldPrefs: null,
 			updateCheck: null,
-			aiConfig: null,
-			duplicateIndex: null,
-			appPreferences: null,
 		};
 	}
 }

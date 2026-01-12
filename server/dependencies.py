@@ -18,8 +18,6 @@ if TYPE_CHECKING:
     from homebox_companion.mcp.executor import ToolExecutor
 
 from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
-from homebox_companion.core.ai_config import load_ai_config, AIProvider
-from homebox_companion.services.duplicate_detector import DuplicateDetector
 
 
 class ClientHolder:
@@ -87,44 +85,6 @@ class ClientHolder:
 
 # Singleton holder instance - each worker gets its own
 client_holder = ClientHolder()
-
-
-class DuplicateDetectorHolder:
-    """Manages the shared DuplicateDetector instance.
-
-    The DuplicateDetector maintains a persistent index of serial numbers
-    for duplicate detection. It should be shared across requests to benefit
-    from caching and incremental updates.
-    """
-
-    def __init__(self) -> None:
-        self._detector: DuplicateDetector | None = None
-
-    def get_or_create(self, client: HomeboxClient) -> DuplicateDetector:
-        """Get the shared detector instance, creating if needed.
-
-        Args:
-            client: The HomeboxClient to use for API calls.
-
-        Returns:
-            The shared DuplicateDetector instance.
-        """
-        if self._detector is None:
-            self._detector = DuplicateDetector(client)
-            logger.debug("Created new DuplicateDetector instance")
-        return self._detector
-
-    def get(self) -> DuplicateDetector | None:
-        """Get the detector if initialized, or None."""
-        return self._detector
-
-    def reset(self) -> None:
-        """Reset the holder (for testing)."""
-        self._detector = None
-
-
-# Singleton holder for duplicate detector
-duplicate_detector_holder = DuplicateDetectorHolder()
 
 
 class SessionStoreHolder:
@@ -256,18 +216,6 @@ def get_client() -> HomeboxClient:
     return client_holder.get()
 
 
-def get_duplicate_detector(
-    client: Annotated[HomeboxClient, Depends(get_client)],
-) -> DuplicateDetector:
-    """Get the shared DuplicateDetector instance.
-
-    This is a FastAPI dependency that returns the shared detector instance,
-    creating it if needed. The detector maintains a persistent index of
-    serial numbers for duplicate detection.
-    """
-    return duplicate_detector_holder.get_or_create(client)
-
-
 def get_token(authorization: Annotated[str | None, Header()] = None) -> str:
     """Extract bearer token from Authorization header."""
     if not authorization:
@@ -327,82 +275,6 @@ def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
     _ = token
 
 
-@dataclass
-class LLMConfig:
-    """Configuration for LLM access.
-
-    Attributes:
-        api_key: The API key for the provider (may be None for Ollama or self-hosted endpoints).
-        model: The model name to use.
-        provider: The provider type (ollama, openai, anthropic).
-        api_base: Optional custom API base URL (e.g., Ollama server URL or OpenAI-compatible endpoint).
-    """
-
-    api_key: str | None
-    model: str
-    provider: str
-    api_base: str | None = None
-
-
-def get_llm_config() -> LLMConfig:
-    """Get LLM configuration from AI config or environment variables.
-
-    This function checks the AI config file first, then falls back to
-    environment variables for backward compatibility.
-
-    Returns:
-        LLMConfig with api_key, model, and provider.
-
-    Raises:
-        HTTPException: 500 if no LLM is properly configured.
-    """
-    # First, try to load from new AI config system
-    try:
-        ai_config = load_ai_config()
-        active_provider = ai_config.active_provider
-
-        if active_provider == AIProvider.OLLAMA:
-            if ai_config.ollama.enabled:
-                return LLMConfig(
-                    api_key=None,  # Ollama doesn't need API key
-                    model=ai_config.ollama.model,
-                    provider="ollama",
-                    api_base=ai_config.ollama.url,
-                )
-        elif active_provider == AIProvider.OPENAI:
-            if ai_config.openai.enabled and (ai_config.openai.api_key or ai_config.openai.api_base):
-                return LLMConfig(
-                    api_key=ai_config.openai.api_key.get_secret_value() if ai_config.openai.api_key else None,
-                    model=ai_config.openai.model,
-                    provider="openai",
-                    api_base=ai_config.openai.api_base,
-                )
-        elif active_provider == AIProvider.ANTHROPIC:
-            if ai_config.anthropic.enabled and ai_config.anthropic.api_key:
-                return LLMConfig(
-                    api_key=ai_config.anthropic.api_key.get_secret_value(),
-                    model=ai_config.anthropic.model,
-                    provider="anthropic",
-                )
-    except Exception as e:
-        logger.debug(f"Could not load AI config, falling back to env vars: {e}")
-
-    # Fall back to environment variables (backward compatibility)
-    if settings.effective_llm_api_key:
-        return LLMConfig(
-            api_key=settings.effective_llm_api_key,
-            model=settings.effective_llm_model,
-            provider="openai",  # Env vars use OpenAI-compatible endpoint
-            api_base=settings.llm_api_base,  # From HBC_LLM_API_BASE env var
-        )
-
-    logger.error("LLM API key not configured")
-    raise HTTPException(
-        status_code=500,
-        detail="LLM API key not configured. Configure a provider in Settings or set HBC_LLM_API_KEY.",
-    )
-
-
 def require_llm_configured() -> str:
     """Dependency that ensures LLM API key is configured.
 
@@ -415,86 +287,13 @@ def require_llm_configured() -> str:
     Raises:
         HTTPException: 500 if LLM API key is not configured.
     """
-    config = get_llm_config()
-    # For providers that don't need API key (Ollama), return empty string
-    return config.api_key or ""
-
-
-def get_configured_llm() -> LLMConfig:
-    """Dependency that returns the full LLM configuration.
-
-    Use this when you need both the API key and model from the configured provider.
-
-    Returns:
-        LLMConfig with api_key, model, and provider.
-
-    Raises:
-        HTTPException: 500 if no LLM is properly configured.
-    """
-    return get_llm_config()
-
-
-def get_fallback_llm_config() -> LLMConfig | None:
-    """Get the fallback LLM configuration if enabled.
-
-    Returns:
-        LLMConfig for the fallback provider, or None if fallback is disabled
-        or the fallback provider is not properly configured.
-    """
-    try:
-        ai_config = load_ai_config()
-
-        # Check if fallback is enabled
-        if not ai_config.fallback_to_cloud:
-            return None
-
-        fallback_provider = ai_config.fallback_provider
-
-        # Don't fallback to the same provider
-        if fallback_provider == ai_config.active_provider:
-            return None
-
-        # Get fallback provider config
-        if fallback_provider == AIProvider.OLLAMA:
-            if ai_config.ollama.enabled:
-                return LLMConfig(
-                    api_key=None,
-                    model=ai_config.ollama.model,
-                    provider="ollama",
-                    api_base=ai_config.ollama.url,
-                )
-        elif fallback_provider == AIProvider.OPENAI:
-            if ai_config.openai.enabled and (ai_config.openai.api_key or ai_config.openai.api_base):
-                return LLMConfig(
-                    api_key=ai_config.openai.api_key.get_secret_value() if ai_config.openai.api_key else None,
-                    model=ai_config.openai.model,
-                    provider="openai",
-                    api_base=ai_config.openai.api_base,
-                )
-        elif fallback_provider == AIProvider.ANTHROPIC:
-            if ai_config.anthropic.enabled and ai_config.anthropic.api_key:
-                return LLMConfig(
-                    api_key=ai_config.anthropic.api_key.get_secret_value(),
-                    model=ai_config.anthropic.model,
-                    provider="anthropic",
-                )
-
-        return None
-    except Exception as e:
-        logger.debug(f"Could not load fallback config: {e}")
-        return None
-
-
-def get_configured_llm_with_fallback() -> tuple[LLMConfig, LLMConfig | None]:
-    """Get both primary and fallback LLM configurations.
-
-    Returns:
-        Tuple of (primary_config, fallback_config).
-        fallback_config is None if fallback is disabled.
-    """
-    primary = get_llm_config()
-    fallback = get_fallback_llm_config()
-    return primary, fallback
+    if not settings.effective_llm_api_key:
+        logger.error("LLM API key not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
+        )
+    return settings.effective_llm_api_key
 
 
 async def validate_file_size(file: UploadFile) -> bytes:

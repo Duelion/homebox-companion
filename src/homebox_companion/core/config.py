@@ -29,14 +29,6 @@ Environment Variables:
     HBC_CHAT_ENABLED: Enable the conversational assistant (default: true)
     HBC_CHAT_MAX_HISTORY: Max messages in conversation context (default: 20)
     HBC_CHAT_APPROVAL_TIMEOUT: Seconds before pending approvals expire (default: 300)
-    HBC_DATA_DIR: Directory for persistent data storage (default: /data in Docker, ./data locally)
-    HBC_STATE_MAX_RETRIES: Maximum retry attempts for failed image processing (default: 3)
-    HBC_STATE_LOCK_TIMEOUT: Timeout in seconds for state file locking (default: 10)
-    HBC_USE_OLLAMA: Enable Ollama for local AI processing (default: false)
-    HBC_OLLAMA_INTERNAL: Use embedded/internal Ollama in Docker (default: false)
-    HBC_OLLAMA_URL: External Ollama URL (default: http://localhost:11434)
-    HBC_OLLAMA_MODEL: Ollama model to use (default: minicpm-v)
-    HBC_FALLBACK_TO_CLOUD: Fall back to cloud AI if Ollama fails (default: true)
 
 AI Output Customization env vars (HBC_AI_*) are handled separately in
 field_preferences.py via FieldPreferencesDefaults.
@@ -141,18 +133,6 @@ class Settings(BaseSettings):
     chat_max_history: int = 20  # Max messages in conversation context
     chat_approval_timeout: int = 300  # Seconds before pending approvals expire
     chat_max_response_tokens: int = 0  # 0 = no limit (LLM decides naturally)
-
-    # State management configuration (crash recovery)
-    data_dir: str = "./data"  # Directory for persistent data storage
-    state_max_retries: int = 3  # Max retry attempts for failed processing
-    state_lock_timeout: int = 10  # Timeout in seconds for file lock
-
-    # Ollama configuration (local AI processing)
-    use_ollama: bool = False  # Enable Ollama
-    ollama_internal: bool = False  # Use embedded Ollama (Docker)
-    ollama_url: str = "http://localhost:11434"  # External Ollama URL
-    ollama_model: str = "minicpm-v"  # Model to use
-    fallback_to_cloud: bool = True  # Fall back to cloud if Ollama fails
 
     @computed_field
     @property
