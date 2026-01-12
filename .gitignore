@@ -35,6 +35,27 @@ server/static/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude Code configuration (contains credentials)
+.claude/
+
+# Fork specification documents (local development only)
+PROJECT_SPEC.md
+DEVELOPMENT_GUIDE.md
+AI_PROVIDERS.md
+STATE_MANAGEMENT.md
+DOCKER_SPEC.md
+UI_SPEC.md
+API_SPEC.md
+CONFIG_SCHEMA.md
+PROMPTS.md
+ENRICHMENT.md
+CLAUDE.md
+AGENTS.md
+FEATURES_ADDED.txt
+PR_DOCUMENTATION.md
+SESSION_STATE.md
+.gitignore.suggested
 homebox_api.json
 litellm_docs.txt
 litellm_relevant_docs.md
@@ -42,3 +63,8 @@ all_models_capabilities.csv
 temp_test_expiry.py
 demo/DEPLOYMENT_GUIDE.md
 demo/README.md
+
+# Screenshots and temporary files
+*.png
+!.github/assets/images/*.png
+!frontend/static/*.png

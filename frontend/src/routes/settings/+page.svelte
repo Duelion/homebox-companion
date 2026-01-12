@@ -15,7 +15,8 @@
 
 	import AccountSection from '$lib/components/settings/AccountSection.svelte';
 	import AboutSection from '$lib/components/settings/AboutSection.svelte';
-	import FieldPrefsSection from '$lib/components/settings/FieldPrefsSection.svelte';
+	import AIConfigurationSection from '$lib/components/settings/AIConfigurationSection.svelte';
+	import ConnectionSection from '$lib/components/settings/ConnectionSection.svelte';
 	import LogsSection from '$lib/components/settings/LogsSection.svelte';
 
 	onMount(async () => {
@@ -41,17 +42,17 @@
 	<title>Settings - Homebox Companion</title>
 </svelte:head>
 
-<div class="animate-in space-y-6">
-	<div>
-		<h1 class="text-h1 font-bold text-neutral-100">Settings</h1>
-		<p class="mt-1 text-body-sm text-neutral-400">App configuration and information</p>
+<div class="animate-in">
+	<div class="mb-6">
+		<h1 class="text-h1 font-bold text-base-content">Settings</h1>
+		<p class="mt-1 text-body-sm text-base-content/60">App configuration and information</p>
 	</div>
 
 	{#if settingsService.errors.init}
-		<div class="card border-error-500/30 bg-error-500/10">
+		<div class="card mb-6 border-error/30 bg-error/10">
 			<div class="flex items-start gap-3">
 				<svg
-					class="mt-0.5 h-5 w-5 flex-shrink-0 text-error-500"
+					class="mt-0.5 h-5 w-5 flex-shrink-0 text-error"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -62,11 +63,11 @@
 					/>
 				</svg>
 				<div>
-					<p class="font-medium text-error-500">Failed to load settings</p>
-					<p class="mt-1 text-sm text-neutral-400">{settingsService.errors.init}</p>
+					<p class="font-medium text-error">Failed to load settings</p>
+					<p class="mt-1 text-sm text-base-content/60">{settingsService.errors.init}</p>
 					<button
 						type="button"
-						class="mt-2 text-sm text-primary-400 underline hover:text-primary-300"
+						class="mt-2 text-sm text-primary underline hover:text-primary/80"
 						onclick={() => settingsService.initialize()}
 					>
 						Try again
@@ -76,10 +77,23 @@
 		</div>
 	{/if}
 
-	<AccountSection />
-	<AboutSection />
-	<FieldPrefsSection />
-	<LogsSection />
+	<!-- Settings sections - responsive layout -->
+	<div class="space-y-6">
+		<!-- Top row: Account and About side by side on desktop -->
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+			<AccountSection />
+			<AboutSection />
+		</div>
+
+		<!-- AI Configuration - full width, contains all AI-related settings -->
+		<AIConfigurationSection />
+
+		<!-- Bottom row: Connection and Logs side by side on desktop -->
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+			<ConnectionSection />
+			<LogsSection />
+		</div>
+	</div>
 
 	<!-- Bottom spacing for nav -->
 	<div class="h-4"></div>

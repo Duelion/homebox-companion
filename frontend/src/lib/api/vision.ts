@@ -8,6 +8,7 @@ import { apiLogger as log } from '../utils/logger';
 import type {
 	DetectionResponse,
 	BatchDetectionResponse,
+	GroupedDetectionResponse,
 	AdvancedItemDetails,
 	MergedItemResponse,
 	CorrectionResponse,
@@ -24,6 +25,12 @@ export interface DetectOptions {
 
 export interface BatchDetectOptions {
 	configs?: Array<{ single_item?: boolean; extra_instructions?: string }>;
+	extractExtendedFields?: boolean;
+	signal?: AbortSignal;
+}
+
+export interface GroupedDetectOptions {
+	extraInstructions?: string;
 	extractExtendedFields?: boolean;
 	signal?: AbortSignal;
 }
@@ -133,6 +140,46 @@ export const vision = {
 			signal: options.signal,
 			headers,
 		});
+	},
+
+	/**
+	 * Detect items from multiple images with automatic grouping.
+	 *
+	 * Unlike detectBatch, this sends all images to the AI in a single request
+	 * and asks it to identify unique items and group images showing the same item.
+	 *
+	 * Use this when:
+	 * - Multiple images may show the same item from different angles
+	 * - You want the AI to automatically determine which images go together
+	 * - You don't know ahead of time how images should be grouped
+	 *
+	 * Each returned item includes `image_indices` indicating which images show it.
+	 */
+	detectGrouped: async (images: File[], options: GroupedDetectOptions = {}): Promise<GroupedDetectionResponse> => {
+		log.debug(`Preparing grouped detection request: ${images.length} images`);
+		log.debug(`Total size: ${images.reduce((sum, img) => sum + img.size, 0)} bytes`);
+
+		const formData = new FormData();
+
+		for (const img of images) {
+			formData.append('images', img);
+		}
+
+		if (options.extraInstructions) {
+			formData.append('extra_instructions', options.extraInstructions);
+			log.debug(`Extra instructions: ${options.extraInstructions.substring(0, 100)}${options.extraInstructions.length > 100 ? '...' : ''}`);
+		}
+		if (options.extractExtendedFields !== undefined) {
+			formData.append('extract_extended_fields', String(options.extractExtendedFields));
+		}
+
+		const headers = await buildVisionHeaders();
+		log.info(`Sending vision/detect-grouped request for ${images.length} images to backend`);
+		return requestFormData<GroupedDetectionResponse>(
+			'/tools/vision/detect-grouped',
+			formData,
+			{ errorMessage: 'Grouped detection failed', signal: options.signal, headers }
+		);
 	},
 
 	/**

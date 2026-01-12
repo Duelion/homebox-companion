@@ -4,22 +4,22 @@
 	// Derive toasts from store for reactive template usage
 	let toasts = $derived(uiStore.toasts);
 
-	// Updated color styles with new design tokens
+	// Updated color styles with DaisyUI semantic tokens
 	const typeStyles = {
-		info: 'bg-primary-600/20 border-primary-500/30 text-primary-300',
-		success: 'bg-success-500/20 border-success-500/30 text-success-500',
-		warning: 'bg-warning-500/20 border-warning-500/30 text-warning-500',
-		error: 'bg-error-500/20 border-error-500/30 text-error-500',
-		update: 'bg-warning-900/90 border-warning-500/40 text-warning-500',
+		info: 'bg-info/20 border-info/30 text-info',
+		success: 'bg-success/20 border-success/30 text-success',
+		warning: 'bg-warning/20 border-warning/30 text-warning',
+		error: 'bg-error/20 border-error/30 text-error',
+		update: 'bg-warning/90 border-warning/40 text-warning',
 	};
 
 	// Progress bar colors for each type
 	const progressColors = {
-		info: 'bg-primary-500',
-		success: 'bg-success-500',
-		warning: 'bg-warning-500',
-		error: 'bg-error-500',
-		update: 'bg-warning-500',
+		info: 'bg-info',
+		success: 'bg-success',
+		warning: 'bg-warning',
+		error: 'bg-error',
+		update: 'bg-warning',
 	};
 
 	const typeIcons = {

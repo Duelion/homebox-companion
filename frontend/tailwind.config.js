@@ -1,77 +1,110 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./src/**/*.{html,js,svelte,ts}'],
+  // DaisyUI themes matching Homebox
+  // IMPORTANT: The first theme is the default fallback - keep "homebox" first!
+  daisyui: {
+    themes: [
+      // Custom "homebox" theme MUST be first (DaisyUI uses first theme as default)
+      {
+        homebox: {
+          'color-scheme': 'dark',
+          'primary': '#6366f1',
+          'primary-content': '#ffffff',
+          'secondary': '#818cf8',
+          'secondary-content': '#ffffff',
+          'accent': '#22d3ee',
+          'accent-content': '#000000',
+          'neutral': '#1e1e2e',
+          'neutral-content': '#f1f5f9',
+          'base-100': '#0a0a0f',
+          'base-200': '#13131f',
+          'base-300': '#1e1e2e',
+          'base-content': '#f1f5f9',
+          'info': '#3abff8',
+          'info-content': '#000000',
+          'success': '#10b981',
+          'success-content': '#000000',
+          'warning': '#f59e0b',
+          'warning-content': '#000000',
+          'error': '#ef4444',
+          'error-content': '#ffffff',
+        },
+      },
+      // Standard DaisyUI themes
+      'light',
+      'dark',
+      'cupcake',
+      'bumblebee',
+      'emerald',
+      'corporate',
+      'synthwave',
+      'retro',
+      'cyberpunk',
+      'valentine',
+      'halloween',
+      'garden',
+      'forest',
+      'aqua',
+      'lofi',
+      'pastel',
+      'fantasy',
+      'wireframe',
+      'black',
+      'luxury',
+      'dracula',
+      'cmyk',
+      'autumn',
+      'business',
+      'acid',
+      'lemonade',
+      'night',
+      'coffee',
+      'winter',
+    ],
+    // Don't add extra base styles - we have our own
+    base: true,
+    // Enable styled components
+    styled: true,
+    // Enable utility classes
+    utils: true,
+    // Log to console during build
+    logs: false,
+  },
   theme: {
     extend: {
+      // NOTE: DaisyUI provides semantic colors (primary, secondary, accent, success,
+      // warning, error, info) via CSS variables that change per theme.
+      // DO NOT define these as static Tailwind colors or they will override DaisyUI themes.
+      //
+      // DaisyUI semantic colors to use:
+      //   bg-primary, bg-secondary, bg-accent, bg-success, bg-warning, bg-error, bg-info
+      //   bg-base-100, bg-base-200, bg-base-300, bg-base-content
+      //   text-primary-content, text-base-content, etc.
+      //
+      // See: https://daisyui.com/docs/colors/
       colors: {
-        // Primary (Indigo) - full tonal scale
-        primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          DEFAULT: '#6366f1', // Backwards compatibility
-          hover: '#818cf8',   // Backwards compatibility
-          light: '#a5b4fc',   // Backwards compatibility
-        },
-
-        // Neutral scale for backgrounds, text, and borders
+        // Legacy neutral scale - kept for backwards compatibility with existing components
+        // Prefer DaisyUI semantic colors for new code:
+        //   bg-base-100 (lightest), bg-base-200, bg-base-300 (darkest surface)
+        //   text-base-content, text-base-content/60, text-base-content/40
+        //   border-base-content/20
         neutral: {
-          950: '#0a0a0f',  // App background
-          900: '#13131f',  // Card background
-          800: '#1e1e2e',  // Elevated surface
-          700: '#2a2a3e',  // Borders, hover states
-          600: '#3a3a4e',  // Active borders
-          500: '#64748b',  // Dim text
-          400: '#94a3b8',  // Muted text
-          300: '#cbd5e1',  // Secondary text
-          200: '#e2e8f0',  // Body text
-          100: '#f1f5f9',  // Headings
+          950: '#0a0a0f',
+          900: '#13131f',
+          800: '#1e1e2e',
+          700: '#2a2a3e',
+          600: '#3a3a4e',
+          500: '#64748b',
+          400: '#94a3b8',
+          300: '#cbd5e1',
+          200: '#e2e8f0',
+          100: '#f1f5f9',
         },
-
-        // Semantic colors with full scales
-        success: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          500: '#10b981',
-          600: '#059669',
-          700: '#047857',
-          900: '#064e3b',
-          DEFAULT: '#10b981',
-          bg: 'rgba(16, 185, 129, 0.1)',
-        },
-        warning: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          500: '#f59e0b',
-          600: '#d97706',
-          700: '#b45309',
-          900: '#78350f',
-          DEFAULT: '#f59e0b',
-          bg: 'rgba(245, 158, 11, 0.1)',
-        },
-        error: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          500: '#ef4444',
-          600: '#dc2626',
-          700: '#b91c1c',
-          900: '#7f1d1d',
-          DEFAULT: '#ef4444',
-          bg: 'rgba(239, 68, 68, 0.1)',
-        },
-
-        // Accent color
-        accent: {
-          DEFAULT: '#22d3ee',
-          hover: '#67e8f9',
-        },
+        // NOTE: DO NOT define 'primary', 'success', 'warning', 'error' here!
+        // DaisyUI provides these as semantic colors via CSS variables.
+        // Defining them here shadows DaisyUI's classes (bg-primary, etc.) and breaks theming.
+        // Use DaisyUI's opacity syntax instead: bg-primary/50, text-success/80, etc.
       },
 
       // Typography scale with line-height and letter-spacing
@@ -256,5 +289,7 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('daisyui'),
+  ],
 }

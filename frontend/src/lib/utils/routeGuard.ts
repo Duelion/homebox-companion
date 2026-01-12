@@ -45,6 +45,7 @@ const STATUS_TO_ROUTE: Record<ScanStatus, string> = {
 	capturing: '/capture',
 	analyzing: '/capture',
 	partial_analysis: '/capture',
+	grouping: '/grouping',
 	reviewing: '/review',
 	confirming: '/summary',
 	submitting: '/summary',
@@ -138,6 +139,10 @@ export const routeGuards = {
 			// Block navigation to /location during any active workflow phase
 			if (status === 'capturing' || status === 'analyzing' || status === 'partial_analysis') {
 				goto(resolve('/capture'));
+				return false;
+			}
+			if (status === 'grouping') {
+				goto(resolve('/grouping'));
 				return false;
 			}
 			if (status === 'reviewing') {
