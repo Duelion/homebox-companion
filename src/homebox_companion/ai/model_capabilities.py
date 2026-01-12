@@ -13,6 +13,67 @@ from functools import lru_cache
 import litellm
 from loguru import logger
 
+# Known Ollama vision models - these support image inputs but LiteLLM's
+# capability database doesn't recognize them. Add new models here as needed.
+OLLAMA_VISION_MODELS = frozenset({
+    # MiniCPM-V variants
+    "minicpm-v",
+    "minicpm-v:latest",
+    "minicpm-v:8b",
+    "minicpm-v:8b-2.6",
+    # LLaVA variants
+    "llava",
+    "llava:latest",
+    "llava:7b",
+    "llava:13b",
+    "llava:34b",
+    "llava-llama3",
+    "llava-phi3",
+    # BakLLaVA
+    "bakllava",
+    "bakllava:latest",
+    # LLaVA-NeXT (improved LLaVA)
+    "llava-next",
+    # Moondream (small vision model)
+    "moondream",
+    "moondream:latest",
+    "moondream2",
+    # Qwen2-VL variants
+    "qwen2-vl",
+    "qwen2-vl:latest",
+    "qwen2-vl:7b",
+    "qwen2-vl:72b",
+    # InternVL variants
+    "internvl2",
+    "internvl2:latest",
+    # Pixtral (Mistral's vision model)
+    "pixtral",
+    "pixtral:latest",
+})
+
+
+def _is_ollama_vision_model(model: str) -> bool:
+    """Check if model is a known Ollama vision model.
+
+    Args:
+        model: Model identifier, possibly with 'ollama/' prefix.
+
+    Returns:
+        True if the model is a known Ollama vision model.
+    """
+    # Strip 'ollama/' prefix if present
+    model_name = model.lower()
+    if model_name.startswith("ollama/"):
+        model_name = model_name[7:]  # Remove 'ollama/' prefix
+
+    # Check exact match first
+    if model_name in OLLAMA_VISION_MODELS:
+        return True
+
+    # Check if base model name (without tag) matches
+    base_name = model_name.split(":")[0]
+    return base_name in OLLAMA_VISION_MODELS
+
 
 @dataclass(frozen=True)
 class ModelCapabilities:
@@ -53,8 +114,21 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
         3. This is the most reliable capability check available
 
         Results are cached to avoid repeated capability checks for the same model.
+
+        For Ollama models, we use a whitelist of known vision models since
+        LiteLLM's capability database doesn't include Ollama models.
     """
     logger.info(f"Checking capabilities for model: {model}")
+
+    # Check Ollama vision whitelist first (LiteLLM doesn't know about Ollama models)
+    if _is_ollama_vision_model(model):
+        logger.debug(f"Model '{model}' is a known Ollama vision model")
+        return ModelCapabilities(
+            model=model,
+            vision=True,
+            multi_image=True,
+            json_mode=False,  # Ollama models generally don't support JSON mode well
+        )
 
     vision = litellm.supports_vision(model)
 

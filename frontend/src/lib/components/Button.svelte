@@ -78,18 +78,18 @@
 		// Note: for submit/reset buttons, native form behavior handles submission
 	}
 
-	// Modernized variant classes with tonal colors
+	// Modernized variant classes with DaisyUI semantic colors
 	const variantClasses = {
 		primary:
-			'bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700 disabled:bg-neutral-800 disabled:text-neutral-500 focus:ring-primary-500/50',
+			'bg-primary text-primary-content hover:bg-primary/90 active:bg-primary/80 disabled:bg-base-300 disabled:text-base-content/40 focus:ring-primary/50',
 		secondary:
-			'bg-neutral-800 text-neutral-200 hover:bg-neutral-700 hover:border-neutral-600 active:bg-neutral-900 border border-neutral-700 disabled:bg-neutral-900 disabled:text-neutral-600 disabled:border-neutral-800 focus:ring-neutral-500/50',
+			'bg-base-300 text-base-content hover:bg-base-300/80 hover:border-base-content/30 active:bg-base-300/70 border border-base-content/20 disabled:bg-base-200 disabled:text-base-content/30 disabled:border-base-content/10 focus:ring-base-content/30',
 		ghost:
-			'bg-transparent text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 active:bg-neutral-700 disabled:text-neutral-600 focus:ring-neutral-500/50',
+			'bg-transparent text-base-content/60 hover:text-base-content hover:bg-base-300 active:bg-base-300/80 disabled:text-base-content/30 focus:ring-base-content/30',
 		danger:
-			'bg-error-600 text-white hover:bg-error-500 active:bg-error-700 disabled:bg-neutral-800 disabled:text-neutral-500 focus:ring-error-500/50',
+			'bg-error text-error-content hover:bg-error/90 active:bg-error/80 disabled:bg-base-300 disabled:text-base-content/40 focus:ring-error/50',
 		warning:
-			'bg-warning-500 text-white hover:bg-warning-600 active:bg-warning-700 disabled:bg-neutral-800 disabled:text-neutral-500 focus:ring-warning-500/50',
+			'bg-warning text-warning-content hover:bg-warning/90 active:bg-warning/80 disabled:bg-base-300 disabled:text-base-content/40 focus:ring-warning/50',
 	};
 
 	const sizeClasses = {
@@ -104,7 +104,7 @@
 	onclick={handleClick}
 	ontouchend={handleTouchEnd}
 	disabled={disabled || loading}
-	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950 active:scale-[0.98] disabled:cursor-not-allowed {variantClasses[
+	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-base-100 active:scale-[0.98] disabled:cursor-not-allowed {variantClasses[
 		variant
 	]} {sizeClasses[size]}"
 	class:w-full={full}

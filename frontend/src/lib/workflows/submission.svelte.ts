@@ -20,6 +20,8 @@ import type {
 	ItemInput,
 	ItemSubmissionStatus,
 	SubmissionResult,
+	UpdateDecision,
+	MergeItemRequest,
 } from '$lib/types';
 
 // =============================================================================
@@ -200,6 +202,99 @@ export class SubmissionService {
 		return { primaryFailed, additionalFailed };
 	}
 
+	/**
+	 * Update an existing item via merge API and upload new photos.
+	 * This is called when user chose "Update Existing" on a duplicate.
+	 */
+	private async updateExistingItem(
+		index: number,
+		confirmedItem: ConfirmedItem,
+		updateDecision: UpdateDecision,
+		signal?: AbortSignal
+	): Promise<{ status: ItemSubmissionStatus; error?: string }> {
+		this.itemStatuses = { ...this.itemStatuses, [index]: 'creating' };
+
+		try {
+			// Build merge request - only include fields with values
+			const mergeRequest: MergeItemRequest = {
+				name: confirmedItem.name || undefined,
+				description: confirmedItem.description || undefined,
+				manufacturer: confirmedItem.manufacturer || undefined,
+				model_number: confirmedItem.model_number || undefined,
+				serial_number: confirmedItem.serial_number || undefined,
+				purchase_price: confirmedItem.purchase_price || undefined,
+				purchase_from: confirmedItem.purchase_from || undefined,
+				notes: confirmedItem.notes || undefined,
+				label_ids: confirmedItem.label_ids ?? undefined,
+				exclude_field: updateDecision.matchField,
+			};
+
+			log.info(`Merging item ${confirmedItem.name} into existing item ${updateDecision.targetItemId}`);
+
+			// Call merge API
+			const mergeResponse = await withRetry(
+				() => itemsApi.merge(updateDecision.targetItemId, mergeRequest, { signal }),
+				{
+					maxAttempts: 3,
+					onRetry: (attempt) => log.debug(`Retrying merge (attempt ${attempt})`),
+				}
+			);
+
+			log.info(`Merge result: ${mergeResponse.fields_updated.length} fields updated, ${mergeResponse.fields_skipped.length} skipped`);
+
+			// Upload attachments to existing item (append photos)
+			const uploadResult = await this.uploadAttachments(
+				updateDecision.targetItemId,
+				confirmedItem,
+				signal
+			);
+
+			// For merge, we don't delete the item if primary photo fails - the item already exists
+			// Just report partial success
+			if (uploadResult.primaryFailed) {
+				log.warn(`Primary image upload failed for merge to ${updateDecision.targetItemName}`);
+				this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
+				return {
+					status: 'partial_success',
+					error: `Updated "${updateDecision.targetItemName}" but failed to upload image`,
+				};
+			}
+
+			if (uploadResult.additionalFailed) {
+				log.warn(`Additional images failed for merge to ${updateDecision.targetItemName}`);
+				this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
+				return {
+					status: 'partial_success',
+					error: `Updated "${updateDecision.targetItemName}" but some images failed`,
+				};
+			}
+
+			// Full success
+			this.itemStatuses = { ...this.itemStatuses, [index]: 'success' };
+			return { status: 'success' };
+		} catch (error) {
+			if (error instanceof Error && error.name === 'AbortError') {
+				throw error;
+			}
+			if (error instanceof ApiError && error.status === 401) {
+				throw error; // Re-throw for session handling
+			}
+			if (error instanceof ApiError && error.status === 404) {
+				// Target item was deleted - fall back to creating new
+				log.warn(`Target item ${updateDecision.targetItemId} not found, will need to create new`);
+				this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
+				return {
+					status: 'failed',
+					error: `Existing item "${updateDecision.targetItemName}" was deleted - please create as new`,
+				};
+			}
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			log.error(`Failed to merge item ${confirmedItem.name}`, error);
+			this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
+			return { status: 'failed', error: errorMsg };
+		}
+	}
+
 	/** Submit a single item. Updates itemStatuses. Returns status and any error message. */
 	private async submitItem(
 		index: number,
@@ -330,12 +425,14 @@ export class SubmissionService {
 	 * @param items - Array of confirmed items to submit
 	 * @param locationId - Target location ID
 	 * @param parentId - Optional parent item ID (for sub-items)
+	 * @param updateDecisions - Items marked for update (merge) instead of create
 	 * @param options.validateAuth - If true, validate auth token before submitting (default: true)
 	 */
 	async submitAll(
 		items: ConfirmedItem[],
 		locationId: string | null,
 		parentId: string | null,
+		updateDecisions?: UpdateDecision[],
 		options?: { validateAuth?: boolean }
 	): Promise<SubmitResult> {
 		const result: SubmitResult = {
@@ -376,13 +473,31 @@ export class SubmissionService {
 
 		const signal = this.abortController?.signal;
 
+		// Build a map for quick lookup of update decisions by item index
+		const updateDecisionMap = new Map<number, UpdateDecision>();
+		if (updateDecisions) {
+			for (const decision of updateDecisions) {
+				updateDecisionMap.set(decision.itemIndex, decision);
+			}
+		}
+
 		try {
 			for (let i = 0; i < items.length; i++) {
 				if (signal?.aborted) {
 					return result;
 				}
 
-				const itemResult = await this.submitItem(i, items[i], locationId, parentId, signal);
+				// Check if this item should be merged into an existing item
+				const updateDecision = updateDecisionMap.get(i);
+				let itemResult: { status: ItemSubmissionStatus; error?: string };
+
+				if (updateDecision) {
+					// Update existing item
+					itemResult = await this.updateExistingItem(i, items[i], updateDecision, signal);
+				} else {
+					// Create new item
+					itemResult = await this.submitItem(i, items[i], locationId, parentId, signal);
+				}
 
 				if (itemResult.status === 'success') {
 					result.successCount++;
@@ -449,11 +564,13 @@ export class SubmissionService {
 	 * @param items - Full array of confirmed items (uses itemStatuses to find failures)
 	 * @param locationId - Target location ID
 	 * @param parentId - Optional parent item ID (for sub-items)
+	 * @param updateDecisions - Items marked for update (merge) instead of create
 	 */
 	async retryFailed(
 		items: ConfirmedItem[],
 		locationId: string | null,
-		parentId: string | null
+		parentId: string | null,
+		updateDecisions?: UpdateDecision[]
 	): Promise<SubmitResult> {
 		const result: SubmitResult = {
 			success: false,
@@ -482,13 +599,31 @@ export class SubmissionService {
 		this.abortController = new AbortController();
 		const signal = this.abortController?.signal;
 
+		// Build a map for quick lookup of update decisions by item index
+		const updateDecisionMap = new Map<number, UpdateDecision>();
+		if (updateDecisions) {
+			for (const decision of updateDecisions) {
+				updateDecisionMap.set(decision.itemIndex, decision);
+			}
+		}
+
 		try {
 			for (const i of failedIndices) {
 				if (signal?.aborted) {
 					return result;
 				}
 
-				const itemResult = await this.submitItem(i, items[i], locationId, parentId, signal);
+				// Check if this item should be merged into an existing item
+				const updateDecision = updateDecisionMap.get(i);
+				let itemResult: { status: ItemSubmissionStatus; error?: string };
+
+				if (updateDecision) {
+					// Update existing item
+					itemResult = await this.updateExistingItem(i, items[i], updateDecision, signal);
+				} else {
+					// Create new item
+					itemResult = await this.submitItem(i, items[i], locationId, parentId, signal);
+				}
 
 				if (itemResult.status === 'success') {
 					result.successCount++;

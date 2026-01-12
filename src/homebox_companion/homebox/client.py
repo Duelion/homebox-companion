@@ -815,6 +815,29 @@ class HomeboxClient:
         self._ensure_success(response, "Get item")
         return response.json()
 
+    async def export_items(self, token: str) -> str:
+        """Export all items as CSV.
+
+        This endpoint returns all item data in a single API call, including
+        fields not available in the list endpoint (serial number, manufacturer,
+        model number, etc.).
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            CSV string with all items and their fields.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/items/export",
+            headers={
+                "Accept": "text/csv",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Export items")
+        return response.text
+
     async def get_item_path(self, token: str, item_id: str) -> list[dict[str, Any]]:
         """Get the full hierarchical path of an item.
 

@@ -1,0 +1,269 @@
+"""AI provider configuration management.
+
+This module provides storage and retrieval of AI provider settings,
+allowing users to configure which AI provider to use and their credentials.
+
+Supported providers:
+- ollama: Local Ollama server
+- openai: OpenAI API (GPT-4 Vision, etc.) - also supports compatible endpoints
+- anthropic: Anthropic API (Claude)
+
+Settings are persisted to {data_dir}/ai_config.json
+"""
+
+from __future__ import annotations
+
+import json
+from enum import Enum
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+from loguru import logger
+from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from homebox_companion.core.config import settings
+
+
+def _get_config_path() -> Path:
+    """Get the AI config file path based on settings.data_dir."""
+    return Path(settings.data_dir) / "ai_config.json"
+
+
+class AIProvider(str, Enum):
+    """Supported AI providers."""
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+
+
+class OllamaConfig(BaseModel):
+    """Ollama-specific configuration."""
+
+    enabled: bool = False
+    url: str = "http://localhost:11434"
+    model: str = "minicpm-v"
+    timeout: int = 120
+
+
+class OpenAIConfig(BaseModel):
+    """OpenAI-specific configuration.
+
+    This provider handles OpenAI API and compatible endpoints (via api_base).
+    It's the default cloud provider, supporting:
+    - Direct OpenAI API access
+    - OpenAI-compatible proxies (LiteLLM, etc.)
+    - Self-hosted endpoints with OpenAI-compatible API
+    """
+
+    enabled: bool = True  # Default enabled as the primary cloud provider
+    api_key: SecretStr | None = None
+    api_base: str | None = None  # Custom API base URL for compatible endpoints
+    model: str = "gpt-4o"
+    max_tokens: int = 4096
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        if v == "" or v == "null":
+            return None
+        return v
+
+
+class AnthropicConfig(BaseModel):
+    """Anthropic/Claude-specific configuration."""
+
+    enabled: bool = False
+    api_key: SecretStr | None = None
+    model: str = "claude-sonnet-4-20250514"
+    max_tokens: int = 4096
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        if v == "" or v == "null":
+            return None
+        return v
+
+
+class AIConfig(BaseSettings):
+    """Main AI configuration with provider selection.
+
+    Environment variables (HBC_*) can override defaults.
+    User settings from UI are stored in JSON and take highest priority.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="HBC_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Active provider - which one to use for AI operations
+    active_provider: AIProvider = AIProvider.OPENAI
+
+    # Fallback behavior
+    fallback_to_cloud: bool = True
+    fallback_provider: AIProvider = AIProvider.OPENAI
+
+    # Provider-specific configs
+    ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    openai: OpenAIConfig = Field(default_factory=OpenAIConfig)
+    anthropic: AnthropicConfig = Field(default_factory=AnthropicConfig)
+
+    def get_active_config(self) -> OllamaConfig | OpenAIConfig | AnthropicConfig:
+        """Get the configuration for the active provider."""
+        return getattr(self, self.active_provider.value)
+
+    def is_provider_configured(self, provider: AIProvider) -> bool:
+        """Check if a provider has valid configuration."""
+        config = getattr(self, provider.value)
+
+        if provider == AIProvider.OLLAMA:
+            return config.enabled and bool(config.url)
+        elif provider == AIProvider.OPENAI:
+            # OpenAI is configured if enabled AND has either:
+            # - An explicit api_key set, OR
+            # - An api_base pointing to a self-hosted endpoint (may not need auth)
+            # Note: Falls back to HBC_LLM_API_KEY env var at runtime if neither is set
+            return config.enabled and (config.api_key is not None or config.api_base is not None)
+        elif provider == AIProvider.ANTHROPIC:
+            return config.enabled and config.api_key is not None
+        return False
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        """Convert to dict with API keys masked for frontend display."""
+        data = self.model_dump()
+
+        # Mask API keys
+        if data["openai"]["api_key"]:
+            key = data["openai"]["api_key"]
+            data["openai"]["api_key"] = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+
+        if data["anthropic"]["api_key"]:
+            key = data["anthropic"]["api_key"]
+            data["anthropic"]["api_key"] = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+
+        return data
+
+
+@lru_cache(maxsize=1)
+def get_ai_defaults() -> AIConfig:
+    """Get the immutable defaults (hardcoded + env vars, resolved once).
+
+    This is cached to avoid re-reading environment variables on every call.
+
+    Returns:
+        AIConfig with env vars applied over hardcoded defaults.
+    """
+    return AIConfig()
+
+
+def load_ai_config() -> AIConfig:
+    """Load AI config: defaults + user overrides from file.
+
+    Priority (highest first):
+    1. File-based user overrides (config/ai_config.json)
+    2. Defaults (hardcoded + environment variables)
+
+    Returns:
+        AIConfig instance with merged values.
+    """
+    defaults = get_ai_defaults()
+
+    config_file = _get_config_path()
+    if not config_file.exists():
+        return defaults
+
+    try:
+        file_data = json.loads(config_file.read_text(encoding="utf-8"))
+
+        # Deep merge for nested provider configs
+        merged = defaults.model_dump()
+
+        # Handle migration from old "litellm" provider to "openai"
+        if file_data.get("active_provider") == "litellm":
+            file_data["active_provider"] = "openai"
+        if file_data.get("fallback_provider") == "litellm":
+            file_data["fallback_provider"] = "openai"
+
+        # Migrate litellm config to openai if present
+        if "litellm" in file_data and file_data["litellm"]:
+            litellm_data = file_data["litellm"]
+            # Only migrate if openai doesn't have values set
+            if not file_data.get("openai", {}).get("api_key"):
+                if litellm_data.get("api_key"):
+                    merged["openai"]["api_key"] = litellm_data["api_key"]
+            if not file_data.get("openai", {}).get("api_base"):
+                if litellm_data.get("api_base"):
+                    merged["openai"]["api_base"] = litellm_data["api_base"]
+            if litellm_data.get("model") and not file_data.get("openai", {}).get("model"):
+                merged["openai"]["model"] = litellm_data["model"]
+            if litellm_data.get("enabled"):
+                merged["openai"]["enabled"] = litellm_data["enabled"]
+
+        # Update top-level fields
+        for key in ["active_provider", "fallback_to_cloud", "fallback_provider"]:
+            if key in file_data:
+                merged[key] = file_data[key]
+
+        # Update provider configs (excluding deprecated litellm)
+        for provider in ["ollama", "openai", "anthropic"]:
+            if provider in file_data and file_data[provider]:
+                merged[provider].update(file_data[provider])
+
+        return AIConfig.model_validate(merged)
+    except (json.JSONDecodeError, Exception) as e:
+        logger.warning(f"Invalid AI config file, using defaults: {e}")
+        return defaults
+
+
+def save_ai_config(config: AIConfig) -> None:
+    """Save AI configuration to file.
+
+    Args:
+        config: The configuration to save.
+    """
+    config_file = _get_config_path()
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Convert to dict, handling SecretStr
+    data = {
+        "active_provider": config.active_provider.value,
+        "fallback_to_cloud": config.fallback_to_cloud,
+        "fallback_provider": config.fallback_provider.value,
+        "ollama": config.ollama.model_dump(),
+        "openai": {
+            **config.openai.model_dump(),
+            "api_key": config.openai.api_key.get_secret_value() if config.openai.api_key else None,
+        },
+        "anthropic": {
+            **config.anthropic.model_dump(),
+            "api_key": config.anthropic.api_key.get_secret_value() if config.anthropic.api_key else None,
+        },
+    }
+
+    config_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info(f"AI config saved to {config_file}: active_provider={config.active_provider.value}")
+
+
+def reset_ai_config() -> AIConfig:
+    """Reset to defaults by deleting the config file.
+
+    Returns:
+        AIConfig with defaults.
+    """
+    config_file = _get_config_path()
+    if config_file.exists():
+        config_file.unlink()
+    # Clear the cache so defaults are re-evaluated
+    get_ai_defaults.cache_clear()
+    return get_ai_defaults()
+
+
+def clear_ai_config_cache() -> None:
+    """Clear the cached defaults (useful after config changes)."""
+    get_ai_defaults.cache_clear()

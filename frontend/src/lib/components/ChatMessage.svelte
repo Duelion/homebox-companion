@@ -170,12 +170,13 @@
 	});
 
 	// Badge style variants for consistent styling across tool and action badges
+	// Uses DaisyUI semantic colors with opacity modifiers
 	type BadgeVariant = 'success' | 'error' | 'warning' | 'primary';
 	const badgeStyles: Record<BadgeVariant, string> = {
-		success: 'border-success-500/30 bg-success-500/15 text-success-500',
-		error: 'border-error-500/30 bg-error-500/15 text-error-500',
-		warning: 'border-warning-500/30 bg-warning-500/15 text-warning-500',
-		primary: 'border-primary-500/30 bg-primary-500/15 text-primary-500',
+		success: 'border-success/30 bg-success/15 text-success',
+		error: 'border-error/30 bg-error/15 text-error',
+		warning: 'border-warning/30 bg-warning/15 text-warning',
+		primary: 'border-primary/30 bg-primary/15 text-primary',
 	};
 
 	/** Get badge style classes for a tool result */
@@ -383,7 +384,8 @@
 
 	/* Typing indicator animation */
 	.typing-dot {
-		@apply h-1.5 w-1.5 animate-typing-dot rounded-full bg-primary-500;
+		@apply h-1.5 w-1.5 animate-typing-dot rounded-full;
+		background-color: oklch(var(--p));
 	}
 
 	.animation-delay-160 {
@@ -396,12 +398,15 @@
 
 	/* Tool execution spinner */
 	.tool-spinner {
-		@apply inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-primary-500 border-t-transparent;
+		@apply inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-t-transparent;
+		border-color: oklch(var(--p));
+		border-top-color: transparent;
 	}
 
 	/* Streaming glow animation */
 	.streaming-glow {
-		@apply animate-stream-glow border-primary-500;
+		@apply animate-stream-glow;
+		border-color: oklch(var(--p));
 	}
 
 	/* Tool accordion */
