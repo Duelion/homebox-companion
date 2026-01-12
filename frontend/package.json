@@ -38,7 +38,6 @@
 		"vite": "^7.2.2"
 	},
 	"dependencies": {
-		"daisyui": "^5.5.14",
 		"heic2any": "^0.0.4",
 		"qr-scanner": "^1.4.2",
 		"rehype-external-links": "^3.0.0",

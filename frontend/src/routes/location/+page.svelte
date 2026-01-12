@@ -76,14 +76,6 @@
 
 		if (!routeGuards.location()) return;
 
-		// Reset browse state if no location is selected
-		// This handles the case where user browsed into a location, navigated away,
-		// and came back - they should start fresh from the root
-		if (!locationStore.selected && locationStore.path.length > 0) {
-			log.debug('Resetting stale browse state on mount');
-			locationStore.setPath([]);
-		}
-
 		await locationNavigator.loadTree();
 		await fetchLabels();
 	});

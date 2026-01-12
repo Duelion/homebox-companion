@@ -15,9 +15,9 @@
 
 <div class="flex flex-col items-center justify-center gap-3">
 	<div
-		class="animate-spin rounded-full border-primary/30 border-t-primary {sizeClasses[size]}"
+		class="animate-spin rounded-full border-primary-500/30 border-t-primary-500 {sizeClasses[size]}"
 	></div>
 	{#if message}
-		<p class="animate-pulse text-sm text-base-content/60">{message}</p>
+		<p class="animate-pulse text-sm text-neutral-400">{message}</p>
 	{/if}
 </div>

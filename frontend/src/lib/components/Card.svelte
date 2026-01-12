@@ -11,12 +11,12 @@
 	let { variant = 'default', padding = 'md', onclick, children }: Props = $props();
 
 	const variantClasses = {
-		default: 'bg-base-200 border-base-content/20 shadow-sm',
-		elevated: 'bg-base-300 border-base-content/30 shadow-md',
+		default: 'bg-neutral-900 border-neutral-700 shadow-sm',
+		elevated: 'bg-neutral-800 border-neutral-600 shadow-md',
 		interactive:
-			'bg-base-200 border-base-content/20 shadow-sm cursor-pointer hover:bg-base-300 hover:border-base-content/30 hover:shadow-md active:scale-[0.99]',
+			'bg-neutral-900 border-neutral-700 shadow-sm cursor-pointer hover:bg-neutral-800 hover:border-neutral-600 hover:shadow-md active:scale-[0.99]',
 		selected:
-			'bg-base-200 border-base-content/20 shadow-sm ring-2 ring-primary/50 border-primary',
+			'bg-neutral-900 border-neutral-700 shadow-sm ring-2 ring-primary-500/50 border-primary-600',
 	};
 
 	const paddingClasses = {

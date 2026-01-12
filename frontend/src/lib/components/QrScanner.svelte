@@ -390,18 +390,18 @@
 </div>
 
 <style>
-	/* Style the qr-scanner overlay - uses DaisyUI CSS variable for primary color */
+	/* Style the qr-scanner overlay - uses CSS custom property for primary color */
 	:global(.scan-region-highlight) {
-		border: 2px solid oklch(var(--p)) !important;
+		border: 2px solid theme('colors.primary.500') !important;
 		border-radius: 0.5rem;
 	}
 
 	:global(.scan-region-highlight-svg) {
-		stroke: oklch(var(--p)) !important;
+		stroke: theme('colors.primary.500') !important;
 	}
 
 	:global(.code-outline-highlight) {
-		stroke: oklch(var(--p)) !important;
+		stroke: theme('colors.primary.500') !important;
 		stroke-width: 3px;
 	}
 </style>

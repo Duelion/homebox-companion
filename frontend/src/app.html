@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="homebox" style="color-scheme: dark; background-color: #0a0a0f;">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta
@@ -10,50 +10,6 @@
 		<meta http-equiv="Pragma" content="no-cache" />
 		<meta http-equiv="Expires" content="0" />
 		<meta name="theme-color" content="#1a1025" />
-		<!-- Fallback CSS for dark theme - uses HEX colors that work on all browsers -->
-		<style>
-			/* Direct color fallbacks - applied before any other CSS */
-			html, body {
-				background-color: #0a0a0f !important;
-				color: #f1f5f9 !important;
-			}
-			/* Main wrapper and layout fallbacks */
-			.bg-base-100 { background-color: #0a0a0f !important; }
-			.bg-base-200 { background-color: #13131f !important; }
-			.bg-base-300 { background-color: #1e1e2e !important; }
-			.text-base-content { color: #f1f5f9 !important; }
-			/* Card component fallback */
-			.card { background-color: #13131f !important; border-color: rgba(241, 245, 249, 0.1) !important; }
-			/* Common component fallbacks */
-			.bg-neutral-900 { background-color: #13131f !important; }
-			.bg-neutral-800 { background-color: #1e1e2e !important; }
-			.bg-neutral-950 { background-color: #0a0a0f !important; }
-			.border-neutral-700 { border-color: #2a2a3e !important; }
-			/* Input fallbacks */
-			.input { background-color: #13131f !important; border-color: rgba(241, 245, 249, 0.2) !important; color: #f1f5f9 !important; }
-			/* Button fallbacks */
-			.bg-primary-500 { background-color: #6366f1 !important; }
-			.text-primary { color: #6366f1 !important; }
-			/* Glass effect fallback */
-			.glass { background-color: rgba(19, 19, 31, 0.8) !important; }
-		</style>
-		<!-- Inline theme script: runs before render to prevent flash of wrong theme -->
-		<script>
-			(function() {
-				var THEME_KEY = 'hbc-theme';
-				var DEFAULT = 'homebox';
-				var DARK_THEMES = ['homebox','dark','synthwave','halloween','forest','aqua','black','luxury','dracula','business','night','coffee'];
-				try {
-					var stored = localStorage.getItem(THEME_KEY);
-					var theme = stored || DEFAULT;
-					document.documentElement.setAttribute('data-theme', theme);
-					document.documentElement.style.colorScheme = DARK_THEMES.indexOf(theme) !== -1 ? 'dark' : 'light';
-				} catch (e) {
-					document.documentElement.setAttribute('data-theme', DEFAULT);
-					document.documentElement.style.colorScheme = 'dark';
-				}
-			})();
-		</script>
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="Homebox" />
@@ -84,7 +40,7 @@
 		<link rel="manifest" href="%sveltekit.assets%/manifest.json" />
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover" class="bg-base-100 text-base-content antialiased" style="background-color: #0a0a0f; color: #f1f5f9;">
+	<body data-sveltekit-preload-data="hover" class="bg-neutral-950 text-neutral-200 antialiased">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

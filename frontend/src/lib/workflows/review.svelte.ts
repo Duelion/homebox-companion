@@ -94,15 +94,6 @@ export class ReviewService {
 		);
 	}
 
-	/** Update a specific item by index (used by auto-enrichment) */
-	updateItemAtIndex(index: number, updates: Partial<ReviewItem>): void {
-		if (index < 0 || index >= this._detectedItems.length) return;
-
-		this._detectedItems = this._detectedItems.map((item, i) =>
-			i === index ? { ...item, ...updates } : item
-		);
-	}
-
 	// =========================================================================
 	// NAVIGATION
 	// =========================================================================
@@ -182,20 +173,15 @@ export class ReviewService {
 	 * @returns 'next' if moved to next item, 'complete' if no more items, 'empty' if nothing confirmed
 	 */
 	skipCurrentItem(): 'next' | 'complete' | 'empty' {
-		console.log('[REVIEW] skipCurrentItem: hasNext=', this.hasNext, 'currentIndex=', this._currentReviewIndex, 'total=', this._detectedItems.length);
 		if (this.hasNext) {
 			this.nextItem();
-			console.log('[REVIEW] Moved to next item, returning "next"');
 			return 'next';
 		}
 
 		// Last item - check if anything was confirmed
-		console.log('[REVIEW] On last item, confirmedItems.length=', this._confirmedItems.length);
 		if (this._confirmedItems.length === 0) {
-			console.log('[REVIEW] No confirmed items, returning "empty"');
 			return 'empty';
 		}
-		console.log('[REVIEW] Has confirmed items, returning "complete"');
 		return 'complete';
 	}
 

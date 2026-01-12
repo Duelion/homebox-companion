@@ -24,26 +24,6 @@ from loguru import logger
 
 from homebox_companion.core import config
 from homebox_companion.core.logging import get_log_level_value
-from homebox_companion.core.ai_config import load_ai_config, AIProvider
-
-
-def _get_current_model() -> str:
-    """Get the current model name from AI config or environment."""
-    try:
-        ai_config = load_ai_config()
-        provider = ai_config.active_provider
-
-        if provider == AIProvider.OLLAMA and ai_config.ollama.enabled:
-            return f"ollama/{ai_config.ollama.model}"
-        elif provider == AIProvider.OPENAI and ai_config.openai.enabled:
-            return ai_config.openai.model
-        elif provider == AIProvider.ANTHROPIC and ai_config.anthropic.enabled:
-            return ai_config.anthropic.model
-        elif provider == AIProvider.LITELLM and ai_config.litellm.enabled:
-            return ai_config.litellm.model
-    except Exception:
-        pass
-    return config.settings.effective_llm_model
 
 
 def _build_log_entry(
@@ -64,7 +44,7 @@ def _build_log_entry(
         Dict containing the log entry with appropriate detail level.
     """
     level_value = get_log_level_value()
-    model = _get_current_model()
+    model = config.settings.effective_llm_model
     timestamp = datetime.now(UTC).isoformat()
 
     # Base entry (always included)
@@ -386,9 +366,6 @@ class LLMClient:
     ) -> dict[str, Any]:
         """Build the kwargs dict for litellm.acompletion.
 
-        Uses the AI config to determine which provider and model to use.
-        Falls back to environment variables if AI config is not configured.
-
         Args:
             messages: Conversation messages.
             tools: Optional tool definitions.
@@ -403,23 +380,16 @@ class LLMClient:
             else config.settings.llm_timeout
         )
 
-        # Get LLM configuration from AI config (provider-aware)
-        model, api_key, api_base = self._get_llm_config()
-
         kwargs: dict[str, Any] = {
-            "model": model,
+            "model": config.settings.effective_llm_model,
             "messages": messages,
+            "api_key": config.settings.effective_llm_api_key,
             "timeout": timeout,
             "stream": stream,
         }
 
-        # Only add api_key if provided (Ollama doesn't need it)
-        if api_key:
-            kwargs["api_key"] = api_key
-
-        # Only add api_base if provided
-        if api_base:
-            kwargs["api_base"] = api_base
+        if config.settings.llm_api_base:
+            kwargs["api_base"] = config.settings.llm_api_base
 
         # Apply response length limit
         if config.settings.chat_max_response_tokens > 0:
@@ -435,57 +405,4 @@ class LLMClient:
             logger.trace(f"[LLM] Available tools: {tool_names}")
 
         return kwargs
-
-    def _get_llm_config(self) -> tuple[str, str | None, str | None]:
-        """Get LLM configuration from AI config or environment fallback.
-
-        Determines the model, API key, and base URL based on the active provider
-        configured in the AI config. Falls back to environment variables if the
-        AI config is not available or the provider is not configured.
-
-        Returns:
-            Tuple of (model, api_key, api_base).
-        """
-        try:
-            ai_config = load_ai_config()
-            provider = ai_config.active_provider
-
-            if provider == AIProvider.OLLAMA and ai_config.ollama.enabled:
-                # Use Ollama - LiteLLM supports ollama/ prefix for local models
-                model = f"ollama/{ai_config.ollama.model}"
-                api_base = ai_config.ollama.url
-                logger.debug(f"[LLM] Using Ollama provider: model={model}, url={api_base}")
-                return model, None, api_base
-
-            elif provider == AIProvider.OPENAI and ai_config.openai.enabled:
-                # Use OpenAI directly
-                model = ai_config.openai.model
-                api_key = ai_config.openai.api_key.get_secret_value() if ai_config.openai.api_key else None
-                logger.debug(f"[LLM] Using OpenAI provider: model={model}")
-                return model, api_key, None
-
-            elif provider == AIProvider.ANTHROPIC and ai_config.anthropic.enabled:
-                # Use Anthropic - LiteLLM handles anthropic models
-                model = ai_config.anthropic.model
-                api_key = ai_config.anthropic.api_key.get_secret_value() if ai_config.anthropic.api_key else None
-                logger.debug(f"[LLM] Using Anthropic provider: model={model}")
-                return model, api_key, None
-
-            elif provider == AIProvider.LITELLM and ai_config.litellm.enabled:
-                # Use LiteLLM with environment variables
-                model = ai_config.litellm.model
-                api_key = config.settings.effective_llm_api_key
-                api_base = config.settings.llm_api_base if config.settings.llm_api_base else None
-                logger.debug(f"[LLM] Using LiteLLM provider: model={model}")
-                return model, api_key, api_base
-
-        except Exception as e:
-            logger.debug(f"[LLM] Could not load AI config, falling back to env vars: {e}")
-
-        # Fallback to environment variables
-        model = config.settings.effective_llm_model
-        api_key = config.settings.effective_llm_api_key
-        api_base = config.settings.llm_api_base if config.settings.llm_api_base else None
-        logger.debug(f"[LLM] Using environment config: model={model}")
-        return model, api_key, api_base
 

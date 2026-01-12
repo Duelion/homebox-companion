@@ -15,9 +15,6 @@
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
-	import DuplicateWarningBanner from '$lib/components/DuplicateWarningBanner.svelte';
-	import TokenUsageDisplay from '$lib/components/TokenUsageDisplay.svelte';
-	import { settingsService } from '$lib/workflows/settings.svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -32,11 +29,6 @@
 	const itemStatuses = $derived(workflow.state.itemStatuses);
 	const submissionProgress = $derived(workflow.state.submissionProgress);
 	const submissionErrors = $derived(workflow.state.submissionErrors);
-	const duplicateMatches = $derived(workflow.state.duplicateMatches);
-
-	// Token usage display (from last analysis, only shown when enabled)
-	const lastTokenUsage = $derived(workflow.state.lastTokenUsage);
-	const showTokenUsage = $derived(settingsService.showTokenUsage && lastTokenUsage !== null);
 
 	// Local UI state
 	let isSubmitting = $state(false);
@@ -64,10 +56,6 @@
 		await getInitPromise();
 
 		if (!routeGuards.summary()) return;
-
-		// Re-check duplicates when entering summary page
-		// This ensures we have the latest duplicate info for confirmed items
-		workflow.recheckDuplicates();
 	});
 
 	// Cleanup object URLs on component unmount
@@ -213,22 +201,6 @@
 		</div>
 	{/if}
 
-	<!-- Duplicate warnings for items -->
-	{#if duplicateMatches.length > 0 && !isSubmitting}
-		<div class="mb-4 space-y-2">
-			{#each duplicateMatches as match (match.item_index)}
-				{@const updateDecision = workflow.getUpdateDecision(match.item_index)}
-				{@const isMarkedForUpdate = workflow.isMarkedForUpdate(match.item_index)}
-				<DuplicateWarningBanner
-					{match}
-					{isMarkedForUpdate}
-					{updateDecision}
-					compact={true}
-				/>
-			{/each}
-		</div>
-	{/if}
-
 	<!-- Submission progress bar -->
 	{#if submissionProgress && isSubmitting}
 		<div class="mb-4">
@@ -240,8 +212,8 @@
 		</div>
 	{/if}
 
-	<!-- Items list with improved cards - responsive grid on larger screens -->
-	<div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+	<!-- Items list with improved cards -->
+	<div class="mb-6 space-y-3">
 		{#each confirmedItems as item, index (`${item.name}-${index}`)}
 			{@const thumbnail = getThumbnail(item)}
 			<div
@@ -398,13 +370,6 @@
 				{totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} will be uploaded
 			</li>
 		</ul>
-
-		<!-- Token usage (when enabled) -->
-		{#if showTokenUsage}
-			<div class="mt-3 border-t border-neutral-700 pt-3">
-				<TokenUsageDisplay usage={lastTokenUsage} />
-			</div>
-		{/if}
 	</div>
 
 	<!-- Error details (shown when there are submission errors) -->

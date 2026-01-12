@@ -7,7 +7,6 @@
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
 	import { getVersion, getConfig, setDemoMode } from '$lib/api';
 	import { setLogLevel } from '$lib/utils/logger';
 	import { initializeAuth } from '$lib/services/tokenRefresh';
@@ -15,7 +14,6 @@
 	import { browser } from '$app/environment';
 	import { afterNavigate, onNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -96,9 +94,6 @@
 	// Fetch version on mount and register event listeners
 	onMount(async () => {
 		if (browser) {
-			// Initialize theme from localStorage (must happen early to avoid flash)
-			themeStore.initialize();
-
 			// Disable per-page "animate-in" when View Transitions are supported
 			// (prevents double-animations on modern browsers; falls back cleanly elsewhere)
 			if ('startViewTransition' in document) {
@@ -144,19 +139,19 @@
 	});
 </script>
 
-<div class="flex min-h-dvh min-h-screen flex-col bg-base-100" style="background-color: #0a0a0f;">
+<div class="flex min-h-dvh min-h-screen flex-col bg-neutral-950">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
-		class="glass fixed left-0 right-0 top-0 z-40 border-b border-base-content/20"
+		class="glass fixed left-0 right-0 top-0 z-40 border-b border-neutral-700"
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
-			<AppContainer class="flex h-14 items-center justify-between px-4">
-				<!-- Left: Logo and title -->
+			<AppContainer class="flex h-14 items-center justify-center px-4">
+				<!-- Center: Logo and title -->
 				<a
 					href={resolve(isAuthenticated ? '/location' : '/')}
-					class="flex items-center gap-2 overflow-visible font-semibold text-base-content"
+					class="flex items-center justify-center gap-2 overflow-visible font-semibold text-neutral-200"
 				>
 					<svg
 						class="h-7 w-7 shrink-0 text-primary"
@@ -173,51 +168,6 @@
 					</svg>
 					<span class="whitespace-nowrap text-lg">Homebox Companion</span>
 				</a>
-
-				<!-- Right: Desktop navigation (hidden on mobile, shown on lg+) -->
-				{#if isAuthenticated}
-					<nav class="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
-						<a
-							href={resolve('/chat')}
-							class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
-								{$page.url.pathname.startsWith('/chat')
-								? 'bg-primary/10 text-primary'
-								: 'text-base-content/60 hover:bg-base-300/50 hover:text-base-content'}"
-						>
-							<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75">
-								<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-							</svg>
-							<span>Chat</span>
-						</a>
-						<a
-							href={resolve('/location')}
-							class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
-								{$page.url.pathname.startsWith('/location') || $page.url.pathname.startsWith('/capture') || $page.url.pathname.startsWith('/review') || $page.url.pathname.startsWith('/summary') || $page.url.pathname.startsWith('/success')
-								? 'bg-primary/10 text-primary'
-								: 'text-base-content/60 hover:bg-base-300/50 hover:text-base-content'}"
-						>
-							<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75">
-								<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
-								<circle cx="12" cy="12" r="3" />
-								<path d="M12 9v-1M12 16v1M9 12H8M16 12h1" />
-							</svg>
-							<span>Scan</span>
-						</a>
-						<a
-							href={resolve('/settings')}
-							class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
-								{$page.url.pathname.startsWith('/settings')
-								? 'bg-primary/10 text-primary'
-								: 'text-base-content/60 hover:bg-base-300/50 hover:text-base-content'}"
-						>
-							<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75">
-								<circle cx="12" cy="12" r="3" />
-								<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-							</svg>
-							<span>Settings</span>
-						</a>
-					</nav>
-				{/if}
 			</AppContainer>
 		</div>
 	</div>
@@ -225,9 +175,9 @@
 	<!-- Spacer for fixed header -->
 	<div class="pt-safe h-14 shrink-0"></div>
 
-	<!-- Main content - add bottom padding for mobile nav (not needed on desktop lg+) -->
+	<!-- Main content - add bottom padding when nav is visible -->
 	<main class="flex-1">
-		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24 lg:pb-6' : ''}">
+		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24' : ''}">
 			{@render children()}
 		</AppContainer>
 	</main>
@@ -235,7 +185,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning {isAuthenticated
+			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning-500 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
@@ -255,8 +205,7 @@
 	<!-- Footer with version - only shown on login page (not authenticated) -->
 	{#if !isAuthenticated}
 		<footer
-			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-base-100 py-3 text-center text-xs text-base-content/40"
-			style="background-color: #0a0a0f;"
+			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-neutral-950 py-3 text-center text-xs text-neutral-500"
 		>
 			{#if appVersion}
 				<span>v{appVersion}</span>
@@ -287,7 +236,7 @@
 				href="https://github.com/Duelion/homebox-companion"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center gap-1 transition-colors hover:text-base-content/60"
+				class="inline-flex items-center gap-1 transition-colors hover:text-neutral-400"
 				title="Star on GitHub"
 			>
 				<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 16 16">

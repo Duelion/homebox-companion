@@ -134,9 +134,8 @@
 {/snippet}
 
 <!-- view-transition-name excludes this from the root page transition, preventing jitter -->
-<!-- Hidden on desktop (lg+) where we use header navigation instead -->
 <nav
-	class="glass pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-base-content/20 lg:hidden"
+	class="glass pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-700"
 	style="view-transition-name: bottom-nav; transform: translateZ(0); -webkit-transform: translateZ(0);"
 	aria-label="Main navigation"
 >
@@ -154,7 +153,7 @@
 							aria-disabled="true"
 							title={item.disabledTooltip}
 							onclick={() => handleDisabledClick(item)}
-							class="relative flex w-full cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-base-content/30"
+							class="relative flex w-full cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-neutral-600"
 						>
 							<span class="flex h-6 w-6 items-center justify-center">
 								{@render navIcon(item.icon)}
@@ -168,8 +167,8 @@
 							aria-current={active ? 'page' : undefined}
 							class="flex flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all duration-200
 							{active
-								? 'bg-primary/10 text-primary'
-								: 'text-base-content/60 hover:bg-base-300/50 hover:text-base-content'}"
+								? 'bg-primary-500/10 text-primary-500'
+								: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
 						>
 							<span class="flex h-6 w-6 items-center justify-center">
 								{@render navIcon(item.icon)}

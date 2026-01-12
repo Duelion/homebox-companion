@@ -109,25 +109,25 @@
 	});
 </script>
 
-<div class="mb-6 rounded-xl border border-base-content/20 bg-base-200 p-4">
+<div class="mb-6 rounded-xl border border-neutral-700 bg-neutral-800 p-4">
 	<!-- Header with message and count -->
 	<div class="mb-2 flex items-center justify-between">
-		<span class="text-sm font-medium text-base-content">{message}</span>
-		<span class="text-sm text-base-content/60">{current} / {total}</span>
+		<span class="text-sm font-medium text-neutral-200">{message}</span>
+		<span class="text-sm text-neutral-400">{current} / {total}</span>
 	</div>
 
 	<!-- Progress bar with notches -->
 	<div class="relative">
 		<!-- Track -->
 		<div
-			class="h-2 overflow-hidden rounded-full bg-base-300 transition-all duration-300"
+			class="h-2 overflow-hidden rounded-full bg-neutral-700 transition-all duration-300"
 			class:complete-pop={isComplete}
 		>
 			<!-- Fill bar with smooth transition -->
 			<div
 				class="h-full transition-all duration-300 ease-out"
-				class:bg-primary={!isComplete}
-				class:bg-success={isComplete}
+				class:bg-primary-500={!isComplete}
+				class:bg-success-500={isComplete}
 				style="width: {Math.max(0, Math.min(100, displayProgress))}%"
 			></div>
 		</div>
@@ -136,11 +136,10 @@
 		<div class="pointer-events-none absolute inset-0">
 			{#each notches as notch (notch.position)}
 				<div
-					class="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 transition-colors duration-300 {notch.completed
-						? isComplete
-							? 'bg-success'
-							: 'bg-primary'
-						: 'bg-base-content/30'}"
+					class="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 transition-colors duration-300"
+					class:bg-primary-500={notch.completed && !isComplete}
+					class:bg-success-500={notch.completed && isComplete}
+					class:bg-neutral-600={!notch.completed}
 					style="left: {notch.position}%"
 				></div>
 			{/each}
