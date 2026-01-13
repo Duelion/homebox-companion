@@ -53,8 +53,9 @@ function loadDemoPreferences(): FieldPreferences {
 		if (stored) {
 			return JSON.parse(stored) as FieldPreferences;
 		}
-	} catch {
-		// Ignore parsing errors
+	} catch (e) {
+		// Log parsing errors for debugging but don't break the app
+		console.warn('[Demo] Failed to load preferences from sessionStorage:', e);
 	}
 	return getEmptyPreferences();
 }
@@ -63,17 +64,19 @@ function loadDemoPreferences(): FieldPreferences {
 function saveDemoPreferences(prefs: FieldPreferences): void {
 	try {
 		sessionStorage.setItem(DEMO_PREFS_KEY, JSON.stringify(prefs));
-	} catch {
-		// Ignore storage errors (e.g., quota exceeded)
+	} catch (e) {
+		// Log storage errors (e.g., quota exceeded) for debugging
+		console.warn('[Demo] Failed to save preferences to sessionStorage:', e);
 	}
 }
 
-/** Clear preferences from sessionStorage (demo mode) */
+/** Clear preferences from sessionStorage (demo mode) - used by fieldPreferences.reset() */
 function clearDemoPreferences(): void {
 	try {
 		sessionStorage.removeItem(DEMO_PREFS_KEY);
-	} catch {
-		// Ignore removal errors
+	} catch (e) {
+		// Log removal errors for debugging
+		console.warn('[Demo] Failed to clear preferences from sessionStorage:', e);
 	}
 }
 
@@ -244,5 +247,81 @@ export const fieldPreferences = {
 		request<{ prompt: string }>('/settings/prompt-preview', {
 			method: 'POST',
 			body: JSON.stringify(prefs),
+		}),
+};
+
+// =============================================================================
+// LLM PROFILES
+// =============================================================================
+
+export type ProfileStatus = 'active' | 'fallback' | 'disabled';
+
+export interface LLMProfile {
+	name: string;
+	model: string;
+	has_api_key: boolean;
+	api_base: string | null;
+	status: ProfileStatus;
+}
+
+export interface LLMProfileCreate {
+	name: string;
+	model: string;
+	api_key?: string | null;
+	api_base?: string | null;
+	status?: ProfileStatus;
+}
+
+export interface LLMProfileUpdate {
+	model?: string | null;
+	api_key?: string | null;
+	api_base?: string | null;
+	status?: ProfileStatus | null;
+}
+
+export interface TestConnectionResponse {
+	success: boolean;
+	message: string;
+	model_info?: {
+		model: string;
+		provider: string;
+	} | null;
+}
+
+export const llmProfiles = {
+	/** List all LLM profiles (API keys masked) */
+	list: () => request<{ profiles: LLMProfile[] }>('/llm/profiles'),
+
+	/** Create a new LLM profile */
+	create: (profile: LLMProfileCreate) =>
+		request<LLMProfile>('/llm/profiles', {
+			method: 'POST',
+			body: JSON.stringify(profile),
+		}),
+
+	/** Update an existing LLM profile */
+	update: (name: string, updates: LLMProfileUpdate) =>
+		request<LLMProfile>(`/llm/profiles/${encodeURIComponent(name)}`, {
+			method: 'PUT',
+			body: JSON.stringify(updates),
+		}),
+
+	/** Delete an LLM profile */
+	delete: (name: string) =>
+		request<void>(`/llm/profiles/${encodeURIComponent(name)}`, {
+			method: 'DELETE',
+		}),
+
+	/** Set a profile as the active one */
+	activate: (name: string) =>
+		request<LLMProfile>(`/llm/profiles/${encodeURIComponent(name)}/activate`, {
+			method: 'POST',
+		}),
+
+	/** Test connection to an LLM profile */
+	test: (name: string, overrides?: { model?: string; api_key?: string; api_base?: string }) =>
+		request<TestConnectionResponse>(`/llm/profiles/${encodeURIComponent(name)}/test`, {
+			method: 'POST',
+			body: overrides ? JSON.stringify(overrides) : undefined,
 		}),
 };
