@@ -34,14 +34,14 @@ CURRENT_VERSION = 1
 class ProfileStatus(str, Enum):
     """Status of an LLM profile.
 
-    ACTIVE: Currently in use for all AI operations
-    FALLBACK: Used when active profile fails
-    DISABLED: Available but not used
+    PRIMARY: Currently in use for all AI operations
+    FALLBACK: Used when primary profile fails
+    OFF: Available but not used
     """
 
-    ACTIVE = "active"
+    PRIMARY = "primary"
     FALLBACK = "fallback"
-    DISABLED = "disabled"
+    OFF = "off"
 
 
 class ModelProfile(BaseModel):
@@ -59,7 +59,7 @@ class ModelProfile(BaseModel):
     model: str
     api_key: SecretStr | None = None
     api_base: str | None = None
-    status: ProfileStatus = ProfileStatus.DISABLED
+    status: ProfileStatus = ProfileStatus.OFF
 
 
 class Settings(BaseModel):
@@ -85,12 +85,12 @@ class Settings(BaseModel):
         if not self.llm_profiles:
             return self
 
-        actives = [p for p in self.llm_profiles if p.status == ProfileStatus.ACTIVE]
+        actives = [p for p in self.llm_profiles if p.status == ProfileStatus.PRIMARY]
         fallbacks = [p for p in self.llm_profiles if p.status == ProfileStatus.FALLBACK]
 
         if len(actives) != 1:
             raise ValueError(
-                f"Exactly one profile must be ACTIVE, found {len(actives)}"
+                f"Exactly one profile must be PRIMARY, found {len(actives)}"
             )
         if len(fallbacks) > 1:
             raise ValueError(
@@ -132,7 +132,7 @@ def _yaml_dict_to_settings(data: dict) -> Settings:
                 model=p["model"],
                 api_key=SecretStr(p["api_key"]) if p.get("api_key") else None,
                 api_base=p.get("api_base"),
-                status=ProfileStatus(p.get("status", "disabled")),
+                status=ProfileStatus(p.get("status", "off")),
             )
         )
 
@@ -167,7 +167,7 @@ def bootstrap_from_env() -> Settings:
                 model=model,
                 api_key=SecretStr(api_key) if api_key else None,
                 api_base=api_base,
-                status=ProfileStatus.ACTIVE,
+                status=ProfileStatus.PRIMARY,
             )
         )
         logger.info(f"Bootstrapped default LLM profile from env: {model}")
@@ -300,7 +300,7 @@ def get_active_profile() -> ModelProfile | None:
     """
     settings = get_settings()
     for profile in settings.llm_profiles:
-        if profile.status == ProfileStatus.ACTIVE:
+        if profile.status == ProfileStatus.PRIMARY:
             return profile
     return None
 

@@ -254,7 +254,7 @@ export const fieldPreferences = {
 // LLM PROFILES
 // =============================================================================
 
-export type ProfileStatus = 'active' | 'fallback' | 'disabled';
+export type ProfileStatus = 'primary' | 'fallback' | 'off';
 
 export interface LLMProfile {
 	name: string;
@@ -273,6 +273,7 @@ export interface LLMProfileCreate {
 }
 
 export interface LLMProfileUpdate {
+	new_name?: string | null;
 	model?: string | null;
 	api_key?: string | null;
 	api_base?: string | null;

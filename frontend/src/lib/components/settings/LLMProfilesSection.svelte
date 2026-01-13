@@ -22,8 +22,8 @@
 	let formModel = $state('');
 	let formApiKey = $state('');
 	let formApiBase = $state('');
-	let formStatus = $state<ProfileStatus>('disabled');
-	let clearApiKey = $state(false);
+	let formStatus = $state<ProfileStatus>('off');
+
 	let saving = $state(false);
 	let testTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -70,7 +70,7 @@
 		formModel = '';
 		formApiKey = '';
 		formApiBase = '';
-		formStatus = 'disabled';
+		formStatus = 'off';
 		showModal = true;
 	}
 
@@ -80,7 +80,6 @@
 		formModel = profile.model;
 		formApiKey = ''; // Don't pre-fill - user must re-enter
 		formApiBase = profile.api_base || '';
-		clearApiKey = false;
 		formStatus = profile.status;
 		showModal = true;
 	}
@@ -96,20 +95,10 @@
 		try {
 			if (editingProfile) {
 				// Update existing
-				// - undefined = keep existing key
-				// - empty string = clear the key
-				// - string value = set new key
-				let apiKeyValue: string | undefined;
-				if (clearApiKey) {
-					apiKeyValue = ''; // Signal to clear
-				} else if (formApiKey) {
-					apiKeyValue = formApiKey; // Set new key
-				}
-				// else: undefined = keep existing
-
 				await llmProfiles.update(editingProfile.name, {
+					new_name: formName !== editingProfile.name ? formName : undefined,
 					model: formModel,
-					api_key: apiKeyValue,
+					api_key: formApiKey || undefined, // undefined = keep existing, value = set new
 					api_base: formApiBase || null,
 					status: formStatus,
 				});
@@ -172,7 +161,7 @@
 
 	function getStatusBadgeClass(status: ProfileStatus): string {
 		switch (status) {
-			case 'active':
+			case 'primary':
 				return 'bg-success-500/20 text-success-400 border-success-500/30';
 			case 'fallback':
 				return 'bg-warning-500/20 text-warning-400 border-warning-500/30';
@@ -256,11 +245,12 @@
 						{/if}
 					</div>
 					<div class="flex items-center gap-1">
-						{#if profile.status !== 'active'}
+						{#if profile.status !== 'primary'}
 							<button
 								type="button"
 								class="hover:text-success-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
-								title="Activate"
+								title="Set as active profile"
+								aria-label="Set as active profile"
 								onclick={() => handleActivate(profile.name)}
 							>
 								<svg
@@ -278,6 +268,7 @@
 							type="button"
 							class="hover:text-primary-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
 							title="Test connection"
+							aria-label="Test connection"
 							disabled={testingProfile === profile.name}
 							onclick={() => handleTest(profile.name)}
 						>
@@ -301,6 +292,7 @@
 							type="button"
 							class="rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-100"
 							title="Edit"
+							aria-label="Edit profile"
 							onclick={() => openEditModal(profile)}
 						>
 							<svg
@@ -318,6 +310,7 @@
 							type="button"
 							class="hover:text-error-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
 							title="Delete"
+							aria-label="Delete profile"
 							onclick={() => handleDelete(profile.name)}
 						>
 							<svg
@@ -368,21 +361,19 @@
 					handleSave();
 				}}
 			>
-				{#if !editingProfile}
-					<div>
-						<label for="profile-name" class="mb-1 block text-sm font-medium text-neutral-300">
-							Name
-						</label>
-						<input
-							id="profile-name"
-							type="text"
-							bind:value={formName}
-							required
-							placeholder="e.g., openai-prod"
-							class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 placeholder-neutral-500 focus:ring-1 focus:outline-none"
-						/>
-					</div>
-				{/if}
+				<div>
+					<label for="profile-name" class="mb-1 block text-sm font-medium text-neutral-300">
+						Name
+					</label>
+					<input
+						id="profile-name"
+						type="text"
+						bind:value={formName}
+						required
+						placeholder="e.g., openai-prod"
+						class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 placeholder-neutral-500 focus:ring-1 focus:outline-none"
+					/>
+				</div>
 
 				<div>
 					<label for="profile-model" class="mb-1 block text-sm font-medium text-neutral-300">
@@ -414,16 +405,6 @@
 					/>
 					{#if editingProfile}
 						<p class="mt-1 text-xs text-neutral-500">Leave blank to keep existing key</p>
-						{#if editingProfile.has_api_key}
-							<label class="mt-2 flex items-center gap-2">
-								<input
-									type="checkbox"
-									bind:checked={clearApiKey}
-									class="text-primary-500 focus:ring-primary-500 h-4 w-4 rounded border-neutral-600 bg-neutral-800"
-								/>
-								<span class="text-xs text-neutral-400">Clear existing API key</span>
-							</label>
-						{/if}
 					{/if}
 				</div>
 
@@ -449,10 +430,19 @@
 						bind:value={formStatus}
 						class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 focus:ring-1 focus:outline-none"
 					>
-						<option value="disabled">Disabled</option>
-						<option value="active">Active</option>
+						<option value="primary">Primary</option>
 						<option value="fallback">Fallback</option>
+						<option value="off">Off</option>
 					</select>
+					<p class="mt-1 text-xs text-neutral-500">
+						{#if formStatus === 'primary'}
+							Primary model used for all AI features
+						{:else if formStatus === 'fallback'}
+							Used automatically if the primary model fails
+						{:else}
+							Profile saved but not in use
+						{/if}
+					</p>
 				</div>
 
 				<div class="flex gap-3 pt-2">

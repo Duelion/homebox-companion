@@ -12,7 +12,6 @@ from pydantic import BaseModel, SecretStr
 from homebox_companion.core.settings import (
     ModelProfile,
     ProfileStatus,
-    Settings,
     clear_settings_cache,
     load_settings,
     save_settings,
@@ -51,18 +50,18 @@ class ProfileCreateRequest(BaseModel):
     model: str
     api_key: str | None = None
     api_base: str | None = None
-    status: str = "disabled"
+    status: str = "off"
 
 
 class ProfileUpdateRequest(BaseModel):
     """Request to update an existing profile.
 
     For api_key:
-    - None/missing = keep existing
-    - "" = clear the key
+    - None/missing = keep existing key unchanged
     - "sk-xxx" = set new key
     """
 
+    new_name: str | None = None
     model: str | None = None
     api_key: str | None = None
     api_base: str | None = None
@@ -141,8 +140,8 @@ async def create_profile(request: ProfileCreateRequest) -> ProfileResponse:
     # If this is the first profile, make it active
     status = ProfileStatus(request.status)
     if not settings.llm_profiles:
-        status = ProfileStatus.ACTIVE
-        logger.info("First profile created, setting as active")
+        status = ProfileStatus.PRIMARY
+        logger.info("First profile created, setting as primary")
 
     new_profile = ModelProfile(
         name=request.name,
@@ -165,7 +164,18 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
     clear_settings_cache()
     settings = load_settings()
 
-    idx, profile = _find_profile(settings, name)
+    _, profile = _find_profile(settings, name)
+
+    # Handle renaming
+    if request.new_name is not None and request.new_name != name:
+        # Check for duplicate name
+        for p in settings.llm_profiles:
+            if p.name == request.new_name:
+                raise HTTPException(
+                    status_code=409, detail=f"Profile '{request.new_name}' already exists"
+                )
+        profile.name = request.new_name
+        logger.info(f"Renamed LLM profile: {name} -> {request.new_name}")
 
     # Update fields if provided
     if request.model is not None:
@@ -185,21 +195,21 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
         new_status = ProfileStatus(request.status)
 
         # If setting to active, deactivate others
-        if new_status == ProfileStatus.ACTIVE:
+        if new_status == ProfileStatus.PRIMARY:
             for p in settings.llm_profiles:
-                if p.status == ProfileStatus.ACTIVE:
-                    p.status = ProfileStatus.DISABLED
+                if p.status == ProfileStatus.PRIMARY:
+                    p.status = ProfileStatus.OFF
 
         # If setting to fallback, remove other fallbacks
         if new_status == ProfileStatus.FALLBACK:
             for p in settings.llm_profiles:
                 if p.status == ProfileStatus.FALLBACK:
-                    p.status = ProfileStatus.DISABLED
+                    p.status = ProfileStatus.OFF
 
         profile.status = new_status
 
     save_settings(settings)
-    logger.info(f"Updated LLM profile: {name}")
+    logger.info(f"Updated LLM profile: {profile.name}")
 
     return _profile_to_response(profile)
 
@@ -211,15 +221,15 @@ async def delete_profile(name: str) -> None:
     settings = load_settings()
 
     idx, profile = _find_profile(settings, name)
-    was_active = profile.status == ProfileStatus.ACTIVE
+    was_active = profile.status == ProfileStatus.PRIMARY
 
     # Remove the profile by index
     del settings.llm_profiles[idx]
 
     # If deleted the active profile, activate the first remaining one
     if was_active and settings.llm_profiles:
-        settings.llm_profiles[0].status = ProfileStatus.ACTIVE
-        logger.info(f"Activated '{settings.llm_profiles[0].name}' after deleting active profile")
+        settings.llm_profiles[0].status = ProfileStatus.PRIMARY
+        logger.info(f"Activated '{settings.llm_profiles[0].name}' after deleting primary profile")
 
     save_settings(settings)
     logger.info(f"Deleted LLM profile: {name}")
@@ -233,13 +243,13 @@ async def activate_profile(name: str) -> ProfileResponse:
 
     _, profile = _find_profile(settings, name)
 
-    # Deactivate current active
+    # Deactivate current primary
     for p in settings.llm_profiles:
-        if p.status == ProfileStatus.ACTIVE:
-            p.status = ProfileStatus.DISABLED
+        if p.status == ProfileStatus.PRIMARY:
+            p.status = ProfileStatus.OFF
 
     # Activate the target profile (already in the list, mutated in-place)
-    profile.status = ProfileStatus.ACTIVE
+    profile.status = ProfileStatus.PRIMARY
     save_settings(settings)
     logger.info(f"Activated LLM profile: {name}")
 
