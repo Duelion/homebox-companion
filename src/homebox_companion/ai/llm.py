@@ -29,6 +29,7 @@ litellm.suppress_debug_info = True
 # Maximum characters to include from malformed response in repair prompt
 MAX_REPAIR_CONTEXT_LENGTH = 2000
 
+
 def _format_messages_for_logging(messages: list[dict[str, Any]]) -> str:
     """Format messages for readable logging output.
 
@@ -80,8 +81,7 @@ def _build_repair_prompt(original_response: str, error_msg: str, expected_schema
         head_chars = int(MAX_REPAIR_CONTEXT_LENGTH * 0.7)
         tail_chars = MAX_REPAIR_CONTEXT_LENGTH - head_chars - 20  # Reserve space for ellipsis
         truncated_response = (
-            f"{original_response[:head_chars]}\n\n... (truncated) ...\n\n"
-            f"{original_response[-tail_chars:]}"
+            f"{original_response[:head_chars]}\n\n... (truncated) ...\n\n{original_response[-tail_chars:]}"
         )
 
     return f"""The previous response was not valid JSON. Please fix it and return ONLY valid JSON.
@@ -202,9 +202,7 @@ async def _acompletion_with_repair(
 
     # First attempt
     logger.debug(f"Calling LiteLLM with model: {model}")
-    logger.trace(
-        f">>> PROMPT SENT TO LLM ({model}) >>>{_format_messages_for_logging(messages)}\n{'=' * 60}"
-    )
+    logger.trace(f">>> PROMPT SENT TO LLM ({model}) >>>{_format_messages_for_logging(messages)}\n{'=' * 60}")
 
     # Acquire rate limit before making API call
     if is_rate_limiting_enabled():
@@ -235,8 +233,7 @@ async def _acompletion_with_repair(
     except litellm.Timeout as e:
         logger.error(f"Request timed out: {e}")
         raise LLMServiceError(
-            f"LLM request timed out after {config.settings.llm_timeout}s. "
-            f"The model may be overloaded. Error: {e}"
+            f"LLM request timed out after {config.settings.llm_timeout}s. The model may be overloaded. Error: {e}"
         ) from e
     except Exception as e:
         logger.exception(f"LLM call failed: {e}")
@@ -307,9 +304,7 @@ async def _acompletion_with_repair(
         )
     except Exception as e:
         logger.error(f"Repair request failed: {e}")
-        raise JSONRepairError(
-            f"Failed to repair JSON response. Original error: {error}. Repair error: {e}"
-        ) from e
+        raise JSONRepairError(f"Failed to repair JSON response. Original error: {error}. Repair error: {e}") from e
 
     if not repair_completion.choices:
         raise JSONRepairError("LLM returned empty response during repair attempt")
@@ -319,9 +314,7 @@ async def _acompletion_with_repair(
         logger.warning("LLM returned None content during repair, defaulting to empty JSON object")
         repaired_content = "{}"
 
-    logger.trace(
-        f"<<< REPAIR RESPONSE FROM LLM ({model}) <<<\n{'=' * 60}\n{repaired_content}\n{'=' * 60}"
-    )
+    logger.trace(f"<<< REPAIR RESPONSE FROM LLM ({model}) <<<\n{'=' * 60}\n{repaired_content}\n{'=' * 60}")
 
     repaired_parsed, repaired_error = _parse_json_response(repaired_content, expected_keys)
     if repaired_error is None:
@@ -420,9 +413,7 @@ async def vision_completion(
     if config.settings.llm_allow_unsafe_models:
         # Without validation, try json_mode by default and let LiteLLM handle it
         response_format = {"type": "json_object"}
-        logger.debug(
-            f"Skipping capability validation for model '{model}' (HBC_LLM_ALLOW_UNSAFE_MODELS=true)"
-        )
+        logger.debug(f"Skipping capability validation for model '{model}' (HBC_LLM_ALLOW_UNSAFE_MODELS=true)")
     else:
         # Validate model capabilities
         caps = get_model_capabilities(model)
@@ -500,4 +491,3 @@ async def vision_completion(
         response_format=response_format,
         expected_keys=expected_keys,
     )
-

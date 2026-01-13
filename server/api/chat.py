@@ -81,9 +81,7 @@ async def _event_generator(
         SSE formatted events
     """
     try:
-        async for event in orchestrator.process_message(
-            user_message, token, approval_context=approval_context
-        ):
+        async for event in orchestrator.process_message(user_message, token, approval_context=approval_context):
             # sse_starlette expects data as a string - must JSON-serialize dicts
             yield {
                 "event": event.type.value,
@@ -229,8 +227,7 @@ async def approve_action(
 
         # Log successful approval execution for audit trail
         logger.info(
-            f"Approved action executed: {approval.tool_name} "
-            f"(approval_id={approval_id}, success={result.success})"
+            f"Approved action executed: {approval.tool_name} (approval_id={approval_id}, success={result.success})"
         )
 
         return JSONResponse(

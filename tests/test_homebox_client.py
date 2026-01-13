@@ -75,9 +75,7 @@ async def test_list_locations_returns_non_empty_list(
 
 
 @pytest.mark.asyncio
-async def test_list_locations_with_filter_children(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> None:
+async def test_list_locations_with_filter_children(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
     """List locations with filter_children should only return top-level locations."""
     username, password = homebox_credentials
 
@@ -240,9 +238,7 @@ async def test_get_item_returns_full_details(
 
 
 @pytest.mark.asyncio
-async def test_list_labels_returns_labels_list(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> None:
+async def test_list_labels_returns_labels_list(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
     """List labels should return available labels."""
     username, password = homebox_credentials
 
@@ -288,9 +284,7 @@ async def test_create_location_returns_created_location(
 
 
 @pytest.mark.asyncio
-async def test_typed_methods_return_correct_types(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> None:
+async def test_typed_methods_return_correct_types(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
     """Typed methods should return proper model instances."""
     username, password = homebox_credentials
 
@@ -323,9 +317,7 @@ async def test_client_context_manager_closes_properly(homebox_api_url: str) -> N
 
 
 @pytest.mark.asyncio
-async def test_delete_item_removes_item(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> None:
+async def test_delete_item_removes_item(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
     """Delete item should remove the item from Homebox."""
     username, password = homebox_credentials
 

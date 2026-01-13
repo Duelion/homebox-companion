@@ -84,11 +84,7 @@ def _build_log_entry(
         entry["response"] = {
             "content_length": len(response_content),
             "tool_call_count": len(response_tool_calls) if response_tool_calls else 0,
-            "tool_calls_summary": (
-                [tc.get("name") for tc in response_tool_calls]
-                if response_tool_calls
-                else None
-            ),
+            "tool_calls_summary": ([tc.get("name") for tc in response_tool_calls] if response_tool_calls else None),
         }
 
     return entry
@@ -119,9 +115,7 @@ def log_streaming_interaction(
         latency_ms: Time taken for the streaming request in milliseconds.
     """
     try:
-        entry = _build_log_entry(
-            messages, tools, response_content, response_tool_calls, latency_ms
-        )
+        entry = _build_log_entry(messages, tools, response_content, response_tool_calls, latency_ms)
 
         # Log with llm_debug=True so it's captured by the dedicated handler
         logger.bind(llm_debug=True).info(json.dumps(entry))
@@ -129,6 +123,7 @@ def log_streaming_interaction(
 
     except Exception as e:
         logger.warning(f"[LLM_LOG] Failed to log streaming interaction: {e}")
+
 
 # Soft recommendation for max items in responses - used when user doesn't specify a count.
 # When user explicitly requests a specific number (e.g., "show me 80 items"), honor that request.
@@ -226,8 +221,6 @@ Limitations
 
 Only skip inventory lookup for pure greetings.
 """
-
-
 
 
 @dataclass
@@ -350,8 +343,7 @@ class LLMClient:
         kwargs = self._build_request_kwargs(messages, tools, stream=True)
 
         logger.debug(
-            f"[LLM] Starting streaming completion with {len(messages)} messages, "
-            f"{len(tools) if tools else 0} tools"
+            f"[LLM] Starting streaming completion with {len(messages)} messages, {len(tools) if tools else 0} tools"
         )
 
         response = await litellm.acompletion(**kwargs)
@@ -375,10 +367,7 @@ class LLMClient:
             Dict of kwargs for acompletion.
         """
         # Use longer timeout for streaming operations (large responses take more time)
-        timeout = (
-            config.settings.llm_stream_timeout if stream
-            else config.settings.llm_timeout
-        )
+        timeout = config.settings.llm_stream_timeout if stream else config.settings.llm_timeout
 
         kwargs: dict[str, Any] = {
             "model": config.settings.effective_llm_model,
@@ -405,4 +394,3 @@ class LLMClient:
             logger.trace(f"[LLM] Available tools: {tool_names}")
 
         return kwargs
-

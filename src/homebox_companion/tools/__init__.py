@@ -21,4 +21,3 @@ __all__ = [
     "analyze_item_details_from_images",
     "correct_item",
 ]
-

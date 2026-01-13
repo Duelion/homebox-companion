@@ -26,8 +26,6 @@ __all__ = [
 ]
 
 
-
-
 class ToolPermission(str, Enum):
     """Permission level required to execute a tool.
 

@@ -206,7 +206,6 @@ tool_executor_holder = ToolExecutorHolder()
 # =============================================================================
 
 
-
 def get_client() -> HomeboxClient:
     """Get the shared Homebox client.
 
@@ -239,7 +238,6 @@ def get_executor(
     Can be overridden in tests using app.dependency_overrides[get_executor].
     """
     return tool_executor_holder.get(client)
-
 
 
 def get_session(

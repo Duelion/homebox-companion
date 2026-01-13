@@ -127,18 +127,11 @@ async def _get_latest_github_version() -> str | None:
                     _version_cache["last_check"] = now
                     _version_cache["latest_version"] = None
                     if response.status_code == 404:
-                        logger.warning(
-                            f"GitHub repository {settings.github_repo} not found "
-                            "or no releases available"
-                        )
+                        logger.warning(f"GitHub repository {settings.github_repo} not found or no releases available")
                     elif response.status_code == 403:
-                        logger.warning(
-                            "GitHub API rate limit exceeded. Update check will retry later."
-                        )
+                        logger.warning("GitHub API rate limit exceeded. Update check will retry later.")
                     else:
-                        logger.warning(
-                            f"GitHub API returned unexpected status {response.status_code}"
-                        )
+                        logger.warning(f"GitHub API returned unexpected status {response.status_code}")
         except httpx.TimeoutException:
             _version_cache["last_check"] = now
             _version_cache["latest_version"] = None
@@ -202,9 +195,7 @@ async def _test_homebox_connectivity() -> None:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             # Just do a HEAD request to check connectivity
             response = await client.head(settings.homebox_url)
-            logger.debug(
-                f"Connectivity test: HEAD {settings.homebox_url} -> {response.status_code}"
-            )
+            logger.debug(f"Connectivity test: HEAD {settings.homebox_url} -> {response.status_code}")
             if response.status_code in (301, 302, 307, 308):
                 redirect_location = response.headers.get("location")
                 logger.debug(f"Connectivity test: Redirect to: {redirect_location}")
@@ -229,9 +220,7 @@ class CachedStaticFiles(StaticFiles):
         # - if cached, clients can stay stuck on old SW logic for up to the TTL
         #
         # manifest.json is also frequently cached by browsers/PWA install flows.
-        if path in ("", "index.html", "service-worker.js", "manifest.json") or path.endswith(
-            "/index.html"
-        ):
+        if path in ("", "index.html", "service-worker.js", "manifest.json") or path.endswith("/index.html"):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
@@ -375,9 +364,7 @@ def create_app() -> FastAPI:
         if not settings.disable_update_check or force_check:
             latest_version = await _get_latest_github_version()
             result["latest_version"] = latest_version
-            result["update_available"] = (
-                _is_newer_version(latest_version, __version__) if latest_version else False
-            )
+            result["update_available"] = _is_newer_version(latest_version, __version__) if latest_version else False
         else:
             result["latest_version"] = None
             result["update_available"] = False

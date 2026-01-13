@@ -50,9 +50,7 @@ async def analyze_item_details_from_images(
         output_language=output_language,
     )
 
-    user_prompt = (
-        "Analyze all images. Look at labels, stickers, engravings for details. Return only JSON."
-    )
+    user_prompt = "Analyze all images. Look at labels, stickers, engravings for details. Return only JSON."
 
     parsed_content = await vision_completion(
         system_prompt=system_prompt,

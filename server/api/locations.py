@@ -60,9 +60,7 @@ async def get_locations_tree(
             }
 
     # Fetch all location details in parallel for better performance
-    enriched = await asyncio.gather(
-        *[fetch_location_details(loc) for loc in top_level]
-    )
+    enriched = await asyncio.gather(*[fetch_location_details(loc) for loc in top_level])
 
     return list(enriched)
 
@@ -109,9 +107,7 @@ async def get_location(
                     "children": [],
                 }
 
-        enriched_children = await asyncio.gather(
-            *[fetch_child_details(child) for child in children]
-        )
+        enriched_children = await asyncio.gather(*[fetch_child_details(child) for child in children])
         location["children"] = list(enriched_children)
 
     return location

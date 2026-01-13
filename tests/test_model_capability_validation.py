@@ -36,9 +36,7 @@ import pytest
 from homebox_companion.ai.llm import CapabilityNotSupportedError, LLMServiceError, vision_completion
 
 # Use a tiny 1x1 pixel image for testing
-TINY_IMAGE_BASE64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-)
+TINY_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 TINY_IMAGE_DATA_URI = f"data:image/png;base64,{TINY_IMAGE_BASE64}"
 
 
@@ -210,9 +208,7 @@ class TestUnsafeFlagBehavior:
     """
 
     @pytest.mark.asyncio
-    async def test_text_only_model_with_unsafe_flag_gets_litellm_error(
-        self, openai_api_key, monkeypatch
-    ):
+    async def test_text_only_model_with_unsafe_flag_gets_litellm_error(self, openai_api_key, monkeypatch):
         """Test that text-only models fail at LiteLLM level with unsafe flag.
 
         When users bypass our checks with HBC_LLM_ALLOW_UNSAFE_MODELS=true,
@@ -247,9 +243,7 @@ class TestUnsafeFlagBehavior:
         # Note: We don't assert on error message content - third-party messages can change
 
     @pytest.mark.asyncio
-    async def test_legacy_text_model_with_unsafe_flag_gets_provider_error(
-        self, openai_api_key, monkeypatch
-    ):
+    async def test_legacy_text_model_with_unsafe_flag_gets_provider_error(self, openai_api_key, monkeypatch):
         """Test that legacy text models fail with provider errors.
 
         Models like gpt-4 (non-vision) should fail when images are provided,
@@ -281,9 +275,7 @@ class TestUnsafeFlagBehavior:
         # Note: We don't assert on error message content - third-party messages can change
 
     @pytest.mark.asyncio
-    async def test_vision_model_without_schema_works_with_unsafe_flag(
-        self, openai_api_key, monkeypatch
-    ):
+    async def test_vision_model_without_schema_works_with_unsafe_flag(self, openai_api_key, monkeypatch):
         """Test that vision models without JSON schema still work.
 
         Models with vision but without JSON schema support should work fine
@@ -299,9 +291,7 @@ class TestUnsafeFlagBehavior:
 
         try:
             result = await vision_completion(
-                system_prompt=(
-                    'Respond with valid JSON only: {"color": "...", "description": "..."}'
-                ),
+                system_prompt=('Respond with valid JSON only: {"color": "...", "description": "..."}'),
                 user_prompt="What color is this 1x1 pixel image? Respond with JSON.",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
                 api_key=openai_api_key,
@@ -318,9 +308,7 @@ class TestUnsafeFlagBehavior:
             # If we get auth/access errors, that's acceptable
             # The important part is we didn't get CapabilityNotSupportedError
             if isinstance(e, CapabilityNotSupportedError):
-                pytest.fail(
-                    f"Should not raise CapabilityNotSupportedError for vision models. Got: {e}"
-                )
+                pytest.fail(f"Should not raise CapabilityNotSupportedError for vision models. Got: {e}")
 
             # Check if it's an auth/access error (acceptable) or something else
             error_msg = str(e).lower()

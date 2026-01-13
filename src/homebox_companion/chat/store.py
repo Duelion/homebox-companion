@@ -105,9 +105,7 @@ class MemorySessionStore:
         # Import here to avoid circular imports
         self._sessions: dict[str, ChatSession] = {}
         self._last_access: dict[str, float] = {}  # session_key -> timestamp
-        self._session_ttl = session_ttl or getattr(
-            settings, "chat_session_ttl", _DEFAULT_SESSION_TTL
-        )
+        self._session_ttl = session_ttl or getattr(settings, "chat_session_ttl", _DEFAULT_SESSION_TTL)
         self._last_cleanup: float = time.time()
         # Cleanup interval: run cleanup at most once per 5 minutes
         self._cleanup_interval = 300
@@ -138,11 +136,7 @@ class MemorySessionStore:
             return
 
         self._last_cleanup = now
-        expired_keys = [
-            key
-            for key, last_access in self._last_access.items()
-            if now - last_access > self._session_ttl
-        ]
+        expired_keys = [key for key, last_access in self._last_access.items() if now - last_access > self._session_ttl]
 
         for key in expired_keys:
             del self._sessions[key]
@@ -224,4 +218,3 @@ class MemorySessionStore:
         """Get the number of active sessions."""
         with self._lock:
             return len(self._sessions)
-

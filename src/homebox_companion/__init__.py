@@ -114,4 +114,3 @@ __all__ = [
     "encode_image_bytes_to_data_uri",
     "encode_compressed_image_to_base64",
 ]
-
