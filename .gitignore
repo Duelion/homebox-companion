@@ -42,3 +42,6 @@ all_models_capabilities.csv
 temp_test_expiry.py
 demo/DEPLOYMENT_GUIDE.md
 demo/README.md
+
+# Contributor analysis working files
+docs/contributor_analysis/**
