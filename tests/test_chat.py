@@ -199,9 +199,7 @@ class TestChatSession:
     def test_remove_approval_returns_true_when_found(self):
         """remove_approval should return True when approval exists."""
         session = ChatSession()
-        session.pending_approvals["ap1"] = PendingApproval(
-            id="ap1", tool_name="t", parameters={}
-        )
+        session.pending_approvals["ap1"] = PendingApproval(id="ap1", tool_name="t", parameters={})
 
         result = session.remove_approval("ap1")
 
@@ -249,9 +247,7 @@ class TestChatSession:
         """clear should remove all messages and approvals."""
         session = ChatSession()
         session.add_message(ChatMessage(role="user", content="Hello"))
-        session.pending_approvals["ap1"] = PendingApproval(
-            id="ap1", tool_name="t", parameters={}
-        )
+        session.pending_approvals["ap1"] = PendingApproval(id="ap1", tool_name="t", parameters={})
 
         session.clear()
 
@@ -469,16 +465,12 @@ class TestChatOrchestrator:
         return ToolExecutor(mock_client)
 
     @pytest.fixture
-    def orchestrator(
-        self, session: ChatSession, executor: ToolExecutor
-    ) -> ChatOrchestrator:
+    def orchestrator(self, session: ChatSession, executor: ToolExecutor) -> ChatOrchestrator:
         """Create orchestrator with mocked dependencies."""
         return ChatOrchestrator(session=session, executor=executor)
 
     @pytest.mark.asyncio
-    async def test_process_message_adds_user_message(
-        self, orchestrator: ChatOrchestrator, session: ChatSession
-    ):
+    async def test_process_message_adds_user_message(self, orchestrator: ChatOrchestrator, session: ChatSession):
         """process_message should add user message to session."""
         # Mock LLM response with no tool calls
         mock_response = MagicMock()
@@ -499,9 +491,7 @@ class TestChatOrchestrator:
         assert session.messages[0].content == "Hi"
 
     @pytest.mark.asyncio
-    async def test_process_message_yields_text_event(
-        self, orchestrator: ChatOrchestrator
-    ):
+    async def test_process_message_yields_text_event(self, orchestrator: ChatOrchestrator):
         """process_message should yield text event for LLM response."""
 
         # Mock streaming response with chunks
@@ -530,9 +520,7 @@ class TestChatOrchestrator:
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
             chunk3.choices[0].message = None  # No message field
-            chunk3.usage = MagicMock(
-                prompt_tokens=10, completion_tokens=5, total_tokens=15
-            )
+            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk3
 
         with patch(
@@ -549,9 +537,7 @@ class TestChatOrchestrator:
         assert text_events[1].data["content"] == "with that!"
 
     @pytest.mark.asyncio
-    async def test_process_message_yields_done_event(
-        self, orchestrator: ChatOrchestrator
-    ):
+    async def test_process_message_yields_done_event(self, orchestrator: ChatOrchestrator):
         """process_message should always yield done event at the end."""
 
         # Mock streaming response
@@ -575,9 +561,7 @@ class TestChatOrchestrator:
         assert events[-1].type == ChatEventType.DONE
 
     @pytest.mark.asyncio
-    async def test_process_message_yields_error_on_exception(
-        self, orchestrator: ChatOrchestrator
-    ):
+    async def test_process_message_yields_error_on_exception(self, orchestrator: ChatOrchestrator):
         """process_message should yield error event on LLM failure."""
         with patch(
             "homebox_companion.chat.llm_client.litellm.acompletion",
@@ -592,9 +576,7 @@ class TestChatOrchestrator:
         assert "API Error" in error_events[0].data["message"]
 
     @pytest.mark.asyncio
-    async def test_process_message_handles_chained_tool_calls(
-        self, mock_client: MagicMock, session: ChatSession
-    ):
+    async def test_process_message_handles_chained_tool_calls(self, mock_client: MagicMock, session: ChatSession):
         """Orchestrator should handle multiple sequential tool calls correctly.
 
         This tests the exact scenario that triggered the original bug:
@@ -610,9 +592,7 @@ class TestChatOrchestrator:
         orchestrator = ChatOrchestrator(session=session, executor=executor)
 
         # Mock search_items tool
-        mock_client.search_items = AsyncMock(
-            return_value=[{"id": "item-123", "name": "Picture Hanging Wire"}]
-        )
+        mock_client.search_items = AsyncMock(return_value=[{"id": "item-123", "name": "Picture Hanging Wire"}])
         # Mock get_item tool
         mock_client.get_item = AsyncMock(
             return_value={
@@ -622,9 +602,7 @@ class TestChatOrchestrator:
             }
         )
 
-        async def create_streaming_tool_response(
-            tool_name: str, tool_args: dict, call_id: str
-        ):
+        async def create_streaming_tool_response(tool_name: str, tool_args: dict, call_id: str):
             """Create a streaming response with a tool call."""
             # First chunk: tool call start
             chunk1 = MagicMock()
@@ -649,9 +627,7 @@ class TestChatOrchestrator:
             chunk2.choices[0].delta.tool_calls[0].id = None
             chunk2.choices[0].delta.tool_calls[0].function = MagicMock()
             chunk2.choices[0].delta.tool_calls[0].function.name = None
-            chunk2.choices[0].delta.tool_calls[0].function.arguments = json.dumps(
-                tool_args
-            )
+            chunk2.choices[0].delta.tool_calls[0].function.arguments = json.dumps(tool_args)
             chunk2.choices[0].message = None
             chunk2.usage = None
             yield chunk2
@@ -662,9 +638,7 @@ class TestChatOrchestrator:
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
             chunk3.choices[0].message = None
-            chunk3.usage = MagicMock(
-                prompt_tokens=10, completion_tokens=5, total_tokens=15
-            )
+            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk3
 
         async def create_streaming_text_response(text: str):
@@ -684,9 +658,7 @@ class TestChatOrchestrator:
             chunk2.choices[0].delta.content = None
             chunk2.choices[0].delta.tool_calls = None
             chunk2.choices[0].message = None
-            chunk2.usage = MagicMock(
-                prompt_tokens=10, completion_tokens=5, total_tokens=15
-            )
+            chunk2.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk2
 
         call_sequence = 0
@@ -701,22 +673,16 @@ class TestChatOrchestrator:
                     "call_search_items",
                 )
             elif call_sequence == 2:
-                return create_streaming_tool_response(
-                    "get_item", {"item_id": "item-123"}, "call_get_item"
-                )
+                return create_streaming_tool_response("get_item", {"item_id": "item-123"}, "call_get_item")
             else:
-                return create_streaming_text_response(
-                    "Based on my search, you have Picture Hanging Wire."
-                )
+                return create_streaming_text_response("Based on my search, you have Picture Hanging Wire.")
 
         with patch(
             "homebox_companion.chat.llm_client.litellm.acompletion",
             new=AsyncMock(side_effect=acompletion_side_effect),
         ):
             events = []
-            async for event in orchestrator.process_message(
-                "What wire do I have?", "token"
-            ):
+            async for event in orchestrator.process_message("What wire do I have?", "token"):
                 events.append(event)
 
         # Verify we got the expected events
@@ -724,15 +690,9 @@ class TestChatOrchestrator:
         tool_result_events = [e for e in events if e.type == ChatEventType.TOOL_RESULT]
         text_events = [e for e in events if e.type == ChatEventType.TEXT]
 
-        assert len(tool_start_events) == 2, (
-            f"Should have 2 tool start events, got {len(tool_start_events)}"
-        )
-        assert len(tool_result_events) == 2, (
-            f"Should have 2 tool result events, got {len(tool_result_events)}"
-        )
-        assert len(text_events) == 1, (
-            f"Should have 1 text event, got {len(text_events)}"
-        )
+        assert len(tool_start_events) == 2, f"Should have 2 tool start events, got {len(tool_start_events)}"
+        assert len(tool_result_events) == 2, f"Should have 2 tool result events, got {len(tool_result_events)}"
+        assert len(text_events) == 1, f"Should have 1 text event, got {len(text_events)}"
         assert "Picture Hanging Wire" in text_events[0].data["content"]
 
         # Verify message sequence in session is valid
@@ -757,17 +717,13 @@ class TestChatOrchestrator:
                 )
 
     @pytest.mark.asyncio
-    async def test_recursion_depth_limit(
-        self, mock_client: MagicMock, session: ChatSession
-    ):
+    async def test_recursion_depth_limit(self, mock_client: MagicMock, session: ChatSession):
         """Orchestrator should stop after MAX_TOOL_RECURSION_DEPTH iterations."""
         executor = ToolExecutor(mock_client)
         orchestrator = ChatOrchestrator(session=session, executor=executor)
 
         # Mock a tool that always exists
-        mock_client.list_locations = AsyncMock(
-            return_value=[{"id": "loc1", "name": "Test"}]
-        )
+        mock_client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test"}])
 
         call_count = 0
 
@@ -811,9 +767,7 @@ class TestChatOrchestrator:
             chunk3.choices[0].delta.content = None
             chunk3.choices[0].delta.tool_calls = None
             chunk3.choices[0].message = None
-            chunk3.usage = MagicMock(
-                prompt_tokens=10, completion_tokens=5, total_tokens=15
-            )
+            chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk3
 
         # Create enough streaming responses to trigger the limit
@@ -843,6 +797,5 @@ class TestChatOrchestrator:
         # We called the mock at least MAX_TOOL_RECURSION_DEPTH times
         # (the limit triggers and then there's one more call for the explanation)
         assert call_count >= MAX_TOOL_RECURSION_DEPTH, (
-            f"Should have called LLM at least {MAX_TOOL_RECURSION_DEPTH} times, "
-            f"got {call_count}"
+            f"Should have called LLM at least {MAX_TOOL_RECURSION_DEPTH} times, got {call_count}"
         )

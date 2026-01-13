@@ -83,4 +83,3 @@ class ChatMessage(BaseModel):
             msg["tool_call_id"] = self.tool_call_id
 
         return msg
-

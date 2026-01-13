@@ -137,16 +137,10 @@ class ItemUpdate(BaseModel):
     location_id: str | None = Field(default=None, alias="locationId")
     label_ids: list[str] | None = Field(default=None, alias="labelIds")
     manufacturer: Annotated[str, Field(max_length=255)] | None = None
-    model_number: Annotated[str, Field(max_length=255)] | None = Field(
-        default=None, alias="modelNumber"
-    )
-    serial_number: Annotated[str, Field(max_length=255)] | None = Field(
-        default=None, alias="serialNumber"
-    )
+    model_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="modelNumber")
+    serial_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="serialNumber")
     purchase_price: float | None = Field(default=None, alias="purchasePrice")
-    purchase_from: Annotated[str, Field(max_length=255)] | None = Field(
-        default=None, alias="purchaseFrom"
-    )
+    purchase_from: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="purchaseFrom")
     notes: Annotated[str, Field(max_length=1000)] | None = Field(default=None)
     insured: bool | None = Field(default=None)
 

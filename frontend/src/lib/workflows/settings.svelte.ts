@@ -537,13 +537,17 @@ class SettingsService {
 
 	/**
 	 * Generate environment variable string from preferences.
+	 * Only includes fields that differ from effective defaults (actual customizations).
 	 */
 	generateEnvVars(prefs: FieldPreferences): string {
 		const lines: string[] = [];
+		const defaults = this.effectiveDefaults;
 
 		for (const [key, envName] of Object.entries(ENV_VAR_MAPPING)) {
 			const value = prefs[key as keyof FieldPreferences];
-			if (value) {
+			const defaultValue = defaults?.[key as keyof FieldPreferences];
+			// Only export if value exists AND differs from the effective default
+			if (value && value !== defaultValue) {
 				// Escape quotes and wrap in quotes if contains special chars
 				const escaped = value.replace(/"/g, '\\"');
 				lines.push(`${envName}="${escaped}"`);

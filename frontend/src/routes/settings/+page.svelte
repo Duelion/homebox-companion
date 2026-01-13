@@ -78,8 +78,8 @@
 	{/if}
 
 	<AccountSection />
-	<LLMProfilesSection />
 	<AboutSection />
+	<LLMProfilesSection />
 	<FieldPrefsSection />
 	<LogsSection />
 

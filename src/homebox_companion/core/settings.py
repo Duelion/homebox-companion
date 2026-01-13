@@ -89,13 +89,9 @@ class Settings(BaseModel):
         fallbacks = [p for p in self.llm_profiles if p.status == ProfileStatus.FALLBACK]
 
         if len(actives) != 1:
-            raise ValueError(
-                f"Exactly one profile must be PRIMARY, found {len(actives)}"
-            )
+            raise ValueError(f"Exactly one profile must be PRIMARY, found {len(actives)}")
         if len(fallbacks) > 1:
-            raise ValueError(
-                f"At most one profile can be FALLBACK, found {len(fallbacks)}"
-            )
+            raise ValueError(f"At most one profile can be FALLBACK, found {len(fallbacks)}")
 
         return self
 

@@ -20,14 +20,10 @@ class TestToolExecutor:
     def mock_client(self) -> MagicMock:
         """Create a mock HomeboxClient."""
         client = MagicMock()
-        client.list_locations = AsyncMock(
-            return_value=[{"id": "loc1", "name": "Test Location"}]
-        )
+        client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test Location"}])
         client.list_items = AsyncMock(return_value=[])
         client.list_labels = AsyncMock(return_value=[])
-        client.get_item = AsyncMock(
-            return_value={"id": "item1", "name": "Test Item"}
-        )
+        client.get_item = AsyncMock(return_value={"id": "item1", "name": "Test Item"})
         return client
 
     @pytest.fixture
@@ -121,9 +117,7 @@ class TestToolExecutor:
         assert executor.requires_approval("nonexistent") is True
 
     @pytest.mark.asyncio
-    async def test_execute_read_tool_success(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_execute_read_tool_success(self, executor: ToolExecutor, mock_client: MagicMock):
         """execute should successfully execute a READ tool."""
         result = await executor.execute("list_locations", {}, "test-token")
 
@@ -141,9 +135,7 @@ class TestToolExecutor:
         assert "Unknown tool" in result.error
 
     @pytest.mark.asyncio
-    async def test_execute_with_invalid_params_returns_error(
-        self, executor: ToolExecutor
-    ):
+    async def test_execute_with_invalid_params_returns_error(self, executor: ToolExecutor):
         """execute should return error for invalid parameters."""
         # get_item requires item_id
         result = await executor.execute("get_item", {}, "test-token")
@@ -191,15 +183,9 @@ class TestGetDisplayInfo:
     def mock_client(self) -> MagicMock:
         """Create a mock HomeboxClient with all required methods."""
         client = MagicMock()
-        client.get_item = AsyncMock(
-            return_value={"id": "item1", "name": "Test Item", "assetId": "000-001"}
-        )
-        client.get_location = AsyncMock(
-            return_value={"id": "loc1", "name": "Living Room"}
-        )
-        client.get_label = AsyncMock(
-            return_value={"id": "label1", "name": "Electronics"}
-        )
+        client.get_item = AsyncMock(return_value={"id": "item1", "name": "Test Item", "assetId": "000-001"})
+        client.get_location = AsyncMock(return_value={"id": "loc1", "name": "Living Room"})
+        client.get_label = AsyncMock(return_value={"id": "label1", "name": "Electronics"})
         return client
 
     @pytest.fixture
@@ -208,13 +194,9 @@ class TestGetDisplayInfo:
         return ToolExecutor(mock_client)
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_update_item(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_get_display_info_for_update_item(self, executor: ToolExecutor, mock_client: MagicMock):
         """get_display_info should fetch item name for update_item."""
-        info = await executor.get_display_info(
-            "update_item", {"item_id": "item1"}, "test-token"
-        )
+        info = await executor.get_display_info("update_item", {"item_id": "item1"}, "test-token")
 
         assert info.action_type == "update"
         assert info.target_name == "Test Item"
@@ -222,18 +204,14 @@ class TestGetDisplayInfo:
         mock_client.get_item.assert_awaited_once_with("test-token", "item1")
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_delete_item(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_get_display_info_for_delete_item(self, executor: ToolExecutor, mock_client: MagicMock):
         """get_display_info should fetch item name for delete_item."""
         mock_client.get_item.return_value = {
             "id": "item1",
             "name": "Test Item",
             "location": {"name": "Kitchen"},
         }
-        info = await executor.get_display_info(
-            "delete_item", {"item_id": "item1"}, "test-token"
-        )
+        info = await executor.get_display_info("delete_item", {"item_id": "item1"}, "test-token")
 
         assert info.action_type == "delete"
         assert info.target_name == "Test Item"
@@ -242,35 +220,25 @@ class TestGetDisplayInfo:
     @pytest.mark.asyncio
     async def test_get_display_info_for_create_item(self, executor: ToolExecutor):
         """get_display_info should use params name for create_item."""
-        info = await executor.get_display_info(
-            "create_item", {"name": "New Item", "location_id": "loc1"}, "test-token"
-        )
+        info = await executor.get_display_info("create_item", {"name": "New Item", "location_id": "loc1"}, "test-token")
 
         assert info.action_type == "create"
         assert info.target_name == "New Item"
         assert info.item_name == "New Item"
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_update_location(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_get_display_info_for_update_location(self, executor: ToolExecutor, mock_client: MagicMock):
         """get_display_info should fetch location name for update_location."""
-        info = await executor.get_display_info(
-            "update_location", {"location_id": "loc1"}, "test-token"
-        )
+        info = await executor.get_display_info("update_location", {"location_id": "loc1"}, "test-token")
 
         assert info.action_type == "update"
         assert info.target_name == "Living Room"
         mock_client.get_location.assert_awaited_once_with("test-token", "loc1")
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_delete_location(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_get_display_info_for_delete_location(self, executor: ToolExecutor, mock_client: MagicMock):
         """get_display_info should fetch location name for delete_location."""
-        info = await executor.get_display_info(
-            "delete_location", {"location_id": "loc1"}, "test-token"
-        )
+        info = await executor.get_display_info("delete_location", {"location_id": "loc1"}, "test-token")
 
         assert info.action_type == "delete"
         assert info.target_name == "Living Room"
@@ -278,34 +246,24 @@ class TestGetDisplayInfo:
     @pytest.mark.asyncio
     async def test_get_display_info_for_create_location(self, executor: ToolExecutor):
         """get_display_info should use params name for create_location."""
-        info = await executor.get_display_info(
-            "create_location", {"name": "Garage"}, "test-token"
-        )
+        info = await executor.get_display_info("create_location", {"name": "Garage"}, "test-token")
 
         assert info.action_type == "create"
         assert info.target_name == "Garage"
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_update_label(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_get_display_info_for_update_label(self, executor: ToolExecutor, mock_client: MagicMock):
         """get_display_info should fetch label name for update_label."""
-        info = await executor.get_display_info(
-            "update_label", {"label_id": "label1"}, "test-token"
-        )
+        info = await executor.get_display_info("update_label", {"label_id": "label1"}, "test-token")
 
         assert info.action_type == "update"
         assert info.target_name == "Electronics"
         mock_client.get_label.assert_awaited_once_with("test-token", "label1")
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_delete_label(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_get_display_info_for_delete_label(self, executor: ToolExecutor, mock_client: MagicMock):
         """get_display_info should fetch label name for delete_label."""
-        info = await executor.get_display_info(
-            "delete_label", {"label_id": "label1"}, "test-token"
-        )
+        info = await executor.get_display_info("delete_label", {"label_id": "label1"}, "test-token")
 
         assert info.action_type == "delete"
         assert info.target_name == "Electronics"
@@ -313,26 +271,18 @@ class TestGetDisplayInfo:
     @pytest.mark.asyncio
     async def test_get_display_info_for_create_label(self, executor: ToolExecutor):
         """get_display_info should use params name for create_label."""
-        info = await executor.get_display_info(
-            "create_label", {"name": "Fragile"}, "test-token"
-        )
+        info = await executor.get_display_info("create_label", {"name": "Fragile"}, "test-token")
 
         assert info.action_type == "create"
         assert info.target_name == "Fragile"
 
     @pytest.mark.asyncio
-    async def test_get_display_info_handles_api_error_gracefully(
-        self, executor: ToolExecutor, mock_client: MagicMock
-    ):
+    async def test_get_display_info_handles_api_error_gracefully(self, executor: ToolExecutor, mock_client: MagicMock):
         """get_display_info should return defaults on API error."""
         mock_client.get_location.side_effect = Exception("API error")
 
-        info = await executor.get_display_info(
-            "update_location", {"location_id": "loc1"}, "test-token"
-        )
+        info = await executor.get_display_info("update_location", {"location_id": "loc1"}, "test-token")
 
         # Should return DisplayInfo with action_type but no target_name
         assert info.action_type == "update"
         assert info.target_name is None
-
-

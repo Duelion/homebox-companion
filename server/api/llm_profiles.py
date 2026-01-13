@@ -12,6 +12,7 @@ from pydantic import BaseModel, SecretStr
 from homebox_companion.core.settings import (
     ModelProfile,
     ProfileStatus,
+    Settings,
     clear_settings_cache,
     load_settings,
     save_settings,
@@ -133,9 +134,7 @@ async def create_profile(request: ProfileCreateRequest) -> ProfileResponse:
     # Check for duplicate name
     for p in settings.llm_profiles:
         if p.name == request.name:
-            raise HTTPException(
-                status_code=409, detail=f"Profile '{request.name}' already exists"
-            )
+            raise HTTPException(status_code=409, detail=f"Profile '{request.name}' already exists")
 
     # If this is the first profile, make it active
     status = ProfileStatus(request.status)
@@ -171,9 +170,7 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
         # Check for duplicate name
         for p in settings.llm_profiles:
             if p.name == request.new_name:
-                raise HTTPException(
-                    status_code=409, detail=f"Profile '{request.new_name}' already exists"
-                )
+                raise HTTPException(status_code=409, detail=f"Profile '{request.new_name}' already exists")
         profile.name = request.new_name
         logger.info(f"Renamed LLM profile: {name} -> {request.new_name}")
 
@@ -257,9 +254,7 @@ async def activate_profile(name: str) -> ProfileResponse:
 
 
 @router.post("/llm/profiles/{name}/test", response_model=TestConnectionResponse)
-async def test_profile_connection(
-    name: str, request: TestConnectionRequest | None = None
-) -> TestConnectionResponse:
+async def test_profile_connection(name: str, request: TestConnectionRequest | None = None) -> TestConnectionResponse:
     """Test connection to an LLM profile.
 
     Optionally override settings for testing before saving.

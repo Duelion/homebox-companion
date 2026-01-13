@@ -38,9 +38,7 @@ async def list_mcp_tools(
         Each tool's parameters include 'token' as a required field.
     """
     if not settings.chat_enabled:
-        return JSONResponse(
-            status_code=503, content={"error": "Chat/MCP feature is disabled"}
-        )
+        return JSONResponse(status_code=503, content={"error": "Chat/MCP feature is disabled"})
 
     # Get schemas with token parameter included for MCP protocol
     schemas = executor.get_tool_schemas(include_write=False, include_token=True)
@@ -80,16 +78,12 @@ async def execute_mcp_tool(
         JSON response with tool execution result
     """
     if not settings.chat_enabled:
-        return JSONResponse(
-            status_code=503, content={"error": "Chat/MCP feature is disabled"}
-        )
+        return JSONResponse(status_code=503, content={"error": "Chat/MCP feature is disabled"})
 
     try:
         body = await request.json()
     except json.JSONDecodeError:
-        return JSONResponse(
-            status_code=400, content={"success": False, "error": "Invalid JSON body"}
-        )
+        return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON body"})
 
     # Extract token without mutating the input dict
     token = body.get("token")

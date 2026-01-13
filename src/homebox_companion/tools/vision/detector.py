@@ -119,9 +119,7 @@ async def _detect_items_from_data_uris(
             labels, single_item, extract_extended_fields, field_preferences, output_language
         )
 
-    user_prompt = build_detection_user_prompt(
-        extra_instructions, extract_extended_fields, multi_image, single_item
-    )
+    user_prompt = build_detection_user_prompt(extra_instructions, extract_extended_fields, multi_image, single_item)
 
     # Call LLM
     parsed_content = await vision_completion(

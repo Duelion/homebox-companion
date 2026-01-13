@@ -166,9 +166,7 @@ async def detect_items(
                 return CompressedImage(data=base64_data, mime_type=mime)
 
         # Compress all images in parallel
-        return await asyncio.gather(
-            *[compress_one(img_bytes, mime) for img_bytes, mime in all_images_to_compress]
-        )
+        return await asyncio.gather(*[compress_one(img_bytes, mime) for img_bytes, mime in all_images_to_compress])
 
     # Detect items
     logger.info("Starting LLM vision detection and image compression...")
@@ -341,9 +339,7 @@ async def detect_items_batch(
 
     # Process all images in parallel
     logger.info(f"Starting parallel detection for {len(images)} images...")
-    detection_tasks = [
-        detect_single(index, img_bytes, mime_type) for index, img_bytes, mime_type in image_data
-    ]
+    detection_tasks = [detect_single(index, img_bytes, mime_type) for index, img_bytes, mime_type in image_data]
     results = await asyncio.gather(*detection_tasks)
 
     # Sort by image index to maintain order
@@ -355,8 +351,7 @@ async def detect_items_batch(
     total_items = sum(len(r.items) for r in results)
 
     logger.info(
-        f"Batch detection complete: {successful}/{len(results)} images successful, "
-        f"{total_items} total items detected"
+        f"Batch detection complete: {successful}/{len(results)} images successful, {total_items} total items detected"
     )
 
     return BatchDetectionResponse(
@@ -388,8 +383,7 @@ async def analyze_item_advanced(
     # Validate and convert images to data URIs
     validated_images = await validate_files_size(images)
     image_data_uris = [
-        encode_image_bytes_to_data_uri(img_bytes, mime_type)
-        for img_bytes, mime_type in validated_images
+        encode_image_bytes_to_data_uri(img_bytes, mime_type) for img_bytes, mime_type in validated_images
     ]
 
     # Analyze images
@@ -446,8 +440,7 @@ async def correct_item(
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Correction instructions too long. "
-                f"Maximum {MAX_CORRECTION_INSTRUCTIONS_LENGTH} characters allowed."
+                f"Correction instructions too long. Maximum {MAX_CORRECTION_INSTRUCTIONS_LENGTH} characters allowed."
             ),
         )
 

@@ -134,10 +134,7 @@ def optimize_image_for_vision(
         savings = ((original_size - optimized_size) / original_size) * 100
 
         if savings > 5:  # Only log if meaningful savings
-            logger.debug(
-                f"Image optimized: {original_size:,} -> {optimized_size:,} bytes "
-                f"({savings:.1f}% reduction)"
-            )
+            logger.debug(f"Image optimized: {original_size:,} -> {optimized_size:,} bytes ({savings:.1f}% reduction)")
 
         return optimized_bytes, "image/jpeg"
 

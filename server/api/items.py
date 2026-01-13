@@ -115,11 +115,7 @@ async def create_items(
                             "description": full_item.get("description"),
                             "quantity": full_item.get("quantity"),
                             "locationId": full_item.get("location", {}).get("id"),
-                            "labelIds": [
-                                lbl.get("id")
-                                for lbl in full_item.get("labels", [])
-                                if lbl.get("id")
-                            ],
+                            "labelIds": [lbl.get("id") for lbl in full_item.get("labels", []) if lbl.get("id")],
                             **extended_payload,
                         }
                         # Preserve parentId if it was set
@@ -181,9 +177,7 @@ async def create_items(
         content={
             "created": created,
             "errors": errors,
-            "message": (
-                f"Created {len(created)} items" + (f", {len(errors)} failed" if errors else "")
-            ),
+            "message": (f"Created {len(created)} items" + (f", {len(errors)} failed" if errors else "")),
         },
         status_code=200 if not errors else 207,  # 207 Multi-Status if partial success
     )
@@ -209,9 +203,7 @@ async def upload_item_attachment(
     if file_size == 0:
         logger.warning(f"Empty file received for item {item_id}: {file.filename}")
     elif file_size < 1000:
-        logger.warning(
-            f"Suspiciously small file for item {item_id}: {file.filename} ({file_size} bytes)"
-        )
+        logger.warning(f"Suspiciously small file for item {item_id}: {file.filename} ({file_size} bytes)")
 
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"

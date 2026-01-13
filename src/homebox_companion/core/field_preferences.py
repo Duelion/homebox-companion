@@ -54,16 +54,11 @@ class FieldPreferences(BaseSettings):
 
     # Naming examples - env var: HBC_AI_NAMING_EXAMPLES
     naming_examples: str = (
-        '"Ball Bearing 6900-2RS 10x22x6mm", '
-        '"Acrylic Paint Vallejo Game Color Bone White", '
-        '"LED Strip COB Green 5V 1M"'
+        '"Ball Bearing 6900-2RS 10x22x6mm", "Acrylic Paint Vallejo Game Color Bone White", "LED Strip COB Green 5V 1M"'
     )
 
     # Description instructions - env var: HBC_AI_DESCRIPTION
-    description: str = (
-        "Product features and specifications - what IS this item. "
-        "Max 1000 chars, NEVER mention quantity"
-    )
+    description: str = "Product features and specifications - what IS this item. Max 1000 chars, NEVER mention quantity"
 
     # Quantity counting instructions - env var: HBC_AI_QUANTITY
     quantity: str = "Count identical items together, separate different variants"

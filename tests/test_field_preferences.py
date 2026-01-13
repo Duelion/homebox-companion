@@ -29,9 +29,7 @@ class TestConfigurationPriority:
         config_dir.mkdir()
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
-        monkeypatch.setattr(
-            field_preferences, "PREFERENCES_FILE", config_dir / "field_preferences.json"
-        )
+        monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", config_dir / "field_preferences.json")
         field_preferences.get_defaults.cache_clear()
 
         # Get defaults
@@ -50,9 +48,7 @@ class TestConfigurationPriority:
         config_dir.mkdir()
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
-        monkeypatch.setattr(
-            field_preferences, "PREFERENCES_FILE", config_dir / "field_preferences.json"
-        )
+        monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", config_dir / "field_preferences.json")
         field_preferences.get_defaults.cache_clear()
 
         defaults = field_preferences.get_defaults()
