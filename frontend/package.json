@@ -39,6 +39,7 @@
 	},
 	"dependencies": {
 		"heic2any": "^0.0.4",
+		"idb": "^8.0.3",
 		"qr-scanner": "^1.4.2",
 		"rehype-external-links": "^3.0.0",
 		"rehype-sanitize": "^6.0.0",
