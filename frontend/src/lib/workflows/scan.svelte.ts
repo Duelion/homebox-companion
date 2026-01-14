@@ -28,6 +28,16 @@ import type {
 	Progress,
 	SubmissionResult,
 } from '$lib/types';
+import {
+	type StoredSession,
+	serializeImage,
+	serializeReviewItem,
+	serializeConfirmedItem,
+	deserializeImage,
+	deserializeReviewItem,
+	deserializeConfirmedItem,
+} from '$lib/services/serialize';
+import * as sessionPersistence from '$lib/services/sessionPersistence';
 
 // =============================================================================
 // SCAN WORKFLOW CLASS
@@ -140,7 +150,7 @@ class ScanWorkflow {
 					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
 						throw new TypeError(
 							`Cannot read unknown workflow state property: '${prop}'. ` +
-								`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
+							`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
 						);
 					}
 
@@ -198,7 +208,7 @@ class ScanWorkflow {
 					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
 						throw new TypeError(
 							`Cannot set unknown workflow state property: '${prop}'. ` +
-								`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
+							`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
 						);
 					}
 
@@ -206,8 +216,8 @@ class ScanWorkflow {
 					if (!ScanWorkflow.WRITABLE_PROPS.has(propName)) {
 						throw new TypeError(
 							`Cannot set read-only workflow state property: '${prop}'. ` +
-								`This property can only be modified through workflow methods. ` +
-								`Writable properties are: ${[...ScanWorkflow.WRITABLE_PROPS].join(', ')}`
+							`This property can only be modified through workflow methods. ` +
+							`Writable properties are: ${[...ScanWorkflow.WRITABLE_PROPS].join(', ')}`
 						);
 					}
 
@@ -285,6 +295,8 @@ class ScanWorkflow {
 		this._locationPath = path;
 		this._status = 'capturing';
 		this._error = null;
+		// Persist for crash recovery
+		this.persist();
 	}
 
 	/** Clear location selection (also clears parent item since it's location-specific) */
@@ -316,11 +328,15 @@ class ScanWorkflow {
 	/** Add a captured image */
 	addImage(image: CapturedImage): void {
 		this.captureService.addImage(image);
+		// Persist for crash recovery (fire and forget)
+		this.persist();
 	}
 
 	/** Remove an image by index */
 	removeImage(index: number): void {
 		this.captureService.removeImage(index);
+		// Persist for crash recovery
+		this.persist();
 	}
 
 	/** Update image options (separateItems, extraInstructions) */
@@ -401,6 +417,11 @@ class ScanWorkflow {
 			this._error = result.error || 'Analysis failed';
 			this._status = 'capturing';
 			log.error(`Analysis failed: ${this._error}, returning to capture mode`);
+		}
+
+		// Persist after analysis completes (success or partial)
+		if (this._status !== 'capturing') {
+			this.persist();
 		}
 	}
 
@@ -602,6 +623,8 @@ class ScanWorkflow {
 	/** Confirm current item and move to next */
 	confirmItem(item: ReviewItem): void {
 		const hasMore = this.reviewService.confirmCurrentItem(item);
+		// Persist after each confirmation for crash recovery
+		this.persist();
 		if (!hasMore) {
 			this.finishReview();
 		}
@@ -621,6 +644,8 @@ class ScanWorkflow {
 			return;
 		}
 		this._status = 'confirming';
+		// Persist when entering confirmation state
+		this.persist();
 	}
 
 	/** Return to capture mode from review */
@@ -769,6 +794,146 @@ class ScanWorkflow {
 	}
 
 	// =========================================================================
+	// SESSION PERSISTENCE (Crash Recovery)
+	// =========================================================================
+
+	/**
+	 * Persist current workflow state to IndexedDB.
+	 * Called at key workflow points to enable crash recovery.
+	 */
+	async persist(): Promise<void> {
+		// Don't persist terminal states
+		if (this._status === 'idle' || this._status === 'complete') {
+			return;
+		}
+
+		try {
+			// Serialize images (convert File objects to base64)
+			const images = await Promise.all(
+				this.captureService.images.map(serializeImage)
+			);
+
+			// Serialize review items (strip File references)
+			const detectedItems = this.reviewService.detectedItems.map(serializeReviewItem);
+			const confirmedItems = this.reviewService.confirmedItems.map(serializeConfirmedItem);
+
+			const session: StoredSession = {
+				id: crypto.randomUUID(),
+				createdAt: Date.now(),
+				updatedAt: Date.now(),
+				status: this._status,
+				locationId: this._locationId,
+				locationName: this._locationName,
+				locationPath: this._locationPath,
+				parentItemId: this._parentItemId,
+				parentItemName: this._parentItemName,
+				images,
+				detectedItems,
+				confirmedItems,
+				currentReviewIndex: this.reviewService.currentReviewIndex,
+			};
+
+			// Preserve original createdAt if updating existing session
+			const existingSession = await sessionPersistence.load();
+			if (existingSession) {
+				session.createdAt = existingSession.createdAt;
+			}
+
+			await sessionPersistence.save(session);
+			log.debug(`Session persisted: status=${this._status}, images=${images.length}`);
+		} catch (error) {
+			// Non-critical - log but don't disrupt workflow
+			log.warn('Failed to persist session:', error);
+		}
+	}
+
+	/**
+	 * Recover workflow state from IndexedDB.
+	 * Returns true if recovery was successful.
+	 */
+	async recover(): Promise<boolean> {
+		try {
+			const session = await sessionPersistence.load();
+			if (!session) {
+				return false;
+			}
+
+			log.info(`Recovering session: status=${session.status}, images=${session.images.length}`);
+
+			// Restore location state
+			this._locationId = session.locationId;
+			this._locationName = session.locationName;
+			this._locationPath = session.locationPath;
+			this._parentItemId = session.parentItemId;
+			this._parentItemName = session.parentItemName;
+
+			// Deserialize images (convert base64 back to File objects)
+			const images = await Promise.all(session.images.map(deserializeImage));
+			this.captureService.images = images;
+
+			// Deserialize review items
+			if (session.detectedItems.length > 0) {
+				const detectedItems = await Promise.all(
+					session.detectedItems.map(deserializeReviewItem)
+				);
+				this.reviewService.setDetectedItems(detectedItems);
+			}
+
+			if (session.confirmedItems.length > 0) {
+				const confirmedItems = await Promise.all(
+					session.confirmedItems.map(deserializeConfirmedItem)
+				);
+				// Restore confirmed items directly (not via confirmCurrentItem which affects navigation)
+				this.reviewService.setConfirmedItems(confirmedItems);
+			}
+
+			// Restore review index
+			if (session.currentReviewIndex > 0) {
+				this.reviewService.setCurrentReviewIndex(session.currentReviewIndex);
+			}
+
+			// Restore status - handle mid-analysis state
+			if (session.status === 'analyzing') {
+				// If crashed during analysis, go back to capturing
+				this._status = 'capturing';
+			} else {
+				this._status = session.status;
+			}
+
+			this._error = null;
+
+			log.info('Session recovered successfully');
+			return true;
+		} catch (error) {
+			log.error('Failed to recover session:', error);
+			// Clear corrupted session
+			await this.clearPersistedSession();
+			return false;
+		}
+	}
+
+	/**
+	 * Check if a recoverable session exists.
+	 */
+	async hasRecoverableSession(): Promise<boolean> {
+		return sessionPersistence.hasRecoverableSession();
+	}
+
+	/**
+	 * Get summary of recoverable session for UI display.
+	 */
+	async getRecoverySummary(): Promise<sessionPersistence.SessionSummary | null> {
+		return sessionPersistence.getSessionSummary();
+	}
+
+	/**
+	 * Clear the persisted session from IndexedDB.
+	 */
+	async clearPersistedSession(): Promise<void> {
+		await sessionPersistence.clear();
+	}
+
+	// =========================================================================
 	// RESET
 	// =========================================================================
 
@@ -785,6 +950,8 @@ class ScanWorkflow {
 		this._parentItemId = null;
 		this._parentItemName = null;
 		this._error = null;
+		// Clear persisted session (fire and forget)
+		this.clearPersistedSession();
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */
