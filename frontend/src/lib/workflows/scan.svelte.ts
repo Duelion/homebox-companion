@@ -78,6 +78,12 @@ class ScanWorkflow {
 	/** Current error message */
 	private _error = $state<string | null>(null);
 
+	/** Cached createdAt from persisted session (avoids loading full session on each persist) */
+	private _persistedCreatedAt: number | null = null;
+
+	/** Cached session ID (stable across saves) */
+	private _persistedSessionId: string | null = null;
+
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
 	// =========================================================================
@@ -350,11 +356,15 @@ class ScanWorkflow {
 	/** Add additional images to a captured image */
 	addAdditionalImages(imageIndex: number, files: File[], dataUrls: string[]): void {
 		this.captureService.addAdditionalImages(imageIndex, files, dataUrls);
+		// Persist for crash recovery
+		this.persist();
 	}
 
 	/** Remove an additional image */
 	removeAdditionalImage(imageIndex: number, additionalIndex: number): void {
 		this.captureService.removeAdditionalImage(imageIndex, additionalIndex);
+		// Persist for crash recovery
+		this.persist();
 	}
 
 	/** Clear all captured images */
@@ -817,10 +827,19 @@ class ScanWorkflow {
 			const detectedItems = this.reviewService.detectedItems.map(serializeReviewItem);
 			const confirmedItems = this.reviewService.confirmedItems.map(serializeConfirmedItem);
 
+			// Use cached values or create new ones for first persist
+			const now = Date.now();
+			if (this._persistedCreatedAt === null) {
+				this._persistedCreatedAt = now;
+			}
+			if (this._persistedSessionId === null) {
+				this._persistedSessionId = crypto.randomUUID();
+			}
+
 			const session: StoredSession = {
-				id: crypto.randomUUID(),
-				createdAt: Date.now(),
-				updatedAt: Date.now(),
+				id: this._persistedSessionId,
+				createdAt: this._persistedCreatedAt,
+				updatedAt: now,
 				status: this._status,
 				locationId: this._locationId,
 				locationName: this._locationName,
@@ -831,13 +850,8 @@ class ScanWorkflow {
 				detectedItems,
 				confirmedItems,
 				currentReviewIndex: this.reviewService.currentReviewIndex,
+				imageStatuses: this.analysisService.imageStatuses,
 			};
-
-			// Preserve original createdAt if updating existing session
-			const existingSession = await sessionPersistence.load();
-			if (existingSession) {
-				session.createdAt = existingSession.createdAt;
-			}
 
 			await sessionPersistence.save(session);
 			log.debug(`Session persisted: status=${this._status}, images=${images.length}`);
@@ -892,6 +906,11 @@ class ScanWorkflow {
 				this.reviewService.setCurrentReviewIndex(session.currentReviewIndex);
 			}
 
+			// Restore image statuses (for partial_analysis recovery)
+			if (session.imageStatuses) {
+				this.analysisService.imageStatuses = session.imageStatuses;
+			}
+
 			// Restore status - handle mid-analysis state
 			if (session.status === 'analyzing') {
 				// If crashed during analysis, go back to capturing
@@ -901,6 +920,10 @@ class ScanWorkflow {
 			}
 
 			this._error = null;
+
+			// Cache timestamps and ID for future persist() calls
+			this._persistedCreatedAt = session.createdAt;
+			this._persistedSessionId = session.id;
 
 			log.info('Session recovered successfully');
 			return true;
@@ -950,6 +973,8 @@ class ScanWorkflow {
 		this._parentItemId = null;
 		this._parentItemName = null;
 		this._error = null;
+		this._persistedCreatedAt = null; // Reset for next session
+		this._persistedSessionId = null; // Reset for next session
 		// Clear persisted session (fire and forget)
 		this.clearPersistedSession();
 	}

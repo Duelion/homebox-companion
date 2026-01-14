@@ -353,8 +353,8 @@
 		{#if hasRecovery && recoverySummary && !locationStore.selected}
 			<RecoveryBanner
 				summary={recoverySummary}
-				on:resume={handleResumeSession}
-				on:dismiss={handleDismissRecovery}
+				onResume={handleResumeSession}
+				onDismiss={handleDismissRecovery}
 			/>
 		{/if}
 

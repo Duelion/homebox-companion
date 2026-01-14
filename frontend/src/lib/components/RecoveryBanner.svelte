@@ -5,29 +5,19 @@
 	 * Shown when a recoverable session is detected (e.g., after page reload mid-workflow).
 	 * Provides options to resume the session or start fresh.
 	 */
-	import { createEventDispatcher } from 'svelte';
 	import type { SessionSummary } from '$lib/services/sessionPersistence';
 	import Button from './Button.svelte';
 
 	interface Props {
 		/** Summary of the recoverable session */
 		summary: SessionSummary;
+		/** Callback when user chooses to resume the session */
+		onResume: () => void;
+		/** Callback when user chooses to dismiss and start fresh */
+		onDismiss: () => void;
 	}
 
-	let { summary }: Props = $props();
-
-	const dispatch = createEventDispatcher<{
-		resume: void;
-		dismiss: void;
-	}>();
-
-	function handleResume() {
-		dispatch('resume');
-	}
-
-	function handleDismiss() {
-		dispatch('dismiss');
-	}
+	let { summary, onResume, onDismiss }: Props = $props();
 
 	// Human-readable status
 	function getStatusText(status: string): string {
@@ -126,7 +116,7 @@
 
 		<!-- Action buttons -->
 		<div class="flex flex-col gap-2 sm:flex-row">
-			<Button variant="primary" onclick={handleResume}>
+			<Button variant="primary" onclick={onResume}>
 				<svg
 					class="h-4 w-4"
 					fill="none"
@@ -138,7 +128,7 @@
 				</svg>
 				<span>Resume Session</span>
 			</Button>
-			<Button variant="ghost" onclick={handleDismiss}>
+			<Button variant="ghost" onclick={onDismiss}>
 				<span>Start Fresh</span>
 			</Button>
 		</div>

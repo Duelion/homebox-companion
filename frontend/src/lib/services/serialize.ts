@@ -18,6 +18,7 @@ import type {
     ThumbnailTransform,
     ItemCore,
     ItemExtended,
+    ImageAnalysisStatus,
 } from '$lib/types';
 
 // =============================================================================
@@ -36,6 +37,7 @@ export interface StoredImage {
     /** base64 data URLs for additional images */
     additionalDataUrls?: string[];
     additionalFilenames?: string[];
+    additionalMimeTypes?: string[];
 }
 
 /** Serializable version of ReviewItem */
@@ -78,6 +80,9 @@ export interface StoredSession {
     detectedItems: StoredReviewItem[];
     confirmedItems: StoredConfirmedItem[];
     currentReviewIndex: number;
+
+    // Analysis state (for partial_analysis recovery)
+    imageStatuses?: Record<number, ImageAnalysisStatus>;
 }
 
 // =============================================================================
@@ -124,6 +129,36 @@ export async function dataUrlToFile(
 }
 
 // =============================================================================
+// OBJECT URL CLEANUP
+// =============================================================================
+
+/**
+ * Revoke Object URLs associated with a CapturedImage to prevent memory leaks.
+ * 
+ * Object URLs (blob:...) are created during deserialization for efficient display.
+ * They must be revoked when the image is no longer needed (e.g., workflow reset,
+ * image removal, or before page unload).
+ * 
+ * @param image - The CapturedImage whose Object URLs should be revoked
+ */
+export function revokeImageObjectUrls(image: CapturedImage): void {
+    // Revoke main image Object URL
+    // Only revoke if it's an Object URL (starts with 'blob:')
+    if (image.dataUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(image.dataUrl);
+    }
+
+    // Revoke additional image Object URLs
+    if (image.additionalDataUrls) {
+        for (const url of image.additionalDataUrls) {
+            if (url?.startsWith('blob:')) {
+                URL.revokeObjectURL(url);
+            }
+        }
+    }
+}
+
+// =============================================================================
 // SERIALIZATION (Runtime → Stored)
 // =============================================================================
 
@@ -138,10 +173,12 @@ export async function serializeImage(img: CapturedImage): Promise<StoredImage> {
     // Convert additional files to base64
     let additionalDataUrls: string[] | undefined;
     let additionalFilenames: string[] | undefined;
+    let additionalMimeTypes: string[] | undefined;
 
     if (img.additionalFiles && img.additionalFiles.length > 0) {
         additionalDataUrls = await Promise.all(img.additionalFiles.map(fileToDataUrl));
         additionalFilenames = img.additionalFiles.map((f) => f.name);
+        additionalMimeTypes = img.additionalFiles.map((f) => f.type || 'image/jpeg');
     }
 
     return {
@@ -153,6 +190,7 @@ export async function serializeImage(img: CapturedImage): Promise<StoredImage> {
         extraInstructions: img.extraInstructions,
         additionalDataUrls,
         additionalFilenames,
+        additionalMimeTypes,
     };
 }
 
@@ -215,7 +253,8 @@ export async function deserializeImage(stored: StoredImage): Promise<CapturedIma
         additionalFiles = await Promise.all(
             stored.additionalDataUrls.map((url, i) => {
                 const filename = stored.additionalFilenames?.[i] || `additional_${i}.jpg`;
-                return dataUrlToFile(url, filename);
+                const mimeType = stored.additionalMimeTypes?.[i]; // Let dataUrlToFile extract from URL if missing
+                return dataUrlToFile(url, filename, mimeType);
             })
         );
         // Create fresh Object URLs for display
@@ -245,6 +284,12 @@ export async function deserializeReviewItem(stored: StoredReviewItem): Promise<R
             stored.compressedDataUrl,
             stored.originalFilename,
             stored.originalMimeType
+        );
+    } else if (stored.compressedDataUrl && !stored.originalFilename) {
+        // Log warning when we have image data but no filename to reconstruct with
+        console.warn(
+            '[serialize] Cannot reconstruct originalFile: compressedDataUrl exists but originalFilename is missing',
+            { name: stored.name }
         );
     }
 
