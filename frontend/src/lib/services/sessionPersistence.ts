@@ -220,23 +220,17 @@ export async function load(): Promise<StoredSession | null> {
  */
 export async function save(session: StoredSession): Promise<void> {
     if (!browser) {
-        log.debug('save() skipped: not in browser');
         return;
     }
 
-    log.debug(`save() called: id=${session.id}, status=${session.status}, images=${session.images?.length ?? 0}`);
-
     try {
-        log.debug('save() opening database connection');
         const db = await getDb();
-        log.debug('save() database connection established');
 
         // Update the updatedAt timestamp
         session.updatedAt = Date.now();
 
-        log.debug('save() putting session to IndexedDB');
         await db.put(STORE_NAME, session, SESSION_KEY);
-        log.info(`Session saved successfully: id=${session.id}, status=${session.status}, images=${session.images?.length ?? 0}`);
+        log.debug(`Saved session: status=${session.status}, images=${session.images?.length ?? 0}`);
     } catch (error) {
         log.error('Error saving session:', error);
         // Don't throw - persistence failures shouldn't break the workflow
