@@ -25,9 +25,19 @@
 		md: 'p-4',
 		lg: 'p-6',
 	};
+
+	/**
+	 * Handle keyboard events for interactive cards.
+	 * Triggers onclick on Enter or Space key press for accessibility compliance.
+	 */
+	function handleKeydown(e: KeyboardEvent) {
+		if (onclick && (e.key === 'Enter' || e.key === ' ')) {
+			e.preventDefault();
+			onclick();
+		}
+	}
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
@@ -35,6 +45,7 @@
 		padding
 	]}"
 	{onclick}
+	onkeydown={onclick ? handleKeydown : undefined}
 	role={onclick ? 'button' : undefined}
 	tabindex={onclick ? 0 : undefined}
 >

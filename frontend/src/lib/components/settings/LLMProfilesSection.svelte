@@ -7,6 +7,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { llmProfiles, type LLMProfile, type ProfileStatus } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	// State
 	let profiles = $state<LLMProfile[]>([]);
@@ -36,20 +37,6 @@
 			clearTimeout(testTimeoutId);
 		}
 	});
-
-	// Focus trap and keyboard handling for modal
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			closeModal();
-		}
-	}
-
-	function handleBackdropClick(event: MouseEvent) {
-		// Only close if clicking the backdrop itself, not the modal content
-		if (event.target === event.currentTarget) {
-			closeModal();
-		}
-	}
 
 	async function loadProfiles() {
 		loading = true;
@@ -333,125 +320,103 @@
 </section>
 
 <!-- Modal -->
-{#if showModal}
-	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="modal-title"
-		tabindex="-1"
-		onkeydown={handleKeydown}
-		onclick={handleBackdropClick}
+<Modal
+	bind:open={showModal}
+	title={editingProfile ? 'Edit Profile' : 'New Profile'}
+	onclose={closeModal}
+>
+	<form
+		class="space-y-4"
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleSave();
+		}}
 	>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-6"
-			onclick={(e) => e.stopPropagation()}
-		>
-			<h3 id="modal-title" class="text-lg font-semibold text-neutral-100">
-				{editingProfile ? 'Edit Profile' : 'New Profile'}
-			</h3>
-
-			<form
-				class="mt-4 space-y-4"
-				onsubmit={(e) => {
-					e.preventDefault();
-					handleSave();
-				}}
-			>
-				<div>
-					<label for="profile-name" class="mb-1 block text-sm font-medium text-neutral-300">
-						Name
-					</label>
-					<input
-						id="profile-name"
-						type="text"
-						bind:value={formName}
-						required
-						placeholder="e.g., openai-prod"
-						class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 placeholder-neutral-500 focus:ring-1 focus:outline-none"
-					/>
-				</div>
-
-				<div>
-					<label for="profile-model" class="mb-1 block text-sm font-medium text-neutral-300">
-						Model
-					</label>
-					<input
-						id="profile-model"
-						type="text"
-						bind:value={formModel}
-						required
-						placeholder="e.g., gpt-4o, ollama/mistral"
-						class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 placeholder-neutral-500 focus:ring-1 focus:outline-none"
-					/>
-					<p class="mt-1 text-xs text-neutral-500">
-						LiteLLM model format: gpt-4o, claude-3-opus, ollama/mistral
-					</p>
-				</div>
-
-				<div>
-					<label for="profile-api-key" class="mb-1 block text-sm font-medium text-neutral-300">
-						API Key
-					</label>
-					<input
-						id="profile-api-key"
-						type="password"
-						bind:value={formApiKey}
-						placeholder={editingProfile?.has_api_key ? '••••••••' : 'sk-...'}
-						class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 placeholder-neutral-500 focus:ring-1 focus:outline-none"
-					/>
-					{#if editingProfile}
-						<p class="mt-1 text-xs text-neutral-500">Leave blank to keep existing key</p>
-					{/if}
-				</div>
-
-				<div>
-					<label for="profile-api-base" class="mb-1 block text-sm font-medium text-neutral-300">
-						API Base URL <span class="text-neutral-500">(optional)</span>
-					</label>
-					<input
-						id="profile-api-base"
-						type="text"
-						bind:value={formApiBase}
-						placeholder="e.g., http://localhost:11434"
-						class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 placeholder-neutral-500 focus:ring-1 focus:outline-none"
-					/>
-				</div>
-
-				<div>
-					<label for="profile-status" class="mb-1 block text-sm font-medium text-neutral-300">
-						Status
-					</label>
-					<select
-						id="profile-status"
-						bind:value={formStatus}
-						class="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 focus:ring-1 focus:outline-none"
-					>
-						<option value="primary">Primary</option>
-						<option value="fallback">Fallback</option>
-						<option value="off">Off</option>
-					</select>
-					<p class="mt-1 text-xs text-neutral-500">
-						{#if formStatus === 'primary'}
-							Primary model used for all AI features
-						{:else if formStatus === 'fallback'}
-							Used automatically if the primary model fails
-						{:else}
-							Profile saved but not in use
-						{/if}
-					</p>
-				</div>
-
-				<div class="flex gap-3 pt-2">
-					<Button variant="ghost" full onclick={closeModal} type="button">Cancel</Button>
-					<Button variant="primary" full type="submit" disabled={saving}>
-						{saving ? 'Saving...' : 'Save'}
-					</Button>
-				</div>
-			</form>
+		<div>
+			<label for="profile-name" class="mb-1 block text-sm font-medium text-neutral-300">
+				Name
+			</label>
+			<input
+				id="profile-name"
+				type="text"
+				bind:value={formName}
+				required
+				placeholder="e.g., openai-prod"
+				class="input-sm"
+			/>
 		</div>
-	</div>
-{/if}
+
+		<div>
+			<label for="profile-model" class="mb-1 block text-sm font-medium text-neutral-300">
+				Model
+			</label>
+			<input
+				id="profile-model"
+				type="text"
+				bind:value={formModel}
+				required
+				placeholder="e.g., gpt-4o, ollama/mistral"
+				class="input-sm"
+			/>
+			<p class="mt-1 text-xs text-neutral-500">
+				LiteLLM model format: gpt-4o, claude-3-opus, ollama/mistral
+			</p>
+		</div>
+
+		<div>
+			<label for="profile-api-key" class="mb-1 block text-sm font-medium text-neutral-300">
+				API Key
+			</label>
+			<input
+				id="profile-api-key"
+				type="password"
+				bind:value={formApiKey}
+				placeholder={editingProfile?.has_api_key ? '••••••••' : 'sk-...'}
+				class="input-sm"
+			/>
+			{#if editingProfile}
+				<p class="mt-1 text-xs text-neutral-500">Leave blank to keep existing key</p>
+			{/if}
+		</div>
+
+		<div>
+			<label for="profile-api-base" class="mb-1 block text-sm font-medium text-neutral-300">
+				API Base URL <span class="text-neutral-500">(optional)</span>
+			</label>
+			<input
+				id="profile-api-base"
+				type="text"
+				bind:value={formApiBase}
+				placeholder="e.g., http://localhost:11434"
+				class="input-sm"
+			/>
+		</div>
+
+		<div>
+			<label for="profile-status" class="mb-1 block text-sm font-medium text-neutral-300">
+				Status
+			</label>
+			<select id="profile-status" bind:value={formStatus} class="input-sm">
+				<option value="primary">Primary</option>
+				<option value="fallback">Fallback</option>
+				<option value="off">Off</option>
+			</select>
+			<p class="mt-1 text-xs text-neutral-500">
+				{#if formStatus === 'primary'}
+					Primary model used for all AI features
+				{:else if formStatus === 'fallback'}
+					Used automatically if the primary model fails
+				{:else}
+					Profile saved but not in use
+				{/if}
+			</p>
+		</div>
+
+		<div class="flex gap-3 pt-2">
+			<Button variant="ghost" full onclick={closeModal} type="button">Cancel</Button>
+			<Button variant="primary" full type="submit" disabled={saving}>
+				{saving ? 'Saving...' : 'Save'}
+			</Button>
+		</div>
+	</form>
+</Modal>

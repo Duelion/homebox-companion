@@ -43,7 +43,7 @@
 
 {#if toasts.length > 0}
 	<div
-		class="pointer-events-none fixed left-4 right-4 top-4 z-50 flex flex-col gap-2 md:left-auto md:right-4 md:w-96"
+		class="pointer-events-none fixed top-4 right-4 left-4 z-50 flex flex-col gap-2 md:right-4 md:left-auto md:w-96"
 	>
 		{#each toasts as toast (toast.id)}
 			<div
@@ -72,7 +72,7 @@
 								target="_blank"
 								rel="noopener noreferrer"
 								class="shrink-0 text-sm underline transition-colors {toast.type === 'update'
-									? 'text-primary hover:text-primary/80'
+									? 'text-primary-400 hover:text-primary-300'
 									: 'hover:opacity-80'}"
 							>
 								{toast.action.label}
@@ -82,7 +82,7 @@
 					</div>
 					<button
 						type="button"
-						class="flex min-h-8 min-w-8 items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
+						class="flex min-h-8 min-w-8 items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:ring-2 focus:ring-white/30 focus:outline-none"
 						aria-label="Dismiss notification"
 						onclick={() => dismissToast(toast.id)}
 					>

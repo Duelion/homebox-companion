@@ -134,6 +134,9 @@ class Settings(BaseSettings):
     chat_approval_timeout: int = 300  # Seconds before pending approvals expire
     chat_max_response_tokens: int = 0  # 0 = no limit (LLM decides naturally)
 
+    # Auth rate limiting (brute-force protection)
+    auth_rate_limit_rpm: int = 10  # Login attempts per minute per IP
+
     @computed_field
     @property
     def api_url(self) -> str:

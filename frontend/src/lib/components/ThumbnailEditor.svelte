@@ -7,7 +7,6 @@
 	interface Props {
 		images: { file: File; dataUrl: string }[];
 		itemName: string;
-		currentThumbnail?: string;
 		initialTransform?: ThumbnailTransform;
 		onSave: (dataUrl: string, sourceImageIndex: number, transform: ThumbnailTransform) => void;
 		onClose: () => void;
@@ -465,14 +464,14 @@
 							<div
 								class="h-16 w-16 overflow-hidden rounded-lg border-2 transition-all {selectedImageIndex ===
 								index
-									? 'border-primary-500 ring-2 ring-primary-500/30'
+									? 'border-primary-500 ring-primary-500/30 ring-2'
 									: 'border-neutral-700 hover:border-neutral-600'}"
 							>
 								<img src={img.dataUrl} alt="Image {index + 1}" class="h-full w-full object-cover" />
 							</div>
 							<span
 								class="text-xs {selectedImageIndex === index
-									? 'font-medium text-primary-400'
+									? 'text-primary-400 font-medium'
 									: 'text-neutral-500'}"
 							>
 								Image {index + 1}
@@ -511,7 +510,7 @@
 						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
 						<svg
-							class="h-4 w-4 text-primary-400"
+							class="text-primary-400 h-4 w-4"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -525,7 +524,7 @@
 				</div>
 				<!-- Tick marks for zoom -->
 				<div class="relative mb-1">
-					<div class="flex justify-between px-0.5 text-xxs text-neutral-600">
+					<div class="text-xxs flex justify-between px-0.5 text-neutral-600">
 						<span>Min</span>
 						<span>Mid</span>
 						<span>Max</span>
@@ -539,7 +538,7 @@
 					step="0.005"
 					value={zoomSliderValue}
 					oninput={handleZoomSlider}
-					class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-neutral-800"
+					class="slider-primary h-2 w-full cursor-pointer rounded-lg bg-neutral-800"
 				/>
 			</div>
 
@@ -551,7 +550,7 @@
 						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
 						<svg
-							class="h-4 w-4 text-primary-400"
+							class="text-primary-400 h-4 w-4"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -568,7 +567,7 @@
 				</div>
 				<!-- Tick marks for rotation -->
 				<div class="relative mb-1 px-11">
-					<div class="flex justify-between text-xxs text-neutral-600">
+					<div class="text-xxs flex justify-between text-neutral-600">
 						<span>-180°</span>
 						<span>-90°</span>
 						<span>0°</span>
@@ -579,7 +578,7 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="min-h-touch min-w-touch relative z-10 flex flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateLeft90}
 						aria-label="Rotate 90° left"
 						title="-90°"
@@ -606,11 +605,11 @@
 						step="1"
 						value={rotation}
 						oninput={handleRotationSlider}
-						class="relative z-0 h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-neutral-800"
+						class="slider-primary relative z-0 h-2 flex-1 cursor-pointer rounded-lg bg-neutral-800"
 					/>
 					<button
 						type="button"
-						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="min-h-touch min-w-touch relative z-10 flex flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateRight90}
 						aria-label="Rotate 90° right"
 						title="+90°"
@@ -663,61 +662,4 @@
 	</div>
 </div>
 
-<style>
-	/* Custom slider styling with larger thumbs (22px) */
-	input[type='range'] {
-		-webkit-appearance: none;
-		appearance: none;
-		background: transparent;
-	}
-
-	input[type='range']::-webkit-slider-runnable-track {
-		@apply h-2 w-full rounded bg-neutral-800;
-	}
-
-	input[type='range']::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		appearance: none;
-		@apply -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full bg-primary-500 transition-all duration-fast;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	input[type='range']::-webkit-slider-thumb:hover {
-		@apply scale-[1.15];
-		box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-	}
-
-	input[type='range']::-webkit-slider-thumb:active {
-		@apply scale-105;
-	}
-
-	input[type='range']::-moz-range-track {
-		@apply h-2 w-full rounded bg-neutral-800;
-	}
-
-	input[type='range']::-moz-range-thumb {
-		@apply h-[22px] w-[22px] cursor-pointer rounded-full border-0 bg-primary-500;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	input[type='range']::-moz-range-thumb:hover {
-		box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-	}
-
-	/* Focus states for accessibility */
-	input[type='range']:focus {
-		outline: none;
-	}
-
-	input[type='range']:focus::-webkit-slider-thumb {
-		box-shadow:
-			0 0 0 3px rgba(99, 102, 241, 0.3),
-			0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	input[type='range']:focus::-moz-range-thumb {
-		box-shadow:
-			0 0 0 3px rgba(99, 102, 241, 0.3),
-			0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-</style>
+<!-- Slider styling now provided by global .slider-primary utility in app.css -->

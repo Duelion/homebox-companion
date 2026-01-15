@@ -212,9 +212,3 @@ class MemorySessionStore:
             self._last_access.clear()
             logger.info(f"Cleared all {count} sessions")
             return count
-
-    @property
-    def session_count(self) -> int:
-        """Get the number of active sessions."""
-        with self._lock:
-            return len(self._sessions)
