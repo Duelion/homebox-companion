@@ -10,7 +10,6 @@
 	import { getVersion, getConfig, setDemoMode } from '$lib/api';
 	import { setLogLevel } from '$lib/utils/logger';
 	import { initializeAuth } from '$lib/services/tokenRefresh';
-	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { afterNavigate, onNavigate } from '$app/navigation';
@@ -62,11 +61,6 @@
 		uiStore.setOnline(false);
 	}
 
-	// Flush any pending session persist before page unload
-	function handleBeforeUnload() {
-		scanWorkflow.flushPendingPersist();
-	}
-
 	// Scroll to top after each navigation
 	// Note: afterNavigate is automatically cleaned up by SvelteKit when the component unmounts
 	afterNavigate(() => {
@@ -113,7 +107,6 @@
 			uiStore.setOnline(navigator.onLine);
 			window.addEventListener('online', handleOnline);
 			window.addEventListener('offline', handleOffline);
-			window.addEventListener('beforeunload', handleBeforeUnload);
 
 			// Fetch config, sync log level, and initialize demo mode state early
 			try {
@@ -142,7 +135,6 @@
 		if (browser) {
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);
-			window.removeEventListener('beforeunload', handleBeforeUnload);
 		}
 	});
 </script>
