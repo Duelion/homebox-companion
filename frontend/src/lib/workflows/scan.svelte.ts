@@ -349,6 +349,7 @@ class ScanWorkflow {
 		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions'>>
 	): void {
 		this.captureService.updateImageOptions(index, options);
+		this.persist();
 	}
 
 	/** Add additional images to a captured image */
