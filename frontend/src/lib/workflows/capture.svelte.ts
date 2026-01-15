@@ -69,6 +69,13 @@ export class CaptureService {
 	/** Remove an additional image from a captured image */
 	removeAdditionalImage(imageIndex: number, additionalIndex: number): void {
 		log.debug(`Removing additional image ${additionalIndex} from image ${imageIndex}`);
+
+		// Revoke Object URL for the removed additional image to prevent memory leak
+		const img = this.images[imageIndex];
+		if (img?.additionalDataUrls?.[additionalIndex]?.startsWith('blob:')) {
+			URL.revokeObjectURL(img.additionalDataUrls[additionalIndex]);
+		}
+
 		this.images = this.images.map((img, i) => {
 			if (i !== imageIndex) return img;
 			return {

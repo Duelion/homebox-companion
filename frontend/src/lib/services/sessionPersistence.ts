@@ -253,5 +253,3 @@ export async function clear(): Promise<void> {
         // Don't throw - cleanup failures are non-critical
     }
 }
-
-
