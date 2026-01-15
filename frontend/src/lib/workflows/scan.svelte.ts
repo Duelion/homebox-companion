@@ -84,12 +84,6 @@ class ScanWorkflow {
 	/** Cached session ID (stable across saves) */
 	private _persistedSessionId: string | null = null;
 
-	/** Debounce timer for persist calls to prevent race conditions */
-	private _persistDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-	/** Time in ms to debounce persist calls */
-	private static readonly PERSIST_DEBOUNCE_MS = 300;
-
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
 	// =========================================================================
@@ -340,14 +334,12 @@ class ScanWorkflow {
 	/** Add a captured image */
 	addImage(image: CapturedImage): void {
 		this.captureService.addImage(image);
-		// Persist for crash recovery (fire and forget)
 		this.persist();
 	}
 
 	/** Remove an image by index */
 	removeImage(index: number): void {
 		this.captureService.removeImage(index);
-		// Persist for crash recovery
 		this.persist();
 	}
 
@@ -362,14 +354,12 @@ class ScanWorkflow {
 	/** Add additional images to a captured image */
 	addAdditionalImages(imageIndex: number, files: File[], dataUrls: string[]): void {
 		this.captureService.addAdditionalImages(imageIndex, files, dataUrls);
-		// Persist for crash recovery
 		this.persist();
 	}
 
 	/** Remove an additional image */
 	removeAdditionalImage(imageIndex: number, additionalIndex: number): void {
 		this.captureService.removeAdditionalImage(imageIndex, additionalIndex);
-		// Persist for crash recovery
 		this.persist();
 	}
 
@@ -814,61 +804,25 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/**
-	 * Persist current workflow state to IndexedDB.
-	 * Called at key workflow points to enable crash recovery.
-	 * Uses debouncing to prevent race conditions when called rapidly.
-	 * @param immediate - If true, bypass debounce and persist immediately (for critical state changes)
+	 * Persist current workflow state to IndexedDB for crash recovery.
+	 * 
+	 * Called at key workflow points (image capture, state transitions, etc.)
+	 * Writes are async but fire-and-forget - we don't await completion.
 	 */
-	persist(immediate = false): void {
+	persist(): void {
 		// Don't persist terminal states
 		if (this._status === 'idle' || this._status === 'complete') {
 			return;
 		}
 
-		// Immediate persist: bypass debounce for critical changes
-		if (immediate) {
-			log.debug(`Persist immediate: status=${this._status}`);
-			if (this._persistDebounceTimer !== null) {
-				clearTimeout(this._persistDebounceTimer);
-				this._persistDebounceTimer = null;
-			}
-			this._doPersist();
-			return;
-		}
-
-		// Debounce: cancel any pending persist and schedule a new one
-		if (this._persistDebounceTimer !== null) {
-			clearTimeout(this._persistDebounceTimer);
-		}
-
-		this._persistDebounceTimer = setTimeout(() => {
-			this._persistDebounceTimer = null;
-			this._doPersist();
-		}, ScanWorkflow.PERSIST_DEBOUNCE_MS);
+		// Fire-and-forget async persist
+		this._doPersist();
 	}
 
 	/**
-	 * Flush any pending debounced persist immediately.
-	 * Call this before page unload to ensure state is saved.
-	 */
-	flushPendingPersist(): void {
-		if (this._persistDebounceTimer !== null) {
-			log.debug('Flushing pending persist (beforeunload)');
-			clearTimeout(this._persistDebounceTimer);
-			this._persistDebounceTimer = null;
-			this._doPersist();
-		}
-	}
-
-	/**
-	 * Internal persist implementation - actually saves to IndexedDB.
+	 * Internal persist implementation - serializes and saves to IndexedDB.
 	 */
 	private async _doPersist(): Promise<void> {
-		// Re-check terminal states in case status changed during debounce
-		if (this._status === 'idle' || this._status === 'complete') {
-			return;
-		}
-
 		try {
 			// Serialize images (convert File objects to base64)
 			const images = await Promise.all(
