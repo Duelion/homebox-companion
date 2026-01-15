@@ -33,10 +33,21 @@
 	::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.3);
 	}
+
+	/* Thin scrollbar variant for compact areas */
+	.scrollbar-thin {
+		scrollbar-width: thin;
+	}
+
+	.scrollbar-thin::-webkit-scrollbar {
+		width: 4px;
+		height: 4px;
+	}
 }
 
 /* Component utilities */
 @layer components {
+
 	/* Icon button - compact */
 	.btn-icon {
 		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 active:bg-neutral-700;
@@ -314,12 +325,10 @@
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply animate-shimmer rounded bg-neutral-800;
-		background: linear-gradient(
-			90deg,
-			theme('colors.neutral.800') 25%,
-			theme('colors.neutral.700') 50%,
-			theme('colors.neutral.800') 75%
-		);
+		background: linear-gradient(90deg,
+				theme('colors.neutral.800') 25%,
+				theme('colors.neutral.700') 50%,
+				theme('colors.neutral.800') 75%);
 		background-size: 200% 100%;
 	}
 
@@ -360,6 +369,55 @@
 	.empty-state {
 		@apply flex min-h-[35vh] flex-col items-center justify-center px-6 py-12 text-center;
 	}
+
+	/* Custom slider styling with larger thumbs for touch targets */
+	.slider-primary {
+		-webkit-appearance: none;
+		appearance: none;
+		background: transparent;
+	}
+
+	.slider-primary::-webkit-slider-runnable-track {
+		@apply h-2 w-full rounded bg-neutral-800;
+	}
+
+	.slider-primary::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		@apply bg-primary-500 duration-fast -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full shadow-md transition-all;
+	}
+
+	.slider-primary::-webkit-slider-thumb:hover {
+		@apply shadow-primary-glow scale-[1.15];
+	}
+
+	.slider-primary::-webkit-slider-thumb:active {
+		@apply scale-105;
+	}
+
+	.slider-primary::-moz-range-track {
+		@apply h-2 w-full rounded bg-neutral-800;
+	}
+
+	.slider-primary::-moz-range-thumb {
+		@apply bg-primary-500 h-[22px] w-[22px] cursor-pointer rounded-full border-0 shadow-md;
+	}
+
+	.slider-primary::-moz-range-thumb:hover {
+		@apply shadow-primary-glow;
+	}
+
+	.slider-primary:focus {
+		outline: none;
+	}
+
+	.slider-primary:focus::-webkit-slider-thumb {
+		@apply shadow-primary-ring;
+	}
+
+	.slider-primary:focus::-moz-range-thumb {
+		@apply shadow-primary-ring;
+	}
 }
 
 /* Keyframes now consolidated in tailwind.config.js:
@@ -374,6 +432,7 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
+
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;

@@ -9,7 +9,13 @@
 	 */
 	import { slide } from 'svelte/transition';
 	import type { PendingApproval } from '../api/chat';
-	import { ItemCoreFields, ItemExtendedFields, LabelSelector, LocationSelector } from './form';
+	import {
+		ItemCoreFields,
+		ItemExtendedFields,
+		LabelSelector,
+		LocationSelector,
+		UpdateFieldEditor,
+	} from './form';
 
 	type ActionType = 'delete' | 'create' | 'update';
 
@@ -266,11 +272,6 @@
 		);
 	}
 
-	// Check if extended fields are being updated (for update action)
-	const hasExtendedFieldsBeingChanged = $derived(
-		fieldsBeingChanged.some((f) => (EXTENDED_FIELDS as readonly string[]).includes(f))
-	);
-
 	// Shared helper: check if a field can be modified based on action type
 	const allowedFields = $derived(new Set(fieldsBeingChanged));
 	function canModifyField(field: string): boolean {
@@ -384,7 +385,7 @@
 		>
 			{#if actionType === 'delete'}
 				<svg
-					class="h-4.5 w-4.5 text-error-500"
+					class="text-error-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -396,7 +397,7 @@
 				</svg>
 			{:else if actionType === 'create'}
 				<svg
-					class="h-4.5 w-4.5 text-success-500"
+					class="text-success-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -406,7 +407,7 @@
 				</svg>
 			{:else}
 				<svg
-					class="h-4.5 w-4.5 text-warning-500"
+					class="text-warning-500 h-4.5 w-4.5"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -423,7 +424,7 @@
 		<div class="min-w-0 flex-1">
 			<p class="text-sm font-medium text-neutral-200">
 				<span
-					class="mr-1.5 text-xs font-semibold uppercase tracking-wide {actionType === 'delete'
+					class="mr-1.5 text-xs font-semibold tracking-wide uppercase {actionType === 'delete'
 						? 'text-error-400'
 						: actionType === 'create'
 							? 'text-success-400'
@@ -442,7 +443,7 @@
 			<!-- Expand/Edit Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 {expanded
+				class="hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50 {expanded
 					? 'border-primary-500/50 bg-primary-500/10 text-primary-400'
 					: ''}"
 				disabled={approval.is_expired}
@@ -480,7 +481,7 @@
 			<!-- Reject Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50"
+				class="hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleReject}
 				aria-label="Reject"
@@ -507,7 +508,7 @@
 				class="flex h-9 w-9 items-center justify-center rounded-lg border transition-all disabled:opacity-50 {expanded &&
 				hasModifications
 					? 'border-primary-500/50 bg-primary-500/20 text-primary-400 shadow-primary-glow-sm hover:border-primary-400 hover:bg-primary-500/30 hover:text-primary-300'
-					: 'border-neutral-700 bg-neutral-800 text-neutral-400 hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500'}"
+					: 'hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500 border-neutral-700 bg-neutral-800 text-neutral-400'}"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleApprove}
 				aria-label={expanded && hasModifications ? 'Approve with your changes' : 'Approve'}
@@ -608,229 +609,38 @@
 					</div>
 				{/if}
 			{:else if actionType === 'update'}
-				<!-- Update Entity: Show only fields being changed -->
-				<div class="space-y-2.5">
-					{#if approval.display_info?.target_name || approval.display_info?.item_name}
-						<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
-							<span class="text-xs text-neutral-500">Updating:</span>
-							<span class="ml-1 text-sm text-neutral-300"
-								>{approval.display_info.target_name ?? approval.display_info.item_name}</span
-							>
-							{#if approval.display_info.asset_id}
-								<span class="text-xs text-neutral-500">({approval.display_info.asset_id})</span>
-							{/if}
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('name')}
-						<div>
-							<label for="update-name-{approval.id}" class="label-sm">New Name</label>
-							<input
-								type="text"
-								id="update-name-{approval.id}"
-								bind:value={editedName}
-								placeholder="Item name"
-								class="input-sm"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('quantity')}
-						<div>
-							<label for="update-qty-{approval.id}" class="label-sm">New Quantity</label>
-							<input
-								type="number"
-								id="update-qty-{approval.id}"
-								min="1"
-								bind:value={editedQuantity}
-								class="input-sm w-20"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('description')}
-						<div>
-							<label for="update-desc-{approval.id}" class="label-sm">New Description</label>
-							<textarea
-								id="update-desc-{approval.id}"
-								bind:value={editedDescription}
-								placeholder="Description"
-								rows="2"
-								class="input-sm resize-none"
-								disabled={isProcessing}
-							></textarea>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('color')}
-						<div>
-							<label for="update-color-{approval.id}" class="label-sm">New Color</label>
-							<input
-								type="text"
-								id="update-color-{approval.id}"
-								bind:value={editedColor}
-								placeholder="Color (e.g., #FF5733)"
-								class="input-sm"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('parent_id')}
-						<div>
-							<label for="update-parent-{approval.id}" class="label-sm">New Parent Location</label>
-							<input
-								type="text"
-								id="update-parent-{approval.id}"
-								bind:value={editedParentId}
-								placeholder="Parent Location ID (optional)"
-								class="input-sm"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('location')}
-						<LocationSelector
-							bind:value={editedLocationId}
-							size="sm"
-							disabled={isProcessing}
-							idPrefix="update-{approval.id}"
-							fallbackDisplay={approval.display_info?.location ??
-								(approval.parameters.location_id as string)}
-						/>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('labels')}
-						<LabelSelector
-							selectedIds={editedLabelIds}
-							size="sm"
-							disabled={isProcessing}
-							onToggle={toggleLabel}
-						/>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('notes') && !hasExtendedFieldsBeingChanged}
-						<!-- Only show standalone notes when NOT also showing ItemExtendedFields (which includes notes) -->
-						<div>
-							<label for="update-notes-{approval.id}" class="label-sm">New Notes</label>
-							<textarea
-								id="update-notes-{approval.id}"
-								bind:value={editedNotes}
-								placeholder="Notes"
-								rows="2"
-								class="input-sm resize-none"
-								disabled={isProcessing}
-							></textarea>
-						</div>
-					{/if}
-
-					<!-- Extended fields being changed - render individually to only show changed fields -->
-					{#if fieldsBeingChanged.includes('manufacturer')}
-						<div>
-							<label for="update-manufacturer-{approval.id}" class="label-sm"
-								>New Manufacturer</label
-							>
-							<input
-								type="text"
-								id="update-manufacturer-{approval.id}"
-								bind:value={editedManufacturer}
-								placeholder="Manufacturer"
-								class="input-sm"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('model_number')}
-						<div>
-							<label for="update-model-{approval.id}" class="label-sm">New Model Number</label>
-							<input
-								type="text"
-								id="update-model-{approval.id}"
-								bind:value={editedModelNumber}
-								placeholder="Model Number"
-								class="input-sm"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('serial_number')}
-						<div>
-							<label for="update-serial-{approval.id}" class="label-sm">New Serial Number</label>
-							<input
-								type="text"
-								id="update-serial-{approval.id}"
-								bind:value={editedSerialNumber}
-								placeholder="Serial Number"
-								class="input-sm"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('purchase_price')}
-						<div>
-							<label for="update-price-{approval.id}" class="label-sm">New Purchase Price</label>
-							<input
-								type="number"
-								id="update-price-{approval.id}"
-								step="0.01"
-								min="0"
-								bind:value={editedPurchasePrice}
-								placeholder="0.00"
-								class="input-sm w-32"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('purchase_from')}
-						<div>
-							<label for="update-vendor-{approval.id}" class="label-sm">New Purchased From</label>
-							<input
-								type="text"
-								id="update-vendor-{approval.id}"
-								bind:value={editedPurchaseFrom}
-								placeholder="Vendor"
-								class="input-sm"
-								disabled={isProcessing}
-							/>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.includes('notes') && hasExtendedFieldsBeingChanged}
-						<!-- Notes shown here when part of extended fields update -->
-						<div>
-							<label for="update-notes-ext-{approval.id}" class="label-sm">New Notes</label>
-							<textarea
-								id="update-notes-ext-{approval.id}"
-								bind:value={editedNotes}
-								placeholder="Notes"
-								rows="2"
-								class="input-sm resize-none"
-								disabled={isProcessing}
-							></textarea>
-						</div>
-					{/if}
-
-					{#if fieldsBeingChanged.length === 0}
-						<p class="text-sm text-neutral-500">No specific fields to edit.</p>
-					{/if}
-				</div>
+				<!-- Update Entity: Using extracted UpdateFieldEditor component -->
+				<UpdateFieldEditor
+					{fieldsBeingChanged}
+					idPrefix="update-{approval.id}"
+					disabled={isProcessing}
+					displayInfo={approval.display_info}
+					fallbackLocationId={approval.parameters.location_id as string}
+					bind:name={editedName}
+					bind:quantity={editedQuantity}
+					bind:description={editedDescription}
+					bind:notes={editedNotes}
+					bind:locationId={editedLocationId}
+					bind:labelIds={editedLabelIds}
+					bind:manufacturer={editedManufacturer}
+					bind:modelNumber={editedModelNumber}
+					bind:serialNumber={editedSerialNumber}
+					bind:purchasePrice={editedPurchasePrice}
+					bind:purchaseFrom={editedPurchaseFrom}
+					bind:color={editedColor}
+					bind:parentId={editedParentId}
+					onToggleLabel={toggleLabel}
+				/>
 			{:else if actionType === 'delete'}
 				<!-- Delete Entity: Read-only verification -->
 				<div class="space-y-2">
 					<p class="text-sm text-neutral-400">
 						Are you sure you want to delete this {entityType}? This action cannot be undone.
 					</p>
-					<div class="space-y-1 rounded-lg border border-error-500/20 bg-error-500/10 px-3 py-2">
+					<div class="border-error-500/20 bg-error-500/10 space-y-1 rounded-lg border px-3 py-2">
 						{#if approval.display_info?.target_name || approval.display_info?.item_name}
 							<div>
-								<span class="text-xs capitalize text-neutral-500">{entityType}:</span>
+								<span class="text-xs text-neutral-500 capitalize">{entityType}:</span>
 								<span class="text-error-300 ml-1 text-sm"
 									>{approval.display_info.target_name ?? approval.display_info.item_name}</span
 								>
@@ -850,7 +660,7 @@
 						{/if}
 						{#if !approval.display_info?.target_name && !approval.display_info?.item_name}
 							<div>
-								<span class="text-xs capitalize text-neutral-500">{entityType} ID:</span>
+								<span class="text-xs text-neutral-500 capitalize">{entityType} ID:</span>
 								<span class="ml-1 text-sm text-neutral-300">{entityIdParam}</span>
 							</div>
 						{/if}

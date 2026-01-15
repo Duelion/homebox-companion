@@ -328,6 +328,29 @@ HBC_IMAGE_QUALITY=high
 </details>
 
 <details>
+<summary>🔒 Security Considerations (Production)</summary>
+
+When deploying to production, review these security settings:
+
+| Variable | Default | Production Recommendation |
+|----------|---------|---------------------------|
+| `HBC_CORS_ORIGINS` | `*` | Set to specific origins (e.g., `https://your-domain.com`) |
+| `HBC_AUTH_RATE_LIMIT_RPM` | `10` | Login attempts per minute per IP (brute-force protection) |
+
+**CORS Example:**
+```bash
+# Allow only your frontend domain
+HBC_CORS_ORIGINS=https://inventory.example.com
+
+# Multiple origins (comma-separated)
+HBC_CORS_ORIGINS=https://inventory.example.com,https://admin.example.com
+```
+
+> **Note:** The default `HBC_CORS_ORIGINS=*` allows requests from any origin, which is convenient for development but should be restricted in production environments exposed to the internet.
+
+</details>
+
+<details>
 <summary>AI Output Customization</summary>
 
 Customize how AI formats detected item fields. Set via environment variables or the Settings page (UI takes priority).

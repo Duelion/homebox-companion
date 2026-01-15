@@ -86,6 +86,49 @@
 	}
 </script>
 
+<!-- Reusable snippet for Camera/Upload buttons to avoid duplication -->
+{#snippet addPhotoButtons()}
+	<div class="flex gap-2">
+		<button
+			type="button"
+			class="hover:border-primary-500/40 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all"
+			onclick={() => cameraInput.click()}
+		>
+			<svg
+				class="h-4 w-4 text-neutral-400"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				viewBox="0 0 24 24"
+			>
+				<path
+					d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+				/>
+				<circle cx="12" cy="13" r="4" />
+			</svg>
+			<span class="text-xs font-medium text-neutral-400">Camera</span>
+		</button>
+		<button
+			type="button"
+			class="hover:border-primary-500/40 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all"
+			onclick={() => fileInput.click()}
+		>
+			<svg
+				class="h-4 w-4 text-neutral-400"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				viewBox="0 0 24 24"
+			>
+				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+				<polyline points="17 8 12 3 7 8" />
+				<line x1="12" y1="3" x2="12" y2="15" />
+			</svg>
+			<span class="text-xs font-medium text-neutral-400">Upload</span>
+		</button>
+	</div>
+{/snippet}
+
 <input
 	type="file"
 	accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
@@ -131,7 +174,7 @@
 				<!-- Has images: show gallery strip -->
 				<div class="mb-3 flex items-center gap-2">
 					<svg
-						class="h-4 w-4 text-primary-300"
+						class="text-primary-300 h-4 w-4"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -158,7 +201,7 @@
 							/>
 							<button
 								type="button"
-								class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all hover:bg-error-500 group-hover:opacity-100"
+								class="hover:bg-error-500 absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all group-hover:opacity-100"
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
 							>
@@ -174,7 +217,7 @@
 								</svg>
 							</button>
 							<div
-								class="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-xxs font-medium text-white"
+								class="text-xxs absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 font-medium text-white"
 							>
 								{#if index === 0}
 									{#if customThumbnail}
@@ -202,87 +245,13 @@
 				</div>
 
 				<!-- Add more buttons below gallery -->
-				<div class="mt-2 flex gap-2">
-					<button
-						type="button"
-						class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
-						onclick={() => cameraInput.click()}
-					>
-						<svg
-							class="h-4 w-4 text-neutral-400"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-							/>
-							<circle cx="12" cy="13" r="4" />
-						</svg>
-						<span class="text-xs font-medium text-neutral-400">Camera</span>
-					</button>
-					<button
-						type="button"
-						class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
-						onclick={() => fileInput.click()}
-					>
-						<svg
-							class="h-4 w-4 text-neutral-400"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							viewBox="0 0 24 24"
-						>
-							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-							<polyline points="17 8 12 3 7 8" />
-							<line x1="12" y1="3" x2="12" y2="15" />
-						</svg>
-						<span class="text-xs font-medium text-neutral-400">Upload</span>
-					</button>
+				<div class="mt-2">
+					{@render addPhotoButtons()}
 				</div>
 			{:else}
 				<!-- Empty state: compact add buttons (same style as when photos exist) -->
 				<p class="mb-2 text-xs text-neutral-500">Add labels, serial numbers, different angles</p>
-				<div class="flex gap-2">
-					<button
-						type="button"
-						class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
-						onclick={() => cameraInput.click()}
-					>
-						<svg
-							class="h-4 w-4 text-neutral-400"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-							/>
-							<circle cx="12" cy="13" r="4" />
-						</svg>
-						<span class="text-xs font-medium text-neutral-400">Camera</span>
-					</button>
-					<button
-						type="button"
-						class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
-						onclick={() => fileInput.click()}
-					>
-						<svg
-							class="h-4 w-4 text-neutral-400"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							viewBox="0 0 24 24"
-						>
-							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-							<polyline points="17 8 12 3 7 8" />
-							<line x1="12" y1="3" x2="12" y2="15" />
-						</svg>
-						<span class="text-xs font-medium text-neutral-400">Upload</span>
-					</button>
-				</div>
+				{@render addPhotoButtons()}
 			{/if}
 		</div>
 	{/if}

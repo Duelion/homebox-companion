@@ -121,7 +121,6 @@ class ChatSession:
         self.session_id: str = uuid.uuid4().hex[:12]
         self.messages: list[ChatMessage] = []
         self.pending_approvals: dict[str, PendingApproval] = {}
-        self._created_at = datetime.now(UTC)
         # Index for O(1) lookup of tool messages by tool_call_id
         self._tool_message_index: dict[str, ChatMessage] = {}
         # Track recent auto-rejections for context injection

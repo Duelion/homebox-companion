@@ -125,10 +125,6 @@ def log_streaming_interaction(
         logger.warning(f"[LLM_LOG] Failed to log streaming interaction: {e}")
 
 
-# Soft recommendation for max items in responses - used when user doesn't specify a count.
-# When user explicitly requests a specific number (e.g., "show me 80 items"), honor that request.
-DEFAULT_RESULT_LIMIT = 25
-
 # System prompt for the assistant
 # Note: Tool definitions are passed dynamically via the tools parameter,
 # so we focus on behavioral guidance and response formatting here.
