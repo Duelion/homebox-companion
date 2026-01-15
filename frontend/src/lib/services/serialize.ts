@@ -121,6 +121,14 @@ export async function dataUrlToFile(
     const mimeMatch = dataUrl.match(/^data:([^;]+);/);
     const actualMimeType = mimeType || mimeMatch?.[1] || 'image/jpeg';
 
+    // Log warning if we had to fall back to default MIME type
+    if (!mimeType && !mimeMatch?.[1]) {
+        console.warn(
+            '[serialize] Could not extract MIME type from data URL, falling back to image/jpeg',
+            { filename, dataUrlPrefix: dataUrl.substring(0, 50) }
+        );
+    }
+
     // Fetch the data URL to get a blob
     const response = await fetch(dataUrl);
     const blob = await response.blob();

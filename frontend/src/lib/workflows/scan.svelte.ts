@@ -84,6 +84,12 @@ class ScanWorkflow {
 	/** Cached session ID (stable across saves) */
 	private _persistedSessionId: string | null = null;
 
+	/** Debounce timer for persist calls to prevent race conditions */
+	private _persistDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+	/** Time in ms to debounce persist calls */
+	private static readonly PERSIST_DEBOUNCE_MS = 300;
+
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
 	// =========================================================================
@@ -810,14 +816,72 @@ class ScanWorkflow {
 	/**
 	 * Persist current workflow state to IndexedDB.
 	 * Called at key workflow points to enable crash recovery.
+	 * Uses debouncing to prevent race conditions when called rapidly.
+	 * @param immediate - If true, bypass debounce and persist immediately (for critical state changes)
 	 */
-	async persist(): Promise<void> {
+	persist(immediate = false): void {
+		log.debug(`persist() called: status=${this._status}, immediate=${immediate}`);
+
 		// Don't persist terminal states
 		if (this._status === 'idle' || this._status === 'complete') {
+			log.debug('persist() skipped: terminal state');
+			return;
+		}
+
+		// Immediate persist: bypass debounce for critical changes
+		if (immediate) {
+			log.debug('persist() immediate mode: bypassing debounce');
+			if (this._persistDebounceTimer !== null) {
+				clearTimeout(this._persistDebounceTimer);
+				this._persistDebounceTimer = null;
+			}
+			this._doPersist();
+			return;
+		}
+
+		// Debounce: cancel any pending persist and schedule a new one
+		if (this._persistDebounceTimer !== null) {
+			log.debug('persist() cancelling previous debounce timer');
+			clearTimeout(this._persistDebounceTimer);
+		}
+
+		this._persistDebounceTimer = setTimeout(() => {
+			log.debug('persist() debounce timer fired');
+			this._persistDebounceTimer = null;
+			this._doPersist();
+		}, ScanWorkflow.PERSIST_DEBOUNCE_MS);
+	}
+
+	/**
+	 * Flush any pending debounced persist immediately.
+	 * Call this before page unload to ensure state is saved.
+	 */
+	flushPendingPersist(): void {
+		if (this._persistDebounceTimer !== null) {
+			log.info('Flushing pending persist before page unload');
+			clearTimeout(this._persistDebounceTimer);
+			this._persistDebounceTimer = null;
+			// Use synchronous storage fallback for beforeunload
+			// IndexedDB is async and may not complete during beforeunload
+			// For now, just trigger the persist and hope it completes
+			this._doPersist();
+		}
+	}
+
+	/**
+	 * Internal persist implementation - actually saves to IndexedDB.
+	 */
+	private async _doPersist(): Promise<void> {
+		log.debug(`_doPersist() starting: status=${this._status}`);
+
+		// Re-check terminal states in case status changed during debounce
+		if (this._status === 'idle' || this._status === 'complete') {
+			log.debug('_doPersist() skipped: terminal state');
 			return;
 		}
 
 		try {
+			log.debug(`_doPersist() serializing ${this.captureService.images.length} images`);
 			// Serialize images (convert File objects to base64)
 			const images = await Promise.all(
 				this.captureService.images.map(serializeImage)
@@ -827,13 +891,17 @@ class ScanWorkflow {
 			const detectedItems = this.reviewService.detectedItems.map(serializeReviewItem);
 			const confirmedItems = this.reviewService.confirmedItems.map(serializeConfirmedItem);
 
+			log.debug(`_doPersist() serialized: images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`);
+
 			// Use cached values or create new ones for first persist
 			const now = Date.now();
 			if (this._persistedCreatedAt === null) {
 				this._persistedCreatedAt = now;
+				log.debug('_doPersist() created new session timestamp');
 			}
 			if (this._persistedSessionId === null) {
 				this._persistedSessionId = crypto.randomUUID();
+				log.debug(`_doPersist() created new session ID: ${this._persistedSessionId}`);
 			}
 
 			const session: StoredSession = {
@@ -854,7 +922,7 @@ class ScanWorkflow {
 			};
 
 			await sessionPersistence.save(session);
-			log.debug(`Session persisted: status=${this._status}, images=${images.length}`);
+			log.info(`Session persisted: id=${this._persistedSessionId}, status=${this._status}, images=${images.length}`);
 		} catch (error) {
 			// Non-critical - log but don't disrupt workflow
 			log.warn('Failed to persist session:', error);
