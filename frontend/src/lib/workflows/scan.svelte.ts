@@ -427,8 +427,9 @@ class ScanWorkflow {
 		}
 
 		// Persist after analysis completes (success or partial)
+		// IMPORTANT: Await persist to ensure data is saved before user can close tab
 		if (this._status !== 'capturing') {
-			this.persist();
+			await this.persistAsync();
 		}
 	}
 
@@ -489,6 +490,10 @@ class ScanWorkflow {
 			this._status = 'partial_analysis';
 			log.error(`Retry failed: ${this._error}`);
 		}
+
+		// Persist after retry completes
+		// IMPORTANT: Await persist to ensure data is saved before user can close tab
+		await this.persistAsync();
 	}
 
 	/** Continue to review with only successfully analyzed items */
@@ -818,6 +823,21 @@ class ScanWorkflow {
 
 		// Fire-and-forget async persist
 		this._doPersist();
+	}
+
+	/**
+	 * Persist current workflow state to IndexedDB and wait for completion.
+	 * 
+	 * Use this instead of persist() when the data MUST be saved before continuing
+	 * (e.g., after analysis completes before navigation can occur).
+	 */
+	async persistAsync(): Promise<void> {
+		// Don't persist terminal states
+		if (this._status === 'idle' || this._status === 'complete') {
+			return;
+		}
+
+		await this._doPersist();
 	}
 
 	/**
