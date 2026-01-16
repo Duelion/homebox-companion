@@ -110,6 +110,7 @@
 
 	async function handleDelete(name: string) {
 		if (!confirm(`Delete profile "${name}"?`)) return;
+		error = null;
 		try {
 			await llmProfiles.delete(name);
 			await loadProfiles();
@@ -119,6 +120,7 @@
 	}
 
 	async function handleActivate(name: string) {
+		error = null;
 		try {
 			await llmProfiles.activate(name);
 			await loadProfiles();

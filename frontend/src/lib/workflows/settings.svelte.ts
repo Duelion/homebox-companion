@@ -520,6 +520,16 @@ class SettingsService {
 		this.isLoading.promptPreview = true;
 
 		try {
+			// Ensure field preferences are loaded first (they're needed for the preview)
+			if (this.effectiveDefaults === null) {
+				const [prefsResult, defaultsResult] = await Promise.all([
+					fieldPreferences.get(),
+					fieldPreferences.getEffectiveDefaults(),
+				]);
+				this.fieldPrefs = prefsResult;
+				this.effectiveDefaults = defaultsResult;
+			}
+
 			const result = await fieldPreferences.getPromptPreview(this.fieldPrefs);
 			this.promptPreview = result.prompt;
 			this.showPromptPreview = true;
