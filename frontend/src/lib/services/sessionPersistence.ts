@@ -30,6 +30,16 @@ const SESSION_KEY = 'current';
 /** Session TTL in milliseconds (7 days) */
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Check if a session has exceeded its TTL.
+ * @param session - The session to check
+ * @returns true if expired, false otherwise
+ */
+function isSessionExpired(session: StoredSession): boolean {
+    const age = Date.now() - session.createdAt;
+    return age > SESSION_TTL_MS;
+}
+
 // =============================================================================
 // DATABASE INITIALIZATION
 // =============================================================================
@@ -118,8 +128,7 @@ export async function hasRecoverableSession(): Promise<boolean> {
         if (!session) return false;
 
         // Check TTL expiration
-        const age = Date.now() - session.createdAt;
-        if (age > SESSION_TTL_MS) {
+        if (isSessionExpired(session)) {
             log.info('Session expired (TTL), clearing');
             await clear();
             return false;
@@ -186,9 +195,9 @@ export async function load(): Promise<StoredSession | null> {
         }
 
         // Check TTL expiration
-        const age = Date.now() - session.createdAt;
-        if (age > SESSION_TTL_MS) {
-            log.info(`Session expired (${Math.floor(age / (1000 * 60 * 60 * 24))} days old), clearing`);
+        if (isSessionExpired(session)) {
+            const ageDays = Math.floor((Date.now() - session.createdAt) / (1000 * 60 * 60 * 24));
+            log.info(`Session expired (${ageDays} days old), clearing`);
             await clear();
             return null;
         }

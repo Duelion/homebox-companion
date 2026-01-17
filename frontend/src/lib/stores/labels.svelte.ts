@@ -5,6 +5,9 @@
  * The cache is cleared on logout via the auth store calling clearLabelsCache.
  */
 import { labels as labelsApi, type LabelData } from '$lib/api';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger({ prefix: 'LabelStore' });
 
 // =============================================================================
 // LABELS STORE CLASS
@@ -134,6 +137,40 @@ class LabelsStore {
 	getLabelName(labelId: string): string | undefined {
 		return this.labelsById.get(labelId)?.name;
 	}
+
+	/**
+	 * Filter label IDs to only include valid ones that exist in the current cache.
+	 * Logs any invalid IDs at warn level for debugging.
+	 *
+	 * @param ids - Array of label IDs to validate
+	 * @returns Filtered array containing only valid label IDs
+	 */
+	validateIds(ids: string[] | null | undefined): string[] {
+		if (!ids || ids.length === 0) {
+			return [];
+		}
+
+		const validIds: string[] = [];
+		const invalidIds: string[] = [];
+
+		for (const id of ids) {
+			if (this._labelsById.has(id)) {
+				validIds.push(id);
+			} else {
+				invalidIds.push(id);
+			}
+		}
+
+		if (invalidIds.length > 0) {
+			log.warn(
+				`Filtered out ${invalidIds.length} invalid label ID(s):`,
+				invalidIds
+			);
+		}
+
+		return validIds;
+	}
+
 }
 
 // =============================================================================

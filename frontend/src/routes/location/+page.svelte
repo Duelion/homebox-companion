@@ -355,6 +355,7 @@
 				summary={recoverySummary}
 				onResume={handleResumeSession}
 				onDismiss={handleDismissRecovery}
+				loading={isRecovering}
 			/>
 		{/if}
 
