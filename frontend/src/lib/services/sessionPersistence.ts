@@ -241,7 +241,10 @@ export async function save(session: StoredSession): Promise<void> {
 		await db.put(STORE_NAME, session, SESSION_KEY);
 		log.debug(`Saved session: status=${session.status}, images=${session.images?.length ?? 0}`);
 	} catch (error) {
-		log.error('Error saving session:', error);
+		// Extract meaningful error info for logging (avoids minified stack traces)
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorName = error instanceof Error ? error.name : 'Unknown';
+		log.error(`Error saving session: [${errorName}] ${errorMessage}`);
 		// Don't throw - persistence failures shouldn't break the workflow
 	}
 }
