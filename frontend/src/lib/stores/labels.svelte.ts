@@ -162,15 +162,11 @@ class LabelsStore {
 		}
 
 		if (invalidIds.length > 0) {
-			log.warn(
-				`Filtered out ${invalidIds.length} invalid label ID(s):`,
-				invalidIds
-			);
+			log.warn(`Filtered out ${invalidIds.length} invalid label ID(s):`, invalidIds);
 		}
 
 		return validIds;
 	}
-
 }
 
 // =============================================================================

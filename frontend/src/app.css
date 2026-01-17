@@ -47,7 +47,6 @@
 
 /* Component utilities */
 @layer components {
-
 	/* Icon button - compact */
 	.btn-icon {
 		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 active:bg-neutral-700;
@@ -325,10 +324,12 @@
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply animate-shimmer rounded bg-neutral-800;
-		background: linear-gradient(90deg,
-				theme('colors.neutral.800') 25%,
-				theme('colors.neutral.700') 50%,
-				theme('colors.neutral.800') 75%);
+		background: linear-gradient(
+			90deg,
+			theme('colors.neutral.800') 25%,
+			theme('colors.neutral.700') 50%,
+			theme('colors.neutral.800') 75%
+		);
 		background-size: 200% 100%;
 	}
 
@@ -384,11 +385,11 @@
 	.slider-primary::-webkit-slider-thumb {
 		-webkit-appearance: none;
 		appearance: none;
-		@apply bg-primary-500 duration-fast -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full shadow-md transition-all;
+		@apply -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full bg-primary-500 shadow-md transition-all duration-fast;
 	}
 
 	.slider-primary::-webkit-slider-thumb:hover {
-		@apply shadow-primary-glow scale-[1.15];
+		@apply scale-[1.15] shadow-primary-glow;
 	}
 
 	.slider-primary::-webkit-slider-thumb:active {
@@ -400,7 +401,7 @@
 	}
 
 	.slider-primary::-moz-range-thumb {
-		@apply bg-primary-500 h-[22px] w-[22px] cursor-pointer rounded-full border-0 shadow-md;
+		@apply h-[22px] w-[22px] cursor-pointer rounded-full border-0 bg-primary-500 shadow-md;
 	}
 
 	.slider-primary::-moz-range-thumb:hover {
@@ -432,7 +433,6 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
-
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;

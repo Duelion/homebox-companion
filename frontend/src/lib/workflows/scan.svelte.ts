@@ -136,13 +136,17 @@ class ScanWorkflow {
 				// them directly in this effect body. This is necessary because:
 				// 1. Array lengths - Svelte tracks array references, not lengths
 				// 2. Location/parent names - we persist them but don't act on them here
+				// 3. Scalar values need void to satisfy ESLint unused-vars rule
 				void images.length;
 				void detectedItems.length;
 				void confirmedItems.length;
 				void Object.keys(imageStatuses).length;
+				void locationId;
 				void locationName;
 				void locationPath;
 				void parentItemName;
+				void parentItemId;
+				void currentReviewIndex;
 
 				// Skip the very first effect run (avoids persisting on construction)
 				if (this._isFirstEffectRun) {
@@ -185,7 +189,7 @@ class ScanWorkflow {
 
 	/**
 	 * Flush any pending persist immediately (best-effort for beforeunload).
-	 * 
+	 *
 	 * IMPORTANT: This triggers an async persist but does NOT await it.
 	 * Browser may not complete IndexedDB writes during beforeunload.
 	 * For guaranteed persistence, call persistAsync() at critical points
@@ -553,7 +557,7 @@ class ScanWorkflow {
 
 		if (!this.analysisService.hasFailedImages()) {
 			log.warn('No failed images to retry');
-			this.continueWithSuccessful();
+			await this.continueWithSuccessful();
 			return;
 		}
 
@@ -606,7 +610,7 @@ class ScanWorkflow {
 	}
 
 	/** Continue to review with only successfully analyzed items */
-	continueWithSuccessful(): void {
+	async continueWithSuccessful(): Promise<void> {
 		log.info('ScanWorkflow.continueWithSuccessful() called');
 
 		if (this._status !== 'partial_analysis') {
@@ -625,10 +629,13 @@ class ScanWorkflow {
 		log.info(`Continuing with ${itemCount} successfully detected item(s)`);
 		this._status = 'reviewing';
 		this._error = null;
+
+		// Persist immediately after transitioning to reviewing state
+		await this.persistAsync();
 	}
 
 	/** Remove failed images and continue with successful ones */
-	removeFailedImages(): void {
+	async removeFailedImages(): Promise<void> {
 		log.info('ScanWorkflow.removeFailedImages() called');
 
 		if (this._status !== 'partial_analysis') {
@@ -639,7 +646,7 @@ class ScanWorkflow {
 		const failedIndices = this.analysisService.getFailedIndices();
 		if (failedIndices.length === 0) {
 			log.warn('No failed images to remove');
-			this.continueWithSuccessful();
+			await this.continueWithSuccessful();
 			return;
 		}
 
@@ -679,7 +686,7 @@ class ScanWorkflow {
 		this.analysisService.imageStatuses = newStatuses;
 
 		log.info(`Removed ${failedIndices.length} failed image(s), continuing with successful items`);
-		this.continueWithSuccessful();
+		await this.continueWithSuccessful();
 	}
 
 	/** Cancel ongoing analysis */
@@ -732,37 +739,40 @@ class ScanWorkflow {
 	}
 
 	/** Skip current item and move to next */
-	skipItem(): void {
+	async skipItem(): Promise<void> {
 		const result = this.reviewService.skipCurrentItem();
 		if (result === 'empty') {
 			this.backToCapture();
 		} else if (result === 'complete') {
-			this.finishReview();
+			await this.finishReview();
 		}
 	}
 
 	/** Confirm current item and move to next */
-	confirmItem(item: ReviewItem): void {
+	async confirmItem(item: ReviewItem): Promise<void> {
 		const hasMore = this.reviewService.confirmCurrentItem(item);
 		if (!hasMore) {
-			this.finishReview();
+			await this.finishReview();
 		}
 	}
 
 	/** Confirm all remaining items from current index onwards */
-	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
+	async confirmAllRemainingItems(currentItemOverride?: ReviewItem): Promise<number> {
 		const count = this.reviewService.confirmAllRemainingItems(currentItemOverride);
-		this.finishReview();
+		await this.finishReview();
 		return count;
 	}
 
 	/** Finish review and move to confirmation */
-	finishReview(): void {
+	async finishReview(): Promise<void> {
 		if (!this.reviewService.hasConfirmedItems) {
 			this._error = 'Please confirm at least one item';
 			return;
 		}
 		this._status = 'confirming';
+
+		// Persist after moving to confirmation state
+		await this.persistAsync();
 	}
 
 	/** Return to capture mode from review */
@@ -916,7 +926,7 @@ class ScanWorkflow {
 
 	/**
 	 * Persist current workflow state to IndexedDB and wait for completion.
-	 * 
+	 *
 	 * Use this when the data MUST be saved before continuing
 	 * (e.g., after analysis completes before navigation can occur).
 	 */
@@ -935,9 +945,7 @@ class ScanWorkflow {
 	private async _doPersist(): Promise<void> {
 		try {
 			// Serialize images (convert File objects to base64)
-			const images = await Promise.all(
-				this.captureService.images.map(serializeImage)
-			);
+			const images = await Promise.all(this.captureService.images.map(serializeImage));
 
 			// Serialize review items (strip File references)
 			const detectedItems = this.reviewService.detectedItems.map(serializeReviewItem);
@@ -972,7 +980,9 @@ class ScanWorkflow {
 			};
 
 			await sessionPersistence.save(session);
-			log.debug(`Persisted: status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`);
+			log.debug(
+				`Persisted: status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`
+			);
 		} catch (error) {
 			// Non-critical - log but don't disrupt workflow
 			log.error('Failed to persist session:', error);
@@ -1005,9 +1015,7 @@ class ScanWorkflow {
 
 			// Deserialize review items
 			if (session.detectedItems.length > 0) {
-				const detectedItems = await Promise.all(
-					session.detectedItems.map(deserializeReviewItem)
-				);
+				const detectedItems = await Promise.all(session.detectedItems.map(deserializeReviewItem));
 				this.reviewService.setDetectedItems(detectedItems);
 			}
 

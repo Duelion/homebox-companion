@@ -45,7 +45,7 @@
 </script>
 
 <div
-	class="border-primary-500/30 bg-primary-500/10 mb-4 overflow-hidden rounded-xl border shadow-lg"
+	class="mb-4 overflow-hidden rounded-xl border border-primary-500/30 bg-primary-500/10 shadow-lg"
 	role="alert"
 	aria-live="polite"
 >
@@ -54,10 +54,10 @@
 		<div class="mb-3 flex items-start gap-3">
 			<!-- Recovery icon -->
 			<div
-				class="bg-primary-500/20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500/20"
 			>
 				<svg
-					class="text-primary-400 h-5 w-5"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -70,11 +70,11 @@
 			</div>
 
 			<div class="flex-1">
-				<h3 class="text-body text-primary-100 font-semibold">Session Recovery Available</h3>
-				<p class="text-body-sm text-primary-200/80 mt-1">
+				<h3 class="text-body font-semibold text-primary-100">Session Recovery Available</h3>
+				<p class="mt-1 text-body-sm text-primary-200/80">
 					You were {getStatusText(summary.status)}
 					{#if summary.locationName}
-						at <span class="text-primary-100 font-medium">{summary.locationName}</span>
+						at <span class="font-medium text-primary-100">{summary.locationName}</span>
 					{/if}
 					{summary.ageText}.
 				</p>
@@ -82,7 +82,7 @@
 		</div>
 
 		<!-- Session details -->
-		<div class="text-caption text-primary-200/70 mb-4 flex flex-wrap gap-x-4 gap-y-2">
+		<div class="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-caption text-primary-200/70">
 			{#if summary.imageCount > 0}
 				<div class="flex items-center gap-1.5">
 					<svg
