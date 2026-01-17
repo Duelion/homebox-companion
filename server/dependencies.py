@@ -378,6 +378,30 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
     # to surface issues rather than silently degrading AI behavior
 
 
+async def get_valid_label_ids(token: str, client: HomeboxClient) -> set[str]:
+    """Fetch valid label IDs from Homebox as a set for O(1) validation.
+
+    Used to filter out invalid/stale label IDs before creating items.
+
+    Args:
+        token: The bearer token for authentication.
+        client: The HomeboxClient instance.
+
+    Returns:
+        Set of valid label ID strings, or empty set on failure.
+    """
+    try:
+        raw_labels = await client.list_labels(token)
+        return {str(label.get("id")) for label in raw_labels if label.get("id")}
+    except HomeboxAuthError:
+        # Re-raise auth errors - caller needs to handle
+        raise
+    except Exception as e:
+        # Non-fatal: log and return empty set - items will be created without labels
+        logger.warning(f"Failed to fetch labels for validation: {e}")
+        return set()
+
+
 # =============================================================================
 # VISION CONTEXT - Bundles all context needed for vision endpoints
 # =============================================================================

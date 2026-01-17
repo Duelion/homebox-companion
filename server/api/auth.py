@@ -71,10 +71,10 @@ class RateLimiter:
                 expired_ips.append(ip)
             else:
                 self._attempts[ip] = valid
-        
+
         for ip in expired_ips:
             del self._attempts[ip]
-        
+
         self._last_cleanup = now
         logger.debug(f"Rate limiter cleanup: removed {len(expired_ips)} expired IPs")
 
@@ -82,10 +82,10 @@ class RateLimiter:
         """Extract client IP, respecting X-Forwarded-For only if configured to trust proxies."""
         # In a real production app, we should check if the immediate peer is a trusted proxy
         # For this companion app, we'll try to be smart but fail safe.
-        
+
         # If running in Docker (common case), we might trust X-Forwarded-For check local IPs
         forwarded = request.headers.get("X-Forwarded-For")
-        
+
         if forwarded:
             # Get the first IP in the list (client IP)
             client_ip = forwarded.split(",")[0].strip()
@@ -95,9 +95,11 @@ class RateLimiter:
                 return client_ip
             except ValueError:
                 logger.warning(f"Invalid IP in X-Forwarded-For: {client_ip}")
-        
+
         # Fallback to direct connection IP
-        return request.client.host if request.client else "unknown"
+        if request.client and request.client.host:
+            return request.client.host
+        return "unknown"
 
 
 # Singleton instance
@@ -118,7 +120,7 @@ async def login(request: LoginRequest, client_request: Request) -> LoginResponse
 
     logger.info("Login attempt")
     logger.debug(f"Login: HBC_HOMEBOX_URL configured as: {settings.homebox_url}")
-    
+
     client = get_client()
     response_data = await client.login(request.username, request.password)
 

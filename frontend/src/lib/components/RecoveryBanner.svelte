@@ -15,13 +15,17 @@
 		onResume: () => void;
 		/** Callback when user chooses to dismiss and start fresh */
 		onDismiss: () => void;
+		/** Whether a recovery operation is in progress */
+		loading?: boolean;
 	}
 
-	let { summary, onResume, onDismiss }: Props = $props();
+	let { summary, onResume, onDismiss, loading = false }: Props = $props();
 
 	// Human-readable status
 	function getStatusText(status: string): string {
 		switch (status) {
+			case 'location':
+				return 'selecting a location';
 			case 'capturing':
 				return 'capturing photos';
 			case 'analyzing':
@@ -114,21 +118,27 @@
 			{/if}
 		</div>
 
-		<!-- Action buttons -->
 		<div class="flex flex-col gap-2 sm:flex-row">
-			<Button variant="primary" onclick={onResume}>
-				<svg
-					class="h-4 w-4"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<polygon points="5 3 19 12 5 21 5 3" />
-				</svg>
-				<span>Resume Session</span>
+			<Button variant="primary" onclick={onResume} disabled={loading}>
+				{#if loading}
+					<div
+						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+					></div>
+					<span>Recovering...</span>
+				{:else}
+					<svg
+						class="h-4 w-4"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+					>
+						<polygon points="5 3 19 12 5 21 5 3" />
+					</svg>
+					<span>Resume Session</span>
+				{/if}
 			</Button>
-			<Button variant="ghost" onclick={onDismiss}>
+			<Button variant="ghost" onclick={onDismiss} disabled={loading}>
 				<span>Start Fresh</span>
 			</Button>
 		</div>

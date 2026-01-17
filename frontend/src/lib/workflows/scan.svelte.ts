@@ -40,6 +40,13 @@ import {
 import * as sessionPersistence from '$lib/services/sessionPersistence';
 
 // =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Debounce delay for auto-persist in milliseconds */
+const AUTO_PERSIST_DEBOUNCE_MS = 1000;
+
+// =============================================================================
 // SCAN WORKFLOW CLASS
 // =============================================================================
 
@@ -83,6 +90,115 @@ class ScanWorkflow {
 
 	/** Cached session ID (stable across saves) */
 	private _persistedSessionId: string | null = null;
+
+	/** Debounce timer for auto-persist */
+	private _persistTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	/** Flag to skip the initial effect run (avoids persist on construction) */
+	private _isFirstEffectRun = true;
+
+	// =========================================================================
+	// CONSTRUCTOR (auto-persist setup)
+	// =========================================================================
+
+	constructor() {
+		if (typeof window !== 'undefined') {
+			this.setupAutoPersist();
+		}
+	}
+
+	/**
+	 * Setup automatic persistence using Svelte 5 effects.
+	 * State changes are debounced (1s) and persisted to IndexedDB.
+	 */
+	private setupAutoPersist(): void {
+		// Use $effect.root to create effect outside component lifecycle
+		// Note: For a singleton, we don't need to store/call the cleanup function
+		$effect.root(() => {
+			$effect(() => {
+				// == Dependency tracking ==
+				// Must explicitly read all state we want to track
+				const status = this._status;
+				const locationId = this._locationId;
+				const locationName = this._locationName;
+				const locationPath = this._locationPath;
+				const parentItemId = this._parentItemId;
+				const parentItemName = this._parentItemName;
+				const images = this.captureService.images;
+				const detectedItems = this.reviewService.detectedItems;
+				const confirmedItems = this.reviewService.confirmedItems;
+				const currentReviewIndex = this.reviewService.currentReviewIndex;
+				const imageStatuses = this.analysisService.imageStatuses;
+
+				// DEPENDENCY TRACKING:
+				// Svelte 5's $effect tracks reads automatically. The void statements below
+				// ensure we re-run when these values change, even though we don't use
+				// them directly in this effect body. This is necessary because:
+				// 1. Array lengths - Svelte tracks array references, not lengths
+				// 2. Location/parent names - we persist them but don't act on them here
+				void images.length;
+				void detectedItems.length;
+				void confirmedItems.length;
+				void Object.keys(imageStatuses).length;
+				void locationName;
+				void locationPath;
+				void parentItemName;
+
+				// Skip the very first effect run (avoids persisting on construction)
+				if (this._isFirstEffectRun) {
+					this._isFirstEffectRun = false;
+					return;
+				}
+
+				// Don't persist terminal/transient states
+				if (
+					status === 'idle' ||
+					status === 'complete' ||
+					status === 'analyzing' ||
+					status === 'submitting'
+				) {
+					return;
+				}
+
+				// Schedule debounced persist
+				this.schedulePersist();
+			});
+		});
+
+		// Flush pending persist on tab close.
+		// NOTE: beforeunload has very limited time for async operations.
+		// Modern browsers may not wait for IndexedDB writes to complete.
+		// This is a best-effort attempt - critical persists should use persistAsync().
+		window.addEventListener('beforeunload', () => this.flushPendingPersist());
+	}
+
+	/** Schedule a debounced persist (1 second delay) */
+	private schedulePersist(): void {
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+		}
+		this._persistTimeout = setTimeout(() => {
+			this._persistTimeout = null;
+			this._doPersist();
+		}, AUTO_PERSIST_DEBOUNCE_MS);
+	}
+
+	/**
+	 * Flush any pending persist immediately (best-effort for beforeunload).
+	 * 
+	 * IMPORTANT: This triggers an async persist but does NOT await it.
+	 * Browser may not complete IndexedDB writes during beforeunload.
+	 * For guaranteed persistence, call persistAsync() at critical points
+	 * (e.g., after analysis completes, before navigation).
+	 */
+	private flushPendingPersist(): void {
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+			// Fire-and-forget: browser may not wait for this to complete
+			this._doPersist();
+		}
+	}
 
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
@@ -301,8 +417,6 @@ class ScanWorkflow {
 		this._locationPath = path;
 		this._status = 'capturing';
 		this._error = null;
-		// Persist for crash recovery
-		this.persist();
 	}
 
 	/** Clear location selection (also clears parent item since it's location-specific) */
@@ -334,13 +448,11 @@ class ScanWorkflow {
 	/** Add a captured image */
 	addImage(image: CapturedImage): void {
 		this.captureService.addImage(image);
-		this.persist();
 	}
 
 	/** Remove an image by index */
 	removeImage(index: number): void {
 		this.captureService.removeImage(index);
-		this.persist();
 	}
 
 	/** Update image options (separateItems, extraInstructions) */
@@ -349,19 +461,16 @@ class ScanWorkflow {
 		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions'>>
 	): void {
 		this.captureService.updateImageOptions(index, options);
-		this.persist();
 	}
 
 	/** Add additional images to a captured image */
 	addAdditionalImages(imageIndex: number, files: File[], dataUrls: string[]): void {
 		this.captureService.addAdditionalImages(imageIndex, files, dataUrls);
-		this.persist();
 	}
 
 	/** Remove an additional image */
 	removeAdditionalImage(imageIndex: number, additionalIndex: number): void {
 		this.captureService.removeAdditionalImage(imageIndex, additionalIndex);
-		this.persist();
 	}
 
 	/** Clear all captured images */
@@ -635,8 +744,6 @@ class ScanWorkflow {
 	/** Confirm current item and move to next */
 	confirmItem(item: ReviewItem): void {
 		const hasMore = this.reviewService.confirmCurrentItem(item);
-		// Persist after each confirmation for crash recovery
-		this.persist();
 		if (!hasMore) {
 			this.finishReview();
 		}
@@ -656,8 +763,6 @@ class ScanWorkflow {
 			return;
 		}
 		this._status = 'confirming';
-		// Persist when entering confirmation state
-		this.persist();
 	}
 
 	/** Return to capture mode from review */
@@ -810,25 +915,9 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/**
-	 * Persist current workflow state to IndexedDB for crash recovery.
-	 * 
-	 * Called at key workflow points (image capture, state transitions, etc.)
-	 * Writes are async but fire-and-forget - we don't await completion.
-	 */
-	persist(): void {
-		// Don't persist terminal states
-		if (this._status === 'idle' || this._status === 'complete') {
-			return;
-		}
-
-		// Fire-and-forget async persist
-		this._doPersist();
-	}
-
-	/**
 	 * Persist current workflow state to IndexedDB and wait for completion.
 	 * 
-	 * Use this instead of persist() when the data MUST be saved before continuing
+	 * Use this when the data MUST be saved before continuing
 	 * (e.g., after analysis completes before navigation can occur).
 	 */
 	async persistAsync(): Promise<void> {
