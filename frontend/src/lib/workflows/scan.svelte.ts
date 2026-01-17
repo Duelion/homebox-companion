@@ -955,15 +955,29 @@ class ScanWorkflow {
 	 * Internal persist implementation - serializes and saves to IndexedDB.
 	 */
 	private async _doPersist(): Promise<void> {
+		log.debug('_doPersist: Starting session persistence...');
+
 		try {
-			// Serialize images (convert File objects to base64)
+			// Step 1: Serialize images (convert File objects to base64)
+			log.debug(`_doPersist: Serializing ${this.captureService.images.length} image(s)...`);
 			const images = await Promise.all(this.captureService.images.map(serializeImage));
+			log.debug(`_doPersist: Images serialized successfully`);
 
-			// Serialize review items (strip File references)
-			const detectedItems = this.reviewService.detectedItems.map(serializeReviewItem);
-			const confirmedItems = this.reviewService.confirmedItems.map(serializeConfirmedItem);
+			// Step 2: Serialize review items (strip File references)
+			// Use JSON.parse/stringify to deep-unwrap any Svelte 5 $state proxies
+			// that might remain after serialization (proxies are not cloneable by IndexedDB)
+			log.debug(
+				`_doPersist: Serializing ${this.reviewService.detectedItems.length} detected, ${this.reviewService.confirmedItems.length} confirmed items...`
+			);
+			const detectedItems = JSON.parse(
+				JSON.stringify(this.reviewService.detectedItems.map(serializeReviewItem))
+			);
+			const confirmedItems = JSON.parse(
+				JSON.stringify(this.reviewService.confirmedItems.map(serializeConfirmedItem))
+			);
+			log.debug('_doPersist: Review items serialized successfully');
 
-			// Use cached values or create new ones for first persist
+			// Step 3: Generate or reuse session metadata
 			const now = Date.now();
 			if (this._persistedCreatedAt === null) {
 				this._persistedCreatedAt = now;
@@ -973,6 +987,14 @@ class ScanWorkflow {
 				log.info(`New session created: ${this._persistedSessionId}`);
 			}
 
+			// Step 4: Deep-unwrap imageStatuses to ensure no proxies remain
+			log.debug(
+				`_doPersist: Unwrapping imageStatuses with ${Object.keys(this.analysisService.imageStatuses).length} entries...`
+			);
+			const imageStatuses = JSON.parse(JSON.stringify(this.analysisService.imageStatuses));
+			log.debug('_doPersist: imageStatuses unwrapped successfully');
+
+			// Step 5: Build session object
 			const session: StoredSession = {
 				id: this._persistedSessionId,
 				createdAt: this._persistedCreatedAt,
@@ -987,17 +1009,25 @@ class ScanWorkflow {
 				detectedItems,
 				confirmedItems,
 				currentReviewIndex: this.reviewService.currentReviewIndex,
-				// Unwrap Svelte 5 $state proxy to plain object for IndexedDB compatibility
-				imageStatuses: { ...this.analysisService.imageStatuses },
+				imageStatuses,
 			};
+			log.debug('_doPersist: Session object built, saving to IndexedDB...');
 
+			// Step 6: Save to IndexedDB
 			await sessionPersistence.save(session);
 			log.debug(
-				`Persisted: status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`
+				`_doPersist: SUCCESS - status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`
 			);
 		} catch (error) {
 			// Non-critical - log but don't disrupt workflow
-			log.error('Failed to persist session:', error);
+			// Extract meaningful error info for logging (avoids minified stack traces)
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorName = error instanceof Error ? error.name : 'Unknown';
+			const errorStack = error instanceof Error ? error.stack : undefined;
+			log.error(`_doPersist: FAILED - [${errorName}] ${errorMessage}`);
+			if (errorStack) {
+				log.debug(`_doPersist: Stack trace: ${errorStack}`);
+			}
 		}
 	}
 
