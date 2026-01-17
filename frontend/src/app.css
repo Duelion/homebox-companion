@@ -15,6 +15,15 @@
 		overscroll-behavior-y: none;
 	}
 
+	/* iOS Safari double-tap fix: disable 300ms click delay on interactive elements.
+	   Without this, iOS Safari requires two taps on elements with hover states -
+	   first tap triggers hover, second tap triggers click. */
+	a,
+	button,
+	[role='button'] {
+		touch-action: manipulation;
+	}
+
 	/* Custom scrollbar */
 	::-webkit-scrollbar {
 		width: 6px;
