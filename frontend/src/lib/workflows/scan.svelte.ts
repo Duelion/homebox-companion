@@ -690,7 +690,7 @@ class ScanWorkflow {
 	}
 
 	/** Cancel ongoing analysis */
-	cancelAnalysis(): void {
+	async cancelAnalysis(): Promise<void> {
 		this.analysisService.cancel();
 		if (this._status === 'analyzing') {
 			// If we had some successful items before cancellation, go to partial_analysis
@@ -701,6 +701,9 @@ class ScanWorkflow {
 				this._status = 'capturing';
 			}
 			this.analysisService.clearProgress();
+
+			// Persist after cancellation to save the current state
+			await this.persistAsync();
 		}
 	}
 
@@ -742,7 +745,7 @@ class ScanWorkflow {
 	async skipItem(): Promise<void> {
 		const result = this.reviewService.skipCurrentItem();
 		if (result === 'empty') {
-			this.backToCapture();
+			await this.backToCapture();
 		} else if (result === 'complete') {
 			await this.finishReview();
 		}
@@ -776,10 +779,13 @@ class ScanWorkflow {
 	}
 
 	/** Return to capture mode from review */
-	backToCapture(): void {
+	async backToCapture(): Promise<void> {
 		this._status = 'capturing';
 		this.reviewService.reset();
 		this._error = null;
+
+		// Persist the state change
+		await this.persistAsync();
 	}
 
 	// =========================================================================
@@ -787,18 +793,24 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/** Remove a confirmed item */
-	removeConfirmedItem(index: number): void {
+	async removeConfirmedItem(index: number): Promise<void> {
 		this.reviewService.removeConfirmedItem(index);
 		if (!this.reviewService.hasConfirmedItems) {
 			this._status = 'capturing';
 		}
+
+		// Persist after removal
+		await this.persistAsync();
 	}
 
 	/** Edit a confirmed item (move back to review) */
-	editConfirmedItem(index: number): void {
+	async editConfirmedItem(index: number): Promise<void> {
 		const item = this.reviewService.editConfirmedItem(index);
 		if (item) {
 			this._status = 'reviewing';
+
+			// Persist the state change
+			await this.persistAsync();
 		}
 	}
 
