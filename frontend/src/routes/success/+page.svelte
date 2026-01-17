@@ -7,6 +7,7 @@
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import Button from '$lib/components/Button.svelte';
+	import CreatedItemPickerModal from '$lib/components/CreatedItemPickerModal.svelte';
 
 	const workflow = scanWorkflow;
 
@@ -15,6 +16,9 @@
 
 	// Animation state - stop ping after a few cycles
 	let showPing = $state(true);
+
+	// Modal state for parent item picker
+	let showParentPicker = $state(false);
 
 	// Apply route guard: requires authentication only
 	onMount(async () => {
@@ -42,6 +46,14 @@
 		resetLocationState();
 		goto(resolve('/location'));
 	}
+
+	function handleParentSelected(id: string, name: string) {
+		// Set the selected item as parent for next scan
+		workflow.setParentItem(id, name);
+		// Start new scan with parent set
+		workflow.startNew();
+		goto(resolve('/capture'));
+	}
 </script>
 
 <svelte:head>
@@ -53,13 +65,13 @@
 	<div class="relative mb-8 h-28 w-28">
 		<!-- Ping animation (stops after 3 seconds) -->
 		{#if showPing}
-			<div class="absolute inset-0 animate-ping rounded-full bg-success-500/20"></div>
+			<div class="bg-success-500/20 absolute inset-0 animate-ping rounded-full"></div>
 		{/if}
 		<!-- Outer glow ring - scales in -->
-		<div class="success-scale absolute inset-0 rounded-full bg-success-500/10"></div>
+		<div class="success-scale bg-success-500/10 absolute inset-0 rounded-full"></div>
 		<!-- Inner circle - scales in with slight delay -->
 		<div
-			class="success-scale absolute inset-2 rounded-full bg-success-500/20"
+			class="success-scale bg-success-500/20 absolute inset-2 rounded-full"
 			style="animation-delay: 0.1s;"
 		></div>
 		<!-- Checkmark icon with draw animation -->
@@ -68,7 +80,7 @@
 			style="animation-delay: 0.15s;"
 		>
 			<svg
-				class="h-14 w-14 text-success-500"
+				class="text-success-500 h-14 w-14"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -85,11 +97,11 @@
 	</div>
 
 	<!-- Heading -->
-	<h2 class="mb-3 text-h1 text-neutral-100">Success!</h2>
+	<h2 class="text-h1 mb-3 text-neutral-100">Success!</h2>
 
 	<!-- Specific feedback with count and location -->
 	{#if result}
-		<p class="mb-6 text-body text-neutral-300">
+		<p class="text-body mb-6 text-neutral-300">
 			{result.itemCount} item{result.itemCount !== 1 ? 's' : ''} added to {result.locationName}
 		</p>
 
@@ -97,7 +109,7 @@
 		<div class="mb-8 w-full max-w-sm rounded-2xl border border-neutral-700 bg-neutral-900 p-4">
 			<div class="grid grid-cols-2 gap-4 text-center">
 				<div>
-					<div class="text-2xl font-bold text-primary-400">
+					<div class="text-primary-400 text-2xl font-bold">
 						{result.itemCount}
 					</div>
 					<div class="text-caption text-neutral-500">
@@ -105,7 +117,7 @@
 					</div>
 				</div>
 				<div>
-					<div class="text-2xl font-bold text-primary-400">
+					<div class="text-primary-400 text-2xl font-bold">
 						{result.photoCount}
 					</div>
 					<div class="text-caption text-neutral-500">
@@ -115,7 +127,7 @@
 			</div>
 		</div>
 	{:else}
-		<p class="mb-8 text-body text-neutral-400">Items have been added to your inventory</p>
+		<p class="text-body mb-8 text-neutral-400">Items have been added to your inventory</p>
 	{/if}
 
 	<!-- Action buttons -->
@@ -137,6 +149,22 @@
 			</span>
 		</Button>
 
+		<!-- Add sub-items to created items (only show if there are created items) -->
+		{#if result?.createdItems && result.createdItems.length > 0}
+			<Button variant="secondary" full onclick={() => (showParentPicker = true)}>
+				<svg
+					class="h-5 w-5"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+				>
+					<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+				</svg>
+				<span>Add Sub-Items to These</span>
+			</Button>
+		{/if}
+
 		<!-- Change location -->
 		<Button variant="secondary" full onclick={startOver}>
 			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -147,3 +175,12 @@
 		</Button>
 	</div>
 </div>
+
+<!-- Parent item picker modal -->
+{#if showParentPicker && result?.createdItems}
+	<CreatedItemPickerModal
+		items={result.createdItems}
+		onSelect={handleParentSelected}
+		onClose={() => (showParentPicker = false)}
+	/>
+{/if}

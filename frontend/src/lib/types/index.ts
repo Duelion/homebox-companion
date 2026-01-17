@@ -161,6 +161,8 @@ export interface SubmissionResult {
 	itemNames: string[];
 	locationName: string;
 	locationId: string;
+	/** Created items with ID and name (for parent picker on success screen) */
+	createdItems: Array<{ id: string; name: string }>;
 }
 
 /** Complete scan workflow state */
@@ -228,7 +230,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses
@@ -248,7 +250,7 @@ export interface DetectionResponse {
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
-export interface DetectedItem extends ItemCore, ItemExtended {}
+export interface DetectedItem extends ItemCore, ItemExtended { }
 
 /** Single image result in batch detection */
 export interface BatchDetectionResult {
