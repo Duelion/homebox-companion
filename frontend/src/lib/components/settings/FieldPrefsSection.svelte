@@ -42,9 +42,9 @@
 
 <section class="card space-y-4">
 	<div class="flex items-center justify-between">
-		<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
+		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 			<svg
-				class="text-primary-400 h-5 w-5"
+				class="h-5 w-5 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -58,7 +58,7 @@
 		</h2>
 		{#if service.showFieldPrefs && service.saveState === 'success'}
 			<span
-				class="bg-success-500/20 text-success-500 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium"
+				class="inline-flex items-center gap-2 rounded-full bg-success-500/20 px-3 py-1.5 text-sm font-medium text-success-500"
 			>
 				<svg
 					class="h-4 w-4"
@@ -91,7 +91,7 @@
 			<span>Loading...</span>
 		{:else}
 			<svg
-				class="text-primary-400 h-5 w-5"
+				class="h-5 w-5 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -115,16 +115,16 @@
 
 	{#if service.showFieldPrefs}
 		{#if service.errors.fieldPrefs}
-			<div class="border-error-500/30 bg-error-500/10 text-error-500 rounded-xl border p-4 text-sm">
+			<div class="rounded-xl border border-error-500/30 bg-error-500/10 p-4 text-sm text-error-500">
 				{service.errors.fieldPrefs}
 			</div>
 		{/if}
 
 		<!-- Output Language Setting -->
-		<div class="border-primary-500/20 bg-primary-600/10 space-y-3 rounded-xl border p-4">
+		<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
 			<div class="flex items-center gap-2">
 				<svg
-					class="text-primary-400 h-5 w-5"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -149,8 +149,8 @@
 					: 'Loading...'}
 				class="input"
 			/>
-			<div class="border-warning-500/30 bg-warning-500/10 rounded-lg border p-2">
-				<p class="text-warning-500 flex items-start gap-2 text-xs">
+			<div class="rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
+				<p class="flex items-start gap-2 text-xs text-warning-500">
 					<svg
 						class="mt-0.5 h-4 w-4 flex-shrink-0"
 						fill="none"
@@ -171,10 +171,10 @@
 		</div>
 
 		<!-- Default Label Setting -->
-		<div class="border-primary-500/20 bg-primary-600/10 space-y-3 rounded-xl border p-4">
+		<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
 			<div class="flex items-center gap-2">
 				<svg
-					class="text-primary-400 h-5 w-5"
+					class="h-5 w-5 text-primary-400"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -255,9 +255,9 @@
 					></div>
 					<span>Saving...</span>
 				{:else if service.saveState === 'success'}
-					<div class="bg-success-500/20 flex h-8 w-8 items-center justify-center rounded-full">
+					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
 						<svg
-							class="text-success-500 h-5 w-5"
+							class="h-5 w-5 text-success-500"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -298,10 +298,10 @@
 	{/if}
 
 	<!-- Docker Persistence Warning & Export -->
-	<div class="border-warning-500/30 bg-warning-500/10 space-y-3 rounded-xl border p-4">
+	<div class="space-y-3 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4">
 		<div class="flex items-start gap-2">
 			<svg
-				class="text-warning-500 mt-0.5 h-5 w-5 flex-shrink-0"
+				class="mt-0.5 h-5 w-5 flex-shrink-0 text-warning-500"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -312,7 +312,7 @@
 				/>
 			</svg>
 			<div>
-				<p class="text-warning-500 mb-1 text-sm font-medium">Docker users</p>
+				<p class="mb-1 text-sm font-medium text-warning-500">Docker users</p>
 				<p class="text-xs text-neutral-400">
 					Customizations are stored in a config file that may be lost when updating your container.
 					Export as environment variables to persist settings.
@@ -322,7 +322,7 @@
 
 		<button
 			type="button"
-			class="border-warning-500/30 bg-warning-500/20 text-warning-500 hover:bg-warning-500/30 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all"
+			class="flex w-full items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/20 px-4 py-2.5 text-sm font-medium text-warning-500 transition-all hover:bg-warning-500/30"
 			onclick={() => (showEnvExport = !showEnvExport)}
 		>
 			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -342,7 +342,7 @@
 				</span>
 				<button
 					type="button"
-					class="bg-primary-600/20 text-primary-400 hover:bg-primary-600/30 flex min-h-[36px] items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition-colors"
+					class="flex min-h-[36px] items-center gap-1 rounded-lg bg-primary-600/20 px-3 py-1.5 text-xs text-primary-400 transition-colors hover:bg-primary-600/30"
 					onclick={copyEnvVars}
 					aria-label="Copy environment variables"
 				>
@@ -362,7 +362,7 @@
 			</div>
 			<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 				<pre
-					class="overflow-x-auto p-4 font-mono text-xs break-words whitespace-pre-wrap text-neutral-400">{service.generateEnvVars(
+					class="overflow-x-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{service.generateEnvVars(
 						service.fieldPrefs
 					)}</pre>
 			</div>
@@ -433,7 +433,7 @@
 				</div>
 				<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 					<pre
-						class="max-h-80 overflow-x-auto overflow-y-auto p-4 font-mono text-xs break-words whitespace-pre-wrap text-neutral-400">{service.promptPreview}</pre>
+						class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{service.promptPreview}</pre>
 				</div>
 				<p class="text-xs text-neutral-500">
 					This is what the AI will see when analyzing your images. Labels shown are examples; actual
@@ -453,7 +453,7 @@
 >
 	{#snippet icon()}
 		<svg
-			class="text-primary-400 h-5 w-5"
+			class="h-5 w-5 text-primary-400"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -467,5 +467,5 @@
 	{/snippet}
 
 	<pre
-		class="font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-neutral-400">{service.promptPreview}</pre>
+		class="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-neutral-400">{service.promptPreview}</pre>
 </FullscreenPanel>

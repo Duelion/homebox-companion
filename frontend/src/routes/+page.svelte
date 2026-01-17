@@ -91,22 +91,22 @@
 	<title>Login - Homebox Companion</title>
 </svelte:head>
 
-<div class="animate-in flex flex-col items-center justify-center pt-8 pb-16">
+<div class="animate-in flex flex-col items-center justify-center pb-16 pt-8">
 	{#if isCheckingAuth}
 		<!-- Loading state during auth check -->
 		<div class="flex flex-col items-center gap-4">
 			<div
-				class="border-primary-500/30 border-t-primary-500 h-12 w-12 animate-spin rounded-full border-4"
+				class="h-12 w-12 animate-spin rounded-full border-4 border-primary-500/30 border-t-primary-500"
 			></div>
 			<p class="text-sm text-neutral-400">Loading...</p>
 		</div>
 	{:else}
 		<!-- Refined logo icon -->
 		<div
-			class="bg-primary-600/20 mb-6 flex h-20 w-20 items-center justify-center rounded-2xl shadow-lg"
+			class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg"
 		>
 			<svg
-				class="text-primary-400 h-14 w-14"
+				class="h-14 w-14 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -119,8 +119,8 @@
 		</div>
 
 		<!-- Typography with improved hierarchy -->
-		<h1 class="text-h1 mb-2 px-4 text-center text-neutral-100">Welcome back</h1>
-		<p class="text-body mb-6 max-w-xs px-4 text-center text-neutral-400">
+		<h1 class="mb-2 px-4 text-center text-h1 text-neutral-100">Welcome back</h1>
+		<p class="mb-6 max-w-xs px-4 text-center text-body text-neutral-400">
 			Sign in to continue to Homebox Companion
 		</p>
 
@@ -153,7 +153,7 @@
 					<button
 						type="button"
 						onclick={togglePasswordVisibility}
-						class="absolute top-1/2 right-3 -translate-y-1/2 rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
+						class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
 						aria-label={showPassword ? 'Hide password' : 'Show password'}
 					>
 						{#if showPassword}

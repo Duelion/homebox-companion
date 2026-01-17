@@ -9,9 +9,9 @@
 </script>
 
 <section class="card space-y-4">
-	<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
+	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 		<svg
-			class="text-primary-400 h-5 w-5"
+			class="h-5 w-5 text-primary-400"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -36,7 +36,7 @@
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="bg-warning-500/20 text-warning-500 hover:bg-warning-500/30 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors"
+					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500 transition-colors hover:bg-warning-500/30"
 					title="Click to view release"
 				>
 					<svg
@@ -54,7 +54,7 @@
 				</a>
 			{:else if service.updateCheckDone}
 				<span
-					class="bg-success-500/20 text-success-500 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
+					class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-xs text-success-500"
 				>
 					<svg
 						class="h-3 w-3"
@@ -96,7 +96,7 @@
 		</div>
 	</div>
 	{#if service.errors.updateCheck}
-		<p class="text-error-500 text-xs">{service.errors.updateCheck}</p>
+		<p class="text-xs text-error-500">{service.errors.updateCheck}</p>
 	{/if}
 
 	<!-- GitHub Link -->
@@ -128,7 +128,7 @@
 		</a>
 		<p class="flex items-start gap-1.5 text-xs text-neutral-500">
 			<svg
-				class="text-warning-500 mt-0.5 h-3.5 w-3.5 flex-shrink-0"
+				class="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-warning-500"
 				fill="currentColor"
 				viewBox="0 0 16 16"
 			>
@@ -147,7 +147,7 @@
 		onclick={() => (service.showAboutDetails = !service.showAboutDetails)}
 	>
 		<svg
-			class="text-primary-400 h-5 w-5"
+			class="h-5 w-5 text-primary-400"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -183,7 +183,7 @@
 							href={service.config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="hover:text-primary-400 flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors"
+							class="flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
 							title={service.config.homebox_url}
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -201,7 +201,7 @@
 						</a>
 						{#if service.config.is_demo_mode}
 							<span
-								class="bg-warning-500/20 text-warning-500 inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs"
+								class="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
 							>
 								Demo
 							</span>
@@ -218,14 +218,14 @@
 				<!-- Image Quality -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">Image Quality</span>
-					<span class="font-mono text-sm text-neutral-100 capitalize"
+					<span class="font-mono text-sm capitalize text-neutral-100"
 						>{service.config.image_quality}</span
 					>
 				</div>
 			{:else if service.isLoading.config}
 				<div class="flex items-center justify-center py-4">
 					<div
-						class="border-primary-500 h-5 w-5 animate-spin rounded-full border-2 border-t-transparent"
+						class="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
 					></div>
 				</div>
 			{/if}

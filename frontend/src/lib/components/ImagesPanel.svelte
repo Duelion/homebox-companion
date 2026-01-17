@@ -91,7 +91,7 @@
 	<div class="flex gap-2">
 		<button
 			type="button"
-			class="hover:border-primary-500/40 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all"
+			class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
 			onclick={() => cameraInput.click()}
 		>
 			<svg
@@ -110,7 +110,7 @@
 		</button>
 		<button
 			type="button"
-			class="hover:border-primary-500/40 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all"
+			class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
 			onclick={() => fileInput.click()}
 		>
 			<svg
@@ -174,7 +174,7 @@
 				<!-- Has images: show gallery strip -->
 				<div class="mb-3 flex items-center gap-2">
 					<svg
-						class="text-primary-300 h-4 w-4"
+						class="h-4 w-4 text-primary-300"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -201,7 +201,7 @@
 							/>
 							<button
 								type="button"
-								class="hover:bg-error-500 absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all group-hover:opacity-100"
+								class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all hover:bg-error-500 group-hover:opacity-100"
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
 							>
@@ -217,7 +217,7 @@
 								</svg>
 							</button>
 							<div
-								class="text-xxs absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 font-medium text-white"
+								class="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-xxs font-medium text-white"
 							>
 								{#if index === 0}
 									{#if customThumbnail}

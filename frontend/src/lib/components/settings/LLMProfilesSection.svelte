@@ -162,9 +162,9 @@
 
 <section class="card space-y-4">
 	<div class="flex items-center justify-between">
-		<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
+		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
 			<svg
-				class="text-primary-400 h-5 w-5"
+				class="h-5 w-5 text-primary-400"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -185,7 +185,7 @@
 	</div>
 
 	{#if error}
-		<div class="border-error-500/30 bg-error-500/10 text-error-400 rounded-lg border p-3 text-sm">
+		<div class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm">
 			{error}
 		</div>
 	{/if}
@@ -193,8 +193,8 @@
 	{#if testResult}
 		<div
 			class="rounded-lg border p-3 text-sm {testResult.success
-				? 'border-success-500/30 bg-success-500/10 text-success-400'
-				: 'border-error-500/30 bg-error-500/10 text-error-400'}"
+				? 'text-success-400 border-success-500/30 bg-success-500/10'
+				: 'text-error-400 border-error-500/30 bg-error-500/10'}"
 		>
 			{testResult.message}
 		</div>
@@ -203,7 +203,7 @@
 	{#if loading}
 		<div class="flex items-center justify-center py-8">
 			<div
-				class="border-primary-500 h-6 w-6 animate-spin rounded-full border-2 border-t-transparent"
+				class="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
 			></div>
 		</div>
 	{:else if profiles.length === 0}
@@ -213,7 +213,7 @@
 		</div>
 	{:else}
 		<div class="space-y-2">
-			{#each profiles as profile}
+			{#each profiles as profile (profile.name)}
 				<div
 					class="flex items-center gap-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3"
 				>
@@ -255,7 +255,7 @@
 						{/if}
 						<button
 							type="button"
-							class="hover:text-primary-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
+							class="rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50 hover:text-primary-400"
 							title="Test connection"
 							aria-label="Test connection"
 							disabled={testingProfile === profile.name}
@@ -263,7 +263,7 @@
 						>
 							{#if testingProfile === profile.name}
 								<div
-									class="border-primary-500 h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+									class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
 								></div>
 							{:else}
 								<svg

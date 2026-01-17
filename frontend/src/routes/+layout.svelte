@@ -143,7 +143,7 @@
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
-		class="glass fixed top-0 right-0 left-0 z-40 border-b border-neutral-700"
+		class="glass fixed left-0 right-0 top-0 z-40 border-b border-neutral-700"
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
@@ -154,7 +154,7 @@
 					class="flex items-center justify-center gap-2 overflow-visible font-semibold text-neutral-200"
 				>
 					<svg
-						class="text-primary h-7 w-7 shrink-0"
+						class="h-7 w-7 shrink-0 text-primary"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -166,7 +166,7 @@
 						<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 						<line x1="12" y1="22.08" x2="12" y2="12" />
 					</svg>
-					<span class="text-lg whitespace-nowrap">Homebox Companion</span>
+					<span class="whitespace-nowrap text-lg">Homebox Companion</span>
 				</a>
 			</AppContainer>
 		</div>
@@ -185,7 +185,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="border-warning/30 bg-warning/20 text-warning-500 fixed right-0 left-0 z-40 flex items-center justify-center gap-2 border-t px-4 py-3 text-sm {isAuthenticated
+			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning-500 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
