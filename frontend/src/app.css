@@ -441,6 +441,46 @@
 	.slider-primary:focus::-moz-range-thumb {
 		@apply shadow-primary-ring;
 	}
+
+	/* Animation delay utilities - for staggered entrance animations */
+	.delay-0 {
+		animation-delay: 0ms;
+	}
+
+	.delay-100 {
+		animation-delay: 100ms;
+	}
+
+	.delay-150 {
+		animation-delay: 150ms;
+	}
+
+	.delay-160 {
+		animation-delay: 160ms;
+	}
+
+	.delay-200 {
+		animation-delay: 200ms;
+	}
+
+	.delay-300 {
+		animation-delay: 300ms;
+	}
+
+	.delay-320 {
+		animation-delay: 320ms;
+	}
+
+	.delay-400 {
+		animation-delay: 400ms;
+	}
+
+	/* QR Scanner video - responsive square sizing */
+	.scanner-video {
+		width: min(90vw, 400px);
+		height: min(90vw, 400px);
+		object-fit: cover;
+	}
 }
 
 /* Keyframes now consolidated in tailwind.config.js:

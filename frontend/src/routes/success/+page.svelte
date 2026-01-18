@@ -70,15 +70,9 @@
 		<!-- Outer glow ring - scales in -->
 		<div class="success-scale bg-success-500/10 absolute inset-0 rounded-full"></div>
 		<!-- Inner circle - scales in with slight delay -->
-		<div
-			class="success-scale bg-success-500/20 absolute inset-2 rounded-full"
-			style="animation-delay: 0.1s;"
-		></div>
+		<div class="success-scale bg-success-500/20 absolute inset-2 rounded-full delay-100"></div>
 		<!-- Checkmark icon with draw animation -->
-		<div
-			class="success-scale absolute inset-0 flex items-center justify-center"
-			style="animation-delay: 0.15s;"
-		>
+		<div class="success-scale absolute inset-0 flex items-center justify-center delay-150">
 			<svg
 				class="text-success-500 h-14 w-14"
 				fill="none"

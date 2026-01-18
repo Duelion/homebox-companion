@@ -257,8 +257,8 @@
 			{#if message.isStreaming}
 				<div class="flex justify-center gap-1 px-2 py-1">
 					<span class="typing-dot"></span>
-					<span class="typing-dot animation-delay-160"></span>
-					<span class="typing-dot animation-delay-320"></span>
+					<span class="typing-dot delay-160"></span>
+					<span class="typing-dot delay-320"></span>
 				</div>
 			{/if}
 
@@ -386,13 +386,7 @@
 		@apply animate-typing-dot bg-primary-500 h-1.5 w-1.5 rounded-full;
 	}
 
-	.animation-delay-160 {
-		animation-delay: 0.16s;
-	}
-
-	.animation-delay-320 {
-		animation-delay: 0.32s;
-	}
+	/* Note: animation delay classes now use global utilities: delay-160, delay-320 */
 
 	/* Tool execution spinner */
 	.tool-spinner {
