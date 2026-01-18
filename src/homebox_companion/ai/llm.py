@@ -21,7 +21,7 @@ from ..core.exceptions import (
     LLMServiceError,
 )
 from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
-from ..core.settings import get_fallback_profile
+from ..core.persistent_settings import get_fallback_profile
 from .model_capabilities import get_model_capabilities
 
 # Silence LiteLLM's verbose logging (we use loguru)

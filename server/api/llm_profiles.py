@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel, SecretStr
 
-from homebox_companion.core.settings import (
+from homebox_companion.core.persistent_settings import (
     ModelProfile,
     ProfileStatus,
     Settings,
