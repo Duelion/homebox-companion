@@ -23,7 +23,9 @@ from pydantic import BaseModel, Field, SecretStr, model_validator
 
 from .field_preferences import FieldPreferences
 
-# Data directory for persistent storage (mounted volume in Docker)
+# Data directory for persistent storage (mounted volume in Docker).
+# This is relative to the working directory, which should be the project root
+# when running via `uv run` or from Docker (where WORKDIR is set appropriately).
 DATA_DIR = Path("data")
 SETTINGS_FILE = DATA_DIR / "settings.yaml"
 
@@ -62,8 +64,11 @@ class ModelProfile(BaseModel):
     status: ProfileStatus = ProfileStatus.OFF
 
 
-class Settings(BaseModel):
-    """Unified application settings.
+class PersistentSettings(BaseModel):
+    """Unified application settings stored in YAML.
+
+    Note: This is distinct from core.config.Settings which handles env vars.
+    This class manages user-configurable settings persisted to settings.yaml.
 
     Contains all persistent configuration:
     - LLM profiles (multi-provider support)
@@ -76,7 +81,7 @@ class Settings(BaseModel):
     """
 
     version: int = CURRENT_VERSION
-    llm_profiles: list[ModelProfile] = []
+    llm_profiles: list[ModelProfile] = Field(default_factory=list)
     field_preferences: FieldPreferences = Field(default_factory=FieldPreferences)
 
     @model_validator(mode="after")
@@ -96,8 +101,8 @@ class Settings(BaseModel):
         return self
 
 
-def _settings_to_yaml_dict(settings: Settings) -> dict:
-    """Convert Settings to a YAML-friendly dict."""
+def _settings_to_yaml_dict(settings: PersistentSettings) -> dict:
+    """Convert PersistentSettings to a YAML-friendly dict."""
     profiles = []
     for p in settings.llm_profiles:
         profile_dict = {
@@ -118,8 +123,8 @@ def _settings_to_yaml_dict(settings: Settings) -> dict:
     }
 
 
-def _yaml_dict_to_settings(data: dict) -> Settings:
-    """Convert YAML dict to Settings, handling SecretStr conversion."""
+def _yaml_dict_to_settings(data: dict) -> PersistentSettings:
+    """Convert YAML dict to PersistentSettings, handling SecretStr conversion."""
     profiles = []
     for p in data.get("llm_profiles", []):
         profiles.append(
@@ -134,14 +139,14 @@ def _yaml_dict_to_settings(data: dict) -> Settings:
 
     field_prefs = data.get("field_preferences", {})
 
-    return Settings(
+    return PersistentSettings(
         version=data.get("version", CURRENT_VERSION),
         llm_profiles=profiles,
         field_preferences=FieldPreferences.model_validate(field_prefs),
     )
 
 
-def bootstrap_from_env() -> Settings:
+def bootstrap_from_env() -> PersistentSettings:
     """Create initial settings from environment variables.
 
     Called on first boot when no settings.yaml exists.
@@ -176,7 +181,7 @@ def bootstrap_from_env() -> Settings:
         field_prefs = load_field_preferences()
         logger.info("Migrated existing field_preferences.json to settings.yaml")
 
-    return Settings(
+    return PersistentSettings(
         version=CURRENT_VERSION,
         llm_profiles=profiles,
         field_preferences=field_prefs,
@@ -206,11 +211,11 @@ def migrate_settings(data: dict) -> dict:
     return data
 
 
-def load_settings() -> Settings:
+def load_settings() -> PersistentSettings:
     """Load settings from YAML file, bootstrapping if needed.
 
     Returns:
-        Settings instance with all configuration
+        PersistentSettings instance with all configuration
     """
     if not SETTINGS_FILE.exists():
         logger.info("No settings.yaml found, bootstrapping from environment")
@@ -244,14 +249,14 @@ def load_settings() -> Settings:
 _settings_lock = threading.Lock()
 
 
-def save_settings(settings: Settings) -> None:
+def save_settings(settings: PersistentSettings) -> None:
     """Save settings to YAML file.
 
     Thread-safe with file locking to prevent race conditions.
     Automatically clears the settings cache to ensure fresh data on next access.
 
     Args:
-        settings: Settings instance to persist
+        settings: PersistentSettings instance to persist
     """
     with _settings_lock:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -264,18 +269,18 @@ def save_settings(settings: Settings) -> None:
         SETTINGS_FILE.write_text(yaml_content, encoding="utf-8")
         logger.debug("Settings saved to settings.yaml")
 
-    # Clear cache after releasing lock to ensure fresh data on next access
-    _get_settings_cached.cache_clear()
+        # Clear cache inside lock to prevent race conditions
+        _get_settings_cached.cache_clear()
 
 
 @lru_cache(maxsize=1)
-def _get_settings_cached() -> Settings:
+def _get_settings_cached() -> PersistentSettings:
     """Internal cached settings loader."""
     return load_settings()
 
 
-def get_settings() -> Settings:
-    """Get settings instance.
+def get_settings() -> PersistentSettings:
+    """Get persistent settings instance.
 
     Returns a copy to prevent mutation of cached data.
     Use clear_settings_cache() after modifications to refresh.
@@ -286,19 +291,6 @@ def get_settings() -> Settings:
 def clear_settings_cache() -> None:
     """Clear the settings cache to force reload on next access."""
     _get_settings_cached.cache_clear()
-
-
-def get_active_profile() -> ModelProfile | None:
-    """Get the currently active LLM profile.
-
-    Returns:
-        The profile with status=ACTIVE, or None if no profiles configured
-    """
-    settings = get_settings()
-    for profile in settings.llm_profiles:
-        if profile.status == ProfileStatus.PRIMARY:
-            return profile
-    return None
 
 
 def get_fallback_profile() -> ModelProfile | None:
