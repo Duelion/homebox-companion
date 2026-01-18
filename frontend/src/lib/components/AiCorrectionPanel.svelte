@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
+	import { ChevronDown, RefreshCcw } from 'lucide-svelte';
 	import Button from './Button.svelte';
 	import AnalysisProgressBar from './AnalysisProgressBar.svelte';
 
@@ -28,14 +29,7 @@
 		class="flex w-full items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200"
 		onclick={onToggle}
 	>
-		<svg
-			class="h-4 w-4 transition-transform {expanded ? 'rotate-180' : ''}"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-		>
-			<polyline points="6 9 12 15 18 9" />
-		</svg>
+		<ChevronDown class="transition-transform {expanded ? 'rotate-180' : ''}" size={16} />
 		<span>AI Correction</span>
 	</button>
 
@@ -60,10 +54,7 @@
 					{loading}
 					disabled={loading || !correctionPrompt.trim()}
 				>
-					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path d="M12 2a10 10 0 1 0 10 10H12V2z" />
-						<path d="M12 2a10 10 0 0 1 10 10" />
-					</svg>
+					<RefreshCcw size={16} strokeWidth={2} />
 					<span>Correct with AI</span>
 				</Button>
 			{/if}

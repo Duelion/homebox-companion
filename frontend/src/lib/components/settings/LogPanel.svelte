@@ -9,6 +9,7 @@
 	 * - Fullscreen modal support
 	 */
 	import type { Snippet } from 'svelte';
+	import { RefreshCw, Download, Share, Trash2, Maximize2, ChevronDown } from 'lucide-svelte';
 	import FullscreenPanel from '$lib/components/FullscreenPanel.svelte';
 
 	interface Props {
@@ -106,16 +107,7 @@
 			title="Refresh"
 			aria-label="Refresh"
 		>
-			<svg
-				class="h-5 w-5 {refreshLoading ? 'animate-spin' : ''}"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
-				<path d="M23 4v6h-6M1 20v-6h6" />
-				<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-			</svg>
+			<RefreshCw class={refreshLoading ? 'animate-spin' : ''} size={20} strokeWidth={1.5} />
 		</button>
 	{/if}
 	{#if onDownload}
@@ -127,11 +119,7 @@
 			title="Download"
 			aria-label="Download"
 		>
-			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-				<polyline points="7 10 12 15 17 10" />
-				<line x1="12" y1="15" x2="12" y2="3" />
-			</svg>
+			<Download size={20} strokeWidth={1.5} />
 		</button>
 	{/if}
 	{#if onExport}
@@ -143,11 +131,7 @@
 			title="Export"
 			aria-label="Export"
 		>
-			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-				<polyline points="7 10 12 15 17 10" />
-				<line x1="12" y1="15" x2="12" y2="3" />
-			</svg>
+			<Share size={20} strokeWidth={1.5} />
 		</button>
 	{/if}
 	{#if onClear}
@@ -159,11 +143,7 @@
 			title="Clear"
 			aria-label="Clear"
 		>
-			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path
-					d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-				/>
-			</svg>
+			<Trash2 size={20} strokeWidth={1.5} />
 		</button>
 	{/if}
 {/snippet}
@@ -186,15 +166,7 @@
 						title="Expand fullscreen"
 						aria-label="View fullscreen"
 					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-						</svg>
+						<Maximize2 size={20} strokeWidth={1.5} />
 					</button>
 				{/if}
 			</div>
@@ -220,14 +192,10 @@
 			<span>Loading...</span>
 		{:else}
 			<span>{toggleLabel}</span>
-			<svg
-				class="ml-auto h-4 w-4 transition-transform {isExpanded ? 'rotate-180' : ''}"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-			>
-				<polyline points="6 9 12 15 18 9" />
-			</svg>
+			<ChevronDown
+				class="ml-auto transition-transform {isExpanded ? 'rotate-180' : ''}"
+				size={16}
+			/>
 		{/if}
 	</button>
 

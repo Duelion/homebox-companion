@@ -19,6 +19,19 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
+	import {
+		TriangleAlert,
+		RefreshCw,
+		ChevronRight,
+		Trash2,
+		ChevronDown,
+		X,
+		Camera,
+		Upload,
+		Image,
+		MapPin,
+		Lightbulb,
+	} from 'lucide-svelte';
 
 	const log = createLogger({ prefix: 'Capture' });
 
@@ -389,16 +402,7 @@
 			<!-- Location block -->
 			<div class="flex flex-col gap-1">
 				<div class="flex items-center gap-2">
-					<svg
-						class="h-4 w-4 shrink-0"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-						<circle cx="12" cy="10" r="3" />
-					</svg>
+					<MapPin class="shrink-0" size={16} strokeWidth={1.5} />
 					<span>Items will be added to:</span>
 				</div>
 				<span class="pl-6 font-semibold text-neutral-200">{locationPath}</span>
@@ -434,17 +438,7 @@
 		>
 			<div class="mb-4 flex items-start gap-3">
 				<!-- Warning icon -->
-				<svg
-					class="text-warning-400 mt-0.5 h-6 w-6 shrink-0"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-					/>
-				</svg>
+				<TriangleAlert class="text-warning-400 mt-0.5 shrink-0" size={24} strokeWidth={1.5} />
 
 				<div class="flex-1">
 					<h3 class="mb-1 text-body font-semibold text-warning-100">
@@ -482,17 +476,7 @@
 							}}
 							disabled={isStartingAnalysis}
 						>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path
-									d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-								/>
-							</svg>
+							<RefreshCw size={16} strokeWidth={1.5} />
 							<span>Retry Failed Images</span>
 						</Button>
 						<Button
@@ -504,15 +488,7 @@
 							disabled={isStartingAnalysis}
 						>
 							<span>Continue with Successful</span>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<polyline points="9 18 15 12 9 6" />
-							</svg>
+							<ChevronRight size={16} strokeWidth={1.5} />
 						</Button>
 						<Button
 							variant="secondary"
@@ -522,17 +498,7 @@
 							}}
 							disabled={isStartingAnalysis}
 						>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path
-									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-								/>
-							</svg>
+							<Trash2 size={16} strokeWidth={1.5} />
 							<span>Remove Failed</span>
 						</Button>
 					</div>
@@ -596,17 +562,13 @@
 									onclick={() => toggleImageExpanded(index)}
 									disabled={isAnalyzing}
 								>
-									<svg
-										class="h-5 w-5 transition-transform duration-200 {expandedImages.has(index)
+									<ChevronDown
+										class="transition-transform duration-200 {expandedImages.has(index)
 											? 'rotate-180'
 											: ''}"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-									>
-										<polyline points="6 9 12 15 18 9" />
-									</svg>
+										size={20}
+										strokeWidth={1.5}
+									/>
 								</button>
 								<button
 									type="button"
@@ -615,16 +577,7 @@
 									onclick={() => removeImage(index)}
 									disabled={isAnalyzing}
 								>
-									<svg
-										class="h-5 w-5"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-									>
-										<line x1="18" y1="6" x2="6" y2="18" />
-										<line x1="6" y1="6" x2="18" y2="18" />
-									</svg>
+									<X size={20} strokeWidth={1.5} />
 								</button>
 							{/if}
 						</div>
@@ -701,17 +654,7 @@
 								<!-- Has additional photos: show gallery strip -->
 								<div class="border-t border-neutral-800/50 pt-3">
 									<div class="mb-3 flex items-center gap-2">
-										<svg
-											class="h-4 w-4 text-primary-400"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-											stroke-width="1.5"
-										>
-											<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-											<circle cx="8.5" cy="8.5" r="1.5" />
-											<polyline points="21 15 16 10 5 21" />
-										</svg>
+										<Image class="text-primary-400" size={16} strokeWidth={1.5} />
 										<span class="text-body-sm font-medium text-neutral-200">
 											{image.additionalDataUrls.length} additional photo{image.additionalDataUrls
 												.length !== 1
@@ -739,16 +682,7 @@
 													onclick={() => removeAdditionalImage(index, additionalIndex)}
 													disabled={isAnalyzing}
 												>
-													<svg
-														class="h-3.5 w-3.5 text-white"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2.5"
-														viewBox="0 0 24 24"
-													>
-														<line x1="18" y1="6" x2="6" y2="18" />
-														<line x1="6" y1="6" x2="18" y2="18" />
-													</svg>
+													<X class="text-white" size={14} strokeWidth={2.5} />
 												</button>
 												<div
 													class="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-xxs font-medium text-white"
@@ -767,18 +701,7 @@
 											onclick={() => additionalCameraInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
-											<svg
-												class="h-4 w-4 text-neutral-400"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="1.5"
-												viewBox="0 0 24 24"
-											>
-												<path
-													d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-												/>
-												<circle cx="12" cy="13" r="4" />
-											</svg>
+											<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
 											<span class="text-caption font-medium text-neutral-400">Camera</span>
 										</button>
 										<button
@@ -787,17 +710,7 @@
 											onclick={() => additionalImageInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
-											<svg
-												class="h-4 w-4 text-neutral-400"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="1.5"
-												viewBox="0 0 24 24"
-											>
-												<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-												<polyline points="17 8 12 3 7 8" />
-												<line x1="12" y1="3" x2="12" y2="15" />
-											</svg>
+											<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
 											<span class="text-caption font-medium text-neutral-400">Upload</span>
 										</button>
 									</div>
@@ -815,18 +728,7 @@
 											onclick={() => additionalCameraInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
-											<svg
-												class="h-4 w-4 text-neutral-400"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="1.5"
-												viewBox="0 0 24 24"
-											>
-												<path
-													d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-												/>
-												<circle cx="12" cy="13" r="4" />
-											</svg>
+											<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
 											<span class="text-caption font-medium text-neutral-400">Camera</span>
 										</button>
 										<button
@@ -835,17 +737,7 @@
 											onclick={() => additionalImageInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
-											<svg
-												class="h-4 w-4 text-neutral-400"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="1.5"
-												viewBox="0 0 24 24"
-											>
-												<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-												<polyline points="17 8 12 3 7 8" />
-												<line x1="12" y1="3" x2="12" y2="15" />
-											</svg>
+											<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
 											<span class="text-caption font-medium text-neutral-400">Upload</span>
 										</button>
 									</div>
@@ -868,18 +760,11 @@
 							<div
 								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 							>
-								<svg
-									class="h-6 w-6 text-neutral-400 transition-colors group-hover:text-primary-400"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-								>
-									<path
-										d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-									/>
-									<circle cx="12" cy="13" r="4" />
-								</svg>
+								<Camera
+									class="text-neutral-400 transition-colors group-hover:text-primary-400"
+									size={24}
+									strokeWidth={1.5}
+								/>
 							</div>
 							<span
 								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
@@ -896,17 +781,11 @@
 							<div
 								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 							>
-								<svg
-									class="h-6 w-6 text-neutral-400 transition-colors group-hover:text-primary-400"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-								>
-									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-									<polyline points="17 8 12 3 7 8" />
-									<line x1="12" y1="3" x2="12" y2="15" />
-								</svg>
+								<Upload
+									class="text-neutral-400 transition-colors group-hover:text-primary-400"
+									size={24}
+									strokeWidth={1.5}
+								/>
 							</div>
 							<span
 								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
@@ -921,18 +800,7 @@
 		<!-- Enhanced empty state -->
 		<div class="mb-6 flex flex-col items-center px-4 py-12">
 			<div class="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-primary-500/10">
-				<svg
-					class="h-12 w-12 text-primary-400"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-					/>
-					<circle cx="12" cy="13" r="4" />
-				</svg>
+				<Camera class="text-primary-400" size={48} strokeWidth={1.5} />
 			</div>
 			<h3 class="mb-2 text-center text-h3 text-neutral-100">Capture your items</h3>
 			<p class="mb-8 max-w-xs text-center text-body-sm text-neutral-400">
@@ -950,18 +818,11 @@
 						<div
 							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 						>
-							<svg
-								class="h-6 w-6 text-neutral-300 transition-colors group-hover:text-primary-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path
-									d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-								/>
-								<circle cx="12" cy="13" r="4" />
-							</svg>
+							<Camera
+								class="text-neutral-300 transition-colors group-hover:text-primary-400"
+								size={24}
+								strokeWidth={1.5}
+							/>
 						</div>
 						<span
 							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
@@ -978,17 +839,11 @@
 						<div
 							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 						>
-							<svg
-								class="h-6 w-6 text-neutral-300 transition-colors group-hover:text-primary-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-								<polyline points="17 8 12 3 7 8" />
-								<line x1="12" y1="3" x2="12" y2="15" />
-							</svg>
+							<Upload
+								class="text-neutral-300 transition-colors group-hover:text-primary-400"
+								size={24}
+								strokeWidth={1.5}
+							/>
 						</div>
 						<span
 							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
@@ -1030,16 +885,7 @@
 	<AppContainer>
 		{#if showAnalyzingUI && isAnalyzing}
 			<Button variant="secondary" full onclick={cancelAnalysis}>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<line x1="18" y1="6" x2="6" y2="18" />
-					<line x1="6" y1="6" x2="18" y2="18" />
-				</svg>
+				<X size={20} strokeWidth={1.5} />
 				<span>Cancel Analysis</span>
 			</Button>
 		{:else if !showAnalyzingUI}
@@ -1054,17 +900,7 @@
 				{:else}
 					<span>Analyze with AI</span>
 				{/if}
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-					/>
-				</svg>
+				<Lightbulb size={20} strokeWidth={1.5} />
 			</Button>
 			{#if images.length === 0}
 				<p class="mt-2 text-center text-caption text-neutral-500">Add photos to continue</p>

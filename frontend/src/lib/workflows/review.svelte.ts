@@ -243,6 +243,7 @@ export class ReviewService {
 			customThumbnail: item.customThumbnail,
 			compressedDataUrl: item.compressedDataUrl,
 			compressedAdditionalDataUrls: item.compressedAdditionalDataUrls,
+			duplicate_match: item.duplicate_match,
 		};
 
 		// Add to detected items for re-review

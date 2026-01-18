@@ -6,6 +6,7 @@
 	 * Works with any object that implements the ItemExtended interface.
 	 */
 	import { slide } from 'svelte/transition';
+	import { ChevronDown } from 'lucide-svelte';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 
@@ -56,14 +57,7 @@
 		onclick={onToggle}
 		aria-expanded={expanded}
 	>
-		<svg
-			class="h-4 w-4 transition-transform {expanded ? 'rotate-180' : ''}"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-		>
-			<polyline points="6 9 12 15 18 9" />
-		</svg>
+		<ChevronDown class="transition-transform {expanded ? 'rotate-180' : ''}" size={16} />
 		<span>Extended Fields</span>
 		{#if hasData}
 			<span class="rounded bg-primary-500/20 px-1.5 py-0.5 text-xs text-primary-300">Has data</span>

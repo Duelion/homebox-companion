@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import QrScanner from 'qr-scanner';
-	import heic2any from 'heic2any';
+	// heic2any is lazy-loaded in convertHeicIfNeeded() to save ~350KB initial bundle
+	import { X, TriangleAlert, Camera } from 'lucide-svelte';
 	import { qrLogger as log } from '$lib/utils/logger';
 
 	interface Props {
@@ -144,6 +145,7 @@
 	}
 
 	// Convert HEIC images to JPEG (iOS may send HEIC format)
+	// Uses dynamic import to avoid loading ~350KB library unless needed
 	async function convertHeicIfNeeded(file: File): Promise<Blob> {
 		const isHeic =
 			file.type === 'image/heic' ||
@@ -152,6 +154,8 @@
 			file.name.toLowerCase().endsWith('.heif');
 
 		if (isHeic) {
+			// Lazy-load heic2any only when we actually need it
+			const { default: heic2any } = await import('heic2any');
 			const blob = await heic2any({
 				blob: file,
 				toType: 'image/jpeg',
@@ -263,7 +267,7 @@
 />
 
 <!-- Full-screen modal overlay -->
-<div class="fixed inset-0 z-overlay flex flex-col bg-neutral-950">
+<div class="z-overlay fixed inset-0 flex flex-col bg-neutral-950">
 	<!-- Header -->
 	<div class="flex items-center justify-between bg-neutral-950/80 p-4">
 		<h2 class="font-semibold text-neutral-100">Scan Location QR Code</h2>
@@ -273,9 +277,7 @@
 			class="p-2 text-neutral-400 transition-colors hover:text-neutral-100"
 			aria-label="Close scanner"
 		>
-			<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-				<path d="M6 18L18 6M6 6l12 12" />
-			</svg>
+			<X size={24} />
 		</button>
 	</div>
 
@@ -286,17 +288,7 @@
 				<div
 					class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20"
 				>
-					<svg
-						class="h-8 w-8 text-amber-400"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="2"
-					>
-						<path
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
+					<TriangleAlert class="text-amber-400" size={32} />
 				</div>
 				<p class="mb-6 text-neutral-300">{error}</p>
 
@@ -307,7 +299,7 @@
 						type="button"
 						onclick={triggerFileUpload}
 						disabled={isProcessingFile}
-						class="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-neutral-100 transition-colors hover:bg-primary-500 disabled:opacity-50"
+						class="bg-primary-600 hover:bg-primary-500 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-neutral-100 transition-colors disabled:opacity-50"
 					>
 						{#if isProcessingFile}
 							<div
@@ -315,18 +307,7 @@
 							></div>
 							<span>Processing...</span>
 						{:else}
-							<svg
-								class="h-5 w-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-							>
-								<path
-									d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-								/>
-								<path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-							</svg>
+							<Camera size={20} />
 							<span>Take Photo</span>
 						{/if}
 					</button>

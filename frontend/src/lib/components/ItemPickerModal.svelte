@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Search, Package, Check, X } from 'lucide-svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { items as itemsApi, type BlobUrlResult } from '$lib/api';
@@ -133,16 +134,7 @@
 	<div class="mb-4">
 		<div class="relative">
 			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-				<svg
-					class="h-5 w-5 text-neutral-500"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<circle cx="11" cy="11" r="8" />
-					<path d="m21 21-4.35-4.35" />
-				</svg>
+				<Search class="text-neutral-500" size={20} strokeWidth={1.5} />
 			</div>
 			<input
 				type="text"
@@ -182,15 +174,7 @@
 							<img src={thumbnailUrl} alt="" class="h-full w-full object-cover" />
 						{:else}
 							<div class="flex h-full w-full items-center justify-center">
-								<svg
-									class="h-7 w-7 text-neutral-500"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1"
-								>
-									<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-								</svg>
+								<Package class="text-neutral-500" size={28} strokeWidth={1} />
 							</div>
 						{/if}
 					</div>
@@ -206,15 +190,7 @@
 
 					{#if selectedItemId === item.id}
 						<div class="flex h-6 w-6 items-center justify-center text-primary-400">
-							<svg
-								class="h-5 w-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
+							<Check class="text-primary-400" size={20} strokeWidth={2.5} />
 						</div>
 					{/if}
 				</button>
@@ -225,16 +201,7 @@
 	{#snippet footer()}
 		{#if currentItemId}
 			<Button variant="secondary" onclick={clearSelection}>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<line x1="18" y1="6" x2="6" y2="18" />
-					<line x1="6" y1="6" x2="18" y2="18" />
-				</svg>
+				<X size={20} strokeWidth={1.5} />
 				<span>Clear Selection</span>
 			</Button>
 		{/if}

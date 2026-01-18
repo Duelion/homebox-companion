@@ -5,6 +5,7 @@
 	 * Auto-resizing textarea with send button.
 	 * Disabled while streaming.
 	 */
+	import { Send, Square } from 'lucide-svelte';
 	import { chatStore } from '../stores/chat.svelte';
 
 	interface Props {
@@ -92,11 +93,7 @@
 			{#if chatStore.isStreaming}
 				<span class="loading-spinner"></span>
 			{:else}
-				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-					<path
-						d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z"
-					/>
-				</svg>
+				<Send size={14} />
 			{/if}
 		</button>
 
@@ -107,9 +104,7 @@
 				aria-label="Stop generating"
 				class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-error-glow-sm transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-error-glow active:scale-95"
 			>
-				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
-					<rect x="6" y="6" width="12" height="12" rx="2" />
-				</svg>
+				<Square size={12} fill="currentColor" />
 			</button>
 		{/if}
 

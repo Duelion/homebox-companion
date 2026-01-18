@@ -344,6 +344,13 @@
 		-webkit-transform: translateZ(0);
 	}
 
+	/* On tablet/desktop, bottom nav is hidden so reset to bottom: 0 */
+	@screen md {
+		.bottom-nav-offset {
+			bottom: 0;
+		}
+	}
+
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply animate-shimmer rounded bg-neutral-800;

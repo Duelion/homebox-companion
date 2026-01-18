@@ -5,6 +5,7 @@
 	 * Shown when a recoverable session is detected (e.g., after page reload mid-workflow).
 	 * Provides options to resume the session or start fresh.
 	 */
+	import { RefreshCw, ImageIcon, CheckSquare, Play } from 'lucide-svelte';
 	import type { SessionSummary } from '$lib/services/sessionPersistence';
 	import Button from './Button.svelte';
 
@@ -56,17 +57,7 @@
 			<div
 				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500/20"
 			>
-				<svg
-					class="h-5 w-5 text-primary-400"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-					/>
-				</svg>
+				<RefreshCw class="text-primary-400" size={20} strokeWidth={1.5} />
 			</div>
 
 			<div class="flex-1">
@@ -85,32 +76,13 @@
 		<div class="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-caption text-primary-200/70">
 			{#if summary.imageCount > 0}
 				<div class="flex items-center gap-1.5">
-					<svg
-						class="h-3.5 w-3.5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-						<circle cx="8.5" cy="8.5" r="1.5" />
-						<polyline points="21 15 16 10 5 21" />
-					</svg>
+					<ImageIcon size={14} strokeWidth={1.5} />
 					<span>{summary.imageCount} photo{summary.imageCount !== 1 ? 's' : ''}</span>
 				</div>
 			{/if}
 			{#if summary.confirmedCount > 0}
 				<div class="flex items-center gap-1.5">
-					<svg
-						class="h-3.5 w-3.5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<polyline points="9 11 12 14 22 4" />
-						<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-					</svg>
+					<CheckSquare size={14} strokeWidth={1.5} />
 					<span
 						>{summary.confirmedCount} item{summary.confirmedCount !== 1 ? 's' : ''} confirmed</span
 					>
@@ -126,15 +98,7 @@
 					></div>
 					<span>Recovering...</span>
 				{:else}
-					<svg
-						class="h-4 w-4"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<polygon points="5 3 19 12 5 21 5 3" />
-					</svg>
+					<Play size={16} strokeWidth={1.5} />
 					<span>Resume Session</span>
 				{/if}
 			</Button>

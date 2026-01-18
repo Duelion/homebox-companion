@@ -19,8 +19,10 @@
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import DuplicateWarningIcon from '$lib/components/DuplicateWarningIcon.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
+	import { SquarePen, ImageIcon, ChevronsRight, Check } from 'lucide-svelte';
 
 	// Capture limits (loaded from config, with safe defaults)
 	let maxImages = $state(30);
@@ -354,8 +356,8 @@
 <div class="animate-in pb-32">
 	<StepIndicator currentStep={3} />
 
-	<h2 class="mb-1 text-h2 text-neutral-100">Review Items</h2>
-	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
+	<h2 class="text-h2 mb-1 text-neutral-100">Review Items</h2>
+	<p class="text-body-sm mb-6 text-neutral-400">Edit or skip detected items</p>
 
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
 
@@ -372,25 +374,16 @@
 					<!-- Edit overlay - always visible on mobile, hover on desktop -->
 					<button
 						type="button"
-						class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-white/50 md:opacity-0 md:group-hover:opacity-100"
+						class="absolute right-3 bottom-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:ring-2 focus:ring-white/50 focus:outline-none md:opacity-0 md:group-hover:opacity-100"
 						onclick={openThumbnailEditor}
 						aria-label="Edit thumbnail image"
 					>
-						<svg
-							class="h-4 w-4"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-						</svg>
+						<SquarePen size={16} strokeWidth={1.5} />
 						<span>Edit Thumbnail</span>
 					</button>
 					{#if editedItem.customThumbnail}
 						<span
-							class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
+							class="bg-primary-600/90 absolute top-3 left-3 rounded px-2 py-1 text-xs font-medium text-white"
 						>
 							Custom
 						</span>
@@ -401,19 +394,22 @@
 				<div
 					class="flex aspect-video flex-col items-center justify-center bg-neutral-800 text-neutral-500"
 				>
-					<svg
-						class="mb-2 h-16 w-16 opacity-40"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1"
-					>
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-						<circle cx="8.5" cy="8.5" r="1.5" />
-						<polyline points="21 15 16 10 5 21" />
-					</svg>
+					<ImageIcon class="mb-2 opacity-40" size={64} strokeWidth={1} />
 					<p class="text-body-sm">No image available</p>
-					<p class="mt-1 text-caption">Add photos below</p>
+					<p class="text-caption mt-1">Add photos below</p>
+				</div>
+			{/if}
+
+			<!-- Duplicate warning banner -->
+			{#if editedItem.duplicate_match}
+				<div
+					class="border-warning-500/30 bg-warning-500/10 mx-4 mt-4 flex items-start gap-3 rounded-lg border p-3"
+				>
+					<DuplicateWarningIcon match={editedItem.duplicate_match} />
+					<div class="text-body-sm">
+						<p class="text-warning-300 font-medium">Possible Duplicate</p>
+						<p class="text-warning-200/80">This item may already exist in your inventory</p>
+					</div>
 				</div>
 			{/if}
 
@@ -486,7 +482,7 @@
 <!-- Sticky action footer -->
 {#if editedItem}
 	<div
-		class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
+		class="bottom-nav-offset fixed right-0 left-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
 	>
 		<AppContainer>
 			<!-- Item counter in footer for mobile - positioned above bottom nav -->
@@ -499,15 +495,7 @@
 			<div class="flex gap-3 px-4 pb-4">
 				<div class="flex-1">
 					<Button variant="secondary" full onclick={skipItem} disabled={isProcessing}>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M13 17l5-5-5-5M6 17l5-5-5-5" />
-						</svg>
+						<ChevronsRight size={20} strokeWidth={1.5} />
 						<span>Skip</span>
 					</Button>
 				</div>
@@ -516,15 +504,7 @@
 					use:longpress={{ onLongPress: handleLongPressConfirm, disabled: isProcessing }}
 				>
 					<Button variant="primary" full onclick={confirmItem} disabled={isProcessing}>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="2"
-						>
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
+						<Check size={20} strokeWidth={2} />
 						<span>Confirm</span>
 					</Button>
 				</div>
