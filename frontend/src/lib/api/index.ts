@@ -47,7 +47,7 @@ export {
 } from './settings';
 
 // Re-export types from vision for convenience
-export type { DetectOptions, BatchDetectOptions } from './vision';
+export type { DetectOptions } from './vision';
 
 // Re-export domain types for consumers that import from '$lib/api'
 export type {
@@ -63,6 +63,4 @@ export type {
 	BatchCreateResponse,
 	AdvancedItemDetails,
 	CorrectionResponse,
-	BatchDetectionResult,
-	BatchDetectionResponse,
 } from '../types';

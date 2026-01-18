@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { WifiOff, Download } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import '../app.css';
 	import Toast from '$lib/components/Toast.svelte';
@@ -144,7 +145,7 @@
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
-		class="glass fixed top-0 right-0 left-0 z-40 border-b border-neutral-700"
+		class="glass fixed left-0 right-0 top-0 z-40 border-b border-neutral-700"
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
@@ -155,7 +156,7 @@
 					class="flex items-center gap-2 overflow-visible font-semibold text-neutral-200"
 				>
 					<svg
-						class="text-primary h-7 w-7 shrink-0"
+						class="h-7 w-7 shrink-0 text-primary"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -167,7 +168,7 @@
 						<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 						<line x1="12" y1="22.08" x2="12" y2="12" />
 					</svg>
-					<span class="text-lg whitespace-nowrap">Homebox Companion</span>
+					<span class="whitespace-nowrap text-lg">Homebox Companion</span>
 				</a>
 
 				<!-- Right: Navigation (desktop/tablet only) -->
@@ -185,7 +186,7 @@
 
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main class="flex-1">
-		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24' : ''}">
+		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24 md:pb-6' : ''}">
 			{@render children()}
 		</AppContainer>
 	</main>
@@ -193,19 +194,11 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="border-warning/30 bg-warning/20 text-warning-500 fixed right-0 left-0 z-40 flex items-center justify-center gap-2 border-t px-4 py-3 text-sm {isAuthenticated
+			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning-500 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
-			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<line x1="1" y1="1" x2="23" y2="23" />
-				<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
-				<path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
-				<path d="M10.71 5.05A16 16 0 0 1 22.58 9" />
-				<path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
-				<path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-				<line x1="12" y1="20" x2="12.01" y2="20" />
-			</svg>
+			<WifiOff size={16} strokeWidth={2} />
 			<span>You're offline. Some features may not work.</span>
 		</div>
 	{/if}
@@ -226,17 +219,7 @@
 					class="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300 transition-colors hover:bg-amber-500/30"
 					title="Click to view release"
 				>
-					<svg
-						class="h-3 w-3"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="2"
-					>
-						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-						<polyline points="7 10 12 15 17 10" />
-						<line x1="12" y1="15" x2="12" y2="3" />
-					</svg>
+					<Download size={12} strokeWidth={2} />
 					<span>v{latestVersion}</span>
 				</a>
 			{/if}

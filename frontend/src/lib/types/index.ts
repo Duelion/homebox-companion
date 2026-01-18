@@ -265,23 +265,6 @@ export interface DuplicateMatch {
 	location_name: string | null;
 }
 
-/** Single image result in batch detection */
-export interface BatchDetectionResult {
-	image_index: number;
-	success: boolean;
-	items: DetectedItem[];
-	error?: string | null;
-}
-
-/** Response from batch detection */
-export interface BatchDetectionResponse {
-	results: BatchDetectionResult[];
-	total_items: number;
-	successful_images: number;
-	failed_images: number;
-	message: string;
-}
-
 /** Response from advanced analysis */
 export interface AdvancedItemDetails {
 	name?: string | null;

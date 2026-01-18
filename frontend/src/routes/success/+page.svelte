@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
+	import { Check, Camera, Package, MapPin } from 'lucide-svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
@@ -73,20 +74,7 @@
 		<div class="success-scale absolute inset-2 rounded-full bg-success-500/20 delay-100"></div>
 		<!-- Checkmark icon with draw animation -->
 		<div class="success-scale absolute inset-0 flex items-center justify-center delay-150">
-			<svg
-				class="h-14 w-14 text-success-500"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="2.5"
-			>
-				<path
-					class="checkmark-draw"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M5 13l4 4L19 7"
-				/>
-			</svg>
+			<Check class="checkmark-draw h-14 w-14 text-success-500" strokeWidth={2.5} />
 		</div>
 	</div>
 
@@ -128,12 +116,7 @@
 	<div class="w-full max-w-sm space-y-3">
 		<!-- Scan more (with location context) -->
 		<Button variant="primary" full onclick={scanMore}>
-			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path
-					d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-				/>
-				<circle cx="12" cy="13" r="4" />
-			</svg>
+			<Camera size={20} strokeWidth={1.5} />
 			<span>
 				{#if result?.locationName}
 					Scan More in {result.locationName}
@@ -146,25 +129,14 @@
 		<!-- Add sub-items to created items (only show if there are created items) -->
 		{#if result?.createdItems && result.createdItems.length > 0}
 			<Button variant="secondary" full onclick={() => (showParentPicker = true)}>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-				</svg>
+				<Package size={20} strokeWidth={1.5} />
 				<span>Add Sub-Items to These</span>
 			</Button>
 		{/if}
 
 		<!-- Change location -->
 		<Button variant="secondary" full onclick={startOver}>
-			<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-				<circle cx="12" cy="10" r="3" />
-			</svg>
+			<MapPin size={20} strokeWidth={1.5} />
 			<span>Choose New Location</span>
 		</Button>
 	</div>

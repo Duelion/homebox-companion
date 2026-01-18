@@ -45,3 +45,6 @@ demo/README.md
 
 # Contributor analysis working files
 docs/contributor_analysis/**
+
+# Bundle analyzer output
+frontend/stats.html

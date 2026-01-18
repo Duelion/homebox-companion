@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { X } from 'lucide-svelte';
 
 	interface Props {
 		open: boolean;
@@ -50,14 +51,7 @@
 						onclick={handleClose}
 						aria-label="Close"
 					>
-						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
+						<X size={20} />
 					</button>
 				</div>
 			{/if}

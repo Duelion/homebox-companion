@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Package, Check } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
@@ -74,30 +75,14 @@
 							<div
 								class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-700"
 							>
-								<svg
-									class="h-5 w-5 text-neutral-400"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-								>
-									<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-								</svg>
+								<Package class="text-neutral-400" size={20} strokeWidth={1.5} />
 							</div>
 						{/if}
 
 						<span class="flex-1 truncate font-medium text-neutral-100">{item.name}</span>
 
 						{#if selectedItem?.id === item.id}
-							<svg
-								class="h-5 w-5 shrink-0 text-primary-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2.5"
-							>
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
+							<Check class="shrink-0 text-primary-400" size={20} strokeWidth={2.5} />
 						{/if}
 					</button>
 				{/each}

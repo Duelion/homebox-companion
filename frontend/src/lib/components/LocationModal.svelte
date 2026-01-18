@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MapPin, Home, Check } from 'lucide-svelte';
 	import type { LocationData } from '$lib/api';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
@@ -89,10 +90,7 @@
 			<div class="rounded-lg border border-neutral-700 bg-neutral-700 p-3">
 				<p class="text-sm text-neutral-400">Creating inside:</p>
 				<p class="flex items-center gap-2 font-medium text-neutral-200">
-					<svg class="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-						<circle cx="12" cy="10" r="3" />
-					</svg>
+					<MapPin class="text-primary" size={16} />
 					{parentLocation.name}
 				</p>
 			</div>
@@ -100,10 +98,7 @@
 			<div class="rounded-lg border border-neutral-700 bg-neutral-700 p-3">
 				<p class="text-sm text-neutral-400">Creating at:</p>
 				<p class="flex items-center gap-2 font-medium text-neutral-200">
-					<svg class="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-						<polyline points="9 22 9 12 15 12 15 22" />
-					</svg>
+					<Home class="text-primary" size={16} />
 					Root level
 				</p>
 			</div>
@@ -153,21 +148,11 @@
 					<span>Saving...</span>
 				{:else if saveState === 'success'}
 					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
-						<svg
-							class="h-5 w-5 text-success-500"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="2.5"
-						>
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
+						<Check class="text-success-500" size={20} strokeWidth={2.5} />
 					</div>
 					<span>Saved!</span>
 				{:else}
-					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<polyline points="20 6 9 17 4 12" />
-					</svg>
+					<Check size={20} />
 					<span>{mode === 'create' ? 'Create Location' : 'Save Changes'}</span>
 				{/if}
 			</Button>

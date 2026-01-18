@@ -5,6 +5,7 @@
 	 * Allows users to configure multiple LLM providers and switch between them.
 	 */
 	import { onMount, onDestroy } from 'svelte';
+	import { FlaskConical, Plus, Check, Zap, Pencil, Trash2 } from 'lucide-svelte';
 	import { llmProfiles, type LLMProfile, type ProfileStatus } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -163,23 +164,11 @@
 <section class="card space-y-4">
 	<div class="flex items-center justify-between">
 		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
-			<svg
-				class="h-5 w-5 text-primary-400"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
-				<path
-					d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"
-				/>
-			</svg>
+			<FlaskConical class="text-primary-400" size={20} strokeWidth={1.5} />
 			AI Models
 		</h2>
 		<Button variant="ghost" size="sm" onclick={openCreateModal}>
-			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-				<path d="M12 4v16m8-8H4" />
-			</svg>
+			<Plus size={16} strokeWidth={2} />
 			Add
 		</Button>
 	</div>
@@ -242,15 +231,7 @@
 								aria-label="Set as active profile"
 								onclick={() => handleActivate(profile.name)}
 							>
-								<svg
-									class="h-4 w-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="2"
-								>
-									<path d="M5 13l4 4L19 7" />
-								</svg>
+								<Check size={16} strokeWidth={2} />
 							</button>
 						{/if}
 						<button
@@ -266,15 +247,7 @@
 									class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
 								></div>
 							{:else}
-								<svg
-									class="h-4 w-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="2"
-								>
-									<path d="M13 10V3L4 14h7v7l9-11h-7z" />
-								</svg>
+								<Zap size={16} strokeWidth={2} />
 							{/if}
 						</button>
 						<button
@@ -284,16 +257,7 @@
 							aria-label="Edit profile"
 							onclick={() => openEditModal(profile)}
 						>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-							>
-								<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-								<path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-							</svg>
+							<Pencil size={16} strokeWidth={2} />
 						</button>
 						<button
 							type="button"
@@ -302,17 +266,7 @@
 							aria-label="Delete profile"
 							onclick={() => handleDelete(profile.name)}
 						>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-							>
-								<path
-									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-								/>
-							</svg>
+							<Trash2 size={16} strokeWidth={2} />
 						</button>
 					</div>
 				</div>

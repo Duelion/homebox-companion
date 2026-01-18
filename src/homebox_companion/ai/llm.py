@@ -21,6 +21,7 @@ from ..core.exceptions import (
     LLMServiceError,
 )
 from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
+from ..core.settings import get_fallback_profile
 from .model_capabilities import get_model_capabilities
 
 # Silence LiteLLM's verbose logging (we use loguru)
@@ -330,6 +331,69 @@ async def _acompletion_with_repair(
     )
 
 
+async def _with_fallback(
+    messages: list[dict[str, Any]],
+    *,
+    model: str,
+    api_key: str,
+    api_base: str | None,
+    response_format: dict[str, str] | None,
+    expected_keys: list[str] | None,
+) -> dict[str, Any]:
+    """Call _acompletion_with_repair with automatic fallback on failure.
+
+    If the primary model fails with LLMServiceError and a fallback profile
+    is configured, logs a warning and retries with the fallback profile.
+
+    Args:
+        messages: Chat messages.
+        model: Primary model identifier.
+        api_key: Primary API key.
+        api_base: Primary API base URL.
+        response_format: Optional response format.
+        expected_keys: Keys to check in JSON response.
+
+    Returns:
+        Parsed JSON response as a dictionary.
+
+    Raises:
+        LLMServiceError: If both primary and fallback fail (or no fallback configured).
+    """
+    try:
+        return await _acompletion_with_repair(
+            messages,
+            model=model,
+            api_key=api_key,
+            api_base=api_base,
+            response_format=response_format,
+            expected_keys=expected_keys,
+        )
+    except LLMServiceError as primary_error:
+        fallback = get_fallback_profile()
+        if not fallback:
+            raise
+
+        logger.warning(
+            f"Primary LLM failed ({model}): {primary_error}. "
+            f"Attempting fallback to {fallback.model}..."
+        )
+
+        try:
+            result = await _acompletion_with_repair(
+                messages,
+                model=fallback.model,
+                api_key=fallback.api_key.get_secret_value() if fallback.api_key else api_key,
+                api_base=fallback.api_base,
+                response_format=response_format,
+                expected_keys=expected_keys,
+            )
+            logger.info(f"Fallback to {fallback.model} succeeded")
+            return result
+        except LLMServiceError as fallback_error:
+            logger.error(f"Fallback {fallback.model} also failed: {fallback_error}")
+            raise
+
+
 async def chat_completion(
     messages: list[dict[str, Any]],
     *,
@@ -364,7 +428,7 @@ async def chat_completion(
             logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
             effective_response_format = None
 
-    return await _acompletion_with_repair(
+    return await _with_fallback(
         messages,
         model=model,
         api_key=api_key,
@@ -483,7 +547,7 @@ async def vision_completion(
         {"role": "user", "content": content},
     ]
 
-    return await _acompletion_with_repair(
+    return await _with_fallback(
         messages,
         model=model,
         api_key=api_key,

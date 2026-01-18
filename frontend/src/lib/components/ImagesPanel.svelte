@@ -3,6 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
+	import { Camera, Upload, ChevronDown, ImageIcon, X, SquarePen } from 'lucide-svelte';
 
 	interface Props {
 		images: File[];
@@ -94,18 +95,7 @@
 			class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
 			onclick={() => cameraInput.click()}
 		>
-			<svg
-				class="h-4 w-4 text-neutral-400"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="1.5"
-				viewBox="0 0 24 24"
-			>
-				<path
-					d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-				/>
-				<circle cx="12" cy="13" r="4" />
-			</svg>
+			<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
 			<span class="text-xs font-medium text-neutral-400">Camera</span>
 		</button>
 		<button
@@ -113,17 +103,7 @@
 			class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
 			onclick={() => fileInput.click()}
 		>
-			<svg
-				class="h-4 w-4 text-neutral-400"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="1.5"
-				viewBox="0 0 24 24"
-			>
-				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-				<polyline points="17 8 12 3 7 8" />
-				<line x1="12" y1="3" x2="12" y2="15" />
-			</svg>
+			<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
 			<span class="text-xs font-medium text-neutral-400">Upload</span>
 		</button>
 	</div>
@@ -153,15 +133,11 @@
 		class="mb-3 flex w-full items-center gap-2 text-sm text-neutral-400 transition-colors hover:text-neutral-100"
 		onclick={onToggle}
 	>
-		<svg
-			class="h-4 w-4 transition-transform {expanded ? 'rotate-180' : ''}"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-			stroke-width="1.5"
-		>
-			<polyline points="6 9 12 15 18 9" />
-		</svg>
+		<ChevronDown
+			class="transition-transform {expanded ? 'rotate-180' : ''}"
+			size={16}
+			strokeWidth={1.5}
+		/>
 		<span class="font-medium">Attached Photos</span>
 		{#if images.length > 0}
 			<span class="ml-auto rounded-full bg-neutral-800 px-2 py-0.5 text-xs">{images.length}</span>
@@ -173,16 +149,7 @@
 			{#if images.length > 0}
 				<!-- Has images: show gallery strip -->
 				<div class="mb-3 flex items-center gap-2">
-					<svg
-						class="h-4 w-4 text-primary-300"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-						<circle cx="8.5" cy="8.5" r="1.5" />
-						<polyline points="21 15 16 10 5 21" />
-					</svg>
+					<ImageIcon class="text-primary-300" size={16} />
 					<span class="text-sm font-medium text-neutral-200">
 						{images.length} photo{images.length !== 1 ? 's' : ''}
 					</span>
@@ -205,16 +172,7 @@
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
 							>
-								<svg
-									class="h-3.5 w-3.5 text-white"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2.5"
-									viewBox="0 0 24 24"
-								>
-									<line x1="18" y1="6" x2="6" y2="18" />
-									<line x1="6" y1="6" x2="18" y2="18" />
-								</svg>
+								<X class="text-white" size={14} strokeWidth={2.5} />
 							</button>
 							<div
 								class="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-xxs font-medium text-white"
@@ -222,15 +180,7 @@
 								{#if index === 0}
 									{#if customThumbnail}
 										<span class="flex items-center gap-0.5">
-											<svg
-												class="h-2.5 w-2.5"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-											</svg>
+											<SquarePen size={10} />
 											Edited
 										</span>
 									{:else}

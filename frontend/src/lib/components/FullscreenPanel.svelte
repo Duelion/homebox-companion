@@ -11,6 +11,7 @@
 	 * - Scrollable content with bottom padding for mobile nav
 	 */
 	import type { Snippet } from 'svelte';
+	import { X } from 'lucide-svelte';
 
 	interface Props {
 		open: boolean;
@@ -74,15 +75,7 @@
 					title="Close fullscreen (Escape)"
 					aria-label="Close"
 				>
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<path d="M18 6L6 18M6 6l12 12" />
-					</svg>
+					<X size={20} strokeWidth={1.5} />
 				</button>
 			</div>
 		</div>

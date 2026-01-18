@@ -4,6 +4,7 @@
 	 */
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { User, LogOut } from 'lucide-svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
@@ -21,16 +22,7 @@
 
 <section class="card space-y-4">
 	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
-		<svg
-			class="h-5 w-5 text-primary-400"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-			stroke-width="1.5"
-		>
-			<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-			<circle cx="12" cy="7" r="4" />
-		</svg>
+		<User class="text-primary-400" size={20} strokeWidth={1.5} />
 		Account
 	</h2>
 
@@ -42,16 +34,7 @@
 			<div
 				class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-600/20 text-primary-400"
 			>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-					<circle cx="12" cy="7" r="4" />
-				</svg>
+				<User size={20} strokeWidth={1.5} />
 			</div>
 			<div class="min-w-0 flex-1">
 				<p class="text-xs text-neutral-500">Signed in as</p>
@@ -61,11 +44,7 @@
 	{/if}
 
 	<Button variant="danger" full onclick={handleLogout}>
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-			<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-			<polyline points="16 17 21 12 16 7" />
-			<line x1="21" y1="12" x2="9" y2="12" />
-		</svg>
+		<LogOut size={20} strokeWidth={1.5} />
 		<span>Sign Out</span>
 	</Button>
 </section>
