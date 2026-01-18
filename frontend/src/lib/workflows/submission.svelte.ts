@@ -594,12 +594,15 @@ export class SubmissionService {
 			item.label_ids?.forEach((id) => allLabelIds.add(id));
 		});
 
-		// Build createdItems array from tracked IDs
-		const createdItems: Array<{ id: string; name: string }> = [];
+		// Build createdItems array from tracked IDs (include thumbnail for parent picker)
+		const createdItems: Array<{ id: string; name: string; thumbnail?: string }> = [];
 		for (const index of successfulIndices) {
 			const createdId = this.createdItemIds.get(index);
 			if (createdId && items[index]) {
-				createdItems.push({ id: createdId, name: items[index].name });
+				const item = items[index];
+				// Use custom thumbnail if available, otherwise compressed image
+				const thumbnail = item.customThumbnail || item.compressedDataUrl;
+				createdItems.push({ id: createdId, name: item.name, thumbnail });
 			}
 		}
 

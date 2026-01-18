@@ -161,8 +161,8 @@ export interface SubmissionResult {
 	itemNames: string[];
 	locationName: string;
 	locationId: string;
-	/** Created items with ID and name (for parent picker on success screen) */
-	createdItems: Array<{ id: string; name: string }>;
+	/** Created items with ID, name, and thumbnail (for parent picker on success screen) */
+	createdItems: Array<{ id: string; name: string; thumbnail?: string }>;
 }
 
 /** Complete scan workflow state */
