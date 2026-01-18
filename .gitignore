@@ -12,6 +12,9 @@ build/
 logs/
 *.log
 
+# User data (contains secrets)
+data/
+
 # IDE
 .idea/
 .vscode/

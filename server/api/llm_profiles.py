@@ -11,8 +11,8 @@ from pydantic import BaseModel, SecretStr
 
 from homebox_companion.core.persistent_settings import (
     ModelProfile,
+    PersistentSettings,
     ProfileStatus,
-    Settings,
     clear_settings_cache,
     load_settings,
     save_settings,
@@ -102,7 +102,7 @@ def _profile_to_response(profile: ModelProfile) -> ProfileResponse:
     )
 
 
-def _find_profile(settings: Settings, name: str) -> tuple[int, ModelProfile]:
+def _find_profile(settings: PersistentSettings, name: str) -> tuple[int, ModelProfile]:
     """Find profile by name, raise 404 if not found."""
     for i, p in enumerate(settings.llm_profiles):
         if p.name == name:
