@@ -53,18 +53,18 @@
 {#if sessionExpired}
 	<!-- Non-dismissable modal backdrop -->
 	<div
-		class="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-neutral-950/70 p-4 backdrop-blur-sm"
+		class="z-overlay animate-fade-in fixed inset-0 flex items-center justify-center bg-neutral-950/70 p-4 backdrop-blur-sm"
 	>
 		<div
-			class="w-full max-w-sm animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
+			class="animate-scale-in w-full max-w-sm overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
 		>
 			<!-- Header -->
-			<div class="border-b border-neutral-700 bg-warning/10 px-6 py-4">
+			<div class="bg-warning/10 border-b border-neutral-700 px-6 py-4">
 				<div class="flex items-center gap-3">
-					<div class="rounded-full bg-warning/20 p-2">
+					<div class="bg-warning/20 rounded-full p-2">
 						<!-- Warning/clock icon for session expired -->
 						<svg
-							class="h-5 w-5 text-warning"
+							class="text-warning h-5 w-5"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -85,7 +85,7 @@
 			<!-- Form -->
 			<form class="space-y-4 p-6" onsubmit={handleSubmit}>
 				{#if errorMessage}
-					<div class="rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error">
+					<div class="border-error/20 bg-error/10 text-error rounded-lg border p-3 text-sm">
 						{errorMessage}
 					</div>
 				{/if}
