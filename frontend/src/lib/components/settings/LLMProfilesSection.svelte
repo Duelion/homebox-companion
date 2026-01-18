@@ -162,9 +162,9 @@
 
 <section class="card space-y-4">
 	<div class="flex items-center justify-between">
-		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+		<h2 class="text-body-lg flex items-center gap-2 font-semibold text-neutral-100">
 			<svg
-				class="h-5 w-5 text-primary-400"
+				class="text-primary-400 h-5 w-5"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"
@@ -185,7 +185,7 @@
 	</div>
 
 	{#if error}
-		<div class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm">
+		<div class="text-error-400 border-error-500/30 bg-error-500/10 rounded-lg border p-3 text-sm">
 			{error}
 		</div>
 	{/if}
@@ -203,7 +203,7 @@
 	{#if loading}
 		<div class="flex items-center justify-center py-8">
 			<div
-				class="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+				class="border-primary-500 h-6 w-6 animate-spin rounded-full border-2 border-t-transparent"
 			></div>
 		</div>
 	{:else if profiles.length === 0}
@@ -237,7 +237,7 @@
 						{#if profile.status !== 'primary'}
 							<button
 								type="button"
-								class="hover:text-success-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
+								class="min-h-touch min-w-touch hover:text-success-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
 								title="Set as active profile"
 								aria-label="Set as active profile"
 								onclick={() => handleActivate(profile.name)}
@@ -255,7 +255,7 @@
 						{/if}
 						<button
 							type="button"
-							class="rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50 hover:text-primary-400"
+							class="min-h-touch min-w-touch hover:text-primary-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
 							title="Test connection"
 							aria-label="Test connection"
 							disabled={testingProfile === profile.name}
@@ -263,7 +263,7 @@
 						>
 							{#if testingProfile === profile.name}
 								<div
-									class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+									class="border-primary-500 h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
 								></div>
 							{:else}
 								<svg
@@ -279,7 +279,7 @@
 						</button>
 						<button
 							type="button"
-							class="rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-100"
+							class="min-h-touch min-w-touch rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-100"
 							title="Edit"
 							aria-label="Edit profile"
 							onclick={() => openEditModal(profile)}
@@ -297,7 +297,7 @@
 						</button>
 						<button
 							type="button"
-							class="hover:text-error-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
+							class="min-h-touch min-w-touch hover:text-error-400 rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
 							title="Delete"
 							aria-label="Delete profile"
 							onclick={() => handleDelete(profile.name)}

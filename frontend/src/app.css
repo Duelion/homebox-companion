@@ -56,6 +56,7 @@
 
 /* Component utilities */
 @layer components {
+
 	/* Icon button - compact */
 	.btn-icon {
 		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 active:bg-neutral-700;
@@ -113,6 +114,20 @@
 
 	.card-interactive {
 		@apply card cursor-pointer transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:shadow-md active:scale-[0.99];
+	}
+
+	/* Selectable list item - used in picker modals for item/parent selection */
+	.selectable-item {
+		@apply flex w-full items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800 p-3 text-left transition-all hover:border-neutral-600;
+	}
+
+	.selectable-item-selected {
+		@apply border-primary-500/50 bg-primary-500/10;
+	}
+
+	/* Input with leading icon - adds left padding for icon placement */
+	.input-with-icon {
+		@apply input pl-10;
 	}
 
 	/* ==========================================================================
@@ -333,12 +348,10 @@
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply animate-shimmer rounded bg-neutral-800;
-		background: linear-gradient(
-			90deg,
-			theme('colors.neutral.800') 25%,
-			theme('colors.neutral.700') 50%,
-			theme('colors.neutral.800') 75%
-		);
+		background: linear-gradient(90deg,
+				theme('colors.neutral.800') 25%,
+				theme('colors.neutral.700') 50%,
+				theme('colors.neutral.800') 75%);
 		background-size: 200% 100%;
 	}
 
@@ -442,6 +455,7 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
+
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;
