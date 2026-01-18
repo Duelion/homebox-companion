@@ -56,10 +56,9 @@
 				{#each items as item (item.id)}
 					<button
 						type="button"
-						class="flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all {selectedItem?.id ===
-						item.id
-							? 'border-primary-500/50 bg-primary-500/10'
-							: 'border-neutral-700 bg-neutral-800 hover:border-neutral-600'}"
+						class="selectable-item p-4 {selectedItem?.id === item.id
+							? 'selectable-item-selected'
+							: ''}"
 						onclick={() => handleSelect(item)}
 					>
 						<!-- Thumbnail or fallback icon -->

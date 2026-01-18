@@ -35,18 +35,18 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-neutral-950/60 p-4 backdrop-blur-sm"
+		class="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 p-4 backdrop-blur-sm"
 		onclick={handleBackdropClick}
 	>
 		<div
-			class="w-full max-w-lg animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
+			class="animate-scale-in w-full max-w-lg overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
 		>
 			{#if title}
 				<div class="flex items-center justify-between border-b border-neutral-700 px-6 py-4">
 					<h3 class="text-lg font-semibold text-neutral-200">{title}</h3>
 					<button
 						type="button"
-						class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
+						class="min-h-touch min-w-touch rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
 						onclick={handleClose}
 						aria-label="Close"
 					>
