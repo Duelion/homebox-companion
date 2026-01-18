@@ -868,9 +868,11 @@ class ScanWorkflow {
 			this._error = `${result.partialSuccessCount} item(s) created with missing attachments`;
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
+			await this.clearPersistedSession();
 		} else if (result.success) {
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
+			await this.clearPersistedSession();
 		}
 
 		return result;
@@ -915,6 +917,7 @@ class ScanWorkflow {
 		if (this.submissionService.allItemsSuccessful()) {
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
+			await this.clearPersistedSession();
 		} else if (result.failCount > 0) {
 			this._error = `Retried: ${result.successCount + result.partialSuccessCount} succeeded, ${result.failCount} still failing`;
 		}
@@ -1096,7 +1099,10 @@ class ScanWorkflow {
 			log.info('Session recovered successfully');
 			return true;
 		} catch (error) {
-			log.error('Failed to recover session:', error);
+			// Extract meaningful error info for logging (avoids minified stack traces)
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorName = error instanceof Error ? error.name : 'Unknown';
+			log.error(`Failed to recover session: [${errorName}] ${errorMessage}`);
 			// Clear corrupted session
 			await this.clearPersistedSession();
 			return false;
@@ -1130,6 +1136,11 @@ class ScanWorkflow {
 
 	/** Reset workflow to initial state */
 	reset(): void {
+		// Cancel any pending debounced persist to prevent stale writes after reset
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+		}
 		this.cancelAnalysis();
 		this.captureService.clear();
 		this.reviewService.reset();

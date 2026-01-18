@@ -2,17 +2,26 @@
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
 
+	interface CreatedItem {
+		id: string;
+		name: string;
+		thumbnail?: string;
+	}
+
 	interface Props {
-		items: Array<{ id: string; name: string }>;
+		items: CreatedItem[];
 		onSelect: (id: string, name: string) => void;
 		onClose: () => void;
 	}
 
 	let { items, onSelect, onClose }: Props = $props();
 
-	let selectedItem = $state<{ id: string; name: string } | null>(null);
+	let selectedItem = $state<CreatedItem | null>(null);
 
-	function handleSelect(item: { id: string; name: string }) {
+	/** Track IDs of items whose thumbnails failed to load */
+	let failedThumbnails = $state(new Set<string>());
+
+	function handleSelect(item: CreatedItem) {
 		selectedItem = item;
 	}
 
@@ -20,6 +29,16 @@
 		if (selectedItem) {
 			onSelect(selectedItem.id, selectedItem.name);
 		}
+	}
+
+	/** Handle image load error by marking it as failed so fallback icon is shown */
+	function handleImageError(itemId: string) {
+		failedThumbnails = new Set(failedThumbnails).add(itemId);
+	}
+
+	/** Check if an item should show its thumbnail */
+	function shouldShowThumbnail(item: CreatedItem): boolean {
+		return !!item.thumbnail && !failedThumbnails.has(item.id);
 	}
 </script>
 
@@ -43,20 +62,29 @@
 							: 'border-neutral-700 bg-neutral-800 hover:border-neutral-600'}"
 						onclick={() => handleSelect(item)}
 					>
-						<!-- Box icon -->
-						<div
-							class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-700"
-						>
-							<svg
-								class="h-5 w-5 text-neutral-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
+						<!-- Thumbnail or fallback icon -->
+						{#if shouldShowThumbnail(item)}
+							<img
+								src={item.thumbnail}
+								alt={item.name}
+								class="h-10 w-10 shrink-0 rounded-lg object-cover"
+								onerror={() => handleImageError(item.id)}
+							/>
+						{:else}
+							<div
+								class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-700"
 							>
-								<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-							</svg>
-						</div>
+								<svg
+									class="h-5 w-5 text-neutral-400"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+								>
+									<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+								</svg>
+							</div>
+						{/if}
 
 						<span class="flex-1 truncate font-medium text-neutral-100">{item.name}</span>
 
