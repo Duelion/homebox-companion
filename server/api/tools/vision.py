@@ -26,6 +26,7 @@ from homebox_companion import (
 
 from ...dependencies import (
     VisionContext,
+    get_client,
     get_vision_context,
     require_llm_configured,
     validate_file_size,
@@ -40,7 +41,9 @@ from ...schemas.vision import (
     CorrectionResponse,
     DetectedItemResponse,
     DetectionResponse,
+    DuplicateMatchResponse,
 )
+from ...services.duplicate_checker import DuplicateChecker
 
 router = APIRouter()
 
@@ -345,13 +348,56 @@ async def detect_items_batch(
     # Sort by image index to maintain order
     results = sorted(results, key=lambda r: r.image_index)
 
+    # ==========================================================================
+    # DUPLICATE DETECTION: Check items with serial numbers for existing matches
+    # ==========================================================================
+    # Collect all items with serial numbers for duplicate checking
+    items_with_serials: list[tuple[BatchDetectionResult, DetectedItemResponse]] = []
+    for result in results:
+        for item in result.items:
+            if item.serial_number:
+                items_with_serials.append((result, item))
+
+    if items_with_serials:
+        logger.info(f"Checking {len(items_with_serials)} item(s) with serial numbers for duplicates")
+        client = get_client()
+        checker = DuplicateChecker(client)
+
+        # Check all items for duplicates in parallel
+        async def check_one(item: DetectedItemResponse) -> None:
+            """Check a single item for duplicates and attach match if found."""
+            try:
+                # serial_number is guaranteed non-None by the caller's filter
+                assert item.serial_number is not None
+                match = await checker.check_serial_number(ctx.token, item.serial_number)
+                if match:
+                    item.duplicate_match = DuplicateMatchResponse(
+                        item_id=match.item_id,
+                        item_name=match.item_name,
+                        serial_number=match.serial_number,
+                        location_name=match.location_name,
+                    )
+                    logger.info(
+                        f"Duplicate found for '{item.name}': matches '{match.item_name}' "
+                        f"(serial: {match.serial_number})"
+                    )
+            except Exception as e:
+                # Duplicate check failure shouldn't fail the whole detection
+                logger.warning(f"Duplicate check failed for serial '{item.serial_number}': {e}")
+
+        await asyncio.gather(*[check_one(item) for _result, item in items_with_serials])
+
     # Calculate summary stats
     successful = sum(1 for r in results if r.success)
     failed = len(results) - successful
     total_items = sum(len(r.items) for r in results)
+    duplicates_found = sum(
+        1 for r in results for item in r.items if item.duplicate_match is not None
+    )
 
     logger.info(
-        f"Batch detection complete: {successful}/{len(results)} images successful, {total_items} total items detected"
+        f"Batch detection complete: {successful}/{len(results)} images successful, "
+        f"{total_items} total items detected, {duplicates_found} potential duplicate(s)"
     )
 
     return BatchDetectionResponse(

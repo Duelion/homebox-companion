@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
 
@@ -19,7 +20,7 @@
 	let selectedItem = $state<CreatedItem | null>(null);
 
 	/** Track IDs of items whose thumbnails failed to load */
-	let failedThumbnails = $state(new Set<string>());
+	let failedThumbnails = new SvelteSet<string>();
 
 	function handleSelect(item: CreatedItem) {
 		selectedItem = item;
@@ -33,7 +34,7 @@
 
 	/** Handle image load error by marking it as failed so fallback icon is shown */
 	function handleImageError(itemId: string) {
-		failedThumbnails = new Set(failedThumbnails).add(itemId);
+		failedThumbnails.add(itemId);
 	}
 
 	/** Check if an item should show its thumbnail */
@@ -44,7 +45,7 @@
 
 <Modal open={true} title="Select Parent Item" onclose={onClose}>
 	<div class="space-y-2">
-		<p class="text-body-sm mb-4 text-neutral-400">
+		<p class="mb-4 text-body-sm text-neutral-400">
 			Choose which item should be the parent for your next scan. New items will be added as
 			sub-items.
 		</p>
@@ -89,7 +90,7 @@
 
 						{#if selectedItem?.id === item.id}
 							<svg
-								class="text-primary-400 h-5 w-5 shrink-0"
+								class="h-5 w-5 shrink-0 text-primary-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"

@@ -4,6 +4,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import SessionExpiredModal from '$lib/components/SessionExpiredModal.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
+	import HeaderNav from '$lib/components/HeaderNav.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
@@ -147,11 +148,11 @@
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
-			<AppContainer class="flex h-14 items-center justify-center px-4">
-				<!-- Center: Logo and title -->
+			<AppContainer class="flex h-14 items-center justify-between px-4">
+				<!-- Left: Logo and title -->
 				<a
 					href={resolve(isAuthenticated ? '/location' : '/')}
-					class="flex items-center justify-center gap-2 overflow-visible font-semibold text-neutral-200"
+					class="flex items-center gap-2 overflow-visible font-semibold text-neutral-200"
 				>
 					<svg
 						class="h-7 w-7 shrink-0 text-primary"
@@ -168,6 +169,13 @@
 					</svg>
 					<span class="whitespace-nowrap text-lg">Homebox Companion</span>
 				</a>
+
+				<!-- Right: Navigation (desktop/tablet only) -->
+				{#if isAuthenticated}
+					<div class="hidden md:block">
+						<HeaderNav />
+					</div>
+				{/if}
 			</AppContainer>
 		</div>
 	</div>

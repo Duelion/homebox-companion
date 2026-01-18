@@ -256,6 +256,7 @@ async def get_item_attachment(
         raise HTTPException(status_code=404, detail="Attachment not found") from e
 
 
+
 @router.delete("/items/{item_id}")
 async def delete_item(
     item_id: str,

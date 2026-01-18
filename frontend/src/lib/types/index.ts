@@ -116,6 +116,8 @@ export interface ReviewItem extends ItemCore, ItemExtended {
 	compressedDataUrl?: string;
 	/** Compressed additional images for Homebox upload */
 	compressedAdditionalDataUrls?: string[];
+	/** Duplicate match info if serial matches an existing item */
+	duplicate_match?: DuplicateMatch | null;
 }
 
 /** Item confirmed by user, ready for submission */
@@ -230,7 +232,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended { }
+export interface MergeItem extends ItemCore, ItemExtended {}
 
 // =============================================================================
 // API TYPES - Responses
@@ -250,7 +252,18 @@ export interface DetectionResponse {
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
-export interface DetectedItem extends ItemCore, ItemExtended { }
+export interface DetectedItem extends ItemCore, ItemExtended {
+	/** Duplicate match info if serial matches an existing item */
+	duplicate_match?: DuplicateMatch | null;
+}
+
+/** Details of an existing item that matches a detected item's serial number */
+export interface DuplicateMatch {
+	item_id: string;
+	item_name: string;
+	serial_number: string;
+	location_name: string | null;
+}
 
 /** Single image result in batch detection */
 export interface BatchDetectionResult {
