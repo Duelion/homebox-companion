@@ -216,15 +216,6 @@
 					<label for={field.key} class="block text-sm font-semibold text-neutral-100">
 						{field.label}
 					</label>
-					<div class="rounded border border-neutral-700/30 bg-neutral-950/50 px-2 py-1.5 text-xs">
-						{#if service.fieldPrefs[field.key]}
-							<span class="text-primary-400">{service.fieldPrefs[field.key]}</span>
-						{:else if service.effectiveDefaults?.[field.key]}
-							<span class="text-neutral-500 italic">{service.effectiveDefaults[field.key]}</span>
-						{:else}
-							<span class="text-neutral-600 italic">No default</span>
-						{/if}
-					</div>
 					<textarea
 						id={field.key}
 						value={service.fieldPrefs[field.key] || ''}
