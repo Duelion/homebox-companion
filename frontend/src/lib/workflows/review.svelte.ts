@@ -241,6 +241,7 @@ export class ReviewService {
 			additionalImages: item.additionalImages,
 			originalFile: item.originalFile,
 			customThumbnail: item.customThumbnail,
+			thumbnailTransform: item.thumbnailTransform,
 			compressedDataUrl: item.compressedDataUrl,
 			compressedAdditionalDataUrls: item.compressedAdditionalDataUrls,
 			duplicate_match: item.duplicate_match,
