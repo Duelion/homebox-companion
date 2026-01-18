@@ -5,11 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-<<<<<<< HEAD
 		"build": "cross-env NODE_OPTIONS='--max-old-space-size=2048' vite build",
-=======
-		"build": "cross-env NODE_OPTIONS='--max-old-space-size=1024' vite build",
->>>>>>> dcfbff6c2412a9aa309dedf594f27f059cb8c829
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold warning --diagnostic-sources js,svelte",
