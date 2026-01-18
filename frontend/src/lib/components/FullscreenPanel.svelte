@@ -49,7 +49,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-	<div class="fixed inset-0 z-[60] flex flex-col bg-neutral-950">
+	<div class="z-modal fixed inset-0 flex flex-col bg-neutral-950">
 		<!-- Header -->
 		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
