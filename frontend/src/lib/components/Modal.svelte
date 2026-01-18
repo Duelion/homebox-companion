@@ -35,11 +35,11 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-neutral-950/60 p-4 backdrop-blur-sm"
 		onclick={handleBackdropClick}
 	>
 		<div
-			class="animate-scale-in w-full max-w-lg overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
+			class="w-full max-w-lg animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
 		>
 			{#if title}
 				<div class="flex items-center justify-between border-b border-neutral-700 px-6 py-4">

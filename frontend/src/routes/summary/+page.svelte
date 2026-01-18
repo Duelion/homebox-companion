@@ -15,6 +15,7 @@
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
+	import DuplicateWarningIcon from '$lib/components/DuplicateWarningIcon.svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -56,6 +57,15 @@
 		await getInitPromise();
 
 		if (!routeGuards.summary()) return;
+
+		// Show toast if any items have potential duplicates
+		const duplicateCount = confirmedItems.filter((item) => item.duplicate_match).length;
+		if (duplicateCount > 0) {
+			showToast(
+				`${duplicateCount} item${duplicateCount > 1 ? 's' : ''} may already exist in your inventory`,
+				'warning'
+			);
+		}
 	});
 
 	// Cleanup object URLs on component unmount
@@ -244,9 +254,14 @@
 
 				<div class="min-w-0 flex-1">
 					<div class="mb-1 flex items-start justify-between gap-2">
-						<h3 class="truncate font-semibold text-neutral-100">
-							{item.name}
-						</h3>
+						<div class="flex min-w-0 items-center gap-2">
+							<h3 class="truncate font-semibold text-neutral-100">
+								{item.name}
+							</h3>
+							{#if item.duplicate_match}
+								<DuplicateWarningIcon match={item.duplicate_match} />
+							{/if}
+						</div>
 						<span
 							class="flex-shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400"
 						>

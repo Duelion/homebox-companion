@@ -412,7 +412,7 @@
 </script>
 
 <div
-	class="z-modal fixed inset-0 flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:p-8"
+	class="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:p-8"
 >
 	<div
 		class="my-auto w-full max-w-lg rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl sm:my-8"
@@ -464,14 +464,14 @@
 							<div
 								class="h-16 w-16 overflow-hidden rounded-lg border-2 transition-all {selectedImageIndex ===
 								index
-									? 'border-primary-500 ring-primary-500/30 ring-2'
+									? 'border-primary-500 ring-2 ring-primary-500/30'
 									: 'border-neutral-700 hover:border-neutral-600'}"
 							>
 								<img src={img.dataUrl} alt="Image {index + 1}" class="h-full w-full object-cover" />
 							</div>
 							<span
 								class="text-xs {selectedImageIndex === index
-									? 'text-primary-400 font-medium'
+									? 'font-medium text-primary-400'
 									: 'text-neutral-500'}"
 							>
 								Image {index + 1}
@@ -510,7 +510,7 @@
 						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
 						<svg
-							class="text-primary-400 h-4 w-4"
+							class="h-4 w-4 text-primary-400"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -524,7 +524,7 @@
 				</div>
 				<!-- Tick marks for zoom -->
 				<div class="relative mb-1">
-					<div class="text-xxs flex justify-between px-0.5 text-neutral-600">
+					<div class="flex justify-between px-0.5 text-xxs text-neutral-600">
 						<span>Min</span>
 						<span>Mid</span>
 						<span>Max</span>
@@ -550,7 +550,7 @@
 						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
 						<svg
-							class="text-primary-400 h-4 w-4"
+							class="h-4 w-4 text-primary-400"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="1.5"
@@ -567,7 +567,7 @@
 				</div>
 				<!-- Tick marks for rotation -->
 				<div class="relative mb-1 px-11">
-					<div class="text-xxs flex justify-between text-neutral-600">
+					<div class="flex justify-between text-xxs text-neutral-600">
 						<span>-180°</span>
 						<span>-90°</span>
 						<span>0°</span>
@@ -578,7 +578,7 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="min-h-touch min-w-touch relative z-10 flex flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateLeft90}
 						aria-label="Rotate 90° left"
 						title="-90°"
@@ -609,7 +609,7 @@
 					/>
 					<button
 						type="button"
-						class="min-h-touch min-w-touch relative z-10 flex flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateRight90}
 						aria-label="Rotate 90° right"
 						title="+90°"

@@ -191,7 +191,7 @@
 	<div class="relative">
 		<div
 			class="chat-bubble {isUser
-				? 'chat-bubble-user from-primary-600 to-primary-500 shadow-primary-glow-sm rounded-br bg-gradient-to-br text-white'
+				? 'chat-bubble-user rounded-br bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-primary-glow-sm'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
 				: ''}"
@@ -207,12 +207,12 @@
 				<!-- Fallback summary when no content but has executed actions -->
 				<p class="m-0 text-neutral-300">
 					{#if executedActionStats.allSuccess && executedActionStats.rejected === 0}
-						<span class="text-success-500 font-bold">✓</span> Completed {executedActionStats.total} action{executedActionStats.total !==
+						<span class="font-bold text-success-500">✓</span> Completed {executedActionStats.total} action{executedActionStats.total !==
 						1
 							? 's'
 							: ''} successfully
 					{:else if executedActionStats.rejected > 0 && executedActionStats.success === 0}
-						<span class="text-warning-500 font-bold">⊘</span> Rejected {executedActionStats.rejected}
+						<span class="font-bold text-warning-500">⊘</span> Rejected {executedActionStats.rejected}
 						action{executedActionStats.rejected !== 1 ? 's' : ''}
 					{:else}
 						{executedActionStats.success} completed{executedActionStats.rejected > 0
@@ -229,7 +229,7 @@
 					class="chat-approval-badge approval-badge border-warning-500/40 bg-warning-500/15 text-warning-500 hover:border-warning-500/60 hover:bg-warning-500/20"
 					onclick={onOpenApprovals}
 				>
-					<div class="bg-warning-500/20 flex h-5 w-5 items-center justify-center rounded-md">
+					<div class="flex h-5 w-5 items-center justify-center rounded-md bg-warning-500/20">
 						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -330,15 +330,15 @@
 		<!-- Copy button (appears on hover for all messages) -->
 		{#if message.content && !message.isStreaming}
 			<button
-				class="copy-btn min-h-touch min-w-touch absolute -top-1 rounded-md p-1.5 opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
-					? 'bg-primary-700/80 text-primary-200 hover:bg-primary-600 -right-1 hover:text-white'
+				class="copy-btn absolute -top-1 min-h-touch min-w-touch rounded-md p-1.5 opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
+					? '-right-1 bg-primary-700/80 text-primary-200 hover:bg-primary-600 hover:text-white'
 					: '-left-1 bg-neutral-700/80 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-200'}"
 				onclick={handleCopy}
 				aria-label="Copy message"
 			>
 				{#if copySuccess}
 					<svg
-						class="text-success-500 h-3.5 w-3.5"
+						class="h-3.5 w-3.5 text-success-500"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -383,14 +383,14 @@
 
 	/* Typing indicator animation */
 	.typing-dot {
-		@apply animate-typing-dot bg-primary-500 h-1.5 w-1.5 rounded-full;
+		@apply h-1.5 w-1.5 animate-typing-dot rounded-full bg-primary-500;
 	}
 
 	/* Note: animation delay classes now use global utilities: delay-160, delay-320 */
 
 	/* Tool execution spinner */
 	.tool-spinner {
-		@apply border-primary-500 inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-t-transparent;
+		@apply inline-block h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-primary-500 border-t-transparent;
 	}
 
 	/* Streaming glow animation */

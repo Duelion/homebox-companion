@@ -165,7 +165,7 @@
 					<p>No items found for "{searchQuery}"</p>
 				{:else}
 					<p>No items in this location</p>
-					<p class="text-body-sm mt-2">Add some items first</p>
+					<p class="mt-2 text-body-sm">Add some items first</p>
 				{/if}
 			</div>
 		{:else}
@@ -205,7 +205,7 @@
 					</div>
 
 					{#if selectedItemId === item.id}
-						<div class="text-primary-400 flex h-6 w-6 items-center justify-center">
+						<div class="flex h-6 w-6 items-center justify-center text-primary-400">
 							<svg
 								class="h-5 w-5"
 								fill="none"

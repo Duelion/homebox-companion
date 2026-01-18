@@ -263,7 +263,7 @@
 />
 
 <!-- Full-screen modal overlay -->
-<div class="z-overlay fixed inset-0 flex flex-col bg-neutral-950">
+<div class="fixed inset-0 z-overlay flex flex-col bg-neutral-950">
 	<!-- Header -->
 	<div class="flex items-center justify-between bg-neutral-950/80 p-4">
 		<h2 class="font-semibold text-neutral-100">Scan Location QR Code</h2>
@@ -307,7 +307,7 @@
 						type="button"
 						onclick={triggerFileUpload}
 						disabled={isProcessingFile}
-						class="bg-primary-600 hover:bg-primary-500 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-neutral-100 transition-colors disabled:opacity-50"
+						class="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-neutral-100 transition-colors hover:bg-primary-500 disabled:opacity-50"
 					>
 						{#if isProcessingFile}
 							<div

@@ -366,7 +366,7 @@ class ChatOrchestrator:
                 frontend_outcomes.append(
                     ApprovalOutcome(
                         tool_name=outcome_dict.get("tool_name", "unknown_tool"),
-                        outcome=outcome_value,  # type: ignore[arg-type]
+                        outcome=outcome_value,
                         success=outcome_dict.get("success"),
                         item_name=outcome_dict.get("item_name"),
                     )
