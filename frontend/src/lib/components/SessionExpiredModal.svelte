@@ -8,6 +8,7 @@
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { authLogger as log } from '$lib/utils/logger';
 	import Button from './Button.svelte';
+	import Modal from './Modal.svelte';
 
 	let email = $state('');
 	let password = $state('');
@@ -49,84 +50,77 @@
 		authStore.logout();
 		goto(resolve('/'));
 	}
+
+	// Prevent closing the modal (session expired is non-dismissable)
+	function preventClose() {
+		// Do nothing - modal should not be closable
+	}
 </script>
 
-{#if sessionExpired}
-	<!-- Non-dismissable modal backdrop -->
-	<div
-		class="fixed inset-0 z-overlay flex animate-fade-in items-center justify-center bg-neutral-950/70 p-4 backdrop-blur-sm"
-	>
-		<div
-			class="w-full max-w-sm animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
-		>
-			<!-- Header -->
-			<div class="border-b border-neutral-700 bg-warning-500/10 px-6 py-4">
-				<div class="flex items-center gap-3">
-					<div class="rounded-full bg-warning-500/20 p-2">
-						<!-- Warning/clock icon for session expired -->
-						<CircleAlert class="text-warning-500" size={20} />
-					</div>
-					<div>
-						<h3 class="text-lg font-semibold text-neutral-200">Session Expired</h3>
-						<p class="text-sm text-neutral-400">Please log in again to continue</p>
-					</div>
-				</div>
+<Modal open={sessionExpired} onclose={preventClose}>
+	<!-- Header -->
+	<div class="bg-warning-500/10 -mx-6 -mt-6 mb-6 border-b border-neutral-700 px-6 py-4">
+		<div class="flex items-center gap-3">
+			<div class="bg-warning-500/20 rounded-full p-2">
+				<CircleAlert class="text-warning-500" size={20} />
 			</div>
-
-			<!-- Form -->
-			<form class="space-y-4 p-6" onsubmit={handleSubmit}>
-				{#if errorMessage}
-					<div
-						class="rounded-lg border border-error-500/20 bg-error-500/10 p-3 text-sm text-error-500"
-					>
-						{errorMessage}
-					</div>
-				{/if}
-
-				<div>
-					<label for="reauth-email" class="label">Email</label>
-					<input
-						type="email"
-						id="reauth-email"
-						bind:value={email}
-						placeholder="Enter your email"
-						required
-						disabled={isSubmitting}
-						autocomplete="email"
-						class="input"
-					/>
-				</div>
-
-				<div>
-					<label for="reauth-password" class="label">Password</label>
-					<input
-						type="password"
-						id="reauth-password"
-						bind:value={password}
-						placeholder="Enter your password"
-						required
-						disabled={isSubmitting}
-						autocomplete="current-password"
-						class="input"
-					/>
-				</div>
-
-				<div class="flex flex-col gap-2 pt-2">
-					<Button type="submit" variant="primary" full loading={isSubmitting}>
-						<Lock size={20} strokeWidth={2} />
-						<span>Sign In</span>
-					</Button>
-
-					<button
-						type="button"
-						class="py-2 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
-						onclick={handleLogout}
-						disabled={isSubmitting}
-					>
-						Sign out and return to login page
-					</button>
-				</div>
-			</form>
+			<div>
+				<h3 class="text-lg font-semibold text-neutral-200">Session Expired</h3>
+				<p class="text-sm text-neutral-400">Please log in again to continue</p>
+			</div>
 		</div>
 	</div>
-{/if}
+
+	<!-- Form -->
+	<form class="space-y-4" onsubmit={handleSubmit}>
+		{#if errorMessage}
+			<div class="border-error-500/20 bg-error-500/10 text-error-500 rounded-lg border p-3 text-sm">
+				{errorMessage}
+			</div>
+		{/if}
+
+		<div>
+			<label for="reauth-email" class="label">Email</label>
+			<input
+				type="email"
+				id="reauth-email"
+				bind:value={email}
+				placeholder="Enter your email"
+				required
+				disabled={isSubmitting}
+				autocomplete="email"
+				class="input"
+			/>
+		</div>
+
+		<div>
+			<label for="reauth-password" class="label">Password</label>
+			<input
+				type="password"
+				id="reauth-password"
+				bind:value={password}
+				placeholder="Enter your password"
+				required
+				disabled={isSubmitting}
+				autocomplete="current-password"
+				class="input"
+			/>
+		</div>
+
+		<div class="flex flex-col gap-2 pt-2">
+			<Button type="submit" variant="primary" full loading={isSubmitting}>
+				<Lock size={20} strokeWidth={2} />
+				<span>Sign In</span>
+			</Button>
+
+			<button
+				type="button"
+				class="py-2 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+				onclick={handleLogout}
+				disabled={isSubmitting}
+			>
+				Sign out and return to login page
+			</button>
+		</div>
+	</form>
+</Modal>

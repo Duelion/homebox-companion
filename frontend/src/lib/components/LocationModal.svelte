@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { MapPin, Home, Check } from 'lucide-svelte';
-	import type { LocationData } from '$lib/api';
+	import type { Location } from '$lib/types';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
 
 	interface Props {
 		open: boolean;
 		mode: 'create' | 'edit';
-		location?: LocationData | null;
+		location?: Location | null;
 		parentLocation?: { id: string; name: string } | null;
 		onclose?: () => void;
 		onsave: (data: { name: string; description: string; parentId: string | null }) => Promise<void>;
@@ -113,7 +113,7 @@
 				type="text"
 				bind:value={name}
 				placeholder="e.g., Living Room, Drawer 1, Shelf A"
-				class="placeholder:text-neutral-200-dim w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+				class="placeholder:text-neutral-200-dim focus:border-primary focus:ring-primary/50 w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:ring-2 focus:outline-none"
 				disabled={isSaving}
 			/>
 		</div>
@@ -127,14 +127,14 @@
 				bind:value={description}
 				placeholder="e.g., Second drawer from top, left side of garage"
 				rows="3"
-				class="placeholder:text-neutral-200-dim w-full resize-none rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+				class="placeholder:text-neutral-200-dim focus:border-primary focus:ring-primary/50 w-full resize-none rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:ring-2 focus:outline-none"
 				disabled={isSaving}
 			></textarea>
 		</div>
 
 		{#if error}
-			<div class="rounded-lg border border-error/30 bg-error/10 p-3">
-				<p class="text-sm text-error">{error}</p>
+			<div class="border-error/30 bg-error/10 rounded-lg border p-3">
+				<p class="text-error text-sm">{error}</p>
 			</div>
 		{/if}
 
@@ -147,7 +147,7 @@
 					></div>
 					<span>Saving...</span>
 				{:else if saveState === 'success'}
-					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
+					<div class="bg-success-500/20 flex h-8 w-8 items-center justify-center rounded-full">
 						<Check class="text-success-500" size={20} strokeWidth={2.5} />
 					</div>
 					<span>Saved!</span>

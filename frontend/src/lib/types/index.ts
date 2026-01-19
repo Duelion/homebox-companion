@@ -232,7 +232,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses
@@ -327,25 +327,4 @@ export interface BatchCreateResponse {
 	message: string;
 }
 
-// =============================================================================
-// BACKWARDS COMPATIBILITY
-// Re-export with old names for gradual migration
-// =============================================================================
 
-/** @deprecated Use Location instead */
-export type LocationData = Location;
-
-/** @deprecated Use Label instead */
-export type LabelData = Label;
-
-/** @deprecated Use ItemCore instead */
-export type ItemBaseFields = ItemCore;
-
-/** @deprecated Use ItemExtended instead */
-export type ItemExtendedFields = ItemExtended;
-
-/** @deprecated Use LocationCreateRequest instead */
-export type LocationCreateData = LocationCreateRequest;
-
-/** @deprecated Use LocationUpdateRequest instead */
-export type LocationUpdateData = LocationUpdateRequest;
