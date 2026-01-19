@@ -51,11 +51,11 @@ export type { DetectOptions } from './vision';
 
 // Re-export domain types for consumers that import from '$lib/api'
 export type {
-	LocationData,
+	Location,
 	LocationTreeNode,
-	LocationCreateData,
-	LocationUpdateData,
-	LabelData,
+	LocationCreateRequest,
+	LocationUpdateRequest,
+	Label,
 	DetectedItem,
 	DetectionResponse,
 	ItemInput,
