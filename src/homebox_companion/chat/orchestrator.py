@@ -531,6 +531,7 @@ class ChatOrchestrator:
             response_content=full_content,
             response_tool_calls=response_tool_calls,
             latency_ms=int(elapsed_ms),
+            model=LLMClient.get_resolved_model(),
         )
 
         # Add error responses for incomplete tool calls so LLM doesn't hang

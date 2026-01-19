@@ -42,7 +42,7 @@ class TestLLMFallback:
     ) -> None:
         """If primary succeeds, fallback should not be checked or called."""
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary_profile),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
             patch("homebox_companion.ai.llm.get_fallback_profile") as mock_get_fallback,
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -66,7 +66,7 @@ class TestLLMFallback:
     ) -> None:
         """If primary fails and no fallback profile exists, error should propagate."""
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary_profile),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -89,7 +89,7 @@ class TestLLMFallback:
     ) -> None:
         """If primary fails, should switch to fallback."""
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary_profile),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=mock_fallback_profile),
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -135,7 +135,7 @@ class TestLLMFallback:
         mock_fallback.api_base = None
 
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary_profile),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=mock_fallback),
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -166,7 +166,7 @@ class TestLLMFallback:
     ) -> None:
         """Non-LLMServiceError exceptions should propagate immediately without fallback."""
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary_profile),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
             patch("homebox_companion.ai.llm.get_fallback_profile") as mock_get_fallback,
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -194,7 +194,7 @@ class TestLLMFallback:
         test_expected_keys = ["name", "description"]
 
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary_profile),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=mock_fallback_profile),
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -234,7 +234,7 @@ class TestPrimaryProfileResolution:
         mock_primary.api_base = "https://api.anthropic.com"
 
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -259,9 +259,9 @@ class TestPrimaryProfileResolution:
     async def test_falls_back_to_env_when_no_primary_profile(self) -> None:
         """If no PRIMARY profile, use environment variable defaults."""
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=None),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=None),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
-            patch("homebox_companion.ai.llm.config") as mock_config,
+            patch("homebox_companion.core.llm_utils.config") as mock_config,
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
             mock_config.settings.effective_llm_model = "gpt-5-mini"
@@ -291,7 +291,7 @@ class TestPrimaryProfileResolution:
         mock_primary.api_base = None
 
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
@@ -313,8 +313,8 @@ class TestPrimaryProfileResolution:
     async def test_raises_error_when_no_credentials_available(self) -> None:
         """Raise LLMServiceError if no profile or env vars provide credentials."""
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=None),
-            patch("homebox_companion.ai.llm.config") as mock_config,
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=None),
+            patch("homebox_companion.core.llm_utils.config") as mock_config,
         ):
             mock_config.settings.effective_llm_model = None
             mock_config.settings.effective_llm_api_key = None
@@ -339,9 +339,9 @@ class TestPrimaryProfileResolution:
         mock_primary.api_base = "http://localhost:11434"
 
         with (
-            patch("homebox_companion.ai.llm.get_primary_profile", return_value=mock_primary),
+            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary),
             patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
-            patch("homebox_companion.ai.llm.config") as mock_config,
+            patch("homebox_companion.core.llm_utils.config") as mock_config,
             patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
         ):
             mock_config.settings.effective_llm_api_key = "env-fallback-key"
@@ -363,3 +363,77 @@ class TestPrimaryProfileResolution:
             assert kwargs["api_key"] == "env-fallback-key"  # From env (profile had None)
             assert kwargs["api_base"] == "http://localhost:11434"  # From profile
 
+
+class TestLLMClientProfileResolution:
+    """Tests for LLMClient profile resolution (chat completions)."""
+
+    async def test_llm_client_uses_primary_profile(self) -> None:
+        """LLMClient should use PRIMARY profile credentials via resolve_llm_credentials."""
+        from homebox_companion.chat.llm_client import LLMClient
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        # Mock resolve_llm_credentials to return a specific profile
+        mock_creds = LLMCredentials(
+            model="claude-3-5-sonnet",
+            api_key="anthropic-key",
+            api_base="https://api.anthropic.com",
+            profile_name="anthropic",
+        )
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch("homebox_companion.chat.llm_client.config") as mock_config,
+        ):
+            mock_config.settings.llm_timeout = 30
+            mock_config.settings.llm_stream_timeout = 60
+            mock_config.settings.chat_max_response_tokens = 0
+
+            client = LLMClient()
+            kwargs = client._build_request_kwargs(
+                messages=[{"role": "user", "content": "test"}],
+                tools=None,
+                stream=False,
+            )
+
+            # Assert credentials from mock were used
+            assert kwargs["model"] == "claude-3-5-sonnet"
+            assert kwargs["api_key"] == "anthropic-key"
+            assert kwargs["api_base"] == "https://api.anthropic.com"
+
+    async def test_llm_client_falls_back_to_env_when_no_primary(self) -> None:
+        """LLMClient should fall back to env vars via resolve_llm_credentials."""
+        from homebox_companion.chat.llm_client import LLMClient
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        # Mock resolve_llm_credentials to return env defaults (no profile)
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="env-key",
+            api_base=None,
+            profile_name=None,  # No profile used
+        )
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch("homebox_companion.chat.llm_client.config") as mock_config,
+        ):
+            mock_config.settings.llm_timeout = 30
+            mock_config.settings.llm_stream_timeout = 60
+            mock_config.settings.chat_max_response_tokens = 0
+
+            client = LLMClient()
+            kwargs = client._build_request_kwargs(
+                messages=[{"role": "user", "content": "test"}],
+                tools=None,
+                stream=True,
+            )
+
+            assert kwargs["model"] == "gpt-5-mini"
+            assert kwargs["api_key"] == "env-key"
+            assert "api_base" not in kwargs  # None is not included
