@@ -16,4 +16,4 @@
 	let { class: className = '', size = 20, strokeWidth = 2 }: Props = $props();
 </script>
 
-<TriangleAlert class={className} {size} {strokeWidth} />
+<TriangleAlert class="text-warning-400 {className}" {size} {strokeWidth} />
