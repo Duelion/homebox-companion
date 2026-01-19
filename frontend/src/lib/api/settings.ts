@@ -80,6 +80,20 @@ function clearDemoPreferences(): void {
 	}
 }
 
+/**
+ * Filter out null/undefined values from preferences object.
+ * Backend expects only non-null string values (uses defaults for missing fields).
+ */
+function filterNullValues(prefs: Partial<FieldPreferences>): Record<string, string> {
+	const result: Record<string, string> = {};
+	for (const [key, value] of Object.entries(prefs)) {
+		if (value !== null && value !== undefined) {
+			result[key] = value;
+		}
+	}
+	return result;
+}
+
 // =============================================================================
 // VERSION
 // =============================================================================
@@ -226,9 +240,10 @@ export const fieldPreferences = {
 			saveDemoPreferences(updated);
 			return updated;
 		}
+
 		return request<FieldPreferences>('/settings/field-preferences', {
 			method: 'PUT',
-			body: JSON.stringify(prefs),
+			body: JSON.stringify(filterNullValues(prefs)),
 		});
 	},
 
@@ -246,7 +261,7 @@ export const fieldPreferences = {
 	getPromptPreview: (prefs: Partial<FieldPreferences>) =>
 		request<{ prompt: string }>('/settings/prompt-preview', {
 			method: 'POST',
-			body: JSON.stringify(prefs),
+			body: JSON.stringify(filterNullValues(prefs)),
 		}),
 };
 
