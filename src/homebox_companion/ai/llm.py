@@ -20,7 +20,7 @@ from ..core.exceptions import (
     JSONRepairError,
     LLMServiceError,
 )
-from ..core.persistent_settings import get_fallback_profile, get_primary_profile
+from ..core.persistent_settings import get_fallback_profile
 from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
 from .model_capabilities import get_model_capabilities
 
@@ -384,22 +384,15 @@ async def _with_fallback(
     Raises:
         LLMServiceError: If credentials missing or both primary and fallback fail.
     """
-    # --- Resolve primary credentials ---
-    primary = get_primary_profile()
-    if primary:
-        # Use PRIMARY profile, falling back to env vars for missing values
-        model = model or primary.model
-        api_key = api_key or (primary.api_key.get_secret_value() if primary.api_key else None)
-        api_base = api_base if api_base is not None else primary.api_base
-        logger.debug(f"Using PRIMARY profile '{primary.name}' with model: {model}")
+    from ..core.llm_utils import resolve_llm_credentials
 
-    # If still missing credentials after profile resolution, try env vars
-    if model is None or api_key is None:
-        model = model or config.settings.effective_llm_model
-        api_key = api_key or config.settings.effective_llm_api_key
-        api_base = api_base if api_base is not None else config.settings.llm_api_base
-        if not primary:
-            logger.debug(f"No PRIMARY profile, using env defaults with model: {model}")
+    # --- Resolve primary credentials using shared utility ---
+    creds = resolve_llm_credentials(model=model, api_key=api_key, api_base=api_base)
+
+    # Use resolved values, allowing explicit overrides to take precedence
+    model = creds.model
+    api_key = creds.api_key
+    api_base = creds.api_base
 
     # Validate we have required credentials
     if not api_key:

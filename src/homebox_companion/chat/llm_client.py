@@ -32,6 +32,7 @@ def _build_log_entry(
     response_content: str,
     response_tool_calls: list[dict[str, Any]] | None,
     latency_ms: int,
+    model: str,
 ) -> dict[str, Any]:
     """Build a log entry with detail level based on configured log level.
 
@@ -40,11 +41,18 @@ def _build_log_entry(
     - DEBUG: Moderate detail (all messages, tool names only, full response)
     - INFO+: Minimal (timestamp, model, latency, counts/summaries)
 
+    Args:
+        messages: The messages sent to the LLM.
+        tools: The tool definitions sent to the LLM.
+        response_content: The response content from the LLM.
+        response_tool_calls: The tool calls from the response.
+        latency_ms: Time taken for the request in milliseconds.
+        model: The model identifier used for this request.
+
     Returns:
         Dict containing the log entry with appropriate detail level.
     """
     level_value = get_log_level_value()
-    model = config.settings.effective_llm_model
     timestamp = datetime.now(UTC).isoformat()
 
     # Base entry (always included)
@@ -96,6 +104,7 @@ def log_streaming_interaction(
     response_content: str,
     response_tool_calls: list[dict[str, Any]] | None,
     latency_ms: int,
+    model: str,
 ) -> None:
     """Log a streaming LLM interaction to the debug log file.
 
@@ -113,9 +122,10 @@ def log_streaming_interaction(
         response_content: The accumulated response content.
         response_tool_calls: The parsed tool calls from the response.
         latency_ms: Time taken for the streaming request in milliseconds.
+        model: The model identifier used for this request.
     """
     try:
-        entry = _build_log_entry(messages, tools, response_content, response_tool_calls, latency_ms)
+        entry = _build_log_entry(messages, tools, response_content, response_tool_calls, latency_ms, model)
 
         # Log with llm_debug=True so it's captured by the dedicated handler
         logger.bind(llm_debug=True).info(json.dumps(entry))
@@ -273,6 +283,21 @@ class LLMClient:
         """
         return SYSTEM_PROMPT
 
+    @staticmethod
+    def get_resolved_model() -> str:
+        """Get the currently resolved LLM model identifier.
+
+        Uses the shared credential resolution logic to determine which model
+        will be used for the next request. Useful for logging.
+
+        Returns:
+            The resolved model identifier (from PRIMARY profile or env).
+        """
+        from homebox_companion.core.llm_utils import resolve_llm_credentials
+
+        creds = resolve_llm_credentials()
+        return creds.model or "unknown"
+
     async def complete(
         self,
         messages: list[dict[str, Any]],
@@ -366,6 +391,10 @@ class LLMClient:
     ) -> dict[str, Any]:
         """Build the kwargs dict for litellm.acompletion.
 
+        Uses resolve_llm_credentials for unified credential resolution:
+        1. PRIMARY profile from persistent settings
+        2. Environment variable defaults
+
         Args:
             messages: Conversation messages.
             tools: Optional tool definitions.
@@ -374,19 +403,24 @@ class LLMClient:
         Returns:
             Dict of kwargs for acompletion.
         """
+        from homebox_companion.core.llm_utils import resolve_llm_credentials
+
         # Use longer timeout for streaming operations (large responses take more time)
         timeout = config.settings.llm_stream_timeout if stream else config.settings.llm_timeout
 
+        # Resolve credentials using shared utility
+        creds = resolve_llm_credentials()
+
         kwargs: dict[str, Any] = {
-            "model": config.settings.effective_llm_model,
+            "model": creds.model,
             "messages": messages,
-            "api_key": config.settings.effective_llm_api_key,
+            "api_key": creds.api_key,
             "timeout": timeout,
             "stream": stream,
         }
 
-        if config.settings.llm_api_base:
-            kwargs["api_base"] = config.settings.llm_api_base
+        if creds.api_base:
+            kwargs["api_base"] = creds.api_base
 
         # Apply response length limit
         if config.settings.chat_max_response_tokens > 0:

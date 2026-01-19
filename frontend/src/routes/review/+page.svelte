@@ -403,7 +403,7 @@
 			<!-- Duplicate warning banner -->
 			{#if editedItem.duplicate_match}
 				<div
-					class="border-warning-500/30 bg-warning-500/10 mx-4 mt-4 flex items-start gap-3 rounded-lg border p-3"
+					class="border-warning-500/30 bg-warning-500/10 mx-4 mt-4 flex items-center gap-3 rounded-lg border p-3"
 				>
 					<DuplicateWarningIcon match={editedItem.duplicate_match} />
 					<div class="text-body-sm">
