@@ -156,6 +156,38 @@ def save_field_preferences(preferences: FieldPreferences) -> None:
     PREFERENCES_FILE.write_text(json.dumps(overrides, indent=2), encoding="utf-8")
 
 
+def load_user_overrides() -> dict[str, str | None]:
+    """Load only user overrides from file (sparse data for settings UI).
+
+    Returns a dict where:
+    - Fields the user has explicitly overridden have their saved value
+    - Fields with no override are None
+
+    This is used by the settings UI to show empty inputs with placeholder
+    text for defaults, and only populate inputs with text when the user
+    has explicitly saved an override.
+
+    Returns:
+        Dict with all preference fields, None for non-overridden fields.
+    """
+    # Start with all fields as None (no override)
+    result: dict[str, str | None] = {field: None for field in FieldPreferences.model_fields}
+
+    if not PREFERENCES_FILE.exists():
+        return result
+
+    try:
+        file_data = json.loads(PREFERENCES_FILE.read_text(encoding="utf-8"))
+        # Only include non-null values from the file
+        for key, value in file_data.items():
+            if key in result and value is not None:
+                result[key] = value
+        return result
+    except (json.JSONDecodeError, ValidationError) as e:
+        logger.warning(f"Invalid field preferences config file: {e}")
+        return result
+
+
 def reset_field_preferences() -> FieldPreferences:
     """Reset to defaults by deleting the overrides file.
 

@@ -19,6 +19,7 @@ import type {
 	ItemCore,
 	ItemExtended,
 	ImageAnalysisStatus,
+	DuplicateMatch,
 } from '$lib/types';
 
 // =============================================================================
@@ -51,6 +52,8 @@ export interface StoredReviewItem extends ItemCore, ItemExtended {
 	/** Already base64 from backend */
 	compressedDataUrl?: string;
 	compressedAdditionalDataUrls?: string[];
+	/** Duplicate match info if serial matches an existing item */
+	duplicate_match?: DuplicateMatch | null;
 }
 
 /** Serializable version of ConfirmedItem */
@@ -228,6 +231,7 @@ export function serializeReviewItem(item: ReviewItem): StoredReviewItem {
 		thumbnailTransform: item.thumbnailTransform,
 		compressedDataUrl: item.compressedDataUrl,
 		compressedAdditionalDataUrls: item.compressedAdditionalDataUrls,
+		duplicate_match: item.duplicate_match,
 	};
 }
 
@@ -332,6 +336,7 @@ export async function deserializeReviewItem(stored: StoredReviewItem): Promise<R
 		thumbnailTransform: stored.thumbnailTransform,
 		compressedDataUrl: stored.compressedDataUrl,
 		compressedAdditionalDataUrls: stored.compressedAdditionalDataUrls,
+		duplicate_match: stored.duplicate_match,
 	};
 }
 
