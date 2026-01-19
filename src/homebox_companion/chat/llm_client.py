@@ -8,6 +8,20 @@ The LLMClient handles:
 - Calling the LLM with streaming or non-streaming modes
 - Configuration from settings
 - Capturing raw request/response data for debugging via loguru
+
+Fallback Pattern Note:
+    This module implements its own fallback logic separate from ai/llm.py
+    because they serve different purposes:
+
+    - ai/llm.py: JSON completion with repair, used for vision/extraction tasks.
+      Fallback wraps _acompletion_with_repair which throws LLMServiceError.
+
+    - This module (LLMClient): Streaming completions for chat interface.
+      Fallback catches raw litellm exceptions at the connection level.
+      Mid-stream failures are NOT caught - they propagate to the caller.
+
+    Both use resolve_llm_credentials() for PRIMARY profile resolution,
+    and both check get_fallback_profile() for FALLBACK configuration.
 """
 
 from __future__ import annotations
@@ -24,6 +38,7 @@ from loguru import logger
 
 from homebox_companion.core import config
 from homebox_companion.core.logging import get_log_level_value
+from homebox_companion.core.persistent_settings import get_fallback_profile
 
 
 def _build_log_entry(
@@ -313,12 +328,49 @@ class LLMClient:
             LLMResponse with content, tool_calls, and usage.
 
         Raises:
-            Exception: If the LLM call fails.
+            Exception: If the LLM call fails (after fallback attempt if configured).
         """
         kwargs = self._build_request_kwargs(messages, tools, stream=False)
+        primary_model = kwargs.get("model", "unknown")
 
         start_time = time.perf_counter()
-        response = await litellm.acompletion(**kwargs)
+
+        # Try primary, fallback on transient errors if configured.
+        # BadRequestError is excluded - it indicates config issues (wrong model name)
+        # that won't be fixed by switching providers.
+        try:
+            response = await litellm.acompletion(**kwargs)
+        except (
+            litellm.AuthenticationError,
+            litellm.RateLimitError,
+            litellm.APIConnectionError,
+            litellm.Timeout,
+            litellm.APIError,
+        ) as primary_error:
+            fallback = get_fallback_profile()
+            if not fallback:
+                raise
+
+            logger.warning(
+                f"[LLM] Primary failed ({primary_model}): {primary_error}. "
+                f"Switching to fallback {fallback.model}..."
+            )
+
+            # Build fallback kwargs
+            kwargs = self._apply_fallback_credentials(kwargs, fallback)
+            try:
+                response = await litellm.acompletion(**kwargs)
+                logger.info(f"[LLM] Fallback to {fallback.model} succeeded")
+            except (
+                litellm.AuthenticationError,
+                litellm.RateLimitError,
+                litellm.APIConnectionError,
+                litellm.Timeout,
+                litellm.APIError,
+            ) as fallback_error:
+                logger.error(f"[LLM] Fallback {fallback.model} also failed: {fallback_error}")
+                raise
+
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         # Extract response data
@@ -371,15 +423,51 @@ class LLMClient:
             Raw LiteLLM stream chunks.
 
         Raises:
-            Exception: If the LLM call fails.
+            Exception: If the LLM call fails (after fallback attempt if configured).
         """
         kwargs = self._build_request_kwargs(messages, tools, stream=True)
+        primary_model = kwargs.get("model", "unknown")
 
         logger.debug(
             f"[LLM] Starting streaming completion with {len(messages)} messages, {len(tools) if tools else 0} tools"
         )
 
-        response = await litellm.acompletion(**kwargs)
+        # Try primary, fallback on transient errors if configured.
+        # Note: Fallback only works for initial connection errors, not mid-stream failures.
+        # BadRequestError is excluded - it indicates config issues (wrong model name).
+        try:
+            response = await litellm.acompletion(**kwargs)
+        except (
+            litellm.AuthenticationError,
+            litellm.RateLimitError,
+            litellm.APIConnectionError,
+            litellm.Timeout,
+            litellm.APIError,
+        ) as primary_error:
+            fallback = get_fallback_profile()
+            if not fallback:
+                raise
+
+            logger.warning(
+                f"[LLM] Primary failed ({primary_model}): {primary_error}. "
+                f"Switching to fallback {fallback.model}..."
+            )
+
+            # Build fallback kwargs
+            kwargs = self._apply_fallback_credentials(kwargs, fallback)
+            try:
+                response = await litellm.acompletion(**kwargs)
+                logger.info(f"[LLM] Fallback to {fallback.model} succeeded")
+            except (
+                litellm.AuthenticationError,
+                litellm.RateLimitError,
+                litellm.APIConnectionError,
+                litellm.Timeout,
+                litellm.APIError,
+            ) as fallback_error:
+                logger.error(f"[LLM] Fallback {fallback.model} also failed: {fallback_error}")
+                raise
+
         async for chunk in response:
             yield chunk
 
@@ -436,3 +524,35 @@ class LLMClient:
             logger.trace(f"[LLM] Available tools: {tool_names}")
 
         return kwargs
+
+    def _apply_fallback_credentials(
+        self,
+        kwargs: dict[str, Any],
+        fallback: Any,  # LLMProfile type, but using Any to avoid circular import
+    ) -> dict[str, Any]:
+        """Apply fallback profile credentials to existing kwargs.
+
+        If the fallback profile doesn't specify a field (e.g., api_key),
+        the primary value is inherited.
+
+        Args:
+            kwargs: Existing kwargs dict from primary attempt.
+            fallback: Fallback LLM profile.
+
+        Returns:
+            Updated kwargs dict with fallback credentials.
+        """
+        kwargs["model"] = fallback.model
+
+        if fallback.api_key:
+            kwargs["api_key"] = fallback.api_key.get_secret_value()
+        # else: inherit primary's api_key (already in kwargs)
+
+        if fallback.api_base:
+            kwargs["api_base"] = fallback.api_base
+        elif "api_base" in kwargs:
+            # Remove primary's api_base if fallback doesn't specify one
+            del kwargs["api_base"]
+
+        return kwargs
+

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import litellm
 import pytest
 
 from homebox_companion.ai import llm
@@ -437,3 +438,211 @@ class TestLLMClientProfileResolution:
             assert kwargs["model"] == "gpt-5-mini"
             assert kwargs["api_key"] == "env-key"
             assert "api_base" not in kwargs  # None is not included
+
+
+class TestLLMClientFallback:
+    """Tests for LLMClient.complete() and complete_stream() fallback behavior."""
+
+    async def test_complete_uses_fallback_on_primary_failure(
+        self, mock_fallback_profile: MagicMock
+    ) -> None:
+        """LLMClient.complete() should use fallback when primary fails."""
+        from homebox_companion.chat.llm_client import LLMClient
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="primary-model",
+            api_key="primary-key",
+            api_base=None,
+            profile_name="primary",
+        )
+
+        # Mock response for fallback
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "fallback response"
+        mock_response.choices[0].message.tool_calls = None
+        mock_response.usage = None
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=mock_fallback_profile),
+            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
+            patch("homebox_companion.chat.llm_client.config") as mock_config,
+        ):
+            mock_config.settings.llm_timeout = 30
+            mock_config.settings.chat_max_response_tokens = 0
+
+            # Primary fails with specific litellm exception, fallback succeeds
+            mock_completion.side_effect = [
+                litellm.APIConnectionError(
+                    message="Primary connection failed",
+                    llm_provider="openai",
+                    model="primary-model",
+                ),
+                mock_response,
+            ]
+
+            client = LLMClient()
+            result = await client.complete(messages=[{"role": "user", "content": "test"}])
+
+            assert result.content == "fallback response"
+            assert mock_completion.call_count == 2
+
+            # Verify fallback credentials were used on second call
+            _, kwargs2 = mock_completion.call_args_list[1]
+            assert kwargs2["model"] == "fallback-model"
+            assert kwargs2["api_key"] == "fallback-key"
+
+    async def test_complete_stream_uses_fallback_on_primary_failure(
+        self, mock_fallback_profile: MagicMock
+    ) -> None:
+        """LLMClient.complete_stream() should use fallback when primary fails."""
+        from homebox_companion.chat.llm_client import LLMClient
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="primary-model",
+            api_key="primary-key",
+            api_base=None,
+            profile_name="primary",
+        )
+
+        # Mock async generator for streaming response
+        async def mock_stream():
+            yield MagicMock(choices=[MagicMock(delta=MagicMock(content="chunk1"))])
+            yield MagicMock(choices=[MagicMock(delta=MagicMock(content="chunk2"))])
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=mock_fallback_profile),
+            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
+            patch("homebox_companion.chat.llm_client.config") as mock_config,
+        ):
+            mock_config.settings.llm_stream_timeout = 60
+            mock_config.settings.chat_max_response_tokens = 0
+
+            # Primary fails with specific litellm exception, fallback returns stream
+            mock_completion.side_effect = [
+                litellm.APIConnectionError(
+                    message="Primary connection failed",
+                    llm_provider="openai",
+                    model="primary-model",
+                ),
+                mock_stream(),
+            ]
+
+            client = LLMClient()
+            chunks = []
+            async for chunk in client.complete_stream(messages=[{"role": "user", "content": "test"}]):
+                chunks.append(chunk)
+
+            assert len(chunks) == 2
+            assert mock_completion.call_count == 2
+
+            # Verify fallback credentials were used
+            _, kwargs2 = mock_completion.call_args_list[1]
+            assert kwargs2["model"] == "fallback-model"
+
+    async def test_complete_no_fallback_when_not_configured(self) -> None:
+        """LLMClient.complete() should raise if no fallback configured."""
+        from homebox_companion.chat.llm_client import LLMClient
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="primary-model",
+            api_key="primary-key",
+            api_base=None,
+            profile_name="primary",
+        )
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=None),
+            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
+            patch("homebox_companion.chat.llm_client.config") as mock_config,
+        ):
+            mock_config.settings.llm_timeout = 30
+            mock_config.settings.chat_max_response_tokens = 0
+
+            mock_completion.side_effect = litellm.APIConnectionError(
+                message="Primary failed",
+                llm_provider="openai",
+                model="primary-model",
+            )
+
+            client = LLMClient()
+            with pytest.raises(litellm.APIConnectionError):
+                await client.complete(messages=[{"role": "user", "content": "test"}])
+
+            # Should only call once (no fallback attempt)
+            assert mock_completion.call_count == 1
+
+
+class TestLLMClientMidStreamFailure:
+    """Tests verifying mid-stream failures are NOT caught by fallback.
+
+    The fallback mechanism only handles initial connection errors.
+    Once streaming starts, errors propagate to the caller.
+    """
+
+    async def test_mid_stream_error_propagates_without_fallback(
+        self, mock_fallback_profile: MagicMock
+    ) -> None:
+        """Errors during stream iteration should propagate, not trigger fallback."""
+        from homebox_companion.chat.llm_client import LLMClient
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="primary-model",
+            api_key="primary-key",
+            api_base=None,
+            profile_name="primary",
+        )
+
+        # Mock async generator that fails mid-stream
+        async def failing_stream():
+            yield MagicMock(choices=[MagicMock(delta=MagicMock(content="chunk1"))])
+            raise litellm.APIError(
+                message="Stream interrupted",
+                llm_provider="openai",
+                model="primary-model",
+                status_code=500,
+            )
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=mock_fallback_profile),
+            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
+            patch("homebox_companion.chat.llm_client.config") as mock_config,
+        ):
+            mock_config.settings.llm_stream_timeout = 60
+            mock_config.settings.chat_max_response_tokens = 0
+
+            # Primary connection succeeds, but stream fails mid-way
+            mock_completion.return_value = failing_stream()
+
+            client = LLMClient()
+            chunks = []
+
+            # Should raise during iteration, NOT retry with fallback
+            with pytest.raises(litellm.APIError, match="Stream interrupted"):
+                async for chunk in client.complete_stream(messages=[{"role": "user", "content": "test"}]):
+                    chunks.append(chunk)
+
+            # Only one call made (no fallback retry)
+            assert mock_completion.call_count == 1
+            # First chunk was received before failure
+            assert len(chunks) == 1

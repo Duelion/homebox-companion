@@ -20,7 +20,7 @@ from ..core.exceptions import (
     JSONRepairError,
     LLMServiceError,
 )
-from ..core.persistent_settings import get_fallback_profile
+from ..core.persistent_settings import get_fallback_profile, get_primary_profile
 from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
 from .model_capabilities import get_model_capabilities
 
@@ -332,10 +332,11 @@ async def _acompletion_with_repair(
 
 
 def _resolve_model_for_capabilities(model: str | None) -> str | None:
-    """Resolve model name for capability checks without full credential resolution.
+    """Resolve model name for capability checks.
 
-    This is used by chat_completion and vision_completion to determine the model
-    for capability checks before calling _with_fallback.
+    Uses the shared resolve_llm_credentials() utility for consistency with
+    the actual model that will be used. This ensures capability checks
+    match the resolved model from PRIMARY profile or environment.
 
     Args:
         model: Explicit model override, or None to resolve from profile/env.
@@ -343,12 +344,10 @@ def _resolve_model_for_capabilities(model: str | None) -> str | None:
     Returns:
         Resolved model name, or None if no model configured anywhere.
     """
-    if model is not None:
-        return model
-    primary = get_primary_profile()
-    if primary:
-        return primary.model
-    return config.settings.effective_llm_model
+    from ..core.llm_utils import resolve_llm_credentials
+
+    creds = resolve_llm_credentials(model=model)
+    return creds.model
 
 
 async def _with_fallback(
