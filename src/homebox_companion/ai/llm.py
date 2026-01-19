@@ -20,8 +20,8 @@ from ..core.exceptions import (
     JSONRepairError,
     LLMServiceError,
 )
+from ..core.persistent_settings import get_fallback_profile, get_primary_profile
 from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
-from ..core.persistent_settings import get_fallback_profile
 from .model_capabilities import get_model_capabilities
 
 # Silence LiteLLM's verbose logging (we use loguru)
@@ -331,25 +331,50 @@ async def _acompletion_with_repair(
     )
 
 
+def _resolve_model_for_capabilities(model: str | None) -> str | None:
+    """Resolve model name for capability checks without full credential resolution.
+
+    This is used by chat_completion and vision_completion to determine the model
+    for capability checks before calling _with_fallback.
+
+    Args:
+        model: Explicit model override, or None to resolve from profile/env.
+
+    Returns:
+        Resolved model name, or None if no model configured anywhere.
+    """
+    if model is not None:
+        return model
+    primary = get_primary_profile()
+    if primary:
+        return primary.model
+    return config.settings.effective_llm_model
+
+
 async def _with_fallback(
     messages: list[dict[str, Any]],
     *,
-    model: str,
-    api_key: str,
-    api_base: str | None,
+    model: str | None = None,
+    api_key: str | None = None,
+    api_base: str | None = None,
     response_format: dict[str, str] | None,
     expected_keys: list[str] | None,
 ) -> dict[str, Any]:
-    """Call _acompletion_with_repair with automatic fallback on failure.
+    """Call LLM with automatic profile resolution and fallback on failure.
 
-    If the primary model fails with LLMServiceError and a fallback profile
+    Resolution priority for model/api_key/api_base:
+    1. Explicit arguments (if passed)
+    2. PRIMARY profile from persistent settings
+    3. Environment variable defaults
+
+    If the primary attempt fails with LLMServiceError and a FALLBACK profile
     is configured, logs a warning and retries with the fallback profile.
 
     Args:
         messages: Chat messages.
-        model: Primary model identifier.
-        api_key: Primary API key.
-        api_base: Primary API base URL.
+        model: Optional model override. Resolved from PRIMARY profile or env if None.
+        api_key: Optional API key override. Resolved from PRIMARY profile or env if None.
+        api_base: Optional API base URL override. Resolved from PRIMARY profile or env if None.
         response_format: Optional response format.
         expected_keys: Keys to check in JSON response.
 
@@ -357,8 +382,37 @@ async def _with_fallback(
         Parsed JSON response as a dictionary.
 
     Raises:
-        LLMServiceError: If both primary and fallback fail (or no fallback configured).
+        LLMServiceError: If credentials missing or both primary and fallback fail.
     """
+    # --- Resolve primary credentials ---
+    primary = get_primary_profile()
+    if primary:
+        # Use PRIMARY profile, falling back to env vars for missing values
+        model = model or primary.model
+        api_key = api_key or (primary.api_key.get_secret_value() if primary.api_key else None)
+        api_base = api_base if api_base is not None else primary.api_base
+        logger.debug(f"Using PRIMARY profile '{primary.name}' with model: {model}")
+
+    # If still missing credentials after profile resolution, try env vars
+    if model is None or api_key is None:
+        model = model or config.settings.effective_llm_model
+        api_key = api_key or config.settings.effective_llm_api_key
+        api_base = api_base if api_base is not None else config.settings.llm_api_base
+        if not primary:
+            logger.debug(f"No PRIMARY profile, using env defaults with model: {model}")
+
+    # Validate we have required credentials
+    if not api_key:
+        raise LLMServiceError(
+            "No API key configured. Set HBC_LLM_API_KEY environment variable "
+            "or configure a PRIMARY LLM profile in Settings."
+        )
+    if not model:
+        raise LLMServiceError(
+            "No model configured. Set HBC_LLM_MODEL environment variable "
+            "or configure a PRIMARY LLM profile in Settings."
+        )
+
     try:
         return await _acompletion_with_repair(
             messages,
@@ -406,8 +460,8 @@ async def chat_completion(
 
     Args:
         messages: List of message dicts for the conversation.
-        api_key: API key. Defaults to effective_llm_api_key.
-        model: Model name. Defaults to effective_llm_model.
+        api_key: Optional API key override. Resolved by _with_fallback if None.
+        model: Optional model override. Resolved by _with_fallback if None.
         response_format: Optional response format (e.g., {"type": "json_object"}).
         expected_keys: Optional keys to validate in JSON response.
 
@@ -417,22 +471,22 @@ async def chat_completion(
     Raises:
         LLMServiceError: For API or parsing errors.
     """
-    api_key = api_key or config.settings.effective_llm_api_key
-    model = model or config.settings.effective_llm_model
-
     # Determine response format based on capabilities (if validation enabled)
+    # Note: We need a resolved model for capability checks, so we peek at profile/env
     effective_response_format = response_format
-    if not config.settings.llm_allow_unsafe_models:
-        caps = get_model_capabilities(model)
-        if response_format and response_format.get("type") == "json_object" and not caps.json_mode:
-            logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
-            effective_response_format = None
+    if not config.settings.llm_allow_unsafe_models and response_format:
+        resolved_model = _resolve_model_for_capabilities(model)
+        if resolved_model:
+            caps = get_model_capabilities(resolved_model)
+            if response_format.get("type") == "json_object" and not caps.json_mode:
+                logger.debug(f"Model {resolved_model} doesn't support json_mode, using prompt-only JSON")
+                effective_response_format = None
 
     return await _with_fallback(
         messages,
         model=model,
         api_key=api_key,
-        api_base=config.settings.llm_api_base,
+        api_base=None,  # Let _with_fallback resolve from profile/env
         response_format=effective_response_format,
         expected_keys=expected_keys,
     )
@@ -453,8 +507,8 @@ async def vision_completion(
         system_prompt: The system message content.
         user_prompt: The user message text content.
         image_data_uris: List of base64-encoded image data URIs.
-        api_key: API key. Defaults to effective_llm_api_key.
-        model: Model name. Defaults to effective_llm_model.
+        api_key: Optional API key override. Resolved by _with_fallback if None.
+        model: Optional model override. Resolved by _with_fallback if None.
         expected_keys: Optional keys to validate in JSON response.
 
     Returns:
@@ -468,8 +522,8 @@ async def vision_completion(
     if not image_data_uris:
         raise ValueError("vision_completion requires at least one image")
 
-    api_key = api_key or config.settings.effective_llm_api_key
-    model = model or config.settings.effective_llm_model
+    # Resolve model for capability checks (need to know before calling _with_fallback)
+    resolved_model = _resolve_model_for_capabilities(model)
 
     # Determine capabilities and response format
     response_format: dict[str, str] | None = None
@@ -477,21 +531,27 @@ async def vision_completion(
     if config.settings.llm_allow_unsafe_models:
         # Without validation, try json_mode by default and let LiteLLM handle it
         response_format = {"type": "json_object"}
-        logger.debug(f"Skipping capability validation for model '{model}' (HBC_LLM_ALLOW_UNSAFE_MODELS=true)")
+        logger.debug(f"Skipping capability validation for model '{resolved_model}' (HBC_LLM_ALLOW_UNSAFE_MODELS=true)")
     else:
         # Validate model capabilities
-        caps = get_model_capabilities(model)
+        if not resolved_model:
+            raise LLMServiceError(
+                "No model configured for vision request. Set HBC_LLM_MODEL environment variable "
+                "or configure a PRIMARY LLM profile in Settings."
+            )
+
+        caps = get_model_capabilities(resolved_model)
 
         logger.debug(
-            f"Model '{model}' capabilities for vision request: "
+            f"Model '{resolved_model}' capabilities for vision request: "
             f"vision={caps.vision}, json_mode={caps.json_mode}, multi_image={caps.multi_image}"
         )
 
         if not caps.vision:
             raise CapabilityNotSupportedError(
-                f"Model '{model}' does not support vision (image inputs).\n\n"
+                f"Model '{resolved_model}' does not support vision (image inputs).\n\n"
                 f"Homebox Companion requires a vision-capable model to analyze item photos. "
-                f"LiteLLM reports that '{model}' does not have vision capabilities.\n\n"
+                f"LiteLLM reports that '{resolved_model}' does not have vision capabilities.\n\n"
                 f"Possible reasons:\n"
                 f"  • The model name is incorrect or misspelled\n"
                 f"  • The model doesn't support image inputs (text-only model)\n"
@@ -512,11 +572,11 @@ async def vision_completion(
 
         if len(image_data_uris) > 1 and not caps.multi_image:
             raise CapabilityNotSupportedError(
-                f"Model '{model}' does not support multiple images in a "
+                f"Model '{resolved_model}' does not support multiple images in a "
                 f"single request.\n\n"
                 f"You're trying to analyze {len(image_data_uris)} images at once, "
                 f"but LiteLLM reports "
-                f"that '{model}' only supports single-image inputs.\n\n"
+                f"that '{resolved_model}' only supports single-image inputs.\n\n"
                 f"Officially supported multi-image models:\n"
                 f"  • gpt-5-mini (default, recommended)\n"
                 f"  • gpt-5-nano\n\n"
@@ -534,7 +594,7 @@ async def vision_completion(
         if caps.json_mode:
             response_format = {"type": "json_object"}
         else:
-            logger.debug(f"Model {model} doesn't support json_mode, using prompt-only JSON")
+            logger.debug(f"Model {resolved_model} doesn't support json_mode, using prompt-only JSON")
 
     # Build content list with text and images
     content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]
@@ -549,9 +609,9 @@ async def vision_completion(
 
     return await _with_fallback(
         messages,
-        model=model,
+        model=model,  # Pass original (may be None) - _with_fallback will resolve
         api_key=api_key,
-        api_base=config.settings.llm_api_base,
+        api_base=None,  # Let _with_fallback resolve from profile/env
         response_format=response_format,
         expected_keys=expected_keys,
     )

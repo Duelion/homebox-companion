@@ -304,3 +304,16 @@ def get_fallback_profile() -> ModelProfile | None:
         if profile.status == ProfileStatus.FALLBACK:
             return profile
     return None
+
+
+def get_primary_profile() -> ModelProfile | None:
+    """Get the primary LLM profile.
+
+    Returns:
+        The profile with status=PRIMARY, or None if no profiles configured
+    """
+    settings = get_settings()
+    for profile in settings.llm_profiles:
+        if profile.status == ProfileStatus.PRIMARY:
+            return profile
+    return None
