@@ -409,6 +409,10 @@
 					<div class="text-body-sm">
 						<p class="text-warning-300 font-medium">Possible Duplicate</p>
 						<p class="text-warning-200/80">This item may already exist in your inventory</p>
+						<p class="text-warning-200/60 mt-0.5 text-xs">
+							Serial number "{editedItem.duplicate_match.serial_number}" found in "{editedItem
+								.duplicate_match.item_name}"
+						</p>
 					</div>
 				</div>
 			{/if}
