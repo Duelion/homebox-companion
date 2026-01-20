@@ -1,467 +1,226 @@
-"""Unit tests for LLM fallback logic."""
+"""Unit tests for LLM fallback logic via LiteLLM Router.
+
+Tests verify:
+- Router is built correctly from profiles
+- Fallback configuration works
+- Router invalidation triggers rebuild
+- Profile resolution for capability checks
+"""
 
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import litellm
 import pytest
 
-from homebox_companion.ai import llm
-from homebox_companion.core.exceptions import LLMServiceError
+from homebox_companion.core.llm_router import (
+    _build_router_from_profiles,
+    get_primary_model_name,
+    get_router,
+    invalidate_router,
+)
 
 
-pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
+pytestmark = pytest.mark.unit
 
 
-@pytest.fixture
-def mock_fallback_profile() -> MagicMock:
-    """Create a mock fallback profile with default test values."""
-    profile = MagicMock()
-    profile.model = "fallback-model"
-    profile.api_key.get_secret_value.return_value = "fallback-key"
-    profile.api_base = "https://fallback.api"
-    return profile
+@pytest.fixture(autouse=True)
+def reset_router():
+    """Reset Router singleton before each test."""
+    invalidate_router()
+    yield
+    invalidate_router()
 
 
-@pytest.fixture
-def mock_primary_profile() -> MagicMock:
-    """Create a mock primary profile with default test values."""
-    profile = MagicMock()
-    profile.name = "primary"
-    profile.model = "primary-model"
-    profile.api_key.get_secret_value.return_value = "primary-key"
-    profile.api_base = "https://primary.api"
-    return profile
+class TestRouterConstruction:
+    """Tests for Router singleton construction and configuration."""
 
+    def test_get_primary_model_name_returns_primary(self) -> None:
+        """The model_name for primary deployments should be 'primary'."""
+        assert get_primary_model_name() == "primary"
 
-class TestLLMFallback:
-    """Tests for _with_fallback wrapper function."""
-
-    async def test_primary_success_no_fallback_called(
-        self, mock_primary_profile: MagicMock
-    ) -> None:
-        """If primary succeeds, fallback should not be checked or called."""
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
-            patch("homebox_companion.ai.llm.get_fallback_profile") as mock_get_fallback,
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_completion.return_value = {"result": "success"}
-
-            result = await llm._with_fallback(
-                messages=[{"role": "user", "content": "test"}],
-                model=None,  # Will be resolved from primary profile
-                api_key=None,
-                api_base=None,
-                response_format=None,
-                expected_keys=None,
-            )
-
-            assert result == {"result": "success"}
-            assert mock_completion.call_count == 1
-            mock_get_fallback.assert_not_called()
-
-    async def test_primary_fails_no_fallback_configured_raises(
-        self, mock_primary_profile: MagicMock
-    ) -> None:
-        """If primary fails and no fallback profile exists, error should propagate."""
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_completion.side_effect = LLMServiceError("Primary failed")
-
-            with pytest.raises(LLMServiceError, match="Primary failed"):
-                await llm._with_fallback(
-                    messages=[{"role": "user", "content": "test"}],
-                    model=None,
-                    api_key=None,
-                    api_base=None,
-                    response_format=None,
-                    expected_keys=None,
-                )
-
-            assert mock_completion.call_count == 1
-
-    async def test_primary_fails_fallback_succeeds(
-        self, mock_primary_profile: MagicMock, mock_fallback_profile: MagicMock
-    ) -> None:
-        """If primary fails, should switch to fallback."""
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=mock_fallback_profile),
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            # Fail first, succeed second
-            mock_completion.side_effect = [
-                LLMServiceError("Primary error"),
-                {"result": "fallback success"},
-            ]
-
-            result = await llm._with_fallback(
-                messages=[{"role": "user", "content": "test"}],
-                model=None,
-                api_key=None,
-                api_base=None,
-                response_format=None,
-                expected_keys=None,
-            )
-
-            # Check result
-            assert result == {"result": "fallback success"}
-
-            # Verify orchestration logic
-            assert mock_completion.call_count == 2
-
-            # Primary call - uses resolved primary profile
-            _, kwargs1 = mock_completion.call_args_list[0]
-            assert kwargs1["model"] == "primary-model"
-
-            # Fallback call
-            _, kwargs2 = mock_completion.call_args_list[1]
-            assert kwargs2["model"] == "fallback-model"
-            assert kwargs2["api_key"] == "fallback-key"
-            assert kwargs2["api_base"] == "https://fallback.api"
-
-    async def test_both_primary_and_fallback_fail(
-        self, mock_primary_profile: MagicMock
-    ) -> None:
-        """If both fail, should raise the fallback's exception."""
-        mock_fallback = MagicMock()
-        mock_fallback.model = "fallback-model"
-        # Test inheritance: api_key is None, should use primary's
-        mock_fallback.api_key = None
-        mock_fallback.api_base = None
-
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=mock_fallback),
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_completion.side_effect = [
-                LLMServiceError("Primary error"),
-                LLMServiceError("Fallback error"),
-            ]
-
-            with pytest.raises(LLMServiceError, match="Fallback error"):
-                await llm._with_fallback(
-                    messages=[{"role": "user", "content": "test"}],
-                    model=None,
-                    api_key=None,
-                    api_base=None,
-                    response_format=None,
-                    expected_keys=None,
-                )
-
-            assert mock_completion.call_count == 2
-
-            # Verify inheritance logic - fallback call should reuse primary credentials
-            _, kwargs2 = mock_completion.call_args_list[1]
-            assert kwargs2["api_key"] == "primary-key"  # Inherited from primary
-            assert kwargs2["api_base"] is None  # Fallback's api_base takes precedence
-
-    async def test_non_llm_error_propagates_without_fallback(
-        self, mock_primary_profile: MagicMock
-    ) -> None:
-        """Non-LLMServiceError exceptions should propagate immediately without fallback."""
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
-            patch("homebox_companion.ai.llm.get_fallback_profile") as mock_get_fallback,
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_completion.side_effect = ValueError("Unexpected error")
-
-            with pytest.raises(ValueError, match="Unexpected error"):
-                await llm._with_fallback(
-                    messages=[{"role": "user", "content": "test"}],
-                    model=None,
-                    api_key=None,
-                    api_base=None,
-                    response_format=None,
-                    expected_keys=None,
-                )
-
-            # Should not attempt fallback for non-LLMServiceError
-            assert mock_completion.call_count == 1
-            mock_get_fallback.assert_not_called()
-
-    async def test_response_format_and_expected_keys_passed_through(
-        self, mock_primary_profile: MagicMock, mock_fallback_profile: MagicMock
-    ) -> None:
-        """Verify response_format and expected_keys are passed to both primary and fallback."""
-        test_response_format = {"type": "json_object"}
-        test_expected_keys = ["name", "description"]
-
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary_profile),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=mock_fallback_profile),
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_completion.side_effect = [
-                LLMServiceError("Primary error"),
-                {"name": "test", "description": "test desc"},
-            ]
-
-            await llm._with_fallback(
-                messages=[{"role": "user", "content": "test"}],
-                model=None,
-                api_key=None,
-                api_base=None,
-                response_format=test_response_format,
-                expected_keys=test_expected_keys,
-            )
-
-            # Verify both calls received the same response_format and expected_keys
-            _, kwargs1 = mock_completion.call_args_list[0]
-            assert kwargs1["response_format"] == test_response_format
-            assert kwargs1["expected_keys"] == test_expected_keys
-
-            _, kwargs2 = mock_completion.call_args_list[1]
-            assert kwargs2["response_format"] == test_response_format
-            assert kwargs2["expected_keys"] == test_expected_keys
-
-
-class TestPrimaryProfileResolution:
-    """Tests for PRIMARY profile resolution (the bug fix)."""
-
-    async def test_uses_primary_profile_when_configured(self) -> None:
-        """If PRIMARY profile exists, use its credentials instead of env vars."""
-        mock_primary = MagicMock()
-        mock_primary.name = "anthropic"
-        mock_primary.model = "claude-3-opus"
-        mock_primary.api_key.get_secret_value.return_value = "anthropic-key"
-        mock_primary.api_base = "https://api.anthropic.com"
-
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_completion.return_value = {"result": "success"}
-
-            # Call WITHOUT explicit model/key → should resolve from PRIMARY
-            await llm._with_fallback(
-                messages=[{"role": "user", "content": "test"}],
-                model=None,
-                api_key=None,
-                api_base=None,
-                response_format=None,
-                expected_keys=None,
-            )
-
-            # Verify PRIMARY profile was used
-            _, kwargs = mock_completion.call_args
-            assert kwargs["model"] == "claude-3-opus"
-            assert kwargs["api_key"] == "anthropic-key"
-            assert kwargs["api_base"] == "https://api.anthropic.com"
-
-    async def test_falls_back_to_env_when_no_primary_profile(self) -> None:
-        """If no PRIMARY profile, use environment variable defaults."""
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=None),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
-            patch("homebox_companion.core.llm_utils.config") as mock_config,
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_config.settings.effective_llm_model = "gpt-5-mini"
-            mock_config.settings.effective_llm_api_key = "env-key"
-            mock_config.settings.llm_api_base = None
-            mock_completion.return_value = {"result": "success"}
-
-            await llm._with_fallback(
-                messages=[{"role": "user", "content": "test"}],
-                model=None,
-                api_key=None,
-                api_base=None,
-                response_format=None,
-                expected_keys=None,
-            )
-
-            _, kwargs = mock_completion.call_args
-            assert kwargs["model"] == "gpt-5-mini"
-            assert kwargs["api_key"] == "env-key"
-
-    async def test_explicit_args_override_primary_profile(self) -> None:
-        """Explicit function arguments take precedence over PRIMARY profile."""
-        mock_primary = MagicMock()
-        mock_primary.name = "default"
-        mock_primary.model = "claude-3-opus"
-        mock_primary.api_key.get_secret_value.return_value = "primary-key"
-        mock_primary.api_base = None
-
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_completion.return_value = {"result": "success"}
-
-            await llm._with_fallback(
-                messages=[{"role": "user", "content": "test"}],
-                model="explicit-model",  # Explicit override
-                api_key="explicit-key",  # Explicit override
-                api_base=None,
-                response_format=None,
-                expected_keys=None,
-            )
-
-            _, kwargs = mock_completion.call_args
-            assert kwargs["model"] == "explicit-model"
-            assert kwargs["api_key"] == "explicit-key"
-
-    async def test_raises_error_when_no_credentials_available(self) -> None:
-        """Raise LLMServiceError if no profile or env vars provide credentials."""
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=None),
-            patch("homebox_companion.core.llm_utils.config") as mock_config,
-        ):
-            mock_config.settings.effective_llm_model = None
-            mock_config.settings.effective_llm_api_key = None
-            mock_config.settings.llm_api_base = None
-
-            with pytest.raises(LLMServiceError, match="No API key configured"):
-                await llm._with_fallback(
-                    messages=[{"role": "user", "content": "test"}],
-                    model=None,
-                    api_key=None,
-                    api_base=None,
-                    response_format=None,
-                    expected_keys=None,
-                )
-
-    async def test_primary_profile_without_api_key_falls_back_to_env_key(self) -> None:
-        """If PRIMARY profile has no api_key, use env var key."""
-        mock_primary = MagicMock()
-        mock_primary.name = "local-ollama"
-        mock_primary.model = "ollama/mistral"
-        mock_primary.api_key = None  # Some providers don't need keys
-        mock_primary.api_base = "http://localhost:11434"
-
-        with (
-            patch("homebox_companion.core.llm_utils.get_primary_profile", return_value=mock_primary),
-            patch("homebox_companion.ai.llm.get_fallback_profile", return_value=None),
-            patch("homebox_companion.core.llm_utils.config") as mock_config,
-            patch("homebox_companion.ai.llm._acompletion_with_repair", new_callable=AsyncMock) as mock_completion,
-        ):
-            mock_config.settings.effective_llm_api_key = "env-fallback-key"
-            mock_config.settings.effective_llm_model = "gpt-5-mini"
-            mock_config.settings.llm_api_base = None
-            mock_completion.return_value = {"result": "success"}
-
-            await llm._with_fallback(
-                messages=[{"role": "user", "content": "test"}],
-                model=None,
-                api_key=None,
-                api_base=None,
-                response_format=None,
-                expected_keys=None,
-            )
-
-            _, kwargs = mock_completion.call_args
-            assert kwargs["model"] == "ollama/mistral"  # From profile
-            assert kwargs["api_key"] == "env-fallback-key"  # From env (profile had None)
-            assert kwargs["api_base"] == "http://localhost:11434"  # From profile
-
-
-class TestLLMClientProfileResolution:
-    """Tests for LLMClient profile resolution (chat completions)."""
-
-    async def test_llm_client_uses_primary_profile(self) -> None:
-        """LLMClient should use PRIMARY profile credentials via resolve_llm_credentials."""
-        from homebox_companion.chat.llm_client import LLMClient
+    def test_router_built_from_primary_profile(self) -> None:
+        """Router should be built with primary profile credentials."""
         from homebox_companion.core.llm_utils import LLMCredentials
 
-        # Mock resolve_llm_credentials to return a specific profile
-        mock_creds = LLMCredentials(
-            model="claude-3-5-sonnet",
-            api_key="anthropic-key",
-            api_base="https://api.anthropic.com",
-            profile_name="anthropic",
-        )
-
-        with (
-            patch(
-                "homebox_companion.core.llm_utils.resolve_llm_credentials",
-                return_value=mock_creds,
-            ),
-            patch("homebox_companion.chat.llm_client.config") as mock_config,
-        ):
-            mock_config.settings.llm_timeout = 30
-            mock_config.settings.llm_stream_timeout = 60
-            mock_config.settings.chat_max_response_tokens = 0
-
-            client = LLMClient()
-            kwargs = client._build_request_kwargs(
-                messages=[{"role": "user", "content": "test"}],
-                tools=None,
-                stream=False,
-            )
-
-            # Assert credentials from mock were used
-            assert kwargs["model"] == "claude-3-5-sonnet"
-            assert kwargs["api_key"] == "anthropic-key"
-            assert kwargs["api_base"] == "https://api.anthropic.com"
-
-    async def test_llm_client_falls_back_to_env_when_no_primary(self) -> None:
-        """LLMClient should fall back to env vars via resolve_llm_credentials."""
-        from homebox_companion.chat.llm_client import LLMClient
-        from homebox_companion.core.llm_utils import LLMCredentials
-
-        # Mock resolve_llm_credentials to return env defaults (no profile)
         mock_creds = LLMCredentials(
             model="gpt-5-mini",
-            api_key="env-key",
-            api_base=None,
-            profile_name=None,  # No profile used
-        )
-
-        with (
-            patch(
-                "homebox_companion.core.llm_utils.resolve_llm_credentials",
-                return_value=mock_creds,
-            ),
-            patch("homebox_companion.chat.llm_client.config") as mock_config,
-        ):
-            mock_config.settings.llm_timeout = 30
-            mock_config.settings.llm_stream_timeout = 60
-            mock_config.settings.chat_max_response_tokens = 0
-
-            client = LLMClient()
-            kwargs = client._build_request_kwargs(
-                messages=[{"role": "user", "content": "test"}],
-                tools=None,
-                stream=True,
-            )
-
-            assert kwargs["model"] == "gpt-5-mini"
-            assert kwargs["api_key"] == "env-key"
-            assert "api_base" not in kwargs  # None is not included
-
-
-class TestLLMClientFallback:
-    """Tests for LLMClient.complete() and complete_stream() fallback behavior."""
-
-    async def test_complete_uses_fallback_on_primary_failure(
-        self, mock_fallback_profile: MagicMock
-    ) -> None:
-        """LLMClient.complete() should use fallback when primary fails."""
-        from homebox_companion.chat.llm_client import LLMClient
-        from homebox_companion.core.llm_utils import LLMCredentials
-
-        mock_creds = LLMCredentials(
-            model="primary-model",
             api_key="primary-key",
             api_base=None,
             profile_name="primary",
         )
 
-        # Mock response for fallback
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
+        ):
+            router = _build_router_from_profiles()
+
+            # Router should have one deployment
+            assert len(router.model_list) == 1
+            assert router.model_list[0]["model_name"] == "primary"
+            assert router.model_list[0]["litellm_params"]["model"] == "gpt-5-mini"
+            assert router.model_list[0]["litellm_params"]["api_key"] == "primary-key"
+
+    def test_router_includes_fallback_deployment(self) -> None:
+        """Router should include fallback deployment when configured."""
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="primary-key",
+            api_base=None,
+            profile_name="primary",
+        )
+
+        # Create mock fallback profile
+        mock_fallback = MagicMock()
+        mock_fallback.model = "claude-sonnet-4-20250514"
+        mock_fallback.api_key = MagicMock()
+        mock_fallback.api_key.get_secret_value.return_value = "fallback-key"
+        mock_fallback.api_base = "https://api.anthropic.com"
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=mock_fallback,
+            ),
+        ):
+            router = _build_router_from_profiles()
+
+            # Router should have two deployments
+            assert len(router.model_list) == 2
+            assert router.model_list[0]["model_name"] == "primary"
+            assert router.model_list[1]["model_name"] == "fallback"
+            assert router.model_list[1]["litellm_params"]["model"] == "claude-sonnet-4-20250514"
+
+    def test_router_fallback_inherits_api_key(self) -> None:
+        """Fallback should inherit primary's API key if not specified."""
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="primary-key",
+            api_base=None,
+            profile_name="primary",
+        )
+
+        # Fallback without api_key
+        mock_fallback = MagicMock()
+        mock_fallback.model = "gpt-4o"
+        mock_fallback.api_key = None  # No key specified
+        mock_fallback.api_base = None
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=mock_fallback,
+            ),
+        ):
+            router = _build_router_from_profiles()
+
+            # Fallback should inherit primary's key
+            assert router.model_list[1]["litellm_params"]["api_key"] == "primary-key"
+
+
+class TestRouterSingleton:
+    """Tests for Router singleton behavior."""
+
+    def test_get_router_returns_same_instance(self) -> None:
+        """get_router should return the same instance on repeated calls."""
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="test-key",
+            api_base=None,
+            profile_name="test",
+        )
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
+        ):
+            router1 = get_router()
+            router2 = get_router()
+
+            assert router1 is router2
+
+    def test_invalidate_router_clears_singleton(self) -> None:
+        """invalidate_router should force new Router on next access."""
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="test-key",
+            api_base=None,
+            profile_name="test",
+        )
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
+        ):
+            router1 = get_router()
+            invalidate_router()
+            router2 = get_router()
+
+            # Should be different instances after invalidation
+            assert router1 is not router2
+
+
+class TestRouterFallbackBehavior:
+    """Tests for Router fallback execution."""
+
+    @pytest.mark.asyncio
+    async def test_router_fallback_chain_configured(self) -> None:
+        """Router should be configured with fallback chain when fallback exists."""
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="primary-key",
+            api_base=None,
+            profile_name="primary",
+        )
+
+        # Create mock fallback profile
+        mock_fallback = MagicMock()
+        mock_fallback.model = "claude-sonnet-4-20250514"
+        mock_fallback.api_key = MagicMock()
+        mock_fallback.api_key.get_secret_value.return_value = "fallback-key"
+        mock_fallback.api_base = "https://api.anthropic.com"
+
+        # Mock a successful response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "fallback response"
-        mock_response.choices[0].message.tool_calls = None
+        mock_response.choices[0].message.content = "Success from fallback"
         mock_response.usage = None
 
         with (
@@ -469,49 +228,87 @@ class TestLLMClientFallback:
                 "homebox_companion.core.llm_utils.resolve_llm_credentials",
                 return_value=mock_creds,
             ),
-            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=mock_fallback_profile),
-            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=mock_fallback,
+            ),
+        ):
+            router = get_router()
+
+            # Patch the router's acompletion to verify it was configured correctly
+            # The Router's fallback configuration is what we're testing
+            assert router.fallbacks is not None
+            assert {"primary": ["fallback"]} in router.fallbacks
+
+
+class TestLLMClientWithRouter:
+    """Tests for LLMClient using Router."""
+
+    @pytest.mark.asyncio
+    async def test_llm_client_uses_router(self) -> None:
+        """LLMClient.complete should use Router for completion."""
+        from homebox_companion.chat.llm_client import LLMClient
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="test-key",
+            api_base=None,
+            profile_name="test",
+        )
+
+        # Mock response
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "Test response"
+        mock_response.choices[0].message.tool_calls = None
+        mock_response.usage = MagicMock()
+        mock_response.usage.prompt_tokens = 10
+        mock_response.usage.completion_tokens = 5
+        mock_response.usage.total_tokens = 15
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
             patch("homebox_companion.chat.llm_client.config") as mock_config,
         ):
             mock_config.settings.llm_timeout = 30
             mock_config.settings.chat_max_response_tokens = 0
 
-            # Primary fails with specific litellm exception, fallback succeeds
-            mock_completion.side_effect = [
-                litellm.APIConnectionError(
-                    message="Primary connection failed",
-                    llm_provider="openai",
-                    model="primary-model",
-                ),
-                mock_response,
-            ]
-
             client = LLMClient()
-            result = await client.complete(messages=[{"role": "user", "content": "test"}])
 
-            assert result.content == "fallback response"
-            assert mock_completion.call_count == 2
+            # Get the router and mock its acompletion
+            router = get_router()
+            with patch.object(router, "acompletion", new_callable=AsyncMock) as mock_completion:
+                mock_completion.return_value = mock_response
 
-            # Verify fallback credentials were used on second call
-            _, kwargs2 = mock_completion.call_args_list[1]
-            assert kwargs2["model"] == "fallback-model"
-            assert kwargs2["api_key"] == "fallback-key"
+                result = await client.complete(
+                    messages=[{"role": "user", "content": "test"}]
+                )
 
-    async def test_complete_stream_uses_fallback_on_primary_failure(
-        self, mock_fallback_profile: MagicMock
-    ) -> None:
-        """LLMClient.complete_stream() should use fallback when primary fails."""
+                assert result.content == "Test response"
+                mock_completion.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_llm_client_streaming_uses_router(self) -> None:
+        """LLMClient.complete_stream should use Router for streaming completion."""
         from homebox_companion.chat.llm_client import LLMClient
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="primary-model",
-            api_key="primary-key",
+            model="gpt-5-mini",
+            api_key="test-key",
             api_base=None,
-            profile_name="primary",
+            profile_name="test",
         )
 
-        # Mock async generator for streaming response
+        # Mock streaming response
         async def mock_stream():
             yield MagicMock(choices=[MagicMock(delta=MagicMock(content="chunk1"))])
             yield MagicMock(choices=[MagicMock(delta=MagicMock(content="chunk2"))])
@@ -521,128 +318,195 @@ class TestLLMClientFallback:
                 "homebox_companion.core.llm_utils.resolve_llm_credentials",
                 return_value=mock_creds,
             ),
-            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=mock_fallback_profile),
-            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
             patch("homebox_companion.chat.llm_client.config") as mock_config,
         ):
             mock_config.settings.llm_stream_timeout = 60
             mock_config.settings.chat_max_response_tokens = 0
 
-            # Primary fails with specific litellm exception, fallback returns stream
-            mock_completion.side_effect = [
-                litellm.APIConnectionError(
-                    message="Primary connection failed",
-                    llm_provider="openai",
-                    model="primary-model",
-                ),
-                mock_stream(),
-            ]
-
             client = LLMClient()
-            chunks = []
-            async for chunk in client.complete_stream(messages=[{"role": "user", "content": "test"}]):
-                chunks.append(chunk)
+            router = get_router()
 
-            assert len(chunks) == 2
-            assert mock_completion.call_count == 2
+            with patch.object(router, "acompletion", new_callable=AsyncMock) as mock_completion:
+                mock_completion.return_value = mock_stream()
 
-            # Verify fallback credentials were used
-            _, kwargs2 = mock_completion.call_args_list[1]
-            assert kwargs2["model"] == "fallback-model"
-
-    async def test_complete_no_fallback_when_not_configured(self) -> None:
-        """LLMClient.complete() should raise if no fallback configured."""
-        from homebox_companion.chat.llm_client import LLMClient
-        from homebox_companion.core.llm_utils import LLMCredentials
-
-        mock_creds = LLMCredentials(
-            model="primary-model",
-            api_key="primary-key",
-            api_base=None,
-            profile_name="primary",
-        )
-
-        with (
-            patch(
-                "homebox_companion.core.llm_utils.resolve_llm_credentials",
-                return_value=mock_creds,
-            ),
-            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=None),
-            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
-            patch("homebox_companion.chat.llm_client.config") as mock_config,
-        ):
-            mock_config.settings.llm_timeout = 30
-            mock_config.settings.chat_max_response_tokens = 0
-
-            mock_completion.side_effect = litellm.APIConnectionError(
-                message="Primary failed",
-                llm_provider="openai",
-                model="primary-model",
-            )
-
-            client = LLMClient()
-            with pytest.raises(litellm.APIConnectionError):
-                await client.complete(messages=[{"role": "user", "content": "test"}])
-
-            # Should only call once (no fallback attempt)
-            assert mock_completion.call_count == 1
-
-
-class TestLLMClientMidStreamFailure:
-    """Tests verifying mid-stream failures are NOT caught by fallback.
-
-    The fallback mechanism only handles initial connection errors.
-    Once streaming starts, errors propagate to the caller.
-    """
-
-    async def test_mid_stream_error_propagates_without_fallback(
-        self, mock_fallback_profile: MagicMock
-    ) -> None:
-        """Errors during stream iteration should propagate, not trigger fallback."""
-        from homebox_companion.chat.llm_client import LLMClient
-        from homebox_companion.core.llm_utils import LLMCredentials
-
-        mock_creds = LLMCredentials(
-            model="primary-model",
-            api_key="primary-key",
-            api_base=None,
-            profile_name="primary",
-        )
-
-        # Mock async generator that fails mid-stream
-        async def failing_stream():
-            yield MagicMock(choices=[MagicMock(delta=MagicMock(content="chunk1"))])
-            raise litellm.APIError(
-                message="Stream interrupted",
-                llm_provider="openai",
-                model="primary-model",
-                status_code=500,
-            )
-
-        with (
-            patch(
-                "homebox_companion.core.llm_utils.resolve_llm_credentials",
-                return_value=mock_creds,
-            ),
-            patch("homebox_companion.chat.llm_client.get_fallback_profile", return_value=mock_fallback_profile),
-            patch("homebox_companion.chat.llm_client.litellm.acompletion", new_callable=AsyncMock) as mock_completion,
-            patch("homebox_companion.chat.llm_client.config") as mock_config,
-        ):
-            mock_config.settings.llm_stream_timeout = 60
-            mock_config.settings.chat_max_response_tokens = 0
-
-            # Primary connection succeeds, but stream fails mid-way
-            mock_completion.return_value = failing_stream()
-
-            client = LLMClient()
-            chunks = []
-
-            # Should raise during iteration, NOT retry with fallback
-            with pytest.raises(litellm.APIError, match="Stream interrupted"):
-                async for chunk in client.complete_stream(messages=[{"role": "user", "content": "test"}]):
+                chunks = []
+                async for chunk in client.complete_stream(
+                    messages=[{"role": "user", "content": "test"}]
+                ):
                     chunks.append(chunk)
 
-            # Only one call made (no fallback retry)
-            assert mock_completion.call_count == 1
-            # First chunk was received before failure
-            assert len(chunks) == 1
+                assert len(chunks) == 2
+                mock_completion.assert_called_once()
+
+
+class TestJsonCompletionWithRouter:
+    """Tests for json_completion using Router."""
+
+    @pytest.mark.asyncio
+    async def test_json_completion_uses_router(self) -> None:
+        """json_completion should route through Router."""
+        from homebox_companion.ai.json_completion import json_completion
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="test-key",
+            api_base=None,
+            profile_name="test",
+        )
+
+        # Mock response with valid JSON
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = '{"name": "Test Item", "description": "A test"}'
+        mock_response.usage = MagicMock()
+        mock_response.usage.prompt_tokens = 10
+        mock_response.usage.completion_tokens = 5
+        mock_response.usage.total_tokens = 15
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
+            patch("homebox_companion.ai.json_completion.config") as mock_config,
+            patch(
+                "homebox_companion.ai.json_completion.is_rate_limiting_enabled",
+                return_value=False,
+            ),
+        ):
+            mock_config.settings.llm_timeout = 30
+
+            router = get_router()
+            with patch.object(router, "acompletion", new_callable=AsyncMock) as mock_completion:
+                mock_completion.return_value = mock_response
+
+                result = await json_completion(
+                    messages=[{"role": "user", "content": "describe this item"}],
+                    expected_keys=["name", "description"],
+                )
+
+                assert result == {"name": "Test Item", "description": "A test"}
+                mock_completion.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_json_completion_triggers_repair_on_invalid_json(self) -> None:
+        """json_completion should attempt repair when JSON is invalid."""
+        from homebox_companion.ai.json_completion import json_completion
+        from homebox_companion.core.llm_utils import LLMCredentials
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="test-key",
+            api_base=None,
+            profile_name="test",
+        )
+
+        # First response is invalid JSON, second is repaired
+        invalid_response = MagicMock()
+        invalid_response.choices = [MagicMock()]
+        invalid_response.choices[0].message.content = "{name: 'broken'"
+        invalid_response.usage = None
+
+        valid_response = MagicMock()
+        valid_response.choices = [MagicMock()]
+        valid_response.choices[0].message.content = '{"name": "Fixed"}'
+        valid_response.usage = None
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
+            patch("homebox_companion.ai.json_completion.config") as mock_config,
+            patch(
+                "homebox_companion.ai.json_completion.is_rate_limiting_enabled",
+                return_value=False,
+            ),
+        ):
+            mock_config.settings.llm_timeout = 30
+
+            router = get_router()
+            with patch.object(router, "acompletion", new_callable=AsyncMock) as mock_completion:
+                mock_completion.side_effect = [invalid_response, valid_response]
+
+                result = await json_completion(
+                    messages=[{"role": "user", "content": "describe this item"}],
+                    expected_keys=["name"],
+                )
+
+                assert result == {"name": "Fixed"}
+                # Should have called twice: initial + repair
+                assert mock_completion.call_count == 2
+
+
+class TestSettingsInvalidation:
+    """Tests for Router invalidation when settings change."""
+
+    def test_save_settings_invalidates_router(self) -> None:
+        """Saving settings should invalidate the Router singleton."""
+        from homebox_companion.core.llm_utils import LLMCredentials
+        from homebox_companion.core.persistent_settings import (
+            ModelProfile,
+            PersistentSettings,
+            ProfileStatus,
+            save_settings,
+        )
+
+        mock_creds = LLMCredentials(
+            model="gpt-5-mini",
+            api_key="test-key",
+            api_base=None,
+            profile_name="test",
+        )
+
+        with (
+            patch(
+                "homebox_companion.core.llm_utils.resolve_llm_credentials",
+                return_value=mock_creds,
+            ),
+            patch(
+                "homebox_companion.core.llm_router.get_fallback_profile",
+                return_value=None,
+            ),
+            patch(
+                "homebox_companion.core.persistent_settings.SETTINGS_FILE"
+            ) as mock_file,
+            patch(
+                "homebox_companion.core.persistent_settings.DATA_DIR"
+            ) as mock_dir,
+        ):
+            mock_dir.mkdir = MagicMock()
+            mock_file.write_text = MagicMock()
+
+            # Get router (creates singleton)
+            router1 = get_router()
+
+            # Save settings (should invalidate)
+            settings = PersistentSettings(
+                llm_profiles=[
+                    ModelProfile(
+                        name="test",
+                        model="gpt-5-mini",
+                        status=ProfileStatus.PRIMARY,
+                    )
+                ]
+            )
+            save_settings(settings)
+
+            # Get router again (should be new instance)
+            router2 = get_router()
+
+            assert router1 is not router2

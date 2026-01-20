@@ -5,23 +5,18 @@ extracting the LiteLLM interaction logic from the orchestrator.
 
 The LLMClient handles:
 - Building the system prompt
-- Calling the LLM with streaming or non-streaming modes
+- Calling the LLM with streaming or non-streaming modes via LiteLLM Router
 - Configuration from settings
 - Capturing raw request/response data for debugging via loguru
 
-Fallback Pattern Note:
-    This module implements its own fallback logic separate from ai/llm.py
-    because they serve different purposes:
+Router Integration:
+    All LLM calls go through the Router singleton which handles:
+    - Provider fallback (PRIMARY → FALLBACK profiles)
+    - Retries with exponential backoff
+    - Cooldowns for failed deployments
 
-    - ai/llm.py: JSON completion with repair, used for vision/extraction tasks.
-      Fallback wraps _acompletion_with_repair which throws LLMServiceError.
-
-    - This module (LLMClient): Streaming completions for chat interface.
-      Fallback catches raw litellm exceptions at the connection level.
-      Mid-stream failures are NOT caught - they propagate to the caller.
-
-    Both use resolve_llm_credentials() for PRIMARY profile resolution,
-    and both check get_fallback_profile() for FALLBACK configuration.
+    Note: Mid-stream failures during streaming are NOT retried.
+    Once chunks start flowing, errors propagate to the caller.
 """
 
 from __future__ import annotations
@@ -33,12 +28,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import litellm
 from loguru import logger
 
 from homebox_companion.core import config
+from homebox_companion.core.llm_router import get_primary_model_name, get_router
 from homebox_companion.core.logging import get_log_level_value
-from homebox_companion.core.persistent_settings import get_fallback_profile
 
 
 def _build_log_entry(
@@ -275,13 +269,15 @@ class LLMResponse:
 
 
 class LLMClient:
-    """Client for LLM completions via LiteLLM.
+    """Client for LLM completions via LiteLLM Router.
 
     This class encapsulates all LiteLLM communication, providing:
     - Streaming and non-streaming completions
     - Tool function calling support
     - Configuration from application settings
     - Logging and timing
+
+    The Router handles provider failover automatically.
 
     Example:
         >>> llm = LLMClient()
@@ -328,48 +324,15 @@ class LLMClient:
             LLMResponse with content, tool_calls, and usage.
 
         Raises:
-            Exception: If the LLM call fails (after fallback attempt if configured).
+            Exception: If the LLM call fails (Router handles retries/fallback).
         """
         kwargs = self._build_request_kwargs(messages, tools, stream=False)
-        primary_model = kwargs.get("model", "unknown")
 
         start_time = time.perf_counter()
 
-        # Try primary, fallback on transient errors if configured.
-        # BadRequestError is excluded - it indicates config issues (wrong model name)
-        # that won't be fixed by switching providers.
-        try:
-            response = await litellm.acompletion(**kwargs)
-        except (
-            litellm.AuthenticationError,
-            litellm.RateLimitError,
-            litellm.APIConnectionError,
-            litellm.Timeout,
-            litellm.APIError,
-        ) as primary_error:
-            fallback = get_fallback_profile()
-            if not fallback:
-                raise
-
-            logger.warning(
-                f"[LLM] Primary failed ({primary_model}): {primary_error}. "
-                f"Switching to fallback {fallback.model}..."
-            )
-
-            # Build fallback kwargs
-            kwargs = self._apply_fallback_credentials(kwargs, fallback)
-            try:
-                response = await litellm.acompletion(**kwargs)
-                logger.info(f"[LLM] Fallback to {fallback.model} succeeded")
-            except (
-                litellm.AuthenticationError,
-                litellm.RateLimitError,
-                litellm.APIConnectionError,
-                litellm.Timeout,
-                litellm.APIError,
-            ) as fallback_error:
-                logger.error(f"[LLM] Fallback {fallback.model} also failed: {fallback_error}")
-                raise
+        # Router handles fallback automatically
+        router = get_router()
+        response = await router.acompletion(**kwargs)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
@@ -423,50 +386,21 @@ class LLMClient:
             Raw LiteLLM stream chunks.
 
         Raises:
-            Exception: If the LLM call fails (after fallback attempt if configured).
+            Exception: If the LLM call fails (Router handles fallback for initial connection).
+
+        Note:
+            Mid-stream failures are NOT retried. Once chunks start flowing,
+            errors propagate to the caller.
         """
         kwargs = self._build_request_kwargs(messages, tools, stream=True)
-        primary_model = kwargs.get("model", "unknown")
 
         logger.debug(
             f"[LLM] Starting streaming completion with {len(messages)} messages, {len(tools) if tools else 0} tools"
         )
 
-        # Try primary, fallback on transient errors if configured.
-        # Note: Fallback only works for initial connection errors, not mid-stream failures.
-        # BadRequestError is excluded - it indicates config issues (wrong model name).
-        try:
-            response = await litellm.acompletion(**kwargs)
-        except (
-            litellm.AuthenticationError,
-            litellm.RateLimitError,
-            litellm.APIConnectionError,
-            litellm.Timeout,
-            litellm.APIError,
-        ) as primary_error:
-            fallback = get_fallback_profile()
-            if not fallback:
-                raise
-
-            logger.warning(
-                f"[LLM] Primary failed ({primary_model}): {primary_error}. "
-                f"Switching to fallback {fallback.model}..."
-            )
-
-            # Build fallback kwargs
-            kwargs = self._apply_fallback_credentials(kwargs, fallback)
-            try:
-                response = await litellm.acompletion(**kwargs)
-                logger.info(f"[LLM] Fallback to {fallback.model} succeeded")
-            except (
-                litellm.AuthenticationError,
-                litellm.RateLimitError,
-                litellm.APIConnectionError,
-                litellm.Timeout,
-                litellm.APIError,
-            ) as fallback_error:
-                logger.error(f"[LLM] Fallback {fallback.model} also failed: {fallback_error}")
-                raise
+        # Router handles fallback for initial connection
+        router = get_router()
+        response = await router.acompletion(**kwargs)
 
         async for chunk in response:
             yield chunk
@@ -477,11 +411,7 @@ class LLMClient:
         tools: list[dict[str, Any]] | None,
         stream: bool,
     ) -> dict[str, Any]:
-        """Build the kwargs dict for litellm.acompletion.
-
-        Uses resolve_llm_credentials for unified credential resolution:
-        1. PRIMARY profile from persistent settings
-        2. Environment variable defaults
+        """Build the kwargs dict for Router.acompletion.
 
         Args:
             messages: Conversation messages.
@@ -491,24 +421,15 @@ class LLMClient:
         Returns:
             Dict of kwargs for acompletion.
         """
-        from homebox_companion.core.llm_utils import resolve_llm_credentials
-
-        # Use longer timeout for streaming operations (large responses take more time)
+        # Use longer timeout for streaming operations
         timeout = config.settings.llm_stream_timeout if stream else config.settings.llm_timeout
 
-        # Resolve credentials using shared utility
-        creds = resolve_llm_credentials()
-
         kwargs: dict[str, Any] = {
-            "model": creds.model,
+            "model": get_primary_model_name(),
             "messages": messages,
-            "api_key": creds.api_key,
             "timeout": timeout,
             "stream": stream,
         }
-
-        if creds.api_base:
-            kwargs["api_base"] = creds.api_base
 
         # Apply response length limit
         if config.settings.chat_max_response_tokens > 0:
@@ -524,35 +445,3 @@ class LLMClient:
             logger.trace(f"[LLM] Available tools: {tool_names}")
 
         return kwargs
-
-    def _apply_fallback_credentials(
-        self,
-        kwargs: dict[str, Any],
-        fallback: Any,  # LLMProfile type, but using Any to avoid circular import
-    ) -> dict[str, Any]:
-        """Apply fallback profile credentials to existing kwargs.
-
-        If the fallback profile doesn't specify a field (e.g., api_key),
-        the primary value is inherited.
-
-        Args:
-            kwargs: Existing kwargs dict from primary attempt.
-            fallback: Fallback LLM profile.
-
-        Returns:
-            Updated kwargs dict with fallback credentials.
-        """
-        kwargs["model"] = fallback.model
-
-        if fallback.api_key:
-            kwargs["api_key"] = fallback.api_key.get_secret_value()
-        # else: inherit primary's api_key (already in kwargs)
-
-        if fallback.api_base:
-            kwargs["api_base"] = fallback.api_base
-        elif "api_base" in kwargs:
-            # Remove primary's api_base if fallback doesn't specify one
-            del kwargs["api_base"]
-
-        return kwargs
-
