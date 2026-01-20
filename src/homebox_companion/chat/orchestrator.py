@@ -105,16 +105,8 @@ class ToolCallAccumulator:
         if idx not in self._chunks:
             self._chunks[idx] = {
                 "id": getattr(tc, "id", ""),
-                "name": (
-                    tc.function.name
-                    if hasattr(tc, "function") and tc.function
-                    else ""
-                ),
-                "arguments": (
-                    tc.function.arguments
-                    if hasattr(tc, "function") and tc.function
-                    else ""
-                ),
+                "name": (tc.function.name if hasattr(tc, "function") and tc.function else ""),
+                "arguments": (tc.function.arguments if hasattr(tc, "function") and tc.function else ""),
             }
 
     def build(self) -> tuple[list[ToolCall], list[tuple[str, str]]]:
@@ -139,27 +131,18 @@ class ToolCallAccumulator:
             if not tc_data["name"]:
                 if tc_data["id"]:
                     # Has ID but no name - LLM expects a response
-                    incomplete.append(
-                        (tc_data["id"], "Tool call incomplete: missing tool name")
-                    )
-                    logger.warning(
-                        f"[CHAT] Incomplete tool call (has id, missing name): "
-                        f"id={tc_data['id']}"
-                    )
+                    incomplete.append((tc_data["id"], "Tool call incomplete: missing tool name"))
+                    logger.warning(f"[CHAT] Incomplete tool call (has id, missing name): id={tc_data['id']}")
                 else:
                     # No ID and no name - can't respond, just log
                     logger.warning(
-                        f"[CHAT] Skipping malformed tool call chunk at index {idx}: "
-                        f"missing both id and name"
+                        f"[CHAT] Skipping malformed tool call chunk at index {idx}: missing both id and name"
                     )
                 continue
 
             if not tc_data["id"]:
                 # Has name but no ID - unusual, log and skip
-                logger.warning(
-                    f"[CHAT] Skipping tool call with name but no id: "
-                    f"name={tc_data['name']}"
-                )
+                logger.warning(f"[CHAT] Skipping tool call with name but no id: name={tc_data['name']}")
                 continue
 
             # Parse arguments JSON into dict
@@ -167,17 +150,11 @@ class ToolCallAccumulator:
                 args = json.loads(tc_data["arguments"]) if tc_data["arguments"] else {}
             except json.JSONDecodeError as e:
                 # Has ID but invalid arguments - send error response
-                incomplete.append(
-                    (tc_data["id"], f"Failed to parse arguments: {e}")
-                )
-                logger.warning(
-                    f"[CHAT] Failed to parse tool arguments for {tc_data['name']}: {e}"
-                )
+                incomplete.append((tc_data["id"], f"Failed to parse arguments: {e}"))
+                logger.warning(f"[CHAT] Failed to parse tool arguments for {tc_data['name']}: {e}")
                 continue
 
-            tool_calls.append(
-                ToolCall(id=tc_data["id"], name=tc_data["name"], arguments=args)
-            )
+            tool_calls.append(ToolCall(id=tc_data["id"], name=tc_data["name"], arguments=args))
 
         for tc in tool_calls:
             logger.trace(f"[CHAT] Tool call: {tc.name}({tc.arguments})")
@@ -219,10 +196,7 @@ class ToolCallAccumulator:
                 duplicates.append((tc.name, tc.arguments))
 
         if duplicates:
-            logger.warning(
-                f"[CHAT] Removed {len(duplicates)} duplicate tool call(s): "
-                f"{[d[0] for d in duplicates]}"
-            )
+            logger.warning(f"[CHAT] Removed {len(duplicates)} duplicate tool call(s): {[d[0] for d in duplicates]}")
 
         return unique_calls
 
@@ -302,10 +276,7 @@ class ChatOrchestrator:
             for outcome in auto_rejections:
                 tool_counts[outcome.tool_name] = tool_counts.get(outcome.tool_name, 0) + 1
 
-            tool_summary = ", ".join(
-                f"{name} x{count}" if count > 1 else name
-                for name, count in tool_counts.items()
-            )
+            tool_summary = ", ".join(f"{name} x{count}" if count > 1 else name for name, count in tool_counts.items())
             parts.append(f"Dismissed (NOT executed): {tool_summary}.")
 
         # Handle explicit frontend outcomes (compact format)
@@ -323,9 +294,7 @@ class ChatOrchestrator:
                 if fail_count == 0:
                     parts.append(f"{len(approved)} approved OK: {tool_names}.")
                 else:
-                    parts.append(
-                        f"{len(approved)} approved ({success_count} OK, {fail_count} failed): {tool_names}."
-                    )
+                    parts.append(f"{len(approved)} approved ({success_count} OK, {fail_count} failed): {tool_names}.")
 
             if rejected:
                 tool_names = ", ".join(o.tool_name for o in rejected[:5])
@@ -371,17 +340,13 @@ class ChatOrchestrator:
         # TRACE: Log the start of a new conversation turn
         logger.trace("[CHAT] === NEW MESSAGE ===")
         logger.trace(f"[CHAT] User message:\n{user_message}")
-        logger.trace(
-            f"[CHAT] Session state: {len(self._session.messages)} messages in history"
-        )
+        logger.trace(f"[CHAT] Session state: {len(self._session.messages)} messages in history")
 
         # Add user message to history
         self._session.add_message(ChatMessage(role="user", content=user_message))
 
         # Auto-reject any pending approvals - user's new message supersedes them
-        rejected_count = self._session.auto_reject_all_pending(
-            "superseded by new message"
-        )
+        rejected_count = self._session.auto_reject_all_pending("superseded by new message")
         if rejected_count:
             logger.debug(f"[CHAT] Auto-rejected {rejected_count} pending approvals")
 
@@ -395,24 +360,20 @@ class ChatOrchestrator:
                 # Validate outcome is a valid type
                 outcome_value = outcome_dict.get("outcome", "")
                 if outcome_value not in ("approved", "rejected"):
-                    logger.warning(
-                        f"[CHAT] Skipping invalid approval outcome: {outcome_value}"
-                    )
+                    logger.warning(f"[CHAT] Skipping invalid approval outcome: {outcome_value}")
                     continue
 
                 frontend_outcomes.append(
                     ApprovalOutcome(
                         tool_name=outcome_dict.get("tool_name", "unknown_tool"),
-                        outcome=outcome_value,  # type: ignore[arg-type]
+                        outcome=outcome_value,
                         success=outcome_dict.get("success"),
                         item_name=outcome_dict.get("item_name"),
                     )
                 )
 
         # Build context message for approval outcomes
-        context_message = self._build_approval_context(
-            auto_rejections, frontend_outcomes
-        )
+        context_message = self._build_approval_context(auto_rejections, frontend_outcomes)
         if context_message:
             logger.debug(f"[CHAT] Injecting approval context: {context_message}")
 
@@ -522,11 +483,7 @@ class ChatOrchestrator:
 
                 # Handle content from message (non-incremental streaming)
                 # Only process once to avoid duplicate content
-                if (
-                    not seen_complete_message
-                    and hasattr(choice, "message")
-                    and choice.message
-                ):
+                if not seen_complete_message and hasattr(choice, "message") and choice.message:
                     message = choice.message
                     if hasattr(message, "content") and message.content:
                         seen_complete_message = True
@@ -551,10 +508,7 @@ class ChatOrchestrator:
             return
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-        logger.trace(
-            f"[CHAT] Streaming completed in {elapsed_ms:.0f}ms - "
-            f"{chunk_count} chunks received"
-        )
+        logger.trace(f"[CHAT] Streaming completed in {elapsed_ms:.0f}ms - {chunk_count} chunks received")
 
         # Emit usage event if available
         if usage_info:
@@ -570,16 +524,14 @@ class ChatOrchestrator:
         # This captures what the LiteLLM success_callback doesn't for streaming calls
         response_tool_calls = None
         if tool_calls:
-            response_tool_calls = [
-                {"name": tc.name, "arguments": tc.arguments}
-                for tc in tool_calls
-            ]
+            response_tool_calls = [{"name": tc.name, "arguments": tc.arguments} for tc in tool_calls]
         log_streaming_interaction(
             messages=messages,
             tools=tools,
             response_content=full_content,
             response_tool_calls=response_tool_calls,
             latency_ms=int(elapsed_ms),
+            model=LLMClient.get_resolved_model(),
         )
 
         # Add error responses for incomplete tool calls so LLM doesn't hang
@@ -604,14 +556,10 @@ class ChatOrchestrator:
 
         # Handle tool calls or store message
         if tool_calls:
-            async for event in self._handle_tool_calls(
-                full_content, tool_calls, token, tools, depth
-            ):
+            async for event in self._handle_tool_calls(full_content, tool_calls, token, tools, depth):
                 yield event
         else:
-            self._session.add_message(
-                ChatMessage(role="assistant", content=full_content, tool_calls=None)
-            )
+            self._session.add_message(ChatMessage(role="assistant", content=full_content, tool_calls=None))
 
     # =========================================================================
     # TOOL HANDLING
@@ -639,9 +587,7 @@ class ChatOrchestrator:
         """
         # Safety check: prevent infinite recursion
         if depth >= MAX_TOOL_RECURSION_DEPTH:
-            logger.warning(
-                f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached"
-            )
+            logger.warning(f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached")
             # Add feedback to conversation so LLM can explain to user
             self._session.add_message(
                 ChatMessage(
@@ -663,22 +609,17 @@ class ChatOrchestrator:
                 stream = self._llm.complete_stream(messages, tools=None)
                 # Pass depth + 1 to prevent any further recursion even if LLM
                 # somehow returns tool calls (shouldn't happen with tools=None)
-                async for event in self._handle_stream(
-                    stream, token, [], messages, depth + 1
-                ):
+                async for event in self._handle_stream(stream, token, [], messages, depth + 1):
                     yield event
             except Exception:
                 logger.exception("LLM recovery response failed")
                 yield self._emitter.error(
-                    "Tool limit reached and couldn't generate explanation. "
-                    "Please try a simpler request."
+                    "Tool limit reached and couldn't generate explanation. Please try a simpler request."
                 )
             return
 
         # Add assistant message with tool_calls BEFORE executing
-        self._session.add_message(
-            ChatMessage(role="assistant", content=content, tool_calls=tool_calls)
-        )
+        self._session.add_message(ChatMessage(role="assistant", content=content, tool_calls=tool_calls))
 
         # Categorize tools: READ (parallel), WRITE (approval), unknown (error)
         read_calls: list[ToolCall] = []
@@ -752,6 +693,7 @@ class ChatOrchestrator:
             except Exception as e:
                 logger.exception(f"[CHAT] Tool '{tc.name}' raised unexpected exception")
                 from ..mcp.tools import ToolResult
+
                 result = ToolResult(success=False, error=f"Tool execution failed: {e}")
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             return ToolExecution(tc=tc, result=result, elapsed_ms=elapsed_ms)
@@ -764,8 +706,7 @@ class ChatOrchestrator:
             )
         except TimeoutError:
             logger.error(
-                f"[CHAT] Tool execution timed out after {TOOL_EXECUTION_TIMEOUT}s "
-                f"for {len(tool_calls)} tool(s)"
+                f"[CHAT] Tool execution timed out after {TOOL_EXECUTION_TIMEOUT}s for {len(tool_calls)} tool(s)"
             )
             # Add timeout error responses for all pending tools
             for tc in tool_calls:
@@ -782,9 +723,7 @@ class ChatOrchestrator:
                 )
                 # Emit tool_result for timeout case so frontend can show error state
                 yield self._emitter.tool_result(tc.name, error_dict, tc.id)
-            yield self._emitter.error(
-                f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT:.0f} seconds"
-            )
+            yield self._emitter.error(f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT:.0f} seconds")
             return
 
         # Process results in original order, adding to history sequentially
@@ -793,10 +732,7 @@ class ChatOrchestrator:
             result = execution.result
             result_dict = result.to_dict()
 
-            logger.trace(
-                f"[CHAT] Tool '{tc.name}' completed in {execution.elapsed_ms:.0f}ms "
-                f"with args: {tc.arguments}"
-            )
+            logger.trace(f"[CHAT] Tool '{tc.name}' completed in {execution.elapsed_ms:.0f}ms with args: {tc.arguments}")
 
             # Add tool result to history (in order)
             self._session.add_message(
@@ -809,9 +745,7 @@ class ChatOrchestrator:
 
             # Yield tool_result event (tool_start was already emitted before execution)
             yield self._emitter.tool_result(tc.name, result_dict, tc.id)
-            logger.trace(
-                f"[CHAT] Yielded tool_result for '{tc.name}' (execution_id={tc.id})"
-            )
+            logger.trace(f"[CHAT] Yielded tool_result for '{tc.name}' (execution_id={tc.id})")
 
     async def _queue_approval(
         self,
@@ -844,9 +778,7 @@ class ChatOrchestrator:
                 # This matches frontend expectations for "fieldsBeingChanged" logic
                 normalized_args = tool.Params(**tool_args).model_dump(exclude_unset=True)
             except Exception as e:
-                logger.warning(
-                    f"Parameter normalization failed for {tool_name}: {e}. Keeping raw args."
-                )
+                logger.warning(f"Parameter normalization failed for {tool_name}: {e}. Keeping raw args.")
                 # Proceed with raw args - execution will likely fail later, or user sees raw data
 
         approval_id = create_approval_id()

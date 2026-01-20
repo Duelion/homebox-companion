@@ -29,6 +29,7 @@ __all__ = [
     "LocationView",
     "CompactLabelView",
     "CompactItemView",
+    "ParentItemView",
     "ItemView",
     "add_tree_urls",
 ]
@@ -170,6 +171,33 @@ class CompactItemView(BaseModel):
         )
 
 
+class ParentItemView(BaseModel):
+    """Minimal view for representing a parent item relationship.
+
+    Only includes id and name to keep token usage low while still
+    allowing the LLM to understand item hierarchies.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    name: str
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        """Generate URL for this parent item."""
+        return f"{settings.effective_link_base_url}/item/{self.id}"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ParentItemView:
+        """Create a ParentItemView from an API response dictionary."""
+        return cls(
+            id=data.get("id") or "",
+            name=data.get("name") or "",
+        )
+
+
 class ItemView(BaseModel):
     """Full item view for detailed responses with computed URL.
 
@@ -184,6 +212,7 @@ class ItemView(BaseModel):
     quantity: int = 1
     asset_id: str | None = Field(default=None, serialization_alias="assetId")
     location: LocationView | None = None
+    parent: ParentItemView | None = None
     labels: list[dict[str, Any]] = Field(default_factory=list)
     manufacturer: str | None = None
     model_number: str | None = Field(default=None, serialization_alias="modelNumber")
@@ -205,6 +234,7 @@ class ItemView(BaseModel):
 
         Uses custom parsing instead of model_validate() to:
         - Build nested LocationView for URL generation
+        - Build nested ParentItemView for parent item relationships
         - Ensure all optional fields have safe defaults
         """
         # Build location view if present
@@ -212,6 +242,12 @@ class ItemView(BaseModel):
         location_view = None
         if location_data and location_data.get("id"):
             location_view = LocationView.from_dict(location_data)
+
+        # Build parent view if present
+        parent_data = data.get("parent")
+        parent_view = None
+        if parent_data and parent_data.get("id"):
+            parent_view = ParentItemView.from_dict(parent_data)
 
         # Validate required fields - log warnings but don't fail
         item_id = data.get("id") or ""
@@ -227,6 +263,7 @@ class ItemView(BaseModel):
             quantity=data.get("quantity", 1),
             asset_id=data.get("assetId"),
             location=location_view,
+            parent=parent_view,
             labels=data.get("labels", []),
             manufacturer=data.get("manufacturer"),
             model_number=data.get("modelNumber"),

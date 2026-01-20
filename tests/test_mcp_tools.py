@@ -116,8 +116,14 @@ class TestToolDiscovery:
         tool_names = {t.name for t in tools}
 
         expected_tools = [
-            "list_locations", "get_location", "list_labels", "list_items", "get_item",
-            "create_item", "update_item", "delete_item"
+            "list_locations",
+            "get_location",
+            "list_labels",
+            "list_items",
+            "get_item",
+            "create_item",
+            "update_item",
+            "delete_item",
         ]
         assert all(tool in tool_names for tool in expected_tools)
 
@@ -128,9 +134,7 @@ class TestToolDiscovery:
         tools_by_name = {t.name: t for t in tools}
 
         for name in read_tools:
-            assert (
-                tools_by_name[name].permission == ToolPermission.READ
-            ), f"{name} should be READ permission"
+            assert tools_by_name[name].permission == ToolPermission.READ, f"{name} should be READ permission"
 
     def test_write_tools_have_correct_permissions(self):
         """Write tools should have WRITE or DESTRUCTIVE permissions."""
@@ -149,9 +153,7 @@ class TestToolDiscovery:
             assert hasattr(tool, "Params"), f"{tool.name} missing Params class"
             # Verify it can generate JSON schema
             schema = tool.Params.model_json_schema()
-            assert "type" in schema or "properties" in schema, (
-                f"{tool.name} Params has invalid schema"
-            )
+            assert "type" in schema or "properties" in schema, f"{tool.name} Params has invalid schema"
 
 
 # =============================================================================
@@ -420,9 +422,7 @@ class TestMCPToolsLive:
     """Live integration tests for MCP tools against demo server."""
 
     @pytest.mark.asyncio
-    async def test_list_locations_live(
-        self, homebox_api_url: str, homebox_credentials: tuple[str, str]
-    ):
+    async def test_list_locations_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
         """List locations should return data from demo server."""
         from homebox_companion import HomeboxClient
 
@@ -441,9 +441,7 @@ class TestMCPToolsLive:
             assert len(result.data) > 0
 
     @pytest.mark.asyncio
-    async def test_list_labels_live(
-        self, homebox_api_url: str, homebox_credentials: tuple[str, str]
-    ):
+    async def test_list_labels_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
         """List labels should return data from demo server."""
         from homebox_companion import HomeboxClient
 

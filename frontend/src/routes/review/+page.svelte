@@ -19,8 +19,10 @@
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import DuplicateWarningIcon from '$lib/components/DuplicateWarningIcon.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
+	import { SquarePen, ImageIcon, ChevronsRight, Check } from 'lucide-svelte';
 
 	// Capture limits (loaded from config, with safe defaults)
 	let maxImages = $state(30);
@@ -376,16 +378,7 @@
 						onclick={openThumbnailEditor}
 						aria-label="Edit thumbnail image"
 					>
-						<svg
-							class="h-4 w-4"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-						</svg>
+						<SquarePen size={16} strokeWidth={1.5} />
 						<span>Edit Thumbnail</span>
 					</button>
 					{#if editedItem.customThumbnail}
@@ -401,19 +394,26 @@
 				<div
 					class="flex aspect-video flex-col items-center justify-center bg-neutral-800 text-neutral-500"
 				>
-					<svg
-						class="mb-2 h-16 w-16 opacity-40"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1"
-					>
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-						<circle cx="8.5" cy="8.5" r="1.5" />
-						<polyline points="21 15 16 10 5 21" />
-					</svg>
+					<ImageIcon class="mb-2 opacity-40" size={64} strokeWidth={1} />
 					<p class="text-body-sm">No image available</p>
 					<p class="mt-1 text-caption">Add photos below</p>
+				</div>
+			{/if}
+
+			<!-- Duplicate warning banner -->
+			{#if editedItem.duplicate_match}
+				<div
+					class="mx-4 mt-4 flex items-center gap-3 rounded-lg border border-warning-500/30 bg-warning-500/10 p-3"
+				>
+					<DuplicateWarningIcon match={editedItem.duplicate_match} />
+					<div class="text-body-sm">
+						<p class="font-medium text-warning-300">Possible Duplicate</p>
+						<p class="text-warning-200/80">This item may already exist in your inventory</p>
+						<p class="mt-0.5 text-xs text-warning-200/60">
+							Serial number "{editedItem.duplicate_match.serial_number}" found in "{editedItem
+								.duplicate_match.item_name}"
+						</p>
+					</div>
 				</div>
 			{/if}
 
@@ -476,7 +476,6 @@
 		<ThumbnailEditor
 			images={availableImages}
 			itemName={editedItem.name}
-			currentThumbnail={editedItem.customThumbnail}
 			initialTransform={editedItem.thumbnailTransform}
 			onSave={handleThumbnailSave}
 			onClose={() => (showThumbnailEditor = false)}
@@ -500,15 +499,7 @@
 			<div class="flex gap-3 px-4 pb-4">
 				<div class="flex-1">
 					<Button variant="secondary" full onclick={skipItem} disabled={isProcessing}>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M13 17l5-5-5-5M6 17l5-5-5-5" />
-						</svg>
+						<ChevronsRight size={20} strokeWidth={1.5} />
 						<span>Skip</span>
 					</Button>
 				</div>
@@ -517,15 +508,7 @@
 					use:longpress={{ onLongPress: handleLongPressConfirm, disabled: isProcessing }}
 				>
 					<Button variant="primary" full onclick={confirmItem} disabled={isProcessing}>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="2"
-						>
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
+						<Check size={20} strokeWidth={2} />
 						<span>Confirm</span>
 					</Button>
 				</div>

@@ -3,6 +3,18 @@
 	 * FieldPrefsSection - AI output configuration and field customizations.
 	 */
 	import { onDestroy } from 'svelte';
+	import {
+		SlidersHorizontal,
+		Check,
+		Languages,
+		TriangleAlert,
+		Tag,
+		ChevronDown,
+		RotateCcw,
+		Copy,
+		Eye,
+		Maximize2,
+	} from 'lucide-svelte';
 	import { settingsService, FIELD_META } from '$lib/workflows/settings.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import FullscreenPanel from '$lib/components/FullscreenPanel.svelte';
@@ -43,32 +55,14 @@
 <section class="card space-y-4">
 	<div class="flex items-center justify-between">
 		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
-			<svg
-				class="h-5 w-5 text-primary-400"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
-				<path
-					d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4"
-				/>
-			</svg>
+			<SlidersHorizontal class="text-primary-400" size={20} strokeWidth={1.5} />
 			Configure AI Output
 		</h2>
 		{#if service.showFieldPrefs && service.saveState === 'success'}
 			<span
 				class="inline-flex items-center gap-2 rounded-full bg-success-500/20 px-3 py-1.5 text-sm font-medium text-success-500"
 			>
-				<svg
-					class="h-4 w-4"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="2.5"
-				>
-					<polyline points="20 6 9 17 4 12" />
-				</svg>
+				<Check size={16} strokeWidth={2.5} />
 				Saved
 			</span>
 		{/if}
@@ -90,26 +84,12 @@
 			></div>
 			<span>Loading...</span>
 		{:else}
-			<svg
-				class="h-5 w-5 text-primary-400"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
-				<path
-					d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4"
-				/>
-			</svg>
+			<SlidersHorizontal class="text-primary-400" size={20} strokeWidth={1.5} />
 			<span>Configure Fields</span>
-			<svg
-				class="ml-auto h-4 w-4 transition-transform {service.showFieldPrefs ? 'rotate-180' : ''}"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-			>
-				<polyline points="6 9 12 15 18 9" />
-			</svg>
+			<ChevronDown
+				class="ml-auto transition-transform {service.showFieldPrefs ? 'rotate-180' : ''}"
+				size={16}
+			/>
 		{/if}
 	</button>
 
@@ -123,17 +103,7 @@
 		<!-- Output Language Setting -->
 		<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
 			<div class="flex items-center gap-2">
-				<svg
-					class="h-5 w-5 text-primary-400"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
-					/>
-				</svg>
+				<Languages class="text-primary-400" size={20} strokeWidth={1.5} />
 				<label for="output_language" class="font-semibold text-neutral-100">Output Language</label>
 			</div>
 			<p class="text-xs text-neutral-400">
@@ -151,17 +121,7 @@
 			/>
 			<div class="rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
 				<p class="flex items-start gap-2 text-xs text-warning-500">
-					<svg
-						class="mt-0.5 h-4 w-4 flex-shrink-0"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<path
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
+					<TriangleAlert class="mt-0.5 flex-shrink-0" size={16} strokeWidth={1.5} />
 					<span>
 						<strong>Note:</strong> Field customization instructions below should still be written in English.
 						Only the AI output will be in the configured language.
@@ -173,17 +133,7 @@
 		<!-- Default Label Setting -->
 		<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
 			<div class="flex items-center gap-2">
-				<svg
-					class="h-5 w-5 text-primary-400"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-					/>
-				</svg>
+				<Tag class="text-primary-400" size={20} strokeWidth={1.5} />
 				<label for="default_label" class="font-semibold text-neutral-100">Default Label</label>
 			</div>
 			<p class="text-xs text-neutral-400">
@@ -216,20 +166,20 @@
 					<label for={field.key} class="block text-sm font-semibold text-neutral-100">
 						{field.label}
 					</label>
-					<div
-						class="rounded border border-neutral-700/30 bg-neutral-950/50 px-2 py-1.5 text-xs text-neutral-400"
-					>
-						<span class="text-neutral-500">Default:</span>
-						{service.effectiveDefaults?.[field.key] ?? 'Loading...'}
-					</div>
-					<input
-						type="text"
+					<textarea
 						id={field.key}
 						value={service.fieldPrefs[field.key] || ''}
 						oninput={(e) => service.updateFieldPref(field.key, e.currentTarget.value)}
-						placeholder="Leave empty for default..."
-						class="input text-sm"
-					/>
+						placeholder={service.effectiveDefaults?.[field.key] || 'No default'}
+						rows="1"
+						class="input resize-none text-sm transition-all duration-200"
+						onfocus={(e) => {
+							e.currentTarget.rows = 3;
+						}}
+						onblur={(e) => {
+							e.currentTarget.rows = 1;
+						}}
+					></textarea>
 					<p class="line-clamp-2 text-xs text-neutral-500">
 						Example: {field.example}
 					</p>
@@ -250,26 +200,11 @@
 					<span>Saving...</span>
 				{:else if service.saveState === 'success'}
 					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
-						<svg
-							class="h-5 w-5 text-success-500"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="2.5"
-						>
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
+						<Check class="text-success-500" size={20} strokeWidth={2.5} />
 					</div>
 					<span>Saved!</span>
 				{:else}
-					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M5 13l4 4L19 7"
-						/>
-					</svg>
+					<Check size={16} strokeWidth={2} />
 					<span>Save</span>
 				{/if}
 			</Button>
@@ -278,14 +213,7 @@
 				onclick={() => service.resetFieldPrefs()}
 				disabled={service.saveState === 'saving' || service.saveState === 'success'}
 			>
-				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-					/>
-				</svg>
+				<RotateCcw size={16} strokeWidth={2} />
 				<span>Reset</span>
 			</Button>
 		</div>
@@ -294,17 +222,7 @@
 	<!-- Docker Persistence Warning & Export -->
 	<div class="space-y-3 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4">
 		<div class="flex items-start gap-2">
-			<svg
-				class="mt-0.5 h-5 w-5 flex-shrink-0 text-warning-500"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
-				<path
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-				/>
-			</svg>
+			<TriangleAlert class="mt-0.5 flex-shrink-0 text-warning-500" size={20} strokeWidth={1.5} />
 			<div>
 				<p class="mb-1 text-sm font-medium text-warning-500">Docker users</p>
 				<p class="text-xs text-neutral-400">
@@ -319,11 +237,7 @@
 			class="flex w-full items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/20 px-4 py-2.5 text-sm font-medium text-warning-500 transition-all hover:bg-warning-500/30"
 			onclick={() => (showEnvExport = !showEnvExport)}
 		>
-			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-				<path
-					d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-				/>
-			</svg>
+			<Copy size={16} strokeWidth={1.5} />
 			<span>Export as Environment Variables</span>
 		</button>
 	</div>
@@ -341,15 +255,10 @@
 					aria-label="Copy environment variables"
 				>
 					{#if envCopied}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
+						<Check size={16} />
 						<span>Copied!</span>
 					{:else}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-							<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-						</svg>
+						<Copy size={16} />
 						<span>Copy</span>
 					{/if}
 				</button>
@@ -377,29 +286,12 @@
 				></div>
 				<span>Generating preview...</span>
 			{:else}
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-					<path
-						d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z"
-					/>
-				</svg>
+				<Eye size={20} strokeWidth={1.5} />
 				<span>Preview AI Prompt</span>
-				<svg
-					class="ml-auto h-4 w-4 transition-transform {service.showPromptPreview
-						? 'rotate-180'
-						: ''}"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<polyline points="6 9 12 15 18 9" />
-				</svg>
+				<ChevronDown
+					class="ml-auto transition-transform {service.showPromptPreview ? 'rotate-180' : ''}"
+					size={16}
+				/>
 			{/if}
 		</button>
 
@@ -414,15 +306,7 @@
 						title="Expand fullscreen"
 						aria-label="View prompt fullscreen"
 					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-						</svg>
+						<Maximize2 size={20} strokeWidth={1.5} />
 					</button>
 				</div>
 				<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
@@ -446,18 +330,7 @@
 	onclose={() => (promptFullscreen = false)}
 >
 	{#snippet icon()}
-		<svg
-			class="h-5 w-5 text-primary-400"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-			stroke-width="1.5"
-		>
-			<path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-			<path
-				d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z"
-			/>
-		</svg>
+		<Eye class="text-primary-400" size={20} strokeWidth={1.5} />
 	{/snippet}
 
 	<pre

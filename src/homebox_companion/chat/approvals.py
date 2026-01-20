@@ -76,21 +76,14 @@ class ApprovalService:
         final_params = {**approval.parameters}
         if modified_params:
             final_params.update(modified_params)
-            logger.info(
-                f"User modified parameters for {approval.tool_name}: {modified_params}"
-            )
+            logger.info(f"User modified parameters for {approval.tool_name}: {modified_params}")
 
         # 3. Execute the tool
-        logger.info(
-            f"Executing approved action: {approval.tool_name} with params {final_params}"
-        )
+        logger.info(f"Executing approved action: {approval.tool_name} with params {final_params}")
         result = await self._executor.execute(approval.tool_name, final_params, token)
 
         # Log execution result for debugging
-        logger.debug(
-            f"Approved action result: {approval.tool_name} "
-            f"success={result.success}, error={result.error}"
-        )
+        logger.debug(f"Approved action result: {approval.tool_name} success={result.success}, error={result.error}")
 
         # 4. Update the tool message in history (use tool_call_id directly from approval)
         if approval.tool_call_id:
@@ -135,4 +128,3 @@ class ApprovalService:
             The PendingApproval or None if not found/expired.
         """
         return self._session.get_pending_approval(approval_id)
-

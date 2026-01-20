@@ -8,6 +8,7 @@ from .config import router as config_router
 from .field_preferences import router as field_preferences_router
 from .items import router as items_router
 from .labels import router as labels_router
+from .llm_profiles import router as llm_profiles_router
 from .locations import router as locations_router
 from .logs import router as logs_router
 from .mcp import router as mcp_router
@@ -21,6 +22,7 @@ api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(chat_router, tags=["chat"])
 api_router.include_router(config_router, tags=["config"])
 api_router.include_router(field_preferences_router, tags=["settings"])
+api_router.include_router(llm_profiles_router, tags=["llm"])
 api_router.include_router(locations_router, tags=["locations"])
 api_router.include_router(labels_router, tags=["labels"])
 api_router.include_router(items_router, tags=["items"])

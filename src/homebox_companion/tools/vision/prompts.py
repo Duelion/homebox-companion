@@ -46,9 +46,7 @@ def build_detection_system_prompt(
     language_instr = build_language_instruction(output_language)
     critical = build_critical_constraints(single_item)
     item_schema = build_item_schema(field_preferences)
-    extended_schema = (
-        build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
-    )
+    extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 
@@ -101,13 +99,9 @@ def build_detection_user_prompt(
 
     if multi_image:
         if single_item:
-            multi_image_hint = (
-                "Multiple images of the SAME item. Combine all details into one entry. "
-            )
+            multi_image_hint = "Multiple images of the SAME item. Combine all details into one entry. "
         else:
-            multi_image_hint = (
-                "Multiple images - identify all distinct items, avoiding duplicates. "
-            )
+            multi_image_hint = "Multiple images - identify all distinct items, avoiding duplicates. "
     else:
         multi_image_hint = ""
 
@@ -147,9 +141,7 @@ def build_multi_image_system_prompt(
     language_instr = build_language_instruction(output_language)
     critical = build_critical_constraints(single_item)
     item_schema = build_item_schema(field_preferences)
-    extended_schema = (
-        build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
-    )
+    extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 
@@ -202,9 +194,7 @@ def build_discriminatory_system_prompt(
     # Build components with customizations
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
-    extended_schema = (
-        build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
-    )
+    extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     naming_examples = build_naming_examples(field_preferences)
     label_prompt = build_label_prompt(labels)
 

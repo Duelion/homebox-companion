@@ -9,7 +9,7 @@ from loguru import logger
 from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient
 from homebox_companion.homebox import ItemCreate
 
-from ..dependencies import get_client, get_token, validate_file_size
+from ..dependencies import get_client, get_token, get_valid_label_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
 
 router = APIRouter()
@@ -64,6 +64,9 @@ async def create_items(
     created: list[dict[str, Any]] = []
     errors: list[str] = []
 
+    # Fetch valid label IDs once for the batch to validate against
+    valid_label_ids = await get_valid_label_ids(token, client)
+
     for item_input in request.items:
         # Use request-level location_id if item doesn't have one
         location_id = item_input.location_id or request.location_id
@@ -73,12 +76,22 @@ async def create_items(
         logger.debug(f"  label_ids: {item_input.label_ids}")
         logger.debug(f"  parent_id: {item_input.parent_id}")
 
+        # Validate label_ids against Homebox to filter out invalid/stale IDs
+        validated_label_ids: list[str] | None = None
+        if item_input.label_ids:
+            validated_label_ids = [lid for lid in item_input.label_ids if lid in valid_label_ids]
+            filtered_count = len(item_input.label_ids) - len(validated_label_ids)
+            if filtered_count > 0:
+                logger.warning(
+                    f"Filtered out {filtered_count} invalid label ID(s) for '{item_input.name}'"
+                )
+
         detected_item = DetectedItem(
             name=item_input.name,
             quantity=item_input.quantity,
             description=item_input.description,
             location_id=location_id,
-            label_ids=item_input.label_ids,
+            label_ids=validated_label_ids if validated_label_ids else None,
             manufacturer=item_input.manufacturer,
             model_number=item_input.model_number,
             serial_number=item_input.serial_number,
@@ -115,11 +128,7 @@ async def create_items(
                             "description": full_item.get("description"),
                             "quantity": full_item.get("quantity"),
                             "locationId": full_item.get("location", {}).get("id"),
-                            "labelIds": [
-                                lbl.get("id")
-                                for lbl in full_item.get("labels", [])
-                                if lbl.get("id")
-                            ],
+                            "labelIds": [lbl.get("id") for lbl in full_item.get("labels", []) if lbl.get("id")],
                             **extended_payload,
                         }
                         # Preserve parentId if it was set
@@ -181,9 +190,7 @@ async def create_items(
         content={
             "created": created,
             "errors": errors,
-            "message": (
-                f"Created {len(created)} items" + (f", {len(errors)} failed" if errors else "")
-            ),
+            "message": (f"Created {len(created)} items" + (f", {len(errors)} failed" if errors else "")),
         },
         status_code=200 if not errors else 207,  # 207 Multi-Status if partial success
     )
@@ -209,9 +216,7 @@ async def upload_item_attachment(
     if file_size == 0:
         logger.warning(f"Empty file received for item {item_id}: {file.filename}")
     elif file_size < 1000:
-        logger.warning(
-            f"Suspiciously small file for item {item_id}: {file.filename} ({file_size} bytes)"
-        )
+        logger.warning(f"Suspiciously small file for item {item_id}: {file.filename} ({file_size} bytes)")
 
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
@@ -249,6 +254,7 @@ async def get_item_attachment(
     except FileNotFoundError as e:
         # Route-specific: 404 for missing attachments
         raise HTTPException(status_code=404, detail="Attachment not found") from e
+
 
 
 @router.delete("/items/{item_id}")

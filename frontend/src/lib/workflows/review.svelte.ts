@@ -57,6 +57,16 @@ export class ReviewService {
 		this._currentReviewIndex = 0;
 	}
 
+	/** Set confirmed items directly (used for session recovery) */
+	setConfirmedItems(items: ConfirmedItem[]): void {
+		this._confirmedItems = items;
+	}
+
+	/** Set current review index (used for session recovery) */
+	setCurrentReviewIndex(index: number): void {
+		this._currentReviewIndex = Math.max(0, Math.min(index, this._detectedItems.length - 1));
+	}
+
 	/**
 	 * Update sourceImageIndex for all detected items after images are removed.
 	 * Each removed index causes all higher indices to shift down by 1.
@@ -231,8 +241,10 @@ export class ReviewService {
 			additionalImages: item.additionalImages,
 			originalFile: item.originalFile,
 			customThumbnail: item.customThumbnail,
+			thumbnailTransform: item.thumbnailTransform,
 			compressedDataUrl: item.compressedDataUrl,
 			compressedAdditionalDataUrls: item.compressedAdditionalDataUrls,
+			duplicate_match: item.duplicate_match,
 		};
 
 		// Add to detected items for re-review

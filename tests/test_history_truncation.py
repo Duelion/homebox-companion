@@ -38,15 +38,13 @@ def test_history_truncation_safety():
     assert history[1]["tool_call_id"] == "call_1"
     assert len(history) == 4
 
+
 def test_history_truncation_multi_tool():
     """Verify safety with multiple tool results in a row."""
     session = ChatSession()
     session.add_message(ChatMessage(role="user", content="Search"))
 
-    tcs = [
-        ToolCall(id="c1", name="t1", arguments={}),
-        ToolCall(id="c2", name="t2", arguments={})
-    ]
+    tcs = [ToolCall(id="c1", name="t1", arguments={}), ToolCall(id="c2", name="t2", arguments={})]
     session.add_message(ChatMessage(role="assistant", content="", tool_calls=tcs))
     session.add_message(ChatMessage(role="tool", content="r1", tool_call_id="c1"))
     session.add_message(ChatMessage(role="tool", content="r2", tool_call_id="c2"))

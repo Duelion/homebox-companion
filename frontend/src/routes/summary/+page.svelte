@@ -15,6 +15,18 @@
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
+	import DuplicateWarningIcon from '$lib/components/DuplicateWarningIcon.svelte';
+	import {
+		MapPin,
+		ImageIcon,
+		SquarePen,
+		Trash2,
+		BarChart3,
+		Package,
+		AlertCircle,
+		Check,
+		RefreshCw,
+	} from 'lucide-svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -56,6 +68,15 @@
 		await getInitPromise();
 
 		if (!routeGuards.summary()) return;
+
+		// Show toast if any items have potential duplicates
+		const duplicateCount = confirmedItems.filter((item) => item.duplicate_match).length;
+		if (duplicateCount > 0) {
+			showToast(
+				`${duplicateCount} item${duplicateCount > 1 ? 's' : ''} may already exist in your inventory`,
+				'warning'
+			);
+		}
 	});
 
 	// Cleanup object URLs on component unmount
@@ -177,16 +198,7 @@
 		<div class="mb-6 flex flex-wrap items-start gap-x-4 gap-y-2 text-body-sm text-neutral-400">
 			<!-- Location block -->
 			<div class="flex items-center gap-2">
-				<svg
-					class="h-4 w-4"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-					<circle cx="12" cy="10" r="3" />
-				</svg>
+				<MapPin size={16} strokeWidth={1.5} />
 				<span>Items will be added to:</span>
 				<span class="font-semibold text-neutral-200">{locationPath}</span>
 			</div>
@@ -217,7 +229,9 @@
 		{#each confirmedItems as item, index (`${item.name}-${index}`)}
 			{@const thumbnail = getThumbnail(item)}
 			<div
-				class="flex items-start gap-4 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-md transition-all hover:border-neutral-600"
+				class="flex items-start gap-4 rounded-xl border bg-neutral-900 p-4 shadow-md transition-all {item.duplicate_match
+					? 'border-warning-500/70 hover:border-warning-400'
+					: 'border-neutral-700 hover:border-neutral-600'}"
 			>
 				<!-- Larger thumbnail -->
 				{#if thumbnail}
@@ -228,25 +242,20 @@
 					<div
 						class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800"
 					>
-						<svg
-							class="h-8 w-8 text-neutral-600"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1"
-						>
-							<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-							<circle cx="8.5" cy="8.5" r="1.5" />
-							<polyline points="21 15 16 10 5 21" />
-						</svg>
+						<ImageIcon class="text-neutral-600" size={32} strokeWidth={1} />
 					</div>
 				{/if}
 
 				<div class="min-w-0 flex-1">
 					<div class="mb-1 flex items-start justify-between gap-2">
-						<h3 class="truncate font-semibold text-neutral-100">
-							{item.name}
-						</h3>
+						<div class="flex min-w-0 items-center gap-2">
+							<h3 class="truncate font-semibold text-neutral-100">
+								{item.name}
+							</h3>
+							{#if item.duplicate_match}
+								<DuplicateWarningIcon match={item.duplicate_match} />
+							{/if}
+						</div>
 						<span
 							class="flex-shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400"
 						>
@@ -288,16 +297,7 @@
 							disabled={isSubmitting}
 							onclick={() => editItem(index)}
 						>
-							<svg
-								class="h-5 w-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-							</svg>
+							<SquarePen size={20} strokeWidth={1.5} />
 						</button>
 						<button
 							type="button"
@@ -307,18 +307,7 @@
 							disabled={isSubmitting}
 							onclick={() => removeItem(index)}
 						>
-							<svg
-								class="h-5 w-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<polyline points="3 6 5 6 21 6" />
-								<path
-									d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-								/>
-							</svg>
+							<Trash2 size={20} strokeWidth={1.5} />
 						</button>
 					{/if}
 				</div>
@@ -329,44 +318,16 @@
 	<!-- Summary statistics card -->
 	<div class="mb-6 rounded-xl border border-neutral-700 bg-neutral-900 p-4">
 		<div class="mb-3 flex items-center gap-2">
-			<svg
-				class="h-4 w-4 text-neutral-400"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				stroke-width="1.5"
-			>
-				<path
-					d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-				/>
-			</svg>
+			<BarChart3 class="text-neutral-400" size={16} strokeWidth={1.5} />
 			<span class="text-body-sm font-medium text-neutral-300">Summary</span>
 		</div>
 		<ul class="space-y-1.5 text-body-sm text-neutral-400">
 			<li class="flex items-center gap-2">
-				<svg
-					class="h-4 w-4 text-neutral-500"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-				</svg>
+				<Package class="text-neutral-500" size={16} strokeWidth={1.5} />
 				{confirmedItems.length} item{confirmedItems.length !== 1 ? 's' : ''} ready to submit
 			</li>
 			<li class="flex items-center gap-2">
-				<svg
-					class="h-4 w-4 text-neutral-500"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-					<circle cx="8.5" cy="8.5" r="1.5" />
-					<polyline points="21 15 16 10 5 21" />
-				</svg>
+				<ImageIcon class="text-neutral-500" size={16} strokeWidth={1.5} />
 				{totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} will be uploaded
 			</li>
 		</ul>
@@ -376,17 +337,7 @@
 	{#if submissionErrors.length > 0}
 		<div class="mb-6 rounded-xl border border-error-500/30 bg-error-500/10 p-4">
 			<div class="flex items-start gap-3">
-				<svg
-					class="text-error-400 mt-0.5 h-5 w-5 flex-shrink-0"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="2"
-				>
-					<circle cx="12" cy="12" r="10" />
-					<line x1="12" y1="8" x2="12" y2="12" />
-					<line x1="12" y1="16" x2="12.01" y2="16" />
-				</svg>
+				<AlertCircle class="text-error-400 mt-0.5 shrink-0" size={20} strokeWidth={2} />
 				<div class="min-w-0 flex-1">
 					<h4 class="text-error-300 mb-2 text-body-sm font-semibold">
 						{submissionErrors.length === 1 ? 'Error' : `${submissionErrors.length} Errors`} occurred during
@@ -413,36 +364,17 @@
 	<AppContainer class="space-y-3">
 		{#if !workflow.hasFailedItems() && !workflow.allItemsSuccessful()}
 			<Button variant="primary" full size="lg" loading={isSubmitting} onclick={submitAll}>
-				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-					<polyline points="20 6 9 17 4 12" />
-				</svg>
+				<Check size={20} strokeWidth={2} />
 				<span>Submit All Items ({confirmedItems.length})</span>
 			</Button>
 		{:else if workflow.hasFailedItems()}
 			<Button variant="primary" full size="lg" loading={isSubmitting} onclick={retryFailed}>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M1 4v6h6" />
-					<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-				</svg>
+				<RefreshCw size={20} strokeWidth={1.5} />
 				<span>Retry Failed Items</span>
 			</Button>
 
 			<Button variant="secondary" full disabled={isSubmitting} onclick={continueWithSuccessful}>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<polyline points="20 6 9 17 4 12" />
-				</svg>
+				<Check size={20} strokeWidth={1.5} />
 				<span>Continue with Successful Items</span>
 			</Button>
 		{/if}

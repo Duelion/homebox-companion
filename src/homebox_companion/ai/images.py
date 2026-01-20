@@ -60,12 +60,14 @@ def _normalize_image(img: Image.Image) -> Image.Image:
     try:
         from PIL import ExifTags
 
-        for orientation in ExifTags.TAGS:
-            if ExifTags.TAGS[orientation] == "Orientation":
+        orientation: int | None = None
+        for tag_id in ExifTags.TAGS:
+            if ExifTags.TAGS[tag_id] == "Orientation":
+                orientation = tag_id
                 break
 
         exif = img.getexif()
-        if exif is not None:
+        if exif is not None and orientation is not None:
             orientation_value = exif.get(orientation)
             if orientation_value == 3:
                 img = img.rotate(180, expand=True)
@@ -134,10 +136,7 @@ def optimize_image_for_vision(
         savings = ((original_size - optimized_size) / original_size) * 100
 
         if savings > 5:  # Only log if meaningful savings
-            logger.debug(
-                f"Image optimized: {original_size:,} -> {optimized_size:,} bytes "
-                f"({savings:.1f}% reduction)"
-            )
+            logger.debug(f"Image optimized: {original_size:,} -> {optimized_size:,} bytes ({savings:.1f}% reduction)")
 
         return optimized_bytes, "image/jpeg"
 

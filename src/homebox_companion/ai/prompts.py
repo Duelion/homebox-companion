@@ -136,9 +136,7 @@ def build_label_prompt(labels: list[dict[str, str]] | None) -> str:
         return "No labels available; omit labelIds."
 
     label_lines = [
-        f"- {label['name']} (id: {label['id']})"
-        for label in labels
-        if label.get("id") and label.get("name")
+        f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id") and label.get("name")
     ]
 
     if not label_lines:

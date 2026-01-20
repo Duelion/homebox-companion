@@ -4,6 +4,7 @@
 	 *
 	 * Uses the reusable LogPanel component for consistent UI across all sections.
 	 */
+	import { FileText, Monitor, MessageSquare, Code, ChevronDown } from 'lucide-svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import LogViewer from '$lib/components/LogViewer.svelte';
@@ -44,12 +45,7 @@
 </script>
 
 {#snippet logsIcon(className: string)}
-	<svg class={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-		<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-		<polyline points="14 2 14 8 20 8" />
-		<line x1="16" y1="13" x2="8" y2="13" />
-		<line x1="16" y1="17" x2="8" y2="17" />
-	</svg>
+	<FileText class={className} strokeWidth={1.5} />
 {/snippet}
 
 <section class="card space-y-4">
@@ -69,14 +65,10 @@
 	>
 		{@render logsIcon('h-5 w-5 text-primary-400')}
 		<span>View Logs</span>
-		<svg
-			class="ml-auto h-4 w-4 transition-transform {showLogsSection ? 'rotate-180' : ''}"
-			fill="none"
-			stroke="currentColor"
-			viewBox="0 0 24 24"
-		>
-			<polyline points="6 9 12 15 18 9" />
-		</svg>
+		<ChevronDown
+			class="ml-auto transition-transform {showLogsSection ? 'rotate-180' : ''}"
+			size={16}
+		/>
 	</button>
 
 	{#if showLogsSection}
@@ -131,17 +123,7 @@
 			hasFullscreen={true}
 		>
 			{#snippet icon()}
-				<svg
-					class="h-4 w-4 text-neutral-400"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-					/>
-				</svg>
+				<Monitor class="h-4 w-4 text-neutral-400" size={16} strokeWidth={1.5} />
 			{/snippet}
 			<LogViewer source={{ type: 'frontend', entries: service.frontendLogs }} />
 			{#snippet fullscreenContent()}
@@ -166,17 +148,7 @@
 			hasFullscreen={true}
 		>
 			{#snippet icon()}
-				<svg
-					class="h-4 w-4 text-neutral-400"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-					/>
-				</svg>
+				<MessageSquare class="h-4 w-4 text-neutral-400" size={16} strokeWidth={1.5} />
 			{/snippet}
 			<LogViewer source={{ type: 'json', data: chatStore.messages }} />
 			{#snippet fullscreenContent()}
@@ -206,15 +178,7 @@
 			hasFullscreen={true}
 		>
 			{#snippet icon()}
-				<svg
-					class="h-4 w-4 text-neutral-400"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-				</svg>
+				<Code class="h-4 w-4 text-neutral-400" size={16} strokeWidth={1.5} />
 			{/snippet}
 			{#if service.llmDebugLog}
 				<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} />

@@ -132,4 +132,3 @@ class JSONRepairError(HomeboxCompanionError):
     status_code = 502
     error_code = "JSON_REPAIR_FAILED"
     log_level: LogLevel = "warning"
-

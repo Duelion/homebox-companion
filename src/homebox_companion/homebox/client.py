@@ -139,9 +139,7 @@ class HomeboxClient:
         error_str = str(e).lower()
 
         # DNS resolution failure
-        if "getaddrinfo failed" in error_str or isinstance(
-            getattr(e, "__cause__", None), socket.gaierror
-        ):
+        if "getaddrinfo failed" in error_str or isinstance(getattr(e, "__cause__", None), socket.gaierror):
             return (
                 "Cannot connect to Homebox server. The server address could not be resolved. "
                 "Please verify the HBC_HOMEBOX_URL is correct."
@@ -160,9 +158,7 @@ class HomeboxClient:
             return "Network unreachable. Please check your network connection and server address."
 
         # Default
-        return (
-            "Cannot connect to Homebox server. Please check your network and server configuration."
-        )
+        return "Cannot connect to Homebox server. Please check your network and server configuration."
 
     async def login(self, username: str, password: str) -> dict[str, Any]:
         """Authenticate with Homebox and return the login response.
@@ -240,9 +236,7 @@ class HomeboxClient:
 
         token = data.get("token") or data.get("jwt") or data.get("accessToken")
         if not token:
-            logger.error(
-                f"Login: Response JSON missing token field. Keys present: {list(data.keys())}"
-            )
+            logger.error(f"Login: Response JSON missing token field. Keys present: {list(data.keys())}")
             raise HomeboxAuthError("Login response did not include a token field.")
 
         # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix
@@ -288,17 +282,13 @@ class HomeboxClient:
             original_token = new_token
             new_token = _normalize_token(new_token)
             if new_token != original_token:
-                logger.debug(
-                    "Token refresh: Stripped 'Bearer ' prefix from token (Homebox v0.22+ format)"
-                )
+                logger.debug("Token refresh: Stripped 'Bearer ' prefix from token (Homebox v0.22+ format)")
                 data["token"] = new_token
 
         logger.debug("Token refresh: Successfully obtained new token")
         return data
 
-    async def list_locations(
-        self, token: str, *, filter_children: bool | None = None
-    ) -> list[dict[str, Any]]:
+    async def list_locations(self, token: str, *, filter_children: bool | None = None) -> list[dict[str, Any]]:
         """Return all available locations for the authenticated user.
 
         Args:
@@ -323,9 +313,7 @@ class HomeboxClient:
         self._ensure_success(response, "Fetch locations")
         return response.json()
 
-    async def list_locations_typed(
-        self, token: str, *, filter_children: bool | None = None
-    ) -> list[Location]:
+    async def list_locations_typed(self, token: str, *, filter_children: bool | None = None) -> list[Location]:
         """Return all available locations as typed Location objects.
 
         Args:
@@ -371,9 +359,7 @@ class HomeboxClient:
         raw = await self.get_location(token, location_id)
         return Location.model_validate(raw)
 
-    async def get_location_tree(
-        self, token: str, *, with_items: bool = False
-    ) -> list[dict[str, Any]]:
+    async def get_location_tree(self, token: str, *, with_items: bool = False) -> list[dict[str, Any]]:
         """Get hierarchical location tree.
 
         Args:
@@ -681,9 +667,7 @@ class HomeboxClient:
         return Item.model_validate(raw)
 
     @_rate_limited
-    async def update_item(
-        self, token: str, item_id: str, item_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def update_item(self, token: str, item_id: str, item_data: dict[str, Any]) -> dict[str, Any]:
         """Update a single item by ID.
 
         Args:
@@ -1050,9 +1034,7 @@ class HomeboxClient:
         Returns:
             The Attachment object.
         """
-        raw = await self.upload_attachment(
-            token, item_id, file_bytes, filename, mime_type, attachment_type
-        )
+        raw = await self.upload_attachment(token, item_id, file_bytes, filename, mime_type, attachment_type)
         # Handle nested document structure from API
         doc = raw.get("document", {})
         return Attachment(

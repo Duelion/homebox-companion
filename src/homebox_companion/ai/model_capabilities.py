@@ -68,8 +68,7 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
     json_mode = litellm.supports_response_schema(model)
 
     logger.debug(
-        f"Model '{model}' capabilities detected: "
-        f"vision={vision}, json_mode={json_mode}, multi_image={multi_image}"
+        f"Model '{model}' capabilities detected: vision={vision}, json_mode={json_mode}, multi_image={multi_image}"
     )
 
     # Warn if model string looks like it might be a vision model but doesn't
