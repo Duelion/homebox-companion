@@ -12,15 +12,12 @@ from ...ai.prompts import (
     build_language_instruction,
     build_naming_examples,
 )
-from ...core.config import settings
 
 
 async def correct_item(
     image_data_uri: str,
     current_item: dict,
     correction_instructions: str,
-    api_key: str | None = None,
-    model: str | None = None,
     labels: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
@@ -36,8 +33,6 @@ async def correct_item(
         current_item: The current item dict with name, quantity, description.
         correction_instructions: User's correction text explaining what's wrong
             or how to fix the detection.
-        api_key: LLM API key. Defaults to effective_llm_api_key.
-        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest for items.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
@@ -45,8 +40,6 @@ async def correct_item(
     Returns:
         List of corrected item dictionaries.
     """
-    api_key = api_key or settings.effective_llm_api_key
-    model = model or settings.effective_llm_model
 
     logger.info(f"Correcting item '{current_item.get('name')}' with user instructions")
     logger.debug(f"User correction: {correction_instructions}")
@@ -85,9 +78,7 @@ async def correct_item(
     )
 
     # Build current item summary
-    current_summary = (
-        f"Current: {current_item.get('name', 'Unknown')} (qty: {current_item.get('quantity', 1)})"
-    )
+    current_summary = f"Current: {current_item.get('name', 'Unknown')} (qty: {current_item.get('quantity', 1)})"
     if current_item.get("manufacturer"):
         current_summary += f", mfr: {current_item.get('manufacturer')}"
 
@@ -101,8 +92,6 @@ async def correct_item(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         image_data_uris=[image_data_uri],
-        api_key=api_key,
-        model=model,
         expected_keys=["items"],
     )
 

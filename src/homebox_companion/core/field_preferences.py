@@ -54,16 +54,11 @@ class FieldPreferences(BaseSettings):
 
     # Naming examples - env var: HBC_AI_NAMING_EXAMPLES
     naming_examples: str = (
-        '"Ball Bearing 6900-2RS 10x22x6mm", '
-        '"Acrylic Paint Vallejo Game Color Bone White", '
-        '"LED Strip COB Green 5V 1M"'
+        '"Ball Bearing 6900-2RS 10x22x6mm", "Acrylic Paint Vallejo Game Color Bone White", "LED Strip COB Green 5V 1M"'
     )
 
     # Description instructions - env var: HBC_AI_DESCRIPTION
-    description: str = (
-        "Product features and specifications - what IS this item. "
-        "Max 1000 chars, NEVER mention quantity"
-    )
+    description: str = "Product features and specifications - what IS this item. Max 1000 chars, NEVER mention quantity"
 
     # Quantity counting instructions - env var: HBC_AI_QUANTITY
     quantity: str = "Count identical items together, separate different variants"
@@ -159,6 +154,38 @@ def save_field_preferences(preferences: FieldPreferences) -> None:
 
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     PREFERENCES_FILE.write_text(json.dumps(overrides, indent=2), encoding="utf-8")
+
+
+def load_user_overrides() -> dict[str, str | None]:
+    """Load only user overrides from file (sparse data for settings UI).
+
+    Returns a dict where:
+    - Fields the user has explicitly overridden have their saved value
+    - Fields with no override are None
+
+    This is used by the settings UI to show empty inputs with placeholder
+    text for defaults, and only populate inputs with text when the user
+    has explicitly saved an override.
+
+    Returns:
+        Dict with all preference fields, None for non-overridden fields.
+    """
+    # Start with all fields as None (no override)
+    result: dict[str, str | None] = {field: None for field in FieldPreferences.model_fields}
+
+    if not PREFERENCES_FILE.exists():
+        return result
+
+    try:
+        file_data = json.loads(PREFERENCES_FILE.read_text(encoding="utf-8"))
+        # Only include non-null values from the file
+        for key, value in file_data.items():
+            if key in result and value is not None:
+                result[key] = value
+        return result
+    except (json.JSONDecodeError, ValidationError) as e:
+        logger.warning(f"Invalid field preferences config file: {e}")
+        return result
 
 
 def reset_field_preferences() -> FieldPreferences:

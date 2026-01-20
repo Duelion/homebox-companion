@@ -108,7 +108,6 @@
 		variant
 	]} {sizeClasses[size]}"
 	class:w-full={full}
-	style="touch-action: manipulation;"
 >
 	{#if loading}
 		<div

@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { WifiOff, Download } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import '../app.css';
 	import Toast from '$lib/components/Toast.svelte';
 	import SessionExpiredModal from '$lib/components/SessionExpiredModal.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
+	import HeaderNav from '$lib/components/HeaderNav.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
@@ -147,11 +149,11 @@
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
-			<AppContainer class="flex h-14 items-center justify-center px-4">
-				<!-- Center: Logo and title -->
+			<AppContainer class="flex h-14 items-center justify-center px-4 md:justify-between">
+				<!-- Left: Logo and title -->
 				<a
 					href={resolve(isAuthenticated ? '/location' : '/')}
-					class="flex items-center justify-center gap-2 overflow-visible font-semibold text-neutral-200"
+					class="flex items-center gap-2 overflow-visible font-semibold text-neutral-200"
 				>
 					<svg
 						class="h-7 w-7 shrink-0 text-primary"
@@ -168,6 +170,13 @@
 					</svg>
 					<span class="whitespace-nowrap text-lg">Homebox Companion</span>
 				</a>
+
+				<!-- Right: Navigation (desktop/tablet only) -->
+				{#if isAuthenticated}
+					<div class="hidden md:block">
+						<HeaderNav />
+					</div>
+				{/if}
 			</AppContainer>
 		</div>
 	</div>
@@ -177,7 +186,7 @@
 
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main class="flex-1">
-		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24' : ''}">
+		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24 md:pb-6' : ''}">
 			{@render children()}
 		</AppContainer>
 	</main>
@@ -189,15 +198,7 @@
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
-			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<line x1="1" y1="1" x2="23" y2="23" />
-				<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
-				<path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
-				<path d="M10.71 5.05A16 16 0 0 1 22.58 9" />
-				<path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
-				<path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-				<line x1="12" y1="20" x2="12.01" y2="20" />
-			</svg>
+			<WifiOff size={16} strokeWidth={2} />
 			<span>You're offline. Some features may not work.</span>
 		</div>
 	{/if}
@@ -218,17 +219,7 @@
 					class="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300 transition-colors hover:bg-amber-500/30"
 					title="Click to view release"
 				>
-					<svg
-						class="h-3 w-3"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="2"
-					>
-						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-						<polyline points="7 10 12 15 17 10" />
-						<line x1="12" y1="15" x2="12" y2="3" />
-					</svg>
+					<Download size={12} strokeWidth={2} />
 					<span>v{latestVersion}</span>
 				</a>
 			{/if}

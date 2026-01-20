@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from homebox_companion.core.field_preferences import (
     FieldPreferences,
     get_defaults,
-    load_field_preferences,
+    load_user_overrides,
     reset_field_preferences,
     save_field_preferences,
 )
@@ -20,23 +20,27 @@ from ..dependencies import require_auth
 router = APIRouter(dependencies=[Depends(require_auth)])
 
 
-@router.get("/settings/field-preferences", response_model=FieldPreferences)
-async def get_field_preferences() -> FieldPreferences:
-    """Get current field preferences.
+@router.get("/settings/field-preferences")
+async def get_field_preferences() -> dict[str, str | None]:
+    """Get user-overridden field preferences (sparse data).
 
-    Returns the user-defined instructions for each AI output field.
+    Returns only fields the user has explicitly saved. Fields without
+    an override are returned as None, allowing the UI to show empty
+    inputs with placeholder text for defaults.
+
     Authentication is enforced at router level.
     """
-    return load_field_preferences()
+    return load_user_overrides()
 
 
-@router.put("/settings/field-preferences", response_model=FieldPreferences)
+@router.put("/settings/field-preferences")
 async def update_field_preferences(
     prefs: FieldPreferences,
-) -> FieldPreferences:
+) -> dict[str, str | None]:
     """Update field preferences.
 
     Saves the user-defined instructions for AI output fields.
+    Returns only the user overrides (sparse data).
     Authentication is enforced at router level.
     """
     logger.info("Updating field preferences")
@@ -44,29 +48,28 @@ async def update_field_preferences(
 
     # Log which fields differ from defaults
     defaults = get_defaults()
-    customized_fields = [
-        field for field in prefs.model_fields if getattr(prefs, field) != getattr(defaults, field)
-    ]
+    customized_fields = [field for field in prefs.model_fields if getattr(prefs, field) != getattr(defaults, field)]
 
     logger.info(f"Field preferences saved: {len(customized_fields)} fields customized")
     if customized_fields:
         logger.debug(f"Customized fields: {', '.join(customized_fields)}")
 
-    return prefs
+    return load_user_overrides()
 
 
-@router.delete("/settings/field-preferences", response_model=FieldPreferences)
-async def delete_field_preferences() -> FieldPreferences:
+@router.delete("/settings/field-preferences")
+async def delete_field_preferences() -> dict[str, str | None]:
     """Reset field preferences to defaults.
 
     Clears all custom field instructions and restores default behavior.
+    Returns empty overrides (all None values).
     Authentication is enforced at router level.
     """
     logger.info("Resetting field preferences to defaults")
-    prefs = reset_field_preferences()
+    reset_field_preferences()
     logger.info("Field preferences reset complete")
 
-    return prefs
+    return load_user_overrides()
 
 
 # EffectiveDefaultsResponse reuses FieldPreferences

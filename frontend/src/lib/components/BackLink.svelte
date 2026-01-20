@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { ChevronLeft } from 'lucide-svelte';
 
 	// Type-safe route type for dynamic paths
 	type AppRoute = Parameters<typeof resolve>[0];
@@ -33,15 +34,9 @@
 	onclick={handleClick}
 	aria-disabled={disabled}
 >
-	<svg
-		class="h-4 w-4 transition-transform duration-200 {disabled
-			? ''
-			: 'group-hover:-translate-x-0.5'}"
-		fill="none"
-		stroke="currentColor"
-		viewBox="0 0 24 24"
-	>
-		<polyline points="15 18 9 12 15 6" />
-	</svg>
+	<ChevronLeft
+		class="transition-transform duration-200 {disabled ? '' : 'group-hover:-translate-x-0.5'}"
+		size={16}
+	/>
 	<span>{label}</span>
 </a>

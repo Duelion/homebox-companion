@@ -21,9 +21,39 @@ import {
 	type FieldPreferences,
 	type EffectiveDefaults,
 } from '$lib/api/settings';
-import { labels as labelsApi, type LabelData } from '$lib/api';
+import { labels as labelsApi } from '$lib/api';
+import type { Label } from '$lib/types';
 import { getLogBuffer, clearLogBuffer, exportLogs, type LogEntry } from '$lib/utils/logger';
 import { chatStore } from '$lib/stores/chat.svelte';
+
+// =============================================================================
+// ERROR HANDLING HELPER
+// =============================================================================
+
+/**
+ * Safely extract a user-friendly error message from any error type.
+ * Handles Error instances, ApiError, objects with message properties,
+ * arrays, and primitives. Returns a fallback string for unhandled cases.
+ */
+function getErrorMessage(error: unknown, fallback: string): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (typeof error === 'string') {
+		return error;
+	}
+	// Handle plain objects with a message property
+	if (error && typeof error === 'object' && 'message' in error) {
+		const msg = (error as { message: unknown }).message;
+		if (typeof msg === 'string') {
+			return msg;
+		}
+	}
+	return fallback;
+}
+
+/** Default number of log lines to fetch */
+const DEFAULT_LOG_LINES = 300;
 
 // =============================================================================
 // FIELD METADATA
@@ -115,7 +145,7 @@ class SettingsService {
 	// =========================================================================
 
 	config = $state<ConfigResponse | null>(null);
-	availableLabels = $state<LabelData[]>([]);
+	availableLabels = $state<Label[]>([]);
 
 	// =========================================================================
 	// VERSION/UPDATE STATE
@@ -227,7 +257,7 @@ class SettingsService {
 		} catch (error) {
 			// If it's a 401, the session expired modal will already be shown
 			log.error('Failed to load settings data:', error);
-			this.errors.init = error instanceof Error ? error.message : 'Failed to load settings';
+			this.errors.init = getErrorMessage(error, 'Failed to load settings');
 		} finally {
 			this.isLoading.config = false;
 		}
@@ -247,11 +277,11 @@ class SettingsService {
 		this.errors.serverLogs = null;
 
 		try {
-			this.serverLogs = await getLogs(300);
+			this.serverLogs = await getLogs(DEFAULT_LOG_LINES);
 			this.showServerLogs = true;
 		} catch (error) {
 			log.error('Failed to load logs:', error);
-			this.errors.serverLogs = error instanceof Error ? error.message : 'Failed to load logs';
+			this.errors.serverLogs = getErrorMessage(error, 'Failed to load logs');
 		} finally {
 			this.isLoading.serverLogs = false;
 		}
@@ -262,10 +292,10 @@ class SettingsService {
 		this.errors.serverLogs = null;
 
 		try {
-			this.serverLogs = await getLogs(300);
+			this.serverLogs = await getLogs(DEFAULT_LOG_LINES);
 		} catch (error) {
 			log.error('Failed to refresh logs:', error);
-			this.errors.serverLogs = error instanceof Error ? error.message : 'Failed to load logs';
+			this.errors.serverLogs = getErrorMessage(error, 'Failed to load logs');
 		} finally {
 			this.isLoading.serverLogs = false;
 		}
@@ -278,7 +308,7 @@ class SettingsService {
 			await downloadLogs(this.serverLogs.filename);
 		} catch (error) {
 			log.error('Failed to download logs:', error);
-			this.errors.serverLogs = error instanceof Error ? error.message : 'Failed to download logs';
+			this.errors.serverLogs = getErrorMessage(error, 'Failed to download logs');
 		}
 	}
 
@@ -327,12 +357,11 @@ class SettingsService {
 		this.errors.llmDebugLog = null;
 
 		try {
-			this.llmDebugLog = await getLLMDebugLogs(300);
+			this.llmDebugLog = await getLLMDebugLogs(DEFAULT_LOG_LINES);
 			this.showLLMDebugLog = true;
 		} catch (error) {
 			log.error('Failed to load LLM debug log:', error);
-			this.errors.llmDebugLog =
-				error instanceof Error ? error.message : 'Failed to load LLM debug log';
+			this.errors.llmDebugLog = getErrorMessage(error, 'Failed to load LLM debug log');
 		} finally {
 			this.isLoading.llmDebugLog = false;
 		}
@@ -343,11 +372,10 @@ class SettingsService {
 		this.errors.llmDebugLog = null;
 
 		try {
-			this.llmDebugLog = await getLLMDebugLogs(300);
+			this.llmDebugLog = await getLLMDebugLogs(DEFAULT_LOG_LINES);
 		} catch (error) {
 			log.error('Failed to refresh LLM debug log:', error);
-			this.errors.llmDebugLog =
-				error instanceof Error ? error.message : 'Failed to load LLM debug log';
+			this.errors.llmDebugLog = getErrorMessage(error, 'Failed to load LLM debug log');
 		} finally {
 			this.isLoading.llmDebugLog = false;
 		}
@@ -360,8 +388,7 @@ class SettingsService {
 			await downloadLLMDebugLogs(this.llmDebugLog.filename);
 		} catch (error) {
 			log.error('Failed to download LLM debug logs:', error);
-			this.errors.llmDebugLog =
-				error instanceof Error ? error.message : 'Failed to download LLM debug logs';
+			this.errors.llmDebugLog = getErrorMessage(error, 'Failed to download LLM debug logs');
 		}
 	}
 
@@ -414,7 +441,13 @@ class SettingsService {
 	// =========================================================================
 
 	async toggleFieldPrefs(): Promise<void> {
-		if (this.effectiveDefaults !== null || this.isLoading.fieldPrefs) {
+		// If loading, do nothing (prevent race condition)
+		if (this.isLoading.fieldPrefs) {
+			return;
+		}
+
+		// If already loaded, just toggle visibility
+		if (this.effectiveDefaults !== null) {
 			this.showFieldPrefs = !this.showFieldPrefs;
 			return;
 		}
@@ -432,8 +465,7 @@ class SettingsService {
 			this.showFieldPrefs = true;
 		} catch (error) {
 			log.error('Failed to load field preferences:', error);
-			this.errors.fieldPrefs =
-				error instanceof Error ? error.message : 'Failed to load preferences';
+			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to load preferences');
 		} finally {
 			this.isLoading.fieldPrefs = false;
 		}
@@ -444,7 +476,9 @@ class SettingsService {
 		this.errors.fieldPrefs = null;
 
 		try {
-			const result = await fieldPreferences.update(this.fieldPrefs);
+			// Unwrap the $state proxy to get a plain object for serialization
+			const prefsToSave = $state.snapshot(this.fieldPrefs);
+			const result = await fieldPreferences.update(prefsToSave);
 			this.fieldPrefs = result;
 			this.saveState = 'success';
 
@@ -454,8 +488,7 @@ class SettingsService {
 			}, 2000);
 		} catch (error) {
 			log.error('Failed to save field preferences:', error);
-			this.errors.fieldPrefs =
-				error instanceof Error ? error.message : 'Failed to save preferences';
+			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to save preferences');
 			this.saveState = 'error';
 
 			this._scheduleTimeout(() => {
@@ -480,8 +513,7 @@ class SettingsService {
 			}, 2000);
 		} catch (error) {
 			log.error('Failed to reset field preferences:', error);
-			this.errors.fieldPrefs =
-				error instanceof Error ? error.message : 'Failed to reset preferences';
+			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to reset preferences');
 			this.saveState = 'error';
 
 			this._scheduleTimeout(() => {
@@ -520,12 +552,24 @@ class SettingsService {
 		this.isLoading.promptPreview = true;
 
 		try {
-			const result = await fieldPreferences.getPromptPreview(this.fieldPrefs);
+			// Ensure field preferences are loaded first (they're needed for the preview)
+			if (this.effectiveDefaults === null) {
+				const [prefsResult, defaultsResult] = await Promise.all([
+					fieldPreferences.get(),
+					fieldPreferences.getEffectiveDefaults(),
+				]);
+				this.fieldPrefs = prefsResult;
+				this.effectiveDefaults = defaultsResult;
+			}
+
+			// Unwrap the $state proxy to get a plain object for serialization
+			const prefsForPreview = $state.snapshot(this.fieldPrefs);
+			const result = await fieldPreferences.getPromptPreview(prefsForPreview);
 			this.promptPreview = result.prompt;
 			this.showPromptPreview = true;
 		} catch (error) {
 			log.error('Failed to load prompt preview:', error);
-			this.errors.fieldPrefs = error instanceof Error ? error.message : 'Failed to load preview';
+			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to load preview');
 		} finally {
 			this.isLoading.promptPreview = false;
 		}
@@ -537,13 +581,17 @@ class SettingsService {
 
 	/**
 	 * Generate environment variable string from preferences.
+	 * Only includes fields that differ from effective defaults (actual customizations).
 	 */
 	generateEnvVars(prefs: FieldPreferences): string {
 		const lines: string[] = [];
+		const defaults = this.effectiveDefaults;
 
 		for (const [key, envName] of Object.entries(ENV_VAR_MAPPING)) {
 			const value = prefs[key as keyof FieldPreferences];
-			if (value) {
+			const defaultValue = defaults?.[key as keyof FieldPreferences];
+			// Only export if value exists AND differs from the effective default
+			if (value && value !== defaultValue) {
 				// Escape quotes and wrap in quotes if contains special chars
 				const escaped = value.replace(/"/g, '\\"');
 				lines.push(`${envName}="${escaped}"`);
@@ -579,8 +627,7 @@ class SettingsService {
 			}
 		} catch (error) {
 			log.error('Failed to check for updates:', error);
-			this.errors.updateCheck =
-				error instanceof Error ? error.message : 'Failed to check for updates';
+			this.errors.updateCheck = getErrorMessage(error, 'Failed to check for updates');
 		} finally {
 			this.isLoading.updateCheck = false;
 		}

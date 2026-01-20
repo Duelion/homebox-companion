@@ -24,10 +24,20 @@ class ItemBaseMixin(BaseModel):
     label_ids: list[str] | None = None
 
 
+class DuplicateMatchResponse(BaseModel):
+    """Details of an existing item that matches a detected item's serial number."""
+
+    item_id: str
+    item_name: str
+    serial_number: str
+    location_name: str | None = None
+
+
 class DetectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
     """Detected item from image analysis."""
 
-    pass
+    # Duplicate detection - populated if serial number matches an existing item
+    duplicate_match: DuplicateMatchResponse | None = None
 
 
 class CompressedImage(BaseModel):

@@ -5,9 +5,18 @@ extracting the LiteLLM interaction logic from the orchestrator.
 
 The LLMClient handles:
 - Building the system prompt
-- Calling the LLM with streaming or non-streaming modes
+- Calling the LLM with streaming or non-streaming modes via LiteLLM Router
 - Configuration from settings
 - Capturing raw request/response data for debugging via loguru
+
+Router Integration:
+    All LLM calls go through the Router singleton which handles:
+    - Provider fallback (PRIMARY → FALLBACK profiles)
+    - Retries with exponential backoff
+    - Cooldowns for failed deployments
+
+    Note: Mid-stream failures during streaming are NOT retried.
+    Once chunks start flowing, errors propagate to the caller.
 """
 
 from __future__ import annotations
@@ -19,10 +28,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import litellm
 from loguru import logger
 
 from homebox_companion.core import config
+from homebox_companion.core.llm_router import get_primary_model_name, get_router
 from homebox_companion.core.logging import get_log_level_value
 
 
@@ -32,6 +41,7 @@ def _build_log_entry(
     response_content: str,
     response_tool_calls: list[dict[str, Any]] | None,
     latency_ms: int,
+    model: str,
 ) -> dict[str, Any]:
     """Build a log entry with detail level based on configured log level.
 
@@ -40,11 +50,18 @@ def _build_log_entry(
     - DEBUG: Moderate detail (all messages, tool names only, full response)
     - INFO+: Minimal (timestamp, model, latency, counts/summaries)
 
+    Args:
+        messages: The messages sent to the LLM.
+        tools: The tool definitions sent to the LLM.
+        response_content: The response content from the LLM.
+        response_tool_calls: The tool calls from the response.
+        latency_ms: Time taken for the request in milliseconds.
+        model: The model identifier used for this request.
+
     Returns:
         Dict containing the log entry with appropriate detail level.
     """
     level_value = get_log_level_value()
-    model = config.settings.effective_llm_model
     timestamp = datetime.now(UTC).isoformat()
 
     # Base entry (always included)
@@ -84,11 +101,7 @@ def _build_log_entry(
         entry["response"] = {
             "content_length": len(response_content),
             "tool_call_count": len(response_tool_calls) if response_tool_calls else 0,
-            "tool_calls_summary": (
-                [tc.get("name") for tc in response_tool_calls]
-                if response_tool_calls
-                else None
-            ),
+            "tool_calls_summary": ([tc.get("name") for tc in response_tool_calls] if response_tool_calls else None),
         }
 
     return entry
@@ -100,6 +113,7 @@ def log_streaming_interaction(
     response_content: str,
     response_tool_calls: list[dict[str, Any]] | None,
     latency_ms: int,
+    model: str,
 ) -> None:
     """Log a streaming LLM interaction to the debug log file.
 
@@ -117,11 +131,10 @@ def log_streaming_interaction(
         response_content: The accumulated response content.
         response_tool_calls: The parsed tool calls from the response.
         latency_ms: Time taken for the streaming request in milliseconds.
+        model: The model identifier used for this request.
     """
     try:
-        entry = _build_log_entry(
-            messages, tools, response_content, response_tool_calls, latency_ms
-        )
+        entry = _build_log_entry(messages, tools, response_content, response_tool_calls, latency_ms, model)
 
         # Log with llm_debug=True so it's captured by the dedicated handler
         logger.bind(llm_debug=True).info(json.dumps(entry))
@@ -130,9 +143,6 @@ def log_streaming_interaction(
     except Exception as e:
         logger.warning(f"[LLM_LOG] Failed to log streaming interaction: {e}")
 
-# Soft recommendation for max items in responses - used when user doesn't specify a count.
-# When user explicitly requests a specific number (e.g., "show me 80 items"), honor that request.
-DEFAULT_RESULT_LIMIT = 25
 
 # System prompt for the assistant
 # Note: Tool definitions are passed dynamically via the tools parameter,
@@ -209,6 +219,18 @@ Response style (default)
 - When listing labels, show only the name as a clickable link; do NOT display IDs unless explicitly requested.
   Example: "Your labels: [Electronics](url), [Important](url), [Appliances](url)"
 
+Location hierarchy (for "where is X" answers):
+- Default: Show the item's direct location plus one parent for context.
+  If there are ancestors beyond the shown parent, add "..." to indicate depth.
+  Examples:
+    - Shallow: "Türe Links (in Garage)"
+    - Deep: "Türe Links (in Regal, ...)" — the "..." signals more parents exist
+- Only show the full path (e.g., "Haus → Garage → Regal → Türe Links") when:
+  * User explicitly asks for "full path", "exact location", "where exactly", or "tree"
+  * Multiple locations share the same name and disambiguation requires it
+- If the user asks for a full location tree or hierarchy, use get_location_tree
+  and display the complete nested structure.
+
 Approval handling (writes)
 - Do not ask for textual confirmation to perform writes.
 - If you are proposing any change, include the write tool calls in the same message so the UI can show approval badges.
@@ -226,8 +248,6 @@ Limitations
 
 Only skip inventory lookup for pure greetings.
 """
-
-
 
 
 @dataclass
@@ -249,13 +269,15 @@ class LLMResponse:
 
 
 class LLMClient:
-    """Client for LLM completions via LiteLLM.
+    """Client for LLM completions via LiteLLM Router.
 
     This class encapsulates all LiteLLM communication, providing:
     - Streaming and non-streaming completions
     - Tool function calling support
     - Configuration from application settings
     - Logging and timing
+
+    The Router handles provider failover automatically.
 
     Example:
         >>> llm = LLMClient()
@@ -272,6 +294,21 @@ class LLMClient:
         """
         return SYSTEM_PROMPT
 
+    @staticmethod
+    def get_resolved_model() -> str:
+        """Get the currently resolved LLM model identifier.
+
+        Uses the shared credential resolution logic to determine which model
+        will be used for the next request. Useful for logging.
+
+        Returns:
+            The resolved model identifier (from PRIMARY profile or env).
+        """
+        from homebox_companion.core.llm_utils import resolve_llm_credentials
+
+        creds = resolve_llm_credentials()
+        return creds.model or "unknown"
+
     async def complete(
         self,
         messages: list[dict[str, Any]],
@@ -287,12 +324,16 @@ class LLMClient:
             LLMResponse with content, tool_calls, and usage.
 
         Raises:
-            Exception: If the LLM call fails.
+            Exception: If the LLM call fails (Router handles retries/fallback).
         """
         kwargs = self._build_request_kwargs(messages, tools, stream=False)
 
         start_time = time.perf_counter()
-        response = await litellm.acompletion(**kwargs)
+
+        # Router handles fallback automatically
+        router = get_router()
+        response = await router.acompletion(**kwargs)
+
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         # Extract response data
@@ -345,16 +386,22 @@ class LLMClient:
             Raw LiteLLM stream chunks.
 
         Raises:
-            Exception: If the LLM call fails.
+            Exception: If the LLM call fails (Router handles fallback for initial connection).
+
+        Note:
+            Mid-stream failures are NOT retried. Once chunks start flowing,
+            errors propagate to the caller.
         """
         kwargs = self._build_request_kwargs(messages, tools, stream=True)
 
         logger.debug(
-            f"[LLM] Starting streaming completion with {len(messages)} messages, "
-            f"{len(tools) if tools else 0} tools"
+            f"[LLM] Starting streaming completion with {len(messages)} messages, {len(tools) if tools else 0} tools"
         )
 
-        response = await litellm.acompletion(**kwargs)
+        # Router handles fallback for initial connection
+        router = get_router()
+        response = await router.acompletion(**kwargs)
+
         async for chunk in response:
             yield chunk
 
@@ -364,7 +411,7 @@ class LLMClient:
         tools: list[dict[str, Any]] | None,
         stream: bool,
     ) -> dict[str, Any]:
-        """Build the kwargs dict for litellm.acompletion.
+        """Build the kwargs dict for Router.acompletion.
 
         Args:
             messages: Conversation messages.
@@ -374,22 +421,15 @@ class LLMClient:
         Returns:
             Dict of kwargs for acompletion.
         """
-        # Use longer timeout for streaming operations (large responses take more time)
-        timeout = (
-            config.settings.llm_stream_timeout if stream
-            else config.settings.llm_timeout
-        )
+        # Use longer timeout for streaming operations
+        timeout = config.settings.llm_stream_timeout if stream else config.settings.llm_timeout
 
         kwargs: dict[str, Any] = {
-            "model": config.settings.effective_llm_model,
+            "model": get_primary_model_name(),
             "messages": messages,
-            "api_key": config.settings.effective_llm_api_key,
             "timeout": timeout,
             "stream": stream,
         }
-
-        if config.settings.llm_api_base:
-            kwargs["api_base"] = config.settings.llm_api_base
 
         # Apply response length limit
         if config.settings.chat_max_response_tokens > 0:
@@ -405,4 +445,3 @@ class LLMClient:
             logger.trace(f"[LLM] Available tools: {tool_names}")
 
         return kwargs
-

@@ -127,14 +127,16 @@ class ToolExecutor:
             # Rebuild cache
             all_schemas = []
             for tool in self._tools_by_name.values():
-                all_schemas.append({
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.Params.model_json_schema(),
-                    },
-                })
+                all_schemas.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.Params.model_json_schema(),
+                        },
+                    }
+                )
             self._schema_cache = (all_schemas, time.time())
             logger.debug(f"Built and cached {len(all_schemas)} tool schemas")
 
@@ -142,10 +144,7 @@ class ToolExecutor:
         if include_write:
             schemas = all_schemas
         else:
-            read_tool_names = {
-                t.name for t in self._tools_by_name.values()
-                if t.permission == ToolPermission.READ
-            }
+            read_tool_names = {t.name for t in self._tools_by_name.values() if t.permission == ToolPermission.READ}
             schemas = [s for s in all_schemas if s["function"]["name"] in read_tool_names]
 
         # Deep copy to prevent cache mutation

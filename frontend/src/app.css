@@ -15,6 +15,15 @@
 		overscroll-behavior-y: none;
 	}
 
+	/* iOS Safari double-tap fix: disable 300ms click delay on interactive elements.
+	   Without this, iOS Safari requires two taps on elements with hover states -
+	   first tap triggers hover, second tap triggers click. */
+	a,
+	button,
+	[role='button'] {
+		touch-action: manipulation;
+	}
+
 	/* Custom scrollbar */
 	::-webkit-scrollbar {
 		width: 6px;
@@ -32,6 +41,16 @@
 
 	::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.3);
+	}
+
+	/* Thin scrollbar variant for compact areas */
+	.scrollbar-thin {
+		scrollbar-width: thin;
+	}
+
+	.scrollbar-thin::-webkit-scrollbar {
+		width: 4px;
+		height: 4px;
 	}
 }
 
@@ -94,6 +113,20 @@
 
 	.card-interactive {
 		@apply card cursor-pointer transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:shadow-md active:scale-[0.99];
+	}
+
+	/* Selectable list item - used in picker modals for item/parent selection */
+	.selectable-item {
+		@apply flex w-full items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800 p-3 text-left transition-all hover:border-neutral-600;
+	}
+
+	.selectable-item-selected {
+		@apply border-primary-500/50 bg-primary-500/10;
+	}
+
+	/* Input with leading icon - adds left padding for icon placement */
+	.input-with-icon {
+		@apply input pl-10;
 	}
 
 	/* ==========================================================================
@@ -311,6 +344,13 @@
 		-webkit-transform: translateZ(0);
 	}
 
+	/* On tablet/desktop, bottom nav is hidden so reset to bottom: 0 */
+	@screen md {
+		.bottom-nav-offset {
+			bottom: 0;
+		}
+	}
+
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply animate-shimmer rounded bg-neutral-800;
@@ -359,6 +399,95 @@
 	/* Empty state container */
 	.empty-state {
 		@apply flex min-h-[35vh] flex-col items-center justify-center px-6 py-12 text-center;
+	}
+
+	/* Custom slider styling with larger thumbs for touch targets */
+	.slider-primary {
+		-webkit-appearance: none;
+		appearance: none;
+		background: transparent;
+	}
+
+	.slider-primary::-webkit-slider-runnable-track {
+		@apply h-2 w-full rounded bg-neutral-800;
+	}
+
+	.slider-primary::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		@apply -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full bg-primary-500 shadow-md transition-all duration-fast;
+	}
+
+	.slider-primary::-webkit-slider-thumb:hover {
+		@apply scale-[1.15] shadow-primary-glow;
+	}
+
+	.slider-primary::-webkit-slider-thumb:active {
+		@apply scale-105;
+	}
+
+	.slider-primary::-moz-range-track {
+		@apply h-2 w-full rounded bg-neutral-800;
+	}
+
+	.slider-primary::-moz-range-thumb {
+		@apply h-[22px] w-[22px] cursor-pointer rounded-full border-0 bg-primary-500 shadow-md;
+	}
+
+	.slider-primary::-moz-range-thumb:hover {
+		@apply shadow-primary-glow;
+	}
+
+	.slider-primary:focus {
+		outline: none;
+	}
+
+	.slider-primary:focus::-webkit-slider-thumb {
+		@apply shadow-primary-ring;
+	}
+
+	.slider-primary:focus::-moz-range-thumb {
+		@apply shadow-primary-ring;
+	}
+
+	/* Animation delay utilities - for staggered entrance animations */
+	.delay-0 {
+		animation-delay: 0ms;
+	}
+
+	.delay-100 {
+		animation-delay: 100ms;
+	}
+
+	.delay-150 {
+		animation-delay: 150ms;
+	}
+
+	.delay-160 {
+		animation-delay: 160ms;
+	}
+
+	.delay-200 {
+		animation-delay: 200ms;
+	}
+
+	.delay-300 {
+		animation-delay: 300ms;
+	}
+
+	.delay-320 {
+		animation-delay: 320ms;
+	}
+
+	.delay-400 {
+		animation-delay: 400ms;
+	}
+
+	/* QR Scanner video - responsive square sizing */
+	.scanner-video {
+		width: min(90vw, 400px);
+		height: min(90vw, 400px);
+		object-fit: cover;
 	}
 }
 

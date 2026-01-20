@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Check } from 'lucide-svelte';
+
 	interface Props {
 		currentStep: number;
 		totalSteps?: number;
@@ -31,14 +33,7 @@
 					: 'border border-neutral-700 bg-neutral-800 text-neutral-400'}"
 		>
 			{#if step < currentStep}
-				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2.5"
-						d="M5 13l4 4L19 7"
-					/>
-				</svg>
+				<Check size={20} strokeWidth={2.5} />
 			{:else}
 				{step}
 			{/if}

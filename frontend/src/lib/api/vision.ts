@@ -7,7 +7,6 @@ import { getIsDemoMode, fieldPreferences } from './settings';
 import { apiLogger as log } from '../utils/logger';
 import type {
 	DetectionResponse,
-	BatchDetectionResponse,
 	AdvancedItemDetails,
 	MergedItemResponse,
 	CorrectionResponse,
@@ -19,12 +18,6 @@ export interface DetectOptions {
 	extraInstructions?: string;
 	extractExtendedFields?: boolean;
 	additionalImages?: File[];
-	signal?: AbortSignal;
-}
-
-export interface BatchDetectOptions {
-	configs?: Array<{ single_item?: boolean; extra_instructions?: string }>;
-	extractExtendedFields?: boolean;
 	signal?: AbortSignal;
 }
 
@@ -97,39 +90,6 @@ export const vision = {
 		log.info('Sending vision/detect request to backend');
 		return requestFormData<DetectionResponse>('/tools/vision/detect', formData, {
 			errorMessage: 'Detection failed',
-			signal: options.signal,
-			headers,
-		});
-	},
-
-	/**
-	 * Detect items from multiple images in parallel on the server.
-	 * More efficient than calling detect() multiple times.
-	 */
-	detectBatch: async (
-		images: File[],
-		options: BatchDetectOptions = {}
-	): Promise<BatchDetectionResponse> => {
-		log.debug(`Preparing batch detection request: ${images.length} images`);
-		log.debug(`Total size: ${images.reduce((sum, img) => sum + img.size, 0)} bytes`);
-
-		const formData = new FormData();
-
-		for (const img of images) {
-			formData.append('images', img);
-		}
-
-		if (options.configs) {
-			formData.append('configs', JSON.stringify(options.configs));
-		}
-		if (options.extractExtendedFields !== undefined) {
-			formData.append('extract_extended_fields', String(options.extractExtendedFields));
-		}
-
-		const headers = await buildVisionHeaders();
-		log.info(`Sending vision/detect-batch request for ${images.length} images to backend`);
-		return requestFormData<BatchDetectionResponse>('/tools/vision/detect-batch', formData, {
-			errorMessage: 'Batch detection failed',
 			signal: options.signal,
 			headers,
 		});

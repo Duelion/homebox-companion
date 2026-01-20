@@ -7,7 +7,6 @@ from pydantic import TypeAdapter
 
 from ...ai.images import encode_image_bytes_to_data_uri
 from ...ai.llm import vision_completion
-from ...core.config import settings
 from .models import DetectedItem
 from .prompts import (
     build_detection_system_prompt,
@@ -22,9 +21,7 @@ _DETECTED_ITEMS_ADAPTER: TypeAdapter[list[DetectedItem]] = TypeAdapter(list[Dete
 
 async def detect_items_from_bytes(
     image_bytes: bytes,
-    api_key: str | None = None,
     mime_type: str = "image/jpeg",
-    model: str | None = None,
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
@@ -37,9 +34,7 @@ async def detect_items_from_bytes(
 
     Args:
         image_bytes: Raw image data for the primary image.
-        api_key: LLM API key. Defaults to effective_llm_api_key.
         mime_type: MIME type of the primary image.
-        model: Model name. Defaults to effective_llm_model.
         labels: Optional list of Homebox labels to suggest for items.
         single_item: If True, treat everything in the image as a single item.
         extra_instructions: Optional user hint about what's in the image.
@@ -62,8 +57,6 @@ async def detect_items_from_bytes(
 
     return await _detect_items_from_data_uris(
         image_data_uris,
-        api_key or settings.effective_llm_api_key,
-        model or settings.effective_llm_model,
         labels,
         single_item=single_item,
         extra_instructions=extra_instructions,
@@ -75,8 +68,6 @@ async def detect_items_from_bytes(
 
 async def _detect_items_from_data_uris(
     image_data_uris: list[str],
-    api_key: str,
-    model: str,
     labels: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
@@ -88,8 +79,6 @@ async def _detect_items_from_data_uris(
 
     Args:
         image_data_uris: List of base64-encoded image data URIs.
-        api_key: LLM API key.
-        model: LLM model name.
         labels: Optional list of Homebox labels for item tagging.
         single_item: If True, treat everything as a single item.
         extra_instructions: User-provided hint about image contents.
@@ -103,7 +92,7 @@ async def _detect_items_from_data_uris(
     multi_image = len(image_data_uris) > 1
 
     logger.debug(f"Starting {'multi-image' if multi_image else 'single-image'} detection")
-    logger.debug(f"Model: {model}, Single item: {single_item}")
+    logger.debug(f"Single item: {single_item}")
     logger.debug(f"Extract extended fields: {extract_extended_fields}")
     logger.debug(f"Labels provided: {len(labels) if labels else 0}")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
@@ -119,17 +108,13 @@ async def _detect_items_from_data_uris(
             labels, single_item, extract_extended_fields, field_preferences, output_language
         )
 
-    user_prompt = build_detection_user_prompt(
-        extra_instructions, extract_extended_fields, multi_image, single_item
-    )
+    user_prompt = build_detection_user_prompt(extra_instructions, extract_extended_fields, multi_image, single_item)
 
     # Call LLM
     parsed_content = await vision_completion(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         image_data_uris=image_data_uris,
-        api_key=api_key,
-        model=model,
         expected_keys=["items"],
     )
 

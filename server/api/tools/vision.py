@@ -11,9 +11,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from loguru import logger
 
 from homebox_companion import (
-    CapabilityNotSupportedError,
-    JSONRepairError,
-    LLMServiceError,
     analyze_item_details_from_images,
     detect_items_from_bytes,
     encode_compressed_image_to_base64,
@@ -26,6 +23,7 @@ from homebox_companion import (
 
 from ...dependencies import (
     VisionContext,
+    get_client,
     get_vision_context,
     require_llm_configured,
     validate_file_size,
@@ -33,14 +31,14 @@ from ...dependencies import (
 )
 from ...schemas.vision import (
     AdvancedItemDetails,
-    BatchDetectionResponse,
-    BatchDetectionResult,
     CompressedImage,
     CorrectedItemResponse,
     CorrectionResponse,
     DetectedItemResponse,
     DetectionResponse,
+    DuplicateMatchResponse,
 )
+from ...services.duplicate_checker import DuplicateChecker
 
 router = APIRouter()
 
@@ -166,9 +164,7 @@ async def detect_items(
                 return CompressedImage(data=base64_data, mime_type=mime)
 
         # Compress all images in parallel
-        return await asyncio.gather(
-            *[compress_one(img_bytes, mime) for img_bytes, mime in all_images_to_compress]
-        )
+        return await asyncio.gather(*[compress_one(img_bytes, mime) for img_bytes, mime in all_images_to_compress])
 
     # Detect items
     logger.info("Starting LLM vision detection and image compression...")
@@ -176,9 +172,7 @@ async def detect_items(
     # Run detection and compression in parallel
     detection_task = detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=api_key,
         mime_type=content_type,
-        model=settings.effective_llm_model,
         labels=ctx.labels,
         single_item=single_item,
         extra_instructions=extra_instructions,
@@ -193,179 +187,58 @@ async def detect_items(
 
     logger.info(f"Detected {len(detected)} items, compressed {len(compressed_images)} images")
 
-    # Filter out default label from AI suggestions (frontend will auto-add it)
+    # Build response items first
+    response_items = [
+        DetectedItemResponse(
+            name=item.name,
+            quantity=item.quantity,
+            description=item.description,
+            label_ids=filter_default_label(item.label_ids, ctx.default_label_id),
+            manufacturer=item.manufacturer,
+            model_number=item.model_number,
+            serial_number=item.serial_number,
+            purchase_price=item.purchase_price,
+            purchase_from=item.purchase_from,
+            notes=item.notes,
+        )
+        for item in detected
+    ]
+
+    # ==========================================================================
+    # DUPLICATE DETECTION: Check items with serial numbers for existing matches
+    # ==========================================================================
+    items_with_serials = [item for item in response_items if item.serial_number]
+    if items_with_serials:
+        logger.info(f"Checking {len(items_with_serials)} item(s) with serial numbers for duplicates")
+        client = get_client()
+        checker = DuplicateChecker(client)
+
+        async def check_one(item: DetectedItemResponse) -> None:
+            """Check a single item for duplicates and attach match if found."""
+            try:
+                assert item.serial_number is not None
+                match = await checker.check_serial_number(ctx.token, item.serial_number)
+                if match:
+                    item.duplicate_match = DuplicateMatchResponse(
+                        item_id=match.item_id,
+                        item_name=match.item_name,
+                        serial_number=match.serial_number,
+                        location_name=match.location_name,
+                    )
+                    logger.info(
+                        f"Duplicate found for '{item.name}': matches '{match.item_name}' "
+                        f"(serial: {match.serial_number})"
+                    )
+            except Exception as e:
+                logger.warning(f"Duplicate check failed for serial '{item.serial_number}': {e}")
+
+        await asyncio.gather(*[check_one(item) for item in items_with_serials])
+
     return DetectionResponse(
-        items=[
-            DetectedItemResponse(
-                name=item.name,
-                quantity=item.quantity,
-                description=item.description,
-                label_ids=filter_default_label(item.label_ids, ctx.default_label_id),
-                manufacturer=item.manufacturer,
-                model_number=item.model_number,
-                serial_number=item.serial_number,
-                purchase_price=item.purchase_price,
-                purchase_from=item.purchase_from,
-                notes=item.notes,
-            )
-            for item in detected
-        ],
+        items=response_items,
         compressed_images=compressed_images,
     )
 
-
-@router.post("/detect-batch", response_model=BatchDetectionResponse)
-async def detect_items_batch(
-    images: Annotated[list[UploadFile], File(description="Multiple images to analyze in parallel")],
-    ctx: Annotated[VisionContext, Depends(get_vision_context)],
-    api_key: Annotated[str, Depends(require_llm_configured)],
-    configs: Annotated[str | None, Form()] = None,
-    extract_extended_fields: Annotated[bool, Form()] = True,
-) -> BatchDetectionResponse:
-    """Analyze multiple images in parallel using LLM vision.
-
-    This endpoint processes all images concurrently, significantly reducing
-    total processing time compared to sequential calls to /detect.
-
-    Args:
-        images: List of image files to analyze (each treated as separate item(s)).
-        ctx: Vision context with auth token, labels, and preferences.
-        api_key: LLM API key (validated by dependency).
-        configs: Optional JSON string with per-image configs.
-            Format: [{"single_item": bool, "extra_instructions": str}, ...]
-        extract_extended_fields: If True, also extract extended fields for all images.
-    """
-    logger.info(f"Batch detection for {len(images)} images")
-
-    if not images:
-        raise HTTPException(status_code=400, detail="At least one image is required")
-
-    # Parse per-image configs if provided
-    image_configs: list[dict] = []
-    if configs:
-        try:
-            image_configs = json.loads(configs)
-        except json.JSONDecodeError:
-            logger.warning("Invalid configs JSON, using defaults")
-            image_configs = []
-
-    logger.debug(f"Loaded {len(ctx.labels)} labels for context (shared across all images)")
-
-    # Read and validate all images
-    validated_images = await validate_files_size(images)
-    image_data = [(i, img_bytes, mime) for i, (img_bytes, mime) in enumerate(validated_images)]
-
-    # Create detection task for each image
-    async def detect_single(
-        index: int,
-        image_bytes: bytes,
-        mime_type: str,
-    ) -> BatchDetectionResult:
-        """Process a single image and return result."""
-        if not image_bytes:
-            return BatchDetectionResult(
-                image_index=index,
-                success=False,
-                error="Empty image file",
-            )
-
-        # Get config for this image
-        config = image_configs[index] if index < len(image_configs) else {}
-        single_item = config.get("single_item", False)
-        extra_instructions = config.get("extra_instructions")
-
-        try:
-            detected = await detect_items_from_bytes(
-                image_bytes=image_bytes,
-                api_key=api_key,
-                mime_type=mime_type,
-                model=settings.effective_llm_model,
-                labels=ctx.labels,
-                single_item=single_item,
-                extra_instructions=extra_instructions,
-                extract_extended_fields=extract_extended_fields,
-                field_preferences=ctx.field_preferences,
-                output_language=ctx.output_language,
-            )
-
-            # Filter out default label from AI suggestions (frontend will auto-add it)
-            return BatchDetectionResult(
-                image_index=index,
-                success=True,
-                items=[
-                    DetectedItemResponse(
-                        name=item.name,
-                        quantity=item.quantity,
-                        description=item.description,
-                        label_ids=filter_default_label(item.label_ids, ctx.default_label_id),
-                        manufacturer=item.manufacturer,
-                        model_number=item.model_number,
-                        serial_number=item.serial_number,
-                        purchase_price=item.purchase_price,
-                        purchase_from=item.purchase_from,
-                        notes=item.notes,
-                    )
-                    for item in detected
-                ],
-            )
-        except CapabilityNotSupportedError as e:
-            # Configuration/capability errors - provide clear message
-            logger.error(f"Configuration error for image {index}: {e}")
-            return BatchDetectionResult(
-                image_index=index,
-                success=False,
-                error=str(e),
-            )
-        except (JSONRepairError, LLMServiceError) as e:
-            # LLM service errors
-            logger.error(f"LLM error for image {index}: {e}")
-            error_msg = str(e)
-            if len(error_msg) > 200:
-                error_msg = error_msg[:200] + "..."
-            return BatchDetectionResult(
-                image_index=index,
-                success=False,
-                error=f"LLM error: {error_msg}",
-            )
-        except Exception as e:
-            error_msg = str(e) if str(e) else "Detection failed"
-            # Truncate long error messages for the response
-            if len(error_msg) > 200:
-                error_msg = error_msg[:200] + "..."
-            logger.exception(f"Detection failed for image {index}: {error_msg}")
-            return BatchDetectionResult(
-                image_index=index,
-                success=False,
-                error=f"Detection failed: {error_msg}",
-            )
-
-    # Process all images in parallel
-    logger.info(f"Starting parallel detection for {len(images)} images...")
-    detection_tasks = [
-        detect_single(index, img_bytes, mime_type) for index, img_bytes, mime_type in image_data
-    ]
-    results = await asyncio.gather(*detection_tasks)
-
-    # Sort by image index to maintain order
-    results = sorted(results, key=lambda r: r.image_index)
-
-    # Calculate summary stats
-    successful = sum(1 for r in results if r.success)
-    failed = len(results) - successful
-    total_items = sum(len(r.items) for r in results)
-
-    logger.info(
-        f"Batch detection complete: {successful}/{len(results)} images successful, "
-        f"{total_items} total items detected"
-    )
-
-    return BatchDetectionResponse(
-        results=results,
-        total_items=total_items,
-        successful_images=successful,
-        failed_images=failed,
-        message=f"Processed {len(results)} images in parallel",
-    )
 
 
 @router.post("/analyze", response_model=AdvancedItemDetails)
@@ -388,8 +261,7 @@ async def analyze_item_advanced(
     # Validate and convert images to data URIs
     validated_images = await validate_files_size(images)
     image_data_uris = [
-        encode_image_bytes_to_data_uri(img_bytes, mime_type)
-        for img_bytes, mime_type in validated_images
+        encode_image_bytes_to_data_uri(img_bytes, mime_type) for img_bytes, mime_type in validated_images
     ]
 
     # Analyze images
@@ -398,8 +270,6 @@ async def analyze_item_advanced(
         image_data_uris=image_data_uris,
         item_name=item_name,
         item_description=item_description,
-        api_key=api_key,
-        model=settings.effective_llm_model,
         labels=ctx.labels,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,
@@ -446,8 +316,7 @@ async def correct_item(
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Correction instructions too long. "
-                f"Maximum {MAX_CORRECTION_INSTRUCTIONS_LENGTH} characters allowed."
+                f"Correction instructions too long. Maximum {MAX_CORRECTION_INSTRUCTIONS_LENGTH} characters allowed."
             ),
         )
 
@@ -478,8 +347,6 @@ async def correct_item(
         image_data_uri=image_data_uri,
         current_item=current_item_dict,
         correction_instructions=correction_instructions,
-        api_key=api_key,
-        model=settings.effective_llm_model,
         labels=ctx.labels,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,

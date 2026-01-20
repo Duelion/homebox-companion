@@ -256,9 +256,7 @@ class TestBuildLanguageInstruction:
             ("ENGLISH", True),  # Uppercase English
         ],
     )
-    def test_english_variants_return_empty_string(
-        self, language: str | None, expected_empty: bool
-    ) -> None:
+    def test_english_variants_return_empty_string(self, language: str | None, expected_empty: bool) -> None:
         """English language variants should return empty string."""
         result = build_language_instruction(language)
 

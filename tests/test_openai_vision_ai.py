@@ -22,10 +22,24 @@ from homebox_companion import detect_items_from_bytes
 pytestmark = pytest.mark.live
 
 
+@pytest.fixture(autouse=True)
+def configure_llm(openai_api_key: str, openai_model: str, monkeypatch):
+    """Configure LLM via environment variables for tests."""
+    from homebox_companion.core import config
+    from homebox_companion.core.llm_router import invalidate_router
+
+    monkeypatch.setenv("HBC_LLM_API_KEY", openai_api_key)
+    monkeypatch.setenv("HBC_LLM_MODEL", openai_model)
+    config.settings = config.Settings()
+    invalidate_router()
+
+    yield
+
+    invalidate_router()
+
+
 @pytest.mark.asyncio
 async def test_single_item_detection_returns_one_item(
-    openai_api_key: str,
-    openai_model: str,
     single_item_single_image_path: Path,
 ) -> None:
     """Single item detection should return exactly 1 item with name and quantity."""
@@ -33,8 +47,6 @@ async def test_single_item_detection_returns_one_item(
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=openai_api_key,
-        model=openai_model,
         single_item=True,
     )
 
@@ -45,8 +57,6 @@ async def test_single_item_detection_returns_one_item(
 
 @pytest.mark.asyncio
 async def test_multi_item_detection_returns_multiple_items(
-    openai_api_key: str,
-    openai_model: str,
     multi_item_single_image_path: Path,
 ) -> None:
     """Multi-item detection should return multiple items with distinct names."""
@@ -54,8 +64,6 @@ async def test_multi_item_detection_returns_multiple_items(
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=openai_api_key,
-        model=openai_model,
         single_item=False,
     )
 
@@ -73,8 +81,6 @@ async def test_multi_item_detection_returns_multiple_items(
 
 @pytest.mark.asyncio
 async def test_detection_with_labels_assigns_valid_ids(
-    openai_api_key: str,
-    openai_model: str,
     single_item_single_image_path: Path,
 ) -> None:
     """Detection with labels should only assign label IDs from provided list."""
@@ -88,8 +94,6 @@ async def test_detection_with_labels_assigns_valid_ids(
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=openai_api_key,
-        model=openai_model,
         labels=labels,
     )
 

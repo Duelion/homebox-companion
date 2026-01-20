@@ -53,6 +53,10 @@ export class SubmissionService {
 	/** Error messages from the last submission attempt */
 	lastErrors = $state<string[]>([]);
 
+	/** Tracks created item IDs (by submission index) for parent picker */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Private non-reactive map, cleared each submission
+	private createdItemIds = new Map<number, string>();
+
 	/** Abort controller for cancellable operations */
 	private abortController: AbortController | null = null;
 
@@ -200,14 +204,14 @@ export class SubmissionService {
 		return { primaryFailed, additionalFailed };
 	}
 
-	/** Submit a single item. Updates itemStatuses. Returns status and any error message. */
+	/** Submit a single item. Updates itemStatuses. Returns status, optional error, and created ID. */
 	private async submitItem(
 		index: number,
 		confirmedItem: ConfirmedItem,
 		locationId: string | null,
 		parentId: string | null,
 		signal?: AbortSignal
-	): Promise<{ status: ItemSubmissionStatus; error?: string }> {
+	): Promise<{ status: ItemSubmissionStatus; error?: string; createdId?: string }> {
 		this.itemStatuses = { ...this.itemStatuses, [index]: 'creating' };
 
 		try {
@@ -284,13 +288,14 @@ export class SubmissionService {
 						return {
 							status: 'partial_success',
 							error: `Item created but some additional images failed to upload`,
+							createdId: createdItem.id,
 						};
 					}
 
 					// All uploads succeeded
 					const status: ItemSubmissionStatus = 'success';
 					this.itemStatuses = { ...this.itemStatuses, [index]: status };
-					return { status };
+					return { status, createdId: createdItem.id };
 				}
 				// Item created but no ID returned - log warning and treat as partial success
 				log.warn(`Item ${confirmedItem.name} created but response missing 'id' field`);
@@ -361,6 +366,9 @@ export class SubmissionService {
 
 		this.abortController = new AbortController();
 
+		// Clear created item IDs from previous submissions
+		this.createdItemIds.clear();
+
 		// Initialize all items as pending
 		const initialStatuses: Record<number, ItemSubmissionStatus> = {};
 		items.forEach((_, index) => {
@@ -386,8 +394,14 @@ export class SubmissionService {
 
 				if (itemResult.status === 'success') {
 					result.successCount++;
+					if (itemResult.createdId) {
+						this.createdItemIds.set(i, itemResult.createdId);
+					}
 				} else if (itemResult.status === 'partial_success') {
 					result.partialSuccessCount++;
+					if (itemResult.createdId) {
+						this.createdItemIds.set(i, itemResult.createdId);
+					}
 					// Collect warning for partial success (e.g., missing attachments)
 					if (itemResult.error) {
 						result.errors.push(`${items[i].name}: ${itemResult.error}`);
@@ -580,6 +594,18 @@ export class SubmissionService {
 			item.label_ids?.forEach((id) => allLabelIds.add(id));
 		});
 
+		// Build createdItems array from tracked IDs (include thumbnail for parent picker)
+		const createdItems: Array<{ id: string; name: string; thumbnail?: string }> = [];
+		for (const index of successfulIndices) {
+			const createdId = this.createdItemIds.get(index);
+			if (createdId && items[index]) {
+				const item = items[index];
+				// Use custom thumbnail if available, otherwise compressed image
+				const thumbnail = item.customThumbnail || item.compressedDataUrl;
+				createdItems.push({ id: createdId, name: item.name, thumbnail });
+			}
+		}
+
 		this.lastResult = {
 			itemCount: successfulItems.length,
 			photoCount,
@@ -587,6 +613,7 @@ export class SubmissionService {
 			itemNames,
 			locationName: locationName || 'Unknown',
 			locationId: locationId || '',
+			createdItems,
 		};
 	}
 
@@ -605,6 +632,7 @@ export class SubmissionService {
 		this.itemStatuses = {};
 		this.lastResult = null;
 		this.lastErrors = [];
+		this.createdItemIds.clear();
 	}
 
 	// =========================================================================

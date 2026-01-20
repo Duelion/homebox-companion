@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { X } from 'lucide-svelte';
 
 	interface Props {
 		open: boolean;
@@ -46,18 +47,11 @@
 					<h3 class="text-lg font-semibold text-neutral-200">{title}</h3>
 					<button
 						type="button"
-						class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
+						class="min-h-touch min-w-touch rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
 						onclick={handleClose}
 						aria-label="Close"
 					>
-						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
+						<X size={20} />
 					</button>
 				</div>
 			{/if}

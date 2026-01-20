@@ -77,9 +77,7 @@ class StreamEmitter:
         """
         return ChatEvent(type=ChatEventType.TEXT, data={"content": content})
 
-    def tool_start(
-        self, tool_name: str, params: dict[str, Any], execution_id: str
-    ) -> ChatEvent:
+    def tool_start(self, tool_name: str, params: dict[str, Any], execution_id: str) -> ChatEvent:
         """Create a tool execution started event.
 
         Args:
@@ -132,9 +130,7 @@ class StreamEmitter:
                 "tool": approval.tool_name,
                 "params": approval.parameters,
                 "display_info": approval.display_info.model_dump(exclude_none=True),
-                "expires_at": (
-                    approval.expires_at.isoformat() if approval.expires_at else None
-                ),
+                "expires_at": (approval.expires_at.isoformat() if approval.expires_at else None),
             },
         )
 
@@ -216,7 +212,7 @@ class StreamEmitter:
                 if isinstance(data, dict):
                     # Common patterns for our tools
                     if "name" in data:
-                        summary = data['name']
+                        summary = data["name"]
                     elif "id" in data:
                         id_str = str(data.get("id", ""))
                         if len(id_str) > 8:

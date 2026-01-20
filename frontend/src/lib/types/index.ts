@@ -116,6 +116,8 @@ export interface ReviewItem extends ItemCore, ItemExtended {
 	compressedDataUrl?: string;
 	/** Compressed additional images for Homebox upload */
 	compressedAdditionalDataUrls?: string[];
+	/** Duplicate match info if serial matches an existing item */
+	duplicate_match?: DuplicateMatch | null;
 }
 
 /** Item confirmed by user, ready for submission */
@@ -161,6 +163,8 @@ export interface SubmissionResult {
 	itemNames: string[];
 	locationName: string;
 	locationId: string;
+	/** Created items with ID, name, and thumbnail (for parent picker on success screen) */
+	createdItems: Array<{ id: string; name: string; thumbnail?: string }>;
 }
 
 /** Complete scan workflow state */
@@ -248,23 +252,17 @@ export interface DetectionResponse {
 }
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
-export interface DetectedItem extends ItemCore, ItemExtended {}
-
-/** Single image result in batch detection */
-export interface BatchDetectionResult {
-	image_index: number;
-	success: boolean;
-	items: DetectedItem[];
-	error?: string | null;
+export interface DetectedItem extends ItemCore, ItemExtended {
+	/** Duplicate match info if serial matches an existing item */
+	duplicate_match?: DuplicateMatch | null;
 }
 
-/** Response from batch detection */
-export interface BatchDetectionResponse {
-	results: BatchDetectionResult[];
-	total_items: number;
-	successful_images: number;
-	failed_images: number;
-	message: string;
+/** Details of an existing item that matches a detected item's serial number */
+export interface DuplicateMatch {
+	item_id: string;
+	item_name: string;
+	serial_number: string;
+	location_name: string | null;
 }
 
 /** Response from advanced analysis */
@@ -328,26 +326,3 @@ export interface BatchCreateResponse {
 	/** Summary message (e.g., "Created 2 items, 1 failed") */
 	message: string;
 }
-
-// =============================================================================
-// BACKWARDS COMPATIBILITY
-// Re-export with old names for gradual migration
-// =============================================================================
-
-/** @deprecated Use Location instead */
-export type LocationData = Location;
-
-/** @deprecated Use Label instead */
-export type LabelData = Label;
-
-/** @deprecated Use ItemCore instead */
-export type ItemBaseFields = ItemCore;
-
-/** @deprecated Use ItemExtended instead */
-export type ItemExtendedFields = ItemExtended;
-
-/** @deprecated Use LocationCreateRequest instead */
-export type LocationCreateData = LocationCreateRequest;
-
-/** @deprecated Use LocationUpdateRequest instead */
-export type LocationUpdateData = LocationUpdateRequest;

@@ -22,6 +22,21 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+	import RecoveryBanner from '$lib/components/RecoveryBanner.svelte';
+	import type { SessionSummary } from '$lib/services/sessionPersistence';
+	import {
+		MapPin,
+		SquarePen,
+		ArrowRight,
+		Package,
+		Search,
+		X,
+		QrCode,
+		Home,
+		ChevronRight,
+		FolderOpen,
+		Plus,
+	} from 'lucide-svelte';
 
 	const log = createLogger({ prefix: 'LocationPage' });
 
@@ -38,6 +53,11 @@
 
 	// QR Scanner state
 	let showQrScanner = $state(false);
+
+	// Session recovery state
+	let hasRecovery = $state(false);
+	let recoverySummary = $state<SessionSummary | null>(null);
+	let isRecovering = $state(false);
 	let isProcessingQr = $state(false);
 
 	// Derived: filtered locations based on search (uses store's flatList)
@@ -75,6 +95,16 @@
 		await getInitPromise();
 
 		if (!routeGuards.location()) return;
+
+		// Check for recoverable session
+		try {
+			hasRecovery = await scanWorkflow.hasRecoverableSession();
+			if (hasRecovery) {
+				recoverySummary = await scanWorkflow.getRecoverySummary();
+			}
+		} catch (err) {
+			log.warn('Failed to check for recoverable session:', err);
+		}
 
 		await locationNavigator.loadTree();
 		await fetchLabels();
@@ -281,6 +311,42 @@
 			scanWorkflow.clearParentItem();
 		}
 	}
+
+	// Session recovery handlers
+	async function handleResumeSession() {
+		isRecovering = true;
+		try {
+			const success = await scanWorkflow.recover();
+			if (success) {
+				hasRecovery = false;
+				recoverySummary = null;
+				showToast('Session recovered!', 'success');
+				// Navigate based on recovered status
+				const status = scanWorkflow.state.status;
+				if (status === 'reviewing' || status === 'confirming') {
+					goto(resolve('/review'));
+				} else if (status === 'capturing' || status === 'partial_analysis') {
+					goto(resolve('/capture'));
+				}
+			} else {
+				showToast('Failed to recover session', 'error');
+				hasRecovery = false;
+			}
+		} catch (err) {
+			log.error('Recovery failed:', err);
+			showToast('Failed to recover session', 'error');
+			hasRecovery = false;
+		} finally {
+			isRecovering = false;
+		}
+	}
+
+	async function handleDismissRecovery() {
+		await scanWorkflow.clearPersistedSession();
+		hasRecovery = false;
+		recoverySummary = null;
+		showToast('Previous session cleared', 'info');
+	}
 </script>
 
 <svelte:head>
@@ -296,6 +362,15 @@
 
 		<h2 class="mb-1 text-h2 text-neutral-100">Select Location</h2>
 		<p class="mb-6 text-body-sm text-neutral-400">Choose where your items will be stored</p>
+
+		{#if hasRecovery && recoverySummary && !locationStore.selected}
+			<RecoveryBanner
+				summary={recoverySummary}
+				onResume={handleResumeSession}
+				onDismiss={handleDismissRecovery}
+				loading={isRecovering}
+			/>
+		{/if}
 
 		{#if locationStore.selected}
 			<BackLink href="/location" label="Choose a different location" onclick={changeSelection} />
@@ -337,16 +412,7 @@
 				>
 					<div class="flex items-center gap-3">
 						<div class="rounded-lg bg-primary-500/20 p-3">
-							<svg
-								class="h-6 w-6 text-primary-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-								<circle cx="12" cy="10" r="3" />
-							</svg>
+							<MapPin class="text-primary-400" size={24} strokeWidth={1.5} />
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="text-body-sm text-neutral-400">Selected location:</p>
@@ -370,19 +436,16 @@
 							onclick={openEditModal}
 							title="Edit location"
 						>
-							<svg
-								class="h-5 w-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-							</svg>
+							<SquarePen size={20} strokeWidth={1.5} />
 						</button>
 					</div>
 				</div>
+
+				<!-- Continue to Capture -->
+				<Button variant="primary" full onclick={continueToCapture}>
+					<span>Continue to Capture</span>
+					<ArrowRight size={20} strokeWidth={1.5} />
+				</Button>
 
 				<!-- Assign to Container Item -->
 				<Button
@@ -391,15 +454,7 @@
 					onclick={openItemPicker}
 					disabled={(locationStore.selected?.itemCount ?? 0) === 0}
 				>
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-					</svg>
+					<Package size={20} strokeWidth={1.5} />
 					<span>
 						{#if scanWorkflow.state.parentItemName}
 							Inside: {scanWorkflow.state.parentItemName}
@@ -407,20 +462,6 @@
 							Place Inside an Item ({locationStore.selected?.itemCount ?? 0})
 						{/if}
 					</span>
-				</Button>
-
-				<Button variant="primary" full onclick={continueToCapture}>
-					<span>Continue to Capture</span>
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-					>
-						<line x1="5" y1="12" x2="19" y2="12" />
-						<polyline points="12 5 19 12 12 19" />
-					</svg>
 				</Button>
 			</div>
 		{:else}
@@ -430,16 +471,7 @@
 			<div class="mb-4 flex gap-2">
 				<div class="relative flex-1">
 					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-						<svg
-							class="h-5 w-5 text-neutral-500"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<circle cx="11" cy="11" r="8" />
-							<path d="m21 21-4.35-4.35" />
-						</svg>
+						<Search class="text-neutral-500" size={20} strokeWidth={1.5} />
 					</div>
 					<input
 						type="text"
@@ -454,16 +486,7 @@
 							aria-label="Clear search"
 							onclick={() => (searchQuery = '')}
 						>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
+							<X size={16} strokeWidth={1.5} />
 						</button>
 					{/if}
 				</div>
@@ -481,22 +504,7 @@
 							class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
 						></div>
 					{:else}
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<!-- QR Code icon -->
-							<rect x="3" y="3" width="7" height="7" rx="1" />
-							<rect x="14" y="3" width="7" height="7" rx="1" />
-							<rect x="3" y="14" width="7" height="7" rx="1" />
-							<rect x="14" y="14" width="3" height="3" />
-							<rect x="18" y="14" width="3" height="3" />
-							<rect x="14" y="18" width="3" height="3" />
-							<rect x="18" y="18" width="3" height="3" />
-						</svg>
+						<QrCode size={20} strokeWidth={1.5} />
 					{/if}
 				</button>
 			</div>
@@ -506,16 +514,7 @@
 				<div class="space-y-2">
 					{#if filteredLocations.length === 0}
 						<div class="py-8 text-center text-neutral-500">
-							<svg
-								class="mx-auto mb-2 h-10 w-10 opacity-50"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<circle cx="11" cy="11" r="8" />
-								<path d="m21 21-4.35-4.35" />
-							</svg>
+							<Search class="mx-auto mb-2 opacity-50" size={40} strokeWidth={1.5} />
 							<p>No locations found for "{searchQuery}"</p>
 						</div>
 					{:else}
@@ -531,16 +530,11 @@
 								<div
 									class="rounded-lg bg-neutral-800 p-2.5 transition-colors group-hover:bg-primary-500/20"
 								>
-									<svg
-										class="h-5 w-5 text-neutral-400 group-hover:text-primary-400"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-									>
-										<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-										<circle cx="12" cy="10" r="3" />
-									</svg>
+									<MapPin
+										class="text-neutral-400 group-hover:text-primary-400"
+										size={20}
+										strokeWidth={1.5}
+									/>
 								</div>
 								<div class="min-w-0 flex-1">
 									<p class="font-medium text-neutral-100">
@@ -567,30 +561,13 @@
 							class="flex items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
 							onclick={() => locationNavigator.navigateToPath(-1)}
 						>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-								<polyline points="9 22 9 12 15 12 15 22" />
-							</svg>
+							<Home size={16} strokeWidth={1.5} />
 							<span>All</span>
 						</button>
 
 						{#each locationStore.path as pathItem (pathItem.id)}
 							{@const index = locationStore.path.indexOf(pathItem)}
-							<svg
-								class="h-4 w-4 shrink-0 text-neutral-600"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<polyline points="9 18 15 12 9 6" />
-							</svg>
+							<ChevronRight class="shrink-0 text-neutral-600" size={16} strokeWidth={1.5} />
 							<button
 								type="button"
 								class="whitespace-nowrap rounded-lg px-2 py-1 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
@@ -611,16 +588,11 @@
 						<div
 							class="rounded-lg bg-neutral-800 p-2.5 transition-colors group-hover:bg-primary-500/20"
 						>
-							<svg
-								class="h-5 w-5 text-neutral-400 group-hover:text-primary-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-								<circle cx="12" cy="10" r="3" />
-							</svg>
+							<MapPin
+								class="text-neutral-400 group-hover:text-primary-400"
+								size={20}
+								strokeWidth={1.5}
+							/>
 						</div>
 						<div class="min-w-0 flex-1">
 							<p
@@ -634,16 +606,7 @@
 							class="flex items-center gap-1 text-neutral-500 transition-colors group-hover:text-primary-400"
 						>
 							<span class="text-body-sm font-medium">Select</span>
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<line x1="5" y1="12" x2="19" y2="12" />
-								<polyline points="12 5 19 12 12 19" />
-							</svg>
+							<ArrowRight size={16} strokeWidth={1.5} />
 						</div>
 					</button>
 				{/if}
@@ -652,17 +615,7 @@
 				{#if locationStore.currentLevel.length > 0 && locationStore.path.length > 0}
 					<div class="mb-2 mt-2 flex items-center gap-2">
 						<div class="flex items-center gap-1.5 text-neutral-500">
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-							>
-								<path
-									d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"
-								/>
-							</svg>
+							<FolderOpen size={16} strokeWidth={1.5} />
 							<span class="text-body-sm font-medium"
 								>Inside {locationStore.path[locationStore.path.length - 1].name}</span
 							>
@@ -685,17 +638,11 @@
 							<div
 								class="rounded-lg bg-neutral-800 p-2.5 transition-colors group-hover:bg-primary-500/20"
 							>
-								<svg
-									class="h-5 w-5 text-neutral-400 group-hover:text-primary-400"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-								>
-									<path
-										d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"
-									/>
-								</svg>
+								<FolderOpen
+									class="text-neutral-400 group-hover:text-primary-400"
+									size={20}
+									strokeWidth={1.5}
+								/>
 							</div>
 							<div class="min-w-0 flex-1">
 								<p class="truncate font-medium text-neutral-100">
@@ -710,15 +657,7 @@
 							{#if location.children && location.children.length > 0}
 								<div class="flex items-center gap-1 text-body-sm text-neutral-500">
 									<span>{location.children.length}</span>
-									<svg
-										class="h-4 w-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-									>
-										<polyline points="9 18 15 12 9 6" />
-									</svg>
+									<ChevronRight size={16} strokeWidth={1.5} />
 								</div>
 							{:else if location.itemCount !== undefined}
 								<span class="text-body-sm text-neutral-500">{location.itemCount} items</span>
@@ -732,16 +671,7 @@
 						full
 						onclick={() => openCreateModal(locationNavigator.getCurrentParent())}
 					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<line x1="12" y1="5" x2="12" y2="19" />
-							<line x1="5" y1="12" x2="19" y2="12" />
-						</svg>
+						<Plus size={20} strokeWidth={1.5} />
 						<span>
 							{#if locationStore.path.length > 0}
 								Create Location in {locationStore.path[locationStore.path.length - 1].name}

@@ -121,7 +121,6 @@ class ChatSession:
         self.session_id: str = uuid.uuid4().hex[:12]
         self.messages: list[ChatMessage] = []
         self.pending_approvals: dict[str, PendingApproval] = {}
-        self._created_at = datetime.now(UTC)
         # Index for O(1) lookup of tool messages by tool_call_id
         self._tool_message_index: dict[str, ChatMessage] = {}
         # Track recent auto-rejections for context injection
@@ -144,30 +143,17 @@ class ChatSession:
         # TRACE: Log actual message content
         if message.role == "tool":
             # Tool results can be large, truncate for readability
-            content_preview = (
-                message.content[:500] + "..."
-                if len(message.content) > 500
-                else message.content
-            )
-            logger.trace(
-                f"[SESSION] Tool result (call_id={message.tool_call_id}): {content_preview}"
-            )
+            content_preview = message.content[:500] + "..." if len(message.content) > 500 else message.content
+            logger.trace(f"[SESSION] Tool result (call_id={message.tool_call_id}): {content_preview}")
         elif message.role == "assistant" and message.tool_calls:
             # Assistant message with tool calls
             tool_names = [tc.name for tc in message.tool_calls]
-            logger.trace(
-                f"[SESSION] Assistant message with {len(message.tool_calls)} "
-                f"tool calls: {tool_names}"
-            )
+            logger.trace(f"[SESSION] Assistant message with {len(message.tool_calls)} tool calls: {tool_names}")
             if message.content:
                 logger.trace(f"[SESSION] Assistant message content: {message.content[:300]}...")
         else:
             # Regular user or assistant message
-            content_preview = (
-                message.content[:300] + "..."
-                if len(message.content) > 300
-                else message.content
-            )
+            content_preview = message.content[:300] + "..." if len(message.content) > 300 else message.content
             logger.trace(f"[SESSION] {message.role} message: {content_preview}")
 
     def get_history(self, max_messages: int | None = None) -> list[dict[str, Any]]:
@@ -246,9 +232,7 @@ class ChatSession:
             if data.get("success"):
                 result_data = data.get("data")
                 if isinstance(result_data, list):
-                    return json.dumps(
-                        {"success": True, "_summary": f"{len(result_data)} items returned"}
-                    )
+                    return json.dumps({"success": True, "_summary": f"{len(result_data)} items returned"})
                 elif isinstance(result_data, dict):
                     # For single items, just note it was retrieved
                     name = result_data.get("name", "item")
@@ -351,10 +335,7 @@ class ChatSession:
         Returns:
             Number of approvals rejected
         """
-        expired = [
-            approval for approval in self.pending_approvals.values()
-            if approval.is_expired
-        ]
+        expired = [approval for approval in self.pending_approvals.values() if approval.is_expired]
         if expired:
             return self._auto_reject_approvals(expired, "approval expired")
         return 0
@@ -422,21 +403,21 @@ class ChatSession:
         # Update the tool message in history to show rejection
         tool_call_id = self.get_tool_call_id_for_approval(approval_id)
         if tool_call_id:
-            rejection_message = json.dumps({
-                "success": False,
-                "rejected": True,
-                "reason": reason,
-                "message": f"Action '{approval.tool_name}' was rejected: {reason}"
-            })
+            rejection_message = json.dumps(
+                {
+                    "success": False,
+                    "rejected": True,
+                    "reason": reason,
+                    "message": f"Action '{approval.tool_name}' was rejected: {reason}",
+                }
+            )
             self.update_tool_message(tool_call_id, rejection_message)
 
         del self.pending_approvals[approval_id]
         logger.info(f"Rejected approval {approval_id} for tool {approval.tool_name}: {reason}")
         return True
 
-    def _auto_reject_approvals(
-        self, approvals: list[PendingApproval], reason: str
-    ) -> int:
+    def _auto_reject_approvals(self, approvals: list[PendingApproval], reason: str) -> int:
         """Internal method to reject a list of approvals and update history.
 
         Args:

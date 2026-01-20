@@ -85,9 +85,7 @@ def setup_logging() -> None:
         rotation="50 MB",  # Rotate if file exceeds 50MB OR at midnight
         retention="7 days",
         format=(
-            "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | "
-            "{extra[request_id]:>12} | "
-            "{name}:{function}:{line} - {message}"
+            "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[request_id]:>12} | {name}:{function}:{line} - {message}"
         ),
         level=settings.log_level,
         filter=_exclude_llm_debug_filter,

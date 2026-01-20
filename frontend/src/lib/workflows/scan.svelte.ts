@@ -28,6 +28,23 @@ import type {
 	Progress,
 	SubmissionResult,
 } from '$lib/types';
+import {
+	type StoredSession,
+	serializeImage,
+	serializeReviewItem,
+	serializeConfirmedItem,
+	deserializeImage,
+	deserializeReviewItem,
+	deserializeConfirmedItem,
+} from '$lib/services/serialize';
+import * as sessionPersistence from '$lib/services/sessionPersistence';
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Debounce delay for auto-persist in milliseconds */
+const AUTO_PERSIST_DEBOUNCE_MS = 1000;
 
 // =============================================================================
 // SCAN WORKFLOW CLASS
@@ -67,6 +84,125 @@ class ScanWorkflow {
 
 	/** Current error message */
 	private _error = $state<string | null>(null);
+
+	/** Cached createdAt from persisted session (avoids loading full session on each persist) */
+	private _persistedCreatedAt: number | null = null;
+
+	/** Cached session ID (stable across saves) */
+	private _persistedSessionId: string | null = null;
+
+	/** Debounce timer for auto-persist */
+	private _persistTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	/** Flag to skip the initial effect run (avoids persist on construction) */
+	private _isFirstEffectRun = true;
+
+	// =========================================================================
+	// CONSTRUCTOR (auto-persist setup)
+	// =========================================================================
+
+	constructor() {
+		if (typeof window !== 'undefined') {
+			this.setupAutoPersist();
+		}
+	}
+
+	/**
+	 * Setup automatic persistence using Svelte 5 effects.
+	 * State changes are debounced (1s) and persisted to IndexedDB.
+	 */
+	private setupAutoPersist(): void {
+		// Use $effect.root to create effect outside component lifecycle
+		// Note: For a singleton, we don't need to store/call the cleanup function
+		$effect.root(() => {
+			$effect(() => {
+				// == Dependency tracking ==
+				// Must explicitly read all state we want to track
+				const status = this._status;
+				const locationId = this._locationId;
+				const locationName = this._locationName;
+				const locationPath = this._locationPath;
+				const parentItemId = this._parentItemId;
+				const parentItemName = this._parentItemName;
+				const images = this.captureService.images;
+				const detectedItems = this.reviewService.detectedItems;
+				const confirmedItems = this.reviewService.confirmedItems;
+				const currentReviewIndex = this.reviewService.currentReviewIndex;
+				const imageStatuses = this.analysisService.imageStatuses;
+
+				// DEPENDENCY TRACKING:
+				// Svelte 5's $effect tracks reads automatically. The void statements below
+				// ensure we re-run when these values change, even though we don't use
+				// them directly in this effect body. This is necessary because:
+				// 1. Array lengths - Svelte tracks array references, not lengths
+				// 2. Location/parent names - we persist them but don't act on them here
+				// 3. Scalar values need void to satisfy ESLint unused-vars rule
+				void images.length;
+				void detectedItems.length;
+				void confirmedItems.length;
+				void Object.keys(imageStatuses).length;
+				void locationId;
+				void locationName;
+				void locationPath;
+				void parentItemName;
+				void parentItemId;
+				void currentReviewIndex;
+
+				// Skip the very first effect run (avoids persisting on construction)
+				if (this._isFirstEffectRun) {
+					this._isFirstEffectRun = false;
+					return;
+				}
+
+				// Don't persist terminal/transient states
+				if (
+					status === 'idle' ||
+					status === 'complete' ||
+					status === 'analyzing' ||
+					status === 'submitting'
+				) {
+					return;
+				}
+
+				// Schedule debounced persist
+				this.schedulePersist();
+			});
+		});
+
+		// Flush pending persist on tab close.
+		// NOTE: beforeunload has very limited time for async operations.
+		// Modern browsers may not wait for IndexedDB writes to complete.
+		// This is a best-effort attempt - critical persists should use persistAsync().
+		window.addEventListener('beforeunload', () => this.flushPendingPersist());
+	}
+
+	/** Schedule a debounced persist (1 second delay) */
+	private schedulePersist(): void {
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+		}
+		this._persistTimeout = setTimeout(() => {
+			this._persistTimeout = null;
+			this._doPersist();
+		}, AUTO_PERSIST_DEBOUNCE_MS);
+	}
+
+	/**
+	 * Flush any pending persist immediately (best-effort for beforeunload).
+	 *
+	 * IMPORTANT: This triggers an async persist but does NOT await it.
+	 * Browser may not complete IndexedDB writes during beforeunload.
+	 * For guaranteed persistence, call persistAsync() at critical points
+	 * (e.g., after analysis completes, before navigation).
+	 */
+	private flushPendingPersist(): void {
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+			// Fire-and-forget: browser may not wait for this to complete
+			this._doPersist();
+		}
+	}
 
 	// =========================================================================
 	// UNIFIED STATE ACCESSOR (for backward compatibility)
@@ -402,6 +538,12 @@ class ScanWorkflow {
 			this._status = 'capturing';
 			log.error(`Analysis failed: ${this._error}, returning to capture mode`);
 		}
+
+		// Persist after analysis completes (success or partial)
+		// IMPORTANT: Await persist to ensure data is saved before user can close tab
+		if (this._status !== 'capturing') {
+			await this.persistAsync();
+		}
 	}
 
 	/** Retry analysis for failed images only */
@@ -415,7 +557,7 @@ class ScanWorkflow {
 
 		if (!this.analysisService.hasFailedImages()) {
 			log.warn('No failed images to retry');
-			this.continueWithSuccessful();
+			await this.continueWithSuccessful();
 			return;
 		}
 
@@ -461,10 +603,14 @@ class ScanWorkflow {
 			this._status = 'partial_analysis';
 			log.error(`Retry failed: ${this._error}`);
 		}
+
+		// Persist after retry completes
+		// IMPORTANT: Await persist to ensure data is saved before user can close tab
+		await this.persistAsync();
 	}
 
 	/** Continue to review with only successfully analyzed items */
-	continueWithSuccessful(): void {
+	async continueWithSuccessful(): Promise<void> {
 		log.info('ScanWorkflow.continueWithSuccessful() called');
 
 		if (this._status !== 'partial_analysis') {
@@ -483,10 +629,13 @@ class ScanWorkflow {
 		log.info(`Continuing with ${itemCount} successfully detected item(s)`);
 		this._status = 'reviewing';
 		this._error = null;
+
+		// Persist immediately after transitioning to reviewing state
+		await this.persistAsync();
 	}
 
 	/** Remove failed images and continue with successful ones */
-	removeFailedImages(): void {
+	async removeFailedImages(): Promise<void> {
 		log.info('ScanWorkflow.removeFailedImages() called');
 
 		if (this._status !== 'partial_analysis') {
@@ -497,7 +646,7 @@ class ScanWorkflow {
 		const failedIndices = this.analysisService.getFailedIndices();
 		if (failedIndices.length === 0) {
 			log.warn('No failed images to remove');
-			this.continueWithSuccessful();
+			await this.continueWithSuccessful();
 			return;
 		}
 
@@ -537,11 +686,11 @@ class ScanWorkflow {
 		this.analysisService.imageStatuses = newStatuses;
 
 		log.info(`Removed ${failedIndices.length} failed image(s), continuing with successful items`);
-		this.continueWithSuccessful();
+		await this.continueWithSuccessful();
 	}
 
 	/** Cancel ongoing analysis */
-	cancelAnalysis(): void {
+	async cancelAnalysis(): Promise<void> {
 		this.analysisService.cancel();
 		if (this._status === 'analyzing') {
 			// If we had some successful items before cancellation, go to partial_analysis
@@ -552,6 +701,9 @@ class ScanWorkflow {
 				this._status = 'capturing';
 			}
 			this.analysisService.clearProgress();
+
+			// Persist after cancellation to save the current state
+			await this.persistAsync();
 		}
 	}
 
@@ -590,44 +742,50 @@ class ScanWorkflow {
 	}
 
 	/** Skip current item and move to next */
-	skipItem(): void {
+	async skipItem(): Promise<void> {
 		const result = this.reviewService.skipCurrentItem();
 		if (result === 'empty') {
-			this.backToCapture();
+			await this.backToCapture();
 		} else if (result === 'complete') {
-			this.finishReview();
+			await this.finishReview();
 		}
 	}
 
 	/** Confirm current item and move to next */
-	confirmItem(item: ReviewItem): void {
+	async confirmItem(item: ReviewItem): Promise<void> {
 		const hasMore = this.reviewService.confirmCurrentItem(item);
 		if (!hasMore) {
-			this.finishReview();
+			await this.finishReview();
 		}
 	}
 
 	/** Confirm all remaining items from current index onwards */
-	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
+	async confirmAllRemainingItems(currentItemOverride?: ReviewItem): Promise<number> {
 		const count = this.reviewService.confirmAllRemainingItems(currentItemOverride);
-		this.finishReview();
+		await this.finishReview();
 		return count;
 	}
 
 	/** Finish review and move to confirmation */
-	finishReview(): void {
+	async finishReview(): Promise<void> {
 		if (!this.reviewService.hasConfirmedItems) {
 			this._error = 'Please confirm at least one item';
 			return;
 		}
 		this._status = 'confirming';
+
+		// Persist after moving to confirmation state
+		await this.persistAsync();
 	}
 
 	/** Return to capture mode from review */
-	backToCapture(): void {
+	async backToCapture(): Promise<void> {
 		this._status = 'capturing';
 		this.reviewService.reset();
 		this._error = null;
+
+		// Persist the state change
+		await this.persistAsync();
 	}
 
 	// =========================================================================
@@ -635,18 +793,24 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/** Remove a confirmed item */
-	removeConfirmedItem(index: number): void {
+	async removeConfirmedItem(index: number): Promise<void> {
 		this.reviewService.removeConfirmedItem(index);
 		if (!this.reviewService.hasConfirmedItems) {
 			this._status = 'capturing';
 		}
+
+		// Persist after removal
+		await this.persistAsync();
 	}
 
 	/** Edit a confirmed item (move back to review) */
-	editConfirmedItem(index: number): void {
+	async editConfirmedItem(index: number): Promise<void> {
 		const item = this.reviewService.editConfirmedItem(index);
 		if (item) {
 			this._status = 'reviewing';
+
+			// Persist the state change
+			await this.persistAsync();
 		}
 	}
 
@@ -704,9 +868,11 @@ class ScanWorkflow {
 			this._error = `${result.partialSuccessCount} item(s) created with missing attachments`;
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
+			await this.clearPersistedSession();
 		} else if (result.success) {
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
+			await this.clearPersistedSession();
 		}
 
 		return result;
@@ -751,6 +917,7 @@ class ScanWorkflow {
 		if (this.submissionService.allItemsSuccessful()) {
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
+			await this.clearPersistedSession();
 		} else if (result.failCount > 0) {
 			this._error = `Retried: ${result.successCount + result.partialSuccessCount} succeeded, ${result.failCount} still failing`;
 		}
@@ -769,11 +936,211 @@ class ScanWorkflow {
 	}
 
 	// =========================================================================
+	// SESSION PERSISTENCE (Crash Recovery)
+	// =========================================================================
+
+	/**
+	 * Persist current workflow state to IndexedDB and wait for completion.
+	 *
+	 * Use this when the data MUST be saved before continuing
+	 * (e.g., after analysis completes before navigation can occur).
+	 */
+	async persistAsync(): Promise<void> {
+		// Don't persist terminal states
+		if (this._status === 'idle' || this._status === 'complete') {
+			return;
+		}
+
+		await this._doPersist();
+	}
+
+	/**
+	 * Internal persist implementation - serializes and saves to IndexedDB.
+	 */
+	private async _doPersist(): Promise<void> {
+		log.debug('_doPersist: Starting session persistence...');
+
+		try {
+			// Step 1: Serialize images (convert File objects to base64)
+			log.debug(`_doPersist: Serializing ${this.captureService.images.length} image(s)...`);
+			const images = await Promise.all(this.captureService.images.map(serializeImage));
+			log.debug(`_doPersist: Images serialized successfully`);
+
+			// Step 2: Serialize review items (strip File references)
+			// Use JSON.parse/stringify to deep-unwrap any Svelte 5 $state proxies
+			// that might remain after serialization (proxies are not cloneable by IndexedDB)
+			log.debug(
+				`_doPersist: Serializing ${this.reviewService.detectedItems.length} detected, ${this.reviewService.confirmedItems.length} confirmed items...`
+			);
+			const detectedItems = JSON.parse(
+				JSON.stringify(this.reviewService.detectedItems.map(serializeReviewItem))
+			);
+			const confirmedItems = JSON.parse(
+				JSON.stringify(this.reviewService.confirmedItems.map(serializeConfirmedItem))
+			);
+			log.debug('_doPersist: Review items serialized successfully');
+
+			// Step 3: Generate or reuse session metadata
+			const now = Date.now();
+			if (this._persistedCreatedAt === null) {
+				this._persistedCreatedAt = now;
+			}
+			if (this._persistedSessionId === null) {
+				this._persistedSessionId = crypto.randomUUID();
+				log.info(`New session created: ${this._persistedSessionId}`);
+			}
+
+			// Step 4: Deep-unwrap imageStatuses to ensure no proxies remain
+			log.debug(
+				`_doPersist: Unwrapping imageStatuses with ${Object.keys(this.analysisService.imageStatuses).length} entries...`
+			);
+			const imageStatuses = JSON.parse(JSON.stringify(this.analysisService.imageStatuses));
+			log.debug('_doPersist: imageStatuses unwrapped successfully');
+
+			// Step 5: Build session object
+			const session: StoredSession = {
+				id: this._persistedSessionId,
+				createdAt: this._persistedCreatedAt,
+				updatedAt: now,
+				status: this._status,
+				locationId: this._locationId,
+				locationName: this._locationName,
+				locationPath: this._locationPath,
+				parentItemId: this._parentItemId,
+				parentItemName: this._parentItemName,
+				images,
+				detectedItems,
+				confirmedItems,
+				currentReviewIndex: this.reviewService.currentReviewIndex,
+				imageStatuses,
+			};
+			log.debug('_doPersist: Session object built, saving to IndexedDB...');
+
+			// Step 6: Save to IndexedDB
+			await sessionPersistence.save(session);
+			log.debug(
+				`_doPersist: SUCCESS - status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`
+			);
+		} catch (error) {
+			// Non-critical - log but don't disrupt workflow
+			// Extract meaningful error info for logging (avoids minified stack traces)
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorName = error instanceof Error ? error.name : 'Unknown';
+			const errorStack = error instanceof Error ? error.stack : undefined;
+			log.error(`_doPersist: FAILED - [${errorName}] ${errorMessage}`);
+			if (errorStack) {
+				log.debug(`_doPersist: Stack trace: ${errorStack}`);
+			}
+		}
+	}
+
+	/**
+	 * Recover workflow state from IndexedDB.
+	 * Returns true if recovery was successful.
+	 */
+	async recover(): Promise<boolean> {
+		try {
+			const session = await sessionPersistence.load();
+			if (!session) {
+				return false;
+			}
+
+			log.info(`Recovering session: status=${session.status}, images=${session.images.length}`);
+
+			// Restore location state
+			this._locationId = session.locationId;
+			this._locationName = session.locationName;
+			this._locationPath = session.locationPath;
+			this._parentItemId = session.parentItemId;
+			this._parentItemName = session.parentItemName;
+
+			// Deserialize images (convert base64 back to File objects)
+			const images = await Promise.all(session.images.map(deserializeImage));
+			this.captureService.images = images;
+
+			// Deserialize review items
+			if (session.detectedItems.length > 0) {
+				const detectedItems = await Promise.all(session.detectedItems.map(deserializeReviewItem));
+				this.reviewService.setDetectedItems(detectedItems);
+			}
+
+			if (session.confirmedItems.length > 0) {
+				const confirmedItems = await Promise.all(
+					session.confirmedItems.map(deserializeConfirmedItem)
+				);
+				// Restore confirmed items directly (not via confirmCurrentItem which affects navigation)
+				this.reviewService.setConfirmedItems(confirmedItems);
+			}
+
+			// Restore review index
+			if (session.currentReviewIndex > 0) {
+				this.reviewService.setCurrentReviewIndex(session.currentReviewIndex);
+			}
+
+			// Restore image statuses (for partial_analysis recovery)
+			if (session.imageStatuses) {
+				this.analysisService.imageStatuses = session.imageStatuses;
+			}
+
+			// Restore status - handle mid-analysis state
+			if (session.status === 'analyzing') {
+				// If crashed during analysis, go back to capturing
+				this._status = 'capturing';
+			} else {
+				this._status = session.status;
+			}
+
+			this._error = null;
+
+			// Cache timestamps and ID for future persist() calls
+			this._persistedCreatedAt = session.createdAt;
+			this._persistedSessionId = session.id;
+
+			log.info('Session recovered successfully');
+			return true;
+		} catch (error) {
+			// Extract meaningful error info for logging (avoids minified stack traces)
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorName = error instanceof Error ? error.name : 'Unknown';
+			log.error(`Failed to recover session: [${errorName}] ${errorMessage}`);
+			// Clear corrupted session
+			await this.clearPersistedSession();
+			return false;
+		}
+	}
+
+	/**
+	 * Check if a recoverable session exists.
+	 */
+	async hasRecoverableSession(): Promise<boolean> {
+		return sessionPersistence.hasRecoverableSession();
+	}
+
+	/**
+	 * Get summary of recoverable session for UI display.
+	 */
+	async getRecoverySummary(): Promise<sessionPersistence.SessionSummary | null> {
+		return sessionPersistence.getSessionSummary();
+	}
+
+	/**
+	 * Clear the persisted session from IndexedDB.
+	 */
+	async clearPersistedSession(): Promise<void> {
+		await sessionPersistence.clear();
+	}
+
+	// =========================================================================
 	// RESET
 	// =========================================================================
 
 	/** Reset workflow to initial state */
 	reset(): void {
+		// Cancel any pending debounced persist to prevent stale writes after reset
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+		}
 		this.cancelAnalysis();
 		this.captureService.clear();
 		this.reviewService.reset();
@@ -785,6 +1152,10 @@ class ScanWorkflow {
 		this._parentItemId = null;
 		this._parentItemName = null;
 		this._error = null;
+		this._persistedCreatedAt = null; // Reset for next session
+		this._persistedSessionId = null; // Reset for next session
+		// Clear persisted session (fire and forget)
+		this.clearPersistedSession();
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */

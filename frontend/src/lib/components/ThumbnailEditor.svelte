@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { X, Search, RotateCcw, RotateCw, Check } from 'lucide-svelte';
 	import Button from './Button.svelte';
 	import type { ThumbnailTransform } from '$lib/types';
 	import { CANVAS_COLORS } from '$lib/utils/canvas-colors';
@@ -7,7 +8,6 @@
 	interface Props {
 		images: { file: File; dataUrl: string }[];
 		itemName: string;
-		currentThumbnail?: string;
 		initialTransform?: ThumbnailTransform;
 		onSave: (dataUrl: string, sourceImageIndex: number, transform: ThumbnailTransform) => void;
 		onClose: () => void;
@@ -413,7 +413,7 @@
 </script>
 
 <div
-	class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:p-8"
+	class="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:p-8"
 >
 	<div
 		class="my-auto w-full max-w-lg rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl sm:my-8"
@@ -431,16 +431,7 @@
 				onclick={onClose}
 				aria-label="Close"
 			>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<line x1="18" y1="6" x2="6" y2="18" />
-					<line x1="6" y1="6" x2="18" y2="18" />
-				</svg>
+				<X size={20} strokeWidth={1.5} />
 			</button>
 		</div>
 
@@ -510,16 +501,7 @@
 						for="zoomSlider"
 						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
-						<svg
-							class="h-4 w-4 text-primary-400"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-						>
-							<circle cx="11" cy="11" r="8" />
-							<path d="m21 21-4.35-4.35" />
-						</svg>
+						<Search class="text-primary-400" size={16} strokeWidth={1.5} />
 						Zoom
 					</label>
 				</div>
@@ -539,7 +521,7 @@
 					step="0.005"
 					value={zoomSliderValue}
 					oninput={handleZoomSlider}
-					class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-neutral-800"
+					class="slider-primary h-2 w-full cursor-pointer rounded-lg bg-neutral-800"
 				/>
 			</div>
 
@@ -550,19 +532,7 @@
 						for="rotationSlider"
 						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
 					>
-						<svg
-							class="h-4 w-4 text-primary-400"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M3 2V8M3 8H9M3 8L5.64033 5.63067C7.02134 4.25209 8.81301 3.35964 10.7454 3.08779C12.6777 2.81593 14.6461 3.17941 16.3539 4.12343C18.0617 5.06746 19.4165 6.54091 20.214 8.32177C21.0115 10.1026 21.2086 12.0944 20.7756 13.997C20.3426 15.8996 19.303 17.61 17.8133 18.8704C16.3237 20.1308 14.4647 20.873 12.5165 20.9851C10.5684 21.0972 8.63652 20.5732 7.01208 19.492C5.38765 18.4108 4.15862 16.831 3.51018 14.9907"
-							/>
-						</svg>
+						<RotateCcw class="text-primary-400" size={16} strokeWidth={1.5} />
 						Rotation
 					</label>
 				</div>
@@ -584,19 +554,7 @@
 						aria-label="Rotate 90° left"
 						title="-90°"
 					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M3 2V8M3 8H9M3 8L5.64033 5.63067C7.02134 4.25209 8.81301 3.35964 10.7454 3.08779C12.6777 2.81593 14.6461 3.17941 16.3539 4.12343C18.0617 5.06746 19.4165 6.54091 20.214 8.32177C21.0115 10.1026 21.2086 12.0944 20.7756 13.997C20.3426 15.8996 19.303 17.61 17.8133 18.8704C16.3237 20.1308 14.4647 20.873 12.5165 20.9851C10.5684 21.0972 8.63652 20.5732 7.01208 19.492C5.38765 18.4108 4.15862 16.831 3.51018 14.9907"
-							/>
-						</svg>
+						<RotateCcw size={20} strokeWidth={1.5} />
 					</button>
 					<input
 						id="rotationSlider"
@@ -606,7 +564,7 @@
 						step="1"
 						value={rotation}
 						oninput={handleRotationSlider}
-						class="relative z-0 h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-neutral-800"
+						class="slider-primary relative z-0 h-2 flex-1 cursor-pointer rounded-lg bg-neutral-800"
 					/>
 					<button
 						type="button"
@@ -615,19 +573,7 @@
 						aria-label="Rotate 90° right"
 						title="+90°"
 					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M21 2V8M21 8H15M21 8L18.3597 5.63067C16.9787 4.25209 15.187 3.35964 13.2546 3.08779C11.3223 2.81593 9.3539 3.17941 7.6461 4.12343C5.9383 5.06746 4.5835 6.54091 3.786 8.32177C2.9885 10.1026 2.7914 12.0944 3.2244 13.997C3.6574 15.8996 4.697 17.61 6.1867 18.8704C7.6763 20.1308 9.5353 20.873 11.4835 20.9851C13.4316 21.0972 15.3635 20.5732 16.9879 19.492C18.6124 18.4108 19.8414 16.831 20.4898 14.9907"
-							/>
-						</svg>
+						<RotateCw size={20} strokeWidth={1.5} />
 					</button>
 				</div>
 			</div>
@@ -648,76 +594,11 @@
 		<div class="flex gap-3 border-t border-neutral-700 p-4">
 			<Button variant="secondary" onclick={onClose}>Cancel</Button>
 			<Button variant="primary" onclick={saveCrop}>
-				<svg
-					class="h-4 w-4"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<polyline points="20 6 9 17 4 12" />
-				</svg>
+				<Check size={16} strokeWidth={1.5} />
 				<span>Save Thumbnail</span>
 			</Button>
 		</div>
 	</div>
 </div>
 
-<style>
-	/* Custom slider styling with larger thumbs (22px) */
-	input[type='range'] {
-		-webkit-appearance: none;
-		appearance: none;
-		background: transparent;
-	}
-
-	input[type='range']::-webkit-slider-runnable-track {
-		@apply h-2 w-full rounded bg-neutral-800;
-	}
-
-	input[type='range']::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		appearance: none;
-		@apply -mt-[7px] h-[22px] w-[22px] cursor-pointer rounded-full bg-primary-500 transition-all duration-fast;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	input[type='range']::-webkit-slider-thumb:hover {
-		@apply scale-[1.15];
-		box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-	}
-
-	input[type='range']::-webkit-slider-thumb:active {
-		@apply scale-105;
-	}
-
-	input[type='range']::-moz-range-track {
-		@apply h-2 w-full rounded bg-neutral-800;
-	}
-
-	input[type='range']::-moz-range-thumb {
-		@apply h-[22px] w-[22px] cursor-pointer rounded-full border-0 bg-primary-500;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	input[type='range']::-moz-range-thumb:hover {
-		box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-	}
-
-	/* Focus states for accessibility */
-	input[type='range']:focus {
-		outline: none;
-	}
-
-	input[type='range']:focus::-webkit-slider-thumb {
-		box-shadow:
-			0 0 0 3px rgba(99, 102, 241, 0.3),
-			0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	input[type='range']:focus::-moz-range-thumb {
-		box-shadow:
-			0 0 0 3px rgba(99, 102, 241, 0.3),
-			0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-</style>
+<!-- Slider styling now provided by global .slider-primary utility in app.css -->

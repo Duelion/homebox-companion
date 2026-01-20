@@ -8,6 +8,7 @@
 	 * Groups tools and executed actions with counters (x2, x3, etc.).
 	 */
 	import { onDestroy } from 'svelte';
+	import { TriangleAlert, ChevronRight, Check, Copy } from 'lucide-svelte';
 	import type { ChatMessage as ChatMessageType, ToolResult } from '../stores/chat.svelte';
 	import { renderMarkdown } from '../markdown';
 
@@ -230,35 +231,21 @@
 					onclick={onOpenApprovals}
 				>
 					<div class="flex h-5 w-5 items-center justify-center rounded-md bg-warning-500/20">
-						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-							/>
-						</svg>
+						<TriangleAlert size={12} />
 					</div>
 					<span class="flex-1">
 						{pendingApprovalCount}
 						{pendingApprovalCount === 1 ? 'action requires' : 'actions require'} approval
 					</span>
-					<svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 5l7 7-7 7"
-						/>
-					</svg>
+					<ChevronRight class="opacity-70" size={14} />
 				</button>
 			{/if}
 
 			{#if message.isStreaming}
 				<div class="flex justify-center gap-1 px-2 py-1">
 					<span class="typing-dot"></span>
-					<span class="typing-dot animation-delay-160"></span>
-					<span class="typing-dot animation-delay-320"></span>
+					<span class="typing-dot delay-160"></span>
+					<span class="typing-dot delay-320"></span>
 				</div>
 			{/if}
 
@@ -337,26 +324,9 @@
 				aria-label="Copy message"
 			>
 				{#if copySuccess}
-					<svg
-						class="h-3.5 w-3.5 text-success-500"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<polyline points="20 6 9 17 4 12"></polyline>
-					</svg>
+					<Check class="text-success-500" size={14} />
 				{:else}
-					<svg
-						class="h-3.5 w-3.5"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-						<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-					</svg>
+					<Copy size={14} />
 				{/if}
 			</button>
 		{/if}
@@ -386,13 +356,7 @@
 		@apply h-1.5 w-1.5 animate-typing-dot rounded-full bg-primary-500;
 	}
 
-	.animation-delay-160 {
-		animation-delay: 0.16s;
-	}
-
-	.animation-delay-320 {
-		animation-delay: 0.32s;
-	}
+	/* Note: animation delay classes now use global utilities: delay-160, delay-320 */
 
 	/* Tool execution spinner */
 	.tool-spinner {

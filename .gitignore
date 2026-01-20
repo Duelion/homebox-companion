@@ -12,6 +12,9 @@ build/
 logs/
 *.log
 
+# User data (contains secrets)
+data/
+
 # IDE
 .idea/
 .vscode/
@@ -42,3 +45,9 @@ all_models_capabilities.csv
 temp_test_expiry.py
 demo/DEPLOYMENT_GUIDE.md
 demo/README.md
+
+# Contributor analysis working files
+docs/contributor_analysis/**
+
+# Bundle analyzer output
+frontend/stats.html

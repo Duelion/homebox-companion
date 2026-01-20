@@ -182,13 +182,7 @@ class ListLabelsTool:
 
         # Add URL to each label for easy linking in chat
         base_url = settings.effective_link_base_url
-        enriched_labels = [
-            {
-                **label,
-                "url": f"{base_url}/items?labels={label.get('id', '')}"
-            }
-            for label in labels
-        ]
+        enriched_labels = [{**label, "url": f"{base_url}/items?labels={label.get('id', '')}"} for label in labels]
 
         return ToolResult(success=True, data=enriched_labels)
 
@@ -249,10 +243,7 @@ class ListItemsTool:
         if params.location_name and not params.location_id:
             locations = await client.list_locations(token)
             # Find ALL matching locations (case-insensitive)
-            matches = [
-                loc for loc in locations
-                if loc.get("name", "").lower() == params.location_name.lower()
-            ]
+            matches = [loc for loc in locations if loc.get("name", "").lower() == params.location_name.lower()]
 
             if not matches:
                 return ToolResult(
@@ -277,10 +268,7 @@ class ListItemsTool:
 
             # Single match - use it
             resolved_location_id = matches[0].get("id")
-            logger.debug(
-                f"list_items: resolved location_name '{params.location_name}' "
-                f"to id '{resolved_location_id}'"
-            )
+            logger.debug(f"list_items: resolved location_name '{params.location_name}' to id '{resolved_location_id}'")
 
         response = await client.list_items(
             token,
@@ -331,9 +319,7 @@ class SearchItemsTool:
     permission: ToolPermission = ToolPermission.READ
 
     class Params(ToolParams):
-        query: str = Field(
-            description="Search query string (searches name, description, etc.)"
-        )
+        query: str = Field(description="Search query string (searches name, description, etc.)")
         page: int | None = Field(
             default=None,
             description="Optional page number (1-indexed) for pagination",
@@ -374,9 +360,7 @@ class SearchItemsTool:
 
         # Sort by location name, then item name for easier AI parsing
         items = _sort_items_by_location_and_name(items)
-        logger.debug(
-            f"search_items('{params.query}') returned {len(items)} items (sorted by location/name)"
-        )
+        logger.debug(f"search_items('{params.query}') returned {len(items)} items (sorted by location/name)")
 
         # Include pagination metadata so LLM knows if there are more items
         return ToolResult(
@@ -511,8 +495,7 @@ class GetStatisticsByLocationTool:
 
     name: str = "get_statistics_by_location"
     description: str = (
-        "Get item counts grouped by location. Useful for analytics queries "
-        "like 'which location has the most items?'"
+        "Get item counts grouped by location. Useful for analytics queries like 'which location has the most items?'"
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -537,8 +520,7 @@ class GetStatisticsByLabelTool:
 
     name: str = "get_statistics_by_label"
     description: str = (
-        "Get item counts grouped by label. Useful for analytics queries "
-        "like 'how many items are tagged Electronics?'"
+        "Get item counts grouped by label. Useful for analytics queries like 'how many items are tagged Electronics?'"
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -602,9 +584,7 @@ class GetAttachmentTool:
         params: Params,
     ) -> ToolResult:
         try:
-            content_bytes, content_type = await client.get_attachment(
-                token, params.item_id, params.attachment_id
-            )
+            content_bytes, content_type = await client.get_attachment(token, params.item_id, params.attachment_id)
             # Encode bytes as base64 for JSON transport
             encoded = base64.b64encode(content_bytes).decode("utf-8")
             logger.debug(f"get_attachment fetched {len(content_bytes)} bytes")
@@ -648,6 +628,10 @@ class CreateItemTool:
             default=None,
             description="Optional list of label IDs to apply",
         )
+        parent_id: str | None = Field(
+            default=None,
+            description="Optional parent item ID to nest this item under",
+        )
 
     async def execute(
         self,
@@ -663,6 +647,7 @@ class CreateItemTool:
             description=params.description,
             quantity=params.quantity,
             label_ids=params.label_ids or [],
+            parent_id=params.parent_id,
         )
         result = await client.create_item(token, item_data)
         logger.info(f"create_item created item: {result.get('name', 'unknown')}")
@@ -710,6 +695,14 @@ class UpdateItemTool:
         purchase_from: str | None = Field(
             default=None, alias="purchaseFrom", description="Optional new purchase location"
         )
+        parent_id: str | None = Field(
+            default=None,
+            description="New parent item ID to nest this item under (use with clear_parent=False)",
+        )
+        clear_parent: bool = Field(
+            default=False,
+            description="If true, remove parent to make this a top-level item",
+        )
 
     async def execute(
         self,
@@ -724,11 +717,7 @@ class UpdateItemTool:
         update_data = {
             "id": params.item_id,
             "name": params.name if params.name is not None else current.get("name"),
-            "description": (
-                params.description
-                if params.description is not None
-                else current.get("description", "")
-            ),
+            "description": (params.description if params.description is not None else current.get("description", "")),
             "quantity": params.quantity if params.quantity is not None else current.get("quantity", 1),
             "insured": params.insured if params.insured is not None else current.get("insured", False),
             "archived": params.archived if params.archived is not None else current.get("archived", False),
@@ -761,9 +750,15 @@ class UpdateItemTool:
             update_data["labelIds"] = params.label_ids
         elif current.get("labels"):
             # Preserve existing labels using correct format
-            update_data["labelIds"] = [
-                label.get("id") for label in current["labels"] if label.get("id")
-            ]
+            update_data["labelIds"] = [label.get("id") for label in current["labels"] if label.get("id")]
+
+        # Handle parent - determine parentId based on clear_parent flag
+        if params.clear_parent:
+            update_data["parentId"] = None
+        elif params.parent_id is not None:
+            update_data["parentId"] = params.parent_id
+        else:
+            update_data["parentId"] = current.get("parent", {}).get("id")
 
         result = await client.update_item(token, params.item_id, update_data)
         logger.info(f"update_item updated item: {result.get('name', 'unknown')}")
@@ -876,11 +871,7 @@ class UpdateLocationTool:
             token,
             location_id=params.location_id,
             name=params.name if params.name is not None else current.get("name", ""),
-            description=(
-                params.description
-                if params.description is not None
-                else current.get("description", "")
-            ),
+            description=(params.description if params.description is not None else current.get("description", "")),
             parent_id=resolved_parent_id,
         )
         logger.info(f"update_location updated location: {result.get('name', 'unknown')}")
@@ -915,11 +906,7 @@ class UpdateLabelTool:
             token,
             label_id=params.label_id,
             name=params.name if params.name is not None else current.get("name", ""),
-            description=(
-                params.description
-                if params.description is not None
-                else current.get("description", "")
-            ),
+            description=(params.description if params.description is not None else current.get("description", "")),
             color=params.color if params.color is not None else current.get("color", ""),
         )
         logger.info(f"update_label updated label: {result.get('name', 'unknown')}")

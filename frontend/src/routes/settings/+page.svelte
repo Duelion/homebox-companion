@@ -6,6 +6,7 @@
 	 * - settingsService: Centralized state and API calls
 	 * - Section components: UI rendering for each settings area
 	 */
+	import { AlertTriangle } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';
@@ -16,6 +17,7 @@
 	import AccountSection from '$lib/components/settings/AccountSection.svelte';
 	import AboutSection from '$lib/components/settings/AboutSection.svelte';
 	import FieldPrefsSection from '$lib/components/settings/FieldPrefsSection.svelte';
+	import LLMProfilesSection from '$lib/components/settings/LLMProfilesSection.svelte';
 	import LogsSection from '$lib/components/settings/LogsSection.svelte';
 
 	onMount(async () => {
@@ -50,17 +52,7 @@
 	{#if settingsService.errors.init}
 		<div class="card border-error-500/30 bg-error-500/10">
 			<div class="flex items-start gap-3">
-				<svg
-					class="mt-0.5 h-5 w-5 flex-shrink-0 text-error-500"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-				>
-					<path
-						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-					/>
-				</svg>
+				<AlertTriangle class="mt-0.5 flex-shrink-0 text-error-500" size={20} strokeWidth={1.5} />
 				<div>
 					<p class="font-medium text-error-500">Failed to load settings</p>
 					<p class="mt-1 text-sm text-neutral-400">{settingsService.errors.init}</p>
@@ -78,6 +70,7 @@
 
 	<AccountSection />
 	<AboutSection />
+	<LLMProfilesSection />
 	<FieldPrefsSection />
 	<LogsSection />
 

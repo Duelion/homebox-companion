@@ -8,6 +8,7 @@
  */
 
 import { workflowLogger as log } from '$lib/utils/logger';
+import { revokeImageObjectUrls } from '$lib/services/serialize';
 import type { CapturedImage } from '$lib/types';
 
 // =============================================================================
@@ -34,6 +35,8 @@ export class CaptureService {
 		const removedImage = this.images[index];
 		if (removedImage) {
 			log.debug(`Removing image at index ${index}: file="${removedImage.file.name}"`);
+			// Revoke Object URLs to prevent memory leaks
+			revokeImageObjectUrls(removedImage);
 		}
 		this.images = this.images.filter((_, i) => i !== index);
 		log.info(`Image removed. Total images: ${this.images.length}`);
@@ -66,6 +69,13 @@ export class CaptureService {
 	/** Remove an additional image from a captured image */
 	removeAdditionalImage(imageIndex: number, additionalIndex: number): void {
 		log.debug(`Removing additional image ${additionalIndex} from image ${imageIndex}`);
+
+		// Revoke Object URL for the removed additional image to prevent memory leak
+		const img = this.images[imageIndex];
+		if (img?.additionalDataUrls?.[additionalIndex]?.startsWith('blob:')) {
+			URL.revokeObjectURL(img.additionalDataUrls[additionalIndex]);
+		}
+
 		this.images = this.images.map((img, i) => {
 			if (i !== imageIndex) return img;
 			return {
@@ -79,6 +89,10 @@ export class CaptureService {
 	/** Clear all captured images */
 	clear(): void {
 		log.debug(`Clearing all images (was: ${this.images.length})`);
+		// Revoke all Object URLs to prevent memory leaks
+		for (const image of this.images) {
+			revokeImageObjectUrls(image);
+		}
 		this.images = [];
 	}
 
