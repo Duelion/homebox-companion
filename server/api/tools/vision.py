@@ -21,6 +21,7 @@ from homebox_companion import (
     correct_item as llm_correct_item,
 )
 
+
 from ...dependencies import (
     VisionContext,
     get_client,
@@ -172,9 +173,7 @@ async def detect_items(
     # Run detection and compression in parallel
     detection_task = detect_items_from_bytes(
         image_bytes=image_bytes,
-        api_key=api_key,
         mime_type=content_type,
-        model=settings.effective_llm_model,
         labels=ctx.labels,
         single_item=single_item,
         extra_instructions=extra_instructions,
@@ -272,8 +271,6 @@ async def analyze_item_advanced(
         image_data_uris=image_data_uris,
         item_name=item_name,
         item_description=item_description,
-        api_key=api_key,
-        model=settings.effective_llm_model,
         labels=ctx.labels,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,
@@ -351,8 +348,6 @@ async def correct_item(
         image_data_uri=image_data_uri,
         current_item=current_item_dict,
         correction_instructions=correction_instructions,
-        api_key=api_key,
-        model=settings.effective_llm_model,
         labels=ctx.labels,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,

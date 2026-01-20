@@ -35,37 +35,28 @@ class LLMCredentials:
     profile_name: str | None = None
 
 
-def resolve_llm_credentials(
-    *,
-    model: str | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-) -> LLMCredentials:
+def resolve_llm_credentials() -> LLMCredentials:
     """Resolve LLM credentials using the unified priority order.
 
     Resolution priority:
-    1. Explicit arguments (if provided)
-    2. PRIMARY profile from persistent settings
-    3. Environment variable defaults
-
-    Args:
-        model: Optional explicit model override
-        api_key: Optional explicit API key override
-        api_base: Optional explicit API base URL override
+    1. PRIMARY profile from persistent settings
+    2. Environment variable defaults
 
     Returns:
         LLMCredentials with resolved values
     """
     profile_name: str | None = None
+    model: str | None = None
+    api_key: str | None = None
+    api_base: str | None = None
 
     # Check for PRIMARY profile first
     primary = get_primary_profile()
     if primary:
         profile_name = primary.name
-        # Use profile values, allowing explicit overrides
-        model = model or primary.model
-        api_key = api_key or (primary.api_key.get_secret_value() if primary.api_key else None)
-        api_base = api_base if api_base is not None else primary.api_base
+        model = primary.model
+        api_key = primary.api_key.get_secret_value() if primary.api_key else None
+        api_base = primary.api_base
         logger.debug(f"Using PRIMARY profile '{primary.name}' with model: {model}")
     else:
         logger.debug("No PRIMARY profile, using env defaults")

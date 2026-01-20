@@ -53,9 +53,12 @@ def openai_api_key() -> str:
 def reset_config():
     """Reset config to default state before each test."""
     from homebox_companion.core import config
+    from homebox_companion.core.llm_router import invalidate_router
 
-    # Store original value
-    original_env = os.environ.get("HBC_LLM_ALLOW_UNSAFE_MODELS")
+    # Store original values
+    original_unsafe = os.environ.get("HBC_LLM_ALLOW_UNSAFE_MODELS")
+    original_model = os.environ.get("HBC_LLM_MODEL")
+    original_api_key = os.environ.get("HBC_LLM_API_KEY")
 
     # Ensure unsafe models flag is OFF for tests
     if "HBC_LLM_ALLOW_UNSAFE_MODELS" in os.environ:
@@ -63,17 +66,40 @@ def reset_config():
 
     # Reload config
     config.settings = config.Settings()
+    invalidate_router()
 
     yield
 
-    # Restore original value
-    if original_env is not None:
-        os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = original_env
+    # Restore original values
+    if original_unsafe is not None:
+        os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"] = original_unsafe
     elif "HBC_LLM_ALLOW_UNSAFE_MODELS" in os.environ:
         del os.environ["HBC_LLM_ALLOW_UNSAFE_MODELS"]
 
+    if original_model is not None:
+        os.environ["HBC_LLM_MODEL"] = original_model
+    elif "HBC_LLM_MODEL" in os.environ:
+        del os.environ["HBC_LLM_MODEL"]
+
+    if original_api_key is not None:
+        os.environ["HBC_LLM_API_KEY"] = original_api_key
+    elif "HBC_LLM_API_KEY" in os.environ:
+        del os.environ["HBC_LLM_API_KEY"]
+
     # Reload config again
     config.settings = config.Settings()
+    invalidate_router()
+
+
+def _configure_llm(api_key: str, model: str, monkeypatch) -> None:
+    """Helper to configure LLM via environment variables."""
+    from homebox_companion.core import config
+    from homebox_companion.core.llm_router import invalidate_router
+
+    monkeypatch.setenv("HBC_LLM_API_KEY", api_key)
+    monkeypatch.setenv("HBC_LLM_MODEL", model)
+    config.settings = config.Settings()
+    invalidate_router()
 
 
 @pytest.mark.live
@@ -81,15 +107,15 @@ class TestVisionValidation:
     """Test that vision_completion validates vision support."""
 
     @pytest.mark.asyncio
-    async def test_text_only_model_raises_error(self, openai_api_key):
+    async def test_text_only_model_raises_error(self, openai_api_key, monkeypatch):
         """Test that using a text-only model raises CapabilityNotSupportedError."""
+        _configure_llm(openai_api_key, "gpt-3.5-turbo", monkeypatch)
+
         with pytest.raises(CapabilityNotSupportedError) as exc_info:
             await vision_completion(
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="gpt-3.5-turbo",  # Text-only model
             )
 
         error_msg = str(exc_info.value)
@@ -105,13 +131,15 @@ class TestVisionValidation:
         The model will still fail at LiteLLM/provider level since it truly
         doesn't support vision - but that's the expected behavior.
         """
-        # Set the unsafe models flag
+        _configure_llm(openai_api_key, "gpt-3.5-turbo", monkeypatch)
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
 
         # Force reload config
         from homebox_companion.core import config
+        from homebox_companion.core.llm_router import invalidate_router
 
         config.settings = config.Settings()
+        invalidate_router()
 
         # Should raise LLMServiceError (from provider), NOT CapabilityNotSupportedError
         with pytest.raises(LLMServiceError) as exc_info:
@@ -119,27 +147,25 @@ class TestVisionValidation:
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="gpt-3.5-turbo",
             )
 
         # Key assertion: bypassed OUR validation (got LLMError, not our custom error)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
 
     @pytest.mark.asyncio
-    async def test_old_vision_model_without_json_schema(self, openai_api_key):
+    async def test_old_vision_model_without_json_schema(self, openai_api_key, monkeypatch):
         """Test vision model without JSON schema support still works.
 
         The app should work with vision models that don't support structured
         outputs by falling back to prompt-based JSON.
         """
+        _configure_llm(openai_api_key, "gpt-4-turbo", monkeypatch)
+
         try:
             result = await vision_completion(
                 system_prompt='Respond with valid JSON only: {"description": "..."}',
                 user_prompt="Describe this tiny 1x1 pixel image briefly.",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="gpt-4-turbo",  # Has vision, no JSON schema
                 expected_keys=["description"],
             )
 
@@ -165,15 +191,15 @@ class TestErrorMessages:
     """Test that error messages are helpful."""
 
     @pytest.mark.asyncio
-    async def test_error_message_suggests_alternatives(self, openai_api_key):
+    async def test_error_message_suggests_alternatives(self, openai_api_key, monkeypatch):
         """Test that error message suggests officially supported models."""
+        _configure_llm(openai_api_key, "text-davinci-003", monkeypatch)
+
         with pytest.raises(CapabilityNotSupportedError) as exc_info:
             await vision_completion(
                 system_prompt="Test",
                 user_prompt="Test",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="text-davinci-003",  # Old text-only model
             )
 
         error_msg = str(exc_info.value)
@@ -182,15 +208,15 @@ class TestErrorMessages:
         assert "Officially supported" in error_msg
 
     @pytest.mark.asyncio
-    async def test_error_message_includes_bypass_flag(self, openai_api_key):
+    async def test_error_message_includes_bypass_flag(self, openai_api_key, monkeypatch):
         """Test that error message explains the bypass flag."""
+        _configure_llm(openai_api_key, "gpt-4", monkeypatch)
+
         with pytest.raises(CapabilityNotSupportedError) as exc_info:
             await vision_completion(
                 system_prompt="Test",
                 user_prompt="Test",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="gpt-4",  # Text-only model
             )
 
         error_msg = str(exc_info.value)
@@ -218,13 +244,15 @@ class TestUnsafeFlagBehavior:
         Expected: LLMServiceError wrapping litellm.BadRequestError
         Message: "Invalid content type. image_url is only supported by certain models"
         """
-        # Enable unsafe models flag
+        _configure_llm(openai_api_key, "gpt-3.5-turbo", monkeypatch)
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
 
         # Force reload config
         from homebox_companion.core import config
+        from homebox_companion.core.llm_router import invalidate_router
 
         config.settings = config.Settings()
+        invalidate_router()
 
         # This should NOT raise CapabilityNotSupportedError
         # but should fail at LiteLLM level (wrapped in LLMServiceError)
@@ -233,8 +261,6 @@ class TestUnsafeFlagBehavior:
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="gpt-3.5-turbo",  # Text-only model
             )
 
         # Should be LLMServiceError (wrapping LiteLLM's BadRequestError)
@@ -252,21 +278,21 @@ class TestUnsafeFlagBehavior:
         Expected: LLMServiceError wrapping litellm.UnsupportedParamsError
         Message: "openai does not support parameters: ['response_format'], for model=gpt-4"
         """
-        # Enable unsafe models flag
+        _configure_llm(openai_api_key, "gpt-4", monkeypatch)
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
 
         # Force reload config
         from homebox_companion.core import config
+        from homebox_companion.core.llm_router import invalidate_router
 
         config.settings = config.Settings()
+        invalidate_router()
 
         with pytest.raises(LLMServiceError) as exc_info:
             await vision_completion(
                 system_prompt="You are a helpful assistant.",
                 user_prompt="Describe this image",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="gpt-4",  # Text-only model
             )
 
         # Should be LLMServiceError (wrapping LiteLLM's error)
@@ -281,21 +307,21 @@ class TestUnsafeFlagBehavior:
         Models with vision but without JSON schema support should work fine
         (they'll use prompt-based JSON instead of structured outputs).
         """
-        # Enable unsafe models flag
+        _configure_llm(openai_api_key, "gpt-4-turbo", monkeypatch)
         monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
 
         # Force reload config
         from homebox_companion.core import config
+        from homebox_companion.core.llm_router import invalidate_router
 
         config.settings = config.Settings()
+        invalidate_router()
 
         try:
             result = await vision_completion(
                 system_prompt=('Respond with valid JSON only: {"color": "...", "description": "..."}'),
                 user_prompt="What color is this 1x1 pixel image? Respond with JSON.",
                 image_data_uris=[TINY_IMAGE_DATA_URI],
-                api_key=openai_api_key,
-                model="gpt-4-turbo",  # Has vision, no JSON schema
                 expected_keys=["color", "description"],
             )
 

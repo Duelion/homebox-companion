@@ -478,9 +478,13 @@ class TestChatOrchestrator:
         mock_response.choices[0].message.content = "Hello!"
         mock_response.choices[0].message.tool_calls = None
 
+        # Mock the Router returned by get_router()
+        mock_router = MagicMock()
+        mock_router.acompletion = AsyncMock(return_value=mock_response)
+
         with patch(
-            "homebox_companion.chat.llm_client.litellm.acompletion",
-            new=AsyncMock(return_value=mock_response),
+            "homebox_companion.chat.llm_client.get_router",
+            return_value=mock_router,
         ):
             events = []
             async for event in orchestrator.process_message("Hi", "token"):
@@ -523,9 +527,13 @@ class TestChatOrchestrator:
             chunk3.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             yield chunk3
 
+        # Mock the Router
+        mock_router = MagicMock()
+        mock_router.acompletion = AsyncMock(return_value=mock_streaming_response())
+
         with patch(
-            "homebox_companion.chat.llm_client.litellm.acompletion",
-            new=AsyncMock(return_value=mock_streaming_response()),
+            "homebox_companion.chat.llm_client.get_router",
+            return_value=mock_router,
         ):
             events = []
             async for event in orchestrator.process_message("Help me", "token"):
@@ -550,9 +558,13 @@ class TestChatOrchestrator:
             chunk.usage = None
             yield chunk
 
+        # Mock the Router
+        mock_router = MagicMock()
+        mock_router.acompletion = AsyncMock(return_value=mock_streaming_response())
+
         with patch(
-            "homebox_companion.chat.llm_client.litellm.acompletion",
-            new=AsyncMock(return_value=mock_streaming_response()),
+            "homebox_companion.chat.llm_client.get_router",
+            return_value=mock_router,
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
@@ -563,9 +575,13 @@ class TestChatOrchestrator:
     @pytest.mark.asyncio
     async def test_process_message_yields_error_on_exception(self, orchestrator: ChatOrchestrator):
         """process_message should yield error event on LLM failure."""
+        # Mock the Router to raise an error
+        mock_router = MagicMock()
+        mock_router.acompletion = AsyncMock(side_effect=Exception("API Error"))
+
         with patch(
-            "homebox_companion.chat.llm_client.litellm.acompletion",
-            new=AsyncMock(side_effect=Exception("API Error")),
+            "homebox_companion.chat.llm_client.get_router",
+            return_value=mock_router,
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):
@@ -677,9 +693,13 @@ class TestChatOrchestrator:
             else:
                 return create_streaming_text_response("Based on my search, you have Picture Hanging Wire.")
 
+        # Mock the Router with side_effect
+        mock_router = MagicMock()
+        mock_router.acompletion = AsyncMock(side_effect=acompletion_side_effect)
+
         with patch(
-            "homebox_companion.chat.llm_client.litellm.acompletion",
-            new=AsyncMock(side_effect=acompletion_side_effect),
+            "homebox_companion.chat.llm_client.get_router",
+            return_value=mock_router,
         ):
             events = []
             async for event in orchestrator.process_message("What wire do I have?", "token"):
@@ -774,9 +794,13 @@ class TestChatOrchestrator:
         async def acompletion_side_effect(*args, **kwargs):
             return create_streaming_tool_response()
 
+        # Mock the Router with side_effect
+        mock_router = MagicMock()
+        mock_router.acompletion = AsyncMock(side_effect=acompletion_side_effect)
+
         with patch(
-            "homebox_companion.chat.llm_client.litellm.acompletion",
-            new=AsyncMock(side_effect=acompletion_side_effect),
+            "homebox_companion.chat.llm_client.get_router",
+            return_value=mock_router,
         ):
             events = []
             async for event in orchestrator.process_message("Test", "token"):

@@ -272,6 +272,11 @@ def save_settings(settings: PersistentSettings) -> None:
         # Clear cache inside lock to prevent race conditions
         _get_settings_cached.cache_clear()
 
+        # Invalidate LLM Router so it rebuilds with new profiles
+        from .llm_router import invalidate_router
+
+        invalidate_router()
+
 
 @lru_cache(maxsize=1)
 def _get_settings_cached() -> PersistentSettings:
