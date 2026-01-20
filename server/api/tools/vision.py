@@ -21,7 +21,6 @@ from homebox_companion import (
     correct_item as llm_correct_item,
 )
 
-
 from ...dependencies import (
     VisionContext,
     get_client,

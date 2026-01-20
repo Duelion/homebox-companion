@@ -438,13 +438,13 @@
 		>
 			<div class="mb-4 flex items-start gap-3">
 				<!-- Warning icon -->
-				<TriangleAlert class="text-warning-400 mt-0.5 shrink-0" size={24} strokeWidth={1.5} />
+				<TriangleAlert class="mt-0.5 shrink-0 text-warning-400" size={24} strokeWidth={1.5} />
 
 				<div class="flex-1">
 					<h3 class="mb-1 text-body font-semibold text-warning-100">
 						Some Images Failed to Analyze
 					</h3>
-					<p class="text-warning-200/80 mb-3 text-body-sm">
+					<p class="mb-3 text-body-sm text-warning-200/80">
 						{failedImageCount} of {images.length} image(s) could not be processed. You can retry the failed
 						images, continue with the successful ones, or remove the failed images.
 					</p>

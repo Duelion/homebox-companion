@@ -20,7 +20,7 @@
 	<!-- Warning icon button -->
 	<button
 		type="button"
-		class="text-warning-400 hover:text-warning-300 transition-colors"
+		class="text-warning-400 transition-colors hover:text-warning-300"
 		onmouseenter={() => (showTooltip = true)}
 		onmouseleave={() => (showTooltip = false)}
 		onfocus={() => (showTooltip = true)}
@@ -34,9 +34,9 @@
 	{#if showTooltip}
 		<div class="absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2">
 			<div class="rounded-lg border border-neutral-700 bg-neutral-800 p-3 text-body-sm shadow-lg">
-				<p class="text-warning-300 mb-1 font-semibold">Possible Duplicate</p>
+				<p class="mb-1 font-semibold text-warning-300">Possible Duplicate</p>
 				<p class="text-neutral-300">
-					Serial "<span class="text-warning-200 font-mono">{match.serial_number}</span>" already
+					Serial "<span class="font-mono text-warning-200">{match.serial_number}</span>" already
 					exists on:
 				</p>
 				<p class="mt-1 font-medium text-neutral-100">

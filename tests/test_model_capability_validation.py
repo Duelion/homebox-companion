@@ -92,9 +92,19 @@ def reset_config():
 
 
 def _configure_llm(api_key: str, model: str, monkeypatch) -> None:
-    """Helper to configure LLM via environment variables."""
+    """Helper to configure LLM via environment variables.
+
+    Also mocks get_primary_profile to return None so that env vars take
+    precedence over any PRIMARY profile in persistent settings.
+    """
     from homebox_companion.core import config
     from homebox_companion.core.llm_router import invalidate_router
+
+    # Mock get_primary_profile to return None so env vars are used
+    monkeypatch.setattr(
+        "homebox_companion.core.llm_utils.get_primary_profile",
+        lambda: None,
+    )
 
     monkeypatch.setenv("HBC_LLM_API_KEY", api_key)
     monkeypatch.setenv("HBC_LLM_MODEL", model)

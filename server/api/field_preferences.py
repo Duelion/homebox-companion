@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from homebox_companion.core.field_preferences import (
     FieldPreferences,
     get_defaults,
-    load_field_preferences,
     load_user_overrides,
     reset_field_preferences,
     save_field_preferences,

@@ -190,12 +190,12 @@
 <div class="animate-in pb-28">
 	<StepIndicator currentStep={4} />
 
-	<h2 class="text-h2 mb-1 text-neutral-100">Review & Submit</h2>
-	<p class="text-body-sm mb-6 text-neutral-400">Confirm items to add to your inventory</p>
+	<h2 class="mb-1 text-h2 text-neutral-100">Review & Submit</h2>
+	<p class="mb-6 text-body-sm text-neutral-400">Confirm items to add to your inventory</p>
 
 	<!-- Compact location header -->
 	{#if locationPath}
-		<div class="text-body-sm mb-6 flex flex-wrap items-start gap-x-4 gap-y-2 text-neutral-400">
+		<div class="mb-6 flex flex-wrap items-start gap-x-4 gap-y-2 text-body-sm text-neutral-400">
 			<!-- Location block -->
 			<div class="flex items-center gap-2">
 				<MapPin size={16} strokeWidth={1.5} />
@@ -207,7 +207,7 @@
 			{#if parentItemName}
 				<div class="flex items-center gap-2">
 					<span class="text-neutral-500">Inside:</span>
-					<span class="text-primary-400 font-semibold">{parentItemName}</span>
+					<span class="font-semibold text-primary-400">{parentItemName}</span>
 				</div>
 			{/if}
 		</div>
@@ -257,25 +257,25 @@
 							{/if}
 						</div>
 						<span
-							class="text-caption flex-shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-neutral-400"
+							class="flex-shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400"
 						>
 							×{item.quantity}
 						</span>
 					</div>
 					{#if item.description}
-						<p class="text-body-sm mb-2 line-clamp-2 text-neutral-400">
+						<p class="mb-2 line-clamp-2 text-body-sm text-neutral-400">
 							{item.description}
 						</p>
 					{/if}
 					{#if item.label_ids && item.label_ids.length > 0}
 						<div class="flex flex-wrap gap-1">
 							{#each item.label_ids.slice(0, 3) as labelId (labelId)}
-								<span class="bg-primary-500/20 text-caption text-primary-300 rounded px-2 py-0.5">
+								<span class="rounded bg-primary-500/20 px-2 py-0.5 text-caption text-primary-300">
 									{getLabelName(labelId)}
 								</span>
 							{/each}
 							{#if item.label_ids.length > 3}
-								<span class="text-caption rounded bg-neutral-800 px-2 py-0.5 text-neutral-400">
+								<span class="rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400">
 									+{item.label_ids.length - 3}
 								</span>
 							{/if}
@@ -291,7 +291,7 @@
 					{:else}
 						<button
 							type="button"
-							class="hover:bg-primary-500/10 hover:text-primary-400 focus:ring-primary-500/50 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors focus:ring-2 focus:outline-none"
+							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
 							aria-label="Edit item"
 							title="Edit item"
 							disabled={isSubmitting}
@@ -301,7 +301,7 @@
 						</button>
 						<button
 							type="button"
-							class="hover:text-error-400 hover:bg-error-500/10 focus:ring-error-500/50 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors focus:ring-2 focus:outline-none"
+							class="hover:text-error-400 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-error-500/10 focus:outline-none focus:ring-2 focus:ring-error-500/50"
 							aria-label="Remove item"
 							title="Remove item"
 							disabled={isSubmitting}
@@ -321,7 +321,7 @@
 			<BarChart3 class="text-neutral-400" size={16} strokeWidth={1.5} />
 			<span class="text-body-sm font-medium text-neutral-300">Summary</span>
 		</div>
-		<ul class="text-body-sm space-y-1.5 text-neutral-400">
+		<ul class="space-y-1.5 text-body-sm text-neutral-400">
 			<li class="flex items-center gap-2">
 				<Package class="text-neutral-500" size={16} strokeWidth={1.5} />
 				{confirmedItems.length} item{confirmedItems.length !== 1 ? 's' : ''} ready to submit
@@ -335,15 +335,15 @@
 
 	<!-- Error details (shown when there are submission errors) -->
 	{#if submissionErrors.length > 0}
-		<div class="border-error-500/30 bg-error-500/10 mb-6 rounded-xl border p-4">
+		<div class="mb-6 rounded-xl border border-error-500/30 bg-error-500/10 p-4">
 			<div class="flex items-start gap-3">
 				<AlertCircle class="text-error-400 mt-0.5 shrink-0" size={20} strokeWidth={2} />
 				<div class="min-w-0 flex-1">
-					<h4 class="text-error-300 text-body-sm mb-2 font-semibold">
+					<h4 class="text-error-300 mb-2 text-body-sm font-semibold">
 						{submissionErrors.length === 1 ? 'Error' : `${submissionErrors.length} Errors`} occurred during
 						submission
 					</h4>
-					<ul class="text-error-200/80 text-body-sm space-y-1.5">
+					<ul class="text-error-200/80 space-y-1.5 text-body-sm">
 						{#each submissionErrors as error, i (i)}
 							<li class="flex items-start gap-2">
 								<span class="text-error-400 flex-shrink-0">•</span>
@@ -359,7 +359,7 @@
 
 <!-- Sticky Submit button at bottom - above navigation bar -->
 <div
-	class="bottom-nav-offset fixed right-0 left-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
+	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
 >
 	<AppContainer class="space-y-3">
 		{#if !workflow.hasFailedItems() && !workflow.allItemsSuccessful()}
