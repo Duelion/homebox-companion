@@ -107,6 +107,8 @@ Open `http://localhost:8000` in your browser.
 
 > **Tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
 
+> **ARM64/Raspberry Pi:** Docker images are built for both `linux/amd64` and `linux/arm64` architectures.
+
 ## ✨ Features
 
 ### AI-Powered Detection
@@ -184,6 +186,8 @@ The chat assistant has access to 21 tools for interacting with your Homebox inve
 ## 🤖 LLM Provider Support
 
 Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library to call AI providers. **You don't need to self-host anything** – just get an OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys) and you're ready to go. We officially support and test with OpenAI GPT models only.
+
+> **Fallback Support:** You can configure a secondary LLM profile in Settings that automatically activates if your primary provider fails.
 
 <details>
 <summary>Officially Supported Models</summary>
