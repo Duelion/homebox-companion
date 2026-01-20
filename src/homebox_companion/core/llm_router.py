@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import litellm
-from litellm import Router
+from litellm.router import Router
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
