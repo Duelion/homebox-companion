@@ -7,7 +7,6 @@ from pydantic import TypeAdapter
 
 from ...ai.images import encode_image_bytes_to_data_uri
 from ...ai.llm import vision_completion
-
 from .models import DetectedItem
 from .prompts import (
     build_detection_system_prompt,

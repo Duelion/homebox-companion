@@ -59,9 +59,9 @@
 
 <Modal open={sessionExpired} onclose={preventClose}>
 	<!-- Header -->
-	<div class="bg-warning-500/10 -mx-6 -mt-6 mb-6 border-b border-neutral-700 px-6 py-4">
+	<div class="-mx-6 -mt-6 mb-6 border-b border-neutral-700 bg-warning-500/10 px-6 py-4">
 		<div class="flex items-center gap-3">
-			<div class="bg-warning-500/20 rounded-full p-2">
+			<div class="rounded-full bg-warning-500/20 p-2">
 				<CircleAlert class="text-warning-500" size={20} />
 			</div>
 			<div>
@@ -74,7 +74,7 @@
 	<!-- Form -->
 	<form class="space-y-4" onsubmit={handleSubmit}>
 		{#if errorMessage}
-			<div class="border-error-500/20 bg-error-500/10 text-error-500 rounded-lg border p-3 text-sm">
+			<div class="rounded-lg border border-error-500/20 bg-error-500/10 p-3 text-sm text-error-500">
 				{errorMessage}
 			</div>
 		{/if}

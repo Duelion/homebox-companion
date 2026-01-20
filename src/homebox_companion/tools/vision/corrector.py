@@ -14,7 +14,6 @@ from ...ai.prompts import (
 )
 
 
-
 async def correct_item(
     image_data_uri: str,
     current_item: dict,

@@ -232,7 +232,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended { }
+export interface MergeItem extends ItemCore, ItemExtended {}
 
 // =============================================================================
 // API TYPES - Responses
@@ -326,5 +326,3 @@ export interface BatchCreateResponse {
 	/** Summary message (e.g., "Created 2 items, 1 failed") */
 	message: string;
 }
-
-

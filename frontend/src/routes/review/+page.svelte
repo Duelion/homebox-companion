@@ -356,8 +356,8 @@
 <div class="animate-in pb-32">
 	<StepIndicator currentStep={3} />
 
-	<h2 class="text-h2 mb-1 text-neutral-100">Review Items</h2>
-	<p class="text-body-sm mb-6 text-neutral-400">Edit or skip detected items</p>
+	<h2 class="mb-1 text-h2 text-neutral-100">Review Items</h2>
+	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
 
 	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
 
@@ -374,7 +374,7 @@
 					<!-- Edit overlay - always visible on mobile, hover on desktop -->
 					<button
 						type="button"
-						class="absolute right-3 bottom-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:ring-2 focus:ring-white/50 focus:outline-none md:opacity-0 md:group-hover:opacity-100"
+						class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-white/50 md:opacity-0 md:group-hover:opacity-100"
 						onclick={openThumbnailEditor}
 						aria-label="Edit thumbnail image"
 					>
@@ -383,7 +383,7 @@
 					</button>
 					{#if editedItem.customThumbnail}
 						<span
-							class="bg-primary-600/90 absolute top-3 left-3 rounded px-2 py-1 text-xs font-medium text-white"
+							class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
 						>
 							Custom
 						</span>
@@ -396,20 +396,20 @@
 				>
 					<ImageIcon class="mb-2 opacity-40" size={64} strokeWidth={1} />
 					<p class="text-body-sm">No image available</p>
-					<p class="text-caption mt-1">Add photos below</p>
+					<p class="mt-1 text-caption">Add photos below</p>
 				</div>
 			{/if}
 
 			<!-- Duplicate warning banner -->
 			{#if editedItem.duplicate_match}
 				<div
-					class="border-warning-500/30 bg-warning-500/10 mx-4 mt-4 flex items-center gap-3 rounded-lg border p-3"
+					class="mx-4 mt-4 flex items-center gap-3 rounded-lg border border-warning-500/30 bg-warning-500/10 p-3"
 				>
 					<DuplicateWarningIcon match={editedItem.duplicate_match} />
 					<div class="text-body-sm">
-						<p class="text-warning-300 font-medium">Possible Duplicate</p>
+						<p class="font-medium text-warning-300">Possible Duplicate</p>
 						<p class="text-warning-200/80">This item may already exist in your inventory</p>
-						<p class="text-warning-200/60 mt-0.5 text-xs">
+						<p class="mt-0.5 text-xs text-warning-200/60">
 							Serial number "{editedItem.duplicate_match.serial_number}" found in "{editedItem
 								.duplicate_match.item_name}"
 						</p>
@@ -486,7 +486,7 @@
 <!-- Sticky action footer -->
 {#if editedItem}
 	<div
-		class="bottom-nav-offset fixed right-0 left-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
+		class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
 	>
 		<AppContainer>
 			<!-- Item counter in footer for mobile - positioned above bottom nav -->

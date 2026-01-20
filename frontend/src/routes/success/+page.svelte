@@ -66,24 +66,24 @@
 	<div class="relative mb-8 h-28 w-28">
 		<!-- Ping animation (stops after 3 seconds) -->
 		{#if showPing}
-			<div class="bg-success-500/20 absolute inset-0 animate-ping rounded-full"></div>
+			<div class="absolute inset-0 animate-ping rounded-full bg-success-500/20"></div>
 		{/if}
 		<!-- Outer glow ring - scales in -->
-		<div class="success-scale bg-success-500/10 absolute inset-0 rounded-full"></div>
+		<div class="success-scale absolute inset-0 rounded-full bg-success-500/10"></div>
 		<!-- Inner circle - scales in with slight delay -->
-		<div class="success-scale bg-success-500/20 absolute inset-2 rounded-full delay-100"></div>
+		<div class="success-scale absolute inset-2 rounded-full bg-success-500/20 delay-100"></div>
 		<!-- Checkmark icon with draw animation -->
 		<div class="success-scale absolute inset-0 flex items-center justify-center delay-150">
-			<Check class="checkmark-draw text-success-500 h-14 w-14" strokeWidth={2.5} />
+			<Check class="checkmark-draw h-14 w-14 text-success-500" strokeWidth={2.5} />
 		</div>
 	</div>
 
 	<!-- Heading -->
-	<h2 class="text-h1 mb-3 text-neutral-100">Success!</h2>
+	<h2 class="mb-3 text-h1 text-neutral-100">Success!</h2>
 
 	<!-- Specific feedback with count and location -->
 	{#if result}
-		<p class="text-body mb-6 text-neutral-300">
+		<p class="mb-6 text-body text-neutral-300">
 			{result.itemCount} item{result.itemCount !== 1 ? 's' : ''} added to {result.locationName}
 		</p>
 
@@ -91,7 +91,7 @@
 		<div class="mb-8 w-full max-w-sm rounded-2xl border border-neutral-700 bg-neutral-900 p-4">
 			<div class="grid grid-cols-2 gap-4 text-center">
 				<div>
-					<div class="text-primary-400 text-2xl font-bold">
+					<div class="text-2xl font-bold text-primary-400">
 						{result.itemCount}
 					</div>
 					<div class="text-caption text-neutral-500">
@@ -99,7 +99,7 @@
 					</div>
 				</div>
 				<div>
-					<div class="text-primary-400 text-2xl font-bold">
+					<div class="text-2xl font-bold text-primary-400">
 						{result.photoCount}
 					</div>
 					<div class="text-caption text-neutral-500">
@@ -109,7 +109,7 @@
 			</div>
 		</div>
 	{:else}
-		<p class="text-body mb-8 text-neutral-400">Items have been added to your inventory</p>
+		<p class="mb-8 text-body text-neutral-400">Items have been added to your inventory</p>
 	{/if}
 
 	<!-- Action buttons -->

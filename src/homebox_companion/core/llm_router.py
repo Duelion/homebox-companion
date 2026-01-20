@@ -18,8 +18,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import litellm
-from litellm.router import Router
 from litellm.integrations.custom_logger import CustomLogger
+from litellm.router import Router
 from loguru import logger
 
 from .persistent_settings import get_fallback_profile

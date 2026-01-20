@@ -5,7 +5,6 @@ from __future__ import annotations
 from loguru import logger
 
 from ...ai.llm import vision_completion
-
 from .prompts import build_analysis_system_prompt
 
 
