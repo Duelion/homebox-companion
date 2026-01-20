@@ -6,6 +6,7 @@ API keys are never sent to the frontend - only `has_api_key: bool` is exposed.
 
 import litellm
 from fastapi import APIRouter, Depends, HTTPException
+from litellm.exceptions import APIConnectionError, AuthenticationError, NotFoundError
 from loguru import logger
 from pydantic import BaseModel, SecretStr
 
@@ -296,21 +297,21 @@ async def test_profile_connection(name: str, request: TestConnectionRequest | No
             model_info=model_info,
         )
 
-    except litellm.AuthenticationError as e:
+    except AuthenticationError as e:
         logger.warning(f"Auth error testing profile {name}: {e}")
         return TestConnectionResponse(
             success=False,
             message="Authentication failed. Check your API key.",
         )
 
-    except litellm.NotFoundError as e:
+    except NotFoundError as e:
         logger.warning(f"Model not found testing profile {name}: {e}")
         return TestConnectionResponse(
             success=False,
             message=f"Model '{model}' not found. Check the model name.",
         )
 
-    except litellm.APIConnectionError as e:
+    except APIConnectionError as e:
         logger.warning(f"Connection error testing profile {name}: {e}")
         return TestConnectionResponse(
             success=False,

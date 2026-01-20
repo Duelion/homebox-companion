@@ -60,12 +60,14 @@ def _normalize_image(img: Image.Image) -> Image.Image:
     try:
         from PIL import ExifTags
 
-        for orientation in ExifTags.TAGS:
-            if ExifTags.TAGS[orientation] == "Orientation":
+        orientation: int | None = None
+        for tag_id in ExifTags.TAGS:
+            if ExifTags.TAGS[tag_id] == "Orientation":
+                orientation = tag_id
                 break
 
         exif = img.getexif()
-        if exif is not None:
+        if exif is not None and orientation is not None:
             orientation_value = exif.get(orientation)
             if orientation_value == 3:
                 img = img.rotate(180, expand=True)
