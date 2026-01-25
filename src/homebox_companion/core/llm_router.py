@@ -15,6 +15,7 @@ Usage:
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
 
 import litellm
@@ -26,6 +27,38 @@ from .persistent_settings import get_fallback_profile
 
 if TYPE_CHECKING:
     from .persistent_settings import ModelProfile
+
+
+def _mask_api_keys(message: str) -> str:
+    """Mask API keys in error messages to prevent credential exposure in logs.
+
+    Looks for patterns like 'API key provided: <key>' and masks the key
+    to show only the first 3 and last 3 characters.
+
+    Args:
+        message: The error message that may contain API keys.
+
+    Returns:
+        Message with API keys masked (e.g., 'abc...xyz').
+    """
+    # Pattern: "API key provided: <key>" or similar
+    pattern = r"(API key provided:\s*)(\S+)"
+
+    def mask_key(match: re.Match) -> str:
+        prefix = match.group(1)
+        key = match.group(2)
+        # Remove trailing punctuation for masking
+        trailing = ""
+        if key and key[-1] in ".,;:":
+            trailing = key[-1]
+            key = key[:-1]
+        if len(key) > 6:
+            masked = f"{key[:3]}...{key[-3:]}"
+        else:
+            masked = "***"
+        return f"{prefix}{masked}{trailing}"
+
+    return re.sub(pattern, mask_key, message)
 
 
 class FallbackLogger(CustomLogger):
@@ -45,7 +78,8 @@ class FallbackLogger(CustomLogger):
         """Log when an LLM call fails (may trigger fallback)."""
         model = kwargs.get("model", "unknown")
         exception = kwargs.get("exception", "Unknown error")
-        logger.warning(f"LLM call failed for model '{model}': {exception}")
+        masked_exception = _mask_api_keys(str(exception))
+        logger.warning(f"LLM call failed for model '{model}': {masked_exception}")
 
     async def async_log_failure_event(
         self,
@@ -57,7 +91,8 @@ class FallbackLogger(CustomLogger):
         """Async version - log when an LLM call fails."""
         model = kwargs.get("model", "unknown")
         exception = kwargs.get("exception", "Unknown error")
-        logger.warning(f"LLM call failed for model '{model}': {exception}")
+        masked_exception = _mask_api_keys(str(exception))
+        logger.warning(f"LLM call failed for model '{model}': {masked_exception}")
 
     def log_success_event(
         self,
