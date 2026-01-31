@@ -32,7 +32,7 @@ export function getIsDemoModeExplicit(): boolean {
 export function getEmptyPreferences(): FieldPreferences {
 	return {
 		output_language: null,
-		default_label_id: null,
+		default_tag_id: null,
 		name: null,
 		description: null,
 		quantity: null,
@@ -182,7 +182,7 @@ export const downloadLLMDebugLogs = async (filename: string) => {
 
 export interface FieldPreferences {
 	output_language: string | null;
-	default_label_id: string | null;
+	default_tag_id: string | null;
 	name: string | null;
 	description: string | null;
 	quantity: string | null;
@@ -198,7 +198,7 @@ export interface FieldPreferences {
 /** Effective defaults (env var if set, otherwise hardcoded fallback) */
 export interface EffectiveDefaults {
 	output_language: string;
-	default_label_id: string | null;
+	default_tag_id: string | null;
 	name: string;
 	description: string;
 	quantity: string;

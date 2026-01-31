@@ -6,7 +6,7 @@
 	 * Uses the global labelStore for available labels.
 	 */
 	import { onMount } from 'svelte';
-	import { labelStore } from '$lib/stores/labels.svelte';
+	import { labelStore } from '$lib/stores/tags.svelte';
 	import type { FormSize } from './types';
 	import { getLabelClass } from './types';
 

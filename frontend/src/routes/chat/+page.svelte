@@ -247,10 +247,10 @@
 						</button>
 						<button
 							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
-							onclick={() => chatStore.sendMessage('List my labels')}
+							onclick={() => chatStore.sendMessage('List my tags')}
 						>
 							<Tag class="shrink-0 text-primary-500" size={18} strokeWidth={1.5} />
-							<span class="flex-1">List my labels</span>
+							<span class="flex-1">List my tags</span>
 						</button>
 						<button
 							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"

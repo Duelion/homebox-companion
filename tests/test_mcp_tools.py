@@ -338,7 +338,7 @@ class TestListItems:
         assert "pagination" in result.data
         assert result.data["pagination"]["total"] == 2
         mock_client.list_items.assert_called_once_with(
-            "test-token", location_id=None, label_ids=None, page=None, page_size=50
+            "test-token", location_id=None, tag_ids=None, page=None, page_size=50
         )
 
     @pytest.mark.asyncio
@@ -356,7 +356,7 @@ class TestListItems:
         await tool.execute(mock_client, "test-token", params)
 
         mock_client.list_items.assert_called_once_with(
-            "test-token", location_id="loc1", label_ids=None, page=None, page_size=50
+            "test-token", location_id="loc1", tag_ids=None, page=None, page_size=50
         )
 
 
@@ -376,7 +376,7 @@ class TestGetItem:
             "name": "Smart TV",
             "description": "65 inch OLED",
             "location": {"id": "loc1", "name": "Living Room"},
-            "labels": [{"id": "lbl1", "name": "Electronics"}],
+            "tags": [{"id": "tag1", "name": "Electronics"}],
         }
         mock_client.get_item.return_value = mock_item
 
@@ -392,8 +392,8 @@ class TestGetItem:
         assert "url" in result.data  # Computed URL field
         assert result.data["location"]["id"] == "loc1"
         assert result.data["location"]["name"] == "Living Room"
-        assert len(result.data["labels"]) == 1
-        assert result.data["labels"][0]["id"] == "lbl1"
+        assert len(result.data["tags"]) == 1
+        assert result.data["tags"][0]["id"] == "tag1"
         mock_client.get_item.assert_called_once_with("test-token", "item1")
 
     @pytest.mark.asyncio
@@ -441,8 +441,8 @@ class TestMCPToolsLive:
             assert len(result.data) > 0
 
     @pytest.mark.asyncio
-    async def test_list_labels_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
-        """List labels should return data from demo server."""
+    async def test_list_tags_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
+        """List tags should return data from demo server."""
         from homebox_companion import HomeboxClient
 
         username, password = homebox_credentials

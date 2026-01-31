@@ -81,7 +81,8 @@ class Settings(BaseSettings):
     # Optional public-facing URL for links (defaults to homebox_url)
     link_base_url: str = ""
 
-    # Legacy LLM configuration (deprecated - use llm_* fields instead)
+    # Backward compatibility: Also accepts HBC_OPENAI_API_KEY and HBC_OPENAI_MODEL
+    # These are legacy env vars from before the LiteLLM migration
     openai_api_key: str = ""
     openai_model: str = "gpt-5-mini"
 

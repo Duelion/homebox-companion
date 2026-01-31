@@ -13,7 +13,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
-	import { ItemCoreFields, ItemExtendedFields, LabelSelector } from '$lib/components/form';
+	import { ItemCoreFields, ItemExtendedFields, TagSelector } from '$lib/components/form';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import ImagesPanel from '$lib/components/ImagesPanel.svelte';
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
@@ -228,14 +228,14 @@
 	// Calculate remaining items count for dialog
 	const remainingCount = $derived(detectedItems.length - currentIndex);
 
-	function toggleLabel(labelId: string) {
+	function toggleTag(tagId: string) {
 		if (!editedItem) return;
 
-		const currentLabels = editedItem.label_ids || [];
-		if (currentLabels.includes(labelId)) {
-			editedItem.label_ids = currentLabels.filter((id) => id !== labelId);
+		const currentTags = editedItem.tag_ids || [];
+		if (currentTags.includes(tagId)) {
+			editedItem.tag_ids = currentTags.filter((id) => id !== tagId);
 		} else {
-			editedItem.label_ids = [...currentLabels, labelId];
+			editedItem.tag_ids = [...currentTags, tagId];
 		}
 	}
 
@@ -274,7 +274,7 @@
 					name: corrected.name,
 					quantity: corrected.quantity,
 					description: corrected.description ?? null,
-					label_ids: corrected.label_ids ?? null,
+					tag_ids: corrected.tag_ids ?? null,
 					manufacturer: corrected.manufacturer ?? null,
 					model_number: corrected.model_number ?? null,
 					serial_number: corrected.serial_number ?? null,
@@ -426,8 +426,8 @@
 					idPrefix="review"
 				/>
 
-				<!-- Labels with chip selection -->
-				<LabelSelector selectedIds={editedItem.label_ids ?? []} onToggle={toggleLabel} />
+				<!-- Tags with chip selection -->
+				<TagSelector selectedIds={editedItem.tag_ids ?? []} onToggle={toggleTag} />
 
 				<!-- Extended fields panel -->
 				<ItemExtendedFields

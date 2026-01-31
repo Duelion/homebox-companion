@@ -4,7 +4,7 @@
  * This module provides typed API access organized by domain:
  * - auth: Authentication (login)
  * - locations: Location CRUD
- * - labels: Labels list
+ * - tags: Tags list
  * - items: Item creation and attachments
  * - vision: AI vision endpoints
  * - settings: Config, logs, field preferences
@@ -26,7 +26,7 @@ export {
 // Re-export domain APIs
 export { auth } from './auth';
 export { locations } from './locations';
-export { labels } from './labels';
+export { tags } from './tags';
 export { items, type BlobUrlResult } from './items';
 export { vision } from './vision';
 export { chat, type ChatEvent, type PendingApproval, type ChatHealthResponse } from './chat';
@@ -56,6 +56,7 @@ export type {
 	LocationCreateRequest,
 	LocationUpdateRequest,
 	Label,
+	Tag,
 	DetectedItem,
 	DetectionResponse,
 	ItemInput,

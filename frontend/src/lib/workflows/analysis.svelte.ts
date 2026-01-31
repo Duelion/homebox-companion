@@ -9,7 +9,7 @@
  */
 
 import { vision, fieldPreferences } from '$lib/api/index';
-import { labelStore } from '$lib/stores/labels.svelte';
+import { labelStore } from '$lib/stores/tags.svelte';
 import { workflowLogger as log } from '$lib/utils/logger';
 import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus } from '$lib/types';
 
@@ -101,7 +101,7 @@ export class AnalysisService {
 		if (this.defaultLabelLoaded) return;
 		try {
 			const prefs = await fieldPreferences.get();
-			this.defaultLabelId = prefs.default_label_id;
+			this.defaultLabelId = prefs.default_tag_id;
 			this.defaultLabelLoaded = true; // Only mark as loaded on success
 		} catch {
 			// Silently ignore - will retry on next analysis
@@ -243,9 +243,9 @@ export class AnalysisService {
 
 				for (const item of result.items) {
 					// Add default label if configured and valid
-					let labelIds = item.label_ids ?? [];
-					if (validDefaultLabelId && !labelIds.includes(validDefaultLabelId)) {
-						labelIds = [...labelIds, validDefaultLabelId];
+					let tagIds = item.tag_ids ?? [];
+					if (validDefaultLabelId && !tagIds.includes(validDefaultLabelId)) {
+						tagIds = [...tagIds, validDefaultLabelId];
 					}
 
 					// Convert compressed images to data URLs
@@ -259,7 +259,7 @@ export class AnalysisService {
 
 					allDetectedItems.push({
 						...item,
-						label_ids: labelIds,
+						tag_ids: tagIds,
 						sourceImageIndex: result.imageIndex,
 						originalFile: result.image.file,
 						additionalImages: result.image.additionalFiles || [],

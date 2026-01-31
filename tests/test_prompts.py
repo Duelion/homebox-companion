@@ -25,13 +25,13 @@ class TestBuildItemSchema:
     """Test item schema generation."""
 
     def test_default_contains_required_fields(self) -> None:
-        """Schema should contain name, quantity, description, labelIds."""
+        """Schema should contain name, quantity, description, tagIds."""
         result = build_item_schema({})
 
         assert "name: string" in result
         assert "quantity: integer" in result
         assert "description: string" in result
-        assert "labelIds: array" in result
+        assert "tagIds: array" in result
 
     def test_default_uses_field_defaults(self) -> None:
         """With empty customizations, should use fallback defaults."""

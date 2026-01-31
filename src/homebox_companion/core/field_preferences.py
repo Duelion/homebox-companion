@@ -18,7 +18,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from loguru import logger
-from pydantic import ValidationError
+from pydantic import AliasChoices, Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Default storage location
@@ -46,8 +46,13 @@ class FieldPreferences(BaseSettings):
     # Language for AI output - env var: HBC_AI_OUTPUT_LANGUAGE
     output_language: str = "English"
 
-    # Label ID to auto-apply - env var: HBC_AI_DEFAULT_LABEL_ID
-    default_label_id: str | None = None
+    # Tag ID to auto-apply to all detected items
+    # Env var: HBC_AI_DEFAULT_TAG_ID
+    # Backward compatibility: Also accepts HBC_AI_DEFAULT_LABEL_ID (pre-v0.23 name)
+    default_tag_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("default_tag_id", "default_label_id"),
+    )
 
     # Item naming instructions - env var: HBC_AI_NAME
     name: str = "[Type] [Brand] [Model] [Specs], Title Case, item type first for searchability"
@@ -88,12 +93,12 @@ class FieldPreferences(BaseSettings):
         """Get customizations as dict for prompt integration.
 
         Returns dict with all prompt fields (excludes metadata like
-        output_language and default_label_id).
+        output_language and default_tag_id).
 
         Returns:
             Dict mapping field names to their effective instructions.
         """
-        return self.model_dump(exclude={"output_language", "default_label_id"})
+        return self.model_dump(exclude={"output_language", "default_tag_id"})
 
 
 @lru_cache(maxsize=1)

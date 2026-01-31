@@ -110,7 +110,7 @@ def build_detection_user_prompt(
         "List items that are the focus of this image. Return only JSON. "
         "Example: "
         '{"items":[{"name":"Claw Hammer","quantity":2,'
-        f'"description":"Steel claw hammer","labelIds":["id1"]{extended_example}'
+        f'"description":"Steel claw hammer","tagIds":["id1"]{extended_example}'
         "}]}." + user_hint
     )
 

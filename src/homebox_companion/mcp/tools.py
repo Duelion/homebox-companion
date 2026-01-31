@@ -515,12 +515,12 @@ class GetStatisticsByLocationTool:
 
 @register_tool
 @dataclass(frozen=True)
-class GetStatisticsByLabelTool:
-    """Get item counts grouped by label."""
+class GetStatisticsByTagTool:
+    """Get item counts grouped by tag."""
 
-    name: str = "get_statistics_by_label"
+    name: str = "get_statistics_by_tag"
     description: str = (
-        "Get item counts grouped by label. Useful for analytics queries like 'how many items are tagged Electronics?'"
+        "Get item counts grouped by tag. Useful for analytics queries like 'how many items are tagged Electronics?'"
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -533,8 +533,8 @@ class GetStatisticsByLabelTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        stats = await client.get_statistics_by_label(token)
-        logger.debug(f"get_statistics_by_label returned {len(stats)} labels")
+        stats = await client.get_statistics_by_tag(token)
+        logger.debug(f"get_statistics_by_tag returned {len(stats)} tags")
         return ToolResult(success=True, data=stats)
 
 
