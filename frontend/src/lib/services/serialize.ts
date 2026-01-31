@@ -215,7 +215,7 @@ export function serializeReviewItem(item: ReviewItem): StoredReviewItem {
 		name: item.name,
 		quantity: item.quantity,
 		description: item.description,
-		label_ids: item.label_ids,
+		tag_ids: item.tag_ids,
 		// ItemExtended fields
 		manufacturer: item.manufacturer,
 		model_number: item.model_number,
@@ -320,7 +320,7 @@ export async function deserializeReviewItem(stored: StoredReviewItem): Promise<R
 		name: stored.name,
 		quantity: stored.quantity,
 		description: stored.description,
-		label_ids: stored.label_ids,
+		tag_ids: stored.tag_ids,
 		// ItemExtended fields
 		manufacturer: stored.manufacturer,
 		model_number: stored.model_number,

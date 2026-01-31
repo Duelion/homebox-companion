@@ -13,7 +13,7 @@
 	import {
 		ItemCoreFields,
 		ItemExtendedFields,
-		LabelSelector,
+		TagSelector,
 		LocationSelector,
 		UpdateFieldEditor,
 	} from './form';
@@ -99,7 +99,7 @@
 	);
 	const originalQuantity = $derived((approval.parameters.quantity as number | undefined) ?? 1);
 	const originalNotes = $derived((approval.parameters.notes as string | undefined) ?? '');
-	const originalLabelIds = $derived((approval.parameters.label_ids as string[] | undefined) ?? []);
+	const originalLabelIds = $derived((approval.parameters.tag_ids as string[] | undefined) ?? []);
 	const originalLocationId = $derived(
 		(approval.parameters.location_id as string | undefined) ?? ''
 	);
@@ -222,7 +222,7 @@
 		if (approval.parameters.description !== undefined) fields.push('description');
 		if (approval.parameters.quantity !== undefined) fields.push('quantity');
 		if (approval.parameters.notes !== undefined) fields.push('notes');
-		if (approval.parameters.label_ids !== undefined) fields.push('labels');
+		if (approval.parameters.tag_ids !== undefined) fields.push('labels');
 		// Only add 'location' for item tools, not for location tools
 		// (update_location uses location_id as the entity identifier, not a field to change)
 		// Using endsWith('_location') for defensive future-proofing against new location tools
@@ -304,7 +304,7 @@
 			mods.quantity = editedQuantity;
 		if (editedNotes !== originalNotes && canModifyField('notes')) mods.notes = editedNotes;
 		if (!arraysEqual(editedLabelIds, originalLabelIds) && canModifyField('labels'))
-			mods.label_ids = editedLabelIds;
+			mods.tag_ids = editedLabelIds;
 		if (editedLocationId !== originalLocationId && canModifyField('location'))
 			mods.location_id = editedLocationId;
 		if (editedManufacturer !== originalManufacturer && canModifyField('manufacturer'))
@@ -333,12 +333,12 @@
 		}
 	});
 
-	// Toggle a label selection
-	function toggleLabel(labelId: string) {
-		if (editedLabelIds.includes(labelId)) {
-			editedLabelIds = editedLabelIds.filter((id) => id !== labelId);
+	// Toggle a tag selection
+	function toggleTag(tagId: string) {
+		if (editedLabelIds.includes(tagId)) {
+			editedLabelIds = editedLabelIds.filter((id) => id !== tagId);
 		} else {
-			editedLabelIds = [...editedLabelIds, labelId];
+			editedLabelIds = [...editedLabelIds, tagId];
 		}
 	}
 
@@ -489,11 +489,11 @@
 							fallbackDisplay={approval.display_info?.location ?? 'No location'}
 						/>
 
-						<LabelSelector
+						<TagSelector
 							selectedIds={editedLabelIds}
 							size="sm"
 							disabled={isProcessing}
-							onToggle={toggleLabel}
+							onToggle={toggleTag}
 						/>
 
 						<ItemExtendedFields
@@ -559,7 +559,7 @@
 					bind:purchaseFrom={editedPurchaseFrom}
 					bind:color={editedColor}
 					bind:parentId={editedParentId}
-					onToggleLabel={toggleLabel}
+					onToggleLabel={toggleTag}
 				/>
 			{:else if actionType === 'delete'}
 				<!-- Delete Entity: Read-only verification -->

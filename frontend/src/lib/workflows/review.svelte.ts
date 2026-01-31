@@ -230,7 +230,7 @@ export class ReviewService {
 			name: item.name,
 			quantity: item.quantity,
 			description: item.description,
-			label_ids: item.label_ids,
+			tag_ids: item.tag_ids,
 			manufacturer: item.manufacturer,
 			model_number: item.model_number,
 			serial_number: item.serial_number,

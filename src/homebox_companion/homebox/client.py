@@ -709,7 +709,7 @@ class HomeboxClient:
         token: str,
         *,
         location_id: str | None = None,
-        label_ids: list[str] | None = None,
+        tag_ids: list[str] | None = None,
         query: str | None = None,
         page: int | None = None,
         page_size: int | None = None,
@@ -719,7 +719,7 @@ class HomeboxClient:
         Args:
             token: The bearer token from login.
             location_id: Optional location ID to filter items.
-            label_ids: Optional list of label IDs to filter items.
+            tag_ids: Optional list of tag IDs to filter items.
             query: Optional search query string.
             page: Optional page number (1-indexed).
             page_size: Optional number of items per page.
@@ -730,9 +730,9 @@ class HomeboxClient:
         params = {}
         if location_id:
             params["locations"] = location_id
-        if label_ids:
+        if tag_ids:
             # API expects comma-separated list for array params
-            params["labels"] = ",".join(label_ids)
+            params["tags"] = ",".join(tag_ids)
         if query:
             params["q"] = query
         if page is not None:
@@ -831,7 +831,7 @@ class HomeboxClient:
             Statistics dict containing:
             - totalItems: Count of all items
             - totalLocations: Count of locations
-            - totalLabels: Count of labels
+            - totalTags: Count of tags
             - totalItemPrice: Sum of item prices
             - totalWithWarranty: Count of items with warranty
             - totalUsers: Count of users
@@ -865,23 +865,23 @@ class HomeboxClient:
         self._ensure_success(response, "Get statistics by location")
         return response.json()
 
-    async def get_statistics_by_label(self, token: str) -> list[dict[str, Any]]:
-        """Get statistics grouped by label.
+    async def get_statistics_by_tag(self, token: str) -> list[dict[str, Any]]:
+        """Get statistics grouped by tag.
 
         Args:
             token: The bearer token from login.
 
         Returns:
-            List of dicts with id, name, and total (item count) for each label.
+            List of dicts with id, name, and total (item count) for each tag.
         """
         response = await self.client.get(
-            f"{self.base_url}/groups/statistics/labels",
+            f"{self.base_url}/groups/statistics/tags",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
             },
         )
-        self._ensure_success(response, "Get statistics by label")
+        self._ensure_success(response, "Get statistics by tag")
         return response.json()
 
     async def get_item_by_asset_id(self, token: str, asset_id: str) -> dict[str, Any]:

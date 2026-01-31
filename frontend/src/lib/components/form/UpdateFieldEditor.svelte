@@ -8,7 +8,7 @@
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 	import LocationSelector from './LocationSelector.svelte';
-	import LabelSelector from './LabelSelector.svelte';
+	import TagSelector from './TagSelector.svelte';
 
 	interface DisplayInfo {
 		target_name?: string;
@@ -190,7 +190,7 @@
 	{/if}
 
 	{#if fieldsBeingChanged.includes('labels')}
-		<LabelSelector selectedIds={labelIds} {size} {disabled} onToggle={onToggleLabel} />
+		<TagSelector selectedIds={labelIds} {size} {disabled} onToggle={onToggleLabel} />
 	{/if}
 
 	{#if fieldsBeingChanged.includes('notes') && !hasExtendedFieldsBeingChanged}

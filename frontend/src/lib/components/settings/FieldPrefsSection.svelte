@@ -141,14 +141,14 @@
 			</p>
 			<select
 				id="default_label"
-				value={service.fieldPrefs.default_label_id || ''}
-				onchange={(e) => service.updateFieldPref('default_label_id', e.currentTarget.value)}
+				value={service.fieldPrefs.default_tag_id || ''}
+				onchange={(e) => service.updateFieldPref('default_tag_id', e.currentTarget.value)}
 				class="input"
 			>
 				<option value="">No default label</option>
-				{#each service.availableLabels as label (label.id)}
+				{#each service.availableTags as label (label.id)}
 					<option value={label.id}>
-						{label.name}{service.effectiveDefaults?.default_label_id === label.id
+						{label.name}{service.effectiveDefaults?.default_tag_id === label.id
 							? ' (env default)'
 							: ''}
 					</option>

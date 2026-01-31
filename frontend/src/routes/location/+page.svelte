@@ -7,7 +7,7 @@
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { locationStore } from '$lib/stores/locations.svelte';
 	import { locationNavigator } from '$lib/services/locationNavigator.svelte';
-	import { fetchLabels } from '$lib/stores/labels.svelte';
+	import { fetchTags } from '$lib/stores/tags.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
@@ -82,7 +82,7 @@
 		// Detect transition from expired -> restored
 		if (prevSessionExpired && !currentExpired) {
 			locationNavigator.loadTree();
-			fetchLabels();
+			fetchTags();
 		}
 		// Update previous state (plain variable, not tracked by Svelte)
 		prevSessionExpired = currentExpired;
@@ -107,7 +107,7 @@
 		}
 
 		await locationNavigator.loadTree();
-		await fetchLabels();
+		await fetchTags();
 	});
 
 	// Handler for pull-to-refresh: refreshes current view without resetting navigation
@@ -127,11 +127,11 @@
 			await locationNavigator.loadTree();
 		}
 
-		// Always refresh labels to pick up new labels created by other users
+		// Always refresh tags to pick up new tags created by other users
 		try {
-			await fetchLabels(true); // force refresh
+			await fetchTags(true); // force refresh
 		} catch (error) {
-			log.warn('Failed to refresh labels during pull-to-refresh', error);
+			log.warn('Failed to refresh tags during pull-to-refresh', error);
 		}
 	}
 

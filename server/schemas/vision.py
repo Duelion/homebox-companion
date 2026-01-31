@@ -21,7 +21,7 @@ class ItemBaseMixin(BaseModel):
     name: str
     quantity: int
     description: str | None = None
-    label_ids: list[str] | None = None
+    tag_ids: list[str] | None = None
 
 
 class DuplicateMatchResponse(BaseModel):
@@ -65,7 +65,7 @@ class AdvancedItemDetails(ItemExtendedFieldsMixin):
 
     name: str | None = None
     description: str | None = None
-    label_ids: list[str] | None = None
+    tag_ids: list[str] | None = None
 
 
 class CorrectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):

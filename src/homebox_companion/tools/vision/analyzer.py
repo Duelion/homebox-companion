@@ -12,7 +12,7 @@ async def analyze_item_details_from_images(
     image_data_uris: list[str],
     item_name: str,
     item_description: str | None,
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
 ) -> dict:
@@ -22,7 +22,7 @@ async def analyze_item_details_from_images(
         image_data_uris: List of data URI strings for each image.
         item_name: The name of the item being analyzed.
         item_description: Optional initial description of the item.
-        labels: Optional list of Homebox labels to suggest.
+        tags: Optional list of Homebox tags to suggest.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
 
@@ -38,7 +38,7 @@ async def analyze_item_details_from_images(
     system_prompt = build_analysis_system_prompt(
         item_name=item_name,
         item_description=item_description,
-        labels=labels,
+        tags=tags,
         field_preferences=field_preferences,
         output_language=output_language,
     )
