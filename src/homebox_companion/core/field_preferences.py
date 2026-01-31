@@ -89,6 +89,18 @@ class FieldPreferences(BaseSettings):
         "Also note if sealed/new-in-box. Leave null for normal items."
     )
 
+    @property
+    def using_legacy_label_env(self) -> bool:
+        """Check if the deprecated HBC_AI_DEFAULT_LABEL_ID env var is being used.
+
+        Returns True if default_tag_id has a value AND the legacy env var is set.
+        """
+        import os
+
+        return self.default_tag_id is not None and bool(
+            os.environ.get("HBC_AI_DEFAULT_LABEL_ID")
+        )
+
     def get_effective_customizations(self) -> dict[str, str]:
         """Get customizations as dict for prompt integration.
 
