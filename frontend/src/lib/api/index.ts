@@ -55,7 +55,6 @@ export type {
 	LocationTreeNode,
 	LocationCreateRequest,
 	LocationUpdateRequest,
-	Label,
 	Tag,
 	DetectedItem,
 	DetectionResponse,

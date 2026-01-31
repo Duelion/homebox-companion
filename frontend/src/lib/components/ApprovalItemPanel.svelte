@@ -2,7 +2,7 @@
 	/**
 	 * ApprovalItemPanel - Expandable panel for viewing/editing a pending approval action
 	 *
-	 * Supports three action types across items, labels, and locations:
+	 * Supports three action types across items, tags, and locations:
 	 * - create: Full editable form (items get extended fields, tags/locations get name + description)
 	 * - update: Shows only fields being changed (editable)
 	 * - delete: Read-only verification view with entity-specific tagging
@@ -23,10 +23,10 @@
 	// Fallback action type mapping for backwards compatibility (before backend sends action_type)
 	const FALLBACK_ACTION_TYPE_MAP: Record<string, ActionType> = {
 		delete_item: 'delete',
-		delete_label: 'delete',
+		delete_tag: 'delete',
 		delete_location: 'delete',
 		create_item: 'create',
-		create_label: 'create',
+		create_tag: 'create',
 		create_location: 'create',
 	};
 
@@ -187,10 +187,10 @@
 		if (toolName === 'delete_item') return info?.item_name ?? 'Delete item';
 		if (toolName === 'update_item') return info?.item_name ?? 'Update item';
 		if (toolName === 'create_item') return info?.item_name ?? 'New item';
-		// Labels - use params.name as fallback since labels don't have display_info
-		if (toolName === 'create_label') return (params?.name as string) ?? 'New label';
-		if (toolName === 'update_label') return (params?.name as string) ?? 'Update label';
-		if (toolName === 'delete_label') return (params?.name as string) ?? 'Delete label';
+		// Tags - use params.name as fallback since tags don't have display_info
+		if (toolName === 'create_tag') return (params?.name as string) ?? 'New tag';
+		if (toolName === 'update_tag') return (params?.name as string) ?? 'Update tag';
+		if (toolName === 'delete_tag') return (params?.name as string) ?? 'Delete tag';
 		// Locations
 		if (toolName === 'create_location') return (params?.name as string) ?? 'New location';
 		if (toolName === 'update_location') return (params?.name as string) ?? 'Update location';
@@ -202,14 +202,14 @@
 	// Determine entity type from tool name for proper labeling
 	const entityType = $derived.by(() => {
 		if (approval.tool_name.endsWith('_item')) return 'item';
-		if (approval.tool_name.endsWith('_label')) return 'tag';
+		if (approval.tool_name.endsWith('_tag')) return 'tag';
 		if (approval.tool_name.endsWith('_location')) return 'location';
 		return 'item';
 	});
 
 	// Get the correct ID parameter based on entity type
 	const entityIdParam = $derived.by(() => {
-		if (entityType === 'tag') return (approval.parameters.label_id as string) ?? 'Unknown';
+		if (entityType === 'tag') return (approval.parameters.tag_id as string) ?? 'Unknown';
 		if (entityType === 'location') return (approval.parameters.location_id as string) ?? 'Unknown';
 		return (approval.parameters.item_id as string) ?? 'Unknown';
 	});

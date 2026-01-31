@@ -9,7 +9,7 @@
  */
 
 import { vision, fieldPreferences } from '$lib/api/index';
-import { labelStore } from '$lib/stores/tags.svelte';
+import { tagStore } from '$lib/stores/tags.svelte';
 import { workflowLogger as log } from '$lib/utils/logger';
 import type { CapturedImage, ReviewItem, Progress, ImageAnalysisStatus } from '$lib/types';
 
@@ -218,14 +218,14 @@ export class AnalysisService {
 
 		// Ensure tags are loaded before validation (best effort - not critical for analysis success)
 		try {
-			await labelStore.fetchTags();
+			await tagStore.fetchTags();
 		} catch (error) {
 			log.warn('Failed to fetch tags for default tag validation:', error);
 			// Continue without default tag validation - analysis results are still valid
 		}
 
 		// Validate default tag exists in current Homebox instance
-		const currentTags = labelStore.tags;
+		const currentTags = tagStore.tags;
 		const validDefaultTagId =
 			this.defaultTagId && currentTags.some((t) => t.id === this.defaultTagId)
 				? this.defaultTagId

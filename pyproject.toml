@@ -139,5 +139,9 @@ ignore_names = [
     "pytestmark",
     "model_config",
     "*_typed",
+    # LiteLLM CustomLogger interface parameters (required by parent class)
+    "response_obj",
+    "start_time",
+    "end_time",
 ]
 
