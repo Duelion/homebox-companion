@@ -59,8 +59,8 @@ export interface ChatMessage {
 // CONSTANTS
 // =============================================================================
 
-/** Tools that modify labels - used for cache invalidation */
-const LABEL_TOOLS = new Set(['create_label', 'update_label', 'delete_label']);
+/** Tools that modify tags - used for cache invalidation */
+const TAG_TOOLS = new Set(['create_tag', 'update_tag', 'delete_tag']);
 
 /** Tools that modify locations - used for cache invalidation */
 const LOCATION_TOOLS = new Set(['create_location', 'update_location', 'delete_location']);
@@ -912,10 +912,10 @@ class ChatStore {
 	 */
 	private async refreshCachesForTool(toolName: string): Promise<void> {
 		try {
-			// Refresh labels cache when labels are created/updated/deleted
-			if (LABEL_TOOLS.has(toolName)) {
-				log.debug(`Refreshing labels cache after ${toolName}`);
-				await labelStore.fetchLabels(true); // force refresh
+			// Refresh tags cache when tags are created/updated/deleted
+			if (TAG_TOOLS.has(toolName)) {
+				log.debug(`Refreshing tags cache after ${toolName}`);
+				await labelStore.fetchTags(true); // force refresh
 			}
 
 			// Refresh locations cache when locations are created/updated/deleted

@@ -5,7 +5,7 @@
  * - Running AI detection on images
  * - Managing analysis progress
  * - Cancellation support
- * - Default label loading
+ * - Default tag loading
  */
 
 import { vision, fieldPreferences } from '$lib/api/index';
@@ -88,21 +88,21 @@ export class AnalysisService {
 	/** Abort controller for cancellable operations */
 	private abortController: AbortController | null = null;
 
-	/** Cache for default label (loaded once per session) */
-	private defaultLabelId: string | null = null;
-	private defaultLabelLoaded = false;
+	/** Cache for default tag (loaded once per session) */
+	private defaultTagId: string | null = null;
+	private defaultTagLoaded = false;
 
 	// =========================================================================
 	// ANALYSIS OPERATIONS
 	// =========================================================================
 
-	/** Load default label ID if not already loaded */
-	async loadDefaultLabel(): Promise<void> {
-		if (this.defaultLabelLoaded) return;
+	/** Load default tag ID if not already loaded */
+	async loadDefaultTag(): Promise<void> {
+		if (this.defaultTagLoaded) return;
 		try {
 			const prefs = await fieldPreferences.get();
-			this.defaultLabelId = prefs.default_tag_id;
-			this.defaultLabelLoaded = true; // Only mark as loaded on success
+			this.defaultTagId = prefs.default_tag_id;
+			this.defaultTagLoaded = true; // Only mark as loaded on success
 		} catch {
 			// Silently ignore - will retry on next analysis
 		}
@@ -216,19 +216,19 @@ export class AnalysisService {
 			return { success: false, items: [], error: 'Analysis cancelled', failedCount: 0 };
 		}
 
-		// Ensure labels are loaded before validation (best effort - not critical for analysis success)
+		// Ensure tags are loaded before validation (best effort - not critical for analysis success)
 		try {
-			await labelStore.fetchLabels();
+			await labelStore.fetchTags();
 		} catch (error) {
-			log.warn('Failed to fetch labels for default label validation:', error);
-			// Continue without default label validation - analysis results are still valid
+			log.warn('Failed to fetch tags for default tag validation:', error);
+			// Continue without default tag validation - analysis results are still valid
 		}
 
-		// Validate default label exists in current Homebox instance
-		const currentLabels = labelStore.labels;
-		const validDefaultLabelId =
-			this.defaultLabelId && currentLabels.some((l) => l.id === this.defaultLabelId)
-				? this.defaultLabelId
+		// Validate default tag exists in current Homebox instance
+		const currentTags = labelStore.tags;
+		const validDefaultTagId =
+			this.defaultTagId && currentTags.some((t) => t.id === this.defaultTagId)
+				? this.defaultTagId
 				: null;
 
 		// Process results
@@ -242,10 +242,10 @@ export class AnalysisService {
 				const additionalCompressed = compressedImages.slice(1);
 
 				for (const item of result.items) {
-					// Add default label if configured and valid
+					// Add default tag if configured and valid
 					let tagIds = item.tag_ids ?? [];
-					if (validDefaultLabelId && !tagIds.includes(validDefaultLabelId)) {
-						tagIds = [...tagIds, validDefaultLabelId];
+					if (validDefaultTagId && !tagIds.includes(validDefaultTagId)) {
+						tagIds = [...tagIds, validDefaultTagId];
 					}
 
 					// Convert compressed images to data URLs
@@ -335,8 +335,8 @@ export class AnalysisService {
 		this.imageStatuses = initialStatuses;
 
 		try {
-			// Load default label first
-			await this.loadDefaultLabel();
+			// Load default tag first
+			await this.loadDefaultTag();
 
 			// Update progress message
 			this.progress = {
@@ -456,8 +456,8 @@ export class AnalysisService {
 		this.imageStatuses = updatedStatuses;
 
 		try {
-			// Load default label first
-			await this.loadDefaultLabel();
+			// Load default tag first
+			await this.loadDefaultTag();
 
 			// Update progress message
 			this.progress = {

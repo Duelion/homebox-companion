@@ -2,7 +2,7 @@
  * Consolidated type definitions for Homebox Companion
  *
  * This file contains all shared types organized by domain:
- * - Domain models (Location, Label, Item)
+ * - Domain models (Location, Tag, Item)
  * - API types (requests/responses)
  * - Workflow types (scan workflow state)
  */
@@ -25,7 +25,7 @@ export interface LocationTreeNode extends Location {
 	children: Location[];
 }
 
-/** Label for categorizing items */
+/** Tag for categorizing items */
 export interface Label {
 	id: string;
 	name: string;
@@ -33,7 +33,7 @@ export interface Label {
 	color?: string;
 }
 
-/** Tag for categorizing items (alias for Label for API compatibility) */
+/** Tag type (alias for Label interface for backwards compatibility) */
 export type Tag = Label;
 
 /** Item summary for selection/listing (lightweight) */
