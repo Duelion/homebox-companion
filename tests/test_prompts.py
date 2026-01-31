@@ -8,9 +8,9 @@ from homebox_companion.ai.prompts import (
     build_critical_constraints,
     build_extended_fields_schema,
     build_item_schema,
-    build_label_prompt,
     build_language_instruction,
     build_naming_examples,
+    build_tag_prompt,
 )
 from homebox_companion.core.field_preferences import get_defaults
 
@@ -198,49 +198,49 @@ class TestBuildCriticalConstraints:
         assert "Do NOT guess" in result_single or "not guess" in result_single.lower()
 
 
-class TestBuildLabelPrompt:
-    """Test label assignment prompt generation."""
+class TestBuildTagPrompt:
+    """Test tag assignment prompt generation."""
 
-    def test_with_labels_lists_all_with_ids(self) -> None:
-        """Should list all labels with their IDs."""
-        labels = [
-            {"id": "label-1", "name": "Electronics"},
-            {"id": "label-2", "name": "Tools"},
-            {"id": "label-3", "name": "Hardware"},
+    def test_with_tags_lists_all_with_ids(self) -> None:
+        """Should list all tags with their IDs."""
+        tags = [
+            {"id": "tag-1", "name": "Electronics"},
+            {"id": "tag-2", "name": "Tools"},
+            {"id": "tag-3", "name": "Hardware"},
         ]
 
-        result = build_label_prompt(labels)
+        result = build_tag_prompt(tags)
 
         assert "Electronics" in result
-        assert "label-1" in result
+        assert "tag-1" in result
         assert "Tools" in result
-        assert "label-2" in result
+        assert "tag-2" in result
         assert "Hardware" in result
-        assert "label-3" in result
+        assert "tag-3" in result
 
-    def test_with_no_labels_says_none_available(self) -> None:
-        """With no labels, should indicate none available."""
-        result_none = build_label_prompt(None)
-        result_empty = build_label_prompt([])
+    def test_with_no_tags_says_none_available(self) -> None:
+        """With no tags, should indicate none available."""
+        result_none = build_tag_prompt(None)
+        result_empty = build_tag_prompt([])
 
-        assert "No labels" in result_none
-        assert "omit labelIds" in result_none
-        assert "No labels" in result_empty
+        assert "No tags" in result_none
+        assert "omit tagIds" in result_none
+        assert "No tags" in result_empty
 
-    def test_filters_invalid_labels(self) -> None:
-        """Should filter out labels missing id or name."""
-        labels = [
-            {"id": "label-1", "name": "Valid"},
+    def test_filters_invalid_tags(self) -> None:
+        """Should filter out tags missing id or name."""
+        tags = [
+            {"id": "tag-1", "name": "Valid"},
             {"id": "", "name": "No ID"},
-            {"id": "label-3", "name": ""},
+            {"id": "tag-3", "name": ""},
             {},
         ]
 
-        result = build_label_prompt(labels)
+        result = build_tag_prompt(tags)
 
         assert "Valid" in result
-        assert "label-1" in result
-        # Invalid labels should not appear
+        assert "tag-1" in result
+        # Invalid tags should not appear
         assert "No ID" not in result
 
 

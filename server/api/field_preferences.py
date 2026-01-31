@@ -112,8 +112,8 @@ async def get_prompt_preview(
     if output_language.lower() == "english":
         output_language = None
 
-    # Example labels for preview
-    example_labels = [
+    # Example tags for preview
+    example_tags = [
         {"id": "abc123", "name": "Electronics"},
         {"id": "def456", "name": "Tools"},
         {"id": "ghi789", "name": "Supplies"},
@@ -121,7 +121,7 @@ async def get_prompt_preview(
 
     # Generate the system prompt
     prompt = build_detection_system_prompt(
-        labels=example_labels,
+        tags=example_tags,
         single_item=False,
         extract_extended_fields=True,
         field_preferences=field_prefs,

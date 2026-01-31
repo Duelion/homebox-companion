@@ -9,7 +9,7 @@ from loguru import logger
 from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient
 from homebox_companion.homebox import ItemCreate
 
-from ..dependencies import get_client, get_token, get_valid_label_ids, validate_file_size
+from ..dependencies import get_client, get_token, get_valid_tag_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
 
 router = APIRouter()
@@ -64,8 +64,8 @@ async def create_items(
     created: list[dict[str, Any]] = []
     errors: list[str] = []
 
-    # Fetch valid label IDs once for the batch to validate against
-    valid_label_ids = await get_valid_label_ids(token, client)
+    # Fetch valid tag IDs once for the batch to validate against
+    valid_tag_ids = await get_valid_tag_ids(token, client)
 
     for item_input in request.items:
         # Use request-level location_id if item doesn't have one
@@ -73,17 +73,17 @@ async def create_items(
 
         logger.debug(f"Creating item: {item_input.name}")
         logger.debug(f"  location_id: {location_id}")
-        logger.debug(f"  label_ids: {item_input.label_ids}")
+        logger.debug(f"  tag_ids: {item_input.tag_ids}")
         logger.debug(f"  parent_id: {item_input.parent_id}")
 
-        # Validate label_ids against Homebox to filter out invalid/stale IDs
-        validated_label_ids: list[str] | None = None
-        if item_input.label_ids:
-            validated_label_ids = [lid for lid in item_input.label_ids if lid in valid_label_ids]
-            filtered_count = len(item_input.label_ids) - len(validated_label_ids)
+        # Validate tag_ids against Homebox to filter out invalid/stale IDs
+        validated_tag_ids: list[str] | None = None
+        if item_input.tag_ids:
+            validated_tag_ids = [tid for tid in item_input.tag_ids if tid in valid_tag_ids]
+            filtered_count = len(item_input.tag_ids) - len(validated_tag_ids)
             if filtered_count > 0:
                 logger.warning(
-                    f"Filtered out {filtered_count} invalid label ID(s) for '{item_input.name}'"
+                    f"Filtered out {filtered_count} invalid tag ID(s) for '{item_input.name}'"
                 )
 
         detected_item = DetectedItem(
@@ -91,7 +91,7 @@ async def create_items(
             quantity=item_input.quantity,
             description=item_input.description,
             location_id=location_id,
-            label_ids=validated_label_ids if validated_label_ids else None,
+            tag_ids=validated_tag_ids if validated_tag_ids else None,
             manufacturer=item_input.manufacturer,
             model_number=item_input.model_number,
             serial_number=item_input.serial_number,
@@ -107,7 +107,7 @@ async def create_items(
                 quantity=detected_item.quantity,
                 description=detected_item.description or "",
                 location_id=detected_item.location_id,
-                label_ids=detected_item.label_ids,
+                tag_ids=detected_item.tag_ids,
                 parent_id=item_input.parent_id,  # Include parent_id for sub-items
             )
             result = await client.create_item(token, item_create)
@@ -128,7 +128,7 @@ async def create_items(
                             "description": full_item.get("description"),
                             "quantity": full_item.get("quantity"),
                             "locationId": full_item.get("location", {}).get("id"),
-                            "labelIds": [lbl.get("id") for lbl in full_item.get("labels", []) if lbl.get("id")],
+                            "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
                             **extended_payload,
                         }
                         # Preserve parentId if it was set

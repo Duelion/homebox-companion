@@ -20,8 +20,8 @@ from .prompts import (
     build_critical_constraints,
     build_extended_fields_schema,
     build_item_schema,
-    build_label_prompt,
     build_naming_examples,
+    build_tag_prompt,
 )
 
 __all__ = [
@@ -40,7 +40,7 @@ __all__ = [
     "ModelCapabilities",
     "get_model_capabilities",
     # Prompts
-    "build_label_prompt",
+    "build_tag_prompt",
     "build_item_schema",
     "build_extended_fields_schema",
     "build_naming_examples",

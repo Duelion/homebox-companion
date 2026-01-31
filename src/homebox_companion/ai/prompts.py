@@ -93,7 +93,7 @@ def build_item_schema(customizations: dict[str, str]) -> str:
 - name: string ({name_instr})
 - quantity: integer ({qty_instr})
 - description: string ({desc_instr})
-- labelIds: array of matching label IDs"""
+- tagIds: array of matching tag IDs"""
 
 
 def build_extended_fields_schema(customizations: dict[str, str]) -> str:
@@ -123,26 +123,26 @@ OPTIONAL FIELDS (include only when visible or user-provided):
 - notes: string or null ({notes_instr})"""
 
 
-def build_label_prompt(labels: list[dict[str, str]] | None) -> str:
-    """Build the label assignment prompt section.
+def build_tag_prompt(tags: list[dict[str, str]] | None) -> str:
+    """Build the tag assignment prompt section.
 
     Args:
-        labels: List of label dicts with 'id' and 'name' keys, or None.
+        tags: List of tag dicts with 'id' and 'name' keys, or None.
 
     Returns:
-        Prompt text instructing the AI how to handle labels.
+        Prompt text instructing the AI how to handle tags.
     """
-    if not labels:
-        return "No labels available; omit labelIds."
+    if not tags:
+        return "No tags available; omit tagIds."
 
-    label_lines = [
-        f"- {label['name']} (id: {label['id']})" for label in labels if label.get("id") and label.get("name")
+    tag_lines = [
+        f"- {tag['name']} (id: {tag['id']})" for tag in tags if tag.get("id") and tag.get("name")
     ]
 
-    if not label_lines:
-        return "No labels available; omit labelIds."
+    if not tag_lines:
+        return "No tags available; omit tagIds."
 
-    return "LABELS - Assign matching IDs to each item:\n" + "\n".join(label_lines)
+    return "TAGS - Assign matching IDs to each item:\n" + "\n".join(tag_lines)
 
 
 def build_language_instruction(output_language: str | None) -> str:
