@@ -8,9 +8,9 @@ from ...ai.llm import vision_completion
 from ...ai.prompts import (
     build_extended_fields_schema,
     build_item_schema,
-    build_label_prompt,
     build_language_instruction,
     build_naming_examples,
+    build_tag_prompt,
 )
 
 
@@ -18,7 +18,7 @@ async def correct_item(
     image_data_uri: str,
     current_item: dict,
     correction_instructions: str,
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
 ) -> list[dict]:
@@ -33,7 +33,7 @@ async def correct_item(
         current_item: The current item dict with name, quantity, description.
         correction_instructions: User's correction text explaining what's wrong
             or how to fix the detection.
-        labels: Optional list of Homebox labels to suggest for items.
+        tags: Optional list of Homebox tags to suggest for items.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
 
@@ -54,7 +54,7 @@ async def correct_item(
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences)
     naming_examples = build_naming_examples(field_preferences)
-    label_prompt = build_label_prompt(labels)
+    tag_prompt = build_tag_prompt(tags)
 
     system_prompt = (
         # 1. Role
@@ -73,8 +73,8 @@ async def correct_item(
         f"{extended_schema}\n\n"
         # 5. Naming
         f"{naming_examples}\n\n"
-        # 6. Labels
-        f"{label_prompt}"
+        # 6. Tags
+        f"{tag_prompt}"
     )
 
     # Build current item summary

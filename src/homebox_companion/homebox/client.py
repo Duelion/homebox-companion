@@ -23,7 +23,7 @@ from ..core.exceptions import (
     HomeboxConnectionError,
     HomeboxTimeoutError,
 )
-from .models import Attachment, Item, ItemCreate, Label, Location
+from .models import Attachment, Item, ItemCreate, Location, Tag
 
 
 @lru_cache
@@ -483,75 +483,75 @@ class HomeboxClient:
         )
         self._ensure_success(response, "Delete location")
 
-    async def list_labels(self, token: str) -> list[dict[str, Any]]:
-        """Return all available labels for the authenticated user.
+    async def list_tags(self, token: str) -> list[dict[str, Any]]:
+        """Return all available tags for the authenticated user.
 
         Args:
             token: The bearer token from login.
 
         Returns:
-            List of label dictionaries (raw API response).
+            List of tag dictionaries (raw API response).
         """
         response = await self.client.get(
-            f"{self.base_url}/labels",
+            f"{self.base_url}/tags",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
             },
         )
-        self._ensure_success(response, "Fetch labels")
+        self._ensure_success(response, "Fetch tags")
         return response.json()
 
-    async def list_labels_typed(self, token: str) -> list[Label]:
-        """Return all available labels as typed Label objects.
+    async def list_tags_typed(self, token: str) -> list[Tag]:
+        """Return all available tags as typed Tag objects.
 
         Args:
             token: The bearer token from login.
 
         Returns:
-            List of Label objects.
+            List of Tag objects.
         """
-        raw = await self.list_labels(token)
-        return [Label.model_validate(label) for label in raw]
+        raw = await self.list_tags(token)
+        return [Tag.model_validate(tag) for tag in raw]
 
-    async def get_label(self, token: str, label_id: str) -> dict[str, Any]:
-        """Return a specific label by ID.
+    async def get_tag(self, token: str, tag_id: str) -> dict[str, Any]:
+        """Return a specific tag by ID.
 
         Args:
             token: The bearer token from login.
-            label_id: The ID of the label to fetch.
+            tag_id: The ID of the tag to fetch.
 
         Returns:
-            Label dictionary (raw API response).
+            Tag dictionary (raw API response).
         """
         response = await self.client.get(
-            f"{self.base_url}/labels/{label_id}",
+            f"{self.base_url}/tags/{tag_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
             },
         )
-        self._ensure_success(response, "Fetch label")
+        self._ensure_success(response, "Fetch tag")
         return response.json()
 
     @_rate_limited
-    async def create_label(
+    async def create_tag(
         self,
         token: str,
         name: str,
         description: str = "",
         color: str = "",
     ) -> dict[str, Any]:
-        """Create a new label.
+        """Create a new tag.
 
         Args:
             token: The bearer token from login.
-            name: The name of the new label.
-            description: Optional description for the label.
-            color: Optional color for the label.
+            name: The name of the new tag.
+            description: Optional description for the tag.
+            color: Optional color for the tag.
 
         Returns:
-            The created label dictionary.
+            The created tag dictionary.
         """
         payload: dict[str, Any] = {
             "name": name,
@@ -560,7 +560,7 @@ class HomeboxClient:
         }
 
         response = await self.client.post(
-            f"{self.base_url}/labels",
+            f"{self.base_url}/tags",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -568,29 +568,29 @@ class HomeboxClient:
             },
             json=payload,
         )
-        self._ensure_success(response, "Create label")
+        self._ensure_success(response, "Create tag")
         return response.json()
 
     @_rate_limited
-    async def update_label(
+    async def update_tag(
         self,
         token: str,
-        label_id: str,
+        tag_id: str,
         name: str,
         description: str = "",
         color: str = "",
     ) -> dict[str, Any]:
-        """Update an existing label.
+        """Update an existing tag.
 
         Args:
             token: The bearer token from login.
-            label_id: The ID of the label to update.
-            name: The new name for the label.
-            description: The new description for the label.
-            color: The new color for the label.
+            tag_id: The ID of the tag to update.
+            name: The new name for the tag.
+            description: The new description for the tag.
+            color: The new color for the tag.
 
         Returns:
-            The updated label dictionary.
+            The updated tag dictionary.
         """
         payload: dict[str, Any] = {
             "name": name,
@@ -599,7 +599,7 @@ class HomeboxClient:
         }
 
         response = await self.client.put(
-            f"{self.base_url}/labels/{label_id}",
+            f"{self.base_url}/tags/{tag_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -607,28 +607,28 @@ class HomeboxClient:
             },
             json=payload,
         )
-        self._ensure_success(response, "Update label")
+        self._ensure_success(response, "Update tag")
         return response.json()
 
     @_rate_limited
-    async def delete_label(self, token: str, label_id: str) -> None:
-        """Delete a label by ID.
+    async def delete_tag(self, token: str, tag_id: str) -> None:
+        """Delete a tag by ID.
 
         Args:
             token: The bearer token from login.
-            label_id: The ID of the label to delete.
+            tag_id: The ID of the tag to delete.
 
         Returns:
             None
         """
         response = await self.client.delete(
-            f"{self.base_url}/labels/{label_id}",
+            f"{self.base_url}/tags/{tag_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
             },
         )
-        self._ensure_success(response, "Delete label")
+        self._ensure_success(response, "Delete tag")
 
     @_rate_limited
     async def create_item(self, token: str, item: ItemCreate) -> dict[str, Any]:

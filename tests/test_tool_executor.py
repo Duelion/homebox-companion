@@ -22,7 +22,7 @@ class TestToolExecutor:
         client = MagicMock()
         client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test Location"}])
         client.list_items = AsyncMock(return_value=[])
-        client.list_labels = AsyncMock(return_value=[])
+        client.list_tags = AsyncMock(return_value=[])
         client.get_item = AsyncMock(return_value={"id": "item1", "name": "Test Item"})
         return client
 
@@ -185,7 +185,7 @@ class TestGetDisplayInfo:
         client = MagicMock()
         client.get_item = AsyncMock(return_value={"id": "item1", "name": "Test Item", "assetId": "000-001"})
         client.get_location = AsyncMock(return_value={"id": "loc1", "name": "Living Room"})
-        client.get_label = AsyncMock(return_value={"id": "label1", "name": "Electronics"})
+        client.get_tag = AsyncMock(return_value={"id": "tag1", "name": "Electronics"})
         return client
 
     @pytest.fixture
@@ -252,26 +252,26 @@ class TestGetDisplayInfo:
         assert info.target_name == "Garage"
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_update_label(self, executor: ToolExecutor, mock_client: MagicMock):
-        """get_display_info should fetch label name for update_label."""
-        info = await executor.get_display_info("update_label", {"label_id": "label1"}, "test-token")
+    async def test_get_display_info_for_update_tag(self, executor: ToolExecutor, mock_client: MagicMock):
+        """get_display_info should fetch tag name for update_tag."""
+        info = await executor.get_display_info("update_tag", {"tag_id": "tag1"}, "test-token")
 
         assert info.action_type == "update"
         assert info.target_name == "Electronics"
-        mock_client.get_label.assert_awaited_once_with("test-token", "label1")
+        mock_client.get_tag.assert_awaited_once_with("test-token", "tag1")
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_delete_label(self, executor: ToolExecutor, mock_client: MagicMock):
-        """get_display_info should fetch label name for delete_label."""
-        info = await executor.get_display_info("delete_label", {"label_id": "label1"}, "test-token")
+    async def test_get_display_info_for_delete_tag(self, executor: ToolExecutor, mock_client: MagicMock):
+        """get_display_info should fetch tag name for delete_tag."""
+        info = await executor.get_display_info("delete_tag", {"tag_id": "tag1"}, "test-token")
 
         assert info.action_type == "delete"
         assert info.target_name == "Electronics"
 
     @pytest.mark.asyncio
-    async def test_get_display_info_for_create_label(self, executor: ToolExecutor):
-        """get_display_info should use params name for create_label."""
-        info = await executor.get_display_info("create_label", {"name": "Fragile"}, "test-token")
+    async def test_get_display_info_for_create_tag(self, executor: ToolExecutor):
+        """get_display_info should use params name for create_tag."""
+        info = await executor.get_display_info("create_tag", {"name": "Fragile"}, "test-token")
 
         assert info.action_type == "create"
         assert info.target_name == "Fragile"
