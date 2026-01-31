@@ -40,7 +40,7 @@ flowchart LR
     
     B -.-> B1[/Browse, search,<br/>or scan QR/]
     C -.-> C1[/AI analyzes with<br/>OpenAI GPT-5/]
-    D -.-> D1[/Edit names,<br/>quantities, labels/]
+    D -.-> D1[/Edit names,<br/>quantities, tags/]
     
 ```
 
@@ -114,7 +114,7 @@ Open `http://localhost:8000` in your browser.
 ### AI-Powered Detection
 - Identifies multiple items in a single photo
 - Extracts manufacturer, model, serial number, price when visible
-- Suggests labels from your existing Homebox labels
+- Suggests tags from your existing Homebox tags
 - Multi-language support
 
 ### Smart Workflow
@@ -131,11 +131,11 @@ Open `http://localhost:8000` in your browser.
 
 ### Customization
 - Configure how AI formats each field (name style, description format, etc.)
-- Set a default label for all detected items
+- Set a default tag for all detected items
 - Export settings as environment variables for Docker persistence
 
 ### Chat Assistant
-- **Natural language queries** – Ask questions like "How many items do I have?" or "List my labels"
+- **Natural language queries** – Ask questions like "How many items do I have?" or "List my tags"
 - **Inventory actions** – Create, update, move, or delete items through conversation
 - **Approval workflow** – Review and approve AI-proposed changes before they're applied
 - **Streaming responses** – Real-time AI responses with tool execution feedback
@@ -150,7 +150,7 @@ The chat assistant has access to 21 tools for interacting with your Homebox inve
 |------|-------------|
 | `list_locations` | List all locations |
 | `get_location` | Get location details with children |
-| `list_labels` | List all labels |
+| `list_tags` | List all tags |
 | `list_items` | List items with filtering/pagination |
 | `search_items` | Search items by text query |
 | `get_item` | Get full item details |
@@ -159,7 +159,7 @@ The chat assistant has access to 21 tools for interacting with your Homebox inve
 | `get_location_tree` | Get hierarchical location tree |
 | `get_statistics` | Get inventory statistics |
 | `get_statistics_by_location` | Item counts by location |
-| `get_statistics_by_label` | Item counts by label |
+| `get_statistics_by_tag` | Item counts by tag |
 | `get_attachment` | Get attachment content |
 
 **Write** (requires approval):
@@ -169,8 +169,8 @@ The chat assistant has access to 21 tools for interacting with your Homebox inve
 | `update_item` | Update item fields |
 | `create_location` | Create a new location |
 | `update_location` | Update location details |
-| `create_label` | Create a new label |
-| `update_label` | Update label details |
+| `create_tag` | Create a new tag |
+| `update_tag` | Update tag details |
 | `upload_attachment` | Upload attachment to item |
 | `ensure_asset_ids` | Assign asset IDs to all items |
 
@@ -179,7 +179,7 @@ The chat assistant has access to 21 tools for interacting with your Homebox inve
 |------|-------------|
 | `delete_item` | Delete an item |
 | `delete_location` | Delete a location |
-| `delete_label` | Delete a label |
+| `delete_tag` | Delete a tag |
 
 </details>
 
@@ -362,7 +362,7 @@ Customize how AI formats detected item fields. Set via environment variables or 
 | Variable | Description |
 |----------|-------------|
 | `HBC_AI_OUTPUT_LANGUAGE` | Language for AI output (default: English) |
-| `HBC_AI_DEFAULT_LABEL_ID` | Label ID to auto-apply to all items |
+| `HBC_AI_DEFAULT_TAG_ID` | Tag ID to auto-apply to all items |
 | `HBC_AI_NAME` | Custom instructions for item naming |
 | `HBC_AI_DESCRIPTION` | Custom instructions for descriptions |
 | `HBC_AI_QUANTITY` | Custom instructions for quantity counting |

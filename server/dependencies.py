@@ -342,14 +342,14 @@ async def validate_files_size(files: list[UploadFile]) -> list[tuple[bytes, str]
     return results
 
 
-async def get_labels_for_context(token: str) -> list[dict[str, str]]:
-    """Fetch labels and format them for AI context.
+async def get_tags_for_context(token: str) -> list[dict[str, str]]:
+    """Fetch tags and format them for AI context.
 
     Args:
         token: The bearer token for authentication.
 
     Returns:
-        List of label dicts with 'id' and 'name' keys.
+        List of tag dicts with 'id' and 'name' keys.
 
     Raises:
         HomeboxAuthError: If authentication fails (re-raised to caller).
@@ -357,48 +357,48 @@ async def get_labels_for_context(token: str) -> list[dict[str, str]]:
     """
     client = get_client()
     try:
-        raw_labels = await client.list_labels(token)
+        raw_tags = await client.list_tags(token)
         return [
-            {"id": str(label.get("id", "")), "name": str(label.get("name", ""))}
-            for label in raw_labels
-            if label.get("id") and label.get("name")
+            {"id": str(tag.get("id", "")), "name": str(tag.get("name", ""))}
+            for tag in raw_tags
+            if tag.get("id") and tag.get("name")
         ]
     except HomeboxAuthError:
         # Re-raise auth errors - session is invalid and caller needs to know
-        logger.warning("Authentication failed while fetching labels for AI context")
+        logger.warning("Authentication failed while fetching tags for AI context")
         raise
     except (httpx.TimeoutException, httpx.NetworkError) as e:
-        # Transient network errors: gracefully degrade - AI can work without labels
+        # Transient network errors: gracefully degrade - AI can work without tags
         logger.warning(
-            f"Transient network error fetching labels for AI context: {type(e).__name__}. "
-            "Continuing without label suggestions.",
+            f"Transient network error fetching tags for AI context: {type(e).__name__}. "
+            "Continuing without tag suggestions.",
         )
         return []
     # Let other errors (RuntimeError from API, schema errors, etc.) propagate
     # to surface issues rather than silently degrading AI behavior
 
 
-async def get_valid_label_ids(token: str, client: HomeboxClient) -> set[str]:
-    """Fetch valid label IDs from Homebox as a set for O(1) validation.
+async def get_valid_tag_ids(token: str, client: HomeboxClient) -> set[str]:
+    """Fetch valid tag IDs from Homebox as a set for O(1) validation.
 
-    Used to filter out invalid/stale label IDs before creating items.
+    Used to filter out invalid/stale tag IDs before creating items.
 
     Args:
         token: The bearer token for authentication.
         client: The HomeboxClient instance.
 
     Returns:
-        Set of valid label ID strings, or empty set on failure.
+        Set of valid tag ID strings, or empty set on failure.
     """
     try:
-        raw_labels = await client.list_labels(token)
-        return {str(label.get("id")) for label in raw_labels if label.get("id")}
+        raw_tags = await client.list_tags(token)
+        return {str(tag.get("id")) for tag in raw_tags if tag.get("id")}
     except HomeboxAuthError:
         # Re-raise auth errors - caller needs to handle
         raise
     except Exception as e:
-        # Non-fatal: log and return empty set - items will be created without labels
-        logger.warning(f"Failed to fetch labels for validation: {e}")
+        # Non-fatal: log and return empty set - items will be created without tags
+        logger.warning(f"Failed to fetch tags for validation: {e}")
         return set()
 
 
@@ -417,17 +417,17 @@ class VisionContext:
 
     Attributes:
         token: Bearer token for Homebox API authentication.
-        labels: List of available labels for AI context.
+        tags: List of available tags for AI context.
         field_preferences: Custom field instructions dict, or None if no customizations.
         output_language: Configured output language, or None for default (English).
-        default_label_id: ID of label to auto-add, or None.
+        default_tag_id: ID of tag to auto-add, or None.
     """
 
     token: str
-    labels: list[dict[str, str]]
+    tags: list[dict[str, str]]
     field_preferences: dict[str, str] | None
     output_language: str | None
-    default_label_id: str | None
+    default_tag_id: str | None
 
 
 async def get_vision_context(
@@ -438,7 +438,7 @@ async def get_vision_context(
 
     This dependency:
     1. Extracts and validates the auth token
-    2. Fetches labels for AI context
+    2. Fetches tags for AI context
     3. Loads field preferences (from header in demo mode, or from file/env)
 
     Args:
@@ -469,9 +469,9 @@ async def get_vision_context(
 
     return VisionContext(
         token=token,
-        labels=await get_labels_for_context(token),
+        tags=await get_tags_for_context(token),
         # get_effective_customizations returns all prompt fields
         field_preferences=prefs.get_effective_customizations(),
         output_language=output_language,
-        default_label_id=prefs.default_label_id,
+        default_tag_id=prefs.default_tag_id,
     )

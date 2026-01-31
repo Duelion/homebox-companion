@@ -20,7 +20,6 @@ from homebox_companion.core.llm_router import (
     invalidate_router,
 )
 
-
 pytestmark = pytest.mark.unit
 
 

@@ -6,14 +6,14 @@ from ...ai.prompts import (
     build_critical_constraints,
     build_extended_fields_schema,
     build_item_schema,
-    build_label_prompt,
     build_language_instruction,
     build_naming_examples,
+    build_tag_prompt,
 )
 
 
 def build_detection_system_prompt(
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extract_extended_fields: bool = False,
     field_preferences: dict[str, str] | None = None,
@@ -27,10 +27,10 @@ def build_detection_system_prompt(
     3. Critical constraints (front-loaded)
     4. Schema (what to output)
     5. Naming guidelines (how to format)
-    6. Labels (reference data)
+    6. Tags (reference data)
 
     Args:
-        labels: Optional list of label dicts for assignment.
+        tags: Optional list of tag dicts for assignment.
         single_item: If True, treat all items as one grouped item.
         extract_extended_fields: If True, include extended fields schema.
         field_preferences: Optional dict of field customization instructions.
@@ -48,7 +48,7 @@ def build_detection_system_prompt(
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     naming_examples = build_naming_examples(field_preferences)
-    label_prompt = build_label_prompt(labels)
+    tag_prompt = build_tag_prompt(tags)
 
     return (
         # 1. Role + output format
@@ -63,8 +63,8 @@ def build_detection_system_prompt(
         f"{extended_schema}\n\n"
         # 5. Naming examples
         f"{naming_examples}\n\n"
-        # 6. Labels
-        f"{label_prompt}"
+        # 6. Tags
+        f"{tag_prompt}"
     )
 
 
@@ -116,7 +116,7 @@ def build_detection_user_prompt(
 
 
 def build_multi_image_system_prompt(
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extract_extended_fields: bool = False,
     field_preferences: dict[str, str] | None = None,
@@ -125,7 +125,7 @@ def build_multi_image_system_prompt(
     """Build system prompt for multi-image detection.
 
     Args:
-        labels: Optional list of label dicts for assignment.
+        tags: Optional list of tag dicts for assignment.
         single_item: If True, treat all images as showing one item.
         extract_extended_fields: If True, include extended fields schema.
         field_preferences: Optional dict of field customization instructions.
@@ -143,7 +143,7 @@ def build_multi_image_system_prompt(
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     naming_examples = build_naming_examples(field_preferences)
-    label_prompt = build_label_prompt(labels)
+    tag_prompt = build_tag_prompt(tags)
 
     multi_note = (
         "Analyzing multiple images of the same item."
@@ -164,13 +164,13 @@ def build_multi_image_system_prompt(
         f"{extended_schema}\n\n"
         # 5. Naming examples
         f"{naming_examples}\n\n"
-        # 6. Labels
-        f"{label_prompt}"
+        # 6. Tags
+        f"{tag_prompt}"
     )
 
 
 def build_discriminatory_system_prompt(
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     extract_extended_fields: bool = True,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
@@ -180,7 +180,7 @@ def build_discriminatory_system_prompt(
     This is used when "unmerging" items to get more specific results.
 
     Args:
-        labels: Optional list of label dicts for assignment.
+        tags: Optional list of tag dicts for assignment.
         extract_extended_fields: If True, include extended fields schema.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for output (default: English).
@@ -196,7 +196,7 @@ def build_discriminatory_system_prompt(
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
     naming_examples = build_naming_examples(field_preferences)
-    label_prompt = build_label_prompt(labels)
+    tag_prompt = build_tag_prompt(tags)
 
     return (
         # 1. Role + critical constraint
@@ -214,8 +214,8 @@ def build_discriminatory_system_prompt(
         f"{extended_schema}\n\n"
         # 5. Naming examples
         f"{naming_examples}\n\n"
-        # 6. Labels
-        f"{label_prompt}"
+        # 6. Tags
+        f"{tag_prompt}"
     )
 
 
@@ -237,7 +237,7 @@ def build_discriminatory_user_prompt() -> str:
 def build_analysis_system_prompt(
     item_name: str,
     item_description: str | None,
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
 ) -> str:
@@ -249,7 +249,7 @@ def build_analysis_system_prompt(
     Args:
         item_name: The name of the item being analyzed.
         item_description: Optional initial description of the item.
-        labels: Optional list of label dicts for assignment.
+        tags: Optional list of tag dicts for assignment.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for output (default: English).
 
@@ -260,7 +260,7 @@ def build_analysis_system_prompt(
     field_preferences = field_preferences or {}
     language_instr = build_language_instruction(output_language)
     naming_examples = build_naming_examples(field_preferences)
-    label_prompt = build_label_prompt(labels)
+    tag_prompt = build_tag_prompt(tags)
 
     # Build item context
     item_context = f"Item: '{item_name}'"
@@ -293,9 +293,9 @@ def build_analysis_system_prompt(
         f"- manufacturer: string or null ({mfr_instr})\n"
         f"- purchasePrice: number or null ({price_instr})\n"
         f"- notes: string or null ({notes_instr})\n"
-        "- labelIds: array of applicable label IDs\n\n"
+        "- tagIds: array of applicable tag IDs\n\n"
         # 5. Naming
         f"{naming_examples}\n\n"
-        # 6. Labels
-        f"{label_prompt}"
+        # 6. Tags
+        f"{tag_prompt}"
     )
