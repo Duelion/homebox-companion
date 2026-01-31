@@ -15,179 +15,179 @@ const log = createLogger({ prefix: 'TagStore' });
 // =============================================================================
 
 class TagsStore {
-    // =========================================================================
-    // STATE
-    // =========================================================================
+	// =========================================================================
+	// STATE
+	// =========================================================================
 
-    /** Cached tags data */
-    private _tags = $state<Tag[]>([]);
+	/** Cached tags data */
+	private _tags = $state<Tag[]>([]);
 
-    /** Whether tags have been fetched at least once */
-    private _fetched = $state(false);
+	/** Whether tags have been fetched at least once */
+	private _fetched = $state(false);
 
-    /** Whether tags are currently being fetched */
-    private _loading = $state(false);
+	/** Whether tags are currently being fetched */
+	private _loading = $state(false);
 
-    /** Error message from last fetch attempt */
-    private _error = $state<string | null>(null);
+	/** Error message from last fetch attempt */
+	private _error = $state<string | null>(null);
 
-    /**
-     * Track pending fetch to deduplicate concurrent requests.
-     * Intentionally NOT using $state - this is internal bookkeeping only,
-     * not exposed to consumers and does not need to trigger reactivity.
-     */
-    private _pendingFetch: Promise<Tag[]> | null = null;
+	/**
+	 * Track pending fetch to deduplicate concurrent requests.
+	 * Intentionally NOT using $state - this is internal bookkeeping only,
+	 * not exposed to consumers and does not need to trigger reactivity.
+	 */
+	private _pendingFetch: Promise<Tag[]> | null = null;
 
-    /** Cached tags indexed by ID - recomputed only when _tags changes */
-    private _tagsById = $derived.by(() => {
-        // eslint-disable-next-line svelte/prefer-svelte-reactivity -- Derived value, not mutable state
-        const map = new Map<string, Tag>();
-        for (const tag of this._tags) {
-            map.set(tag.id, tag);
-        }
-        return map;
-    });
+	/** Cached tags indexed by ID - recomputed only when _tags changes */
+	private _tagsById = $derived.by(() => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Derived value, not mutable state
+		const map = new Map<string, Tag>();
+		for (const tag of this._tags) {
+			map.set(tag.id, tag);
+		}
+		return map;
+	});
 
-    // =========================================================================
-    // GETTERS (read-only access to state)
-    // =========================================================================
+	// =========================================================================
+	// GETTERS (read-only access to state)
+	// =========================================================================
 
-    /** Get all tags */
-    get tags(): Tag[] {
-        return this._tags;
-    }
+	/** Get all tags */
+	get tags(): Tag[] {
+		return this._tags;
+	}
 
-    /** Get all tags (alias for backwards compatibility with labelStore.labels) */
-    get labels(): Tag[] {
-        return this._tags;
-    }
+	/** Get all tags (alias for backwards compatibility with labelStore.labels) */
+	get labels(): Tag[] {
+		return this._tags;
+	}
 
-    /** Check if tags have been fetched */
-    get fetched(): boolean {
-        return this._fetched;
-    }
+	/** Check if tags have been fetched */
+	get fetched(): boolean {
+		return this._fetched;
+	}
 
-    /** Check if tags are loading */
-    get loading(): boolean {
-        return this._loading;
-    }
+	/** Check if tags are loading */
+	get loading(): boolean {
+		return this._loading;
+	}
 
-    /** Get the last error */
-    get error(): string | null {
-        return this._error;
-    }
+	/** Get the last error */
+	get error(): string | null {
+		return this._error;
+	}
 
-    /** Get tags indexed by ID (cached via $derived) */
-    get tagsById(): Map<string, Tag> {
-        return this._tagsById;
-    }
+	/** Get tags indexed by ID (cached via $derived) */
+	get tagsById(): Map<string, Tag> {
+		return this._tagsById;
+	}
 
-    /** Get tags indexed by ID (alias for backwards compatibility) */
-    get labelsById(): Map<string, Tag> {
-        return this._tagsById;
-    }
+	/** Get tags indexed by ID (alias for backwards compatibility) */
+	get labelsById(): Map<string, Tag> {
+		return this._tagsById;
+	}
 
-    // =========================================================================
-    // METHODS
-    // =========================================================================
+	// =========================================================================
+	// METHODS
+	// =========================================================================
 
-    /**
-     * Fetch tags from API if not already cached.
-     * Returns cached data if available.
-     */
-    async fetchTags(forceRefresh = false): Promise<Tag[]> {
-        // Return cached data if available and not forcing refresh
-        if (this._fetched && !forceRefresh) {
-            return this._tags;
-        }
+	/**
+	 * Fetch tags from API if not already cached.
+	 * Returns cached data if available.
+	 */
+	async fetchTags(forceRefresh = false): Promise<Tag[]> {
+		// Return cached data if available and not forcing refresh
+		if (this._fetched && !forceRefresh) {
+			return this._tags;
+		}
 
-        // Return existing fetch promise if one is in progress (deduplication)
-        if (this._pendingFetch) {
-            return this._pendingFetch;
-        }
+		// Return existing fetch promise if one is in progress (deduplication)
+		if (this._pendingFetch) {
+			return this._pendingFetch;
+		}
 
-        this._loading = true;
-        this._error = null;
+		this._loading = true;
+		this._error = null;
 
-        this._pendingFetch = this.doFetch();
-        return this._pendingFetch;
-    }
+		this._pendingFetch = this.doFetch();
+		return this._pendingFetch;
+	}
 
-    /** Alias for backwards compatibility */
-    async fetchLabels(forceRefresh = false): Promise<Tag[]> {
-        return this.fetchTags(forceRefresh);
-    }
+	/** Alias for backwards compatibility */
+	async fetchLabels(forceRefresh = false): Promise<Tag[]> {
+		return this.fetchTags(forceRefresh);
+	}
 
-    /** Internal fetch implementation */
-    private async doFetch(): Promise<Tag[]> {
-        try {
-            const data = await tagsApi.list();
-            this._tags = data;
-            this._fetched = true;
-            return data;
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to fetch tags';
-            this._error = message;
-            throw error;
-        } finally {
-            this._loading = false;
-            this._pendingFetch = null;
-        }
-    }
+	/** Internal fetch implementation */
+	private async doFetch(): Promise<Tag[]> {
+		try {
+			const data = await tagsApi.list();
+			this._tags = data;
+			this._fetched = true;
+			return data;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to fetch tags';
+			this._error = message;
+			throw error;
+		} finally {
+			this._loading = false;
+			this._pendingFetch = null;
+		}
+	}
 
-    /**
-     * Clear the tags cache.
-     * Called on logout or when tags might have changed.
-     */
-    clear(): void {
-        this._tags = [];
-        this._fetched = false;
-        this._error = null;
-        this._pendingFetch = null;
-    }
+	/**
+	 * Clear the tags cache.
+	 * Called on logout or when tags might have changed.
+	 */
+	clear(): void {
+		this._tags = [];
+		this._fetched = false;
+		this._error = null;
+		this._pendingFetch = null;
+	}
 
-    /**
-     * Get tag name by ID from cache.
-     * Returns undefined if tag not found.
-     */
-    getTagName(tagId: string): string | undefined {
-        return this.tagsById.get(tagId)?.name;
-    }
+	/**
+	 * Get tag name by ID from cache.
+	 * Returns undefined if tag not found.
+	 */
+	getTagName(tagId: string): string | undefined {
+		return this.tagsById.get(tagId)?.name;
+	}
 
-    /** Alias for backwards compatibility */
-    getLabelName(labelId: string): string | undefined {
-        return this.getTagName(labelId);
-    }
+	/** Alias for backwards compatibility */
+	getLabelName(labelId: string): string | undefined {
+		return this.getTagName(labelId);
+	}
 
-    /**
-     * Filter tag IDs to only include valid ones that exist in the current cache.
-     * Logs any invalid IDs at warn level for debugging.
-     *
-     * @param ids - Array of tag IDs to validate
-     * @returns Filtered array containing only valid tag IDs
-     */
-    validateIds(ids: string[] | null | undefined): string[] {
-        if (!ids || ids.length === 0) {
-            return [];
-        }
+	/**
+	 * Filter tag IDs to only include valid ones that exist in the current cache.
+	 * Logs any invalid IDs at warn level for debugging.
+	 *
+	 * @param ids - Array of tag IDs to validate
+	 * @returns Filtered array containing only valid tag IDs
+	 */
+	validateIds(ids: string[] | null | undefined): string[] {
+		if (!ids || ids.length === 0) {
+			return [];
+		}
 
-        const validIds: string[] = [];
-        const invalidIds: string[] = [];
+		const validIds: string[] = [];
+		const invalidIds: string[] = [];
 
-        for (const id of ids) {
-            if (this._tagsById.has(id)) {
-                validIds.push(id);
-            } else {
-                invalidIds.push(id);
-            }
-        }
+		for (const id of ids) {
+			if (this._tagsById.has(id)) {
+				validIds.push(id);
+			} else {
+				invalidIds.push(id);
+			}
+		}
 
-        if (invalidIds.length > 0) {
-            log.warn(`Filtered out ${invalidIds.length} invalid tag ID(s):`, invalidIds);
-        }
+		if (invalidIds.length > 0) {
+			log.warn(`Filtered out ${invalidIds.length} invalid tag ID(s):`, invalidIds);
+		}
 
-        return validIds;
-    }
+		return validIds;
+	}
 }
 
 // =============================================================================
