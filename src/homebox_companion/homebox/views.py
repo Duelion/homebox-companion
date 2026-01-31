@@ -27,7 +27,7 @@ from ..core.config import settings
 
 __all__ = [
     "LocationView",
-    "CompactLabelView",
+    "CompactTagView",
     "CompactItemView",
     "ParentItemView",
     "ItemView",
@@ -81,19 +81,19 @@ class LocationView(BaseModel):
         )
 
 
-class CompactLabelView(BaseModel):
-    """Minimal label view for compact item responses.
+class CompactTagView(BaseModel):
+    """Minimal tag view for compact item responses.
 
     Only includes id and name to reduce token usage while still
-    allowing the LLM to work with labels without fetching full item details.
+    allowing the LLM to work with tags without fetching full item details.
     """
 
     id: str
     name: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> CompactLabelView:
-        """Create a CompactLabelView from an API response dictionary."""
+    def from_dict(cls, data: dict[str, Any]) -> CompactTagView:
+        """Create a CompactTagView from an API response dictionary."""
         return cls(
             id=data.get("id") or "",
             name=data.get("name") or "",
@@ -105,7 +105,7 @@ class CompactItemView(BaseModel):
 
     Includes only essential fields with description truncated to 50 chars.
     Nested location also gets a URL for markdown link generation.
-    Labels are included as compact views (id + name only).
+    Tags are included as compact views (id + name only).
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -116,7 +116,7 @@ class CompactItemView(BaseModel):
     quantity: int = 1
     asset_id: str | None = Field(default=None, serialization_alias="assetId")
     location: LocationView | None = None
-    labels: list[CompactLabelView] = Field(default_factory=list)
+    tags: list[CompactTagView] = Field(default_factory=list)
 
     @computed_field
     @property
@@ -131,7 +131,7 @@ class CompactItemView(BaseModel):
         Uses custom parsing instead of model_validate() to:
         - Truncate description to 50 chars for token efficiency
         - Build nested LocationView for URL generation
-        - Build compact label views (id + name only)
+        - Build compact tag views (id + name only)
         - Filter out unnecessary fields from the compact representation
         """
         # Build location view if present
@@ -145,11 +145,11 @@ class CompactItemView(BaseModel):
                 item_count=0,
             )
 
-        # Build compact label views
-        labels_data = data.get("labels", [])
-        labels = [CompactLabelView.from_dict(lbl) for lbl in labels_data if lbl.get("id")]
+        # Build compact tag views
+        tags_data = data.get("tags", [])
+        tags = [CompactTagView.from_dict(tag) for tag in tags_data if tag.get("id")]
 
-        # Truncate description (50 chars is enough context for label decisions)
+        # Truncate description (50 chars is enough context for tag decisions)
         description = data.get("description") or ""
         truncated_desc = description[:50] + ("..." if len(description) > 50 else "")
 
@@ -167,7 +167,7 @@ class CompactItemView(BaseModel):
             quantity=data.get("quantity", 1),
             asset_id=data.get("assetId"),
             location=location_view,
-            labels=labels,
+            tags=tags,
         )
 
 
@@ -213,7 +213,7 @@ class ItemView(BaseModel):
     asset_id: str | None = Field(default=None, serialization_alias="assetId")
     location: LocationView | None = None
     parent: ParentItemView | None = None
-    labels: list[dict[str, Any]] = Field(default_factory=list)
+    tags: list[dict[str, Any]] = Field(default_factory=list)
     manufacturer: str | None = None
     model_number: str | None = Field(default=None, serialization_alias="modelNumber")
     serial_number: str | None = Field(default=None, serialization_alias="serialNumber")
@@ -264,7 +264,7 @@ class ItemView(BaseModel):
             asset_id=data.get("assetId"),
             location=location_view,
             parent=parent_view,
-            labels=data.get("labels", []),
+            tags=data.get("tags", []),
             manufacturer=data.get("manufacturer"),
             model_number=data.get("modelNumber"),
             serial_number=data.get("serialNumber"),

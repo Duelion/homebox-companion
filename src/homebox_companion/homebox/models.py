@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "Location",
-    "Label",
+    "Tag",
     "Item",
     "ItemCreate",
     "ItemUpdate",
@@ -69,8 +69,8 @@ class Location(BaseModel):
     children: list[Location] = Field(default_factory=list)
 
 
-class Label(BaseModel):
-    """A label in the Homebox inventory system."""
+class Tag(BaseModel):
+    """A tag in the Homebox inventory system."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -90,7 +90,7 @@ class Item(BaseModel):
     quantity: int = Field(default=1, ge=0)
     description: Annotated[str, Field(max_length=1000)] = ""
     location_id: str | None = Field(default=None, alias="locationId")
-    label_ids: list[str] = Field(default_factory=list, alias="labelIds")
+    tag_ids: list[str] = Field(default_factory=list, alias="tagIds")
     # Extended fields
     manufacturer: str | None = None
     model_number: str | None = Field(default=None, alias="modelNumber")
@@ -118,7 +118,7 @@ class ItemCreate(BaseModel):
     quantity: int = Field(default=1, ge=1)
     description: Annotated[str, Field(max_length=1000)] = ""
     location_id: str | None = Field(default=None, alias="locationId")
-    label_ids: list[str] | None = Field(default=None, alias="labelIds")
+    tag_ids: list[str] | None = Field(default=None, alias="tagIds")
     parent_id: str | None = Field(default=None, alias="parentId")
 
 
@@ -135,7 +135,7 @@ class ItemUpdate(BaseModel):
     quantity: int | None = Field(default=None, ge=1)
     description: Annotated[str, Field(max_length=1000)] | None = None
     location_id: str | None = Field(default=None, alias="locationId")
-    label_ids: list[str] | None = Field(default=None, alias="labelIds")
+    tag_ids: list[str] | None = Field(default=None, alias="tagIds")
     manufacturer: Annotated[str, Field(max_length=255)] | None = None
     model_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="modelNumber")
     serial_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="serialNumber")
