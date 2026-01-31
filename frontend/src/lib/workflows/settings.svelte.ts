@@ -232,14 +232,14 @@ class SettingsService {
 
 	/**
 	 * Initialize settings data.
-	 * Fetches config, version info, and labels in parallel.
+	 * Fetches config, version info, and tags in parallel.
 	 */
 	async initialize(): Promise<void> {
 		this.isLoading.config = true;
 		this.errors.init = null;
 
 		try {
-			const [configResult, versionResult, labelsResult] = await Promise.all([
+			const [configResult, versionResult, tagsResult] = await Promise.all([
 				getConfig(),
 				getVersion(true), // Force check for updates
 				tagsApi.list(), // Auth-required call to detect expired sessions early
@@ -247,7 +247,7 @@ class SettingsService {
 
 			this.config = configResult;
 			setDemoMode(configResult.is_demo_mode, configResult.demo_mode_explicit);
-			this.availableTags = labelsResult;
+			this.availableTags = tagsResult;
 
 			// Set update info
 			if (versionResult.update_available && versionResult.latest_version) {

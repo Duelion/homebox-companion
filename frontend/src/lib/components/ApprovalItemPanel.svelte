@@ -3,9 +3,9 @@
 	 * ApprovalItemPanel - Expandable panel for viewing/editing a pending approval action
 	 *
 	 * Supports three action types across items, labels, and locations:
-	 * - create: Full editable form (items get extended fields, labels/locations get name + description)
+	 * - create: Full editable form (items get extended fields, tags/locations get name + description)
 	 * - update: Shows only fields being changed (editable)
-	 * - delete: Read-only verification view with entity-specific labeling
+	 * - delete: Read-only verification view with entity-specific tagging
 	 */
 	import { slide } from 'svelte/transition';
 	import { Trash2, Plus, Pencil, Eye, X, Check } from 'lucide-svelte';
@@ -76,7 +76,7 @@
 	let editedDescription = $state<string | null>('');
 	let editedQuantity = $state(1);
 	let editedLocationId = $state('');
-	let editedLabelIds = $state<string[]>([]);
+	let editedTagIds = $state<string[]>([]);
 	let editedNotes = $state<string | null>('');
 
 	// Extended fields state
@@ -86,7 +86,7 @@
 	let editedPurchasePrice = $state<number | null>(null);
 	let editedPurchaseFrom = $state<string | null>(null);
 
-	// Label fields state (for update_label)
+	// Tag fields state (for update_tag)
 	let editedColor = $state<string | null>(null);
 
 	// Location fields state (for update_location)
@@ -99,7 +99,7 @@
 	);
 	const originalQuantity = $derived((approval.parameters.quantity as number | undefined) ?? 1);
 	const originalNotes = $derived((approval.parameters.notes as string | undefined) ?? '');
-	const originalLabelIds = $derived((approval.parameters.tag_ids as string[] | undefined) ?? []);
+	const originalTagIds = $derived((approval.parameters.tag_ids as string[] | undefined) ?? []);
 	const originalLocationId = $derived(
 		(approval.parameters.location_id as string | undefined) ?? ''
 	);
@@ -119,7 +119,7 @@
 		(approval.parameters.purchase_from as string | undefined) ?? null
 	);
 
-	// Label field originals (for update_label)
+	// Tag field originals (for update_tag)
 	const originalColor = $derived((approval.parameters.color as string | undefined) ?? null);
 
 	// Location field originals (for update_location)
@@ -145,7 +145,7 @@
 			editedDescription = originalDescription;
 			editedQuantity = originalQuantity;
 			editedNotes = originalNotes;
-			editedLabelIds = [...originalLabelIds];
+			editedTagIds = [...originalTagIds];
 			editedLocationId = originalLocationId;
 			// Extended fields
 			editedManufacturer = originalManufacturer;
@@ -153,7 +153,7 @@
 			editedSerialNumber = originalSerialNumber;
 			editedPurchasePrice = originalPurchasePrice;
 			editedPurchaseFrom = originalPurchaseFrom;
-			// Label fields
+			// Tag fields
 			editedColor = originalColor;
 			// Location fields
 			editedParentId = originalParentId;
@@ -202,14 +202,14 @@
 	// Determine entity type from tool name for proper labeling
 	const entityType = $derived.by(() => {
 		if (approval.tool_name.endsWith('_item')) return 'item';
-		if (approval.tool_name.endsWith('_label')) return 'label';
+		if (approval.tool_name.endsWith('_label')) return 'tag';
 		if (approval.tool_name.endsWith('_location')) return 'location';
 		return 'item';
 	});
 
 	// Get the correct ID parameter based on entity type
 	const entityIdParam = $derived.by(() => {
-		if (entityType === 'label') return (approval.parameters.label_id as string) ?? 'Unknown';
+		if (entityType === 'tag') return (approval.parameters.label_id as string) ?? 'Unknown';
 		if (entityType === 'location') return (approval.parameters.location_id as string) ?? 'Unknown';
 		return (approval.parameters.item_id as string) ?? 'Unknown';
 	});
@@ -222,7 +222,7 @@
 		if (approval.parameters.description !== undefined) fields.push('description');
 		if (approval.parameters.quantity !== undefined) fields.push('quantity');
 		if (approval.parameters.notes !== undefined) fields.push('notes');
-		if (approval.parameters.tag_ids !== undefined) fields.push('labels');
+		if (approval.parameters.tag_ids !== undefined) fields.push('tags');
 		// Only add 'location' for item tools, not for location tools
 		// (update_location uses location_id as the entity identifier, not a field to change)
 		// Using endsWith('_location') for defensive future-proofing against new location tools
@@ -238,7 +238,7 @@
 		if (approval.parameters.serial_number !== undefined) fields.push('serial_number');
 		if (approval.parameters.purchase_price !== undefined) fields.push('purchase_price');
 		if (approval.parameters.purchase_from !== undefined) fields.push('purchase_from');
-		// Label fields (for update_label)
+		// Tag fields (for update_tag)
 		if (approval.parameters.color !== undefined) fields.push('color');
 		// Location fields (for update_location)
 		if (approval.parameters.parent_id !== undefined) fields.push('parent_id');
@@ -279,7 +279,7 @@
 			(canModifyField('description') && editedDescription !== originalDescription) ||
 			(canModifyField('quantity') && editedQuantity !== originalQuantity) ||
 			(canModifyField('notes') && editedNotes !== originalNotes) ||
-			(canModifyField('labels') && !arraysEqual(editedLabelIds, originalLabelIds)) ||
+			(canModifyField('tags') && !arraysEqual(editedTagIds, originalTagIds)) ||
 			(canModifyField('location') && editedLocationId !== originalLocationId) ||
 			(canModifyField('manufacturer') && editedManufacturer !== originalManufacturer) ||
 			(canModifyField('model_number') && editedModelNumber !== originalModelNumber) ||
@@ -303,8 +303,8 @@
 		if (editedQuantity !== originalQuantity && canModifyField('quantity'))
 			mods.quantity = editedQuantity;
 		if (editedNotes !== originalNotes && canModifyField('notes')) mods.notes = editedNotes;
-		if (!arraysEqual(editedLabelIds, originalLabelIds) && canModifyField('labels'))
-			mods.tag_ids = editedLabelIds;
+		if (!arraysEqual(editedTagIds, originalTagIds) && canModifyField('tags'))
+			mods.tag_ids = editedTagIds;
 		if (editedLocationId !== originalLocationId && canModifyField('location'))
 			mods.location_id = editedLocationId;
 		if (editedManufacturer !== originalManufacturer && canModifyField('manufacturer'))
@@ -335,10 +335,10 @@
 
 	// Toggle a tag selection
 	function toggleTag(tagId: string) {
-		if (editedLabelIds.includes(tagId)) {
-			editedLabelIds = editedLabelIds.filter((id) => id !== tagId);
+		if (editedTagIds.includes(tagId)) {
+			editedTagIds = editedTagIds.filter((id) => id !== tagId);
 		} else {
-			editedLabelIds = [...editedLabelIds, tagId];
+			editedTagIds = [...editedTagIds, tagId];
 		}
 	}
 
@@ -490,7 +490,7 @@
 						/>
 
 						<TagSelector
-							selectedIds={editedLabelIds}
+							selectedIds={editedTagIds}
 							size="sm"
 							disabled={isProcessing}
 							onToggle={toggleTag}
@@ -511,7 +511,7 @@
 						/>
 					</div>
 				{:else}
-					<!-- Create Label/Location: Restricted form (Name + Description only) -->
+					<!-- Create Tag/Location: Restricted form (Name + Description only) -->
 					<div class="space-y-3">
 						<div>
 							<label for="create-name-{approval.id}" class="label-sm">Name</label>
@@ -551,7 +551,7 @@
 					bind:description={editedDescription}
 					bind:notes={editedNotes}
 					bind:locationId={editedLocationId}
-					bind:labelIds={editedLabelIds}
+					bind:tagIds={editedTagIds}
 					bind:manufacturer={editedManufacturer}
 					bind:modelNumber={editedModelNumber}
 					bind:serialNumber={editedSerialNumber}
@@ -559,7 +559,7 @@
 					bind:purchaseFrom={editedPurchaseFrom}
 					bind:color={editedColor}
 					bind:parentId={editedParentId}
-					onToggleLabel={toggleTag}
+					onToggleTag={toggleTag}
 				/>
 			{:else if actionType === 'delete'}
 				<!-- Delete Entity: Read-only verification -->
