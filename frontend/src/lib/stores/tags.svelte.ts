@@ -57,11 +57,6 @@ class TagsStore {
 		return this._tags;
 	}
 
-	/** Get all tags (alias for backwards compatibility with labelStore.labels) */
-	get labels(): Tag[] {
-		return this._tags;
-	}
-
 	/** Check if tags have been fetched */
 	get fetched(): boolean {
 		return this._fetched;
@@ -79,11 +74,6 @@ class TagsStore {
 
 	/** Get tags indexed by ID (cached via $derived) */
 	get tagsById(): Map<string, Tag> {
-		return this._tagsById;
-	}
-
-	/** Get tags indexed by ID (alias for backwards compatibility) */
-	get labelsById(): Map<string, Tag> {
 		return this._tagsById;
 	}
 
@@ -111,11 +101,6 @@ class TagsStore {
 
 		this._pendingFetch = this.doFetch();
 		return this._pendingFetch;
-	}
-
-	/** Alias for backwards compatibility */
-	async fetchLabels(forceRefresh = false): Promise<Tag[]> {
-		return this.fetchTags(forceRefresh);
 	}
 
 	/** Internal fetch implementation */
@@ -152,11 +137,6 @@ class TagsStore {
 	 */
 	getTagName(tagId: string): string | undefined {
 		return this.tagsById.get(tagId)?.name;
-	}
-
-	/** Alias for backwards compatibility */
-	getLabelName(labelId: string): string | undefined {
-		return this.getTagName(labelId);
 	}
 
 	/**
@@ -196,14 +176,9 @@ class TagsStore {
 
 export const tagStore = new TagsStore();
 
-// Backwards compatibility alias
-export const labelStore = tagStore;
-
 // =============================================================================
 // FUNCTION EXPORTS
 // =============================================================================
 
 export const fetchTags = (forceRefresh = false) => tagStore.fetchTags(forceRefresh);
-export const fetchLabels = (forceRefresh = false) => tagStore.fetchTags(forceRefresh);
 export const clearTagsCache = () => tagStore.clear();
-export const clearLabelsCache = () => tagStore.clear();

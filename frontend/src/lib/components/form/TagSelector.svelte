@@ -1,12 +1,12 @@
 <script lang="ts">
 	/**
-	 * LabelSelector - Tag chip selector for item labels
+	 * TagSelector - Tag chip selector for items
 	 *
-	 * Displays available labels as clickable chips, highlighting selected ones.
-	 * Uses the global labelStore for available labels.
+	 * Displays available tags as clickable chips, highlighting selected ones.
+	 * Uses the global tagStore for available tags.
 	 */
 	import { onMount } from 'svelte';
-	import { labelStore } from '$lib/stores/tags.svelte';
+	import { tagStore } from '$lib/stores/tags.svelte';
 	import type { FormSize } from './types';
 	import { getLabelClass } from './types';
 
@@ -14,7 +14,7 @@
 		selectedIds: string[];
 		size?: FormSize;
 		disabled?: boolean;
-		onToggle: (labelId: string) => void;
+		onToggle: (tagId: string) => void;
 	}
 
 	let { selectedIds, size = 'md', disabled = false, onToggle }: Props = $props();
@@ -22,33 +22,33 @@
 	// Dynamic label class based on size
 	const labelClass = $derived(getLabelClass(size));
 
-	// Ensure labels are loaded when component mounts
+	// Ensure tags are loaded when component mounts
 	onMount(() => {
-		if (!labelStore.fetched) {
-			labelStore.fetchLabels();
+		if (!tagStore.fetched) {
+			tagStore.fetchTags();
 		}
 	});
 </script>
 
-{#if labelStore.loading}
+{#if tagStore.loading}
 	<div>
-		<span class={labelClass}>Labels</span>
-		<p class="text-sm text-neutral-500">Loading labels...</p>
+		<span class={labelClass}>Tags</span>
+		<p class="text-sm text-neutral-500">Loading tags...</p>
 	</div>
-{:else if labelStore.labels.length > 0}
+{:else if tagStore.tags.length > 0}
 	<div>
-		<span class={labelClass}>Labels</span>
-		<div class="flex flex-wrap gap-2" role="group" aria-label="Select labels">
-			{#each labelStore.labels as label (label.id)}
-				{@const isSelected = selectedIds.includes(label.id)}
+		<span class={labelClass}>Tags</span>
+		<div class="flex flex-wrap gap-2" role="group" aria-label="Select tags">
+			{#each tagStore.tags as tag (tag.id)}
+				{@const isSelected = selectedIds.includes(tag.id)}
 				<button
 					type="button"
 					class={isSelected ? 'label-chip-selected' : 'label-chip'}
-					onclick={() => onToggle(label.id)}
+					onclick={() => onToggle(tag.id)}
 					aria-pressed={isSelected}
 					{disabled}
 				>
-					{label.name}
+					{tag.name}
 				</button>
 			{/each}
 		</div>

@@ -26,15 +26,12 @@ export interface LocationTreeNode extends Location {
 }
 
 /** Tag for categorizing items */
-export interface Label {
+export interface Tag {
 	id: string;
 	name: string;
 	description?: string;
 	color?: string;
 }
-
-/** Tag type (alias for Label interface for backwards compatibility) */
-export type Tag = Label;
 
 /** Item summary for selection/listing (lightweight) */
 export interface ItemSummary {
@@ -235,7 +232,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses

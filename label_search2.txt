@@ -1,0 +1,217 @@
+﻿
+src\homebox_companion\chat\llm_client.py:208:- "Possible matches" must be labeled as such; do not claim inferred material or 
+compatibility as fact.
+src\homebox_companion\core\field_preferences.py:51:    # Backward compatibility: Also accepts HBC_AI_DEFAULT_LABEL_ID (pre-v0.23 name)
+src\homebox_companion\core\field_preferences.py:54:        validation_alias=AliasChoices("default_tag_id", "default_label_id"),
+src\homebox_companion\core\field_preferences.py:75:    model_number: str = "Only when model/part number TEXT is clearly visible on 
+label"
+src\homebox_companion\core\field_preferences.py:78:    serial_number: str = "Only when S/N text is visible on sticker/label/engraving"
+src\homebox_companion\core\field_preferences.py:93:    def using_legacy_label_env(self) -> bool:
+src\homebox_companion\core\field_preferences.py:94:        """Check if the deprecated HBC_AI_DEFAULT_LABEL_ID env var is being used.
+src\homebox_companion\core\field_preferences.py:101:            os.environ.get("HBC_AI_DEFAULT_LABEL_ID")
+src\homebox_companion\tools\vision\analyzer.py:46:    user_prompt = "Analyze all images. Look at labels, stickers, engravings for 
+details. Return only JSON."
+server\api\field_preferences.py:105:    Uses example labels for illustration purposes.
+server\app.py:258:    # Check for legacy label env var (renamed to tag in Homebox v0.23)
+server\app.py:262:    if field_prefs.using_legacy_label_env:
+server\app.py:264:            "DEPRECATION WARNING: HBC_AI_DEFAULT_LABEL_ID has been renamed to "
+server\app.py:265:            "HBC_AI_DEFAULT_TAG_ID (Homebox v0.23 renamed labels to tags). "
+frontend\src\lib\api\chat.ts:48:	target_name?: string; // Unified target name for all action types (item, location, label)
+frontend\src\lib\components\form\ItemCoreFields.svelte:10:	import { getInputClass, getLabelClass } from './types';
+frontend\src\lib\components\form\ItemCoreFields.svelte:32:	const labelClass = $derived(getLabelClass(size));
+frontend\src\lib\components\form\ItemCoreFields.svelte:40:		<label for="{idPrefix}-name" class={labelClass}>Name</label>
+frontend\src\lib\components\form\ItemCoreFields.svelte:65:		<label for="{idPrefix}-quantity" class={labelClass}>Quantity</label>
+frontend\src\lib\components\form\ItemCoreFields.svelte:78:		<label for="{idPrefix}-description" class={labelClass}>Description</label>
+frontend\src\lib\components\form\ItemExtendedFields.svelte:11:	import { getInputClass, getLabelClass } from './types';
+frontend\src\lib\components\form\ItemExtendedFields.svelte:48:	const labelClass = $derived(getLabelClass(size));
+frontend\src\lib\components\form\ItemExtendedFields.svelte:71:					<label for="{idPrefix}-manufacturer" 
+class={labelClass}>Manufacturer</label>
+frontend\src\lib\components\form\ItemExtendedFields.svelte:82:					<label for="{idPrefix}-model" class={labelClass}>Model 
+Number</label>
+frontend\src\lib\components\form\ItemExtendedFields.svelte:95:				<label for="{idPrefix}-serial" class={labelClass}>Serial 
+Number</label>
+frontend\src\lib\components\form\ItemExtendedFields.svelte:108:					<label for="{idPrefix}-price" class={labelClass}>Purchase 
+Price</label>
+frontend\src\lib\components\form\ItemExtendedFields.svelte:121:					<label for="{idPrefix}-vendor" class={labelClass}>Purchased 
+From</label>
+frontend\src\lib\components\form\ItemExtendedFields.svelte:134:				<label for="{idPrefix}-notes" class={labelClass}>Notes</label>
+frontend\src\lib\components\form\LocationSelector.svelte:10:	import { getInputClass, getLabelClass } from './types';
+frontend\src\lib\components\form\LocationSelector.svelte:35:	const labelClass = $derived(getLabelClass(size));
+frontend\src\lib\components\form\LocationSelector.svelte:39:	<label for="{idPrefix}-location" class={labelClass}>Location</label>
+frontend\src\lib\components\form\TagSelector.svelte:11:	import { getLabelClass } from './types';
+frontend\src\lib\components\form\TagSelector.svelte:22:	// Dynamic label class based on size
+frontend\src\lib\components\form\TagSelector.svelte:23:	const labelClass = $derived(getLabelClass(size));
+frontend\src\lib\components\form\TagSelector.svelte:35:		<span class={labelClass}>Tags</span>
+frontend\src\lib\components\form\TagSelector.svelte:40:		<span class={labelClass}>Tags</span>
+frontend\src\lib\components\form\TagSelector.svelte:41:		<div class="flex flex-wrap gap-2" role="group" aria-label="Select tags">
+frontend\src\lib\components\form\TagSelector.svelte:46:					class={isSelected ? 'label-chip-selected' : 'label-chip'}
+frontend\src\lib\components\form\types.ts:22:/** Returns appropriate label class based on size */
+frontend\src\lib\components\form\types.ts:23:export function getLabelClass(size: FormSize): string {
+frontend\src\lib\components\form\types.ts:24:	return size === 'sm' ? 'label-sm' : 'label';
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:9:	import { getInputClass, getLabelClass } from './types';
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:96:	const labelClass = $derived(getLabelClass(size));
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:114:			<label for="{idPrefix}-name" class={labelClass}>New Name</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:128:			<label for="{idPrefix}-qty" class={labelClass}>New Quantity</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:142:			<label for="{idPrefix}-desc" class={labelClass}>New 
+Description</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:156:			<label for="{idPrefix}-color" class={labelClass}>New Color</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:170:			<label for="{idPrefix}-parent" class={labelClass}>New Parent 
+Location</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:199:			<label for="{idPrefix}-notes" class={labelClass}>New Notes</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:214:			<label for="{idPrefix}-manufacturer" class={labelClass}>New 
+Manufacturer</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:228:			<label for="{idPrefix}-model" class={labelClass}>New Model 
+Number</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:242:			<label for="{idPrefix}-serial" class={labelClass}>New Serial 
+Number</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:256:			<label for="{idPrefix}-price" class={labelClass}>New Purchase 
+Price</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:272:			<label for="{idPrefix}-vendor" class={labelClass}>New Purchased 
+From</label>
+frontend\src\lib\components\form\UpdateFieldEditor.svelte:287:			<label for="{idPrefix}-notes-ext" class={labelClass}>New 
+Notes</label>
+frontend\src\lib\components\settings\FieldPrefsSection.svelte:107:				<label for="output_language" class="font-semibold 
+text-neutral-100">Output Language</label>
+frontend\src\lib\components\settings\FieldPrefsSection.svelte:137:				<label for="default_tag" class="font-semibold 
+text-neutral-100">Default Tag</label>
+frontend\src\lib\components\settings\FieldPrefsSection.svelte:164:					<label for={field.key} class="block text-sm font-semibold 
+text-neutral-100">
+frontend\src\lib\components\settings\FieldPrefsSection.svelte:165:						{field.label}
+frontend\src\lib\components\settings\FieldPrefsSection.svelte:166:					</label>
+frontend\src\lib\components\settings\FieldPrefsSection.svelte:253:					aria-label="Copy environment variables"
+frontend\src\lib\components\settings\FieldPrefsSection.svelte:305:						aria-label="View prompt fullscreen"
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:231:								aria-label="Set as active profile"
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:241:							aria-label="Test connection"
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:257:							aria-label="Edit profile"
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:266:							aria-label="Delete profile"
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:292:			<label for="profile-name" class="mb-1 block text-sm font-medium 
+text-neutral-300">
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:294:			</label>
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:306:			<label for="profile-model" class="mb-1 block text-sm 
+font-medium text-neutral-300">
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:308:			</label>
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:323:			<label for="profile-api-key" class="mb-1 block text-sm 
+font-medium text-neutral-300">
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:325:			</label>
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:339:			<label for="profile-api-base" class="mb-1 block text-sm 
+font-medium text-neutral-300">
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:341:			</label>
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:352:			<label for="profile-status" class="mb-1 block text-sm 
+font-medium text-neutral-300">
+frontend\src\lib\components\settings\LLMProfilesSection.svelte:354:			</label>
+frontend\src\lib\components\settings\LogPanel.svelte:19:		toggleLabel: string;
+frontend\src\lib\components\settings\LogPanel.svelte:67:		toggleLabel,
+frontend\src\lib\components\settings\LogPanel.svelte:108:			aria-label="Refresh"
+frontend\src\lib\components\settings\LogPanel.svelte:120:			aria-label="Download"
+frontend\src\lib\components\settings\LogPanel.svelte:132:			aria-label="Export"
+frontend\src\lib\components\settings\LogPanel.svelte:144:			aria-label="Clear"
+frontend\src\lib\components\settings\LogPanel.svelte:167:						aria-label="View fullscreen"
+frontend\src\lib\components\settings\LogPanel.svelte:194:			<span>{toggleLabel}</span>
+frontend\src\lib\components\settings\LogsSection.svelte:78:			toggleLabel="Show Server Logs"
+frontend\src\lib\components\settings\LogsSection.svelte:111:			toggleLabel="Show Frontend Logs"
+frontend\src\lib\components\settings\LogsSection.svelte:137:			toggleLabel="Show Chat Transcript"
+frontend\src\lib\components\settings\LogsSection.svelte:162:			toggleLabel="Show LLM Debug Log"
+frontend\src\lib\components\ApprovalItemPanel.svelte:5:	 * Supports three action types across items, labels, and locations:
+frontend\src\lib\components\ApprovalItemPanel.svelte:202:	// Determine entity type from tool name for proper labeling
+frontend\src\lib\components\ApprovalItemPanel.svelte:415:				aria-label={actionType === 'delete' ? 'View details' : 'Edit'}
+frontend\src\lib\components\ApprovalItemPanel.svelte:431:				aria-label="Reject"
+frontend\src\lib\components\ApprovalItemPanel.svelte:451:				aria-label={expanded && hasModifications ? 'Approve with your changes' : 
+'Approve'}
+frontend\src\lib\components\ApprovalItemPanel.svelte:517:							<label for="create-name-{approval.id}" class="label-sm">Name</label>
+frontend\src\lib\components\ApprovalItemPanel.svelte:529:							<label for="create-desc-{approval.id}" 
+class="label-sm">Description</label>
+frontend\src\lib\components\ApprovalModal.svelte:225:				<button type="button" class="btn-icon" onclick={handleClose} 
+aria-label="Close">
+frontend\src\lib\components\BackLink.svelte:10:		label?: string;
+frontend\src\lib\components\BackLink.svelte:15:	let { href, label = 'Go back', onclick, disabled = false }: Props = $props();
+frontend\src\lib\components\BackLink.svelte:41:	<span>{label}</span>
+frontend\src\lib\components\BottomNav.svelte:35:	aria-label="Main navigation"
+frontend\src\lib\components\BottomNav.svelte:56:							<span class="text-xs font-medium">{item.label}</span>
+frontend\src\lib\components\BottomNav.svelte:71:							<span class="text-xs font-medium">{item.label}</span>
+frontend\src\lib\components\ChatInput.svelte:82:				aria-label="Chat message input"
+frontend\src\lib\components\ChatInput.svelte:90:			aria-label="Send message"
+frontend\src\lib\components\ChatInput.svelte:104:				aria-label="Stop generating"
+frontend\src\lib\components\ChatInput.svelte:115:				aria-label="Clear chat history"
+frontend\src\lib\components\ChatMessage.svelte:324:				aria-label="Copy message"
+frontend\src\lib\components\ConfirmDialog.svelte:9:		confirmLabel?: string;
+frontend\src\lib\components\ConfirmDialog.svelte:10:		cancelLabel?: string;
+frontend\src\lib\components\ConfirmDialog.svelte:19:		confirmLabel = 'Confirm',
+frontend\src\lib\components\ConfirmDialog.svelte:20:		cancelLabel = 'Cancel',
+frontend\src\lib\components\ConfirmDialog.svelte:57:						{cancelLabel}
+frontend\src\lib\components\ConfirmDialog.svelte:60:						{confirmLabel}
+frontend\src\lib\components\DuplicateWarningIcon.svelte:28:		aria-label="Possible duplicate item"
+frontend\src\lib\components\FullscreenPanel.svelte:76:					aria-label="Close"
+frontend\src\lib\components\HeaderNav.svelte:30:<!-- Desktop/Tablet header navigation - icons with labels -->
+frontend\src\lib\components\HeaderNav.svelte:31:<nav class="flex items-center gap-1" aria-label="Main navigation">
+frontend\src\lib\components\HeaderNav.svelte:44:				<span>{item.label}</span>
+frontend\src\lib\components\HeaderNav.svelte:56:				<span>{item.label}</span>
+frontend\src\lib\components\ImagesPanel.svelte:172:								aria-label="Remove image"
+frontend\src\lib\components\ImagesPanel.svelte:203:				<p class="mb-2 text-xs text-neutral-500">Add labels, serial numbers, different 
+angles</p>
+frontend\src\lib\components\LocationModal.svelte:108:			<label for="location-name" class="mb-1 block text-sm font-medium 
+text-neutral-200">
+frontend\src\lib\components\LocationModal.svelte:110:			</label>
+frontend\src\lib\components\LocationModal.svelte:122:			<label for="location-description" class="mb-1 block text-sm font-medium 
+text-neutral-200">
+frontend\src\lib\components\LocationModal.svelte:124:			</label>
+frontend\src\lib\components\Modal.svelte:52:						aria-label="Close"
+frontend\src\lib\components\QrScanner.svelte:278:			aria-label="Close scanner"
+frontend\src\lib\components\QrScanner.svelte:343:					<track kind="captions" label="No captions available" />
+frontend\src\lib\components\SessionExpiredModal.svelte:83:			<label for="reauth-email" class="label">Email</label>
+frontend\src\lib\components\SessionExpiredModal.svelte:97:			<label for="reauth-password" class="label">Password</label>
+frontend\src\lib\components\ThumbnailEditor.svelte:432:				aria-label="Close"
+frontend\src\lib\components\ThumbnailEditor.svelte:445:		<!-- Image selector with larger thumbnails and labels -->
+frontend\src\lib\components\ThumbnailEditor.svelte:500:					<label
+frontend\src\lib\components\ThumbnailEditor.svelte:506:					</label>
+frontend\src\lib\components\ThumbnailEditor.svelte:531:					<label
+frontend\src\lib\components\ThumbnailEditor.svelte:537:					</label>
+frontend\src\lib\components\ThumbnailEditor.svelte:554:						aria-label="Rotate 90° left"
+frontend\src\lib\components\ThumbnailEditor.svelte:573:						aria-label="Rotate 90° right"
+frontend\src\lib\components\Toast.svelte:73:								{toast.action.label}
+frontend\src\lib\components\Toast.svelte:81:						aria-label="Dismiss notification"
+frontend\src\lib\navigation\config.ts:11:	label: string;
+frontend\src\lib\navigation\config.ts:54:			label: 'Chat',
+frontend\src\lib\navigation\config.ts:65:			label: 'Scan',
+frontend\src\lib\navigation\config.ts:72:			label: 'Settings',
+frontend\src\lib\stores\chat.svelte.ts:31:	entityName?: string; // Display name of the entity affected (item, location, label)
+frontend\src\lib\stores\chat.svelte.ts:841:		// entityName: unified field for all entity types (items, locations, labels)
+frontend\src\lib\stores\chat.svelte.ts:947:		// entityName: unified field for all entity types (items, locations, labels)
+frontend\src\lib\stores\ui.svelte.ts:19:		label: string;
+frontend\src\lib\stores\ui.svelte.ts:184:		options?: { persistent?: boolean; action?: { label: string; href: string } }
+frontend\src\lib\stores\ui.svelte.ts:242:	options?: { persistent?: boolean; action?: { label: string; href: string } }
+frontend\src\lib\workflows\settings.svelte.ts:64:	label: string;
+frontend\src\lib\workflows\settings.svelte.ts:72:		label: 'Name',
+frontend\src\lib\workflows\settings.svelte.ts:77:		label: 'Naming Examples',
+frontend\src\lib\workflows\settings.svelte.ts:82:		label: 'Description',
+frontend\src\lib\workflows\settings.svelte.ts:87:		label: 'Quantity',
+frontend\src\lib\workflows\settings.svelte.ts:92:		label: 'Manufacturer',
+frontend\src\lib\workflows\settings.svelte.ts:97:		label: 'Model Number',
+frontend\src\lib\workflows\settings.svelte.ts:102:		label: 'Serial Number',
+frontend\src\lib\workflows\settings.svelte.ts:107:		label: 'Purchase Price',
+frontend\src\lib\workflows\settings.svelte.ts:112:		label: 'Purchase From',
+frontend\src\lib\workflows\settings.svelte.ts:117:		label: 'Notes',
+frontend\src\routes\capture\+page.svelte:399:		<BackLink href="/location" label="Change Location" onclick={goBack} 
+disabled={isAnalyzing} />
+frontend\src\routes\capture\+page.svelte:561:									aria-label={expandedImages.has(index) ? 'Collapse options' : 'Expand options'}
+frontend\src\routes\capture\+page.svelte:576:									aria-label="Remove image"
+frontend\src\routes\capture\+page.svelte:593:							<label class="flex cursor-pointer items-center gap-3 pt-3">
+frontend\src\routes\capture\+page.svelte:615:							</label>
+frontend\src\routes\capture\+page.svelte:681:													aria-label="Remove additional image"
+frontend\src\routes\capture\+page.svelte:722:										Add close-ups, labels, serial numbers, different angles
+frontend\src\routes\location\+page.svelte:376:			<BackLink href="/location" label="Choose a different location" 
+onclick={changeSelection} />
+frontend\src\routes\location\+page.svelte:486:							aria-label="Clear search"
+frontend\src\routes\location\+page.svelte:585:						aria-label="Select current location"
+frontend\src\routes\review\+page.svelte:362:	<BackLink href="/capture" label="Back to Capture" onclick={goBack} 
+disabled={isProcessing} />
+frontend\src\routes\review\+page.svelte:379:						aria-label="Edit thumbnail image"
+frontend\src\routes\review\+page.svelte:527:	confirmLabel="Confirm All"
+frontend\src\routes\review\+page.svelte:528:	cancelLabel="Cancel"
+frontend\src\routes\summary\+page.svelte:295:							aria-label="Edit item"
+frontend\src\routes\summary\+page.svelte:305:							aria-label="Remove item"
+frontend\src\routes\+layout.svelte:38:					label: 'View release',
+frontend\src\routes\+page.svelte:130:				<label for="email" class="label">Email</label>
+frontend\src\routes\+page.svelte:143:				<label for="password" class="label">Password</label>
+frontend\src\routes\+page.svelte:158:						aria-label={showPassword ? 'Hide password' : 'Show password'}
+
+
