@@ -20,6 +20,8 @@
 		placeholder?: string;
 		/** Whether conflict check is in progress */
 		isChecking?: boolean;
+		/** Whether to show the label (default: true) */
+		showLabel?: boolean;
 		onChange: (value: string | null) => void;
 	}
 
@@ -29,6 +31,7 @@
 		disabled = false,
 		placeholder = 'e.g., 000-001',
 		isChecking = false,
+		showLabel = true,
 		onChange,
 	}: Props = $props();
 
@@ -73,10 +76,12 @@
 </script>
 
 <div>
-	<div class="mb-1 flex items-baseline gap-2">
-		<label for="asset-id-input" class="text-body-sm font-medium text-neutral-300">Asset ID</label>
-		<span class="text-xs text-neutral-500">Optional – auto-assigned if blank</span>
-	</div>
+	{#if showLabel}
+		<div class="mb-1 flex items-baseline gap-2">
+			<label for="asset-id-input" class="text-body-sm font-medium text-neutral-300">Asset ID</label>
+			<span class="text-xs text-neutral-500">Optional – auto-assigned if blank</span>
+		</div>
+	{/if}
 
 	<div class="flex items-center gap-2">
 		<div class="relative flex-1">

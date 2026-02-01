@@ -575,22 +575,16 @@
 							</div>
 						</div>
 
-						<!-- File info -->
+						<!-- Image count and total size -->
 						<div class="min-w-0 flex-1">
-							<div class="flex items-center gap-2">
-								<p class="truncate text-body-sm font-medium text-neutral-200">
-									{image.file.name}
-								</p>
-								{#if image.additionalFiles && image.additionalFiles.length > 0}
-									<span
-										class="rounded bg-primary-500/20 px-1.5 py-0.5 text-caption font-medium text-primary-300"
-									>
-										+{image.additionalFiles.length}
-									</span>
-								{/if}
-							</div>
-							<p class="text-caption text-neutral-500">
-								{formatFileSize(image.file.size)}
+							<p class="text-body-sm font-medium text-neutral-200">
+								# Images: {1 + (image.additionalFiles?.length || 0)}
+							</p>
+							<p class="text-caption text-neutral-400">
+								Total Size: {formatFileSize(
+									image.file.size +
+										(image.additionalFiles?.reduce((sum, f) => sum + f.size, 0) || 0)
+								)}
 							</p>
 						</div>
 
@@ -659,18 +653,33 @@
 								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
 							</label>
 
-							<!-- Asset ID input (for pre-printed QR codes) -->
+							<!-- Asset ID section -->
 							{#if !image.separateItems}
-								<AssetIdInput
-									value={image.assetId ?? null}
-									conflict={null}
-									disabled={isAnalyzing}
-									onChange={(value) => updateImageOption(index, 'assetId', value)}
-								/>
+								<div>
+									<div class="mb-2 flex items-center gap-1.5">
+										<span class="text-body-sm font-medium text-neutral-200">Asset ID</span>
+										<InfoTooltip
+											text="Pre-assign an asset ID from a QR code. Leave blank for auto-assignment."
+										/>
+									</div>
+									<AssetIdInput
+										value={image.assetId ?? null}
+										conflict={null}
+										disabled={isAnalyzing}
+										onChange={(value) => updateImageOption(index, 'assetId', value)}
+										showLabel={false}
+									/>
+								</div>
 							{/if}
 
-							<!-- Optional instructions -->
-							<div class="flex items-center gap-2">
+							<!-- Description section -->
+							<div>
+								<div class="mb-2 flex items-center gap-1.5">
+									<span class="text-body-sm font-medium text-neutral-200">Description</span>
+									<InfoTooltip
+										text="Describe the item(s) in this photo. You can also paste images here to add them as additional photos."
+									/>
+								</div>
 								<input
 									type="text"
 									placeholder="Optional: describe what's in this photo..."
@@ -685,7 +694,6 @@
 									class="input flex-1 text-body-sm"
 									disabled={isAnalyzing}
 								/>
-								<InfoTooltip text="You can paste images here to add them as additional photos" />
 							</div>
 
 							<!-- Additional images for this item -->
@@ -773,11 +781,14 @@
 									</div>
 								</div>
 							{:else}
-								<!-- Empty state: compact add buttons (same style as when photos exist) -->
+								<!-- Additional photos section -->
 								<div class="border-t border-neutral-800/50 pt-3">
-									<p class="mb-2 text-caption text-neutral-500">
-										Add close-ups, labels, serial numbers, different angles
-									</p>
+									<div class="mb-2 flex items-center gap-1.5">
+										<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
+										<InfoTooltip
+											text="Add close-ups, labels, serial numbers, or different angles"
+										/>
+									</div>
 									<div class="flex gap-2">
 										<button
 											type="button"
@@ -911,7 +922,7 @@
 			</div>
 
 			<p class="mt-6 text-caption text-neutral-500">
-				{totalImageCount} / {maxImages} images · {maxFileSizeMb}MB per file
+				{totalImageCount} / {maxImages} images Â· {maxFileSizeMb}MB per file
 			</p>
 		</div>
 	{/if}
