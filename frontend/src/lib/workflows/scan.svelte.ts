@@ -276,7 +276,7 @@ class ScanWorkflow {
 					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
 						throw new TypeError(
 							`Cannot read unknown workflow state property: '${prop}'. ` +
-								`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
+							`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
 						);
 					}
 
@@ -334,7 +334,7 @@ class ScanWorkflow {
 					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
 						throw new TypeError(
 							`Cannot set unknown workflow state property: '${prop}'. ` +
-								`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
+							`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
 						);
 					}
 
@@ -342,8 +342,8 @@ class ScanWorkflow {
 					if (!ScanWorkflow.WRITABLE_PROPS.has(propName)) {
 						throw new TypeError(
 							`Cannot set read-only workflow state property: '${prop}'. ` +
-								`This property can only be modified through workflow methods. ` +
-								`Writable properties are: ${[...ScanWorkflow.WRITABLE_PROPS].join(', ')}`
+							`This property can only be modified through workflow methods. ` +
+							`Writable properties are: ${[...ScanWorkflow.WRITABLE_PROPS].join(', ')}`
 						);
 					}
 
@@ -459,10 +459,10 @@ class ScanWorkflow {
 		this.captureService.removeImage(index);
 	}
 
-	/** Update image options (separateItems, extraInstructions) */
+	/** Update image options (separateItems, extraInstructions, assetId) */
 	updateImageOptions(
 		index: number,
-		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions'>>
+		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions' | 'assetId'>>
 	): void {
 		this.captureService.updateImageOptions(index, options);
 	}
