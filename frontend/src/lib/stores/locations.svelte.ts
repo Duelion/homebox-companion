@@ -22,6 +22,8 @@ export interface PathItem {
 export interface FlatLocation {
 	location: Location;
 	path: string;
+	/** Disambiguated display name (includes parent path only if duplicates exist) */
+	displayName: string;
 }
 
 // =============================================================================
@@ -129,7 +131,8 @@ class LocationStore {
 
 	/** Set the flat list from API response */
 	setFlatList(locations: Location[]): void {
-		this._flatList = this.flattenLocations(locations, '');
+		const flat = this.flattenLocations(locations, '');
+		this._flatList = this.computeDisambiguatedNames(flat);
 	}
 
 	// =========================================================================
@@ -138,18 +141,69 @@ class LocationStore {
 
 	/**
 	 * Flatten a hierarchical location list into a flat list with path strings.
-	 * Used for search functionality.
+	 * Used for search functionality. displayName is set initially to just the name,
+	 * and will be updated by computeDisambiguatedNames.
 	 */
 	private flattenLocations(locations: Location[], parentPath: string): FlatLocation[] {
 		const result: FlatLocation[] = [];
 		for (const loc of locations) {
 			const currentPath = parentPath ? `${parentPath} › ${loc.name}` : loc.name;
-			result.push({ location: loc, path: currentPath });
+			result.push({ location: loc, path: currentPath, displayName: loc.name });
 			if (loc.children && loc.children.length > 0) {
 				result.push(...this.flattenLocations(loc.children, currentPath));
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * Compute disambiguated display names for locations with duplicate names.
+	 * Shows parent path progressively until the name becomes unique.
+	 */
+	private computeDisambiguatedNames(locations: FlatLocation[]): FlatLocation[] {
+		// Group locations by name to find duplicates
+		const nameGroups = new Map<string, FlatLocation[]>();
+		for (const loc of locations) {
+			const name = loc.location.name;
+			if (!nameGroups.has(name)) {
+				nameGroups.set(name, []);
+			}
+			nameGroups.get(name)!.push(loc);
+		}
+
+		// For each location, compute display name
+		return locations.map((loc) => {
+			const siblings = nameGroups.get(loc.location.name)!;
+			if (siblings.length === 1) {
+				// Unique name - no disambiguation needed
+				return loc; // displayName already set to loc.name
+			}
+			// Has duplicates - show progressive path until unique
+			return { ...loc, displayName: this.getMinimalPath(loc, siblings) };
+		});
+	}
+
+	/**
+	 * Get the minimal path suffix that uniquely identifies this location
+	 * among its siblings with the same name.
+	 */
+	private getMinimalPath(loc: FlatLocation, siblings: FlatLocation[]): string {
+		const pathParts = loc.path.split(' › ');
+
+		// Start with just the name, progressively add parents until unique
+		for (let depth = 1; depth <= pathParts.length; depth++) {
+			const candidate = pathParts.slice(-depth).join(' › ');
+			// Count how many siblings match this suffix as a complete path segment
+			// Must either be exact match OR have separator before the suffix
+			const matches = siblings.filter(
+				(s) => s.path === candidate || s.path.endsWith(' › ' + candidate)
+			);
+			if (matches.length === 1) {
+				return candidate;
+			}
+		}
+		// Full path if still not unique (edge case - shouldn't normally happen)
+		return loc.path;
 	}
 
 	/** Reset navigation state (clears path, current level, and selection) */
