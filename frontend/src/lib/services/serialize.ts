@@ -39,6 +39,8 @@ export interface StoredImage {
 	additionalDataUrls?: string[];
 	additionalFilenames?: string[];
 	additionalMimeTypes?: string[];
+	/** Custom asset ID from pre-printed QR codes */
+	assetId?: string | null;
 }
 
 /** Serializable version of ReviewItem */
@@ -202,6 +204,7 @@ export async function serializeImage(img: CapturedImage): Promise<StoredImage> {
 		additionalDataUrls,
 		additionalFilenames,
 		additionalMimeTypes,
+		assetId: img.assetId,
 	};
 }
 
@@ -282,6 +285,7 @@ export async function deserializeImage(stored: StoredImage): Promise<CapturedIma
 		extraInstructions: stored.extraInstructions,
 		additionalFiles,
 		additionalDataUrls,
+		assetId: stored.assetId,
 	};
 }
 
