@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homebox OIDC Test</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { 
+            font-size: 1.75rem; 
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: var(--muted); margin-bottom: 2rem; }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card h2 { font-size: 1rem; margin-bottom: 1rem; color: var(--muted); }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        input:focus { outline: none; border-color: var(--accent); }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-secondary { background: var(--border); color: var(--text); }
+        .btn-secondary:hover { background: #475569; }
+        .btn-group { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .status {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            display: none;
+        }
+        .status.success { display: block; background: rgba(34, 197, 94, 0.1); border: 1px solid var(--success); }
+        .status.warning { display: block; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); }
+        .status.error { display: block; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); }
+        .status.info { display: block; background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent); }
+        pre {
+            background: var(--bg);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-entry { 
+            padding: 0.5rem; 
+            border-bottom: 1px solid var(--border);
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        .log-entry:last-child { border-bottom: none; }
+        .log-time { color: var(--muted); margin-right: 0.5rem; }
+        .results { margin-top: 1rem; }
+        .result-item { 
+            margin-bottom: 0.75rem; 
+            padding: 0.75rem;
+            background: var(--bg);
+            border-radius: 0.5rem;
+        }
+        .result-label { 
+            font-size: 0.75rem; 
+            color: var(--muted); 
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+        .copy-btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            margin-left: 0.5rem;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Homebox OIDC Test</h1>
+        <p class="subtitle">Test OIDC authentication flow with your Homebox instance</p>
+
+        <!-- Step 1: Configuration -->
+        <div class="card">
+            <h2>STEP 1: Configure Homebox URL</h2>
+            <label for="homeboxUrl">Homebox Base URL</label>
+            <input type="url" id="homeboxUrl" placeholder="https://homebox.yourdomain.com" value="">
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="checkStatus()">Check OIDC Status</button>
+            </div>
+            <div id="statusResult" class="status"></div>
+        </div>
+
+        <!-- Step 2: OIDC Test -->
+        <div class="card" id="oidcTestCard" style="display: none;">
+            <h2>STEP 2: Test OIDC Flow</h2>
+            <p style="margin-bottom: 1rem; color: var(--muted);">
+                This will open Homebox's OIDC login in a popup. After you authenticate, 
+                we'll capture what comes back.
+            </p>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startOIDCFlow()">🚀 Start OIDC Login</button>
+                <button class="btn btn-secondary" onclick="testPasswordLogin()">🔑 Test Password Login</button>
+            </div>
+            <div id="oidcResult" class="status"></div>
+        </div>
+
+        <!-- Step 3: Results -->
+        <div class="card" id="resultsCard" style="display: none;">
+            <h2>STEP 3: Results</h2>
+            <div id="resultsList" class="results"></div>
+        </div>
+
+        <!-- Log -->
+        <div class="card">
+            <h2>Activity Log</h2>
+            <div id="logContainer" style="max-height: 300px; overflow-y: auto;">
+                <div class="log-entry">
+                    <span class="log-time">[--:--:--]</span>
+                    Ready. Enter your Homebox URL to begin.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let homeboxUrl = '';
+        let oidcPopup = null;
+
+        function log(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+            container.insertBefore(entry, container.firstChild);
+        }
+
+        function showStatus(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            el.className = `status ${type}`;
+            el.innerHTML = message;
+        }
+
+        async function checkStatus() {
+            homeboxUrl = document.getElementById('homeboxUrl').value.trim().replace(/\/$/, '');
+            if (!homeboxUrl) {
+                showStatus('statusResult', '❌ Please enter your Homebox URL', 'error');
+                return;
+            }
+
+            log(`Checking ${homeboxUrl}/api/v1/status...`);
+            
+            try {
+                const response = await fetch(`${homeboxUrl}/api/v1/status`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                log(`Status response received: ${JSON.stringify(data, null, 2)}`);
+                
+                const oidc = data.oidc || { enabled: false };
+                
+                let statusHtml = `
+                    <strong>✅ Connected to Homebox!</strong>
+                    <div class="results">
+                        <div class="result-item">
+                            <div class="result-label">OIDC Enabled</div>
+                            <div>${oidc.enabled ? '✅ Yes' : '❌ No'}</div>
+                        </div>
+                `;
+                
+                if (oidc.enabled) {
+                    statusHtml += `
+                        <div class="result-item">
+                            <div class="result-label">Allow Local Login</div>
+                            <div>${oidc.allowLocal ? '✅ Yes' : '❌ No (OIDC Only)'}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-label">Auto Redirect</div>
+                            <div>${oidc.autoRedirect ? '✅ Yes' : '❌ No'}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-label">Button Text</div>
+                            <div>${oidc.buttonText || '(default)'}</div>
+                        </div>
+                    `;
+                }
+                
+                statusHtml += '</div>';
+                showStatus('statusResult', statusHtml, 'success');
+                
+                // Show OIDC test card
+                document.getElementById('oidcTestCard').style.display = 'block';
+                
+                if (oidc.enabled) {
+                    log('OIDC is enabled! You can test the OIDC flow.');
+                } else {
+                    log('OIDC is not enabled. You can still test password login.');
+                }
+                
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                showStatus('statusResult', `
+                    <strong>❌ Connection Failed</strong>
+                    <p style="margin-top: 0.5rem;">${error.message}</p>
+                    <p style="margin-top: 0.5rem; color: var(--muted);">
+                        Make sure CORS is enabled or try running this from the same domain.
+                    </p>
+                `, 'error');
+            }
+        }
+
+        function startOIDCFlow() {
+            log('Opening OIDC login popup...');
+            
+            const oidcUrl = `${homeboxUrl}/api/v1/users/login/oidc`;
+            log(`Redirect URL: ${oidcUrl}`);
+            
+            // Open popup
+            const width = 500;
+            const height = 600;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            
+            oidcPopup = window.open(
+                oidcUrl,
+                'HomeboxOIDC',
+                `width=${width},height=${height},left=${left},top=${top}`
+            );
+            
+            if (!oidcPopup) {
+                showStatus('oidcResult', '❌ Popup blocked! Please allow popups for this site.', 'error');
+                return;
+            }
+            
+            showStatus('oidcResult', '⏳ Waiting for OIDC login... Check the popup window.', 'info');
+            
+            // Monitor popup
+            const checkInterval = setInterval(() => {
+                try {
+                    if (oidcPopup.closed) {
+                        clearInterval(checkInterval);
+                        log('Popup was closed');
+                        showStatus('oidcResult', '⚠️ Popup was closed. Check the log for any captured data.', 'warning');
+                        return;
+                    }
+                    
+                    // Try to access popup URL (will fail if cross-origin)
+                    const popupUrl = oidcPopup.location.href;
+                    log(`Popup URL: ${popupUrl}`);
+                    
+                    // Check if we're back at Homebox
+                    if (popupUrl.includes(homeboxUrl.replace('https://', '').replace('http://', ''))) {
+                        log('Detected return to Homebox domain!');
+                        
+                        // Try to extract token from URL
+                        const url = new URL(popupUrl);
+                        const hashParams = new URLSearchParams(url.hash.substring(1));
+                        const queryParams = url.searchParams;
+                        
+                        // Log all found parameters
+                        log('URL Search Params: ' + url.search);
+                        log('URL Hash: ' + url.hash);
+                        
+                        // Check for token in various places
+                        const token = hashParams.get('token') || 
+                                      queryParams.get('token') ||
+                                      hashParams.get('access_token') ||
+                                      queryParams.get('access_token');
+                        
+                        if (token) {
+                            clearInterval(checkInterval);
+                            captureToken(token, 'URL Parameter');
+                            oidcPopup.close();
+                        }
+                        
+                        // Try to get cookies/localStorage from popup
+                        try {
+                            const cookies = oidcPopup.document.cookie;
+                            if (cookies) {
+                                log('Popup cookies: ' + cookies);
+                            }
+                        } catch (e) {
+                            // Cross-origin, can't access
+                        }
+                    }
+                    
+                } catch (e) {
+                    // Cross-origin - can't access popup URL
+                    // This is expected when redirected to IdP
+                }
+            }, 500);
+            
+            // Timeout after 5 minutes
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                if (oidcPopup && !oidcPopup.closed) {
+                    log('Timeout waiting for OIDC response');
+                }
+            }, 300000);
+        }
+
+        function captureToken(token, source) {
+            log(`🎉 Token captured from ${source}!`);
+            
+            document.getElementById('resultsCard').style.display = 'block';
+            document.getElementById('resultsList').innerHTML = `
+                <div class="result-item">
+                    <div class="result-label">Token Source</div>
+                    <div>${source}</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Bearer Token</div>
+                    <pre>${token}</pre>
+                    <button class="btn btn-secondary copy-btn" onclick="navigator.clipboard.writeText('${token}')">📋 Copy</button>
+                </div>
+            `;
+            
+            showStatus('oidcResult', '✅ OIDC login successful! Token captured.', 'success');
+            
+            // Test the token
+            testToken(token);
+        }
+
+        async function testToken(token) {
+            log('Testing token with /api/v1/users/self...');
+            
+            try {
+                const response = await fetch(`${homeboxUrl}/api/v1/users/self`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`Token valid! User: ${JSON.stringify(data)}`);
+                    
+                    const userInfo = data.item || data;
+                    document.getElementById('resultsList').innerHTML += `
+                        <div class="result-item">
+                            <div class="result-label">Authenticated User</div>
+                            <div>${userInfo.name || userInfo.email || 'Unknown'}</div>
+                        </div>
+                    `;
+                } else {
+                    log(`Token test failed: HTTP ${response.status}`);
+                }
+            } catch (e) {
+                log(`Token test error: ${e.message}`);
+            }
+        }
+
+        async function testPasswordLogin() {
+            const username = prompt('Enter Homebox username/email:');
+            if (!username) return;
+            
+            const password = prompt('Enter Homebox password:');
+            if (!password) return;
+            
+            log(`Testing password login for ${username}...`);
+            
+            try {
+                const response = await fetch(`${homeboxUrl}/api/v1/users/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Accept': 'application/json'
+                    },
+                    body: new URLSearchParams({
+                        username: username,
+                        password: password,
+                        stayLoggedIn: 'true'
+                    })
+                });
+                
+                const data = await response.json();
+                log(`Login response: ${JSON.stringify(data)}`);
+                
+                if (response.ok && data.token) {
+                    captureToken(data.token.replace(/^Bearer\s*/i, ''), 'Password Login');
+                } else {
+                    showStatus('oidcResult', `❌ Login failed: ${data.error || response.status}`, 'error');
+                }
+                
+            } catch (e) {
+                log(`Password login error: ${e.message}`);
+                showStatus('oidcResult', `❌ Error: ${e.message}`, 'error');
+            }
+        }
+
+        // Listen for postMessage from popup (in case Homebox supports it)
+        window.addEventListener('message', (event) => {
+            log(`Received postMessage from ${event.origin}: ${JSON.stringify(event.data)}`);
+            
+            if (event.data && event.data.token) {
+                captureToken(event.data.token, 'postMessage');
+                if (oidcPopup) oidcPopup.close();
+            }
+        });
+
+        // Check URL for token (if redirected back here)
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const tokenFromUrl = urlParams.get('token') || hashParams.get('token');
+        if (tokenFromUrl) {
+            log('Token found in current page URL!');
+            captureToken(tokenFromUrl, 'Redirect URL');
+        }
+    </script>
+</body>
+</html>

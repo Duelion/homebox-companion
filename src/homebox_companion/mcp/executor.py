@@ -224,12 +224,12 @@ class ToolExecutor:
             elif tool_name == "create_location":
                 target_name = tool_args.get("name")
 
-            # Label operations
-            elif tool_name in ("update_label", "delete_label") and "label_id" in tool_args:
-                label = await self._client.get_label(token, tool_args["label_id"])
-                target_name = label.get("name")
+            # Tag operations
+            elif tool_name in ("update_tag", "delete_tag") and "tag_id" in tool_args:
+                tag = await self._client.get_tag(token, tool_args["tag_id"])
+                target_name = tag.get("name")
 
-            elif tool_name == "create_label":
+            elif tool_name == "create_tag":
                 target_name = tool_args.get("name")
 
         except Exception as e:

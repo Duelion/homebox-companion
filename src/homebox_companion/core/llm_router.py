@@ -71,9 +71,9 @@ class FallbackLogger(CustomLogger):
     def log_failure_event(
         self,
         kwargs: dict,
-        response_obj: Any,
-        start_time: float,
-        end_time: float,
+        response_obj: Any,  # noqa: ARG002
+        start_time: float,  # noqa: ARG002
+        end_time: float,  # noqa: ARG002
     ) -> None:
         """Log when an LLM call fails (may trigger fallback)."""
         model = kwargs.get("model", "unknown")
@@ -84,9 +84,9 @@ class FallbackLogger(CustomLogger):
     async def async_log_failure_event(
         self,
         kwargs: dict,
-        response_obj: Any,
-        start_time: float,
-        end_time: float,
+        response_obj: Any,  # noqa: ARG002
+        start_time: float,  # noqa: ARG002
+        end_time: float,  # noqa: ARG002
     ) -> None:
         """Async version - log when an LLM call fails."""
         model = kwargs.get("model", "unknown")
@@ -97,9 +97,9 @@ class FallbackLogger(CustomLogger):
     def log_success_event(
         self,
         kwargs: dict,
-        response_obj: Any,
-        start_time: float,
-        end_time: float,
+        response_obj: Any,  # noqa: ARG002
+        start_time: float,  # noqa: ARG002
+        end_time: float,  # noqa: ARG002
     ) -> None:
         """Log successful LLM calls at debug level."""
         model = kwargs.get("model", "unknown")
@@ -108,9 +108,9 @@ class FallbackLogger(CustomLogger):
     async def async_log_success_event(
         self,
         kwargs: dict,
-        response_obj: Any,
-        start_time: float,
-        end_time: float,
+        response_obj: Any,  # noqa: ARG002
+        start_time: float,  # noqa: ARG002
+        end_time: float,  # noqa: ARG002
     ) -> None:
         """Async version - log successful LLM calls."""
         model = kwargs.get("model", "unknown")

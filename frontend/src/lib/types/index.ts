@@ -2,7 +2,7 @@
  * Consolidated type definitions for Homebox Companion
  *
  * This file contains all shared types organized by domain:
- * - Domain models (Location, Label, Item)
+ * - Domain models (Location, Tag, Item)
  * - API types (requests/responses)
  * - Workflow types (scan workflow state)
  */
@@ -25,8 +25,8 @@ export interface LocationTreeNode extends Location {
 	children: Location[];
 }
 
-/** Label for categorizing items */
-export interface Label {
+/** Tag for categorizing items */
+export interface Tag {
 	id: string;
 	name: string;
 	description?: string;
@@ -46,7 +46,7 @@ export interface ItemCore {
 	name: string;
 	quantity: number;
 	description?: string | null;
-	label_ids?: string[] | null;
+	tag_ids?: string[] | null;
 }
 
 /** Extended item fields (manufacturer, model, etc.) */
@@ -159,7 +159,7 @@ export interface Progress {
 export interface SubmissionResult {
 	itemCount: number;
 	photoCount: number;
-	labelCount: number;
+	tagCount: number;
 	itemNames: string[];
 	locationName: string;
 	locationId: string;
@@ -232,7 +232,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses
@@ -274,7 +274,7 @@ export interface AdvancedItemDetails {
 	manufacturer?: string | null;
 	purchase_price?: number | null;
 	notes?: string | null;
-	label_ids?: string[] | null;
+	tag_ids?: string[] | null;
 }
 
 /** Response from merge operation */
@@ -282,7 +282,7 @@ export interface MergedItemResponse {
 	name: string;
 	quantity: number;
 	description?: string | null;
-	label_ids?: string[] | null;
+	tag_ids?: string[] | null;
 }
 
 /** Response from correction operation */
@@ -302,8 +302,8 @@ export interface CreatedItem {
 		id: string;
 		name?: string;
 	} | null;
-	/** Labels array with id and name */
-	labels?: Array<{
+	/** Tags array with id and name */
+	tags?: Array<{
 		id: string;
 		name?: string;
 	}>;

@@ -172,8 +172,8 @@ Tooling norms (tools defined elsewhere)
 - "Find X / where is X" -> search_items first.
 - "Items in [location]" -> list_items with a location filter.
 - update_item fetches current state internally; do not call get_item just to update.
-- Labels are additive by default; replace labels only when the user explicitly asks.
-  When adding labels, include existing label IDs plus new ones.
+- Tags are additive by default; replace tags only when the user explicitly asks.
+  When adding tags, include existing tag IDs plus new ones.
 
 Batching and caching
 - Treat tool results as current within the same turn; reuse them instead of refetching.
@@ -210,14 +210,14 @@ Search behavior
 Response style (default)
 - Lead with the best match.
 - Use markdown links exactly as provided: items as [Name](item.url), locations as [Name](location.url),
-  labels as [Name](label.url).
+  tags as [Name](tag.url).
 - Keep lists minimal (usually one item per line).
 - IMPORTANT: When the user asks for "all", "full", "hierarchical", or "complete" data, provide ALL results
   in a single response. Do not split, truncate, or summarize unless the user explicitly asks for a summary.
 - Show location only when it answers the question (for example, "where is X") or clearly reduces confusion.
 - Show quantity only when asked or when it materially affects the decision.
-- When listing labels, show only the name as a clickable link; do NOT display IDs unless explicitly requested.
-  Example: "Your labels: [Electronics](url), [Important](url), [Appliances](url)"
+- When listing tags, show only the name as a clickable link; do NOT display IDs unless explicitly requested.
+  Example: "Your tags: [Electronics](url), [Important](url), [Appliances](url)"
 
 Location hierarchy (for "where is X" answers):
 - Default: Show the item's direct location plus one parent for context.

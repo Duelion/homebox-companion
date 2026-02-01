@@ -45,7 +45,7 @@ export interface ChatToolResultEvent {
 }
 
 export interface ApprovalDisplayInfo {
-	target_name?: string; // Unified target name for all action types (item, location, label)
+	target_name?: string; // Unified target name for all action types (item, location, tag)
 	item_name?: string; // Kept for backward compatibility with item operations
 	asset_id?: string;
 	location?: string;

@@ -238,23 +238,23 @@ async def test_get_item_returns_full_details(
 
 
 @pytest.mark.asyncio
-async def test_list_labels_returns_labels_list(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
-    """List labels should return available labels."""
+async def test_list_tags_returns_tags_list(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
+    """List tags should return available tags."""
     username, password = homebox_credentials
 
     async with HomeboxClient(base_url=homebox_api_url) as client:
         response = await client.login(username, password)
         token = response["token"]
-        labels = await client.list_labels(token)
+        tags = await client.list_tags(token)
 
-        # Demo server might or might not have labels
-        assert isinstance(labels, list)
+        # Demo server might or might not have tags
+        assert isinstance(tags, list)
 
-        # If labels exist, check structure
-        if labels:
-            first_label = labels[0]
-            assert "id" in first_label
-            assert "name" in first_label
+        # If tags exist, check structure
+        if tags:
+            first_tag = tags[0]
+            assert "id" in first_tag
+            assert "name" in first_tag
 
 
 @pytest.mark.asyncio
@@ -299,9 +299,9 @@ async def test_typed_methods_return_correct_types(homebox_api_url: str, homebox_
         assert hasattr(locations[0], "id")
         assert hasattr(locations[0], "name")
 
-        # Test list_labels_typed
-        labels = await client.list_labels_typed(token)
-        assert isinstance(labels, list)
+        # Test list_tags_typed
+        tags = await client.list_tags_typed(token)
+        assert isinstance(tags, list)
 
 
 @pytest.mark.asyncio

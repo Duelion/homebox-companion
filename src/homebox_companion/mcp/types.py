@@ -58,7 +58,7 @@ ActionType = Literal["create", "update", "delete"]
 def get_action_type_from_tool_name(tool_name: str) -> ActionType:
     """Derive action type from tool name convention.
 
-    Tool names follow the pattern: {action}_{target} (e.g., create_item, delete_label).
+    Tool names follow the pattern: {action}_{target} (e.g., create_item, delete_tag).
     This function extracts the action prefix to determine the UI action type.
 
     Args:
@@ -85,7 +85,7 @@ class DisplayInfo(BaseModel):
     model_config = ConfigDict(extra="allow")  # Allow additional fields
 
     action_type: ActionType | None = None  # Derived from tool name: create, update, delete
-    target_name: str | None = None  # Name of the target being operated on (item, location, label)
+    target_name: str | None = None  # Name of the target being operated on (item, location, tag)
     item_name: str | None = None  # Kept for backward compatibility with item operations
     asset_id: str | None = None
     location: str | None = None

@@ -14,8 +14,8 @@ from homebox_companion.mcp.tools import (
     GetItemTool,
     GetLocationTool,
     ListItemsTool,
-    ListLabelsTool,
     ListLocationsTool,
+    ListTagsTool,
     get_tools,
 )
 from homebox_companion.mcp.types import ToolPermission, ToolResult
@@ -32,7 +32,7 @@ def mock_client() -> MagicMock:
     # Make all methods async mocks
     client.list_locations = AsyncMock()
     client.get_location = AsyncMock()
-    client.list_labels = AsyncMock()
+    client.list_tags = AsyncMock()
     client.list_items = AsyncMock()
     client.get_item = AsyncMock()
     return client
@@ -118,7 +118,7 @@ class TestToolDiscovery:
         expected_tools = [
             "list_locations",
             "get_location",
-            "list_labels",
+            "list_tags",
             "list_items",
             "get_item",
             "create_item",
@@ -130,7 +130,7 @@ class TestToolDiscovery:
     def test_all_read_tools_have_read_permission(self):
         """READ tools should have READ permission."""
         tools = get_tools()
-        read_tools = ["list_locations", "get_location", "list_labels", "list_items", "get_item"]
+        read_tools = ["list_locations", "get_location", "list_tags", "list_items", "get_item"]
         tools_by_name = {t.name: t for t in tools}
 
         for name in read_tools:
@@ -264,38 +264,38 @@ class TestGetLocation:
 
 
 # =============================================================================
-# list_labels Tests
+# list_tags Tests
 # =============================================================================
 
 
-class TestListLabels:
-    """Tests for list_labels tool."""
+class TestListTags:
+    """Tests for list_tags tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_labels_on_success(self, mock_client: MagicMock):
-        """Should return labels list with URLs on successful API call."""
-        mock_labels = [
-            {"id": "lbl1", "name": "Electronics"},
-            {"id": "lbl2", "name": "Furniture"},
+    async def test_returns_tags_on_success(self, mock_client: MagicMock):
+        """Should return tags list with URLs on successful API call."""
+        mock_tags = [
+            {"id": "tag1", "name": "Electronics"},
+            {"id": "tag2", "name": "Furniture"},
         ]
-        mock_client.list_labels.return_value = mock_labels
+        mock_client.list_tags.return_value = mock_tags
 
-        tool = ListLabelsTool()
+        tool = ListTagsTool()
         params = tool.Params()
         result = await tool.execute(mock_client, "test-token", params)
 
         assert result.success is True
-        # Check that URLs were added to each label
+        # Check that URLs were added to each tag
         assert len(result.data) == 2
-        assert result.data[0]["id"] == "lbl1"
+        assert result.data[0]["id"] == "tag1"
         assert result.data[0]["name"] == "Electronics"
         assert "url" in result.data[0]
-        assert "items?labels=lbl1" in result.data[0]["url"]
-        assert result.data[1]["id"] == "lbl2"
+        assert "items?tags=tag1" in result.data[0]["url"]
+        assert result.data[1]["id"] == "tag2"
         assert result.data[1]["name"] == "Furniture"
         assert "url" in result.data[1]
-        assert "items?labels=lbl2" in result.data[1]["url"]
-        mock_client.list_labels.assert_called_once_with("test-token")
+        assert "items?tags=tag2" in result.data[1]["url"]
+        mock_client.list_tags.assert_called_once_with("test-token")
 
 
 # =============================================================================
@@ -338,7 +338,7 @@ class TestListItems:
         assert "pagination" in result.data
         assert result.data["pagination"]["total"] == 2
         mock_client.list_items.assert_called_once_with(
-            "test-token", location_id=None, label_ids=None, page=None, page_size=50
+            "test-token", location_id=None, tag_ids=None, page=None, page_size=50
         )
 
     @pytest.mark.asyncio
@@ -356,7 +356,7 @@ class TestListItems:
         await tool.execute(mock_client, "test-token", params)
 
         mock_client.list_items.assert_called_once_with(
-            "test-token", location_id="loc1", label_ids=None, page=None, page_size=50
+            "test-token", location_id="loc1", tag_ids=None, page=None, page_size=50
         )
 
 
@@ -376,7 +376,7 @@ class TestGetItem:
             "name": "Smart TV",
             "description": "65 inch OLED",
             "location": {"id": "loc1", "name": "Living Room"},
-            "labels": [{"id": "lbl1", "name": "Electronics"}],
+            "tags": [{"id": "tag1", "name": "Electronics"}],
         }
         mock_client.get_item.return_value = mock_item
 
@@ -392,8 +392,8 @@ class TestGetItem:
         assert "url" in result.data  # Computed URL field
         assert result.data["location"]["id"] == "loc1"
         assert result.data["location"]["name"] == "Living Room"
-        assert len(result.data["labels"]) == 1
-        assert result.data["labels"][0]["id"] == "lbl1"
+        assert len(result.data["tags"]) == 1
+        assert result.data["tags"][0]["id"] == "tag1"
         mock_client.get_item.assert_called_once_with("test-token", "item1")
 
     @pytest.mark.asyncio
@@ -441,8 +441,8 @@ class TestMCPToolsLive:
             assert len(result.data) > 0
 
     @pytest.mark.asyncio
-    async def test_list_labels_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
-        """List labels should return data from demo server."""
+    async def test_list_tags_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
+        """List tags should return data from demo server."""
         from homebox_companion import HomeboxClient
 
         username, password = homebox_credentials
@@ -450,7 +450,7 @@ class TestMCPToolsLive:
             response = await client.login(username, password)
             token = response["token"]
 
-            tool = ListLabelsTool()
+            tool = ListTagsTool()
             params = tool.Params()
             result = await tool.execute(client, token, params)
 

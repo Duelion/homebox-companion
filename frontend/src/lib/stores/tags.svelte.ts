@@ -1,31 +1,31 @@
 /**
- * Labels Store - Svelte 5 Class-based State
+ * Tags Store - Svelte 5 Class-based State
  *
- * Labels are cached after the first fetch to avoid redundant API calls.
- * The cache is cleared on logout via the auth store calling clearLabelsCache.
+ * Tags are cached after the first fetch to avoid redundant API calls.
+ * The cache is cleared on logout via the auth store calling clearTagsCache.
  */
-import { labels as labelsApi } from '$lib/api';
-import type { Label } from '$lib/types';
+import { tags as tagsApi } from '$lib/api';
+import type { Tag } from '$lib/types';
 import { createLogger } from '$lib/utils/logger';
 
-const log = createLogger({ prefix: 'LabelStore' });
+const log = createLogger({ prefix: 'TagStore' });
 
 // =============================================================================
-// LABELS STORE CLASS
+// TAGS STORE CLASS
 // =============================================================================
 
-class LabelsStore {
+class TagsStore {
 	// =========================================================================
 	// STATE
 	// =========================================================================
 
-	/** Cached labels data */
-	private _labels = $state<Label[]>([]);
+	/** Cached tags data */
+	private _tags = $state<Tag[]>([]);
 
-	/** Whether labels have been fetched at least once */
+	/** Whether tags have been fetched at least once */
 	private _fetched = $state(false);
 
-	/** Whether labels are currently being fetched */
+	/** Whether tags are currently being fetched */
 	private _loading = $state(false);
 
 	/** Error message from last fetch attempt */
@@ -36,14 +36,14 @@ class LabelsStore {
 	 * Intentionally NOT using $state - this is internal bookkeeping only,
 	 * not exposed to consumers and does not need to trigger reactivity.
 	 */
-	private _pendingFetch: Promise<Label[]> | null = null;
+	private _pendingFetch: Promise<Tag[]> | null = null;
 
-	/** Cached labels indexed by ID - recomputed only when _labels changes */
-	private _labelsById = $derived.by(() => {
+	/** Cached tags indexed by ID - recomputed only when _tags changes */
+	private _tagsById = $derived.by(() => {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Derived value, not mutable state
-		const map = new Map<string, Label>();
-		for (const label of this._labels) {
-			map.set(label.id, label);
+		const map = new Map<string, Tag>();
+		for (const tag of this._tags) {
+			map.set(tag.id, tag);
 		}
 		return map;
 	});
@@ -52,17 +52,17 @@ class LabelsStore {
 	// GETTERS (read-only access to state)
 	// =========================================================================
 
-	/** Get all labels */
-	get labels(): Label[] {
-		return this._labels;
+	/** Get all tags */
+	get tags(): Tag[] {
+		return this._tags;
 	}
 
-	/** Check if labels have been fetched */
+	/** Check if tags have been fetched */
 	get fetched(): boolean {
 		return this._fetched;
 	}
 
-	/** Check if labels are loading */
+	/** Check if tags are loading */
 	get loading(): boolean {
 		return this._loading;
 	}
@@ -72,9 +72,9 @@ class LabelsStore {
 		return this._error;
 	}
 
-	/** Get labels indexed by ID (cached via $derived) */
-	get labelsById(): Map<string, Label> {
-		return this._labelsById;
+	/** Get tags indexed by ID (cached via $derived) */
+	get tagsById(): Map<string, Tag> {
+		return this._tagsById;
 	}
 
 	// =========================================================================
@@ -82,13 +82,13 @@ class LabelsStore {
 	// =========================================================================
 
 	/**
-	 * Fetch labels from API if not already cached.
+	 * Fetch tags from API if not already cached.
 	 * Returns cached data if available.
 	 */
-	async fetchLabels(forceRefresh = false): Promise<Label[]> {
+	async fetchTags(forceRefresh = false): Promise<Tag[]> {
 		// Return cached data if available and not forcing refresh
 		if (this._fetched && !forceRefresh) {
-			return this._labels;
+			return this._tags;
 		}
 
 		// Return existing fetch promise if one is in progress (deduplication)
@@ -104,14 +104,14 @@ class LabelsStore {
 	}
 
 	/** Internal fetch implementation */
-	private async doFetch(): Promise<Label[]> {
+	private async doFetch(): Promise<Tag[]> {
 		try {
-			const data = await labelsApi.list();
-			this._labels = data;
+			const data = await tagsApi.list();
+			this._tags = data;
 			this._fetched = true;
 			return data;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to fetch labels';
+			const message = error instanceof Error ? error.message : 'Failed to fetch tags';
 			this._error = message;
 			throw error;
 		} finally {
@@ -121,30 +121,30 @@ class LabelsStore {
 	}
 
 	/**
-	 * Clear the labels cache.
-	 * Called on logout or when labels might have changed.
+	 * Clear the tags cache.
+	 * Called on logout or when tags might have changed.
 	 */
 	clear(): void {
-		this._labels = [];
+		this._tags = [];
 		this._fetched = false;
 		this._error = null;
 		this._pendingFetch = null;
 	}
 
 	/**
-	 * Get label name by ID from cache.
-	 * Returns undefined if label not found.
+	 * Get tag name by ID from cache.
+	 * Returns undefined if tag not found.
 	 */
-	getLabelName(labelId: string): string | undefined {
-		return this.labelsById.get(labelId)?.name;
+	getTagName(tagId: string): string | undefined {
+		return this.tagsById.get(tagId)?.name;
 	}
 
 	/**
-	 * Filter label IDs to only include valid ones that exist in the current cache.
+	 * Filter tag IDs to only include valid ones that exist in the current cache.
 	 * Logs any invalid IDs at warn level for debugging.
 	 *
-	 * @param ids - Array of label IDs to validate
-	 * @returns Filtered array containing only valid label IDs
+	 * @param ids - Array of tag IDs to validate
+	 * @returns Filtered array containing only valid tag IDs
 	 */
 	validateIds(ids: string[] | null | undefined): string[] {
 		if (!ids || ids.length === 0) {
@@ -155,7 +155,7 @@ class LabelsStore {
 		const invalidIds: string[] = [];
 
 		for (const id of ids) {
-			if (this._labelsById.has(id)) {
+			if (this._tagsById.has(id)) {
 				validIds.push(id);
 			} else {
 				invalidIds.push(id);
@@ -163,7 +163,7 @@ class LabelsStore {
 		}
 
 		if (invalidIds.length > 0) {
-			log.warn(`Filtered out ${invalidIds.length} invalid label ID(s):`, invalidIds);
+			log.warn(`Filtered out ${invalidIds.length} invalid tag ID(s):`, invalidIds);
 		}
 
 		return validIds;
@@ -174,11 +174,11 @@ class LabelsStore {
 // SINGLETON EXPORT
 // =============================================================================
 
-export const labelStore = new LabelsStore();
+export const tagStore = new TagsStore();
 
 // =============================================================================
 // FUNCTION EXPORTS
 // =============================================================================
 
-export const fetchLabels = (forceRefresh = false) => labelStore.fetchLabels(forceRefresh);
-export const clearLabelsCache = () => labelStore.clear();
+export const fetchTags = (forceRefresh = false) => tagStore.fetchTags(forceRefresh);
+export const clearTagsCache = () => tagStore.clear();

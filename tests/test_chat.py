@@ -450,7 +450,7 @@ class TestChatOrchestrator:
         """Create a mock HomeboxClient."""
         client = MagicMock()
         client.list_locations = AsyncMock(return_value=[{"id": "loc1", "name": "Test"}])
-        client.list_labels = AsyncMock(return_value=[])
+        client.list_tags = AsyncMock(return_value=[])
         client.list_items = AsyncMock(return_value={"items": [], "page": 1, "pageSize": 50, "total": 0})
         return client
 
