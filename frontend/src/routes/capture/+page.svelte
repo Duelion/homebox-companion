@@ -20,6 +20,7 @@
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import { AssetIdInput } from '$lib/components/form';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import {
 		TriangleAlert,
 		RefreshCw,
@@ -32,7 +33,6 @@
 		Image,
 		MapPin,
 		Lightbulb,
-		Info,
 	} from 'lucide-svelte';
 
 	const log = createLogger({ prefix: 'Capture' });
@@ -685,12 +685,7 @@
 									class="input flex-1 text-body-sm"
 									disabled={isAnalyzing}
 								/>
-								<span
-									class="shrink-0 cursor-help text-neutral-500"
-									title="Tip: You can paste images here to add them as additional photos for this item"
-								>
-									<Info size={16} strokeWidth={1.5} />
-								</span>
+								<InfoTooltip text="You can paste images here to add them as additional photos" />
 							</div>
 
 							<!-- Additional images for this item -->

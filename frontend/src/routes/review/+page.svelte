@@ -27,9 +27,10 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import DuplicateWarningIcon from '$lib/components/DuplicateWarningIcon.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
-	import { SquarePen, ImageIcon, ChevronsRight, Check, Info } from 'lucide-svelte';
+	import { SquarePen, ImageIcon, ChevronsRight, Check } from 'lucide-svelte';
 
 	// Constants
 	const ASSET_ID_CHECK_DEBOUNCE_MS = 500;
@@ -586,12 +587,7 @@
 						<Check size={20} strokeWidth={2} />
 						<span>Confirm</span>
 					</Button>
-					<span
-						class="shrink-0 cursor-help text-neutral-500"
-						title="Tip: Long-press to confirm all remaining items at once"
-					>
-						<Info size={16} strokeWidth={1.5} />
-					</span>
+					<InfoTooltip text="Long-press to confirm all remaining items at once" />
 				</div>
 			</div>
 		</AppContainer>
