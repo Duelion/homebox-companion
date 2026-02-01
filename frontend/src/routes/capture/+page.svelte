@@ -575,10 +575,13 @@
 							</div>
 						</div>
 
-						<!-- Image count and total size -->
+						<!-- Title, Image count and total size -->
 						<div class="min-w-0 flex-1">
-							<p class="text-body-sm font-medium text-neutral-200">
-								# Images: {1 + (image.additionalFiles?.length || 0)}
+							<p class="text-body-sm font-semibold text-neutral-100">
+								Item # {String(index + 1).padStart(2, '0')}
+							</p>
+							<p class="text-caption text-neutral-400">
+								Image Count: {1 + (image.additionalFiles?.length || 0)}
 							</p>
 							<p class="text-caption text-neutral-400">
 								Total Size: {formatFileSize(
