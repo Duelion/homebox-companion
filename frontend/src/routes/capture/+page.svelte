@@ -19,6 +19,7 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
+	import { AssetIdInput } from '$lib/components/form';
 	import {
 		TriangleAlert,
 		RefreshCw,
@@ -341,8 +342,8 @@
 
 	function updateImageOption(
 		index: number,
-		field: 'separateItems' | 'extraInstructions',
-		value: boolean | string
+		field: 'separateItems' | 'extraInstructions' | 'assetId',
+		value: boolean | string | null
 	) {
 		workflow.updateImageOptions(index, { [field]: value });
 	}
@@ -657,6 +658,16 @@
 								</div>
 								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
 							</label>
+
+							<!-- Asset ID input (for pre-printed QR codes) -->
+							{#if !image.separateItems}
+								<AssetIdInput
+									value={image.assetId ?? null}
+									conflict={null}
+									disabled={isAnalyzing}
+									onChange={(value) => updateImageOption(index, 'assetId', value)}
+								/>
+							{/if}
 
 							<!-- Optional instructions -->
 							<div class="flex items-center gap-2">

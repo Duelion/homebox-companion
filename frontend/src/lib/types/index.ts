@@ -90,6 +90,8 @@ export interface CapturedImage {
 	additionalFiles?: File[];
 	/** Object URLs for displaying additional image previews in UI */
 	additionalDataUrls?: string[];
+	/** Custom asset ID from pre-printed QR codes */
+	assetId?: string | null;
 }
 
 /** Thumbnail editor transform state */
@@ -234,7 +236,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses

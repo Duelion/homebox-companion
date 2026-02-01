@@ -65,9 +65,8 @@ class LocationNavigator {
 			locationStore.setTree(tree);
 			locationStore.setCurrentLevel(tree);
 
-			// Also load flat list for search (without tree structure)
-			const flatList = await locationsApi.list();
-			locationStore.setFlatList(flatList);
+			// Build flat list for search from the tree (preserves hierarchy for disambiguation)
+			locationStore.setFlatListFromTree(tree);
 		} catch (error) {
 			log.error('Failed to load locations', error);
 			showToast('Failed to load locations', 'error');
@@ -109,9 +108,8 @@ class LocationNavigator {
 				this._currentLocation = null;
 			}
 
-			// Also refresh flat list for search
-			const flatList = await locationsApi.list();
-			locationStore.setFlatList(flatList);
+			// Also refresh flat list for search from the refreshed tree
+			locationStore.setFlatListFromTree(locationStore.tree);
 		} catch (error) {
 			log.error('Failed to refresh current level', error);
 			showToast('Failed to refresh locations', 'error');

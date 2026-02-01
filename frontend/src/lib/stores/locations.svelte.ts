@@ -130,9 +130,15 @@ class LocationStore {
 		this._selected = location;
 	}
 
-	/** Set the flat list from API response */
+	/** Set the flat list from a flat array (legacy - no hierarchy available) */
 	setFlatList(locations: Location[]): void {
 		const flat = this.flattenLocations(locations, '');
+		this._flatList = this.computeDisambiguatedNames(flat);
+	}
+
+	/** Set the flat list from the hierarchical tree (preferred - has children for path computation) */
+	setFlatListFromTree(tree: Location[]): void {
+		const flat = this.flattenLocations(tree, '');
 		this._flatList = this.computeDisambiguatedNames(flat);
 	}
 
