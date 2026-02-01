@@ -538,11 +538,13 @@
 								</div>
 								<div class="min-w-0 flex-1">
 									<p class="font-medium text-neutral-100">
-										{item.location.name}
+										{item.displayName}
 									</p>
-									<p class="truncate text-body-sm text-neutral-500">
-										{item.path}
-									</p>
+									{#if item.displayName !== item.path}
+										<p class="truncate text-body-sm text-neutral-500">
+											{item.path}
+										</p>
+									{/if}
 								</div>
 								{#if item.location.itemCount !== undefined}
 									<span class="text-body-sm text-neutral-500">{item.location.itemCount} items</span>
