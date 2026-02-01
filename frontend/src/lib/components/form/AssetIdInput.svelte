@@ -38,7 +38,7 @@
 	function parseAssetIdFromUrl(scannedText: string): string {
 		// Try to parse Homebox asset URL format: https://homebox.duelion.com/a/{asset_id}
 		// Also supports variations like /a/000-001 or just the raw ID
-		const urlPattern = /\/a\/([^\/\s]+)/;
+		const urlPattern = /\/a\/([^/\s]+)/;
 		const match = scannedText.match(urlPattern);
 
 		if (match && match[1]) {
