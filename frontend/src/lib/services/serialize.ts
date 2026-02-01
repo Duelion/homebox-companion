@@ -223,6 +223,7 @@ export function serializeReviewItem(item: ReviewItem): StoredReviewItem {
 		purchase_price: item.purchase_price,
 		purchase_from: item.purchase_from,
 		notes: item.notes,
+		asset_id: item.asset_id,
 		// ReviewItem-specific fields
 		sourceImageIndex: item.sourceImageIndex,
 		originalFilename: item.originalFile?.name,
@@ -328,6 +329,7 @@ export async function deserializeReviewItem(stored: StoredReviewItem): Promise<R
 		purchase_price: stored.purchase_price,
 		purchase_from: stored.purchase_from,
 		notes: stored.notes,
+		asset_id: stored.asset_id,
 		// ReviewItem-specific fields
 		sourceImageIndex: stored.sourceImageIndex,
 		originalFile,

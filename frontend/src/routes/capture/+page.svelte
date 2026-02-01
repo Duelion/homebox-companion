@@ -31,6 +31,7 @@
 		Image,
 		MapPin,
 		Lightbulb,
+		Info,
 	} from 'lucide-svelte';
 
 	const log = createLogger({ prefix: 'Capture' });
@@ -434,14 +435,14 @@
 <div class="animate-in pb-28">
 	<StepIndicator currentStep={2} />
 
-	<h2 class="text-h2 mb-1 text-neutral-100">Capture Items</h2>
-	<p class="text-body-sm mb-6 text-neutral-400">Add photos and configure detection options</p>
+	<h2 class="mb-1 text-h2 text-neutral-100">Capture Items</h2>
+	<p class="mb-6 text-body-sm text-neutral-400">Add photos and configure detection options</p>
 
 	<!-- Current location display -->
 	{#if locationPath}
 		<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
 
-		<div class="text-body-sm mt-2 mb-3 flex flex-col gap-2 text-neutral-400">
+		<div class="mb-3 mt-2 flex flex-col gap-2 text-body-sm text-neutral-400">
 			<!-- Location block -->
 			<div class="flex flex-col gap-1">
 				<div class="flex items-center gap-2">
@@ -455,7 +456,7 @@
 			{#if parentItemName}
 				<div class="flex items-center gap-2 pl-6 sm:pl-0">
 					<span class="text-neutral-500">Inside:</span>
-					<span class="text-primary-400 font-semibold">{parentItemName}</span>
+					<span class="font-semibold text-primary-400">{parentItemName}</span>
 				</div>
 			{/if}
 		</div>
@@ -476,24 +477,24 @@
 	<!-- Partial failure panel (when some images failed analysis) -->
 	{#if status === 'partial_analysis'}
 		<div
-			class="border-warning-500/30 bg-warning-500/10 mb-4 rounded-xl border p-4"
+			class="mb-4 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4"
 			transition:slide={{ duration: 200 }}
 		>
 			<div class="mb-4 flex items-start gap-3">
 				<!-- Warning icon -->
-				<TriangleAlert class="text-warning-400 mt-0.5 shrink-0" size={24} strokeWidth={1.5} />
+				<TriangleAlert class="mt-0.5 shrink-0 text-warning-400" size={24} strokeWidth={1.5} />
 
 				<div class="flex-1">
-					<h3 class="text-body text-warning-100 mb-1 font-semibold">
+					<h3 class="mb-1 text-body font-semibold text-warning-100">
 						Some Images Failed to Analyze
 					</h3>
-					<p class="text-body-sm text-warning-200/80 mb-3">
+					<p class="mb-3 text-body-sm text-warning-200/80">
 						{failedImageCount} of {images.length} image(s) could not be processed. You can retry the failed
 						images, continue with the successful ones, or remove the failed images.
 					</p>
 
 					<!-- Stats -->
-					<div class="text-caption mb-4 flex gap-4">
+					<div class="mb-4 flex gap-4 text-caption">
 						<div class="flex items-center gap-1.5">
 							<div class="bg-success-400 h-2 w-2 rounded-full"></div>
 							<span class="text-neutral-300">{succeededImageCount} succeeded</span>
@@ -503,7 +504,7 @@
 							<span class="text-neutral-300">{failedImageCount} failed</span>
 						</div>
 						<div class="flex items-center gap-1.5">
-							<div class="bg-primary-400 h-2 w-2 rounded-full"></div>
+							<div class="h-2 w-2 rounded-full bg-primary-400"></div>
 							<span class="text-neutral-300">{detectedItemCount} items detected</span>
 						</div>
 					</div>
@@ -567,7 +568,7 @@
 								class="h-full w-full object-cover"
 							/>
 							<div
-								class="absolute right-0.5 bottom-0.5 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white"
+								class="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white"
 							>
 								{index + 1}
 							</div>
@@ -576,12 +577,12 @@
 						<!-- File info -->
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<p class="text-body-sm truncate font-medium text-neutral-200">
+								<p class="truncate text-body-sm font-medium text-neutral-200">
 									{image.file.name}
 								</p>
 								{#if image.additionalFiles && image.additionalFiles.length > 0}
 									<span
-										class="bg-primary-500/20 text-caption text-primary-300 rounded px-1.5 py-0.5 font-medium"
+										class="rounded bg-primary-500/20 px-1.5 py-0.5 text-caption font-medium text-primary-300"
 									>
 										+{image.additionalFiles.length}
 									</span>
@@ -615,7 +616,7 @@
 								</button>
 								<button
 									type="button"
-									class="hover:text-error-400 hover:bg-error-500/10 rounded-lg p-2 text-neutral-400 transition-colors"
+									class="hover:text-error-400 rounded-lg p-2 text-neutral-400 transition-colors hover:bg-error-500/10"
 									aria-label="Remove image"
 									onclick={() => removeImage(index)}
 									disabled={isAnalyzing}
@@ -629,7 +630,7 @@
 					<!-- Expandable options -->
 					{#if expandedImages.has(index)}
 						<div
-							class="mt-0 space-y-3 border-t border-neutral-800 px-3 pt-0 pb-3"
+							class="mt-0 space-y-3 border-t border-neutral-800 px-3 pb-3 pt-0"
 							transition:slide={{ duration: 200 }}
 						>
 							<!-- Separate into multiple items toggle -->
@@ -648,17 +649,17 @@
 										disabled={isAnalyzing}
 									/>
 									<div
-										class="peer-checked:bg-primary-600 h-6 w-10 rounded-full bg-neutral-700 transition-colors"
+										class="h-6 w-10 rounded-full bg-neutral-700 transition-colors peer-checked:bg-primary-600"
 									></div>
 									<div
-										class="absolute top-1 left-1 h-4 w-4 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-white"
+										class="absolute left-1 top-1 h-4 w-4 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-white"
 									></div>
 								</div>
 								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
 							</label>
 
 							<!-- Optional instructions -->
-							<div>
+							<div class="flex items-center gap-2">
 								<input
 									type="text"
 									placeholder="Optional: describe what's in this photo..."
@@ -670,9 +671,15 @@
 											(e.target as HTMLInputElement).value
 										)}
 									onpaste={(e) => handlePaste(index, e)}
-									class="input text-body-sm"
+									class="input flex-1 text-body-sm"
 									disabled={isAnalyzing}
 								/>
+								<span
+									class="shrink-0 cursor-help text-neutral-500"
+									title="Tip: You can paste images here to add them as additional photos for this item"
+								>
+									<Info size={16} strokeWidth={1.5} />
+								</span>
 							</div>
 
 							<!-- Additional images for this item -->
@@ -721,7 +728,7 @@
 												/>
 												<button
 													type="button"
-													class="hover:bg-error-600 absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all group-hover:opacity-100"
+													class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all hover:bg-error-600 group-hover:opacity-100"
 													aria-label="Remove additional image"
 													onclick={() => removeAdditionalImage(index, additionalIndex)}
 													disabled={isAnalyzing}
@@ -729,7 +736,7 @@
 													<X class="text-white" size={14} strokeWidth={2.5} />
 												</button>
 												<div
-													class="text-xxs absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 font-medium text-white"
+													class="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-xxs font-medium text-white"
 												>
 													{additionalIndex + 1}
 												</div>
@@ -741,7 +748,7 @@
 									<div class="mt-3 flex gap-2">
 										<button
 											type="button"
-											class="hover:border-primary-500/50 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all"
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 											onclick={() => additionalCameraInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
@@ -750,7 +757,7 @@
 										</button>
 										<button
 											type="button"
-											class="hover:border-primary-500/50 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all"
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 											onclick={() => additionalImageInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
@@ -762,13 +769,13 @@
 							{:else}
 								<!-- Empty state: compact add buttons (same style as when photos exist) -->
 								<div class="border-t border-neutral-800/50 pt-3">
-									<p class="text-caption mb-2 text-neutral-500">
+									<p class="mb-2 text-caption text-neutral-500">
 										Add close-ups, labels, serial numbers, different angles
 									</p>
 									<div class="flex gap-2">
 										<button
 											type="button"
-											class="hover:border-primary-500/50 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all"
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 											onclick={() => additionalCameraInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
@@ -777,7 +784,7 @@
 										</button>
 										<button
 											type="button"
-											class="hover:border-primary-500/50 hover:bg-primary-500/5 flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all"
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 											onclick={() => additionalImageInputs[index]?.click()}
 											disabled={isAnalyzing}
 										>
@@ -797,42 +804,42 @@
 				<div class="flex gap-3">
 					<button
 						type="button"
-						class="group hover:border-primary-500/50 hover:bg-primary-500/5 flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all"
+						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 						onclick={() => cameraInput.click()}
 					>
 						<div class="flex flex-col items-center gap-2">
 							<div
-								class="group-hover:bg-primary-500/10 flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors"
+								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 							>
 								<Camera
-									class="group-hover:text-primary-400 text-neutral-400 transition-colors"
+									class="text-neutral-400 transition-colors group-hover:text-primary-400"
 									size={24}
 									strokeWidth={1.5}
 								/>
 							</div>
 							<span
-								class="text-body-sm group-hover:text-primary-400 font-medium text-neutral-400 transition-colors"
+								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
 								>Camera</span
 							>
 						</div>
 					</button>
 					<button
 						type="button"
-						class="group hover:border-primary-500/50 hover:bg-primary-500/5 flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all"
+						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
 						onclick={() => fileInput.click()}
 					>
 						<div class="flex flex-col items-center gap-2">
 							<div
-								class="group-hover:bg-primary-500/10 flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors"
+								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 							>
 								<Upload
-									class="group-hover:text-primary-400 text-neutral-400 transition-colors"
+									class="text-neutral-400 transition-colors group-hover:text-primary-400"
 									size={24}
 									strokeWidth={1.5}
 								/>
 							</div>
 							<span
-								class="text-body-sm group-hover:text-primary-400 font-medium text-neutral-400 transition-colors"
+								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
 								>Upload</span
 							>
 						</div>
@@ -843,11 +850,11 @@
 	{:else}
 		<!-- Enhanced empty state -->
 		<div class="mb-6 flex flex-col items-center px-4 py-12">
-			<div class="bg-primary-500/10 mb-6 flex h-24 w-24 items-center justify-center rounded-2xl">
+			<div class="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-primary-500/10">
 				<Camera class="text-primary-400" size={48} strokeWidth={1.5} />
 			</div>
-			<h3 class="text-h3 mb-2 text-center text-neutral-100">Capture your items</h3>
-			<p class="text-body-sm mb-8 max-w-xs text-center text-neutral-400">
+			<h3 class="mb-2 text-center text-h3 text-neutral-100">Capture your items</h3>
+			<p class="mb-8 max-w-xs text-center text-body-sm text-neutral-400">
 				Take photos or upload images of items you want to add to your inventory
 			</p>
 
@@ -855,49 +862,49 @@
 			<div class="flex w-full max-w-sm gap-3">
 				<button
 					type="button"
-					class="group hover:border-primary-500/50 flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:bg-neutral-800"
+					class="group flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:border-primary-500/50 hover:bg-neutral-800"
 					onclick={() => cameraInput.click()}
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div
-							class="group-hover:bg-primary-500/10 flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors"
+							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 						>
 							<Camera
-								class="group-hover:text-primary-400 text-neutral-300 transition-colors"
+								class="text-neutral-300 transition-colors group-hover:text-primary-400"
 								size={24}
 								strokeWidth={1.5}
 							/>
 						</div>
 						<span
-							class="text-body-sm group-hover:text-primary-400 font-medium text-neutral-200 transition-colors"
+							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
 							>Camera</span
 						>
 					</div>
 				</button>
 				<button
 					type="button"
-					class="group hover:border-primary-500/50 flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:bg-neutral-800"
+					class="group flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:border-primary-500/50 hover:bg-neutral-800"
 					onclick={() => fileInput.click()}
 				>
 					<div class="flex flex-col items-center gap-2">
 						<div
-							class="group-hover:bg-primary-500/10 flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors"
+							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
 						>
 							<Upload
-								class="group-hover:text-primary-400 text-neutral-300 transition-colors"
+								class="text-neutral-300 transition-colors group-hover:text-primary-400"
 								size={24}
 								strokeWidth={1.5}
 							/>
 						</div>
 						<span
-							class="text-body-sm group-hover:text-primary-400 font-medium text-neutral-200 transition-colors"
+							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
 							>Upload</span
 						>
 					</div>
 				</button>
 			</div>
 
-			<p class="text-caption mt-6 text-neutral-500">
+			<p class="mt-6 text-caption text-neutral-500">
 				{totalImageCount} / {maxImages} images · {maxFileSizeMb}MB per file
 			</p>
 		</div>
@@ -924,7 +931,7 @@
 
 <!-- Sticky Analyze button at bottom - above navigation bar -->
 <div
-	class="bottom-nav-offset fixed right-0 left-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
+	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
 >
 	<AppContainer>
 		{#if showAnalyzingUI && isAnalyzing}
@@ -947,7 +954,7 @@
 				<Lightbulb size={20} strokeWidth={1.5} />
 			</Button>
 			{#if images.length === 0}
-				<p class="text-caption mt-2 text-center text-neutral-500">Add photos to continue</p>
+				<p class="mt-2 text-center text-caption text-neutral-500">Add photos to continue</p>
 			{/if}
 		{/if}
 	</AppContainer>

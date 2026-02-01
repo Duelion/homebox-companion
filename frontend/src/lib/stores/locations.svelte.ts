@@ -6,6 +6,7 @@
  * Note: Auth cleanup (clearing location state on logout) is handled explicitly
  * in the auth.svelte.ts logout() function to avoid memory leaks from unsubscribed listeners.
  */
+import { SvelteMap } from 'svelte/reactivity';
 import type { Location, LocationTreeNode } from '$lib/types';
 
 // =============================================================================
@@ -162,7 +163,7 @@ class LocationStore {
 	 */
 	private computeDisambiguatedNames(locations: FlatLocation[]): FlatLocation[] {
 		// Group locations by name to find duplicates
-		const nameGroups = new Map<string, FlatLocation[]>();
+		const nameGroups = new SvelteMap<string, FlatLocation[]>();
 		for (const loc of locations) {
 			const name = loc.location.name;
 			if (!nameGroups.has(name)) {

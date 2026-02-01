@@ -256,6 +256,45 @@ async def get_item_attachment(
         raise HTTPException(status_code=404, detail="Attachment not found") from e
 
 
+@router.put("/items/{item_id}")
+async def update_item(
+    item_id: str,
+    request: dict[str, Any],
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
+) -> dict[str, Any]:
+    """Update an existing item in Homebox.
+
+    Used to set asset ID after item creation (since asset ID cannot be set during creation).
+    Fetches the full item first to merge with update data.
+    """
+    logger.info(f"Updating item: {item_id}")
+    logger.debug(f"Update data: {request}")
+
+    # Fetch current item to get required fields
+    full_item = await client.get_item(token, item_id)
+
+    # Build update payload with current values + updates
+    update_data = {
+        "name": full_item.get("name"),
+        "description": full_item.get("description", ""),
+        "quantity": full_item.get("quantity", 1),
+        "locationId": full_item.get("location", {}).get("id"),
+        "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
+    }
+
+    # Apply requested updates (convert snake_case to camelCase for Homebox API)
+    if "assetId" in request:
+        update_data["assetId"] = request["assetId"]
+    if "name" in request:
+        update_data["name"] = request["name"]
+    if "description" in request:
+        update_data["description"] = request["description"]
+
+    result = await client.update_item(token, item_id, update_data)
+    logger.info(f"Successfully updated item {item_id}")
+    return result
+
 
 @router.delete("/items/{item_id}")
 async def delete_item(

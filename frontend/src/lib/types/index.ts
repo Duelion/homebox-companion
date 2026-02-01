@@ -57,6 +57,8 @@ export interface ItemExtended {
 	purchase_price?: number | null;
 	purchase_from?: string | null;
 	notes?: string | null;
+	/** Custom asset ID (for pre-printed QR codes) */
+	asset_id?: string | null;
 }
 
 /** Complete item with all fields */
@@ -232,7 +234,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended { }
+export interface MergeItem extends ItemCore, ItemExtended {}
 
 // =============================================================================
 // API TYPES - Responses
@@ -263,6 +265,13 @@ export interface DuplicateMatch {
 	item_name: string;
 	serial_number: string;
 	location_name: string | null;
+}
+
+/** Details of an existing item that has the same asset ID */
+export interface AssetIdConflict {
+	item_id: string;
+	item_name: string;
+	asset_id: string;
 }
 
 /** Response from advanced analysis */
