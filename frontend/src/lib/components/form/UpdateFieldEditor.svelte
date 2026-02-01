@@ -8,7 +8,7 @@
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 	import LocationSelector from './LocationSelector.svelte';
-	import LabelSelector from './LabelSelector.svelte';
+	import TagSelector from './TagSelector.svelte';
 
 	interface DisplayInfo {
 		target_name?: string;
@@ -31,9 +31,9 @@
 		description: string | null;
 		notes: string | null;
 
-		// Location/Label
+		// Location/Tags
 		locationId: string;
-		labelIds: string[];
+		tagIds: string[];
 
 		// Extended item fields
 		manufacturer: string | null;
@@ -42,14 +42,14 @@
 		purchasePrice: number | null;
 		purchaseFrom: string | null;
 
-		// Label fields
+		// Tag fields
 		color: string | null;
 
 		// Location fields
 		parentId: string | null;
 
 		// Callbacks
-		onToggleLabel: (labelId: string) => void;
+		onToggleTag: (tagId: string) => void;
 	}
 
 	let {
@@ -65,18 +65,18 @@
 		description = $bindable(),
 		notes = $bindable(),
 		locationId = $bindable(),
-		labelIds = $bindable(),
+		tagIds = $bindable(),
 		// Extended fields (bindable)
 		manufacturer = $bindable(),
 		modelNumber = $bindable(),
 		serialNumber = $bindable(),
 		purchasePrice = $bindable(),
 		purchaseFrom = $bindable(),
-		// Label/Location fields (bindable)
+		// Tag/Location fields (bindable)
 		color = $bindable(),
 		parentId = $bindable(),
 		// Callbacks
-		onToggleLabel,
+		onToggleTag,
 	}: Props = $props();
 
 	// Check if extended fields are being updated
@@ -189,8 +189,8 @@
 		/>
 	{/if}
 
-	{#if fieldsBeingChanged.includes('labels')}
-		<LabelSelector selectedIds={labelIds} {size} {disabled} onToggle={onToggleLabel} />
+	{#if fieldsBeingChanged.includes('tags')}
+		<TagSelector selectedIds={tagIds} {size} {disabled} onToggle={onToggleTag} />
 	{/if}
 
 	{#if fieldsBeingChanged.includes('notes') && !hasExtendedFieldsBeingChanged}

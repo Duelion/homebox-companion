@@ -82,24 +82,24 @@ def _get_compression_semaphore() -> asyncio.Semaphore:
     return _COMPRESSION_SEMAPHORE
 
 
-def filter_default_label(label_ids: list[str] | None, default_label_id: str | None) -> list[str]:
-    """Filter out the default label from AI-suggested labels.
+def filter_default_tag(tag_ids: list[str] | None, default_tag_id: str | None) -> list[str]:
+    """Filter out the default tag from AI-suggested tags.
 
-    The frontend auto-adds the default label, so we remove it from AI suggestions
+    The frontend auto-adds the default tag, so we remove it from AI suggestions
     to avoid the AI duplicating what the frontend will add anyway.
 
     Args:
-        label_ids: List of label IDs suggested by the AI.
-        default_label_id: The default label ID to filter out.
+        tag_ids: List of tag IDs suggested by the AI.
+        default_tag_id: The default tag ID to filter out.
 
     Returns:
-        Filtered list of label IDs.
+        Filtered list of tag IDs.
     """
-    if not label_ids:
+    if not tag_ids:
         return []
-    if not default_label_id:
-        return label_ids
-    return [lid for lid in label_ids if lid != default_label_id]
+    if not default_tag_id:
+        return tag_ids
+    return [tid for tid in tag_ids if tid != default_tag_id]
 
 
 @router.post("/detect", response_model=DetectionResponse)
@@ -118,7 +118,7 @@ async def detect_items(
 
     Args:
         image: The primary image file to analyze.
-        ctx: Vision context with auth token, labels, and preferences.
+        ctx: Vision context with auth token, tags, and preferences.
         api_key: LLM API key (validated by dependency).
         single_item: If True, treat everything as a single item.
         extra_instructions: Optional user hint about what's in the image.
@@ -144,7 +144,7 @@ async def detect_items(
             additional_image_data.append((add_bytes, add_mime))
             logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
 
-    logger.debug(f"Loaded {len(ctx.labels)} labels for context")
+    logger.debug(f"Loaded {len(ctx.tags)} tags for context")
 
     # Get image quality settings
     max_dimension, jpeg_quality = settings.image_quality_params
@@ -173,7 +173,7 @@ async def detect_items(
     detection_task = detect_items_from_bytes(
         image_bytes=image_bytes,
         mime_type=content_type,
-        labels=ctx.labels,
+        tags=ctx.tags,
         single_item=single_item,
         extra_instructions=extra_instructions,
         extract_extended_fields=extract_extended_fields,
@@ -193,7 +193,7 @@ async def detect_items(
             name=item.name,
             quantity=item.quantity,
             description=item.description,
-            label_ids=filter_default_label(item.label_ids, ctx.default_label_id),
+            tag_ids=filter_default_tag(item.tag_ids, ctx.default_tag_id),
             manufacturer=item.manufacturer,
             model_number=item.model_number,
             serial_number=item.serial_number,
@@ -270,13 +270,13 @@ async def analyze_item_advanced(
         image_data_uris=image_data_uris,
         item_name=item_name,
         item_description=item_description,
-        labels=ctx.labels,
+        tags=ctx.tags,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,
     )
     logger.info("Analysis complete")
 
-    # Filter out default label from AI suggestions (frontend will auto-add it)
+    # Filter out default tag from AI suggestions (frontend will auto-add it)
     return AdvancedItemDetails(
         name=details.get("name"),
         description=details.get("description"),
@@ -285,7 +285,7 @@ async def analyze_item_advanced(
         manufacturer=details.get("manufacturer"),
         purchase_price=details.get("purchasePrice"),
         notes=details.get("notes"),
-        label_ids=filter_default_label(details.get("labelIds"), ctx.default_label_id),
+        tag_ids=filter_default_tag(details.get("tagIds"), ctx.default_tag_id),
     )
 
 
@@ -339,7 +339,7 @@ async def correct_item(
     content_type = image.content_type or "image/jpeg"
     image_data_uri = encode_image_bytes_to_data_uri(image_bytes, content_type)
 
-    logger.debug(f"Loaded {len(ctx.labels)} labels for context")
+    logger.debug(f"Loaded {len(ctx.tags)} tags for context")
 
     # Call the correction function
     logger.info("Starting LLM item correction...")
@@ -347,20 +347,20 @@ async def correct_item(
         image_data_uri=image_data_uri,
         current_item=current_item_dict,
         correction_instructions=correction_instructions,
-        labels=ctx.labels,
+        tags=ctx.tags,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,
     )
     logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
 
-    # Filter out default label from AI suggestions (frontend will auto-add it)
+    # Filter out default tag from AI suggestions (frontend will auto-add it)
     return CorrectionResponse(
         items=[
             CorrectedItemResponse(
                 name=item.get("name", "Unknown"),
                 quantity=item.get("quantity", 1),
                 description=item.get("description"),
-                label_ids=filter_default_label(item.get("labelIds"), ctx.default_label_id),
+                tag_ids=filter_default_tag(item.get("tagIds"), ctx.default_tag_id),
                 manufacturer=item.get("manufacturer"),
                 model_number=item.get("modelNumber") or item.get("model_number"),
                 serial_number=item.get("serialNumber") or item.get("serial_number"),

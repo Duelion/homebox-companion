@@ -125,12 +125,12 @@ class TestGetEffectiveCustomizations:
             assert result[field]  # Has non-empty value
 
     def test_excludes_metadata_fields(self) -> None:
-        """output_language and default_label_id should be excluded."""
+        """output_language and default_tag_id should be excluded."""
         from homebox_companion.core.field_preferences import FieldPreferences
 
         prefs = FieldPreferences(
             output_language="Spanish",
-            default_label_id="label-123",
+            default_tag_id="tag-123",
             name="Custom name",
         )
 
@@ -138,7 +138,7 @@ class TestGetEffectiveCustomizations:
 
         assert "name" in result
         assert "output_language" not in result
-        assert "default_label_id" not in result
+        assert "default_tag_id" not in result
 
 
 class TestResetPreferences:

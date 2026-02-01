@@ -21,8 +21,8 @@ import {
 	type FieldPreferences,
 	type EffectiveDefaults,
 } from '$lib/api/settings';
-import { labels as labelsApi } from '$lib/api';
-import type { Label } from '$lib/types';
+import { tags as tagsApi } from '$lib/api';
+import type { Tag } from '$lib/types';
 import { getLogBuffer, clearLogBuffer, exportLogs, type LogEntry } from '$lib/utils/logger';
 import { chatStore } from '$lib/stores/chat.svelte';
 
@@ -122,7 +122,7 @@ export const FIELD_META: FieldMeta[] = [
 /** Environment variable mapping for export */
 export const ENV_VAR_MAPPING: Record<keyof FieldPreferences, string> = {
 	output_language: 'HBC_AI_OUTPUT_LANGUAGE',
-	default_label_id: 'HBC_AI_DEFAULT_LABEL_ID',
+	default_tag_id: 'HBC_AI_DEFAULT_TAG_ID',
 	name: 'HBC_AI_NAME',
 	description: 'HBC_AI_DESCRIPTION',
 	quantity: 'HBC_AI_QUANTITY',
@@ -145,7 +145,7 @@ class SettingsService {
 	// =========================================================================
 
 	config = $state<ConfigResponse | null>(null);
-	availableLabels = $state<Label[]>([]);
+	availableTags = $state<Tag[]>([]);
 
 	// =========================================================================
 	// VERSION/UPDATE STATE
@@ -232,22 +232,22 @@ class SettingsService {
 
 	/**
 	 * Initialize settings data.
-	 * Fetches config, version info, and labels in parallel.
+	 * Fetches config, version info, and tags in parallel.
 	 */
 	async initialize(): Promise<void> {
 		this.isLoading.config = true;
 		this.errors.init = null;
 
 		try {
-			const [configResult, versionResult, labelsResult] = await Promise.all([
+			const [configResult, versionResult, tagsResult] = await Promise.all([
 				getConfig(),
 				getVersion(true), // Force check for updates
-				labelsApi.list(), // Auth-required call to detect expired sessions early
+				tagsApi.list(), // Auth-required call to detect expired sessions early
 			]);
 
 			this.config = configResult;
 			setDemoMode(configResult.is_demo_mode, configResult.demo_mode_explicit);
-			this.availableLabels = labelsResult;
+			this.availableTags = tagsResult;
 
 			// Set update info
 			if (versionResult.update_available && versionResult.latest_version) {
@@ -671,7 +671,7 @@ class SettingsService {
 
 		// Reset all state
 		this.config = null;
-		this.availableLabels = [];
+		this.availableTags = [];
 		this.updateAvailable = false;
 		this.latestVersion = null;
 		this.serverLogs = null;

@@ -67,8 +67,8 @@ from .homebox import (
     Item,
     ItemCreate,
     ItemUpdate,
-    Label,
     Location,
+    Tag,
 )
 
 # Vision tool
@@ -99,7 +99,7 @@ __all__ = [
     # Homebox client
     "HomeboxClient",
     "Location",
-    "Label",
+    "Tag",
     "Item",
     "ItemCreate",
     "ItemUpdate",

@@ -130,27 +130,25 @@
 			</div>
 		</div>
 
-		<!-- Default Label Setting -->
+		<!-- Default Tag Setting -->
 		<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
 			<div class="flex items-center gap-2">
 				<Tag class="text-primary-400" size={20} strokeWidth={1.5} />
-				<label for="default_label" class="font-semibold text-neutral-100">Default Label</label>
+				<label for="default_tag" class="font-semibold text-neutral-100">Default Tag</label>
 			</div>
 			<p class="text-xs text-neutral-400">
-				Automatically tag all items created via Homebox Companion with this label.
+				Automatically tag all items created via Homebox Companion with this tag.
 			</p>
 			<select
-				id="default_label"
-				value={service.fieldPrefs.default_label_id || ''}
-				onchange={(e) => service.updateFieldPref('default_label_id', e.currentTarget.value)}
+				id="default_tag"
+				value={service.fieldPrefs.default_tag_id || ''}
+				onchange={(e) => service.updateFieldPref('default_tag_id', e.currentTarget.value)}
 				class="input"
 			>
-				<option value="">No default label</option>
-				{#each service.availableLabels as label (label.id)}
-					<option value={label.id}>
-						{label.name}{service.effectiveDefaults?.default_label_id === label.id
-							? ' (env default)'
-							: ''}
+				<option value="">No default tag</option>
+				{#each service.availableTags as tag (tag.id)}
+					<option value={tag.id}>
+						{tag.name}{service.effectiveDefaults?.default_tag_id === tag.id ? ' (env default)' : ''}
 					</option>
 				{/each}
 			</select>
@@ -314,8 +312,8 @@
 						class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{service.promptPreview}</pre>
 				</div>
 				<p class="text-xs text-neutral-500">
-					This is what the AI will see when analyzing your images. Labels shown are examples; actual
-					labels from your Homebox instance will be used.
+					This is what the AI will see when analyzing your images. Tags shown are examples; actual
+					tags from your Homebox instance will be used.
 				</p>
 			</div>
 		{/if}

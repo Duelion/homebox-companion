@@ -255,6 +255,17 @@ async def lifespan(app: FastAPI):
             "removed in a future version."
         )
 
+    # Check for legacy label env var (renamed to tag in Homebox v0.23)
+    from homebox_companion.core.field_preferences import get_defaults
+
+    field_prefs = get_defaults()
+    if field_prefs.using_legacy_label_env:
+        logger.warning(
+            "DEPRECATION WARNING: HBC_AI_DEFAULT_LABEL_ID has been renamed to "
+            "HBC_AI_DEFAULT_TAG_ID (Homebox v0.23 renamed labels to tags). "
+            "Please update your environment variables."
+        )
+
     # Check for demo conditions and log appropriately
     is_using_demo_server = "demo.homebox.software" in settings.homebox_url.lower()
     if is_using_demo_server:

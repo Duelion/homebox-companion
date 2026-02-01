@@ -212,9 +212,9 @@ class AuthStore {
 			import('./locations.svelte.ts')
 				.then(({ locationStore }) => locationStore.clear())
 				.catch((err) => log.warn('Failed to clear location state:', err)),
-			import('./labels.svelte.ts')
-				.then(({ clearLabelsCache }) => clearLabelsCache())
-				.catch((err) => log.warn('Failed to clear labels cache:', err)),
+			import('./tags.svelte.ts')
+				.then(({ clearTagsCache }) => clearTagsCache())
+				.catch((err) => log.warn('Failed to clear tags cache:', err)),
 			import('../workflows/scan.svelte.ts')
 				.then(({ scanWorkflow }) => scanWorkflow.reset())
 				.catch((err) => log.warn('Failed to reset scan workflow:', err)),

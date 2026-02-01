@@ -22,7 +22,7 @@ _DETECTED_ITEMS_ADAPTER: TypeAdapter[list[DetectedItem]] = TypeAdapter(list[Dete
 async def detect_items_from_bytes(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
     extract_extended_fields: bool = False,
@@ -35,7 +35,7 @@ async def detect_items_from_bytes(
     Args:
         image_bytes: Raw image data for the primary image.
         mime_type: MIME type of the primary image.
-        labels: Optional list of Homebox labels to suggest for items.
+        tags: Optional list of Homebox tags to suggest for items.
         single_item: If True, treat everything in the image as a single item.
         extra_instructions: Optional user hint about what's in the image.
         extract_extended_fields: If True, also attempt to extract extended fields.
@@ -57,7 +57,7 @@ async def detect_items_from_bytes(
 
     return await _detect_items_from_data_uris(
         image_data_uris,
-        labels,
+        tags,
         single_item=single_item,
         extra_instructions=extra_instructions,
         extract_extended_fields=extract_extended_fields,
@@ -68,7 +68,7 @@ async def detect_items_from_bytes(
 
 async def _detect_items_from_data_uris(
     image_data_uris: list[str],
-    labels: list[dict[str, str]] | None = None,
+    tags: list[dict[str, str]] | None = None,
     single_item: bool = False,
     extra_instructions: str | None = None,
     extract_extended_fields: bool = False,
@@ -79,7 +79,7 @@ async def _detect_items_from_data_uris(
 
     Args:
         image_data_uris: List of base64-encoded image data URIs.
-        labels: Optional list of Homebox labels for item tagging.
+        tags: Optional list of Homebox tags for item tagging.
         single_item: If True, treat everything as a single item.
         extra_instructions: User-provided hint about image contents.
         extract_extended_fields: If True, also extract manufacturer, etc.
@@ -94,18 +94,18 @@ async def _detect_items_from_data_uris(
     logger.debug(f"Starting {'multi-image' if multi_image else 'single-image'} detection")
     logger.debug(f"Single item: {single_item}")
     logger.debug(f"Extract extended fields: {extract_extended_fields}")
-    logger.debug(f"Labels provided: {len(labels) if labels else 0}")
+    logger.debug(f"Tags provided: {len(tags) if tags else 0}")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
 
     # Build prompts
     if multi_image:
         system_prompt = build_multi_image_system_prompt(
-            labels, single_item, extract_extended_fields, field_preferences, output_language
+            tags, single_item, extract_extended_fields, field_preferences, output_language
         )
     else:
         system_prompt = build_detection_system_prompt(
-            labels, single_item, extract_extended_fields, field_preferences, output_language
+            tags, single_item, extract_extended_fields, field_preferences, output_language
         )
 
     user_prompt = build_detection_user_prompt(extra_instructions, extract_extended_fields, multi_image, single_item)
@@ -123,7 +123,7 @@ async def _detect_items_from_data_uris(
 
     logger.info(f"Detected {len(items)} items from {len(image_data_uris)} image(s)")
     for item in items:
-        logger.debug(f"  Item: {item.name}, qty: {item.quantity}, labels: {item.label_ids}")
+        logger.debug(f"  Item: {item.name}, qty: {item.quantity}, tags: {item.tag_ids}")
         if extract_extended_fields and item.has_extended_fields():
             logger.debug(
                 f"    Extended: manufacturer={item.manufacturer}, "

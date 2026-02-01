@@ -80,28 +80,28 @@ async def test_multi_item_detection_returns_multiple_items(
 
 
 @pytest.mark.asyncio
-async def test_detection_with_labels_assigns_valid_ids(
+async def test_detection_with_tags_assigns_valid_ids(
     single_item_single_image_path: Path,
 ) -> None:
-    """Detection with labels should only assign label IDs from provided list."""
+    """Detection with tags should only assign tag IDs from provided list."""
     image_bytes = single_item_single_image_path.read_bytes()
 
-    labels = [
-        {"id": "label-1", "name": "Electronics"},
-        {"id": "label-2", "name": "Tools"},
-        {"id": "label-3", "name": "Hardware"},
+    tags = [
+        {"id": "tag-1", "name": "Electronics"},
+        {"id": "tag-2", "name": "Tools"},
+        {"id": "tag-3", "name": "Hardware"},
     ]
 
     detected_items = await detect_items_from_bytes(
         image_bytes=image_bytes,
-        labels=labels,
+        tags=tags,
     )
 
     assert detected_items, "Should detect at least one item"
 
-    # If labels are assigned, they must be from the provided list
-    valid_label_ids = {label["id"] for label in labels}
+    # If tags are assigned, they must be from the provided list
+    valid_tag_ids = {tag["id"] for tag in tags}
     for item in detected_items:
-        if item.label_ids:
-            for label_id in item.label_ids:
-                assert label_id in valid_label_ids, f"Label {label_id} not in provided labels"
+        if item.tag_ids:
+            for tag_id in item.tag_ids:
+                assert tag_id in valid_tag_ids, f"Tag {tag_id} not in provided tags"

@@ -6,7 +6,7 @@
  */
 export { default as ItemCoreFields } from './ItemCoreFields.svelte';
 export { default as ItemExtendedFields } from './ItemExtendedFields.svelte';
-export { default as LabelSelector } from './LabelSelector.svelte';
+export { default as TagSelector } from './TagSelector.svelte';
 export { default as LocationSelector } from './LocationSelector.svelte';
 export { default as UpdateFieldEditor } from './UpdateFieldEditor.svelte';
 export type { FormSize } from './types';

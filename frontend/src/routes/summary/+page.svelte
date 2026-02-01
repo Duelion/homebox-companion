@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';
-	import { labelStore } from '$lib/stores/labels.svelte';
+	import { tagStore } from '$lib/stores/tags.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { markSessionExpired } from '$lib/stores/auth.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
@@ -56,9 +56,9 @@
 		}, 0)
 	);
 
-	function getLabelName(labelId: string): string {
-		const label = labelStore.labels.find((l) => l.id === labelId);
-		return label?.name ?? labelId;
+	function getTagName(tagId: string): string {
+		const tag = tagStore.tags.find((t) => t.id === tagId);
+		return tag?.name ?? tagId;
 	}
 
 	// Apply route guard
@@ -267,16 +267,16 @@
 							{item.description}
 						</p>
 					{/if}
-					{#if item.label_ids && item.label_ids.length > 0}
-						<div class="flex flex-wrap gap-1">
-							{#each item.label_ids.slice(0, 3) as labelId (labelId)}
-								<span class="rounded bg-primary-500/20 px-2 py-0.5 text-caption text-primary-300">
-									{getLabelName(labelId)}
+					{#if item.tag_ids && item.tag_ids.length > 0}
+						<div class="item-tags">
+							{#each item.tag_ids.slice(0, 3) as tagId (tagId)}
+								<span class="mini-badge">
+									{getTagName(tagId)}
 								</span>
 							{/each}
-							{#if item.label_ids.length > 3}
-								<span class="rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400">
-									+{item.label_ids.length - 3}
+							{#if item.tag_ids.length > 3}
+								<span class="mini-badge text-neutral-500">
+									+{item.tag_ids.length - 3}
 								</span>
 							{/if}
 						</div>

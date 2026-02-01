@@ -9,7 +9,7 @@ import { browser } from '$app/environment';
 import { chat, type ChatEvent, type ChatStatusResponse, type PendingApproval } from '../api/chat';
 import { locationNavigator } from '../services/locationNavigator.svelte';
 import { chatLogger as log } from '../utils/logger';
-import { labelStore } from './labels.svelte';
+import { tagStore } from './tags.svelte';
 
 // =============================================================================
 // TYPES
@@ -28,7 +28,7 @@ export interface ToolResult {
 
 export interface ExecutedAction {
 	toolName: string;
-	entityName?: string; // Display name of the entity affected (item, location, label)
+	entityName?: string; // Display name of the entity affected (item, location, tag)
 	success: boolean;
 	error?: string;
 	rejected?: boolean; // True if user rejected this action
@@ -59,8 +59,8 @@ export interface ChatMessage {
 // CONSTANTS
 // =============================================================================
 
-/** Tools that modify labels - used for cache invalidation */
-const LABEL_TOOLS = new Set(['create_label', 'update_label', 'delete_label']);
+/** Tools that modify tags - used for cache invalidation */
+const TAG_TOOLS = new Set(['create_tag', 'update_tag', 'delete_tag']);
 
 /** Tools that modify locations - used for cache invalidation */
 const LOCATION_TOOLS = new Set(['create_location', 'update_location', 'delete_location']);
@@ -304,7 +304,7 @@ class ChatStore {
 		// Case 3: Session ID mismatch - backend was reset, clear local messages
 		log.info(
 			`Session ID mismatch (local: ${this._sessionId ?? 'none'}, backend: ${backendSessionId}). ` +
-				`Clearing ${this._messages.length} stale local messages.`
+			`Clearing ${this._messages.length} stale local messages.`
 		);
 
 		// Clear all pending tool timeouts
@@ -452,12 +452,12 @@ class ChatStore {
 		this._messages = this._messages.map((msg) =>
 			msg.id === messageId
 				? {
-						...msg,
-						toolResults: [
-							...(msg.toolResults || []),
-							{ tool: toolName, executionId, success: false, isExecuting: true },
-						],
-					}
+					...msg,
+					toolResults: [
+						...(msg.toolResults || []),
+						{ tool: toolName, executionId, success: false, isExecuting: true },
+					],
+				}
 				: msg
 		);
 
@@ -838,7 +838,7 @@ class ChatStore {
 		const toolName = approval.tool_name;
 		// itemName: kept for backward compatibility with AI context (item-specific field)
 		const itemName = approval.display_info?.item_name;
-		// entityName: unified field for all entity types (items, locations, labels)
+		// entityName: unified field for all entity types (items, locations, tags)
 		const entityName = this.getEntityName(approval);
 
 		try {
@@ -912,10 +912,10 @@ class ChatStore {
 	 */
 	private async refreshCachesForTool(toolName: string): Promise<void> {
 		try {
-			// Refresh labels cache when labels are created/updated/deleted
-			if (LABEL_TOOLS.has(toolName)) {
-				log.debug(`Refreshing labels cache after ${toolName}`);
-				await labelStore.fetchLabels(true); // force refresh
+			// Refresh tags cache when tags are created/updated/deleted
+			if (TAG_TOOLS.has(toolName)) {
+				log.debug(`Refreshing tags cache after ${toolName}`);
+				await tagStore.fetchTags(true); // force refresh
 			}
 
 			// Refresh locations cache when locations are created/updated/deleted
@@ -944,7 +944,7 @@ class ChatStore {
 		const toolName = approval.tool_name;
 		// itemName: kept for backward compatibility with AI context (item-specific field)
 		const itemName = approval.display_info?.item_name;
-		// entityName: unified field for all entity types (items, locations, labels)
+		// entityName: unified field for all entity types (items, locations, tags)
 		const entityName = this.getEntityName(approval);
 
 		try {

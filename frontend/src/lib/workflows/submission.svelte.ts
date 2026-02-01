@@ -219,7 +219,7 @@ export class SubmissionService {
 				name: confirmedItem.name,
 				quantity: confirmedItem.quantity,
 				description: confirmedItem.description,
-				label_ids: confirmedItem.label_ids,
+				tag_ids: confirmedItem.tag_ids,
 				parent_id: parentId,
 				manufacturer: confirmedItem.manufacturer,
 				model_number: confirmedItem.model_number,
@@ -587,11 +587,11 @@ export class SubmissionService {
 			return count + photos;
 		}, 0);
 
-		// Count unique labels across all items
+		// Count unique tags across all items
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Temporary collection for counting
-		const allLabelIds = new Set<string>();
+		const allTagIds = new Set<string>();
 		successfulItems.forEach((item) => {
-			item.label_ids?.forEach((id) => allLabelIds.add(id));
+			item.tag_ids?.forEach((id) => allTagIds.add(id));
 		});
 
 		// Build createdItems array from tracked IDs (include thumbnail for parent picker)
@@ -609,7 +609,7 @@ export class SubmissionService {
 		this.lastResult = {
 			itemCount: successfulItems.length,
 			photoCount,
-			labelCount: allLabelIds.size,
+			tagCount: allTagIds.size,
 			itemNames,
 			locationName: locationName || 'Unknown',
 			locationId: locationId || '',

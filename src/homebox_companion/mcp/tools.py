@@ -159,11 +159,11 @@ class GetLocationTool:
 
 @register_tool
 @dataclass(frozen=True)
-class ListLabelsTool:
-    """List all labels available for categorizing items."""
+class ListTagsTool:
+    """List all tags available for categorizing items."""
 
-    name: str = "list_labels"
-    description: str = "List all labels available for categorizing items"
+    name: str = "list_tags"
+    description: str = "List all tags available for categorizing items"
     permission: ToolPermission = ToolPermission.READ
 
     class Params(ToolParams):
@@ -177,14 +177,14 @@ class ListLabelsTool:
     ) -> ToolResult:
         from ..core.config import settings
 
-        labels = await client.list_labels(token)
-        logger.debug(f"list_labels returned {len(labels)} labels")
+        tags = await client.list_tags(token)
+        logger.debug(f"list_tags returned {len(tags)} tags")
 
-        # Add URL to each label for easy linking in chat
+        # Add URL to each tag for easy linking in chat
         base_url = settings.effective_link_base_url
-        enriched_labels = [{**label, "url": f"{base_url}/items?labels={label.get('id', '')}"} for label in labels]
+        enriched_tags = [{**tag, "url": f"{base_url}/items?tags={tag.get('id', '')}"} for tag in tags]
 
-        return ToolResult(success=True, data=enriched_labels)
+        return ToolResult(success=True, data=enriched_tags)
 
 
 @register_tool
@@ -212,9 +212,9 @@ class ListItemsTool:
             default=None,
             description="Location UUID to filter items by. Use location_name instead when possible.",
         )
-        label_ids: list[str] | None = Field(
+        tag_ids: list[str] | None = Field(
             default=None,
-            description="Optional list of label IDs to filter items by",
+            description="Optional list of tag IDs to filter items by",
         )
         page: int | None = Field(
             default=None,
@@ -227,7 +227,7 @@ class ListItemsTool:
         compact: bool = Field(
             default=True,
             description=(
-                "If true, return only essential fields (id, name, location, quantity, labels) "
+                "If true, return only essential fields (id, name, location, quantity, tags) "
                 "to reduce payload size. Set to false for full item details."
             ),
         )
@@ -273,7 +273,7 @@ class ListItemsTool:
         response = await client.list_items(
             token,
             location_id=resolved_location_id,
-            label_ids=params.label_ids,
+            tag_ids=params.tag_ids,
             page=params.page,
             page_size=params.page_size,
         )
@@ -331,7 +331,7 @@ class SearchItemsTool:
         compact: bool = Field(
             default=True,
             description=(
-                "If true, return only essential fields (id, name, location, quantity, labels). "
+                "If true, return only essential fields (id, name, location, quantity, tags). "
                 "Set to false for full item details."
             ),
         )
@@ -515,12 +515,12 @@ class GetStatisticsByLocationTool:
 
 @register_tool
 @dataclass(frozen=True)
-class GetStatisticsByLabelTool:
-    """Get item counts grouped by label."""
+class GetStatisticsByTagTool:
+    """Get item counts grouped by tag."""
 
-    name: str = "get_statistics_by_label"
+    name: str = "get_statistics_by_tag"
     description: str = (
-        "Get item counts grouped by label. Useful for analytics queries like 'how many items are tagged Electronics?'"
+        "Get item counts grouped by tag. Useful for analytics queries like 'how many items are tagged Electronics?'"
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -533,8 +533,8 @@ class GetStatisticsByLabelTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        stats = await client.get_statistics_by_label(token)
-        logger.debug(f"get_statistics_by_label returned {len(stats)} labels")
+        stats = await client.get_statistics_by_tag(token)
+        logger.debug(f"get_statistics_by_tag returned {len(stats)} tags")
         return ToolResult(success=True, data=stats)
 
 
@@ -613,7 +613,7 @@ class CreateItemTool:
     name: str = "create_item"
     description: str = (
         "Create a new item in Homebox with basic fields only (name, description, "
-        "quantity, location, labels). Does NOT support: notes, purchase_price, "
+        "quantity, location, tags). Does NOT support: notes, purchase_price, "
         "manufacturer, model_number, or serial_number - inform the user if they "
         "request these, and offer to update the items afterward."
     )
@@ -624,9 +624,9 @@ class CreateItemTool:
         location_id: str = Field(description="ID of the location to place the item")
         description: str = Field(default="", description="Optional description")
         quantity: int = Field(default=1, ge=1, description="Quantity of the item (default: 1)")
-        label_ids: list[str] | None = Field(
+        tag_ids: list[str] | None = Field(
             default=None,
-            description="Optional list of label IDs to apply",
+            description="Optional list of tag IDs to apply",
         )
         parent_id: str | None = Field(
             default=None,
@@ -646,7 +646,7 @@ class CreateItemTool:
             location_id=params.location_id,
             description=params.description,
             quantity=params.quantity,
-            label_ids=params.label_ids or [],
+            tag_ids=params.tag_ids or [],
             parent_id=params.parent_id,
         )
         result = await client.create_item(token, item_data)
@@ -662,8 +662,8 @@ class UpdateItemTool:
     name: str = "update_item"
     description: str = (
         "Update an existing item. Automatically fetches current values, so do NOT call "
-        "get_item first. Only provide fields you want to change. For label_ids, pass the "
-        "complete list of label IDs (existing + new) since it replaces all labels. "
+        "get_item first. Only provide fields you want to change. For tag_ids, pass the "
+        "complete list of tag IDs (existing + new) since it replaces all tags. "
         "IMPORTANT: You MUST explain the reason for this update in the message content "
         "BEFORE calling this tool."
     )
@@ -678,12 +678,12 @@ class UpdateItemTool:
         purchase_price: float | None = Field(
             default=None, ge=0, alias="purchasePrice", description="Optional new purchase price"
         )
-        label_ids: list[str] | None = Field(
+        tag_ids: list[str] | None = Field(
             default=None,
             description=(
-                "Complete list of label IDs for the item. To ADD a label, include all "
-                "existing label IDs plus the new one. To REMOVE a label, omit it from "
-                "the list. Pass null/omit to keep labels unchanged."
+                "Complete list of tag IDs for the item. To ADD a tag, include all "
+                "existing tag IDs plus the new one. To REMOVE a tag, omit it from "
+                "the list. Pass null/omit to keep tags unchanged."
             ),
         )
         notes: str | None = Field(default=None, description="Optional new notes text")
@@ -745,12 +745,12 @@ class UpdateItemTool:
         elif current.get("location"):
             update_data["locationId"] = current["location"].get("id")
 
-        # Handle labels - use correct API field name "labelIds" with flat string array
-        if params.label_ids is not None:
-            update_data["labelIds"] = params.label_ids
-        elif current.get("labels"):
-            # Preserve existing labels using correct format
-            update_data["labelIds"] = [label.get("id") for label in current["labels"] if label.get("id")]
+        # Handle tags - use correct API field name "tagIds" with flat string array
+        if params.tag_ids is not None:
+            update_data["tagIds"] = params.tag_ids
+        elif current.get("tags"):
+            # Preserve existing tags using correct format
+            update_data["tagIds"] = [tag.get("id") for tag in current["tags"] if tag.get("id")]
 
         # Handle parent - determine parentId based on clear_parent flag
         if params.clear_parent:
@@ -800,17 +800,17 @@ class CreateLocationTool:
 
 @register_tool
 @dataclass(frozen=True)
-class CreateLabelTool:
-    """Create a new label in Homebox."""
+class CreateTagTool:
+    """Create a new tag in Homebox."""
 
-    name: str = "create_label"
-    description: str = "Create a new label in Homebox"
+    name: str = "create_tag"
+    description: str = "Create a new tag in Homebox"
     permission: ToolPermission = ToolPermission.WRITE
 
     class Params(ToolParams):
-        name: str = Field(description="Name of the label")
+        name: str = Field(description="Name of the tag")
         description: str = Field(default="", description="Optional description")
-        color: str = Field(default="", description="Optional color for the label")
+        color: str = Field(default="", description="Optional color for the tag")
 
     async def execute(
         self,
@@ -818,13 +818,13 @@ class CreateLabelTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        result = await client.create_label(
+        result = await client.create_tag(
             token,
             name=params.name,
             description=params.description,
             color=params.color,
         )
-        logger.info(f"create_label created label: {result.get('name', 'unknown')}")
+        logger.info(f"create_tag created tag: {result.get('name', 'unknown')}")
         return ToolResult(success=True, data=result)
 
 
@@ -880,15 +880,15 @@ class UpdateLocationTool:
 
 @register_tool
 @dataclass(frozen=True)
-class UpdateLabelTool:
-    """Update an existing label."""
+class UpdateTagTool:
+    """Update an existing tag."""
 
-    name: str = "update_label"
-    description: str = "Update an existing label's name, description, or color"
+    name: str = "update_tag"
+    description: str = "Update an existing tag's name, description, or color"
     permission: ToolPermission = ToolPermission.WRITE
 
     class Params(ToolParams):
-        label_id: str = Field(description="ID of the label to update")
+        tag_id: str = Field(description="ID of the tag to update")
         name: str | None = Field(default=None, description="Optional new name")
         description: str | None = Field(default=None, description="Optional new description")
         color: str | None = Field(default=None, description="Optional new color")
@@ -899,17 +899,17 @@ class UpdateLabelTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        # Get the current label to preserve fields not being updated
-        current = await client.get_label(token, params.label_id)
+        # Get the current tag to preserve fields not being updated
+        current = await client.get_tag(token, params.tag_id)
 
-        result = await client.update_label(
+        result = await client.update_tag(
             token,
-            label_id=params.label_id,
+            tag_id=params.tag_id,
             name=params.name if params.name is not None else current.get("name", ""),
             description=(params.description if params.description is not None else current.get("description", "")),
             color=params.color if params.color is not None else current.get("color", ""),
         )
-        logger.info(f"update_label updated label: {result.get('name', 'unknown')}")
+        logger.info(f"update_tag updated tag: {result.get('name', 'unknown')}")
         return ToolResult(success=True, data=result)
 
 
@@ -1021,15 +1021,15 @@ class DeleteItemTool:
 
 @register_tool
 @dataclass(frozen=True)
-class DeleteLabelTool:
-    """Delete a label from Homebox."""
+class DeleteTagTool:
+    """Delete a tag from Homebox."""
 
-    name: str = "delete_label"
-    description: str = "Delete a label from Homebox. This action cannot be undone."
+    name: str = "delete_tag"
+    description: str = "Delete a tag from Homebox. This action cannot be undone."
     permission: ToolPermission = ToolPermission.DESTRUCTIVE
 
     class Params(ToolParams):
-        label_id: str = Field(description="ID of the label to delete")
+        tag_id: str = Field(description="ID of the tag to delete")
 
     async def execute(
         self,
@@ -1037,9 +1037,9 @@ class DeleteLabelTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        await client.delete_label(token, params.label_id)
-        logger.info(f"delete_label deleted label: {params.label_id}")
-        return ToolResult(success=True, data={"deleted_id": params.label_id})
+        await client.delete_tag(token, params.tag_id)
+        logger.info(f"delete_tag deleted tag: {params.tag_id}")
+        return ToolResult(success=True, data={"deleted_id": params.tag_id})
 
 
 @register_tool
