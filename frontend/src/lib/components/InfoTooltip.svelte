@@ -23,7 +23,7 @@
 <!-- Info icon button using Unicode character -->
 <button
 	type="button"
-	class="inline-flex min-h-touch min-w-touch shrink-0 items-center justify-center text-sm leading-none text-neutral-500 transition-colors hover:text-neutral-400"
+	class="-my-2 -ml-2 inline-flex min-h-touch min-w-touch shrink-0 items-center justify-center text-sm leading-none text-neutral-500 transition-colors hover:text-neutral-400"
 	onclick={handleOpen}
 	aria-label="Show info"
 >
