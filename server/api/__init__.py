@@ -2,7 +2,6 @@
 
 from fastapi import APIRouter
 
-from .assets import router as assets_router
 from .auth import router as auth_router
 from .chat import router as chat_router
 from .config import router as config_router
@@ -19,7 +18,6 @@ from .tools.vision import router as vision_router
 api_router = APIRouter(prefix="/api")
 
 # Include all sub-routers
-api_router.include_router(assets_router, tags=["assets"])
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(chat_router, tags=["chat"])
 api_router.include_router(config_router, tags=["config"])

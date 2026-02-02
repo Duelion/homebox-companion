@@ -5,21 +5,16 @@
 	 * Features:
 	 * - Text input for manual entry
 	 * - QR scan button to scan pre-printed QR codes
-	 * - Conflict warning state (amber border + triangle) when ID exists
 	 * - Parses QR URL format: https://homebox.duelion.com/a/{asset_id}
 	 */
-	import { QrCode, TriangleAlert, Loader2 } from 'lucide-svelte';
-	import type { AssetIdConflict } from '$lib/types';
+	import { QrCode } from 'lucide-svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
 
 	interface Props {
 		value: string | null;
-		conflict: AssetIdConflict | null;
 		/** Whether the input is disabled */
 		disabled?: boolean;
 		placeholder?: string;
-		/** Whether conflict check is in progress */
-		isChecking?: boolean;
 		/** Whether to show the label (default: true) */
 		showLabel?: boolean;
 		onChange: (value: string | null) => void;
@@ -27,10 +22,8 @@
 
 	let {
 		value,
-		conflict,
 		disabled = false,
 		placeholder = 'e.g., 000-001',
-		isChecking = false,
 		showLabel = true,
 		onChange,
 	}: Props = $props();
@@ -70,9 +63,6 @@
 	function handleScannerClose() {
 		showScanner = false;
 	}
-
-	// Determine if we should show warning styling
-	const hasConflict = $derived(conflict !== null);
 </script>
 
 <div>
@@ -92,19 +82,8 @@
 				oninput={handleInputChange}
 				{placeholder}
 				{disabled}
-				class="input w-full pr-8 text-body-sm {hasConflict
-					? 'border-warning-500 focus:border-warning-400 focus:ring-warning-500/20'
-					: ''}"
+				class="input w-full text-body-sm"
 			/>
-			{#if isChecking}
-				<div class="absolute right-2 top-1/2 -translate-y-1/2">
-					<Loader2 class="animate-spin text-neutral-400" size={16} strokeWidth={2} />
-				</div>
-			{:else if hasConflict}
-				<div class="absolute right-2 top-1/2 -translate-y-1/2" title="Asset ID already exists">
-					<TriangleAlert class="text-warning-400" size={16} strokeWidth={2} />
-				</div>
-			{/if}
 		</div>
 
 		<button
@@ -118,12 +97,6 @@
 			<QrCode size={18} strokeWidth={1.5} />
 		</button>
 	</div>
-
-	{#if hasConflict && conflict}
-		<p class="mt-1 text-xs text-warning-200/80">
-			Asset ID "{conflict.asset_id}" already used by "{conflict.item_name}"
-		</p>
-	{/if}
 </div>
 
 {#if showScanner}
