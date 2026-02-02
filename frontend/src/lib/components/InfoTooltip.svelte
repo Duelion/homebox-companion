@@ -2,20 +2,17 @@
 	/**
 	 * A mobile-friendly info popup icon.
 	 *
-	 * Clicking the icon opens a centered popup modal with the info text.
-	 * Uses the Info icon from lucide-svelte.
+	 * Clicking the icon opens a compact modal with the info text.
+	 * Uses the Unicode ⓘ character for minimal overhead.
 	 */
-	import { Info } from 'lucide-svelte';
 	import Modal from './Modal.svelte';
 
 	interface Props {
 		/** The info text to display in the popup */
 		text: string;
-		/** Icon size in pixels (default: 16) */
-		size?: number;
 	}
 
-	let { text, size = 16 }: Props = $props();
+	let { text }: Props = $props();
 	let showPopup = $state(false);
 
 	function handleOpen() {
@@ -23,17 +20,17 @@
 	}
 </script>
 
-<!-- Info icon button -->
+<!-- Info icon button using Unicode character -->
 <button
 	type="button"
-	class="inline-flex shrink-0 text-neutral-500 transition-colors hover:text-neutral-400"
+	class="inline-flex min-h-touch min-w-touch shrink-0 items-center justify-center text-sm leading-none text-neutral-500 transition-colors hover:text-neutral-400"
 	onclick={handleOpen}
 	aria-label="Show info"
 >
-	<Info {size} strokeWidth={1.5} />
+	ⓘ
 </button>
 
-<!-- Reuse existing Modal component -->
-<Modal bind:open={showPopup} title="Info">
+<!-- Compact modal -->
+<Modal bind:open={showPopup} compact>
 	<p class="text-body-sm text-neutral-300">{text}</p>
 </Modal>
