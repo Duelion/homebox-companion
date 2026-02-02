@@ -5,12 +5,21 @@
 	interface Props {
 		open: boolean;
 		title?: string;
+		/** Compact mode: smaller width, less padding, no title bar */
+		compact?: boolean;
 		onclose?: () => void;
 		children: Snippet;
 		footer?: Snippet;
 	}
 
-	let { open = $bindable(), title = '', onclose, children, footer }: Props = $props();
+	let {
+		open = $bindable(),
+		title = '',
+		compact = false,
+		onclose,
+		children,
+		footer,
+	}: Props = $props();
 
 	function handleClose() {
 		open = false;
@@ -24,7 +33,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
+		if (open && e.key === 'Escape') {
 			handleClose();
 		}
 	}
@@ -40,9 +49,11 @@
 		onclick={handleBackdropClick}
 	>
 		<div
-			class="w-full max-w-lg animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl"
+			class="animate-scale-in overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800 shadow-xl {compact
+				? 'w-full max-w-xs'
+				: 'w-full max-w-lg'}"
 		>
-			{#if title}
+			{#if title && !compact}
 				<div class="flex items-center justify-between border-b border-neutral-700 px-6 py-4">
 					<h3 class="text-lg font-semibold text-neutral-200">{title}</h3>
 					<button
@@ -56,11 +67,22 @@
 				</div>
 			{/if}
 
-			<div class="max-h-screen overflow-y-auto p-6">
+			<div class="relative max-h-screen overflow-y-auto {compact ? 'p-4 pr-10' : 'p-6'}">
+				{#if compact}
+					<!-- Simple close button for compact mode -->
+					<button
+						type="button"
+						class="absolute right-2 top-2 rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-700 hover:text-neutral-300"
+						onclick={handleClose}
+						aria-label="Close"
+					>
+						<X size={16} />
+					</button>
+				{/if}
 				{@render children()}
 			</div>
 
-			{#if footer}
+			{#if footer && !compact}
 				<div
 					class="flex items-center justify-end gap-3 border-t border-neutral-700 bg-neutral-800/50 px-6 py-4"
 				>

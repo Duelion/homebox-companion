@@ -9,9 +9,11 @@
 		onScan: (decodedText: string) => void;
 		onClose: () => void;
 		onError?: (error: string) => void;
+		/** Title shown in the scanner header (default: "Scan QR Code") */
+		title?: string;
 	}
 
-	let { onScan, onClose, onError }: Props = $props();
+	let { onScan, onClose, onError, title = 'Scan QR Code' }: Props = $props();
 
 	let videoElement = $state<HTMLVideoElement>();
 	let fileInput: HTMLInputElement;
@@ -270,7 +272,7 @@
 <div class="fixed inset-0 z-overlay flex flex-col bg-neutral-950">
 	<!-- Header -->
 	<div class="flex items-center justify-between bg-neutral-950/80 p-4">
-		<h2 class="font-semibold text-neutral-100">Scan Location QR Code</h2>
+		<h2 class="font-semibold text-neutral-100">{title}</h2>
 		<button
 			type="button"
 			onclick={handleClose}

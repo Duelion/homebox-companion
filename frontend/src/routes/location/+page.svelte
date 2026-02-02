@@ -211,10 +211,11 @@
 				// Update workflow with new name
 				scanWorkflow.setLocation(locationData.id, locationData.name, locationStore.selectedPath);
 
-				// Refresh flat list for search to show updated name
+				// Refresh flat list for search - fetch tree to preserve hierarchy for disambiguation
 				try {
-					const flatList = await locationsApi.list();
-					locationStore.setFlatList(flatList);
+					const tree = await locationsApi.tree();
+					locationStore.setTree(tree);
+					locationStore.setFlatListFromTree(tree);
 				} catch (error) {
 					log.warn('Failed to refresh search list after edit', error);
 				}
@@ -538,11 +539,13 @@
 								</div>
 								<div class="min-w-0 flex-1">
 									<p class="font-medium text-neutral-100">
-										{item.location.name}
+										{item.displayName}
 									</p>
-									<p class="truncate text-body-sm text-neutral-500">
-										{item.path}
-									</p>
+									{#if item.displayName !== item.path}
+										<p class="truncate text-body-sm text-neutral-500">
+											{item.path}
+										</p>
+									{/if}
 								</div>
 								{#if item.location.itemCount !== undefined}
 									<span class="text-body-sm text-neutral-500">{item.location.itemCount} items</span>

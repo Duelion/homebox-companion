@@ -292,6 +292,37 @@ export class SubmissionService {
 						};
 					}
 
+					// Set custom asset ID if provided (must be done via update, not create)
+					let assetIdFailed = false;
+					if (confirmedItem.asset_id) {
+						try {
+							await itemsApi.update(createdItem.id, { assetId: confirmedItem.asset_id }, signal);
+							log.debug(`Set asset ID ${confirmedItem.asset_id} for item ${createdItem.id}`);
+						} catch (error) {
+							// Non-fatal: item created successfully, but asset ID assignment failed
+							// Track this failure to report to user
+							log.warn(
+								`Failed to set asset ID ${confirmedItem.asset_id} for ${confirmedItem.name}:`,
+								error
+							);
+							assetIdFailed = true;
+						}
+					}
+
+					// Determine final status based on all upload/update results
+					if (assetIdFailed) {
+						// Asset ID assignment failed - item created but with issue
+						log.warn(
+							`Asset ID assignment failed for ${confirmedItem.name}, item created without custom ID`
+						);
+						this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
+						return {
+							status: 'partial_success',
+							error: `Asset ID '${confirmedItem.asset_id}' could not be assigned to '${confirmedItem.name}'`,
+							createdId: createdItem.id,
+						};
+					}
+
 					// All uploads succeeded
 					const status: ItemSubmissionStatus = 'success';
 					this.itemStatuses = { ...this.itemStatuses, [index]: status };

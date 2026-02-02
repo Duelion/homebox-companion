@@ -19,6 +19,8 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
+	import { AssetIdInput } from '$lib/components/form';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import {
 		TriangleAlert,
 		RefreshCw,
@@ -258,6 +260,49 @@
 		input.value = '';
 	}
 
+	/** Handle paste event on the description input to add images from clipboard */
+	function handlePaste(imageIndex: number, e: ClipboardEvent) {
+		const clipboardData = e.clipboardData;
+		if (!clipboardData) return;
+
+		// Check for image files in clipboard
+		const imageFiles: File[] = [];
+		for (const item of Array.from(clipboardData.items)) {
+			if (item.type.startsWith('image/')) {
+				const file = item.getAsFile();
+				if (file) imageFiles.push(file);
+			}
+		}
+
+		// If no images found, let the paste proceed normally (for text)
+		if (imageFiles.length === 0) return;
+
+		// Prevent default paste behavior since we're handling an image
+		e.preventDefault();
+
+		const newFiles: File[] = [];
+		const newPreviewUrls: string[] = [];
+		const remainingSlots = maxImages - totalImageCount;
+
+		for (const file of imageFiles) {
+			if (newFiles.length >= remainingSlots) {
+				showToast(`Maximum ${maxImages} images allowed`, 'warning');
+				break;
+			}
+
+			if (isFileTooLarge(file)) continue;
+
+			const previewUrl = createTrackedObjectUrl(file);
+			newFiles.push(file);
+			newPreviewUrls.push(previewUrl);
+		}
+
+		if (newFiles.length > 0) {
+			workflow.addAdditionalImages(imageIndex, newFiles, newPreviewUrls);
+			log.info(`Pasted ${newFiles.length} image(s) as additional photos for image ${imageIndex}`);
+		}
+	}
+
 	// ==========================================================================
 	// IMAGE ACTIONS
 	// ==========================================================================
@@ -297,8 +342,8 @@
 
 	function updateImageOption(
 		index: number,
-		field: 'separateItems' | 'extraInstructions',
-		value: boolean | string
+		field: 'separateItems' | 'extraInstructions' | 'assetId',
+		value: boolean | string | null
 	) {
 		workflow.updateImageOptions(index, { [field]: value });
 	}
@@ -530,22 +575,19 @@
 							</div>
 						</div>
 
-						<!-- File info -->
+						<!-- Title, Image count and total size -->
 						<div class="min-w-0 flex-1">
-							<div class="flex items-center gap-2">
-								<p class="truncate text-body-sm font-medium text-neutral-200">
-									{image.file.name}
-								</p>
-								{#if image.additionalFiles && image.additionalFiles.length > 0}
-									<span
-										class="rounded bg-primary-500/20 px-1.5 py-0.5 text-caption font-medium text-primary-300"
-									>
-										+{image.additionalFiles.length}
-									</span>
-								{/if}
-							</div>
-							<p class="text-caption text-neutral-500">
-								{formatFileSize(image.file.size)}
+							<p class="text-body-sm font-semibold text-neutral-100">
+								Item # {String(index + 1).padStart(2, '0')}
+							</p>
+							<p class="text-caption text-neutral-400">
+								Image Count: {1 + (image.additionalFiles?.length || 0)}
+							</p>
+							<p class="text-caption text-neutral-400">
+								Total Size: {formatFileSize(
+									image.file.size +
+										(image.additionalFiles?.reduce((sum, f) => sum + f.size, 0) || 0)
+								)}
 							</p>
 						</div>
 
@@ -614,8 +656,33 @@
 								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
 							</label>
 
-							<!-- Optional instructions -->
+							<!-- Asset ID section -->
+							{#if !image.separateItems}
+								<div>
+									<div class="mb-2 flex items-center gap-1.5">
+										<span class="text-body-sm font-medium text-neutral-200">Asset ID</span>
+										<InfoTooltip
+											text="Enter an asset ID manually or scan a pre-printed QR code. Leave blank for auto-assignment."
+										/>
+									</div>
+									<AssetIdInput
+										value={image.assetId ?? null}
+										conflict={null}
+										disabled={isAnalyzing}
+										onChange={(value) => updateImageOption(index, 'assetId', value)}
+										showLabel={false}
+									/>
+								</div>
+							{/if}
+
+							<!-- Description section -->
 							<div>
+								<div class="mb-2 flex items-center gap-1.5">
+									<span class="text-body-sm font-medium text-neutral-200">Description</span>
+									<InfoTooltip
+										text="Describe the item(s) to help with identification. You can also paste images from your clipboard here."
+									/>
+								</div>
 								<input
 									type="text"
 									placeholder="Optional: describe what's in this photo..."
@@ -626,7 +693,8 @@
 											'extraInstructions',
 											(e.target as HTMLInputElement).value
 										)}
-									class="input text-body-sm"
+									onpaste={(e) => handlePaste(index, e)}
+									class="input flex-1 text-body-sm"
 									disabled={isAnalyzing}
 								/>
 							</div>
@@ -716,11 +784,14 @@
 									</div>
 								</div>
 							{:else}
-								<!-- Empty state: compact add buttons (same style as when photos exist) -->
+								<!-- Additional photos section -->
 								<div class="border-t border-neutral-800/50 pt-3">
-									<p class="mb-2 text-caption text-neutral-500">
-										Add close-ups, labels, serial numbers, different angles
-									</p>
+									<div class="mb-2 flex items-center gap-1.5">
+										<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
+										<InfoTooltip
+											text="Add close-ups, labels, serial numbers, different angles, invoices, receipts, etc."
+										/>
+									</div>
 									<div class="flex gap-2">
 										<button
 											type="button"
@@ -854,7 +925,7 @@
 			</div>
 
 			<p class="mt-6 text-caption text-neutral-500">
-				{totalImageCount} / {maxImages} images · {maxFileSizeMb}MB per file
+				{totalImageCount} / {maxImages} images Â· {maxFileSizeMb}MB per file
 			</p>
 		</div>
 	{/if}

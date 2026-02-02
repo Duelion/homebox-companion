@@ -13,16 +13,27 @@
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
-	import { ItemCoreFields, ItemExtendedFields, TagSelector } from '$lib/components/form';
+	import {
+		ItemCoreFields,
+		ItemExtendedFields,
+		TagSelector,
+		AssetIdInput,
+	} from '$lib/components/form';
+	import { items } from '$lib/api/items';
+	import type { AssetIdConflict } from '$lib/types';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import ImagesPanel from '$lib/components/ImagesPanel.svelte';
 	import AiCorrectionPanel from '$lib/components/AiCorrectionPanel.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import DuplicateWarningIcon from '$lib/components/DuplicateWarningIcon.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
 	import { SquarePen, ImageIcon, ChevronsRight, Check } from 'lucide-svelte';
+
+	// Constants
+	const ASSET_ID_CHECK_DEBOUNCE_MS = 500;
 
 	// Capture limits (loaded from config, with safe defaults)
 	let maxImages = $state(30);
@@ -49,6 +60,12 @@
 	let isProcessing = $state(false);
 	let allImages = $state<File[]>([]);
 	let showConfirmAllDialog = $state(false);
+
+	// Asset ID conflict checking
+	let assetIdConflict = $state<AssetIdConflict | null>(null);
+	let isCheckingAssetId = $state(false);
+	let assetIdCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+	let assetIdCheckAbortController: AbortController | null = null;
 
 	// Track original images to detect modifications (for invalidating compressed URLs)
 	let originalImageSet = $state<Set<File>>(new Set());
@@ -83,6 +100,9 @@
 			showExtendedFields = hasExtendedFieldData(currentItem);
 			showImagesPanel = false;
 			showAiCorrection = false;
+			// Clear asset ID conflict when switching items
+			assetIdConflict = null;
+			isCheckingAssetId = false;
 		}
 	});
 
@@ -129,8 +149,13 @@
 		}
 	});
 
-	// Cleanup object URLs on component unmount
-	onDestroy(() => urlManager.cleanup());
+	// Cleanup on component unmount
+	onDestroy(() => {
+		urlManager.cleanup();
+		// Cleanup asset ID check resources to prevent memory leaks
+		if (assetIdCheckTimeout) clearTimeout(assetIdCheckTimeout);
+		if (assetIdCheckAbortController) assetIdCheckAbortController.abort();
+	});
 
 	// Watch for status changes
 	$effect(() => {
@@ -237,6 +262,49 @@
 		} else {
 			editedItem.tag_ids = [...currentTags, tagId];
 		}
+	}
+
+	/** Handle asset ID changes with debounced conflict checking */
+	function handleAssetIdChange(value: string | null) {
+		if (!editedItem) return;
+
+		editedItem.asset_id = value;
+
+		// Clear previous timeout and abort controller
+		if (assetIdCheckTimeout) clearTimeout(assetIdCheckTimeout);
+		if (assetIdCheckAbortController) assetIdCheckAbortController.abort();
+
+		// If empty, clear conflict immediately
+		if (!value) {
+			assetIdConflict = null;
+			isCheckingAssetId = false;
+			return;
+		}
+
+		// Show loading state during debounce
+		isCheckingAssetId = true;
+
+		// Debounce the API call
+		assetIdCheckTimeout = setTimeout(async () => {
+			assetIdCheckAbortController = new AbortController();
+			try {
+				const conflict = await items.checkAssetId(value, assetIdCheckAbortController.signal);
+				assetIdConflict = conflict;
+				if (conflict) {
+					log.debug(`Asset ID ${value} already in use by ${conflict.item_name}`);
+				}
+			} catch (error) {
+				// Ignore abort errors (including DOMException), log others
+				const isAbortError =
+					(error instanceof Error && error.name === 'AbortError') ||
+					(error instanceof DOMException && error.name === 'AbortError');
+				if (!isAbortError) {
+					log.warn('Asset ID check failed:', error);
+				}
+			} finally {
+				isCheckingAssetId = false;
+			}
+		}, ASSET_ID_CHECK_DEBOUNCE_MS);
 	}
 
 	async function handleAiCorrection(correctionPrompt: string) {
@@ -426,6 +494,14 @@
 					idPrefix="review"
 				/>
 
+				<!-- Asset ID field -->
+				<AssetIdInput
+					value={editedItem.asset_id ?? null}
+					conflict={assetIdConflict}
+					isChecking={isCheckingAssetId}
+					onChange={handleAssetIdChange}
+				/>
+
 				<!-- Tags with chip selection -->
 				<TagSelector selectedIds={editedItem.tag_ids ?? []} onToggle={toggleTag} />
 
@@ -504,13 +580,14 @@
 					</Button>
 				</div>
 				<div
-					class="flex-1"
+					class="flex flex-1 items-center gap-1"
 					use:longpress={{ onLongPress: handleLongPressConfirm, disabled: isProcessing }}
 				>
 					<Button variant="primary" full onclick={confirmItem} disabled={isProcessing}>
 						<Check size={20} strokeWidth={2} />
 						<span>Confirm</span>
 					</Button>
+					<InfoTooltip text="Long-press to confirm all remaining items at once." />
 				</div>
 			</div>
 		</AppContainer>
