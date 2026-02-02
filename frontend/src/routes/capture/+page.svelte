@@ -659,7 +659,7 @@
 							<!-- Asset ID section -->
 							{#if !image.separateItems}
 								<div>
-									<div class="mb-2 flex items-center gap-1.5">
+									<div class="mb-2 flex items-center gap-0.5">
 										<span class="text-body-sm font-medium text-neutral-200">Asset ID</span>
 										<InfoTooltip
 											text="Enter an asset ID manually or scan a pre-printed QR code. Leave blank for auto-assignment."
@@ -667,7 +667,6 @@
 									</div>
 									<AssetIdInput
 										value={image.assetId ?? null}
-										conflict={null}
 										disabled={isAnalyzing}
 										onChange={(value) => updateImageOption(index, 'assetId', value)}
 										showLabel={false}
@@ -677,7 +676,7 @@
 
 							<!-- Description section -->
 							<div>
-								<div class="mb-2 flex items-center gap-1.5">
+								<div class="mb-2 flex items-center gap-0.5">
 									<span class="text-body-sm font-medium text-neutral-200">Description</span>
 									<InfoTooltip
 										text="Describe the item(s) to help with identification. You can also paste images from your clipboard here."
@@ -786,7 +785,7 @@
 							{:else}
 								<!-- Additional photos section -->
 								<div class="border-t border-neutral-800/50 pt-3">
-									<div class="mb-2 flex items-center gap-1.5">
+									<div class="mb-2 flex items-center gap-0.5">
 										<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
 										<InfoTooltip
 											text="Add close-ups, labels, serial numbers, different angles, invoices, receipts, etc."
