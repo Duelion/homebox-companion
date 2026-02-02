@@ -662,7 +662,7 @@
 									<div class="mb-2 flex items-center gap-1.5">
 										<span class="text-body-sm font-medium text-neutral-200">Asset ID</span>
 										<InfoTooltip
-											text="Pre-assign an asset ID from a QR code. Leave blank for auto-assignment."
+											text="Enter an asset ID manually or scan a pre-printed QR code. Leave blank for auto-assignment."
 										/>
 									</div>
 									<AssetIdInput
@@ -680,7 +680,7 @@
 								<div class="mb-2 flex items-center gap-1.5">
 									<span class="text-body-sm font-medium text-neutral-200">Description</span>
 									<InfoTooltip
-										text="Describe the item(s) in this photo. You can also paste images here to add them as additional photos."
+										text="Describe the item(s) to help with identification. You can also paste images from your clipboard here."
 									/>
 								</div>
 								<input
@@ -789,7 +789,7 @@
 									<div class="mb-2 flex items-center gap-1.5">
 										<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
 										<InfoTooltip
-											text="Add close-ups, labels, serial numbers, or different angles"
+											text="Add close-ups, labels, serial numbers, different angles, invoices, receipts, etc."
 										/>
 									</div>
 									<div class="flex gap-2">

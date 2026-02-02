@@ -587,7 +587,7 @@
 						<Check size={20} strokeWidth={2} />
 						<span>Confirm</span>
 					</Button>
-					<InfoTooltip text="Long-press to confirm all remaining items at once" />
+					<InfoTooltip text="Long-press to confirm all remaining items at once." />
 				</div>
 			</div>
 		</AppContainer>
