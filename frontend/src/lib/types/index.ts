@@ -236,7 +236,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended { }
+export interface MergeItem extends ItemCore, ItemExtended {}
 
 // =============================================================================
 // API TYPES - Responses
@@ -268,7 +268,6 @@ export interface DuplicateMatch {
 	serial_number: string;
 	location_name: string | null;
 }
-
 
 /** Response from advanced analysis */
 export interface AdvancedItemDetails {

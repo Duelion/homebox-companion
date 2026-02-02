@@ -357,6 +357,8 @@ class TestUnsafeFlagBehavior:
                     "api key",
                     "not found",
                     "rate limit",
+                    "image_url",  # Model doesn't support vision
+                    "invalid content",  # Model doesn't accept image content type
                 ]
             ):
                 pytest.skip(f"Cannot test gpt-4-turbo due to auth/access: {e}")
