@@ -4,7 +4,12 @@
 
 import { request, requestFormData, requestBlobUrl, type BlobUrlResult } from './client';
 import { apiLogger as log } from '../utils/logger';
-import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
+import type {
+	BatchCreateRequest,
+	BatchCreateResponse,
+	ItemSummary,
+	AssetIdConflict,
+} from '../types';
 
 export type { BlobUrlResult };
 
@@ -14,6 +19,13 @@ export interface CreateOptions {
 
 export interface UploadOptions {
 	signal?: AbortSignal;
+}
+
+export interface ItemUpdateData {
+	assetId?: string | null;
+	name?: string;
+	description?: string;
+	// Add other updatable fields as needed
 }
 
 export const items = {
@@ -26,6 +38,40 @@ export const items = {
 			body: JSON.stringify(data),
 			signal: options.signal,
 		}),
+
+	/**
+	 * Update an existing item.
+	 * Used to set asset ID after creation (since asset ID cannot be set during creation).
+	 */
+	update: (itemId: string, data: ItemUpdateData, signal?: AbortSignal) => {
+		log.debug(`Updating item ${itemId}:`, data);
+		return request<unknown>(`/items/${itemId}`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+			signal,
+		});
+	},
+
+	/**
+	 * Check if an asset ID is already in use.
+	 * Returns conflict info if the ID exists, null otherwise.
+	 */
+	checkAssetId: async (assetId: string, signal?: AbortSignal): Promise<AssetIdConflict | null> => {
+		try {
+			// Use our backend proxy which calls Homebox GET /v1/assets/{id}
+			const result = await request<{ item_id: string; item_name: string; asset_id: string }>(
+				`/assets/${encodeURIComponent(assetId)}`,
+				{ signal }
+			);
+			return result;
+		} catch (error) {
+			// 404 means asset ID is not in use (available)
+			if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+				return null;
+			}
+			throw error;
+		}
+	},
 
 	uploadAttachment: (itemId: string, file: File, options: UploadOptions = {}) => {
 		// Log file details for diagnostics - helps identify empty/corrupted uploads

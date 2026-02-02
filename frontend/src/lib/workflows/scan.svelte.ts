@@ -459,10 +459,10 @@ class ScanWorkflow {
 		this.captureService.removeImage(index);
 	}
 
-	/** Update image options (separateItems, extraInstructions) */
+	/** Update image options (separateItems, extraInstructions, assetId) */
 	updateImageOptions(
 		index: number,
-		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions'>>
+		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions' | 'assetId'>>
 	): void {
 		this.captureService.updateImageOptions(index, options);
 	}

@@ -39,6 +39,8 @@ export interface StoredImage {
 	additionalDataUrls?: string[];
 	additionalFilenames?: string[];
 	additionalMimeTypes?: string[];
+	/** Custom asset ID from pre-printed QR codes */
+	assetId?: string | null;
 }
 
 /** Serializable version of ReviewItem */
@@ -202,6 +204,7 @@ export async function serializeImage(img: CapturedImage): Promise<StoredImage> {
 		additionalDataUrls,
 		additionalFilenames,
 		additionalMimeTypes,
+		assetId: img.assetId,
 	};
 }
 
@@ -223,6 +226,7 @@ export function serializeReviewItem(item: ReviewItem): StoredReviewItem {
 		purchase_price: item.purchase_price,
 		purchase_from: item.purchase_from,
 		notes: item.notes,
+		asset_id: item.asset_id,
 		// ReviewItem-specific fields
 		sourceImageIndex: item.sourceImageIndex,
 		originalFilename: item.originalFile?.name,
@@ -281,6 +285,7 @@ export async function deserializeImage(stored: StoredImage): Promise<CapturedIma
 		extraInstructions: stored.extraInstructions,
 		additionalFiles,
 		additionalDataUrls,
+		assetId: stored.assetId,
 	};
 }
 
@@ -328,6 +333,7 @@ export async function deserializeReviewItem(stored: StoredReviewItem): Promise<R
 		purchase_price: stored.purchase_price,
 		purchase_from: stored.purchase_from,
 		notes: stored.notes,
+		asset_id: stored.asset_id,
 		// ReviewItem-specific fields
 		sourceImageIndex: stored.sourceImageIndex,
 		originalFile,

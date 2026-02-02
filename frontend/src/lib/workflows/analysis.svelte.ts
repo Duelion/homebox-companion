@@ -266,6 +266,11 @@ export class AnalysisService {
 						compressedDataUrl,
 						compressedAdditionalDataUrls:
 							compressedAdditionalDataUrls.length > 0 ? compressedAdditionalDataUrls : undefined,
+						// Copy asset_id from source image (only for single-item mode)
+						asset_id:
+							!result.image.separateItems && result.items.length === 1
+								? (result.image.assetId ?? undefined)
+								: undefined,
 					});
 				}
 			}
