@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "2.4.0"
+version = "2.4.1"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
