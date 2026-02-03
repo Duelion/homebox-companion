@@ -86,7 +86,7 @@ class SecurityHeadersMiddleware:
         ("X-Frame-Options", "DENY"),
         ("Content-Security-Policy", "frame-ancestors 'none'"),
         ("Referrer-Policy", "strict-origin-when-cross-origin"),
-        ("Permissions-Policy", "geolocation=(), microphone=(), camera=()"),
+        ("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(self)"),
     ]
 
     def __init__(self, app: ASGIApp) -> None:
