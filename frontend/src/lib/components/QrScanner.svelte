@@ -28,6 +28,7 @@
 
 	async function startCamera() {
 		error = null;
+		errorDebugCode = null;
 		isStarting = true;
 		cameraFailed = false;
 		hasScanned = false;
@@ -51,6 +52,43 @@
 				return;
 			}
 
+			// Use library's official method to check camera availability
+			const hasCamera = await QrScanner.hasCamera();
+			if (!hasCamera) {
+				error = 'No camera detected. Use the upload option below.';
+				errorDebugCode = 'NOCAMERA';
+				isStarting = false;
+				cameraFailed = true;
+				onError?.(error);
+				return;
+			}
+
+			// Get list of available cameras to help with selection
+			const cameras = await QrScanner.listCameras(true);
+			log.info(
+				'Available cameras:',
+				cameras.map((c) => ({ id: c.id, label: c.label }))
+			);
+
+			// Determine which camera to use:
+			// - Prefer 'environment' (back camera) for QR scanning
+			// - Fall back to first available camera if no environment camera found
+			let preferredCamera: string | undefined = 'environment';
+
+			// Check if we have an environment/back camera
+			const hasEnvironmentCamera = cameras.some(
+				(c) =>
+					c.label.toLowerCase().includes('back') ||
+					c.label.toLowerCase().includes('rear') ||
+					c.label.toLowerCase().includes('environment')
+			);
+
+			if (!hasEnvironmentCamera && cameras.length > 0) {
+				// No labeled back camera - use the first available camera by ID
+				preferredCamera = cameras[0].id;
+				log.info(`No environment camera found, using camera: ${cameras[0].label || cameras[0].id}`);
+			}
+
 			qrScanner = new QrScanner(
 				videoElement,
 				(result: QrScanner.ScanResult) => {
@@ -63,7 +101,7 @@
 					});
 				},
 				{
-					preferredCamera: 'environment',
+					preferredCamera,
 					highlightScanRegion: true,
 					highlightCodeOutline: true,
 					returnDetailedScanResult: true,
@@ -72,6 +110,7 @@
 
 			await qrScanner.start();
 			isStarting = false;
+			log.info('Camera started successfully');
 		} catch (err) {
 			isStarting = false;
 			cameraFailed = true;
