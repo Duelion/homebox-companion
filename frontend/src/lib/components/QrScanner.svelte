@@ -23,6 +23,7 @@
 	let hasScanned = $state(false);
 	let cameraFailed = $state(false);
 	let isInsecureContext = $state(false);
+	let errorDebugCode = $state<string | null>(null);
 	let isProcessingFile = $state(false);
 
 	async function startCamera() {
@@ -72,9 +73,31 @@
 			await qrScanner.start();
 			isStarting = false;
 		} catch (err) {
-			log.error('Camera initialization failed:', err);
 			isStarting = false;
 			cameraFailed = true;
+
+			// Gather diagnostic info
+			const errorName = err instanceof Error ? err.name : 'Unknown';
+			const errorMessage = err instanceof Error ? err.message : String(err);
+			const userAgent = navigator.userAgent;
+
+			// Log detailed diagnostic info for debugging
+			log.error('Camera initialization failed:', {
+				errorName,
+				errorMessage,
+				errorStack: err instanceof Error ? err.stack : undefined,
+				userAgent,
+				isSecureContext: window.isSecureContext,
+				protocol: window.location.protocol,
+				hostname: window.location.hostname,
+			});
+
+			// Create a short error code for support reference (e.g., "NOTALLOW" from "NotAllowedError")
+			errorDebugCode =
+				errorName
+					.replace(/Error$/, '')
+					.toUpperCase()
+					.slice(0, 10) || 'UNKNOWN';
 
 			if (err instanceof Error) {
 				const msg = err.message || '';
@@ -100,7 +123,12 @@
 					error = 'Camera settings not supported. Use the upload option below.';
 				} else if (name === 'NotSupportedError' || msg.includes('NotSupported')) {
 					error = 'Camera not supported in this browser. Use the upload option below.';
+				} else if (name === 'AbortError' || msg.includes('Abort')) {
+					error = 'Camera request was aborted. Try again or use the upload option below.';
+				} else if (name === 'SecurityError' || msg.includes('Security')) {
+					error = 'Camera blocked for security reasons. Check site permissions.';
 				} else {
+					// Show the raw error message for unknown errors to help debugging
 					error = `Camera error: ${msg || 'Unknown error'}. Use the upload option below.`;
 				}
 			} else {
@@ -292,7 +320,10 @@
 				>
 					<TriangleAlert class="text-amber-400" size={32} />
 				</div>
-				<p class="mb-6 text-neutral-300">{error}</p>
+				<p class="mb-2 text-neutral-300">{error}</p>
+				{#if errorDebugCode}
+					<p class="mb-4 font-mono text-xs text-neutral-500">Error code: {errorDebugCode}</p>
+				{/if}
 
 				<!-- Action buttons -->
 				<div class="flex flex-col gap-3">
