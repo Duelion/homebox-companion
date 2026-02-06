@@ -287,6 +287,12 @@ async def lifespan(app: FastAPI):
     # Session store and executor are lazily initialized on first use
     # (see their .get() methods in dependencies.py)
 
+    # Log MCP status
+    if settings.mcp_enabled:
+        logger.info("MCP Protocol server enabled at /mcp")
+    else:
+        logger.debug("MCP Protocol server disabled (HBC_MCP_ENABLED=false)")
+
     yield
 
     # Cleanup
@@ -381,6 +387,19 @@ def create_app() -> FastAPI:
             result["update_available"] = False
 
         return result
+
+    # Mount MCP Protocol server (if enabled)
+    if settings.mcp_enabled:
+        from mcp.server.streamable_http import create_streamable_http_app
+
+        from .mcp_adapter import mcp_server
+
+        mcp_app = create_streamable_http_app(
+            mcp_server,
+            stateless_http=True,
+            json_response=True,
+        )
+        app.mount("/mcp", mcp_app)
 
     # Serve static frontend files (SvelteKit SPA)
     static_dir = os.path.join(os.path.dirname(__file__), "static")

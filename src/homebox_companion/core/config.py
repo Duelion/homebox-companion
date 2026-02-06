@@ -138,6 +138,10 @@ class Settings(BaseSettings):
     # Auth rate limiting (brute-force protection)
     auth_rate_limit_rpm: int = 10  # Login attempts per minute per IP
 
+    # MCP Protocol Server configuration (for external clients like Cursor, Claude Desktop)
+    mcp_enabled: bool = False  # Enable MCP protocol server at /mcp
+    mcp_token: str = ""  # Homebox JWT token for tool execution
+
     @computed_field
     @property
     def api_url(self) -> str:
