@@ -13,6 +13,7 @@
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import { createLogger } from '$lib/utils/logger';
+	import { resolveQrUrl } from '$lib/utils/qrUrl';
 	import type { Location } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -243,9 +244,12 @@
 		isProcessingQr = true;
 
 		try {
+			// Resolve shortened URLs (bit.ly, etc.) to their final destination
+			const resolvedUrl = await resolveQrUrl(decodedText);
+
 			// Parse the QR code URL to extract location ID
 			// Expected format: https://homebox.example.com/location/{uuid}
-			const locationIdMatch = decodedText.match(/\/location\/([a-f0-9-]+)(?:\/|$)/i);
+			const locationIdMatch = resolvedUrl.match(/\/location\/([a-f0-9-]+)(?:\/|$)/i);
 
 			if (!locationIdMatch) {
 				showToast('Invalid QR code. Not a Homebox location.', 'error');
