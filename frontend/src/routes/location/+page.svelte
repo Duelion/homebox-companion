@@ -216,7 +216,7 @@
 				try {
 					const tree = await locationsApi.tree();
 					locationStore.setTree(tree);
-					locationStore.setFlatListFromTree(tree);
+					locationStore.setFlatList(tree);
 				} catch (error) {
 					log.warn('Failed to refresh search list after edit', error);
 				}

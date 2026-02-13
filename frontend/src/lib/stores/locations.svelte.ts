@@ -6,7 +6,6 @@
  * Note: Auth cleanup (clearing location state on logout) is handled explicitly
  * in the auth.svelte.ts logout() function to avoid memory leaks from unsubscribed listeners.
  */
-import { SvelteMap } from 'svelte/reactivity';
 import type { Location, LocationTreeNode } from '$lib/types';
 
 // =============================================================================
@@ -130,14 +129,8 @@ class LocationStore {
 		this._selected = location;
 	}
 
-	/** Set the flat list from a flat array (legacy - no hierarchy available) */
-	setFlatList(locations: Location[]): void {
-		const flat = this.flattenLocations(locations, '');
-		this._flatList = this.computeDisambiguatedNames(flat);
-	}
-
-	/** Set the flat list from the hierarchical tree (preferred - has children for path computation) */
-	setFlatListFromTree(tree: Location[]): void {
+	/** Build the flat search list from the hierarchical tree */
+	setFlatList(tree: LocationTreeNode[]): void {
 		const flat = this.flattenLocations(tree, '');
 		this._flatList = this.computeDisambiguatedNames(flat);
 	}
@@ -169,7 +162,7 @@ class LocationStore {
 	 */
 	private computeDisambiguatedNames(locations: FlatLocation[]): FlatLocation[] {
 		// Group locations by name to find duplicates
-		const nameGroups = new SvelteMap<string, FlatLocation[]>();
+		const nameGroups = new Map<string, FlatLocation[]>();
 		for (const loc of locations) {
 			const name = loc.location.name;
 			if (!nameGroups.has(name)) {
