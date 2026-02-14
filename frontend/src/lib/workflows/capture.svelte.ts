@@ -26,7 +26,7 @@ export class CaptureService {
 	/** Add a captured image */
 	addImage(image: CapturedImage): void {
 		log.debug(`Adding image: file="${image.file.name}", size=${image.file.size} bytes`);
-		this.images = [...this.images, image];
+		this.images = [image, ...this.images];
 		log.info(`Image added. Total images: ${this.images.length}`);
 	}
 
