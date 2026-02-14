@@ -23,32 +23,32 @@ const HOMEBOX_PATTERNS = [/\/location\/[a-f0-9-]+/i, /\/a\/[^\s/]+/];
  * - Otherwise, returns the raw text unchanged.
  */
 export async function resolveQrUrl(rawText: string): Promise<string> {
-    const trimmed = rawText.trim();
+	const trimmed = rawText.trim();
 
-    // Already a Homebox URL — no resolution needed
-    if (HOMEBOX_PATTERNS.some((pattern) => pattern.test(trimmed))) {
-        log.debug('URL already matches Homebox pattern, skipping resolution');
-        return trimmed;
-    }
+	// Already a Homebox URL — no resolution needed
+	if (HOMEBOX_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+		log.debug('URL already matches Homebox pattern, skipping resolution');
+		return trimmed;
+	}
 
-    // Not a URL at all — return as-is
-    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-        log.debug('Not a URL, returning raw text');
-        return trimmed;
-    }
+	// Not a URL at all — return as-is
+	if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+		log.debug('Not a URL, returning raw text');
+		return trimmed;
+	}
 
-    // Likely a shortened URL — resolve via server
-    log.info(`Resolving shortened URL: ${trimmed}`);
-    try {
-        const result = await request<{ resolved_url: string }>('/qr/resolve', {
-            method: 'POST',
-            body: JSON.stringify({ url: trimmed }),
-        });
-        log.info(`Resolved to: ${result.resolved_url}`);
-        return result.resolved_url;
-    } catch (error) {
-        log.warn('Failed to resolve URL, using original:', error);
-        // Fall back to original text — let the caller's parser handle it
-        return trimmed;
-    }
+	// Likely a shortened URL — resolve via server
+	log.info(`Resolving shortened URL: ${trimmed}`);
+	try {
+		const result = await request<{ resolved_url: string }>('/qr/resolve', {
+			method: 'POST',
+			body: JSON.stringify({ url: trimmed }),
+		});
+		log.info(`Resolved to: ${result.resolved_url}`);
+		return result.resolved_url;
+	} catch (error) {
+		log.warn('Failed to resolve URL, using original:', error);
+		// Fall back to original text — let the caller's parser handle it
+		return trimmed;
+	}
 }
