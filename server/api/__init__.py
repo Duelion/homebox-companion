@@ -11,6 +11,7 @@ from .llm_profiles import router as llm_profiles_router
 from .locations import router as locations_router
 from .logs import router as logs_router
 from .mcp import router as mcp_router
+from .qr import router as qr_router
 from .tags import router as tags_router
 from .tools.vision import router as vision_router
 
@@ -28,6 +29,7 @@ api_router.include_router(tags_router, tags=["tags"])
 api_router.include_router(items_router, tags=["items"])
 api_router.include_router(logs_router, tags=["logs"])
 api_router.include_router(mcp_router, tags=["mcp"])
+api_router.include_router(qr_router, tags=["qr"])
 api_router.include_router(vision_router, prefix="/tools/vision", tags=["vision"])
 
 __all__ = ["api_router"]

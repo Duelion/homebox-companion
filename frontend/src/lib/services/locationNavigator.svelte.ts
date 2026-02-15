@@ -66,7 +66,7 @@ class LocationNavigator {
 			locationStore.setCurrentLevel(tree);
 
 			// Build flat list for search from the tree (preserves hierarchy for disambiguation)
-			locationStore.setFlatListFromTree(tree);
+			locationStore.setFlatList(tree);
 		} catch (error) {
 			log.error('Failed to load locations', error);
 			showToast('Failed to load locations', 'error');
@@ -109,7 +109,7 @@ class LocationNavigator {
 			}
 
 			// Also refresh flat list for search from the refreshed tree
-			locationStore.setFlatListFromTree(locationStore.tree);
+			locationStore.setFlatList(locationStore.tree);
 		} catch (error) {
 			log.error('Failed to refresh current level', error);
 			showToast('Failed to refresh locations', 'error');

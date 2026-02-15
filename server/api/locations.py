@@ -33,36 +33,12 @@ async def get_locations_tree(
     token: Annotated[str, Depends(get_token)],
     client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> list[dict[str, Any]]:
-    """Fetch top-level locations with children info for hierarchical navigation."""
-    # Get only top-level locations
-    top_level = await client.list_locations(token, filter_children=True)
+    """Fetch the full recursive location tree for hierarchical navigation and search.
 
-    async def fetch_location_details(loc: dict[str, Any]) -> dict[str, Any]:
-        """Fetch details for a single location with graceful degradation."""
-        try:
-            details = await client.get_location(token, loc["id"])
-            return {
-                "id": details.get("id"),
-                "name": details.get("name"),
-                "description": details.get("description", ""),
-                "itemCount": loc.get("itemCount", 0),
-                "children": details.get("children", []),
-            }
-        except Exception as e:
-            # Graceful degradation: if we can't get details, include basic info
-            logger.warning(f"Failed to get details for location {loc.get('id')}: {e}")
-            return {
-                "id": loc.get("id"),
-                "name": loc.get("name"),
-                "description": loc.get("description", ""),
-                "itemCount": loc.get("itemCount", 0),
-                "children": [],
-            }
-
-    # Fetch all location details in parallel for better performance
-    enriched = await asyncio.gather(*[fetch_location_details(loc) for loc in top_level])
-
-    return list(enriched)
+    Uses the native Homebox tree endpoint which returns all nesting levels,
+    ensuring deeply nested locations are visible in search results.
+    """
+    return await client.get_location_tree(token)
 
 
 @router.get("/locations/{location_id}")
@@ -72,10 +48,11 @@ async def get_location(
     client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, Any]:
     """Fetch a specific location by ID with its children enriched with their own children info."""
-    location = await client.get_location(token, location_id)
-
-    # Fetch flat location list to get accurate itemCount for all locations
-    all_locations = await client.list_locations(token)
+    # Fetch location details and flat list (for itemCount) in parallel
+    location, all_locations = await asyncio.gather(
+        client.get_location(token, location_id),
+        client.list_locations(token),
+    )
     itemcount_lookup = {loc["id"]: loc.get("itemCount", 0) for loc in all_locations}
 
     # Enrich the location itself with itemCount

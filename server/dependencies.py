@@ -274,10 +274,15 @@ def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
 
 
 def require_llm_configured() -> str:
-    """Dependency that ensures LLM API key is configured.
+    """
+    FastAPI dependency to ensure LLM is configured.
 
     Use this as a FastAPI dependency in endpoints that require LLM access.
     The returned key can be used directly or ignored if only validation is needed.
+
+    Resolution order (same as LLM Router):
+    1. PRIMARY profile from settings.yaml (configured via Settings UI)
+    2. Environment variables (HBC_LLM_API_KEY or HBC_OPENAI_API_KEY)
 
     Returns:
         The configured LLM API key.
@@ -285,13 +290,16 @@ def require_llm_configured() -> str:
     Raises:
         HTTPException: 500 if LLM API key is not configured.
     """
-    if not settings.effective_llm_api_key:
+    from homebox_companion.core.llm_utils import resolve_llm_credentials
+
+    creds = resolve_llm_credentials()
+    if not creds.api_key:
         logger.error("LLM API key not configured")
         raise HTTPException(
             status_code=500,
-            detail="LLM API key not configured. Set HBC_LLM_API_KEY or HBC_OPENAI_API_KEY.",
+            detail="LLM API key not configured. Configure a profile in Settings or set HBC_LLM_API_KEY.",
         )
-    return settings.effective_llm_api_key
+    return creds.api_key
 
 
 async def validate_file_size(file: UploadFile) -> bytes:

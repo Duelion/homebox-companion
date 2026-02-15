@@ -555,6 +555,46 @@
 	<!-- Image list with collapsible cards -->
 	{#if images.length > 0}
 		<div class="mb-4 space-y-3">
+			<!-- Add more images buttons (above image cards) -->
+			{#if totalImageCount < maxImages && !showAnalyzingUI}
+				<div class="flex gap-3">
+					<button
+						type="button"
+						class="group flex flex-1 items-center justify-center rounded-2xl bg-primary-500/10 py-6 transition-all hover:bg-primary-500/20"
+						onclick={() => cameraInput.click()}
+					>
+						<div class="flex flex-col items-center gap-2">
+							<Camera
+								class="text-primary-400 transition-colors group-hover:text-primary-300"
+								size={40}
+								strokeWidth={1.5}
+							/>
+							<span
+								class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
+								>Camera</span
+							>
+						</div>
+					</button>
+					<button
+						type="button"
+						class="group flex flex-1 items-center justify-center rounded-2xl bg-primary-500/10 py-6 transition-all hover:bg-primary-500/20"
+						onclick={() => fileInput.click()}
+					>
+						<div class="flex flex-col items-center gap-2">
+							<Upload
+								class="text-primary-400 transition-colors group-hover:text-primary-300"
+								size={40}
+								strokeWidth={1.5}
+							/>
+							<span
+								class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
+								>Upload</span
+							>
+						</div>
+					</button>
+				</div>
+			{/if}
+
 			{#each images as image, index (image.dataUrl)}
 				<div
 					class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-sm transition-all hover:border-neutral-600"
@@ -578,7 +618,7 @@
 						<!-- Title, Image count and total size -->
 						<div class="min-w-0 flex-1">
 							<p class="text-body-sm font-semibold text-neutral-100">
-								Item # {String(index + 1).padStart(2, '0')}
+								Item # {String(images.length - index).padStart(3, '0')}
 							</p>
 							<p class="text-caption text-neutral-400">
 								Image Count: {1 + (image.additionalFiles?.length || 0)}
@@ -717,10 +757,40 @@
 								class="hidden"
 							/>
 
-							{#if image.additionalDataUrls && image.additionalDataUrls.length > 0}
-								<!-- Has additional photos: show gallery strip -->
-								<div class="border-t border-neutral-800/50 pt-3">
-									<div class="mb-3 flex items-center gap-2">
+							<!-- Additional photos section -->
+							<div class="border-t border-neutral-800/50 pt-3">
+								<div class="mb-2 flex items-center gap-0.5">
+									<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
+									<InfoTooltip
+										text="Add close-ups, labels, serial numbers, different angles, invoices, receipts, etc."
+									/>
+								</div>
+
+								<!-- Buttons first -->
+								<div class="mb-3 flex gap-2">
+									<button
+										type="button"
+										class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+										onclick={() => additionalCameraInputs[index]?.click()}
+										disabled={isAnalyzing}
+									>
+										<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
+										<span class="text-caption font-medium text-neutral-400">Camera</span>
+									</button>
+									<button
+										type="button"
+										class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+										onclick={() => additionalImageInputs[index]?.click()}
+										disabled={isAnalyzing}
+									>
+										<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
+										<span class="text-caption font-medium text-neutral-400">Upload</span>
+									</button>
+								</div>
+
+								{#if image.additionalDataUrls && image.additionalDataUrls.length > 0}
+									<!-- Gallery below buttons -->
+									<div class="mb-2 flex items-center gap-2">
 										<Image class="text-primary-400" size={16} strokeWidth={1.5} />
 										<span class="text-body-sm font-medium text-neutral-200">
 											{image.additionalDataUrls.length} additional photo{image.additionalDataUrls
@@ -729,8 +799,6 @@
 												: ''}
 										</span>
 									</div>
-
-									<!-- Thumbnail gallery -->
 									<div class="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
 										{#each image.additionalDataUrls as additionalUrl (additionalUrl)}
 											{@const additionalIndex = image.additionalDataUrls.indexOf(additionalUrl)}
@@ -759,172 +827,61 @@
 											</div>
 										{/each}
 									</div>
-
-									<!-- Add more buttons below gallery -->
-									<div class="mt-3 flex gap-2">
-										<button
-											type="button"
-											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-											onclick={() => additionalCameraInputs[index]?.click()}
-											disabled={isAnalyzing}
-										>
-											<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
-											<span class="text-caption font-medium text-neutral-400">Camera</span>
-										</button>
-										<button
-											type="button"
-											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-											onclick={() => additionalImageInputs[index]?.click()}
-											disabled={isAnalyzing}
-										>
-											<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
-											<span class="text-caption font-medium text-neutral-400">Upload</span>
-										</button>
-									</div>
-								</div>
-							{:else}
-								<!-- Additional photos section -->
-								<div class="border-t border-neutral-800/50 pt-3">
-									<div class="mb-2 flex items-center gap-0.5">
-										<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
-										<InfoTooltip
-											text="Add close-ups, labels, serial numbers, different angles, invoices, receipts, etc."
-										/>
-									</div>
-									<div class="flex gap-2">
-										<button
-											type="button"
-											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-											onclick={() => additionalCameraInputs[index]?.click()}
-											disabled={isAnalyzing}
-										>
-											<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
-											<span class="text-caption font-medium text-neutral-400">Camera</span>
-										</button>
-										<button
-											type="button"
-											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-											onclick={() => additionalImageInputs[index]?.click()}
-											disabled={isAnalyzing}
-										>
-											<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
-											<span class="text-caption font-medium text-neutral-400">Upload</span>
-										</button>
-									</div>
-								</div>
-							{/if}
+								{/if}
+							</div>
 						</div>
 					{/if}
 				</div>
 			{/each}
-
-			<!-- Add more images button -->
-			{#if totalImageCount < maxImages && !showAnalyzingUI}
-				<div class="flex gap-3">
-					<button
-						type="button"
-						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-						onclick={() => cameraInput.click()}
-					>
-						<div class="flex flex-col items-center gap-2">
-							<div
-								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
-							>
-								<Camera
-									class="text-neutral-400 transition-colors group-hover:text-primary-400"
-									size={24}
-									strokeWidth={1.5}
-								/>
-							</div>
-							<span
-								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
-								>Camera</span
-							>
-						</div>
-					</button>
-					<button
-						type="button"
-						class="group flex-1 rounded-xl border border-dashed border-neutral-600 p-4 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-						onclick={() => fileInput.click()}
-					>
-						<div class="flex flex-col items-center gap-2">
-							<div
-								class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
-							>
-								<Upload
-									class="text-neutral-400 transition-colors group-hover:text-primary-400"
-									size={24}
-									strokeWidth={1.5}
-								/>
-							</div>
-							<span
-								class="text-body-sm font-medium text-neutral-400 transition-colors group-hover:text-primary-400"
-								>Upload</span
-							>
-						</div>
-					</button>
-				</div>
-			{/if}
 		</div>
 	{:else}
 		<!-- Enhanced empty state -->
 		<div class="mb-6 flex flex-col items-center px-4 py-12">
-			<div class="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-primary-500/10">
-				<Camera class="text-primary-400" size={48} strokeWidth={1.5} />
-			</div>
-			<h3 class="mb-2 text-center text-h3 text-neutral-100">Capture your items</h3>
-			<p class="mb-8 max-w-xs text-center text-body-sm text-neutral-400">
-				Take photos or upload images of items you want to add to your inventory
-			</p>
-
 			<!-- Capture buttons -->
-			<div class="flex w-full max-w-sm gap-3">
+			<div class="mb-6 flex gap-4">
 				<button
 					type="button"
-					class="group flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:border-primary-500/50 hover:bg-neutral-800"
+					class="group flex aspect-square w-28 items-center justify-center rounded-2xl bg-primary-500/10 transition-all hover:bg-primary-500/20"
 					onclick={() => cameraInput.click()}
 				>
 					<div class="flex flex-col items-center gap-2">
-						<div
-							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
-						>
-							<Camera
-								class="text-neutral-300 transition-colors group-hover:text-primary-400"
-								size={24}
-								strokeWidth={1.5}
-							/>
-						</div>
+						<Camera
+							class="text-primary-400 transition-colors group-hover:text-primary-300"
+							size={40}
+							strokeWidth={1.5}
+						/>
 						<span
-							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
+							class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
 							>Camera</span
 						>
 					</div>
 				</button>
 				<button
 					type="button"
-					class="group flex-1 rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm transition-all hover:border-primary-500/50 hover:bg-neutral-800"
+					class="group flex aspect-square w-28 items-center justify-center rounded-2xl bg-primary-500/10 transition-all hover:bg-primary-500/20"
 					onclick={() => fileInput.click()}
 				>
 					<div class="flex flex-col items-center gap-2">
-						<div
-							class="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800 transition-colors group-hover:bg-primary-500/10"
-						>
-							<Upload
-								class="text-neutral-300 transition-colors group-hover:text-primary-400"
-								size={24}
-								strokeWidth={1.5}
-							/>
-						</div>
+						<Upload
+							class="text-primary-400 transition-colors group-hover:text-primary-300"
+							size={40}
+							strokeWidth={1.5}
+						/>
 						<span
-							class="text-body-sm font-medium text-neutral-200 transition-colors group-hover:text-primary-400"
+							class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
 							>Upload</span
 						>
 					</div>
 				</button>
 			</div>
 
-			<p class="mt-6 text-caption text-neutral-500">
-				{totalImageCount} / {maxImages} images Â· {maxFileSizeMb}MB per file
+			<h3 class="mb-2 text-center text-h3 text-neutral-100">Capture your items</h3>
+			<p class="mb-4 max-w-xs text-center text-body-sm text-neutral-400">
+				Take photos or upload images of items you want to add to your inventory
+			</p>
+
+			<p class="text-caption text-neutral-500">
+				{totalImageCount} / {maxImages} images &middot; {maxFileSizeMb}MB per file
 			</p>
 		</div>
 	{/if}

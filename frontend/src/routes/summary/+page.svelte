@@ -268,14 +268,14 @@
 						</p>
 					{/if}
 					{#if item.tag_ids && item.tag_ids.length > 0}
-						<div class="item-tags">
+						<div class="flex flex-wrap gap-1.5">
 							{#each item.tag_ids.slice(0, 3) as tagId (tagId)}
-								<span class="mini-badge">
+								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
 									{getTagName(tagId)}
 								</span>
 							{/each}
 							{#if item.tag_ids.length > 3}
-								<span class="mini-badge text-neutral-500">
+								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-500">
 									+{item.tag_ids.length - 3}
 								</span>
 							{/if}
