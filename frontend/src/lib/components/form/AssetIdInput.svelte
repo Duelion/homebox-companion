@@ -9,6 +9,7 @@
 	 */
 	import { QrCode } from 'lucide-svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
+	import { resolveQrUrl } from '$lib/utils/qrUrl';
 
 	interface Props {
 		value: string | null;
@@ -46,8 +47,9 @@
 		return scannedText.trim();
 	}
 
-	function handleScan(scannedText: string) {
-		const assetId = parseAssetIdFromUrl(scannedText);
+	async function handleScan(scannedText: string) {
+		const resolvedUrl = await resolveQrUrl(scannedText);
+		const assetId = parseAssetIdFromUrl(resolvedUrl);
 		onChange(assetId || null);
 		showScanner = false;
 	}
