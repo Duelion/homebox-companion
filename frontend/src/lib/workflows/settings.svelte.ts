@@ -64,61 +64,19 @@ const DEFAULT_LOG_LINES = 300;
 export interface FieldMeta {
 	key: keyof FieldPreferences;
 	label: string;
-	example: string;
 }
 
 /** Field metadata for display in the preferences form */
 export const FIELD_META: FieldMeta[] = [
-	{
-		key: 'name',
-		label: 'Name',
-		example: '"Ball Bearing 6900-2RS 10x22x6mm", "LED Strip COB Green 5V 1M"',
-	},
-	{
-		key: 'naming_examples',
-		label: 'Naming Examples',
-		example: 'Comma-separated examples that show the AI how to format names',
-	},
-	{
-		key: 'description',
-		label: 'Description',
-		example: '"Minor scratches on casing", "New in packaging"',
-	},
-	{
-		key: 'quantity',
-		label: 'Quantity',
-		example: '5 identical screws = qty 5, but 2 sizes = 2 separate items',
-	},
-	{
-		key: 'manufacturer',
-		label: 'Manufacturer',
-		example: 'DeWalt, Vallejo (NOT "Shenzhen XYZ Technology Co.")',
-	},
-	{
-		key: 'model_number',
-		label: 'Model Number',
-		example: '"DCD771C2", "72.034"',
-	},
-	{
-		key: 'serial_number',
-		label: 'Serial Number',
-		example: 'Look for "S/N:", "Serial:" markings',
-	},
-	{
-		key: 'purchase_price',
-		label: 'Purchase Price',
-		example: '29.99 (not "$29.99")',
-	},
-	{
-		key: 'purchase_from',
-		label: 'Purchase From',
-		example: '"Amazon", "Home Depot"',
-	},
-	{
-		key: 'notes',
-		label: 'Notes',
-		example: 'For defects/warnings only. Include GOOD/BAD examples for clarity.',
-	},
+	{ key: 'name', label: 'Name' },
+	{ key: 'description', label: 'Description' },
+	{ key: 'quantity', label: 'Quantity' },
+	{ key: 'manufacturer', label: 'Manufacturer' },
+	{ key: 'model_number', label: 'Model Number' },
+	{ key: 'serial_number', label: 'Serial Number' },
+	{ key: 'purchase_price', label: 'Purchase Price' },
+	{ key: 'purchase_from', label: 'Purchase From' },
+	{ key: 'notes', label: 'Notes' },
 ];
 
 /** Environment variable mapping for export */
@@ -184,6 +142,8 @@ class SettingsService {
 	fieldPrefs = $state<FieldPreferences>(getEmptyPreferences());
 	effectiveDefaults = $state<EffectiveDefaults | null>(null);
 	showFieldPrefs = $state(false);
+	showGeneralSettings = $state(false);
+	showDefaultFields = $state(false);
 	promptPreview = $state<string | null>(null);
 	showPromptPreview = $state(false);
 
@@ -507,31 +467,6 @@ class SettingsService {
 		}
 	}
 
-	async resetFieldPrefs(): Promise<void> {
-		this.saveState = 'saving';
-		this.errors.fieldPrefs = null;
-
-		try {
-			const result = await fieldPreferences.reset();
-			this.fieldPrefs = result;
-			this.promptPreview = null; // Clear preview when resetting
-
-			this.saveState = 'success';
-
-			this._scheduleTimeout(() => {
-				this.saveState = 'idle';
-			}, 2000);
-		} catch (error) {
-			log.error('Failed to reset field preferences:', error);
-			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to reset preferences');
-			this.saveState = 'error';
-
-			this._scheduleTimeout(() => {
-				this.saveState = 'idle';
-			}, 3000);
-		}
-	}
-
 	/**
 	 * Update a single field preference value.
 	 * Also clears the prompt preview cache.
@@ -539,6 +474,45 @@ class SettingsService {
 	updateFieldPref(key: keyof FieldPreferences, value: string): void {
 		this.fieldPrefs[key] = value.trim() || null;
 		this.promptPreview = null; // Clear cached preview
+	}
+
+	/**
+	 * Reset a single field preference to null (default).
+	 * Local-only: user must Save to persist.
+	 */
+	resetSingleFieldPref(key: keyof FieldPreferences): void {
+		this.fieldPrefs[key] = null;
+		this.promptPreview = null;
+	}
+
+	/**
+	 * Reset all General Settings fields (output_language, default_tag_id, naming_examples).
+	 * Local-only: user must Save to persist.
+	 */
+	resetGeneralSettings(): void {
+		this.fieldPrefs.output_language = null;
+		this.fieldPrefs.default_tag_id = null;
+		this.fieldPrefs.naming_examples = null;
+		this.promptPreview = null;
+	}
+
+	/**
+	 * Reset all Default Fields (FIELD_META keys).
+	 * Local-only: user must Save to persist.
+	 */
+	resetDefaultFields(): void {
+		for (const field of FIELD_META) {
+			this.fieldPrefs[field.key] = null;
+		}
+		this.promptPreview = null;
+	}
+
+	toggleGeneralSettings(): void {
+		this.showGeneralSettings = !this.showGeneralSettings;
+	}
+
+	toggleDefaultFields(): void {
+		this.showDefaultFields = !this.showDefaultFields;
 	}
 
 	// =========================================================================
@@ -760,6 +734,8 @@ class SettingsService {
 		this.fieldPrefs = getEmptyPreferences();
 		this.effectiveDefaults = null;
 		this.showFieldPrefs = false;
+		this.showGeneralSettings = false;
+		this.showDefaultFields = false;
 		this.promptPreview = null;
 		this.showPromptPreview = false;
 		this.customFieldDefs = [];

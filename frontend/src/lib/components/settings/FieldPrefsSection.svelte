@@ -1,6 +1,10 @@
 <script lang="ts">
 	/**
 	 * FieldPrefsSection - AI output configuration and field customizations.
+	 * Organized into three collapsible sections:
+	 *   1. General Settings (Output Language, Default Tag, Naming Examples)
+	 *   2. Default Fields (per-field AI instructions with individual reset)
+	 *   3. Custom Fields (user-defined Homebox fields)
 	 */
 	import { onDestroy } from 'svelte';
 	import {
@@ -17,6 +21,8 @@
 		Plus,
 		Trash2,
 		Layers,
+		Settings2,
+		FileText,
 	} from 'lucide-svelte';
 	import { settingsService, FIELD_META } from '$lib/workflows/settings.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -29,6 +35,20 @@
 	let showEnvExport = $state(false);
 	let envCopied = $state(false);
 	let envCopiedTimeoutId: number | null = null;
+
+	// Derived: count of overridden default fields
+	const overriddenFieldCount = $derived(
+		FIELD_META.filter((f) => service.fieldPrefs[f.key] !== null).length
+	);
+
+	// Derived: count of overridden general settings
+	const overriddenGeneralCount = $derived(
+		[
+			service.fieldPrefs.output_language,
+			service.fieldPrefs.default_tag_id,
+			service.fieldPrefs.naming_examples,
+		].filter((v) => v !== null).length
+	);
 
 	async function copyEnvVars() {
 		const envVars = service.generateEnvVars(service.fieldPrefs);
@@ -103,123 +123,229 @@
 			</div>
 		{/if}
 
-		<!-- Output Language Setting -->
-		<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
-			<div class="flex items-center gap-2">
-				<Languages class="text-primary-400" size={20} strokeWidth={1.5} />
-				<label for="output_language" class="font-semibold text-neutral-100">Output Language</label>
-			</div>
-			<p class="text-xs text-neutral-400">
-				Choose what language the AI should use for item names, descriptions, and notes.
-			</p>
-			<input
-				type="text"
-				id="output_language"
-				value={service.fieldPrefs.output_language || ''}
-				oninput={(e) => service.updateFieldPref('output_language', e.currentTarget.value)}
-				placeholder={service.effectiveDefaults
-					? service.effectiveDefaults.output_language
-					: 'Loading...'}
-				class="input"
-			/>
-			<div class="rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
-				<p class="flex items-start gap-2 text-xs text-warning-500">
-					<TriangleAlert class="mt-0.5 flex-shrink-0" size={16} strokeWidth={1.5} />
-					<span>
-						<strong>Note:</strong> Field customization instructions below should still be written in English.
-						Only the AI output will be in the configured language.
+		<!-- ================================================================= -->
+		<!-- GENERAL SETTINGS (Output Language, Default Tag, Naming Examples)   -->
+		<!-- ================================================================= -->
+		<div class="border-t border-neutral-800 pt-4">
+			<button
+				type="button"
+				class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+				onclick={() => service.toggleGeneralSettings()}
+			>
+				<Settings2 class="text-primary-400" size={20} strokeWidth={1.5} />
+				<span>General Settings</span>
+				{#if overriddenGeneralCount > 0}
+					<span class="rounded-full bg-primary-600/30 px-2 py-0.5 text-xs text-primary-400">
+						{overriddenGeneralCount}
 					</span>
-				</p>
-			</div>
-		</div>
-
-		<!-- Default Tag Setting -->
-		<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
-			<div class="flex items-center gap-2">
-				<Tag class="text-primary-400" size={20} strokeWidth={1.5} />
-				<label for="default_tag" class="font-semibold text-neutral-100">Default Tag</label>
-			</div>
-			<p class="text-xs text-neutral-400">
-				Automatically tag all items created via Homebox Companion with this tag.
-			</p>
-			<select
-				id="default_tag"
-				value={service.fieldPrefs.default_tag_id || ''}
-				onchange={(e) => service.updateFieldPref('default_tag_id', e.currentTarget.value)}
-				class="input"
-			>
-				<option value="">No default tag</option>
-				{#each service.availableTags as tag (tag.id)}
-					<option value={tag.id}>
-						{tag.name}{service.effectiveDefaults?.default_tag_id === tag.id ? ' (env default)' : ''}
-					</option>
-				{/each}
-			</select>
-			<p class="text-xs text-neutral-500">
-				Useful for identifying items added through this app in your Homebox inventory.
-			</p>
-		</div>
-
-		<!-- Field Customizations - 2-column grid on wider screens -->
-		<div class="grid gap-4 sm:grid-cols-2">
-			{#each FIELD_META as field (field.key)}
-				<div class="space-y-2 rounded-lg border border-neutral-700/50 bg-neutral-800/50 p-3">
-					<label for={field.key} class="block text-sm font-semibold text-neutral-100">
-						{field.label}
-					</label>
-					<textarea
-						id={field.key}
-						value={service.fieldPrefs[field.key] || ''}
-						oninput={(e) => service.updateFieldPref(field.key, e.currentTarget.value)}
-						placeholder={service.effectiveDefaults?.[field.key] || 'No default'}
-						rows="1"
-						class="input resize-none text-sm transition-all duration-200"
-						onfocus={(e) => {
-							e.currentTarget.rows = 3;
-						}}
-						onblur={(e) => {
-							e.currentTarget.rows = 1;
-						}}
-					></textarea>
-					<p class="line-clamp-2 text-xs text-neutral-500">
-						Example: {field.example}
-					</p>
-				</div>
-			{/each}
-		</div>
-
-		<div class="flex gap-3 pt-2">
-			<Button
-				variant="primary"
-				onclick={() => service.saveFieldPrefs()}
-				disabled={service.saveState === 'saving' || service.saveState === 'success'}
-			>
-				{#if service.saveState === 'saving'}
-					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-					></div>
-					<span>Saving...</span>
-				{:else if service.saveState === 'success'}
-					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
-						<Check class="text-success-500" size={20} strokeWidth={2.5} />
-					</div>
-					<span>Saved!</span>
-				{:else}
-					<Check size={16} strokeWidth={2} />
-					<span>Save</span>
 				{/if}
-			</Button>
-			<Button
-				variant="secondary"
-				onclick={() => service.resetFieldPrefs()}
-				disabled={service.saveState === 'saving' || service.saveState === 'success'}
-			>
-				<RotateCcw size={16} strokeWidth={2} />
-				<span>Reset</span>
-			</Button>
+				<ChevronDown
+					class="ml-auto transition-transform {service.showGeneralSettings ? 'rotate-180' : ''}"
+					size={16}
+				/>
+			</button>
+
+			{#if service.showGeneralSettings}
+				<div class="mt-3 space-y-4">
+					<!-- Output Language -->
+					<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<Languages class="text-primary-400" size={20} strokeWidth={1.5} />
+								<label for="output_language" class="font-semibold text-neutral-100"
+									>Output Language</label
+								>
+							</div>
+							{#if service.fieldPrefs.output_language}
+								<button
+									type="button"
+									class="btn-icon-touch text-neutral-400 hover:text-warning-400"
+									title="Reset to default"
+									onclick={() => service.resetSingleFieldPref('output_language')}
+								>
+									<RotateCcw size={14} strokeWidth={2} />
+								</button>
+							{/if}
+						</div>
+						<p class="text-xs text-neutral-400">
+							Choose what language the AI should use for item names, descriptions, and notes.
+						</p>
+						<input
+							type="text"
+							id="output_language"
+							value={service.fieldPrefs.output_language || ''}
+							oninput={(e) => service.updateFieldPref('output_language', e.currentTarget.value)}
+							placeholder={service.effectiveDefaults
+								? service.effectiveDefaults.output_language
+								: 'Loading...'}
+							class="input"
+						/>
+						<div class="rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
+							<p class="flex items-start gap-2 text-xs text-warning-500">
+								<TriangleAlert class="mt-0.5 flex-shrink-0" size={16} strokeWidth={1.5} />
+								<span>
+									<strong>Note:</strong> Field customization instructions below should still be written
+									in English. Only the AI output will be in the configured language.
+								</span>
+							</p>
+						</div>
+					</div>
+
+					<!-- Default Tag -->
+					<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<Tag class="text-primary-400" size={20} strokeWidth={1.5} />
+								<label for="default_tag" class="font-semibold text-neutral-100">Default Tag</label>
+							</div>
+							{#if service.fieldPrefs.default_tag_id}
+								<button
+									type="button"
+									class="btn-icon-touch text-neutral-400 hover:text-warning-400"
+									title="Reset to default"
+									onclick={() => service.resetSingleFieldPref('default_tag_id')}
+								>
+									<RotateCcw size={14} strokeWidth={2} />
+								</button>
+							{/if}
+						</div>
+						<p class="text-xs text-neutral-400">
+							Automatically tag all items created via Homebox Companion with this tag.
+						</p>
+						<select
+							id="default_tag"
+							value={service.fieldPrefs.default_tag_id || ''}
+							onchange={(e) => service.updateFieldPref('default_tag_id', e.currentTarget.value)}
+							class="input"
+						>
+							<option value="">No default tag</option>
+							{#each service.availableTags as tag (tag.id)}
+								<option value={tag.id}>
+									{tag.name}{service.effectiveDefaults?.default_tag_id === tag.id
+										? ' (env default)'
+										: ''}
+								</option>
+							{/each}
+						</select>
+						<p class="text-xs text-neutral-500">
+							Useful for identifying items added through this app in your Homebox inventory.
+						</p>
+					</div>
+
+					<!-- Naming Examples -->
+					<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<FileText class="text-primary-400" size={20} strokeWidth={1.5} />
+								<label for="naming_examples" class="font-semibold text-neutral-100"
+									>Naming Examples</label
+								>
+							</div>
+							{#if service.fieldPrefs.naming_examples}
+								<button
+									type="button"
+									class="btn-icon-touch text-neutral-400 hover:text-warning-400"
+									title="Reset to default"
+									onclick={() => service.resetSingleFieldPref('naming_examples')}
+								>
+									<RotateCcw size={14} strokeWidth={2} />
+								</button>
+							{/if}
+						</div>
+						<p class="text-xs text-neutral-400">
+							Comma-separated examples that show the AI how to format item names.
+						</p>
+						<textarea
+							id="naming_examples"
+							value={service.fieldPrefs.naming_examples || ''}
+							oninput={(e) => service.updateFieldPref('naming_examples', e.currentTarget.value)}
+							placeholder={service.effectiveDefaults?.naming_examples || 'No default'}
+							rows="2"
+							class="input resize-none text-sm"
+						></textarea>
+					</div>
+
+					<div class="flex justify-end pt-1">
+						<Button variant="secondary" size="sm" onclick={() => service.resetGeneralSettings()}>
+							<RotateCcw size={14} strokeWidth={2} />
+							<span>Reset</span>
+						</Button>
+					</div>
+				</div>
+			{/if}
 		</div>
 
-		<!-- Custom Fields Section -->
+		<!-- ================================================================= -->
+		<!-- DEFAULT FIELDS (per-field AI instructions)                         -->
+		<!-- ================================================================= -->
+		<div class="border-t border-neutral-800 pt-4">
+			<button
+				type="button"
+				class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+				onclick={() => service.toggleDefaultFields()}
+			>
+				<SlidersHorizontal class="text-primary-400" size={20} strokeWidth={1.5} />
+				<span>Default Fields</span>
+				{#if overriddenFieldCount > 0}
+					<span class="rounded-full bg-primary-600/30 px-2 py-0.5 text-xs text-primary-400">
+						{overriddenFieldCount}
+					</span>
+				{/if}
+				<ChevronDown
+					class="ml-auto transition-transform {service.showDefaultFields ? 'rotate-180' : ''}"
+					size={16}
+				/>
+			</button>
+
+			{#if service.showDefaultFields}
+				<div class="mt-3 grid gap-4 sm:grid-cols-2">
+					{#each FIELD_META as field (field.key)}
+						<div class="space-y-2 rounded-lg border border-neutral-700/50 bg-neutral-800/50 p-3">
+							<div class="flex items-center justify-between">
+								<label for={field.key} class="block text-sm font-semibold text-neutral-100">
+									{field.label}
+								</label>
+								{#if service.fieldPrefs[field.key]}
+									<button
+										type="button"
+										class="btn-icon-touch text-neutral-400 hover:text-warning-400"
+										title="Reset to default"
+										onclick={() => service.resetSingleFieldPref(field.key)}
+									>
+										<RotateCcw size={14} strokeWidth={2} />
+									</button>
+								{/if}
+							</div>
+							<textarea
+								id={field.key}
+								value={service.fieldPrefs[field.key] || ''}
+								oninput={(e) => service.updateFieldPref(field.key, e.currentTarget.value)}
+								placeholder={service.effectiveDefaults?.[field.key] || 'No default'}
+								rows="1"
+								class="input resize-none text-sm transition-all duration-200"
+								onfocus={(e) => {
+									e.currentTarget.rows = 3;
+								}}
+								onblur={(e) => {
+									e.currentTarget.rows = 1;
+								}}
+							></textarea>
+						</div>
+					{/each}
+				</div>
+
+				<div class="mt-3 flex justify-end">
+					<Button variant="secondary" size="sm" onclick={() => service.resetDefaultFields()}>
+						<RotateCcw size={14} strokeWidth={2} />
+						<span>Reset</span>
+					</Button>
+				</div>
+			{/if}
+		</div>
+
+		<!-- ================================================================= -->
+		<!-- CUSTOM FIELDS                                                      -->
+		<!-- ================================================================= -->
 		<div class="border-t border-neutral-800 pt-4">
 			<button
 				type="button"
@@ -304,6 +430,32 @@
 					</div>
 				</div>
 			{/if}
+		</div>
+
+		<!-- ================================================================= -->
+		<!-- SHARED SAVE BUTTON (persists General Settings + Default Fields)    -->
+		<!-- ================================================================= -->
+		<div class="flex gap-3 border-t border-neutral-800 pt-4">
+			<Button
+				variant="primary"
+				onclick={() => service.saveFieldPrefs()}
+				disabled={service.saveState === 'saving' || service.saveState === 'success'}
+			>
+				{#if service.saveState === 'saving'}
+					<div
+						class="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+					></div>
+					<span>Saving...</span>
+				{:else if service.saveState === 'success'}
+					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
+						<Check class="text-success-500" size={20} strokeWidth={2.5} />
+					</div>
+					<span>Saved!</span>
+				{:else}
+					<Check size={16} strokeWidth={2} />
+					<span>Save</span>
+				{/if}
+			</Button>
 		</div>
 	{/if}
 
