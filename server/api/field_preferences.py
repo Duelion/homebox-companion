@@ -11,6 +11,7 @@ from homebox_companion.core.field_preferences import (
     reset_field_preferences,
     save_field_preferences,
 )
+from homebox_companion.core.persistent_settings import CustomFieldDefinition
 from homebox_companion.tools.vision.prompts import build_detection_system_prompt
 
 from ..dependencies import require_auth
@@ -86,7 +87,16 @@ async def get_effective_defaults() -> FieldPreferences:
     return get_defaults()
 
 
-# PromptPreviewRequest reuses FieldPreferences for consistency
+class PromptPreviewRequest(BaseModel):
+    """Request model for prompt preview.
+
+    Contains all data needed to render the prompt — the endpoint
+    does NOT reach into PersistentSettings. The frontend sends
+    the current editor state directly.
+    """
+
+    field_preferences: FieldPreferences
+    custom_fields: list[CustomFieldDefinition] = []
 
 
 class PromptPreviewResponse(BaseModel):
@@ -97,14 +107,18 @@ class PromptPreviewResponse(BaseModel):
 
 @router.post("/settings/prompt-preview", response_model=PromptPreviewResponse)
 async def get_prompt_preview(
-    prefs: FieldPreferences,
+    body: PromptPreviewRequest,
 ) -> PromptPreviewResponse:
     """Generate a preview of the AI system prompt.
 
-    Shows what the LLM will see based on the provided field preferences.
-    Uses example labels for illustration purposes.
+    Shows what the LLM will see based on the provided field preferences
+    and custom field definitions. All inputs come from the request body —
+    no server-side settings are read.
+
     Authentication is enforced at router level.
     """
+    prefs = body.field_preferences
+
     # Use provided preferences directly - they already have defaults baked in
     field_prefs = prefs.get_effective_customizations()
     output_language = prefs.output_language
@@ -126,6 +140,9 @@ async def get_prompt_preview(
         extract_extended_fields=True,
         field_preferences=field_prefs,
         output_language=output_language,
+        custom_fields=body.custom_fields,
     )
 
     return PromptPreviewResponse(prompt=prompt)
+
+

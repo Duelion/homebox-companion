@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from loguru import logger
 
 from ...ai.llm import vision_completion
+from .models import DetectedItem, get_single_item_adapter
 from .prompts import build_analysis_system_prompt
+
+if TYPE_CHECKING:
+    from ...core.persistent_settings import CustomFieldDefinition
 
 
 async def analyze_item_details_from_images(
@@ -15,7 +21,8 @@ async def analyze_item_details_from_images(
     tags: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
-) -> dict:
+    custom_fields: list[CustomFieldDefinition] | None = None,
+) -> DetectedItem:
     """Analyze multiple images of an item to extract detailed information.
 
     Args:
@@ -25,9 +32,10 @@ async def analyze_item_details_from_images(
         tags: Optional list of Homebox tags to suggest.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
+        custom_fields: Optional list of custom field definitions.
 
     Returns:
-        Dictionary with extracted fields.
+        A validated DetectedItem with extracted fields.
     """
 
     logger.info(f"Analyzing {len(image_data_uris)} images for item: {item_name}")
@@ -41,6 +49,7 @@ async def analyze_item_details_from_images(
         tags=tags,
         field_preferences=field_preferences,
         output_language=output_language,
+        custom_fields=custom_fields,
     )
 
     user_prompt = "Analyze all images. Look at labels, stickers, engravings for details. Return only JSON."
@@ -51,6 +60,10 @@ async def analyze_item_details_from_images(
         image_data_uris=image_data_uris,
     )
 
-    logger.info(f"Analysis complete. Fields: {list(parsed_content.keys())}")
+    # Validate through Pydantic (same dynamic model as detector)
+    adapter = get_single_item_adapter(custom_fields)
+    item = adapter.validate_python(parsed_content)
 
-    return parsed_content
+    logger.info(f"Analysis complete. Fields: {list(item.model_fields.keys())}")
+
+    return item

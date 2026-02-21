@@ -15,6 +15,7 @@ from homebox_companion import HomeboxAuthError, HomeboxClient, settings
 if TYPE_CHECKING:
     from homebox_companion.chat.session import ChatSession
     from homebox_companion.chat.store import SessionStoreProtocol
+    from homebox_companion.core.persistent_settings import CustomFieldDefinition
     from homebox_companion.mcp.executor import ToolExecutor
 
 from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
@@ -429,6 +430,7 @@ class VisionContext:
         field_preferences: Custom field instructions dict, or None if no customizations.
         output_language: Configured output language, or None for default (English).
         default_tag_id: ID of tag to auto-add, or None.
+        custom_fields: User-defined custom field definitions for AI detection.
     """
 
     token: str
@@ -436,6 +438,7 @@ class VisionContext:
     field_preferences: dict[str, str] | None
     output_language: str | None
     default_tag_id: str | None
+    custom_fields: list[CustomFieldDefinition]
 
 
 async def get_vision_context(
@@ -475,6 +478,11 @@ async def get_vision_context(
     # Determine output language (None means use default English)
     output_language = None if prefs.output_language.lower() == "english" else prefs.output_language
 
+    # Load custom field definitions from persistent settings
+    from homebox_companion.core.persistent_settings import get_settings
+
+    persistent = get_settings()
+
     return VisionContext(
         token=token,
         tags=await get_tags_for_context(token),
@@ -482,4 +490,5 @@ async def get_vision_context(
         field_preferences=prefs.get_effective_customizations(),
         output_language=output_language,
         default_tag_id=prefs.default_tag_id,
+        custom_fields=persistent.custom_fields,
     )

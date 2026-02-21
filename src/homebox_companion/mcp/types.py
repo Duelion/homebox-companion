@@ -9,7 +9,7 @@ This module contains the shared types used across MCP tool implementations:
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 
-class ToolPermission(str, Enum):
+class ToolPermission(StrEnum):
     """Permission level required to execute a tool.
 
     READ: Safe to auto-execute, no side effects

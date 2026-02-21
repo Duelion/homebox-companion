@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from .auth import router as auth_router
 from .chat import router as chat_router
 from .config import router as config_router
+from .custom_fields import router as custom_fields_router
 from .field_preferences import router as field_preferences_router
 from .items import router as items_router
 from .llm_profiles import router as llm_profiles_router
@@ -22,6 +23,7 @@ api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(chat_router, tags=["chat"])
 api_router.include_router(config_router, tags=["config"])
+api_router.include_router(custom_fields_router, tags=["settings"])
 api_router.include_router(field_preferences_router, tags=["settings"])
 api_router.include_router(llm_profiles_router, tags=["llm"])
 api_router.include_router(locations_router, tags=["locations"])
@@ -33,3 +35,4 @@ api_router.include_router(qr_router, tags=["qr"])
 api_router.include_router(vision_router, prefix="/tools/vision", tags=["vision"])
 
 __all__ = ["api_router"]
+
