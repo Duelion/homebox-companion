@@ -3,12 +3,27 @@
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from loguru import logger
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _configure_loguru_for_tests():
+    """Strip all loguru sinks and keep only stderr for test runs.
+
+    Prevents 'I/O operation on closed file' errors during pytest teardown
+    caused by file sinks outliving the test process.
+    """
+    logger.remove()
+    logger.add(sys.stderr, level="DEBUG")
+    yield
+    logger.remove()
 
 # Demo server URL for integration tests
 DEMO_HOMEBOX_URL = "https://demo.homebox.software"

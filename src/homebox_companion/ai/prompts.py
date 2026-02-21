@@ -13,6 +13,31 @@ Note on customizations:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.persistent_settings import CustomFieldDefinition
+
+
+def build_custom_fields_schema(custom_fields: list[CustomFieldDefinition]) -> str:
+    """Build custom fields schema section for the AI prompt.
+
+    Args:
+        custom_fields: User-defined custom field definitions with AI instructions.
+
+    Returns:
+        Custom fields schema string, or empty string if no custom fields.
+    """
+    if not custom_fields:
+        return ""
+
+    lines = ["\nCUSTOM FIELDS (always populate these for every item):"]
+    for cf in custom_fields:
+        # Use the field name directly — the AI will output it as a key
+        lines.append(f'- {cf.field_key}: string or null ({cf.ai_instruction})')
+
+    return "\n".join(lines)
+
 
 def build_critical_constraints(single_item: bool = False) -> str:
     """Build critical constraints that MUST appear early in prompt.

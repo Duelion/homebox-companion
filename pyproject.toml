@@ -88,6 +88,12 @@ markers = [
     "integration: tests with mocked external services or temp files",
     "live: tests requiring real external services (OpenAI, Homebox demo)",
 ]
+filterwarnings = [
+    # aiohttp: enable_cleanup_closed is a no-op in Python 3.12.8+
+    "ignore:enable_cleanup_closed:DeprecationWarning:aiohttp",
+    # LiteLLM: logging worker drops unawaited coroutine during shutdown
+    "ignore:coroutine 'Logging.async_success_handler' was never awaited:RuntimeWarning",
+]
 
 [tool.ty]
 # Ty type checker configuration

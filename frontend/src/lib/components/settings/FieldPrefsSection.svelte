@@ -14,6 +14,9 @@
 		Copy,
 		Eye,
 		Maximize2,
+		Plus,
+		Trash2,
+		Layers,
 	} from 'lucide-svelte';
 	import { settingsService, FIELD_META } from '$lib/workflows/settings.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -214,6 +217,93 @@
 				<RotateCcw size={16} strokeWidth={2} />
 				<span>Reset</span>
 			</Button>
+		</div>
+
+		<!-- Custom Fields Section -->
+		<div class="border-t border-neutral-800 pt-4">
+			<button
+				type="button"
+				class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+				onclick={() => service.toggleCustomFields()}
+			>
+				<Layers class="text-primary-400" size={20} strokeWidth={1.5} />
+				<span>Custom Fields</span>
+				{#if service.customFieldDefs.length > 0}
+					<span class="rounded-full bg-primary-600/30 px-2 py-0.5 text-xs text-primary-400">
+						{service.customFieldDefs.length}
+					</span>
+				{/if}
+				<ChevronDown
+					class="ml-auto transition-transform {service.showCustomFields ? 'rotate-180' : ''}"
+					size={16}
+				/>
+			</button>
+
+			{#if service.showCustomFields}
+				<div class="mt-3 space-y-3">
+					<p class="text-xs text-neutral-400">
+						Define custom Homebox fields that the AI will populate during detection. Each field
+						needs a name (as shown in Homebox) and an AI instruction.
+					</p>
+
+					{#each service.customFieldDefs as field, i (i)}
+						<div class="space-y-2 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3">
+							<div class="flex items-center justify-between">
+								<span class="text-xs font-medium text-neutral-400">Field {i + 1}</span>
+								<button
+									type="button"
+									class="btn-icon-touch text-error-400 hover:text-error-300"
+									title="Remove field"
+									onclick={() => service.removeCustomField(i)}
+								>
+									<Trash2 size={16} strokeWidth={1.5} />
+								</button>
+							</div>
+							<input
+								type="text"
+								value={field.name}
+								oninput={(e) => service.updateCustomFieldProp(i, 'name', e.currentTarget.value)}
+								placeholder="Field name (e.g. Storage Location)"
+								class="input text-sm"
+							/>
+							<textarea
+								value={field.ai_instruction}
+								oninput={(e) =>
+									service.updateCustomFieldProp(i, 'ai_instruction', e.currentTarget.value)}
+								placeholder="AI instruction (e.g. Where this item should be stored)"
+								rows="2"
+								class="input resize-none text-sm"
+							></textarea>
+						</div>
+					{/each}
+
+					<div class="flex gap-3">
+						<Button variant="ghost" size="sm" onclick={() => service.addCustomField()}>
+							<Plus size={16} strokeWidth={2} />
+							Add Field
+						</Button>
+						<Button
+							variant="primary"
+							onclick={() => service.saveCustomFields()}
+							disabled={service.customFieldsSaveState === 'saving' ||
+								service.customFieldsSaveState === 'success'}
+						>
+							{#if service.customFieldsSaveState === 'saving'}
+								<div
+									class="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+								></div>
+								<span>Saving...</span>
+							{:else if service.customFieldsSaveState === 'success'}
+								<Check class="text-success-500" size={16} strokeWidth={2.5} />
+								<span>Saved!</span>
+							{:else}
+								<Check size={16} strokeWidth={2} />
+								<span>Save Custom Fields</span>
+							{/if}
+						</Button>
+					</div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 

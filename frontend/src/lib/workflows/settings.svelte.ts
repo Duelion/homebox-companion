@@ -14,12 +14,14 @@ import {
 	downloadLLMDebugLogs,
 	getVersion,
 	fieldPreferences,
+	customFields,
 	setDemoMode,
 	getEmptyPreferences,
 	type ConfigResponse,
 	type LogsResponse,
 	type FieldPreferences,
 	type EffectiveDefaults,
+	type CustomFieldDefinition,
 } from '$lib/api/settings';
 import { tags as tagsApi } from '$lib/api';
 import type { Tag } from '$lib/types';
@@ -184,6 +186,14 @@ class SettingsService {
 	showFieldPrefs = $state(false);
 	promptPreview = $state<string | null>(null);
 	showPromptPreview = $state(false);
+
+	// =========================================================================
+	// CUSTOM FIELDS STATE
+	// =========================================================================
+
+	customFieldDefs = $state<CustomFieldDefinition[]>([]);
+	showCustomFields = $state(false);
+	customFieldsSaveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 
 	// =========================================================================
 	// LOADING STATES
@@ -532,6 +542,67 @@ class SettingsService {
 	}
 
 	// =========================================================================
+	// CUSTOM FIELDS
+	// =========================================================================
+
+	async toggleCustomFields(): Promise<void> {
+		// If already loaded, just toggle visibility
+		if (this.customFieldDefs.length > 0 || this.showCustomFields) {
+			this.showCustomFields = !this.showCustomFields;
+			return;
+		}
+
+		// Load from server
+		await this.loadCustomFields();
+		this.showCustomFields = true;
+	}
+
+	async loadCustomFields(): Promise<void> {
+		try {
+			this.customFieldDefs = await customFields.list();
+		} catch (error) {
+			log.error('Failed to load custom fields:', error);
+		}
+	}
+
+	addCustomField(): void {
+		this.customFieldDefs = [...this.customFieldDefs, { name: '', ai_instruction: '' }];
+	}
+
+	updateCustomFieldProp(index: number, prop: keyof CustomFieldDefinition, value: string): void {
+		this.customFieldDefs[index][prop] = value;
+		this.promptPreview = null; // Clear cached preview
+	}
+
+	removeCustomField(index: number): void {
+		this.customFieldDefs = this.customFieldDefs.filter((_, i) => i !== index);
+	}
+
+	async saveCustomFields(): Promise<void> {
+		this.customFieldsSaveState = 'saving';
+
+		try {
+			// Filter out empty definitions before saving
+			const valid = this.customFieldDefs.filter((f) => f.name.trim() && f.ai_instruction.trim());
+			const snapshot = $state.snapshot(valid);
+			this.customFieldDefs = await customFields.update(snapshot);
+			this.customFieldsSaveState = 'success';
+			this.promptPreview = null; // Clear cached preview
+
+			this._scheduleTimeout(() => {
+				this.customFieldsSaveState = 'idle';
+			}, 2000);
+		} catch (error) {
+			log.error('Failed to save custom fields:', error);
+			this.customFieldsSaveState = 'error';
+
+			this._scheduleTimeout(() => {
+				this.customFieldsSaveState = 'idle';
+			}, 3000);
+		}
+	}
+
+	// =========================================================================
 	// PROMPT PREVIEW
 	// =========================================================================
 
@@ -562,9 +633,15 @@ class SettingsService {
 				this.effectiveDefaults = defaultsResult;
 			}
 
+			// Ensure custom fields are loaded (they're included in the preview)
+			if (this.customFieldDefs.length === 0) {
+				await this.loadCustomFields();
+			}
+
 			// Unwrap the $state proxy to get a plain object for serialization
 			const prefsForPreview = $state.snapshot(this.fieldPrefs);
-			const result = await fieldPreferences.getPromptPreview(prefsForPreview);
+			const customFieldsSnapshot = $state.snapshot(this.customFieldDefs);
+			const result = await fieldPreferences.getPromptPreview(prefsForPreview, customFieldsSnapshot);
 			this.promptPreview = result.prompt;
 			this.showPromptPreview = true;
 		} catch (error) {
@@ -685,6 +762,9 @@ class SettingsService {
 		this.showFieldPrefs = false;
 		this.promptPreview = null;
 		this.showPromptPreview = false;
+		this.customFieldDefs = [];
+		this.showCustomFields = false;
+		this.customFieldsSaveState = 'idle';
 		this.showAboutDetails = false;
 		this.updateCheckDone = false;
 		this.saveState = 'idle';
