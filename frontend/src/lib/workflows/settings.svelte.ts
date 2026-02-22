@@ -79,22 +79,6 @@ export const FIELD_META: FieldMeta[] = [
 	{ key: 'notes', label: 'Notes' },
 ];
 
-/** Environment variable mapping for export */
-export const ENV_VAR_MAPPING: Record<keyof FieldPreferences, string> = {
-	output_language: 'HBC_AI_OUTPUT_LANGUAGE',
-	default_tag_id: 'HBC_AI_DEFAULT_TAG_ID',
-	name: 'HBC_AI_NAME',
-	description: 'HBC_AI_DESCRIPTION',
-	quantity: 'HBC_AI_QUANTITY',
-	manufacturer: 'HBC_AI_MANUFACTURER',
-	model_number: 'HBC_AI_MODEL_NUMBER',
-	serial_number: 'HBC_AI_SERIAL_NUMBER',
-	purchase_price: 'HBC_AI_PURCHASE_PRICE',
-	purchase_from: 'HBC_AI_PURCHASE_FROM',
-	notes: 'HBC_AI_NOTES',
-	naming_examples: 'HBC_AI_NAMING_EXAMPLES',
-};
-
 // =============================================================================
 // SETTINGS SERVICE CLASS
 // =============================================================================
@@ -141,7 +125,7 @@ class SettingsService {
 
 	fieldPrefs = $state<FieldPreferences>(getEmptyPreferences());
 	effectiveDefaults = $state<EffectiveDefaults | null>(null);
-	showFieldPrefs = $state(false);
+
 	showGeneralSettings = $state(false);
 	showDefaultFields = $state(false);
 	promptPreview = $state<string | null>(null);
@@ -153,7 +137,6 @@ class SettingsService {
 
 	customFieldDefs = $state<CustomFieldDefinition[]>([]);
 	showCustomFields = $state(false);
-	customFieldsSaveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 
 	// =========================================================================
 	// LOADING STATES
@@ -224,6 +207,9 @@ class SettingsService {
 				this.updateAvailable = true;
 				this.latestVersion = versionResult.latest_version;
 			}
+
+			// Eagerly load field preferences and custom fields
+			await this.loadFieldPrefs();
 		} catch (error) {
 			// If it's a 401, the session expired modal will already be shown
 			log.error('Failed to load settings data:', error);
@@ -410,29 +396,25 @@ class SettingsService {
 	// FIELD PREFERENCES
 	// =========================================================================
 
-	async toggleFieldPrefs(): Promise<void> {
-		// If loading, do nothing (prevent race condition)
-		if (this.isLoading.fieldPrefs) {
-			return;
-		}
-
-		// If already loaded, just toggle visibility
-		if (this.effectiveDefaults !== null) {
-			this.showFieldPrefs = !this.showFieldPrefs;
-			return;
-		}
+	/**
+	 * Load field preferences, effective defaults, and custom fields.
+	 * Called during initialization.
+	 */
+	async loadFieldPrefs(): Promise<void> {
+		if (this.isLoading.fieldPrefs) return;
 
 		this.isLoading.fieldPrefs = true;
 		this.errors.fieldPrefs = null;
 
 		try {
-			const [prefsResult, defaultsResult] = await Promise.all([
+			const [prefsResult, defaultsResult, customResult] = await Promise.all([
 				fieldPreferences.get(),
 				fieldPreferences.getEffectiveDefaults(),
+				customFields.list(),
 			]);
 			this.fieldPrefs = prefsResult;
 			this.effectiveDefaults = defaultsResult;
-			this.showFieldPrefs = true;
+			this.customFieldDefs = customResult;
 		} catch (error) {
 			log.error('Failed to load field preferences:', error);
 			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to load preferences');
@@ -448,8 +430,22 @@ class SettingsService {
 		try {
 			// Unwrap the $state proxy to get a plain object for serialization
 			const prefsToSave = $state.snapshot(this.fieldPrefs);
-			const result = await fieldPreferences.update(prefsToSave);
-			this.fieldPrefs = result;
+
+			// Filter out empty custom field definitions before saving
+			const validCustomFields = this.customFieldDefs.filter(
+				(f) => f.name.trim() && f.ai_instruction.trim()
+			);
+			const customFieldsSnapshot = $state.snapshot(validCustomFields);
+
+			// Save field preferences and custom fields in parallel
+			const [prefsResult, customResult] = await Promise.all([
+				fieldPreferences.update(prefsToSave),
+				customFields.update(customFieldsSnapshot),
+			]);
+
+			this.fieldPrefs = prefsResult;
+			this.customFieldDefs = customResult;
+			this.promptPreview = null; // Clear cached preview
 			this.saveState = 'success';
 
 			// Reset to idle after showing success (with cleanup)
@@ -457,8 +453,8 @@ class SettingsService {
 				this.saveState = 'idle';
 			}, 2000);
 		} catch (error) {
-			log.error('Failed to save field preferences:', error);
-			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to save preferences');
+			log.error('Failed to save settings:', error);
+			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to save settings');
 			this.saveState = 'error';
 
 			this._scheduleTimeout(() => {
@@ -519,24 +515,8 @@ class SettingsService {
 	// CUSTOM FIELDS
 	// =========================================================================
 
-	async toggleCustomFields(): Promise<void> {
-		// If already loaded, just toggle visibility
-		if (this.customFieldDefs.length > 0 || this.showCustomFields) {
-			this.showCustomFields = !this.showCustomFields;
-			return;
-		}
-
-		// Load from server
-		await this.loadCustomFields();
-		this.showCustomFields = true;
-	}
-
-	async loadCustomFields(): Promise<void> {
-		try {
-			this.customFieldDefs = await customFields.list();
-		} catch (error) {
-			log.error('Failed to load custom fields:', error);
-		}
+	toggleCustomFields(): void {
+		this.showCustomFields = !this.showCustomFields;
 	}
 
 	addCustomField(): void {
@@ -550,30 +530,6 @@ class SettingsService {
 
 	removeCustomField(index: number): void {
 		this.customFieldDefs = this.customFieldDefs.filter((_, i) => i !== index);
-	}
-
-	async saveCustomFields(): Promise<void> {
-		this.customFieldsSaveState = 'saving';
-
-		try {
-			// Filter out empty definitions before saving
-			const valid = this.customFieldDefs.filter((f) => f.name.trim() && f.ai_instruction.trim());
-			const snapshot = $state.snapshot(valid);
-			this.customFieldDefs = await customFields.update(snapshot);
-			this.customFieldsSaveState = 'success';
-			this.promptPreview = null; // Clear cached preview
-
-			this._scheduleTimeout(() => {
-				this.customFieldsSaveState = 'idle';
-			}, 2000);
-		} catch (error) {
-			log.error('Failed to save custom fields:', error);
-			this.customFieldsSaveState = 'error';
-
-			this._scheduleTimeout(() => {
-				this.customFieldsSaveState = 'idle';
-			}, 3000);
-		}
 	}
 
 	// =========================================================================
@@ -597,21 +553,6 @@ class SettingsService {
 		this.isLoading.promptPreview = true;
 
 		try {
-			// Ensure field preferences are loaded first (they're needed for the preview)
-			if (this.effectiveDefaults === null) {
-				const [prefsResult, defaultsResult] = await Promise.all([
-					fieldPreferences.get(),
-					fieldPreferences.getEffectiveDefaults(),
-				]);
-				this.fieldPrefs = prefsResult;
-				this.effectiveDefaults = defaultsResult;
-			}
-
-			// Ensure custom fields are loaded (they're included in the preview)
-			if (this.customFieldDefs.length === 0) {
-				await this.loadCustomFields();
-			}
-
 			// Unwrap the $state proxy to get a plain object for serialization
 			const prefsForPreview = $state.snapshot(this.fieldPrefs);
 			const customFieldsSnapshot = $state.snapshot(this.customFieldDefs);
@@ -626,31 +567,7 @@ class SettingsService {
 		}
 	}
 
-	// =========================================================================
-	// ENV EXPORT
-	// =========================================================================
 
-	/**
-	 * Generate environment variable string from preferences.
-	 * Only includes fields that differ from effective defaults (actual customizations).
-	 */
-	generateEnvVars(prefs: FieldPreferences): string {
-		const lines: string[] = [];
-		const defaults = this.effectiveDefaults;
-
-		for (const [key, envName] of Object.entries(ENV_VAR_MAPPING)) {
-			const value = prefs[key as keyof FieldPreferences];
-			const defaultValue = defaults?.[key as keyof FieldPreferences];
-			// Only export if value exists AND differs from the effective default
-			if (value && value !== defaultValue) {
-				// Escape quotes and wrap in quotes if contains special chars
-				const escaped = value.replace(/"/g, '\\"');
-				lines.push(`${envName}="${escaped}"`);
-			}
-		}
-
-		return lines.length > 0 ? lines.join('\n') : '# No customizations configured';
-	}
 
 	// =========================================================================
 	// VERSION CHECK
@@ -733,14 +650,13 @@ class SettingsService {
 		this.showLLMDebugLog = false;
 		this.fieldPrefs = getEmptyPreferences();
 		this.effectiveDefaults = null;
-		this.showFieldPrefs = false;
 		this.showGeneralSettings = false;
 		this.showDefaultFields = false;
 		this.promptPreview = null;
 		this.showPromptPreview = false;
 		this.customFieldDefs = [];
 		this.showCustomFields = false;
-		this.customFieldsSaveState = 'idle';
+
 		this.showAboutDetails = false;
 		this.updateCheckDone = false;
 		this.saveState = 'idle';
