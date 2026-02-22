@@ -6,7 +6,7 @@
 	 *   2. Default Fields (per-field AI instructions with individual reset)
 	 *   3. Custom Fields (user-defined Homebox fields)
 	 */
-	import { onDestroy } from 'svelte';
+
 	import {
 		SlidersHorizontal,
 		Check,
@@ -15,7 +15,6 @@
 		Tag,
 		ChevronDown,
 		RotateCcw,
-		Copy,
 		Eye,
 		Maximize2,
 		Plus,
@@ -25,6 +24,7 @@
 		FileText,
 	} from 'lucide-svelte';
 	import { settingsService, FIELD_META } from '$lib/workflows/settings.svelte';
+
 	import Button from '$lib/components/Button.svelte';
 	import FullscreenPanel from '$lib/components/FullscreenPanel.svelte';
 
@@ -32,9 +32,7 @@
 
 	// Local UI states
 	let promptFullscreen = $state(false);
-	let showEnvExport = $state(false);
-	let envCopied = $state(false);
-	let envCopiedTimeoutId: number | null = null;
+	let editingFieldIndex = $state<number | null>(null);
 
 	// Derived: count of overridden default fields
 	const overriddenFieldCount = $derived(
@@ -49,30 +47,6 @@
 			service.fieldPrefs.naming_examples,
 		].filter((v) => v !== null).length
 	);
-
-	async function copyEnvVars() {
-		const envVars = service.generateEnvVars(service.fieldPrefs);
-		try {
-			await navigator.clipboard.writeText(envVars);
-			envCopied = true;
-			// Clear any existing timeout before setting a new one
-			if (envCopiedTimeoutId !== null) {
-				window.clearTimeout(envCopiedTimeoutId);
-			}
-			envCopiedTimeoutId = window.setTimeout(() => {
-				envCopied = false;
-				envCopiedTimeoutId = null;
-			}, 2000);
-		} catch {
-			// Clipboard access denied - ignore silently
-		}
-	}
-
-	onDestroy(() => {
-		if (envCopiedTimeoutId !== null) {
-			window.clearTimeout(envCopiedTimeoutId);
-		}
-	});
 </script>
 
 <section class="card space-y-4">
@@ -81,7 +55,7 @@
 			<SlidersHorizontal class="text-primary-400" size={20} strokeWidth={1.5} />
 			Configure AI Output
 		</h2>
-		{#if service.showFieldPrefs && service.saveState === 'success'}
+		{#if service.saveState === 'success'}
 			<span
 				class="inline-flex items-center gap-2 rounded-full bg-success-500/20 px-3 py-1.5 text-sm font-medium text-success-500"
 			>
@@ -95,28 +69,14 @@
 		Customize how the AI generates item data. Leave fields empty to use default behavior.
 	</p>
 
-	<button
-		type="button"
-		class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
-		onclick={() => service.toggleFieldPrefs()}
-		disabled={service.isLoading.fieldPrefs}
-	>
-		{#if service.isLoading.fieldPrefs}
+	{#if service.isLoading.fieldPrefs}
+		<div class="flex items-center gap-2 px-4 py-3 text-neutral-400">
 			<div
 				class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
 			></div>
-			<span>Loading...</span>
-		{:else}
-			<SlidersHorizontal class="text-primary-400" size={20} strokeWidth={1.5} />
-			<span>Configure Fields</span>
-			<ChevronDown
-				class="ml-auto transition-transform {service.showFieldPrefs ? 'rotate-180' : ''}"
-				size={16}
-			/>
-		{/if}
-	</button>
-
-	{#if service.showFieldPrefs}
+			<span>Loading preferences...</span>
+		</div>
+	{:else}
 		{#if service.errors.fieldPrefs}
 			<div class="rounded-xl border border-error-500/30 bg-error-500/10 p-4 text-sm text-error-500">
 				{service.errors.fieldPrefs}
@@ -372,68 +332,124 @@
 						needs a name (as shown in Homebox) and an AI instruction.
 					</p>
 
-					{#each service.customFieldDefs as field, i (i)}
-						<div class="space-y-2 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3">
-							<div class="flex items-center justify-between">
-								<span class="text-xs font-medium text-neutral-400">Field {i + 1}</span>
-								<button
-									type="button"
-									class="btn-icon-touch text-error-400 hover:text-error-300"
-									title="Remove field"
-									onclick={() => service.removeCustomField(i)}
-								>
-									<Trash2 size={16} strokeWidth={1.5} />
-								</button>
-							</div>
-							<input
-								type="text"
-								value={field.name}
-								oninput={(e) => service.updateCustomFieldProp(i, 'name', e.currentTarget.value)}
-								placeholder="Field name (e.g. Storage Location)"
-								class="input text-sm"
-							/>
-							<textarea
-								value={field.ai_instruction}
-								oninput={(e) =>
-									service.updateCustomFieldProp(i, 'ai_instruction', e.currentTarget.value)}
-								placeholder="AI instruction (e.g. Where this item should be stored)"
-								rows="2"
-								class="input resize-none text-sm"
-							></textarea>
+					{#if service.customFieldDefs.length > 0}
+						<div class="grid gap-4 sm:grid-cols-2">
+							{#each service.customFieldDefs as field, i (i)}
+								{#if editingFieldIndex === i}
+									<!-- Edit mode: inline name + instruction inputs -->
+									<div
+										class="space-y-2 rounded-lg border border-primary-500/40 bg-neutral-800/50 p-3"
+									>
+										<div class="flex items-center justify-between">
+											<span class="text-xs font-medium text-primary-400">Editing</span>
+											<div class="flex items-center gap-1">
+												<button
+													type="button"
+													class="btn-icon-touch text-success-400 hover:text-success-300"
+													title="Done editing"
+													onclick={() => (editingFieldIndex = null)}
+												>
+													<Check size={14} strokeWidth={2} />
+												</button>
+												<button
+													type="button"
+													class="btn-icon-touch text-error-400 hover:text-error-300"
+													title="Remove field"
+													onclick={() => {
+														service.removeCustomField(i);
+														editingFieldIndex = null;
+													}}
+												>
+													<Trash2 size={14} strokeWidth={1.5} />
+												</button>
+											</div>
+										</div>
+										<input
+											type="text"
+											value={field.name}
+											oninput={(e) =>
+												service.updateCustomFieldProp(i, 'name', e.currentTarget.value)}
+											placeholder="Field name (e.g. Storage Location)"
+											class="input text-sm"
+										/>
+										<textarea
+											value={field.ai_instruction}
+											oninput={(e) =>
+												service.updateCustomFieldProp(i, 'ai_instruction', e.currentTarget.value)}
+											placeholder="AI instruction (e.g. Where this item should be stored)"
+											rows="3"
+											class="input resize-none text-sm"
+										></textarea>
+									</div>
+								{:else}
+									<!-- Display mode: matches Default Fields card pattern -->
+									<div
+										class="space-y-2 rounded-lg border border-neutral-700/50 bg-neutral-800/50 p-3"
+									>
+										<div class="flex items-center justify-between">
+											<label
+												for="custom-field-{i}"
+												class="block text-sm font-semibold text-neutral-100"
+											>
+												{field.name || 'Untitled Field'}
+											</label>
+											<div class="flex items-center gap-1">
+												<button
+													type="button"
+													class="btn-icon-touch text-neutral-400 hover:text-primary-400"
+													title="Edit field"
+													onclick={() => (editingFieldIndex = i)}
+												>
+													<Settings2 size={14} strokeWidth={2} />
+												</button>
+												<button
+													type="button"
+													class="btn-icon-touch hover:text-error-400 text-neutral-400"
+													title="Remove field"
+													onclick={() => service.removeCustomField(i)}
+												>
+													<Trash2 size={14} strokeWidth={1.5} />
+												</button>
+											</div>
+										</div>
+										<textarea
+											id="custom-field-{i}"
+											value={field.ai_instruction}
+											oninput={(e) =>
+												service.updateCustomFieldProp(i, 'ai_instruction', e.currentTarget.value)}
+											placeholder="AI instruction for this field"
+											rows="1"
+											class="input resize-none text-sm transition-all duration-200"
+											onfocus={(e) => {
+												e.currentTarget.rows = 3;
+											}}
+											onblur={(e) => {
+												e.currentTarget.rows = 1;
+											}}
+										></textarea>
+									</div>
+								{/if}
+							{/each}
 						</div>
-					{/each}
+					{/if}
 
-					<div class="flex gap-3">
-						<Button variant="ghost" size="sm" onclick={() => service.addCustomField()}>
-							<Plus size={16} strokeWidth={2} />
-							Add Field
-						</Button>
-						<Button
-							variant="primary"
-							onclick={() => service.saveCustomFields()}
-							disabled={service.customFieldsSaveState === 'saving' ||
-								service.customFieldsSaveState === 'success'}
-						>
-							{#if service.customFieldsSaveState === 'saving'}
-								<div
-									class="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-								></div>
-								<span>Saving...</span>
-							{:else if service.customFieldsSaveState === 'success'}
-								<Check class="text-success-500" size={16} strokeWidth={2.5} />
-								<span>Saved!</span>
-							{:else}
-								<Check size={16} strokeWidth={2} />
-								<span>Save Custom Fields</span>
-							{/if}
-						</Button>
-					</div>
+					<Button
+						variant="ghost"
+						size="sm"
+						onclick={() => {
+							service.addCustomField();
+							editingFieldIndex = service.customFieldDefs.length - 1;
+						}}
+					>
+						<Plus size={16} strokeWidth={2} />
+						Add Field
+					</Button>
 				</div>
 			{/if}
 		</div>
 
 		<!-- ================================================================= -->
-		<!-- SHARED SAVE BUTTON (persists General Settings + Default Fields)    -->
+		<!-- SHARED SAVE BUTTON (persists all settings)                         -->
 		<!-- ================================================================= -->
 		<div class="flex gap-3 border-t border-neutral-800 pt-4">
 			<Button
@@ -456,59 +472,6 @@
 					<span>Save</span>
 				{/if}
 			</Button>
-		</div>
-	{/if}
-
-	<!-- Docker Persistence Warning & Export -->
-	<div class="space-y-3 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4">
-		<div class="flex items-start gap-2">
-			<TriangleAlert class="mt-0.5 flex-shrink-0 text-warning-500" size={20} strokeWidth={1.5} />
-			<div>
-				<p class="mb-1 text-sm font-medium text-warning-500">Docker users</p>
-				<p class="text-xs text-neutral-400">
-					Customizations are stored in a config file that may be lost when updating your container.
-					Export as environment variables to persist settings.
-				</p>
-			</div>
-		</div>
-
-		<button
-			type="button"
-			class="flex w-full items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/20 px-4 py-2.5 text-sm font-medium text-warning-500 transition-all hover:bg-warning-500/30"
-			onclick={() => (showEnvExport = !showEnvExport)}
-		>
-			<Copy size={16} strokeWidth={1.5} />
-			<span>Export as Environment Variables</span>
-		</button>
-	</div>
-
-	{#if showEnvExport}
-		<div class="space-y-2">
-			<div class="flex items-center justify-between">
-				<span class="text-xs font-medium text-neutral-400">
-					Add these to your docker-compose.yml or .env file
-				</span>
-				<button
-					type="button"
-					class="flex min-h-[36px] items-center gap-1 rounded-lg bg-primary-600/20 px-3 py-1.5 text-xs text-primary-400 transition-colors hover:bg-primary-600/30"
-					onclick={copyEnvVars}
-					aria-label="Copy environment variables"
-				>
-					{#if envCopied}
-						<Check size={16} />
-						<span>Copied!</span>
-					{:else}
-						<Copy size={16} />
-						<span>Copy</span>
-					{/if}
-				</button>
-			</div>
-			<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
-				<pre
-					class="overflow-x-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{service.generateEnvVars(
-						service.fieldPrefs
-					)}</pre>
-			</div>
 		</div>
 	{/if}
 

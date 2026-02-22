@@ -120,6 +120,8 @@ export interface ReviewItem extends ItemCore, ItemExtended {
 	compressedDataUrl?: string;
 	/** Compressed additional images for Homebox upload */
 	compressedAdditionalDataUrls?: string[];
+	/** Custom field values extracted by AI (display name → text value) */
+	custom_fields?: Record<string, string> | null;
 	/** Duplicate match info if serial matches an existing item */
 	duplicate_match?: DuplicateMatch | null;
 }
@@ -233,10 +235,12 @@ export interface ItemInput extends ItemCore, ItemExtended {
 	location_id?: string | null;
 	parent_id?: string | null;
 	insured?: boolean;
+	/** Custom field values (display name → text value) */
+	custom_fields?: Record<string, string> | null;
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended {}
+export interface MergeItem extends ItemCore, ItemExtended { }
 
 // =============================================================================
 // API TYPES - Responses
@@ -257,6 +261,8 @@ export interface DetectionResponse {
 
 /** Detected item from AI (same as ItemCore + ItemExtended) */
 export interface DetectedItem extends ItemCore, ItemExtended {
+	/** Custom field values extracted by AI (display name → text value) */
+	custom_fields?: Record<string, string> | null;
 	/** Duplicate match info if serial matches an existing item */
 	duplicate_match?: DuplicateMatch | null;
 }
