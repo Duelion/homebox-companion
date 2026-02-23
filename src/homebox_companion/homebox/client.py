@@ -288,6 +288,33 @@ class HomeboxClient:
         logger.debug("Token refresh: Successfully obtained new token")
         return data
 
+    async def validate_token(self, token: str) -> bool:
+        """Validate a token by calling Homebox's user self endpoint.
+
+        This is a lightweight check that verifies the token is accepted
+        by the Homebox server. Used by the companion app to reject
+        invalid/expired tokens before processing local-only endpoints.
+
+        Args:
+            token: The bearer token to validate.
+
+        Returns:
+            True if token is valid, False otherwise.
+        """
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/users/self",
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            return response.status_code == 200
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+            # If we can't reach Homebox, we can't validate — reject the token
+            logger.warning("Token validation failed: cannot reach Homebox server")
+            return False
+
     async def list_locations(self, token: str, *, filter_children: bool | None = None) -> list[dict[str, Any]]:
         """Return all available locations for the authenticated user.
 
