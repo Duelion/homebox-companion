@@ -138,6 +138,9 @@ class Settings(BaseSettings):
     # Auth rate limiting (brute-force protection)
     auth_rate_limit_rpm: int = 10  # Login attempts per minute per IP
 
+    # Chat rate limiting (LLM cost / abuse protection)
+    chat_rate_limit_rpm: int = 20  # Chat messages per minute per IP (0 = disabled)
+
     @computed_field
     @property
     def api_url(self) -> str:

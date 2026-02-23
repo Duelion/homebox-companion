@@ -26,12 +26,13 @@ class RateLimiter:
         self._last_cleanup = time.time()
         self._cleanup_interval = 600.0  # Cleanup every 10 minutes
 
-    def check(self, request: Request, limit: int) -> None:
+    def check(self, request: Request, limit: int, context: str = "requests") -> None:
         """Check if request exceeds rate limit.
 
         Args:
             request: The FastAPI request object
             limit: Maximum attempts allowed in window
+            context: Human-readable label for the 429 message (e.g. 'login attempts', 'messages')
 
         Raises:
             HTTPException: If rate limit exceeded (429)
@@ -55,7 +56,7 @@ class RateLimiter:
             logger.warning(f"Rate limit exceeded for IP: {client_ip}")
             raise HTTPException(
                 status_code=429,
-                detail=f"Too many login attempts. Try again in {int(self.window_seconds)} seconds.",
+                detail=f"Too many {context}. Try again in {int(self.window_seconds)} seconds.",
                 headers={"Retry-After": str(int(self.window_seconds))},
             )
 
@@ -116,7 +117,7 @@ async def login(request: LoginRequest, client_request: Request) -> LoginResponse
     Rate limited to prevent brute-force attacks (configurable via HBC_AUTH_RATE_LIMIT_RPM).
     """
     # Verify rate limit
-    _limiter.check(client_request, settings.auth_rate_limit_rpm)
+    _limiter.check(client_request, settings.auth_rate_limit_rpm, context="login attempts")
 
     logger.info("Login attempt")
     logger.debug(f"Login: HBC_HOMEBOX_URL configured as: {settings.homebox_url}")
