@@ -31,6 +31,16 @@ export const auth = {
 		}),
 
 	/**
+	 * Logout from Homebox, invalidating the current token on the server.
+	 * Best-effort: failures are caught so local logout always proceeds.
+	 */
+	logout: () =>
+		request('/logout', {
+			method: 'POST',
+			skipAuthRetry: true,
+		}),
+
+	/**
 	 * Validate if the current token is still valid.
 	 * Makes a lightweight request to /locations to test the token.
 	 * Returns a result object indicating validity and the reason.

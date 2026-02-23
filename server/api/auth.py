@@ -151,3 +151,17 @@ async def refresh_token(
         expires_at=data.get("expiresAt", ""),
     )
 
+
+@router.post("/logout", status_code=204)
+async def logout(
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    """Logout from Homebox, invalidating the current token.
+
+    Calls the Homebox server to revoke the token so it can no longer be used.
+    """
+    token = get_token(authorization)
+    client = get_client()
+    await client.logout(token)
+    logger.info("User logged out successfully")
+
