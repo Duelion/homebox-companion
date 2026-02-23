@@ -51,20 +51,10 @@
 </script>
 
 <section class="card space-y-4">
-	<div class="flex items-center justify-between">
-		<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
-			<SlidersHorizontal class="text-primary-400" size={20} strokeWidth={1.5} />
-			Configure AI Output
-		</h2>
-		{#if service.saveState === 'success'}
-			<span
-				class="inline-flex items-center gap-2 rounded-full bg-success-500/20 px-3 py-1.5 text-sm font-medium text-success-500"
-			>
-				<Check size={16} strokeWidth={2.5} />
-				Saved
-			</span>
-		{/if}
-	</div>
+	<h2 class="flex items-center gap-2 text-body-lg font-semibold text-neutral-100">
+		<SlidersHorizontal class="text-primary-400" size={20} strokeWidth={1.5} />
+		Configure AI Output
+	</h2>
 
 	<p class="text-body-sm text-neutral-400">
 		Customize how the AI generates item data. Leave fields empty to use default behavior.
@@ -301,11 +291,6 @@
 			>
 				<Layers class="text-primary-400" size={20} strokeWidth={1.5} />
 				<span>Custom Fields</span>
-				{#if service.customFieldDefs.length > 0}
-					<span class="rounded-full bg-primary-600/30 px-2 py-0.5 text-xs text-primary-400">
-						{service.customFieldDefs.length}
-					</span>
-				{/if}
 				<ChevronDown
 					class="ml-auto transition-transform {service.showCustomFields ? 'rotate-180' : ''}"
 					size={16}
@@ -440,12 +425,62 @@
 			{/if}
 		</div>
 
+		<!-- Prompt Preview Section -->
+		<div class="border-t border-neutral-800 pt-4">
+			<button
+				type="button"
+				class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+				onclick={() => service.togglePromptPreview()}
+				disabled={service.isLoading.promptPreview}
+			>
+				{#if service.isLoading.promptPreview}
+					<div
+						class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+					></div>
+					<span>Generating preview...</span>
+				{:else}
+					<Eye size={20} strokeWidth={1.5} />
+					<span>Preview AI Prompt</span>
+					<ChevronDown
+						class="ml-auto transition-transform {service.showPromptPreview ? 'rotate-180' : ''}"
+						size={16}
+					/>
+				{/if}
+			</button>
+
+			{#if service.showPromptPreview && service.promptPreview}
+				<div class="mt-3 space-y-2">
+					<div class="flex items-center justify-between">
+						<span class="text-xs font-medium text-neutral-400">System Prompt Preview</span>
+						<button
+							type="button"
+							class="btn-icon-touch"
+							onclick={() => (promptFullscreen = true)}
+							title="Expand fullscreen"
+							aria-label="View prompt fullscreen"
+						>
+							<Maximize2 size={20} strokeWidth={1.5} />
+						</button>
+					</div>
+					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
+						<pre
+							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{service.promptPreview}</pre>
+					</div>
+					<p class="text-xs text-neutral-500">
+						This is what the AI will see when analyzing your images. Tags shown are examples; actual
+						tags from your Homebox instance will be used.
+					</p>
+				</div>
+			{/if}
+		</div>
+
 		<!-- ================================================================= -->
 		<!-- SHARED SAVE BUTTON (persists all settings)                         -->
 		<!-- ================================================================= -->
-		<div class="flex gap-3 border-t border-neutral-800 pt-4">
+		<div class="border-t border-neutral-800 pt-4">
 			<Button
 				variant="primary"
+				full
 				onclick={() => service.saveFieldPrefs()}
 				disabled={service.saveState === 'saving' || service.saveState === 'success'}
 			>
@@ -466,55 +501,6 @@
 			</Button>
 		</div>
 	{/if}
-
-	<!-- Prompt Preview Section -->
-	<div class="border-t border-neutral-800 pt-4">
-		<button
-			type="button"
-			class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
-			onclick={() => service.togglePromptPreview()}
-			disabled={service.isLoading.promptPreview}
-		>
-			{#if service.isLoading.promptPreview}
-				<div
-					class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
-				></div>
-				<span>Generating preview...</span>
-			{:else}
-				<Eye size={20} strokeWidth={1.5} />
-				<span>Preview AI Prompt</span>
-				<ChevronDown
-					class="ml-auto transition-transform {service.showPromptPreview ? 'rotate-180' : ''}"
-					size={16}
-				/>
-			{/if}
-		</button>
-
-		{#if service.showPromptPreview && service.promptPreview}
-			<div class="mt-3 space-y-2">
-				<div class="flex items-center justify-between">
-					<span class="text-xs font-medium text-neutral-400">System Prompt Preview</span>
-					<button
-						type="button"
-						class="btn-icon-touch"
-						onclick={() => (promptFullscreen = true)}
-						title="Expand fullscreen"
-						aria-label="View prompt fullscreen"
-					>
-						<Maximize2 size={20} strokeWidth={1.5} />
-					</button>
-				</div>
-				<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
-					<pre
-						class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{service.promptPreview}</pre>
-				</div>
-				<p class="text-xs text-neutral-500">
-					This is what the AI will see when analyzing your images. Tags shown are examples; actual
-					tags from your Homebox instance will be used.
-				</p>
-			</div>
-		{/if}
-	</div>
 </section>
 
 <!-- Fullscreen Prompt Preview Modal -->

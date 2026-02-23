@@ -288,6 +288,32 @@ class HomeboxClient:
         logger.debug("Token refresh: Successfully obtained new token")
         return data
 
+    async def logout(self, token: str) -> None:
+        """Invalidate the current session by calling Homebox's logout endpoint.
+
+        This tells the Homebox server to revoke the token, preventing further use.
+
+        Args:
+            token: The bearer token to invalidate.
+
+        Raises:
+            HomeboxAuthError: If the token is already invalid.
+        """
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/users/logout",
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            self._ensure_success(response, "Logout")
+            logger.info("Logout: Token invalidated successfully")
+        except Exception:
+            # Best-effort: even if server-side logout fails, we still
+            # clear local state. Log but don't propagate.
+            logger.warning("Logout: Failed to invalidate token on Homebox server")
+
     async def validate_token(self, token: str) -> bool:
         """Validate a token by calling Homebox's user self endpoint.
 
