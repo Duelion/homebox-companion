@@ -34,7 +34,7 @@ def build_custom_fields_schema(custom_fields: list[CustomFieldDefinition]) -> st
     lines = ["\nCUSTOM FIELDS (always populate these for every item):"]
     for cf in custom_fields:
         # Use the field name directly — the AI will output it as a key
-        lines.append(f'- {cf.field_key}: string or null ({cf.ai_instruction})')
+        lines.append(f"- {cf.field_key}: string or null ({cf.ai_instruction})")
 
     return "\n".join(lines)
 
@@ -160,9 +160,7 @@ def build_tag_prompt(tags: list[dict[str, str]] | None) -> str:
     if not tags:
         return "No tags available; omit tagIds."
 
-    tag_lines = [
-        f"- {tag['name']} (id: {tag['id']})" for tag in tags if tag.get("id") and tag.get("name")
-    ]
+    tag_lines = [f"- {tag['name']} (id: {tag['id']})" for tag in tags if tag.get("id") and tag.get("name")]
 
     if not tag_lines:
         return "No tags available; omit tagIds."

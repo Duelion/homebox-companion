@@ -44,7 +44,6 @@ from ...services.duplicate_checker import DuplicateChecker
 router = APIRouter()
 
 
-
 # Limit concurrent CPU-intensive compression to available cores.
 # This prevents 100+ parallel requests from overwhelming the CPU.
 # We track both the semaphore and the event loop it was created for,
@@ -243,7 +242,6 @@ async def detect_items(
         items=response_items,
         compressed_images=compressed_images,
     )
-
 
 
 @router.post("/analyze", response_model=AdvancedItemDetails)

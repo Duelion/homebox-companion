@@ -32,8 +32,7 @@ CUSTOM_FIELDS = [
     CustomFieldDefinition(
         name="Storage Location",
         ai_instruction=(
-            "Where this item should be stored or is typically found"
-            " (e.g. garage shelf, kitchen drawer, office desk)"
+            "Where this item should be stored or is typically found (e.g. garage shelf, kitchen drawer, office desk)"
         ),
     ),
     CustomFieldDefinition(
@@ -110,20 +109,12 @@ class TestCustomFieldsDetection:
         )
 
         # Verify both custom fields are present as keys
-        assert "Storage Location" in custom_dict, (
-            f"'Storage Location' missing from custom fields. Got: {custom_dict}"
-        )
-        assert "Condition" in custom_dict, (
-            f"'Condition' missing from custom fields. Got: {custom_dict}"
-        )
+        assert "Storage Location" in custom_dict, f"'Storage Location' missing from custom fields. Got: {custom_dict}"
+        assert "Condition" in custom_dict, f"'Condition' missing from custom fields. Got: {custom_dict}"
 
         # Values should be non-empty strings
-        assert custom_dict["Storage Location"].strip(), (
-            "Storage Location value should not be empty"
-        )
-        assert custom_dict["Condition"].strip(), (
-            "Condition value should not be empty"
-        )
+        assert custom_dict["Storage Location"].strip(), "Storage Location value should not be empty"
+        assert custom_dict["Condition"].strip(), "Condition value should not be empty"
 
         # Condition should be a reasonable assessment
         valid_conditions = {"new", "like new", "good", "fair", "poor", "excellent", "used", "unknown"}
@@ -181,6 +172,4 @@ class TestCustomFieldsDetection:
         )
 
         # The model class name should be the dynamic subclass
-        assert type(item).__name__ == "DynamicDetectedItem", (
-            f"Expected DynamicDetectedItem, got {type(item).__name__}"
-        )
+        assert type(item).__name__ == "DynamicDetectedItem", f"Expected DynamicDetectedItem, got {type(item).__name__}"

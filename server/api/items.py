@@ -82,9 +82,7 @@ async def create_items(
             validated_tag_ids = [tid for tid in item_input.tag_ids if tid in valid_tag_ids]
             filtered_count = len(item_input.tag_ids) - len(validated_tag_ids)
             if filtered_count > 0:
-                logger.warning(
-                    f"Filtered out {filtered_count} invalid tag ID(s) for '{item_input.name}'"
-                )
+                logger.warning(f"Filtered out {filtered_count} invalid tag ID(s) for '{item_input.name}'")
 
         detected_item = DetectedItem(
             name=item_input.name,

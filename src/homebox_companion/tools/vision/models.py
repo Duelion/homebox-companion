@@ -76,7 +76,6 @@ class DetectedItem(BaseModel):
         )
 
 
-
 class HomeboxItemField(BaseModel):
     """Typed representation of a Homebox custom field value.
 
@@ -176,6 +175,7 @@ def get_single_item_adapter(
 # Custom field value extraction
 # ---------------------------------------------------------------------------
 
+
 def _iter_custom_values(
     item: DetectedItem,
     custom_field_defs: list[CustomFieldDefinition],
@@ -204,8 +204,7 @@ def get_custom_fields_payload(
         return None
 
     fields = [
-        HomeboxItemField(name=name, textValue=value)
-        for name, value in _iter_custom_values(item, custom_field_defs)
+        HomeboxItemField(name=name, textValue=value) for name, value in _iter_custom_values(item, custom_field_defs)
     ]
     return fields if fields else None
 
@@ -230,4 +229,3 @@ def get_custom_fields_dict(
 
     result = dict(_iter_custom_values(item, custom_field_defs))
     return result if result else None
-

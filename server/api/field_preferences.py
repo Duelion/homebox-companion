@@ -144,5 +144,3 @@ async def get_prompt_preview(
     )
 
     return PromptPreviewResponse(prompt=prompt)
-
-
