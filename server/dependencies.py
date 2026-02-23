@@ -288,7 +288,7 @@ def get_client() -> HomeboxClient:
 
 async def get_token(
     authorization: Annotated[str | None, Header()] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,  # type: ignore[assignment]
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> str:
     """Extract and validate bearer token from Authorization header.
 
@@ -548,7 +548,7 @@ async def get_vision_context(
     Returns:
         VisionContext with all required data for vision endpoints.
     """
-    token = get_token(authorization)
+    token = await get_token(authorization)
 
     # Load field preferences from header if provided (demo mode), otherwise from file
     if x_field_preferences:

@@ -151,10 +151,7 @@ def _settings_to_yaml_dict(settings: PersistentSettings) -> dict:
         "version": settings.version,
         "llm_profiles": profiles,
         "field_preferences": settings.field_preferences.model_dump(),
-        "custom_fields": [
-            {"name": cf.name, "ai_instruction": cf.ai_instruction}
-            for cf in settings.custom_fields
-        ],
+        "custom_fields": [{"name": cf.name, "ai_instruction": cf.ai_instruction} for cf in settings.custom_fields],
     }
 
 

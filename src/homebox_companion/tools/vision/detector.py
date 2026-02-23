@@ -107,12 +107,20 @@ async def _detect_items_from_data_uris(
     # Build prompts
     if multi_image:
         system_prompt = build_multi_image_system_prompt(
-            tags, single_item, extract_extended_fields, field_preferences, output_language,
+            tags,
+            single_item,
+            extract_extended_fields,
+            field_preferences,
+            output_language,
             custom_fields=custom_fields,
         )
     else:
         system_prompt = build_detection_system_prompt(
-            tags, single_item, extract_extended_fields, field_preferences, output_language,
+            tags,
+            single_item,
+            extract_extended_fields,
+            field_preferences,
+            output_language,
             custom_fields=custom_fields,
         )
 
@@ -140,4 +148,3 @@ async def _detect_items_from_data_uris(
             )
 
     return items
-

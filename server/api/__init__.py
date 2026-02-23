@@ -35,4 +35,3 @@ api_router.include_router(qr_router, tags=["qr"])
 api_router.include_router(vision_router, prefix="/tools/vision", tags=["vision"])
 
 __all__ = ["api_router"]
-

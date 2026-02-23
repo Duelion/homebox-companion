@@ -151,3 +151,13 @@ ignore_names = [
     "end_time",
 ]
 
+[tool.deptry]
+# Deptry dependency checker configuration
+# homebox_companion is our own package (monorepo: server/ imports from src/)
+known_first_party = ["homebox_companion"]
+# DEP002: python-multipart is implicitly required by FastAPI for file uploads
+# DEP003: pydantic via pydantic-settings; starlette via fastapi
+per_rule_ignores = { "DEP002" = ["python-multipart"], "DEP003" = ["pydantic", "starlette"] }
+
+
+

@@ -25,6 +25,7 @@ def _configure_loguru_for_tests():
     yield
     logger.remove()
 
+
 # Demo server URL for integration tests
 DEMO_HOMEBOX_URL = "https://demo.homebox.software"
 DEMO_USERNAME = "demo@example.com"

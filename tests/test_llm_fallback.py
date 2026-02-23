@@ -287,9 +287,7 @@ class TestLLMClientWithRouter:
             with patch.object(router, "acompletion", new_callable=AsyncMock) as mock_completion:
                 mock_completion.return_value = mock_response
 
-                result = await client.complete(
-                    messages=[{"role": "user", "content": "test"}]
-                )
+                result = await client.complete(messages=[{"role": "user", "content": "test"}])
 
                 assert result.content == "Test response"
                 mock_completion.assert_called_once()
@@ -333,9 +331,7 @@ class TestLLMClientWithRouter:
                 mock_completion.return_value = mock_stream()
 
                 chunks = []
-                async for chunk in client.complete_stream(
-                    messages=[{"role": "user", "content": "test"}]
-                ):
+                async for chunk in client.complete_stream(messages=[{"role": "user", "content": "test"}]):
                     chunks.append(chunk)
 
                 assert len(chunks) == 2
@@ -480,12 +476,8 @@ class TestSettingsInvalidation:
                 "homebox_companion.core.llm_router.get_fallback_profile",
                 return_value=None,
             ),
-            patch(
-                "homebox_companion.core.persistent_settings.SETTINGS_FILE"
-            ) as mock_file,
-            patch(
-                "homebox_companion.core.persistent_settings.DATA_DIR"
-            ) as mock_dir,
+            patch("homebox_companion.core.persistent_settings.SETTINGS_FILE") as mock_file,
+            patch("homebox_companion.core.persistent_settings.DATA_DIR") as mock_dir,
         ):
             mock_dir.mkdir = MagicMock()
             mock_file.write_text = MagicMock()

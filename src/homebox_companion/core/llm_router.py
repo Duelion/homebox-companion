@@ -217,24 +217,27 @@ def _build_router_from_profiles() -> Router:
     if primary_creds.api_base:
         primary_params["api_base"] = primary_creds.api_base
 
-    model_list.append({
-        "model_name": "primary",
-        "litellm_params": primary_params,
-    })
+    model_list.append(
+        {
+            "model_name": "primary",
+            "litellm_params": primary_params,
+        }
+    )
 
     logger.debug(
-        f"Router primary deployment: model={primary_creds.model}, "
-        f"profile={primary_creds.profile_name or 'env'}"
+        f"Router primary deployment: model={primary_creds.model}, profile={primary_creds.profile_name or 'env'}"
     )
 
     # Add fallback deployment if configured
     fallback = get_fallback_profile()
     if fallback:
         fallback_params = _profile_to_params(fallback, inherit_key=primary_creds.api_key)
-        model_list.append({
-            "model_name": "fallback",
-            "litellm_params": fallback_params,
-        })
+        model_list.append(
+            {
+                "model_name": "fallback",
+                "litellm_params": fallback_params,
+            }
+        )
         logger.debug(f"Router fallback deployment: model={fallback.model}")
 
     # Configure Router with fallback chain

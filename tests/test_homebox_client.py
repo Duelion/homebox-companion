@@ -399,9 +399,7 @@ async def test_create_and_delete_item_cleanup_workflow(
 
 
 @pytest.mark.asyncio
-async def test_logout_invalidates_token(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> None:
+async def test_logout_invalidates_token(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
     """Logout should invalidate the token so subsequent API calls fail."""
     username, password = homebox_credentials
 

@@ -141,7 +141,7 @@ async def refresh_token(
     Exchanges the current valid token for a new one with extended expiry.
     Returns the new token and expiry time.
     """
-    token = get_token(authorization)
+    token = await get_token(authorization)
     client = get_client()
 
     data = await client.refresh_token(token)
@@ -160,8 +160,7 @@ async def logout(
 
     Calls the Homebox server to revoke the token so it can no longer be used.
     """
-    token = get_token(authorization)
+    token = await get_token(authorization)
     client = get_client()
     await client.logout(token)
     logger.info("User logged out successfully")
-
