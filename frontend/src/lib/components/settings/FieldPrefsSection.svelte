@@ -20,6 +20,7 @@
 		Plus,
 		Trash2,
 		Layers,
+		Pencil,
 		Settings2,
 		FileText,
 	} from 'lucide-svelte';
@@ -78,7 +79,7 @@
 		</div>
 	{:else}
 		{#if service.errors.fieldPrefs}
-			<div class="rounded-xl border border-error-500/30 bg-error-500/10 p-4 text-sm text-error-500">
+			<div class="rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm text-error-500">
 				{service.errors.fieldPrefs}
 			</div>
 		{/if}
@@ -108,7 +109,7 @@
 			{#if service.showGeneralSettings}
 				<div class="mt-3 space-y-4">
 					<!-- Output Language -->
-					<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+					<div class="space-y-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<Languages class="text-primary-400" size={20} strokeWidth={1.5} />
@@ -152,7 +153,7 @@
 					</div>
 
 					<!-- Default Tag -->
-					<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+					<div class="space-y-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<Tag class="text-primary-400" size={20} strokeWidth={1.5} />
@@ -193,7 +194,7 @@
 					</div>
 
 					<!-- Naming Examples -->
-					<div class="space-y-3 rounded-xl border border-primary-500/20 bg-primary-600/10 p-4">
+					<div class="space-y-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<FileText class="text-primary-400" size={20} strokeWidth={1.5} />
@@ -260,7 +261,7 @@
 			{#if service.showDefaultFields}
 				<div class="mt-3 grid gap-4 sm:grid-cols-2">
 					{#each FIELD_META as field (field.key)}
-						<div class="space-y-2 rounded-lg border border-neutral-700/50 bg-neutral-800/50 p-3">
+						<div class="space-y-2 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3">
 							<div class="flex items-center justify-between">
 								<label for={field.key} class="block text-sm font-semibold text-neutral-100">
 									{field.label}
@@ -338,7 +339,7 @@
 								{#if editingFieldIndex === i}
 									<!-- Edit mode: inline name + instruction inputs -->
 									<div
-										class="space-y-2 rounded-lg border border-primary-500/40 bg-neutral-800/50 p-3"
+										class="space-y-2 rounded-xl border border-primary-500/40 bg-neutral-800/30 p-3"
 									>
 										<div class="flex items-center justify-between">
 											<span class="text-xs font-medium text-primary-400">Editing</span>
@@ -384,7 +385,7 @@
 								{:else}
 									<!-- Display mode: matches Default Fields card pattern -->
 									<div
-										class="space-y-2 rounded-lg border border-neutral-700/50 bg-neutral-800/50 p-3"
+										class="space-y-2 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3"
 									>
 										<div class="flex items-center justify-between">
 											<label
@@ -400,13 +401,18 @@
 													title="Edit field"
 													onclick={() => (editingFieldIndex = i)}
 												>
-													<Settings2 size={14} strokeWidth={2} />
+													<Pencil size={14} strokeWidth={2} />
 												</button>
 												<button
 													type="button"
 													class="btn-icon-touch hover:text-error-400 text-neutral-400"
 													title="Remove field"
-													onclick={() => service.removeCustomField(i)}
+													onclick={() => {
+														service.removeCustomField(i);
+														if (editingFieldIndex !== null && i < editingFieldIndex) {
+															editingFieldIndex--;
+														}
+													}}
 												>
 													<Trash2 size={14} strokeWidth={1.5} />
 												</button>

@@ -226,7 +226,7 @@
 						{#if profile.status !== 'primary'}
 							<button
 								type="button"
-								class="hover:text-success-400 min-h-touch min-w-touch rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
+								class="btn-icon-touch hover:text-success-400"
 								title="Set as active profile"
 								aria-label="Set as active profile"
 								onclick={() => handleActivate(profile.name)}
@@ -236,7 +236,7 @@
 						{/if}
 						<button
 							type="button"
-							class="min-h-touch min-w-touch rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50 hover:text-primary-400"
+							class="btn-icon-touch hover:text-primary-400"
 							title="Test connection"
 							aria-label="Test connection"
 							disabled={testingProfile === profile.name}
@@ -252,7 +252,7 @@
 						</button>
 						<button
 							type="button"
-							class="min-h-touch min-w-touch rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-100"
+							class="btn-icon-touch hover:text-neutral-100"
 							title="Edit"
 							aria-label="Edit profile"
 							onclick={() => openEditModal(profile)}
@@ -261,7 +261,7 @@
 						</button>
 						<button
 							type="button"
-							class="hover:text-error-400 min-h-touch min-w-touch rounded-lg p-2 text-neutral-400 hover:bg-neutral-700/50"
+							class="btn-icon-touch hover:text-error-400"
 							title="Delete"
 							aria-label="Delete profile"
 							onclick={() => handleDelete(profile.name)}
