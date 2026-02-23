@@ -225,13 +225,6 @@
 							class="input resize-none text-sm"
 						></textarea>
 					</div>
-
-					<div class="flex justify-end pt-1">
-						<Button variant="secondary" size="sm" onclick={() => service.resetGeneralSettings()}>
-							<RotateCcw size={14} strokeWidth={2} />
-							<span>Reset</span>
-						</Button>
-					</div>
 				</div>
 			{/if}
 		</div>
@@ -293,13 +286,6 @@
 							></textarea>
 						</div>
 					{/each}
-				</div>
-
-				<div class="mt-3 flex justify-end">
-					<Button variant="secondary" size="sm" onclick={() => service.resetDefaultFields()}>
-						<RotateCcw size={14} strokeWidth={2} />
-						<span>Reset</span>
-					</Button>
 				</div>
 			{/if}
 		</div>

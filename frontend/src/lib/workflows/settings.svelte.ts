@@ -481,28 +481,6 @@ class SettingsService {
 		this.promptPreview = null;
 	}
 
-	/**
-	 * Reset all General Settings fields (output_language, default_tag_id, naming_examples).
-	 * Local-only: user must Save to persist.
-	 */
-	resetGeneralSettings(): void {
-		this.fieldPrefs.output_language = null;
-		this.fieldPrefs.default_tag_id = null;
-		this.fieldPrefs.naming_examples = null;
-		this.promptPreview = null;
-	}
-
-	/**
-	 * Reset all Default Fields (FIELD_META keys).
-	 * Local-only: user must Save to persist.
-	 */
-	resetDefaultFields(): void {
-		for (const field of FIELD_META) {
-			this.fieldPrefs[field.key] = null;
-		}
-		this.promptPreview = null;
-	}
-
 	toggleGeneralSettings(): void {
 		this.showGeneralSettings = !this.showGeneralSettings;
 	}
