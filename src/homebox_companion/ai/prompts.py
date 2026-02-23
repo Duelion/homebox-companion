@@ -33,8 +33,8 @@ def build_custom_fields_schema(custom_fields: list[CustomFieldDefinition]) -> st
 
     lines = ["\nCUSTOM FIELDS (always populate these for every item):"]
     for cf in custom_fields:
-        # Use the field name directly — the AI will output it as a key
-        lines.append(f"- {cf.field_key}: string or null ({cf.ai_instruction})")
+        # Use camelCase key to match default fields (modelNumber, serialNumber, etc.)
+        lines.append(f"- {cf.prompt_key}: string or null ({cf.ai_instruction})")
 
     return "\n".join(lines)
 

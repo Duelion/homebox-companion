@@ -91,6 +91,23 @@ class CustomFieldDefinition(BaseModel):
         key = re.sub(r"[^a-z0-9]+", "_", self.name.lower()).strip("_")
         return key if key else "field"
 
+    @property
+    def prompt_key(self) -> str:
+        """CamelCase key for AI prompts and JSON schema aliases.
+
+        Uses Pydantic's built-in ``to_camel`` to match the casing convention
+        of default fields (e.g. modelNumber, serialNumber) so customs and
+        defaults are consistent in the prompt.
+
+        Examples:
+            "Main Material"                → "mainMaterial"
+            "Can it be used to boil water?" → "canItBeUsedToBoilWater"
+            "Price ($)"                    → "price"
+        """
+        from pydantic.alias_generators import to_camel
+
+        return to_camel(self.field_key)
+
 
 class PersistentSettings(BaseModel):
     """Unified application settings stored in YAML.

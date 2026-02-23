@@ -102,35 +102,35 @@ _DEFAULT_SINGLE_ADAPTER: TypeAdapter[DetectedItem] = TypeAdapter(DetectedItem)
 
 @lru_cache(maxsize=4)
 def _build_cached_model(
-    cache_key: tuple[tuple[str, str, str], ...],
+    cache_key: tuple[tuple[str, str, str, str], ...],
 ) -> type[DetectedItem]:
     """Cached dynamic model factory — rebuilds only when definitions change.
 
-    The cache key is a frozen tuple of ``(field_key, name, ai_instruction)``
-    triples, making invalidation automatic: any edit to custom field
+    The cache key is a frozen tuple of ``(field_key, prompt_key, name, ai_instruction)``
+    tuples, making invalidation automatic: any edit to custom field
     definitions produces a new key → cache miss → new model.
     ``maxsize=4`` gracefully handles the brief window during settings updates
     where old and new configs might coexist across concurrent requests.
     """
     dynamic_fields: dict = {}
-    for key, _name, instruction in cache_key:
+    for key, prompt_key, _name, instruction in cache_key:
         dynamic_fields[key] = (
             str | None,
-            Field(default=None, description=instruction),
+            Field(default=None, description=instruction, alias=prompt_key),
         )
     return create_model("DynamicDetectedItem", __base__=DetectedItem, **dynamic_fields)
 
 
 def _to_cache_key(
     custom_field_defs: list[CustomFieldDefinition],
-) -> tuple[tuple[str, str, str], ...]:
+) -> tuple[tuple[str, str, str, str], ...]:
     """Convert custom field defs to a hashable cache key."""
-    return tuple((cf.field_key, cf.name, cf.ai_instruction) for cf in custom_field_defs)
+    return tuple((cf.field_key, cf.prompt_key, cf.name, cf.ai_instruction) for cf in custom_field_defs)
 
 
 @lru_cache(maxsize=4)
 def _build_cached_list_adapter(
-    cache_key: tuple[tuple[str, str, str], ...],
+    cache_key: tuple[tuple[str, str, str, str], ...],
 ) -> TypeAdapter:
     """Cached TypeAdapter[list[DynamicDetectedItem]] factory."""
     model = _build_cached_model(cache_key)
@@ -139,7 +139,7 @@ def _build_cached_list_adapter(
 
 @lru_cache(maxsize=4)
 def _build_cached_single_adapter(
-    cache_key: tuple[tuple[str, str, str], ...],
+    cache_key: tuple[tuple[str, str, str, str], ...],
 ) -> TypeAdapter:
     """Cached TypeAdapter[DynamicDetectedItem] factory."""
     model = _build_cached_model(cache_key)
