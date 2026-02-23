@@ -306,6 +306,9 @@ def create_app() -> FastAPI:
         description="AI-powered tools for Homebox inventory management",
         version=__version__,
         lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     # Request-ID middleware (must be added first to wrap all requests)

@@ -51,3 +51,8 @@ docs/contributor_analysis/**
 
 # Bundle analyzer output
 frontend/stats.html
+
+# Test/audit artifacts
+test_results.txt
+security_audit*.txt
+config/field_preferences.json

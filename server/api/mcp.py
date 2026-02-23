@@ -19,12 +19,12 @@ from homebox_companion import settings
 from homebox_companion.mcp.executor import ToolExecutor
 from homebox_companion.mcp.types import ToolPermission
 
-from ..dependencies import get_executor
+from ..dependencies import get_executor, require_auth
 
 router = APIRouter()
 
 
-@router.get("/mcp/v1/tools")
+@router.get("/mcp/v1/tools", dependencies=[Depends(require_auth)])
 async def list_mcp_tools(
     executor: Annotated[ToolExecutor, Depends(get_executor)],
 ) -> JSONResponse:
