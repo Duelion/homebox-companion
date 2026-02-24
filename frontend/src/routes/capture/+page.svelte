@@ -16,7 +16,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import { AssetIdInput } from '$lib/components/form';
@@ -25,6 +24,7 @@
 		TriangleAlert,
 		RefreshCw,
 		ChevronRight,
+		ChevronLeft,
 		Trash2,
 		ChevronDown,
 		X,
@@ -441,25 +441,32 @@
 
 	<!-- Current location display -->
 	{#if locationPath}
-		<BackLink href="/location" label="Change Location" onclick={goBack} disabled={isAnalyzing} />
+		<div class="mb-3 mt-2 flex items-center gap-2 text-body-sm text-neutral-400">
+			<!-- Back arrow button, vertically centered between the two lines -->
+			<button
+				type="button"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-neutral-400 transition-colors hover:bg-primary-500/20 hover:text-neutral-200"
+				aria-label="Change location"
+				onclick={goBack}
+				disabled={isAnalyzing}
+			>
+				<ChevronLeft size={24} strokeWidth={2} />
+			</button>
 
-		<div class="mb-3 mt-2 flex flex-col gap-2 text-body-sm text-neutral-400">
-			<!-- Location block -->
-			<div class="flex flex-col gap-1">
+			<!-- Location info -->
+			<div class="flex flex-col gap-0.5">
 				<div class="flex items-center gap-2">
 					<MapPin class="shrink-0" size={16} strokeWidth={1.5} />
 					<span>Items will be added to:</span>
 				</div>
 				<span class="pl-6 font-semibold text-neutral-200">{locationPath}</span>
+				{#if parentItemName}
+					<div class="flex items-center gap-2 pl-6">
+						<span class="text-neutral-500">Inside:</span>
+						<span class="font-semibold text-primary-400">{parentItemName}</span>
+					</div>
+				{/if}
 			</div>
-
-			<!-- Parent item block (if present) -->
-			{#if parentItemName}
-				<div class="flex items-center gap-2 pl-6 sm:pl-0">
-					<span class="text-neutral-500">Inside:</span>
-					<span class="font-semibold text-primary-400">{parentItemName}</span>
-				</div>
-			{/if}
 		</div>
 	{/if}
 

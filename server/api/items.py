@@ -82,9 +82,7 @@ async def create_items(
             validated_tag_ids = [tid for tid in item_input.tag_ids if tid in valid_tag_ids]
             filtered_count = len(item_input.tag_ids) - len(validated_tag_ids)
             if filtered_count > 0:
-                logger.warning(
-                    f"Filtered out {filtered_count} invalid tag ID(s) for '{item_input.name}'"
-                )
+                logger.warning(f"Filtered out {filtered_count} invalid tag ID(s) for '{item_input.name}'")
 
         detected_item = DetectedItem(
             name=item_input.name,
@@ -114,10 +112,11 @@ async def create_items(
             item_id = result.get("id")
             logger.info(f"Created item: {result.get('name')} (id: {item_id})")
 
-            # Step 2: If there are extended fields, update the item
-            if item_id and detected_item.has_extended_fields():
-                extended_payload = detected_item.get_extended_fields_payload()
-                if extended_payload:
+            # Step 2: If there are extended fields or custom fields, update the item
+            has_custom = bool(item_input.custom_fields)
+            if item_id and (detected_item.has_extended_fields() or has_custom):
+                extended_payload = detected_item.get_extended_fields_payload() or {}
+                if extended_payload or has_custom:
                     logger.debug(f"  Updating with extended fields: {extended_payload.keys()}")
                     try:
                         # Get the full item to merge with extended fields
@@ -131,6 +130,15 @@ async def create_items(
                             "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
                             **extended_payload,
                         }
+                        # Include custom fields as typed Homebox ItemField objects
+                        if item_input.custom_fields:
+                            from homebox_companion.tools.vision.models import HomeboxItemField
+
+                            update_data["fields"] = [
+                                HomeboxItemField(name=name, textValue=value).model_dump(by_alias=True)
+                                for name, value in item_input.custom_fields.items()
+                                if value  # skip empty/null values
+                            ]
                         # Preserve parentId if it was set
                         if item_input.parent_id:
                             update_data["parentId"] = item_input.parent_id

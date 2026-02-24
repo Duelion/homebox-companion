@@ -16,6 +16,7 @@
 	import {
 		ItemCoreFields,
 		ItemExtendedFields,
+		ItemCustomFields,
 		TagSelector,
 		AssetIdInput,
 	} from '$lib/components/form';
@@ -49,6 +50,7 @@
 	// Local UI state
 	let editedItem = $state<ReviewItem | null>(null);
 	let showExtendedFields = $state(false);
+	let showCustomFields = $state(false);
 	let showImagesPanel = $state(false);
 	let showAiCorrection = $state(false);
 	let showThumbnailEditor = $state(false);
@@ -72,11 +74,16 @@
 		);
 	}
 
+	// Check if item has any custom field data
+	function hasCustomFieldData(item: ReviewItem | null): boolean {
+		if (!item?.custom_fields) return false;
+		return Object.keys(item.custom_fields).length > 0;
+	}
+
 	// Sync editedItem when currentItem changes
 	$effect(() => {
 		if (currentItem) {
 			editedItem = { ...currentItem };
-			showAiCorrection = false;
 			// Build unified images array: original first, then additional
 			const imageArray = [
 				...(currentItem.originalFile ? [currentItem.originalFile] : []),
@@ -84,6 +91,7 @@
 			];
 			allImages = imageArray;
 			showExtendedFields = hasExtendedFieldData(currentItem);
+			showCustomFields = hasCustomFieldData(currentItem);
 			showImagesPanel = false;
 			showAiCorrection = false;
 		}
@@ -93,6 +101,16 @@
 	function toggleExtendedFields() {
 		showExtendedFields = !showExtendedFields;
 		if (showExtendedFields) {
+			showCustomFields = false;
+			showImagesPanel = false;
+			showAiCorrection = false;
+		}
+	}
+
+	function toggleCustomFields() {
+		showCustomFields = !showCustomFields;
+		if (showCustomFields) {
+			showExtendedFields = false;
 			showImagesPanel = false;
 			showAiCorrection = false;
 		}
@@ -102,6 +120,7 @@
 		showImagesPanel = !showImagesPanel;
 		if (showImagesPanel) {
 			showExtendedFields = false;
+			showCustomFields = false;
 			showAiCorrection = false;
 		}
 	}
@@ -110,6 +129,7 @@
 		showAiCorrection = !showAiCorrection;
 		if (showAiCorrection) {
 			showExtendedFields = false;
+			showCustomFields = false;
 			showImagesPanel = false;
 		}
 	}
@@ -292,6 +312,7 @@
 					purchase_price: corrected.purchase_price ?? null,
 					purchase_from: corrected.purchase_from ?? null,
 					notes: corrected.notes ?? null,
+					custom_fields: corrected.custom_fields ?? editedItem.custom_fields,
 				};
 
 				// Visual feedback is sufficient - form updates are visible
@@ -455,6 +476,16 @@
 					onToggle={toggleExtendedFields}
 					idPrefix="review"
 				/>
+
+				<!-- Custom fields panel (only when custom fields are configured) -->
+				{#if editedItem.custom_fields && Object.keys(editedItem.custom_fields).length > 0}
+					<ItemCustomFields
+						bind:customFields={editedItem.custom_fields}
+						expanded={showCustomFields}
+						onToggle={toggleCustomFields}
+						idPrefix="review"
+					/>
+				{/if}
 
 				<!-- Images panel -->
 				<ImagesPanel

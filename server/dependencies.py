@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import threading
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
@@ -15,6 +18,7 @@ from homebox_companion import HomeboxAuthError, HomeboxClient, settings
 if TYPE_CHECKING:
     from homebox_companion.chat.session import ChatSession
     from homebox_companion.chat.store import SessionStoreProtocol
+    from homebox_companion.core.persistent_settings import CustomFieldDefinition
     from homebox_companion.mcp.executor import ToolExecutor
 
 from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
@@ -201,6 +205,73 @@ class ToolExecutorHolder:
 tool_executor_holder = ToolExecutorHolder()
 
 
+class TokenValidator:
+    """Validates tokens against Homebox with in-memory TTL cache.
+
+    On first use of a token, calls Homebox's ``GET /users/self`` to verify it.
+    Valid tokens are cached (by hash) so subsequent requests skip the check.
+    Cache entries expire after ``ttl`` seconds, forcing re-validation.
+
+    Thread-safety: Uses a lock to protect the cache dict, matching the
+    pattern used by ``MemorySessionStore``.
+    """
+
+    # Default TTL: 5 minutes
+    _DEFAULT_TTL = 5 * 60
+    # Cleanup interval: sweep expired entries at most once per 5 minutes
+    _CLEANUP_INTERVAL = 300
+
+    def __init__(self, ttl: int | None = None) -> None:
+        self._ttl = ttl or self._DEFAULT_TTL
+        self._cache: dict[str, float] = {}  # token_hash -> validated_at
+        self._lock = threading.Lock()
+        self._last_cleanup: float = time.time()
+
+    @staticmethod
+    def _hash(token: str) -> str:
+        return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+    def _maybe_cleanup_expired(self) -> None:
+        """Sweep expired entries. Caller must hold self._lock."""
+        now = time.time()
+        if now - self._last_cleanup < self._CLEANUP_INTERVAL:
+            return
+        self._last_cleanup = now
+        expired = [k for k, ts in self._cache.items() if now - ts > self._ttl]
+        for k in expired:
+            del self._cache[k]
+        if expired:
+            logger.debug(f"Token cache: cleaned up {len(expired)} expired entries")
+
+    def is_cached(self, token: str) -> bool:
+        """Check if a token is in the valid cache and not expired."""
+        key = self._hash(token)
+        with self._lock:
+            self._maybe_cleanup_expired()
+            ts = self._cache.get(key)
+            if ts is None:
+                return False
+            if time.time() - ts > self._ttl:
+                del self._cache[key]
+                return False
+            return True
+
+    def mark_valid(self, token: str) -> None:
+        """Cache a token as validated."""
+        key = self._hash(token)
+        with self._lock:
+            self._cache[key] = time.time()
+
+    def reset(self) -> None:
+        """Clear all cached validations."""
+        with self._lock:
+            self._cache.clear()
+
+
+# Singleton token validator
+token_validator = TokenValidator()
+
+
 # =============================================================================
 # CORE DEPENDENCIES (defined first so they can be used in Depends())
 # =============================================================================
@@ -215,13 +286,32 @@ def get_client() -> HomeboxClient:
     return client_holder.get()
 
 
-def get_token(authorization: Annotated[str | None, Header()] = None) -> str:
-    """Extract bearer token from Authorization header."""
+async def get_token(
+    authorization: Annotated[str | None, Header()] = None,
+    client: Annotated[HomeboxClient, Depends(get_client)] = None,
+) -> str:
+    """Extract and validate bearer token from Authorization header.
+
+    Validates the token against Homebox on first use, then caches the
+    result for subsequent requests (TTL-based expiration).
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization format")
-    return authorization[7:]
+
+    raw_token = authorization[7:]
+
+    # Check cache first — skip Homebox call if recently validated
+    if token_validator.is_cached(raw_token):
+        return raw_token
+
+    # Validate against Homebox
+    if client and await client.validate_token(raw_token):
+        token_validator.mark_valid(raw_token)
+        return raw_token
+
+    raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 # =============================================================================
@@ -429,6 +519,7 @@ class VisionContext:
         field_preferences: Custom field instructions dict, or None if no customizations.
         output_language: Configured output language, or None for default (English).
         default_tag_id: ID of tag to auto-add, or None.
+        custom_fields: User-defined custom field definitions for AI detection.
     """
 
     token: str
@@ -436,6 +527,7 @@ class VisionContext:
     field_preferences: dict[str, str] | None
     output_language: str | None
     default_tag_id: str | None
+    custom_fields: list[CustomFieldDefinition]
 
 
 async def get_vision_context(
@@ -456,7 +548,7 @@ async def get_vision_context(
     Returns:
         VisionContext with all required data for vision endpoints.
     """
-    token = get_token(authorization)
+    token = await get_token(authorization)
 
     # Load field preferences from header if provided (demo mode), otherwise from file
     if x_field_preferences:
@@ -475,6 +567,11 @@ async def get_vision_context(
     # Determine output language (None means use default English)
     output_language = None if prefs.output_language.lower() == "english" else prefs.output_language
 
+    # Load custom field definitions from persistent settings
+    from homebox_companion.core.persistent_settings import get_settings
+
+    persistent = get_settings()
+
     return VisionContext(
         token=token,
         tags=await get_tags_for_context(token),
@@ -482,4 +579,5 @@ async def get_vision_context(
         field_preferences=prefs.get_effective_customizations(),
         output_language=output_language,
         default_tag_id=prefs.default_tag_id,
+        custom_fields=persistent.custom_fields,
     )

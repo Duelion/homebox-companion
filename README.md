@@ -132,7 +132,7 @@ Open `http://localhost:8000` in your browser.
 ### Customization
 - Configure how AI formats each field (name style, description format, etc.)
 - Set a default tag for all detected items
-- Export settings as environment variables for Docker persistence
+- Define custom Homebox fields with AI instructions (the AI populates them during detection)
 
 ### Chat Assistant
 - **Natural language queries** – Ask questions like "How many items do I have?" or "List my tags"
@@ -340,6 +340,7 @@ When deploying to production, review these security settings:
 |----------|---------|---------------------------|
 | `HBC_CORS_ORIGINS` | `*` | Set to specific origins (e.g., `https://your-domain.com`) |
 | `HBC_AUTH_RATE_LIMIT_RPM` | `10` | Login attempts per minute per IP (brute-force protection) |
+| `HBC_CHAT_RATE_LIMIT_RPM` | `20` | Chat messages per minute per IP (LLM cost protection) |
 
 **CORS Example:**
 ```bash
@@ -374,8 +375,6 @@ Customize how AI formats detected item fields. Set via environment variables or 
 | `HBC_AI_NOTES` | Custom instructions for notes |
 | `HBC_AI_NAMING_EXAMPLES` | Example names to guide the AI |
 
-**Tip:** The Settings page has an "Export as Environment Variables" button.
-
 </details>
 
 ## 💡 Tips
@@ -384,7 +383,7 @@ Customize how AI formats detected item fields. Set via environment variables or 
 - **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
 - **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
 - **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
-- **Use the Settings page** – Customize AI behavior without restarting, then export settings as environment variables for Docker.
+- **Use the Settings page** – Customize AI behavior, define custom fields, and manage LLM profiles without restarting.
 - **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.
 
 ## 📄 License

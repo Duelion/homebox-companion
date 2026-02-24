@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from loguru import logger
-from pydantic import TypeAdapter
 
 from ...ai.images import encode_image_bytes_to_data_uri
 from ...ai.llm import vision_completion
-from .models import DetectedItem
+from .models import DetectedItem, get_items_adapter
 from .prompts import (
     build_detection_system_prompt,
     build_detection_user_prompt,
     build_multi_image_system_prompt,
 )
 
-# Module-level TypeAdapter for validating lists of DetectedItem from LLM output.
-# Creating TypeAdapter is relatively expensive, so we do it once at import time.
-_DETECTED_ITEMS_ADAPTER: TypeAdapter[list[DetectedItem]] = TypeAdapter(list[DetectedItem])
+if TYPE_CHECKING:
+    from ...core.persistent_settings import CustomFieldDefinition
 
 
 async def detect_items_from_bytes(
@@ -29,6 +29,7 @@ async def detect_items_from_bytes(
     additional_images: list[tuple[bytes, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
+    custom_fields: list[CustomFieldDefinition] | None = None,
 ) -> list[DetectedItem]:
     """Use LLM vision model to detect items from raw image bytes.
 
@@ -43,6 +44,7 @@ async def detect_items_from_bytes(
             additional images showing the same item(s) from different angles.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
+        custom_fields: Optional list of custom field definitions.
 
     Returns:
         List of detected items with quantities, descriptions, and optionally
@@ -63,6 +65,7 @@ async def detect_items_from_bytes(
         extract_extended_fields=extract_extended_fields,
         field_preferences=field_preferences,
         output_language=output_language,
+        custom_fields=custom_fields,
     )
 
 
@@ -74,6 +77,7 @@ async def _detect_items_from_data_uris(
     extract_extended_fields: bool = False,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
+    custom_fields: list[CustomFieldDefinition] | None = None,
 ) -> list[DetectedItem]:
     """Core detection logic supporting multiple images.
 
@@ -85,6 +89,7 @@ async def _detect_items_from_data_uris(
         extract_extended_fields: If True, also extract manufacturer, etc.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
+        custom_fields: Optional list of custom field definitions.
     """
     if not image_data_uris:
         return []
@@ -97,15 +102,26 @@ async def _detect_items_from_data_uris(
     logger.debug(f"Tags provided: {len(tags) if tags else 0}")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
+    logger.debug(f"Custom fields: {len(custom_fields) if custom_fields else 0}")
 
     # Build prompts
     if multi_image:
         system_prompt = build_multi_image_system_prompt(
-            tags, single_item, extract_extended_fields, field_preferences, output_language
+            tags,
+            single_item,
+            extract_extended_fields,
+            field_preferences,
+            output_language,
+            custom_fields=custom_fields,
         )
     else:
         system_prompt = build_detection_system_prompt(
-            tags, single_item, extract_extended_fields, field_preferences, output_language
+            tags,
+            single_item,
+            extract_extended_fields,
+            field_preferences,
+            output_language,
+            custom_fields=custom_fields,
         )
 
     user_prompt = build_detection_user_prompt(extra_instructions, extract_extended_fields, multi_image, single_item)
@@ -118,8 +134,9 @@ async def _detect_items_from_data_uris(
         expected_keys=["items"],
     )
 
-    # Validate LLM output with Pydantic
-    items = _DETECTED_ITEMS_ADAPTER.validate_python(parsed_content.get("items", []))
+    # Validate LLM output with Pydantic (dynamic model if custom fields configured)
+    adapter = get_items_adapter(custom_fields)
+    items = adapter.validate_python(parsed_content.get("items", []))
 
     logger.info(f"Detected {len(items)} items from {len(image_data_uris)} image(s)")
     for item in items:

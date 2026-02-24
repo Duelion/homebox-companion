@@ -297,15 +297,11 @@ async def json_completion(
     logger.debug("Sending repair request to Router...")
 
     try:
-        repair_kwargs = _build_completion_kwargs(
-            repair_messages, model_name, effective_timeout, response_format
-        )
+        repair_kwargs = _build_completion_kwargs(repair_messages, model_name, effective_timeout, response_format)
         repair_completion = await router.acompletion(**repair_kwargs)
     except Exception as e:
         logger.error(f"Repair request failed: {e}")
-        raise JSONRepairError(
-            f"Failed to repair JSON response. Original error: {error}. Repair error: {e}"
-        ) from e
+        raise JSONRepairError(f"Failed to repair JSON response. Original error: {error}. Repair error: {e}") from e
 
     if not repair_completion.choices:
         raise JSONRepairError("LLM returned empty response during repair attempt")
@@ -325,6 +321,5 @@ async def json_completion(
     # Repair failed
     logger.error(f"JSON repair failed: {repaired_error}")
     raise JSONRepairError(
-        f"AI returned invalid JSON that could not be repaired. "
-        f"Original error: {error}. Repair error: {repaired_error}."
+        f"AI returned invalid JSON that could not be repaired. Original error: {error}. Repair error: {repaired_error}."
     )

@@ -9,9 +9,18 @@
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
+	import { auth } from '$lib/api/auth';
+	import { authLogger as log } from '$lib/utils/logger';
 	import Button from '$lib/components/Button.svelte';
 
-	function handleLogout() {
+	async function handleLogout() {
+		// Invalidate token on the Homebox server (best-effort)
+		try {
+			await auth.logout();
+		} catch (e) {
+			log.warn('Server-side logout failed, proceeding with local cleanup', e);
+		}
+
 		scanWorkflow.reset();
 		resetLocationState();
 		settingsService.reset();

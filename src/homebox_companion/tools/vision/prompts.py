@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from ...ai.prompts import (
     build_critical_constraints,
+    build_custom_fields_schema,
     build_extended_fields_schema,
     build_item_schema,
     build_language_instruction,
     build_naming_examples,
     build_tag_prompt,
 )
+
+if TYPE_CHECKING:
+    from ...core.persistent_settings import CustomFieldDefinition
 
 
 def build_detection_system_prompt(
@@ -18,6 +24,7 @@ def build_detection_system_prompt(
     extract_extended_fields: bool = False,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
+    custom_fields: list[CustomFieldDefinition] | None = None,
 ) -> str:
     """Build the system prompt for item detection.
 
@@ -35,6 +42,7 @@ def build_detection_system_prompt(
         extract_extended_fields: If True, include extended fields schema.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for output (default: English).
+        custom_fields: Optional list of custom field definitions.
 
     Returns:
         Complete system prompt string.
@@ -47,6 +55,7 @@ def build_detection_system_prompt(
     critical = build_critical_constraints(single_item)
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
+    custom_schema = build_custom_fields_schema(custom_fields or [])
     naming_examples = build_naming_examples(field_preferences)
     tag_prompt = build_tag_prompt(tags)
 
@@ -60,7 +69,8 @@ def build_detection_system_prompt(
         f"{critical}\n\n"
         # 4. Schema
         f"{item_schema}"
-        f"{extended_schema}\n\n"
+        f"{extended_schema}"
+        f"{custom_schema}\n\n"
         # 5. Naming examples
         f"{naming_examples}\n\n"
         # 6. Tags
@@ -121,6 +131,7 @@ def build_multi_image_system_prompt(
     extract_extended_fields: bool = False,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
+    custom_fields: list[CustomFieldDefinition] | None = None,
 ) -> str:
     """Build system prompt for multi-image detection.
 
@@ -130,6 +141,7 @@ def build_multi_image_system_prompt(
         extract_extended_fields: If True, include extended fields schema.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for output (default: English).
+        custom_fields: Optional list of custom field definitions.
 
     Returns:
         Complete system prompt string.
@@ -142,6 +154,7 @@ def build_multi_image_system_prompt(
     critical = build_critical_constraints(single_item)
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
+    custom_schema = build_custom_fields_schema(custom_fields or [])
     naming_examples = build_naming_examples(field_preferences)
     tag_prompt = build_tag_prompt(tags)
 
@@ -161,7 +174,8 @@ def build_multi_image_system_prompt(
         f"{critical}\n\n"
         # 4. Schema
         f"{item_schema}"
-        f"{extended_schema}\n\n"
+        f"{extended_schema}"
+        f"{custom_schema}\n\n"
         # 5. Naming examples
         f"{naming_examples}\n\n"
         # 6. Tags
@@ -174,6 +188,7 @@ def build_discriminatory_system_prompt(
     extract_extended_fields: bool = True,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
+    custom_fields: list[CustomFieldDefinition] | None = None,
 ) -> str:
     """Build system prompt for discriminatory (detailed) detection.
 
@@ -184,6 +199,7 @@ def build_discriminatory_system_prompt(
         extract_extended_fields: If True, include extended fields schema.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for output (default: English).
+        custom_fields: Optional list of custom field definitions.
 
     Returns:
         Complete system prompt string.
@@ -195,6 +211,7 @@ def build_discriminatory_system_prompt(
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences) if extract_extended_fields else ""
+    custom_schema = build_custom_fields_schema(custom_fields or [])
     naming_examples = build_naming_examples(field_preferences)
     tag_prompt = build_tag_prompt(tags)
 
@@ -211,7 +228,8 @@ def build_discriminatory_system_prompt(
         "- Only use what's visible - do NOT guess\n\n"
         # 4. Schema
         f"{item_schema}"
-        f"{extended_schema}\n\n"
+        f"{extended_schema}"
+        f"{custom_schema}\n\n"
         # 5. Naming examples
         f"{naming_examples}\n\n"
         # 6. Tags
@@ -240,6 +258,7 @@ def build_analysis_system_prompt(
     tags: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
+    custom_fields: list[CustomFieldDefinition] | None = None,
 ) -> str:
     """Build system prompt for detailed item analysis from multiple images.
 
@@ -252,6 +271,7 @@ def build_analysis_system_prompt(
         tags: Optional list of tag dicts for assignment.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for output (default: English).
+        custom_fields: Optional list of custom field definitions.
 
     Returns:
         Complete system prompt string.
@@ -261,6 +281,7 @@ def build_analysis_system_prompt(
     language_instr = build_language_instruction(output_language)
     naming_examples = build_naming_examples(field_preferences)
     tag_prompt = build_tag_prompt(tags)
+    custom_schema = build_custom_fields_schema(custom_fields or [])
 
     # Build item context
     item_context = f"Item: '{item_name}'"
@@ -293,7 +314,8 @@ def build_analysis_system_prompt(
         f"- manufacturer: string or null ({mfr_instr})\n"
         f"- purchasePrice: number or null ({price_instr})\n"
         f"- notes: string or null ({notes_instr})\n"
-        "- tagIds: array of applicable tag IDs\n\n"
+        "- tagIds: array of applicable tag IDs\n"
+        f"{custom_schema}\n\n"
         # 5. Naming
         f"{naming_examples}\n\n"
         # 6. Tags

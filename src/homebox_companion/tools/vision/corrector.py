@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from loguru import logger
 
 from ...ai.llm import vision_completion
 from ...ai.prompts import (
+    build_custom_fields_schema,
     build_extended_fields_schema,
     build_item_schema,
     build_language_instruction,
     build_naming_examples,
     build_tag_prompt,
 )
+from .models import DetectedItem, get_items_adapter
+
+if TYPE_CHECKING:
+    from ...core.persistent_settings import CustomFieldDefinition
 
 
 async def correct_item(
@@ -21,7 +28,8 @@ async def correct_item(
     tags: list[dict[str, str]] | None = None,
     field_preferences: dict[str, str] | None = None,
     output_language: str | None = None,
-) -> list[dict]:
+    custom_fields: list[CustomFieldDefinition] | None = None,
+) -> list[DetectedItem]:
     """Correct or split an item based on user feedback.
 
     This function takes an item, its image, and user correction instructions
@@ -36,15 +44,17 @@ async def correct_item(
         tags: Optional list of Homebox tags to suggest for items.
         field_preferences: Optional dict of field customization instructions.
         output_language: Target language for AI output (default: English).
+        custom_fields: Optional custom field definitions for AI extraction.
 
     Returns:
-        List of corrected item dictionaries.
+        List of corrected DetectedItem instances (validated through Pydantic).
     """
 
     logger.info(f"Correcting item '{current_item.get('name')}' with user instructions")
     logger.debug(f"User correction: {correction_instructions}")
     logger.debug(f"Field preferences: {len(field_preferences) if field_preferences else 0}")
     logger.debug(f"Output language: {output_language or 'English (default)'}")
+    logger.debug(f"Custom fields: {len(custom_fields) if custom_fields else 0}")
 
     # Ensure field_preferences is a dict (empty dict if None)
     field_preferences = field_preferences or {}
@@ -53,6 +63,7 @@ async def correct_item(
     language_instr = build_language_instruction(output_language)
     item_schema = build_item_schema(field_preferences)
     extended_schema = build_extended_fields_schema(field_preferences)
+    custom_fields_schema = build_custom_fields_schema(custom_fields or [])
     naming_examples = build_naming_examples(field_preferences)
     tag_prompt = build_tag_prompt(tags)
 
@@ -70,10 +81,12 @@ async def correct_item(
         "- Always verify against the image\n\n"
         # 4. Schema
         f"{item_schema}\n"
-        f"{extended_schema}\n\n"
-        # 5. Naming
+        f"{extended_schema}\n"
+        # 5. Custom fields (if any)
+        f"{custom_fields_schema}\n\n"
+        # 6. Naming
         f"{naming_examples}\n\n"
-        # 6. Tags
+        # 7. Tags
         f"{tag_prompt}"
     )
 
@@ -95,14 +108,18 @@ async def correct_item(
         expected_keys=["items"],
     )
 
-    items = parsed_content.get("items", [])
+    raw_items = parsed_content.get("items", [])
 
     # If the response is a single item dict (not in array), wrap it
-    if not items and isinstance(parsed_content, dict) and "name" in parsed_content:
-        items = [parsed_content]
+    if not raw_items and isinstance(parsed_content, dict) and "name" in parsed_content:
+        raw_items = [parsed_content]
+
+    # Validate through Pydantic (same dynamic model as detector)
+    adapter = get_items_adapter(custom_fields)
+    items = adapter.validate_python(raw_items)
 
     logger.info(f"Correction resulted in {len(items)} item(s)")
     for item in items:
-        logger.debug(f"  Corrected item: {item.get('name')}, qty: {item.get('quantity', 1)}")
+        logger.debug(f"  Corrected item: {item.name}, qty: {item.quantity}")
 
     return items

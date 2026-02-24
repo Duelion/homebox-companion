@@ -19,7 +19,7 @@
 	import {
 		MapPin,
 		ImageIcon,
-		SquarePen,
+		Pencil,
 		Trash2,
 		BarChart3,
 		Package,
@@ -297,7 +297,7 @@
 							disabled={isSubmitting}
 							onclick={() => editItem(index)}
 						>
-							<SquarePen size={20} strokeWidth={1.5} />
+							<Pencil size={20} strokeWidth={1.5} />
 						</button>
 						<button
 							type="button"

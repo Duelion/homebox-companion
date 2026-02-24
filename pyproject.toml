@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "homebox-companion"
-version = "2.4.2"
+version = "2.5.0"
 description = "AI-powered companion app for Homebox - detect and catalog household items from photos"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -88,6 +88,12 @@ markers = [
     "integration: tests with mocked external services or temp files",
     "live: tests requiring real external services (OpenAI, Homebox demo)",
 ]
+filterwarnings = [
+    # aiohttp: enable_cleanup_closed is a no-op in Python 3.12.8+
+    "ignore:enable_cleanup_closed:DeprecationWarning:aiohttp",
+    # LiteLLM: logging worker drops unawaited coroutine during shutdown
+    "ignore:coroutine 'Logging.async_success_handler' was never awaited:RuntimeWarning",
+]
 
 [tool.ty]
 # Ty type checker configuration
@@ -144,4 +150,14 @@ ignore_names = [
     "start_time",
     "end_time",
 ]
+
+[tool.deptry]
+# Deptry dependency checker configuration
+# homebox_companion is our own package (monorepo: server/ imports from src/)
+known_first_party = ["homebox_companion"]
+# DEP002: python-multipart is implicitly required by FastAPI for file uploads
+# DEP003: pydantic via pydantic-settings; starlette via fastapi
+per_rule_ignores = { "DEP002" = ["python-multipart"], "DEP003" = ["pydantic", "starlette"] }
+
+
 
