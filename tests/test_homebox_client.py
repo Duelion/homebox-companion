@@ -396,3 +396,24 @@ async def test_create_and_delete_item_cleanup_workflow(
         # Confirm deletion
         with pytest.raises(HomeboxAPIError):
             await client.get_item(token, item_id)
+
+
+@pytest.mark.asyncio
+async def test_logout_invalidates_token(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
+    """Logout should invalidate the token so subsequent API calls fail."""
+    username, password = homebox_credentials
+
+    async with HomeboxClient(base_url=homebox_api_url) as client:
+        response = await client.login(username, password)
+        token = response["token"]
+
+        # Sanity check: token works before logout
+        locations = await client.list_locations(token)
+        assert isinstance(locations, list)
+
+        # Logout should succeed without raising
+        await client.logout(token)
+
+        # Token should now be invalidated — using it should fail
+        with pytest.raises((HomeboxAuthError, HomeboxAPIError)):
+            await client.list_locations(token)

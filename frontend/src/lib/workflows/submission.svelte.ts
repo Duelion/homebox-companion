@@ -227,6 +227,7 @@ export class SubmissionService {
 				purchase_price: confirmedItem.purchase_price,
 				purchase_from: confirmedItem.purchase_from,
 				notes: confirmedItem.notes,
+				custom_fields: confirmedItem.custom_fields,
 			};
 
 			const response = await itemsApi.create(

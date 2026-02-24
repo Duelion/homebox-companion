@@ -14,12 +14,14 @@ import {
 	downloadLLMDebugLogs,
 	getVersion,
 	fieldPreferences,
+	customFields,
 	setDemoMode,
 	getEmptyPreferences,
 	type ConfigResponse,
 	type LogsResponse,
 	type FieldPreferences,
 	type EffectiveDefaults,
+	type CustomFieldDefinition,
 } from '$lib/api/settings';
 import { tags as tagsApi } from '$lib/api';
 import type { Tag } from '$lib/types';
@@ -62,78 +64,20 @@ const DEFAULT_LOG_LINES = 300;
 export interface FieldMeta {
 	key: keyof FieldPreferences;
 	label: string;
-	example: string;
 }
 
 /** Field metadata for display in the preferences form */
 export const FIELD_META: FieldMeta[] = [
-	{
-		key: 'name',
-		label: 'Name',
-		example: '"Ball Bearing 6900-2RS 10x22x6mm", "LED Strip COB Green 5V 1M"',
-	},
-	{
-		key: 'naming_examples',
-		label: 'Naming Examples',
-		example: 'Comma-separated examples that show the AI how to format names',
-	},
-	{
-		key: 'description',
-		label: 'Description',
-		example: '"Minor scratches on casing", "New in packaging"',
-	},
-	{
-		key: 'quantity',
-		label: 'Quantity',
-		example: '5 identical screws = qty 5, but 2 sizes = 2 separate items',
-	},
-	{
-		key: 'manufacturer',
-		label: 'Manufacturer',
-		example: 'DeWalt, Vallejo (NOT "Shenzhen XYZ Technology Co.")',
-	},
-	{
-		key: 'model_number',
-		label: 'Model Number',
-		example: '"DCD771C2", "72.034"',
-	},
-	{
-		key: 'serial_number',
-		label: 'Serial Number',
-		example: 'Look for "S/N:", "Serial:" markings',
-	},
-	{
-		key: 'purchase_price',
-		label: 'Purchase Price',
-		example: '29.99 (not "$29.99")',
-	},
-	{
-		key: 'purchase_from',
-		label: 'Purchase From',
-		example: '"Amazon", "Home Depot"',
-	},
-	{
-		key: 'notes',
-		label: 'Notes',
-		example: 'For defects/warnings only. Include GOOD/BAD examples for clarity.',
-	},
+	{ key: 'name', label: 'Name' },
+	{ key: 'description', label: 'Description' },
+	{ key: 'quantity', label: 'Quantity' },
+	{ key: 'manufacturer', label: 'Manufacturer' },
+	{ key: 'model_number', label: 'Model Number' },
+	{ key: 'serial_number', label: 'Serial Number' },
+	{ key: 'purchase_price', label: 'Purchase Price' },
+	{ key: 'purchase_from', label: 'Purchase From' },
+	{ key: 'notes', label: 'Notes' },
 ];
-
-/** Environment variable mapping for export */
-export const ENV_VAR_MAPPING: Record<keyof FieldPreferences, string> = {
-	output_language: 'HBC_AI_OUTPUT_LANGUAGE',
-	default_tag_id: 'HBC_AI_DEFAULT_TAG_ID',
-	name: 'HBC_AI_NAME',
-	description: 'HBC_AI_DESCRIPTION',
-	quantity: 'HBC_AI_QUANTITY',
-	manufacturer: 'HBC_AI_MANUFACTURER',
-	model_number: 'HBC_AI_MODEL_NUMBER',
-	serial_number: 'HBC_AI_SERIAL_NUMBER',
-	purchase_price: 'HBC_AI_PURCHASE_PRICE',
-	purchase_from: 'HBC_AI_PURCHASE_FROM',
-	notes: 'HBC_AI_NOTES',
-	naming_examples: 'HBC_AI_NAMING_EXAMPLES',
-};
 
 // =============================================================================
 // SETTINGS SERVICE CLASS
@@ -181,9 +125,18 @@ class SettingsService {
 
 	fieldPrefs = $state<FieldPreferences>(getEmptyPreferences());
 	effectiveDefaults = $state<EffectiveDefaults | null>(null);
-	showFieldPrefs = $state(false);
+
+	showGeneralSettings = $state(false);
+	showDefaultFields = $state(false);
 	promptPreview = $state<string | null>(null);
 	showPromptPreview = $state(false);
+
+	// =========================================================================
+	// CUSTOM FIELDS STATE
+	// =========================================================================
+
+	customFieldDefs = $state<CustomFieldDefinition[]>([]);
+	showCustomFields = $state(false);
 
 	// =========================================================================
 	// LOADING STATES
@@ -254,6 +207,9 @@ class SettingsService {
 				this.updateAvailable = true;
 				this.latestVersion = versionResult.latest_version;
 			}
+
+			// Eagerly load field preferences and custom fields
+			await this.loadFieldPrefs();
 		} catch (error) {
 			// If it's a 401, the session expired modal will already be shown
 			log.error('Failed to load settings data:', error);
@@ -440,29 +396,25 @@ class SettingsService {
 	// FIELD PREFERENCES
 	// =========================================================================
 
-	async toggleFieldPrefs(): Promise<void> {
-		// If loading, do nothing (prevent race condition)
-		if (this.isLoading.fieldPrefs) {
-			return;
-		}
-
-		// If already loaded, just toggle visibility
-		if (this.effectiveDefaults !== null) {
-			this.showFieldPrefs = !this.showFieldPrefs;
-			return;
-		}
+	/**
+	 * Load field preferences, effective defaults, and custom fields.
+	 * Called during initialization.
+	 */
+	async loadFieldPrefs(): Promise<void> {
+		if (this.isLoading.fieldPrefs) return;
 
 		this.isLoading.fieldPrefs = true;
 		this.errors.fieldPrefs = null;
 
 		try {
-			const [prefsResult, defaultsResult] = await Promise.all([
+			const [prefsResult, defaultsResult, customResult] = await Promise.all([
 				fieldPreferences.get(),
 				fieldPreferences.getEffectiveDefaults(),
+				customFields.list(),
 			]);
 			this.fieldPrefs = prefsResult;
 			this.effectiveDefaults = defaultsResult;
-			this.showFieldPrefs = true;
+			this.customFieldDefs = customResult;
 		} catch (error) {
 			log.error('Failed to load field preferences:', error);
 			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to load preferences');
@@ -478,8 +430,22 @@ class SettingsService {
 		try {
 			// Unwrap the $state proxy to get a plain object for serialization
 			const prefsToSave = $state.snapshot(this.fieldPrefs);
-			const result = await fieldPreferences.update(prefsToSave);
-			this.fieldPrefs = result;
+
+			// Filter out empty custom field definitions before saving
+			const validCustomFields = this.customFieldDefs.filter(
+				(f) => f.name.trim() && f.ai_instruction.trim()
+			);
+			const customFieldsSnapshot = $state.snapshot(validCustomFields);
+
+			// Save field preferences and custom fields in parallel
+			const [prefsResult, customResult] = await Promise.all([
+				fieldPreferences.update(prefsToSave),
+				customFields.update(customFieldsSnapshot),
+			]);
+
+			this.fieldPrefs = prefsResult;
+			this.customFieldDefs = customResult;
+			this.promptPreview = null; // Clear cached preview
 			this.saveState = 'success';
 
 			// Reset to idle after showing success (with cleanup)
@@ -487,33 +453,8 @@ class SettingsService {
 				this.saveState = 'idle';
 			}, 2000);
 		} catch (error) {
-			log.error('Failed to save field preferences:', error);
-			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to save preferences');
-			this.saveState = 'error';
-
-			this._scheduleTimeout(() => {
-				this.saveState = 'idle';
-			}, 3000);
-		}
-	}
-
-	async resetFieldPrefs(): Promise<void> {
-		this.saveState = 'saving';
-		this.errors.fieldPrefs = null;
-
-		try {
-			const result = await fieldPreferences.reset();
-			this.fieldPrefs = result;
-			this.promptPreview = null; // Clear preview when resetting
-
-			this.saveState = 'success';
-
-			this._scheduleTimeout(() => {
-				this.saveState = 'idle';
-			}, 2000);
-		} catch (error) {
-			log.error('Failed to reset field preferences:', error);
-			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to reset preferences');
+			log.error('Failed to save settings:', error);
+			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to save settings');
 			this.saveState = 'error';
 
 			this._scheduleTimeout(() => {
@@ -529,6 +470,44 @@ class SettingsService {
 	updateFieldPref(key: keyof FieldPreferences, value: string): void {
 		this.fieldPrefs[key] = value.trim() || null;
 		this.promptPreview = null; // Clear cached preview
+	}
+
+	/**
+	 * Reset a single field preference to null (default).
+	 * Local-only: user must Save to persist.
+	 */
+	resetSingleFieldPref(key: keyof FieldPreferences): void {
+		this.fieldPrefs[key] = null;
+		this.promptPreview = null;
+	}
+
+	toggleGeneralSettings(): void {
+		this.showGeneralSettings = !this.showGeneralSettings;
+	}
+
+	toggleDefaultFields(): void {
+		this.showDefaultFields = !this.showDefaultFields;
+	}
+
+	// =========================================================================
+	// CUSTOM FIELDS
+	// =========================================================================
+
+	toggleCustomFields(): void {
+		this.showCustomFields = !this.showCustomFields;
+	}
+
+	addCustomField(): void {
+		this.customFieldDefs = [...this.customFieldDefs, { name: '', ai_instruction: '' }];
+	}
+
+	updateCustomFieldProp(index: number, prop: keyof CustomFieldDefinition, value: string): void {
+		this.customFieldDefs[index][prop] = value;
+		this.promptPreview = null; // Clear cached preview
+	}
+
+	removeCustomField(index: number): void {
+		this.customFieldDefs = this.customFieldDefs.filter((_, i) => i !== index);
 	}
 
 	// =========================================================================
@@ -552,19 +531,10 @@ class SettingsService {
 		this.isLoading.promptPreview = true;
 
 		try {
-			// Ensure field preferences are loaded first (they're needed for the preview)
-			if (this.effectiveDefaults === null) {
-				const [prefsResult, defaultsResult] = await Promise.all([
-					fieldPreferences.get(),
-					fieldPreferences.getEffectiveDefaults(),
-				]);
-				this.fieldPrefs = prefsResult;
-				this.effectiveDefaults = defaultsResult;
-			}
-
 			// Unwrap the $state proxy to get a plain object for serialization
 			const prefsForPreview = $state.snapshot(this.fieldPrefs);
-			const result = await fieldPreferences.getPromptPreview(prefsForPreview);
+			const customFieldsSnapshot = $state.snapshot(this.customFieldDefs);
+			const result = await fieldPreferences.getPromptPreview(prefsForPreview, customFieldsSnapshot);
 			this.promptPreview = result.prompt;
 			this.showPromptPreview = true;
 		} catch (error) {
@@ -575,31 +545,7 @@ class SettingsService {
 		}
 	}
 
-	// =========================================================================
-	// ENV EXPORT
-	// =========================================================================
 
-	/**
-	 * Generate environment variable string from preferences.
-	 * Only includes fields that differ from effective defaults (actual customizations).
-	 */
-	generateEnvVars(prefs: FieldPreferences): string {
-		const lines: string[] = [];
-		const defaults = this.effectiveDefaults;
-
-		for (const [key, envName] of Object.entries(ENV_VAR_MAPPING)) {
-			const value = prefs[key as keyof FieldPreferences];
-			const defaultValue = defaults?.[key as keyof FieldPreferences];
-			// Only export if value exists AND differs from the effective default
-			if (value && value !== defaultValue) {
-				// Escape quotes and wrap in quotes if contains special chars
-				const escaped = value.replace(/"/g, '\\"');
-				lines.push(`${envName}="${escaped}"`);
-			}
-		}
-
-		return lines.length > 0 ? lines.join('\n') : '# No customizations configured';
-	}
 
 	// =========================================================================
 	// VERSION CHECK
@@ -682,9 +628,13 @@ class SettingsService {
 		this.showLLMDebugLog = false;
 		this.fieldPrefs = getEmptyPreferences();
 		this.effectiveDefaults = null;
-		this.showFieldPrefs = false;
+		this.showGeneralSettings = false;
+		this.showDefaultFields = false;
 		this.promptPreview = null;
 		this.showPromptPreview = false;
+		this.customFieldDefs = [];
+		this.showCustomFields = false;
+
 		this.showAboutDetails = false;
 		this.updateCheckDone = false;
 		this.saveState = 'idle';

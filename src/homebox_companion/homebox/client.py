@@ -288,6 +288,59 @@ class HomeboxClient:
         logger.debug("Token refresh: Successfully obtained new token")
         return data
 
+    async def logout(self, token: str) -> None:
+        """Invalidate the current session by calling Homebox's logout endpoint.
+
+        This tells the Homebox server to revoke the token, preventing further use.
+
+        Args:
+            token: The bearer token to invalidate.
+
+        Raises:
+            HomeboxAuthError: If the token is already invalid.
+        """
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/users/logout",
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            self._ensure_success(response, "Logout")
+            logger.info("Logout: Token invalidated successfully")
+        except Exception:
+            # Best-effort: even if server-side logout fails, we still
+            # clear local state. Log but don't propagate.
+            logger.warning("Logout: Failed to invalidate token on Homebox server")
+
+    async def validate_token(self, token: str) -> bool:
+        """Validate a token by calling Homebox's user self endpoint.
+
+        This is a lightweight check that verifies the token is accepted
+        by the Homebox server. Used by the companion app to reject
+        invalid/expired tokens before processing local-only endpoints.
+
+        Args:
+            token: The bearer token to validate.
+
+        Returns:
+            True if token is valid, False otherwise.
+        """
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/users/self",
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            return response.status_code == 200
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+            # If we can't reach Homebox, we can't validate — reject the token
+            logger.warning("Token validation failed: cannot reach Homebox server")
+            return False
+
     async def list_locations(self, token: str, *, filter_children: bool | None = None) -> list[dict[str, Any]]:
         """Return all available locations for the authenticated user.
 

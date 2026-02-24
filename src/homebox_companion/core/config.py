@@ -36,7 +36,7 @@ field_preferences.py via FieldPreferencesDefaults.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from functools import lru_cache
 
 from pydantic import computed_field
@@ -46,7 +46,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DEMO_HOMEBOX_URL = "https://demo.homebox.software"
 
 
-class ImageQuality(str, Enum):
+class ImageQuality(StrEnum):
     """Image quality levels for Homebox uploads.
 
     Controls compression applied to images before uploading to Homebox.
@@ -137,6 +137,9 @@ class Settings(BaseSettings):
 
     # Auth rate limiting (brute-force protection)
     auth_rate_limit_rpm: int = 10  # Login attempts per minute per IP
+
+    # Chat rate limiting (LLM cost / abuse protection)
+    chat_rate_limit_rpm: int = 20  # Chat messages per minute per IP (0 = disabled)
 
     @computed_field
     @property

@@ -20,6 +20,7 @@ from homebox_companion import (
 from homebox_companion import (
     correct_item as llm_correct_item,
 )
+from homebox_companion.tools.vision.models import get_custom_fields_dict
 
 from ...dependencies import (
     VisionContext,
@@ -41,6 +42,7 @@ from ...schemas.vision import (
 from ...services.duplicate_checker import DuplicateChecker
 
 router = APIRouter()
+
 
 # Limit concurrent CPU-intensive compression to available cores.
 # This prevents 100+ parallel requests from overwhelming the CPU.
@@ -180,6 +182,7 @@ async def detect_items(
         additional_images=additional_image_data,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,
+        custom_fields=ctx.custom_fields,
     )
     compression_task = compress_all_images()
 
@@ -200,6 +203,7 @@ async def detect_items(
             purchase_price=item.purchase_price,
             purchase_from=item.purchase_from,
             notes=item.notes,
+            custom_fields=get_custom_fields_dict(item, ctx.custom_fields),
         )
         for item in detected
     ]
@@ -240,7 +244,6 @@ async def detect_items(
     )
 
 
-
 @router.post("/analyze", response_model=AdvancedItemDetails)
 async def analyze_item_advanced(
     images: Annotated[list[UploadFile], File(description="Images to analyze")],
@@ -273,19 +276,21 @@ async def analyze_item_advanced(
         tags=ctx.tags,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,
+        custom_fields=ctx.custom_fields,
     )
     logger.info("Analysis complete")
 
     # Filter out default tag from AI suggestions (frontend will auto-add it)
     return AdvancedItemDetails(
-        name=details.get("name"),
-        description=details.get("description"),
-        serial_number=details.get("serialNumber"),
-        model_number=details.get("modelNumber"),
-        manufacturer=details.get("manufacturer"),
-        purchase_price=details.get("purchasePrice"),
-        notes=details.get("notes"),
-        tag_ids=filter_default_tag(details.get("tagIds"), ctx.default_tag_id),
+        name=details.name,
+        description=details.description,
+        serial_number=details.serial_number,
+        model_number=details.model_number,
+        manufacturer=details.manufacturer,
+        purchase_price=details.purchase_price,
+        notes=details.notes,
+        tag_ids=filter_default_tag(details.tag_ids, ctx.default_tag_id),
+        custom_fields=get_custom_fields_dict(details, ctx.custom_fields),
     )
 
 
@@ -350,6 +355,7 @@ async def correct_item(
         tags=ctx.tags,
         field_preferences=ctx.field_preferences,
         output_language=ctx.output_language,
+        custom_fields=ctx.custom_fields,
     )
     logger.info(f"Correction resulted in {len(corrected_items)} item(s)")
 
@@ -357,16 +363,17 @@ async def correct_item(
     return CorrectionResponse(
         items=[
             CorrectedItemResponse(
-                name=item.get("name", "Unknown"),
-                quantity=item.get("quantity", 1),
-                description=item.get("description"),
-                tag_ids=filter_default_tag(item.get("tagIds"), ctx.default_tag_id),
-                manufacturer=item.get("manufacturer"),
-                model_number=item.get("modelNumber") or item.get("model_number"),
-                serial_number=item.get("serialNumber") or item.get("serial_number"),
-                purchase_price=item.get("purchasePrice") or item.get("purchase_price"),
-                purchase_from=item.get("purchaseFrom") or item.get("purchase_from"),
-                notes=item.get("notes"),
+                name=item.name,
+                quantity=item.quantity,
+                description=item.description,
+                tag_ids=filter_default_tag(item.tag_ids, ctx.default_tag_id),
+                manufacturer=item.manufacturer,
+                model_number=item.model_number,
+                serial_number=item.serial_number,
+                purchase_price=item.purchase_price,
+                purchase_from=item.purchase_from,
+                notes=item.notes,
+                custom_fields=get_custom_fields_dict(item, ctx.custom_fields),
             )
             for item in corrected_items
         ],

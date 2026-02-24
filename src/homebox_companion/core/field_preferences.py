@@ -97,9 +97,7 @@ class FieldPreferences(BaseSettings):
         """
         import os
 
-        return self.default_tag_id is not None and bool(
-            os.environ.get("HBC_AI_DEFAULT_LABEL_ID")
-        )
+        return self.default_tag_id is not None and bool(os.environ.get("HBC_AI_DEFAULT_LABEL_ID"))
 
     def get_effective_customizations(self) -> dict[str, str]:
         """Get customizations as dict for prompt integration.

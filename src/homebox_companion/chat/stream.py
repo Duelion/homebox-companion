@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from .session import PendingApproval
 
 
-class ChatEventType(str, Enum):
+class ChatEventType(StrEnum):
     """Types of streaming events sent to the frontend."""
 
     TEXT = "text"

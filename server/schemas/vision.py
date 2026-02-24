@@ -36,6 +36,8 @@ class DuplicateMatchResponse(BaseModel):
 class DetectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
     """Detected item from image analysis."""
 
+    # Custom field values extracted by AI (display name → text value)
+    custom_fields: dict[str, str] | None = None
     # Duplicate detection - populated if serial number matches an existing item
     duplicate_match: DuplicateMatchResponse | None = None
 
@@ -66,12 +68,13 @@ class AdvancedItemDetails(ItemExtendedFieldsMixin):
     name: str | None = None
     description: str | None = None
     tag_ids: list[str] | None = None
+    custom_fields: dict[str, str] | None = None
 
 
 class CorrectedItemResponse(ItemBaseMixin, ItemExtendedFieldsMixin):
     """A corrected item from AI analysis."""
 
-    pass
+    custom_fields: dict[str, str] | None = None
 
 
 class CorrectionResponse(BaseModel):

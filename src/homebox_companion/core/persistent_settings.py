@@ -11,8 +11,9 @@ Settings flow:
 
 from __future__ import annotations
 
+import re
 import threading
-from enum import Enum
+from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 from typing import Self
@@ -30,10 +31,10 @@ DATA_DIR = Path("data")
 SETTINGS_FILE = DATA_DIR / "settings.yaml"
 
 # Current schema version for migrations
-CURRENT_VERSION = 1
+CURRENT_VERSION = 2
 
 
-class ProfileStatus(str, Enum):
+class ProfileStatus(StrEnum):
     """Status of an LLM profile.
 
     PRIMARY: Currently in use for all AI operations
@@ -64,6 +65,50 @@ class ModelProfile(BaseModel):
     status: ProfileStatus = ProfileStatus.OFF
 
 
+class CustomFieldDefinition(BaseModel):
+    """A user-defined Homebox custom field with AI instruction.
+
+    Attributes:
+        name: Field name as it appears in Homebox (e.g., "Storage Location")
+        ai_instruction: AI prompt instruction for this field
+    """
+
+    name: str
+    ai_instruction: str
+
+    @property
+    def field_key(self) -> str:
+        """Python-safe key derived from the display name.
+
+        Strips non-alphanumeric characters, collapses underscores, and
+        ensures the result is a valid Python identifier.
+
+        Examples:
+            "Storage Location" → "storage_location"
+            "Price ($)"        → "price"
+            "A/B Test"         → "a_b_test"
+        """
+        key = re.sub(r"[^a-z0-9]+", "_", self.name.lower()).strip("_")
+        return key if key else "field"
+
+    @property
+    def prompt_key(self) -> str:
+        """CamelCase key for AI prompts and JSON schema aliases.
+
+        Uses Pydantic's built-in ``to_camel`` to match the casing convention
+        of default fields (e.g. modelNumber, serialNumber) so customs and
+        defaults are consistent in the prompt.
+
+        Examples:
+            "Main Material"                → "mainMaterial"
+            "Can it be used to boil water?" → "canItBeUsedToBoilWater"
+            "Price ($)"                    → "price"
+        """
+        from pydantic.alias_generators import to_camel
+
+        return to_camel(self.field_key)
+
+
 class PersistentSettings(BaseModel):
     """Unified application settings stored in YAML.
 
@@ -73,16 +118,19 @@ class PersistentSettings(BaseModel):
     Contains all persistent configuration:
     - LLM profiles (multi-provider support)
     - Field preferences (AI output customization)
+    - Custom fields (user-defined Homebox fields with AI instructions)
 
     Attributes:
         version: Schema version for migrations
         llm_profiles: List of configured LLM providers
         field_preferences: AI output field customizations
+        custom_fields: User-defined Homebox custom fields
     """
 
     version: int = CURRENT_VERSION
     llm_profiles: list[ModelProfile] = Field(default_factory=list)
     field_preferences: FieldPreferences = Field(default_factory=FieldPreferences)
+    custom_fields: list[CustomFieldDefinition] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_profile_constraints(self) -> Self:
@@ -120,6 +168,7 @@ def _settings_to_yaml_dict(settings: PersistentSettings) -> dict:
         "version": settings.version,
         "llm_profiles": profiles,
         "field_preferences": settings.field_preferences.model_dump(),
+        "custom_fields": [{"name": cf.name, "ai_instruction": cf.ai_instruction} for cf in settings.custom_fields],
     }
 
 
@@ -139,10 +188,16 @@ def _yaml_dict_to_settings(data: dict) -> PersistentSettings:
 
     field_prefs = data.get("field_preferences", {})
 
+    custom_fields = [
+        CustomFieldDefinition(name=cf["name"], ai_instruction=cf["ai_instruction"])
+        for cf in data.get("custom_fields", [])
+    ]
+
     return PersistentSettings(
         version=data.get("version", CURRENT_VERSION),
         llm_profiles=profiles,
         field_preferences=FieldPreferences.model_validate(field_prefs),
+        custom_fields=custom_fields,
     )
 
 
@@ -202,10 +257,10 @@ def migrate_settings(data: dict) -> dict:
     if version < CURRENT_VERSION:
         logger.info(f"Migrating settings from v{version} to v{CURRENT_VERSION}")
 
-    # Future migrations go here:
-    # if version < 2:
-    #     data = _migrate_v1_to_v2(data)
-    #     version = 2
+    # v1 → v2: Add custom_fields list
+    if version < 2:
+        data.setdefault("custom_fields", [])
+        version = 2
 
     data["version"] = CURRENT_VERSION
     return data

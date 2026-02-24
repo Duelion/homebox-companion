@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -30,8 +30,12 @@ from homebox_companion.chat.stream import StreamEmitter
 from homebox_companion.mcp.executor import ToolExecutor
 
 from ..dependencies import get_executor, get_session, get_token, session_store_holder
+from .auth import RateLimiter
 
 router = APIRouter()
+
+# Chat rate limiter (separate from login limiter)
+_chat_limiter = RateLimiter()
 
 
 class ApprovalOutcomeContext(BaseModel):
@@ -102,6 +106,7 @@ async def _event_generator(
 @router.post("/chat/messages")
 async def send_message(
     request: ChatMessageRequest,
+    client_request: Request,
     token: Annotated[str, Depends(get_token)],
     session: Annotated[ChatSession, Depends(get_session)],
     executor: Annotated[ToolExecutor, Depends(get_executor)],
@@ -130,6 +135,9 @@ async def send_message(
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
     if settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
+
+    # Rate limit chat messages to prevent LLM cost abuse
+    _chat_limiter.check(client_request, settings.chat_rate_limit_rpm, context="chat messages")
 
     # TRACE: Log incoming chat message
     logger.trace(f"[API] Incoming chat message: {request.message}")

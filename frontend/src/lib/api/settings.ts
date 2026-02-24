@@ -258,10 +258,16 @@ export const fieldPreferences = {
 		});
 	},
 
-	getPromptPreview: (prefs: Partial<FieldPreferences>) =>
+	getPromptPreview: (
+		prefs: Partial<FieldPreferences>,
+		customFieldDefs: CustomFieldDefinition[] = []
+	) =>
 		request<{ prompt: string }>('/settings/prompt-preview', {
 			method: 'POST',
-			body: JSON.stringify(filterNullValues(prefs)),
+			body: JSON.stringify({
+				field_preferences: filterNullValues(prefs),
+				custom_fields: customFieldDefs,
+			}),
 		}),
 };
 
@@ -339,5 +345,32 @@ export const llmProfiles = {
 		request<TestConnectionResponse>(`/llm/profiles/${encodeURIComponent(name)}/test`, {
 			method: 'POST',
 			body: overrides ? JSON.stringify(overrides) : undefined,
+		}),
+};
+
+// =============================================================================
+// CUSTOM FIELD DEFINITIONS
+// =============================================================================
+
+export interface CustomFieldDefinition {
+	name: string;
+	ai_instruction: string;
+}
+
+export const customFields = {
+	/** List all custom field definitions */
+	list: () => request<CustomFieldDefinition[]>('/settings/custom-fields'),
+
+	/** Replace all custom field definitions (idempotent) */
+	update: (fields: CustomFieldDefinition[]) =>
+		request<CustomFieldDefinition[]>('/settings/custom-fields', {
+			method: 'PUT',
+			body: JSON.stringify(fields),
+		}),
+
+	/** Delete a single custom field by name */
+	deleteByName: (name: string) =>
+		request<CustomFieldDefinition[]>(`/settings/custom-fields/${encodeURIComponent(name)}`, {
+			method: 'DELETE',
 		}),
 };
