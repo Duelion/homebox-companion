@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM node:22-alpine AS frontend-builder
+FROM node:22-alpine@sha256:e4bf2a82ad0a4037d28035ae71529873c069b13eb0455466ae0bc13363826e34 AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install --silent --no-progress 2>/dev/null
@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build --silent 2>/dev/null
 
 # Stage 2: Python runtime
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:9e01bf1ae5db7649a236da7be1e94ffbbbdd7a93f867dd0d8d5720d9e1f89fab
 WORKDIR /app
 
 # Install uv for dependency management and curl for health checks
