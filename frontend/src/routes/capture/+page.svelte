@@ -445,7 +445,7 @@
 			<!-- Back arrow button, vertically centered between the two lines -->
 			<button
 				type="button"
-				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-neutral-400 transition-colors hover:bg-primary-500/20 hover:text-neutral-200"
 				aria-label="Change location"
 				onclick={goBack}
 				disabled={isAnalyzing}
