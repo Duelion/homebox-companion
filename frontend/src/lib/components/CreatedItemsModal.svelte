@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Package, ExternalLink } from 'lucide-svelte';
+	import { Package, ExternalLink, ScanLine } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount } from 'svelte';
 	import Modal from './Modal.svelte';
@@ -18,9 +18,11 @@
 		items: CreatedItem[];
 		open: boolean;
 		onclose: () => void;
+		/** Called when user wants to scan sub-items for a specific parent */
+		onScanSubItems?: (id: string, name: string) => void;
 	}
 
-	let { items, open = $bindable(), onclose }: Props = $props();
+	let { items, open = $bindable(), onclose, onScanSubItems }: Props = $props();
 
 	/** Track IDs of items whose thumbnails failed to load */
 	let failedThumbnails = new SvelteSet<string>();
@@ -99,38 +101,52 @@
 								<span class="block truncate font-medium text-neutral-100">{item.name}</span>
 							</div>
 
-							<!-- External link to Homebox -->
-							{#if itemUrl}
-								<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
-								<a
-									href={itemUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-primary-400"
-									title="Open in Homebox"
-								>
-									<!-- eslint-enable svelte/no-navigation-without-resolve -->
-									<ExternalLink size={18} strokeWidth={1.5} />
-								</a>
-							{/if}
+							<!-- Actions -->
+							<div class="flex shrink-0 items-center gap-1">
+								{#if itemUrl}
+									<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
+									<a
+										href={itemUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-primary-400"
+										title="Open in Homebox"
+									>
+										<!-- eslint-enable svelte/no-navigation-without-resolve -->
+										<ExternalLink size={18} strokeWidth={1.5} />
+									</a>
+								{/if}
+							</div>
 						</div>
 
-						<!-- Labels/Tags -->
-					{#if item.tag_ids && item.tag_ids.length > 0}
-						<!-- pl-[52px] = 40px thumbnail + 12px gap, aligns tags with item name -->
-						<div class="mt-2 flex flex-wrap gap-1.5 pl-[52px]">
-							{#each item.tag_ids as tagId (tagId)}
-								{@const tagName = getTagName(tagId)}
-								{#if tagName}
-									<span
-										class="rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-0.5 text-xs text-neutral-300"
-									>
-										{tagName}
-									</span>
+						<!-- Bottom row: tags + scan action -->
+						<!-- pl-[52px] = 40px thumbnail + 12px gap, aligns with item name -->
+						{#if (item.tag_ids && item.tag_ids.length > 0) || onScanSubItems}
+							<div class="mt-2 flex flex-wrap items-center gap-1.5 pl-[52px]">
+								{#if item.tag_ids}
+									{#each item.tag_ids as tagId (tagId)}
+										{@const tagName = getTagName(tagId)}
+										{#if tagName}
+											<span
+												class="rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-0.5 text-xs text-neutral-300"
+											>
+												{tagName}
+											</span>
+										{/if}
+									{/each}
 								{/if}
-							{/each}
-						</div>
-					{/if}
+								{#if onScanSubItems}
+									<button
+										type="button"
+										class="ml-auto flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs text-primary-400 transition-colors hover:bg-primary-500/10 hover:text-primary-300"
+										onclick={() => onScanSubItems(item.id, item.name)}
+									>
+										<ScanLine size={12} strokeWidth={2} />
+										<span>Scan Sub-Items</span>
+									</button>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>
