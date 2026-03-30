@@ -2,13 +2,12 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { Check, Camera, Package, MapPin, Eye } from 'lucide-svelte';
+	import { Check, Camera, MapPin, Eye } from 'lucide-svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import Button from '$lib/components/Button.svelte';
-	import CreatedItemPickerModal from '$lib/components/CreatedItemPickerModal.svelte';
 	import CreatedItemsModal from '$lib/components/CreatedItemsModal.svelte';
 
 	const workflow = scanWorkflow;
@@ -19,8 +18,7 @@
 	// Animation state - stop ping after a few cycles
 	let showPing = $state(true);
 
-	// Modal states
-	let showParentPicker = $state(false);
+	// Modal state
 	let showItemsModal = $state(false);
 
 	// Apply route guard: requires authentication only
@@ -138,14 +136,6 @@
 			</span>
 		</Button>
 
-		<!-- Scan sub-items for created items (only show if there are created items) -->
-		{#if result?.createdItems && result.createdItems.length > 0}
-			<Button variant="secondary" full onclick={() => (showParentPicker = true)}>
-				<Package size={20} strokeWidth={1.5} />
-				<span>Scan Sub-Items</span>
-			</Button>
-		{/if}
-
 		<!-- Change location -->
 		<Button variant="secondary" full onclick={startOver}>
 			<MapPin size={20} strokeWidth={1.5} />
@@ -154,20 +144,11 @@
 	</div>
 </div>
 
-<!-- Created items modal -->
 {#if showItemsModal && result?.createdItems}
 	<CreatedItemsModal
 		items={result.createdItems}
 		bind:open={showItemsModal}
 		onclose={() => (showItemsModal = false)}
-	/>
-{/if}
-
-<!-- Parent item picker modal -->
-{#if showParentPicker && result?.createdItems}
-	<CreatedItemPickerModal
-		items={result.createdItems}
-		onSelect={handleParentSelected}
-		onClose={() => (showParentPicker = false)}
+		onScanSubItems={handleParentSelected}
 	/>
 {/if}
