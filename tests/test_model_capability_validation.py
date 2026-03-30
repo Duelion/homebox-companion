@@ -390,3 +390,15 @@ class TestCapabilityCacheing:
         # Different model should not be cached
         caps3 = get_model_capabilities("gpt-4o-mini")
         assert caps3 is not caps1
+
+    def test_structured_output_field_exists(self):
+        """Test that the renamed structured_output field works correctly."""
+        from homebox_companion.ai.model_capabilities import get_model_capabilities
+
+        get_model_capabilities.cache_clear()
+        caps = get_model_capabilities("gpt-4o")
+
+        # Verify the field exists and is a bool
+        assert isinstance(caps.structured_output, bool)
+        # gpt-4o supports structured output
+        assert caps.structured_output is True
