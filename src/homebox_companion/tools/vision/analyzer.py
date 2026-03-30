@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from ...ai.llm import vision_completion
+from ...ai.response_models import get_single_item_response_model
 from .models import DetectedItem, get_single_item_adapter
 from .prompts import build_analysis_system_prompt
 
@@ -54,10 +55,12 @@ async def analyze_item_details_from_images(
 
     user_prompt = "Analyze all images. Look at labels, stickers, engravings for details. Return only JSON."
 
+    response_model = get_single_item_response_model(custom_fields)
     parsed_content = await vision_completion(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         image_data_uris=image_data_uris,
+        response_model=response_model,
     )
 
     # Validate through Pydantic (same dynamic model as detector)

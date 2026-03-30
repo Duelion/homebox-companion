@@ -24,16 +24,15 @@ class ModelCapabilities:
         multi_image: Whether the model supports multiple images per request.
             Currently assumed True for all vision models; most modern vision
             models support this, but some may have limits on image count.
-        json_mode: Whether the model supports JSON output mode.
-            Uses LiteLLM's supports_response_schema() which checks for
-            structured output support. Models supporting structured outputs
-            also support basic JSON mode (response_format: {"type": "json_object"}).
+        structured_output: Whether the model supports structured output
+            (json_schema response format). Uses LiteLLM's
+            supports_response_schema() which checks for json_schema support.
     """
 
     model: str
     vision: bool = False
     multi_image: bool = False
-    json_mode: bool = False
+    structured_output: bool = False
 
 
 @lru_cache(maxsize=32)
@@ -44,15 +43,17 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
         model: Model identifier (e.g., "gpt-4o", "openrouter/anthropic/claude-3.5-sonnet").
 
     Returns:
-        ModelCapabilities with vision, multi_image, and json_mode flags.
+        ModelCapabilities with vision, multi_image, and structured_output flags.
 
     Note:
-        LiteLLM's supports_response_schema() is used for json_mode because:
-        1. Models supporting structured outputs always support basic JSON mode
-        2. LiteLLM doesn't expose a separate "supports_json_mode" function
-        3. This is the most reliable capability check available
+        ``supports_response_schema()`` checks for json_schema support,
+        which is stored as ``structured_output``.
 
         Results are cached to avoid repeated capability checks for the same model.
+
+        The result is stored as ``structured_output`` (not ``json_mode``)
+        because ``supports_response_schema()`` specifically checks for
+        json_schema support, not the weaker json_object mode.
     """
     logger.info(f"Checking capabilities for model: {model}")
 
@@ -63,12 +64,11 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
     # model doesn't, it will fail at runtime with a clear error from the provider.
     multi_image = vision
 
-    # supports_response_schema checks for structured output support, which
-    # implies basic JSON mode support (response_format: {"type": "json_object"})
-    json_mode = litellm.supports_response_schema(model)
+    structured_output = litellm.supports_response_schema(model)
 
     logger.debug(
-        f"Model '{model}' capabilities detected: vision={vision}, json_mode={json_mode}, multi_image={multi_image}"
+        f"Model '{model}' capabilities detected: "
+        f"vision={vision}, structured_output={structured_output}, multi_image={multi_image}"
     )
 
     # Warn if model string looks like it might be a vision model but doesn't
@@ -88,5 +88,5 @@ def get_model_capabilities(model: str) -> ModelCapabilities:
         model=model,
         vision=vision,
         multi_image=multi_image,
-        json_mode=json_mode,
+        structured_output=structured_output,
     )

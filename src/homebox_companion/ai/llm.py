@@ -1,7 +1,7 @@
 """LLM completion functions for chat and vision tasks.
 
 This module provides high-level completion functions that:
-- Validate model capabilities (vision, json_mode, multi-image)
+- Validate model capabilities (vision, structured_output, multi-image)
 - Handle response format negotiation based on model support
 - Delegate to json_completion for JSON parsing/repair
 - Route through the LiteLLM Router for provider fallback
@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from loguru import logger
+from pydantic import BaseModel
 
 from ..core import config
 from ..core.exceptions import CapabilityNotSupportedError, LLMServiceError
@@ -42,14 +43,14 @@ def _resolve_model_for_capabilities() -> str | None:
 async def chat_completion(
     messages: list[dict[str, Any]],
     *,
-    response_format: dict[str, str] | None = None,
+    response_model: type[BaseModel] | None = None,
     expected_keys: list[str] | None = None,
 ) -> dict[str, Any]:
     """Send a chat completion request to the configured LLM.
 
     Args:
         messages: List of message dicts for the conversation.
-        response_format: Optional response format (e.g., {"type": "json_object"}).
+        response_model: Optional Pydantic model class for structured output.
         expected_keys: Optional keys to validate in JSON response.
 
     Returns:
@@ -59,13 +60,16 @@ async def chat_completion(
         LLMServiceError: For API or parsing errors.
     """
     # Determine response format based on model capabilities
-    effective_response_format = response_format
-    if not config.settings.llm_allow_unsafe_models and response_format:
+    effective_response_format: type[BaseModel] | None = response_model
+
+    if not config.settings.llm_allow_unsafe_models and response_model:
         resolved_model = _resolve_model_for_capabilities()
         if resolved_model:
             caps = get_model_capabilities(resolved_model)
-            if response_format.get("type") == "json_object" and not caps.json_mode:
-                logger.debug(f"Model {resolved_model} doesn't support json_mode, using prompt-only JSON")
+            if not caps.structured_output:
+                logger.debug(
+                    f"Model {resolved_model} doesn't support structured output, using prompt-only JSON"
+                )
                 effective_response_format = None
 
     return await json_completion(
@@ -81,6 +85,7 @@ async def vision_completion(
     image_data_uris: list[str],
     *,
     expected_keys: list[str] | None = None,
+    response_model: type[BaseModel] | None = None,
 ) -> dict[str, Any]:
     """Send a vision completion request with images to the LLM.
 
@@ -89,6 +94,9 @@ async def vision_completion(
         user_prompt: The user message text content.
         image_data_uris: List of base64-encoded image data URIs.
         expected_keys: Optional keys to validate in JSON response.
+        response_model: Optional Pydantic model class for structured output.
+            When provided and the model supports it, the provider enforces
+            the schema at the token level (json_schema mode).
 
     Returns:
         Parsed response content as a dictionary.
@@ -104,13 +112,17 @@ async def vision_completion(
     # Resolve model for capability checks
     resolved_model = _resolve_model_for_capabilities()
 
-    # Determine capabilities and response format
-    response_format: dict[str, str] | None = None
+    # Determine response format
+    response_format: type[BaseModel] | None = None
 
     if config.settings.llm_allow_unsafe_models:
-        # Without validation, try json_mode by default
-        response_format = {"type": "json_object"}
-        logger.debug(f"Skipping capability validation for model '{resolved_model}' (HBC_LLM_ALLOW_UNSAFE_MODELS=true)")
+        # Attempt structured output — works with LM Studio and most
+        # OpenAI-compatible providers that support json_schema.
+        response_format = response_model
+        logger.debug(
+            f"Skipping capability validation for model '{resolved_model}' "
+            f"(HBC_LLM_ALLOW_UNSAFE_MODELS=true)"
+        )
     else:
         # Validate model capabilities
         if not resolved_model:
@@ -123,7 +135,8 @@ async def vision_completion(
 
         logger.debug(
             f"Model '{resolved_model}' capabilities for vision request: "
-            f"vision={caps.vision}, json_mode={caps.json_mode}, multi_image={caps.multi_image}"
+            f"vision={caps.vision}, structured_output={caps.structured_output}, "
+            f"multi_image={caps.multi_image}"
         )
 
         if not caps.vision:
@@ -170,10 +183,13 @@ async def vision_completion(
                 f"Configure your model via the HBC_LLM_MODEL environment variable."
             )
 
-        if caps.json_mode:
-            response_format = {"type": "json_object"}
-        else:
-            logger.debug(f"Model {resolved_model} doesn't support json_mode, using prompt-only JSON")
+        if caps.structured_output and response_model:
+            response_format = response_model
+        elif not caps.structured_output:
+            logger.debug(
+                f"Model {resolved_model} doesn't support structured output, "
+                f"using prompt-only JSON"
+            )
 
     # Build content list with text and images
     content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]
