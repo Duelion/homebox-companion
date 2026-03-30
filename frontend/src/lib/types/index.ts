@@ -169,8 +169,8 @@ export interface SubmissionResult {
 	itemNames: string[];
 	locationName: string;
 	locationId: string;
-	/** Created items with ID, name, and thumbnail (for parent picker on success screen) */
-	createdItems: Array<{ id: string; name: string; thumbnail?: string }>;
+	/** Created items with ID, name, thumbnail, and tags (for success screen modals) */
+	createdItems: Array<{ id: string; name: string; thumbnail?: string; tag_ids?: string[] }>;
 }
 
 /** Complete scan workflow state */
@@ -240,7 +240,7 @@ export interface ItemInput extends ItemCore, ItemExtended {
 }
 
 /** Item for merge operations */
-export interface MergeItem extends ItemCore, ItemExtended { }
+export interface MergeItem extends ItemCore, ItemExtended {}
 
 // =============================================================================
 // API TYPES - Responses

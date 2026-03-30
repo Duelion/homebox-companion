@@ -2,13 +2,14 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { Check, Camera, Package, MapPin } from 'lucide-svelte';
+	import { Check, Camera, Package, MapPin, Eye } from 'lucide-svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import Button from '$lib/components/Button.svelte';
 	import CreatedItemPickerModal from '$lib/components/CreatedItemPickerModal.svelte';
+	import CreatedItemsModal from '$lib/components/CreatedItemsModal.svelte';
 
 	const workflow = scanWorkflow;
 
@@ -18,8 +19,9 @@
 	// Animation state - stop ping after a few cycles
 	let showPing = $state(true);
 
-	// Modal state for parent item picker
+	// Modal states
 	let showParentPicker = $state(false);
+	let showItemsModal = $state(false);
 
 	// Apply route guard: requires authentication only
 	onMount(async () => {
@@ -114,6 +116,14 @@
 
 	<!-- Action buttons -->
 	<div class="w-full max-w-sm space-y-3">
+		<!-- See Items (view created items with details) -->
+		{#if result?.createdItems && result.createdItems.length > 0}
+			<Button variant="ghost" full onclick={() => (showItemsModal = true)}>
+				<Eye size={20} strokeWidth={1.5} />
+				<span>See Items</span>
+			</Button>
+		{/if}
+
 		<!-- Scan more (with location context) -->
 		<Button variant="primary" full onclick={scanMore}>
 			<Camera size={20} strokeWidth={1.5} />
@@ -128,11 +138,11 @@
 			</span>
 		</Button>
 
-		<!-- Add sub-items to created items (only show if there are created items) -->
+		<!-- Scan sub-items for created items (only show if there are created items) -->
 		{#if result?.createdItems && result.createdItems.length > 0}
 			<Button variant="secondary" full onclick={() => (showParentPicker = true)}>
 				<Package size={20} strokeWidth={1.5} />
-				<span>Add Sub-Items to These</span>
+				<span>Scan Sub-Items</span>
 			</Button>
 		{/if}
 
@@ -143,6 +153,15 @@
 		</Button>
 	</div>
 </div>
+
+<!-- Created items modal -->
+{#if showItemsModal && result?.createdItems}
+	<CreatedItemsModal
+		items={result.createdItems}
+		bind:open={showItemsModal}
+		onclose={() => (showItemsModal = false)}
+	/>
+{/if}
 
 <!-- Parent item picker modal -->
 {#if showParentPicker && result?.createdItems}
