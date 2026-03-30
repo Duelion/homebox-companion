@@ -637,8 +637,11 @@ export class SubmissionService {
 			const createdId = this.createdItemIds.get(index);
 			if (createdId && items[index]) {
 				const item = items[index];
-				// Use custom thumbnail if available, otherwise compressed image
-				const thumbnail = item.customThumbnail || item.compressedDataUrl;
+				// Use custom thumbnail, compressed image, or create object URL from original file
+				const thumbnail =
+					item.customThumbnail ||
+					item.compressedDataUrl ||
+					(item.originalFile ? URL.createObjectURL(item.originalFile) : undefined);
 				createdItems.push({
 					id: createdId,
 					name: item.name,

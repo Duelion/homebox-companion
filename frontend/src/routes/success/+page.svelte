@@ -114,14 +114,6 @@
 
 	<!-- Action buttons -->
 	<div class="w-full max-w-sm space-y-3">
-		<!-- See Items (view created items with details) -->
-		{#if result?.createdItems && result.createdItems.length > 0}
-			<Button variant="ghost" full onclick={() => (showItemsModal = true)}>
-				<Eye size={20} strokeWidth={1.5} />
-				<span>See Items</span>
-			</Button>
-		{/if}
-
 		<!-- Scan more (with location context) -->
 		<Button variant="primary" full onclick={scanMore}>
 			<Camera size={20} strokeWidth={1.5} />
@@ -141,6 +133,14 @@
 			<MapPin size={20} strokeWidth={1.5} />
 			<span>Choose New Location</span>
 		</Button>
+
+		<!-- See Items (view created items with details) -->
+		{#if result?.createdItems && result.createdItems.length > 0}
+			<Button variant="secondary" full onclick={() => (showItemsModal = true)}>
+				<Eye size={20} strokeWidth={1.5} />
+				<span>See Items</span>
+			</Button>
+		{/if}
 	</div>
 </div>
 
