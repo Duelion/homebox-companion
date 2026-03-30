@@ -98,7 +98,7 @@
 
 							<!-- Name -->
 							<div class="min-w-0 flex-1">
-								<span class="block truncate font-medium text-neutral-100">{item.name}</span>
+								<span class="block truncate text-sm font-medium text-neutral-100">{item.name}</span>
 							</div>
 
 							<!-- Actions -->
