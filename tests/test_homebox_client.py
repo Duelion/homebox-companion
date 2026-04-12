@@ -1,7 +1,7 @@
-"""Integration tests for HomeboxClient with real demo server.
+"""Integration tests for HomeboxClient with local Docker container.
 
-These tests communicate with the live Homebox demo server at
-https://demo.homebox.software and should always be able to run.
+These tests communicate with a Homebox instance running in a Docker container
+started by the ``homebox_container`` session fixture in conftest.py.
 """
 
 from __future__ import annotations
