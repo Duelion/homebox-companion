@@ -28,7 +28,7 @@ uv run vulture --min-confidence 70 --sort-by-size
 # Testing
 uv run pytest                 # Unit tests
 uv run pytest -m integration  # Integration tests
-uv run pytest -m live         # Live tests (real services)
+uv run pytest -m live         # Live tests (requires Docker)
 
 # Frontend (in frontend/ directory)
 npm install

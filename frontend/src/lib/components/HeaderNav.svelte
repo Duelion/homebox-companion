@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { resolve } from '$app/paths';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { getIsDemoModeExplicit } from '$lib/api/settings';
 	import NavIcon from '$lib/components/NavIcon.svelte';
@@ -9,10 +8,8 @@
 		getScanHref,
 		isNavItemActive,
 		handleDisabledNavClick,
+		resolveNavHref,
 	} from '$lib/navigation/config';
-
-	// Type-safe route type for dynamic paths
-	type AppRoute = Parameters<typeof resolve>[0];
 
 	// Get current path reactively
 	let currentPath = $derived($page.url.pathname);
@@ -44,8 +41,9 @@
 				<span>{item.label}</span>
 			</button>
 		{:else}
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved via resolveNavHref() -->
 			<a
-				href={resolve(item.href as AppRoute)}
+				href={resolveNavHref(item.href)}
 				aria-current={active ? 'page' : undefined}
 				class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all duration-200
 					{active

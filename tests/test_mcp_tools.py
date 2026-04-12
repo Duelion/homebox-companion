@@ -413,13 +413,13 @@ class TestGetItem:
 
 
 # =============================================================================
-# Live Integration Tests (require real Homebox demo server)
+# Live Integration Tests (require Docker — see homebox_container fixture)
 # =============================================================================
 
 
 @pytest.mark.live
 class TestMCPToolsLive:
-    """Live integration tests for MCP tools against demo server."""
+    """Live integration tests for MCP tools against Docker Homebox container."""
 
     @pytest.mark.asyncio
     async def test_list_locations_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):

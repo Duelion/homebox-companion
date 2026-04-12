@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { Package, ExternalLink, ScanLine } from 'lucide-svelte';
+	import { Package, ExternalLink, ScanLine, Printer, Check, LoaderCircle } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount } from 'svelte';
 	import Modal from './Modal.svelte';
 	import { tagStore } from '$lib/stores/tags.svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
 	import { getConfig } from '$lib/api/settings';
+	import { items as itemsApi } from '$lib/api/index';
 
 	interface CreatedItem {
 		id: string;
@@ -30,20 +31,35 @@
 	/** Homebox base URL for constructing item links */
 	let homeboxUrl = $state<string | null>(null);
 
+	/** Whether server-side label printing is enabled (HBC_PRINT_ENABLED) */
+	let printEnabled = $state(false);
+
+	/** Track print status per item: 'idle' | 'printing' | 'success' | 'error' */
+	let printStatus = $state<Record<string, 'idle' | 'printing' | 'success' | 'error'>>({});
+
 	onMount(async () => {
 		// Use cached config if available, otherwise fetch
 		if (settingsService.config?.homebox_url) {
 			homeboxUrl = settingsService.config.homebox_url;
+			printEnabled = settingsService.config.print_enabled;
 		} else {
 			try {
 				const config = await getConfig();
 				homeboxUrl = config.homebox_url;
+				printEnabled = config.print_enabled;
 			} catch {
 				// Non-critical: links just won't work
 			}
 		}
 		// Ensure tags are loaded for label resolution
 		await tagStore.fetchTags();
+
+		// Initialize print status for all items
+		const initial: Record<string, 'idle' | 'printing' | 'success' | 'error'> = {};
+		items.forEach((item) => {
+			initial[item.id] = 'idle';
+		});
+		printStatus = initial;
 	});
 
 	/** Handle image load error by marking it as failed so fallback icon is shown */
@@ -67,6 +83,28 @@
 	/** Resolve a tag ID to its name */
 	function getTagName(tagId: string): string | undefined {
 		return tagStore.getTagName(tagId);
+	}
+
+	/** Print a label for an item */
+	async function handlePrintLabel(itemId: string) {
+		printStatus = { ...printStatus, [itemId]: 'printing' };
+
+		try {
+			await itemsApi.printLabel(itemId);
+			printStatus = { ...printStatus, [itemId]: 'success' };
+
+			// Reset to idle after 2.5 seconds so user can print again
+			setTimeout(() => {
+				printStatus = { ...printStatus, [itemId]: 'idle' };
+			}, 2500);
+		} catch {
+			printStatus = { ...printStatus, [itemId]: 'error' };
+
+			// Reset to idle after 3 seconds
+			setTimeout(() => {
+				printStatus = { ...printStatus, [itemId]: 'idle' };
+			}, 3000);
+		}
 	}
 </script>
 
@@ -103,6 +141,36 @@
 
 							<!-- Actions -->
 							<div class="flex shrink-0 items-center gap-1">
+								{#if printEnabled}
+									<!-- Print Label -->
+									<button
+										type="button"
+										class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 transition-colors
+										{printStatus[item.id] === 'success'
+											? 'text-success-500'
+											: printStatus[item.id] === 'error'
+												? 'text-error-500'
+												: printStatus[item.id] === 'printing'
+													? 'text-neutral-500'
+													: 'text-neutral-400 hover:bg-neutral-700 hover:text-primary-400'}"
+										title={printStatus[item.id] === 'success'
+											? 'Printed!'
+											: printStatus[item.id] === 'error'
+												? 'Print failed'
+												: 'Print Label'}
+										onclick={() => handlePrintLabel(item.id)}
+										disabled={printStatus[item.id] === 'printing'}
+									>
+										{#if printStatus[item.id] === 'printing'}
+											<LoaderCircle size={18} strokeWidth={1.5} class="animate-spin" />
+										{:else if printStatus[item.id] === 'success'}
+											<Check size={18} strokeWidth={2} />
+										{:else}
+											<Printer size={18} strokeWidth={1.5} />
+										{/if}
+									</button>
+								{/if}
+
 								{#if itemUrl}
 									<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
 									<a

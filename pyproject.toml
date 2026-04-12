@@ -86,7 +86,7 @@ addopts = "-v -m 'not live' --strict-markers"
 markers = [
     "unit: fast tests with no I/O or external dependencies",
     "integration: tests with mocked external services or temp files",
-    "live: tests requiring real external services (OpenAI, Homebox demo)",
+    "live: tests requiring real external services (OpenAI, Docker)",
 ]
 filterwarnings = [
     # aiohttp: enable_cleanup_closed is a no-op in Python 3.12.8+

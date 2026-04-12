@@ -1,9 +1,6 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { ChevronLeft } from 'lucide-svelte';
-
-	// Type-safe route type for dynamic paths
-	type AppRoute = Parameters<typeof resolve>[0];
+	import { resolveNavHref } from '$lib/navigation/config';
 
 	interface Props {
 		href: string;
@@ -26,8 +23,9 @@
 	}
 </script>
 
+<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved via resolveNavHref() -->
 <a
-	href={resolve(href as AppRoute)}
+	href={resolveNavHref(href)}
 	class="group mb-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all duration-200 {disabled
 		? 'cursor-not-allowed border border-neutral-800 bg-neutral-900/50 text-neutral-600 opacity-50'
 		: 'border border-transparent bg-neutral-700/50 text-neutral-400 hover:border-neutral-700/50 hover:bg-neutral-700 hover:text-neutral-200'}"

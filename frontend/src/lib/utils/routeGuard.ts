@@ -5,14 +5,13 @@
  * ensuring consistent access control across all protected pages.
  */
 
+/* eslint-disable svelte/no-navigation-without-resolve -- all goto() calls use resolveNavHref() which wraps resolve() */
+
 import { goto } from '$app/navigation';
-import { resolve } from '$app/paths';
 import { authStore } from '$lib/stores/auth.svelte';
 import { scanWorkflow } from '$lib/workflows/scan.svelte';
+import { resolveNavHref } from '$lib/navigation/config';
 import type { ScanStatus } from '$lib/types';
-
-// Type-safe route type for dynamic paths
-type AppRoute = Parameters<typeof resolve>[0];
 
 /**
  * Route requirements configuration
@@ -108,7 +107,7 @@ export function applyRouteGuard(requirements: RouteRequirements): boolean {
 	const result = checkRouteAccess(requirements);
 
 	if (!result.allowed && result.redirectTo) {
-		goto(resolve(result.redirectTo as AppRoute));
+		goto(resolveNavHref(result.redirectTo));
 		return false;
 	}
 
@@ -127,7 +126,7 @@ export const routeGuards = {
 	location: (): boolean => {
 		const result = checkRouteAccess({ auth: true });
 		if (!result.allowed && result.redirectTo) {
-			goto(resolve(result.redirectTo as AppRoute));
+			goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
@@ -137,19 +136,19 @@ export const routeGuards = {
 			const status = workflow.state.status;
 			// Block navigation to /location during any active workflow phase
 			if (status === 'capturing' || status === 'analyzing' || status === 'partial_analysis') {
-				goto(resolve('/capture'));
+				goto(resolveNavHref('/capture'));
 				return false;
 			}
 			if (status === 'reviewing') {
-				goto(resolve('/review'));
+				goto(resolveNavHref('/review'));
 				return false;
 			}
 			if (status === 'confirming' || status === 'submitting') {
-				goto(resolve('/summary'));
+				goto(resolveNavHref('/summary'));
 				return false;
 			}
 			if (status === 'complete') {
-				goto(resolve('/success'));
+				goto(resolveNavHref('/success'));
 				return false;
 			}
 		}
@@ -170,14 +169,14 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed && result.redirectTo) {
-			goto(resolve(result.redirectTo as AppRoute));
+			goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
 		// If we're in reviewing state (analysis finished while away), redirect to review
 		const workflow = scanWorkflow;
 		if (workflow.state.status === 'reviewing') {
-			goto(resolve('/review'));
+			goto(resolveNavHref('/review'));
 			return false;
 		}
 
@@ -198,7 +197,7 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed && result.redirectTo) {
-			goto(resolve(result.redirectTo as AppRoute));
+			goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
@@ -219,7 +218,7 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed && result.redirectTo) {
-			goto(resolve(result.redirectTo as AppRoute));
+			goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
@@ -234,7 +233,7 @@ export const routeGuards = {
 		const result = checkRouteAccess({ auth: true });
 
 		if (!result.allowed && result.redirectTo) {
-			goto(resolve(result.redirectTo as AppRoute));
+			goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 

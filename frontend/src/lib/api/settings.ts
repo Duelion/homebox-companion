@@ -122,6 +122,7 @@ export interface ConfigResponse {
 	log_level: string;
 	capture_max_images: number;
 	capture_max_file_size_mb: number;
+	print_enabled: boolean;
 }
 
 export const getConfig = () => request<ConfigResponse>('/config');
