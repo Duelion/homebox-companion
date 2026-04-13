@@ -37,7 +37,7 @@ def _configure_loguru_for_tests():
 # Test Infrastructure Constants
 # ---------------------------------------------------------------------------
 
-HOMEBOX_IMAGE = "ghcr.io/sysadminsmedia/homebox:latest"
+HOMEBOX_IMAGE = "ghcr.io/sysadminsmedia/homebox:0.25"
 HOMEBOX_CONTAINER_PORT = 7745
 
 # Demo user credentials (created automatically by HBOX_DEMO=true)
@@ -99,7 +99,7 @@ class _PrinterHandler(http.server.BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length)
         headers = {k: v for k, v in self.headers.items()}
-        self.server.captured_requests.append(  # type: ignore[attr-defined]
+        self.server.captured_requests.append(  # ty: ignore
             PrintRequest(method="POST", path=self.path, headers=headers, body=body)
         )
         self.send_response(200)
@@ -120,7 +120,7 @@ class MockLabelPrinter:
         self.port = port
         self.requests: list[PrintRequest] = []
         self._server = http.server.HTTPServer(("", port), _PrinterHandler)
-        self._server.captured_requests = self.requests  # type: ignore[attr-defined]
+        self._server.captured_requests = self.requests  # ty: ignore
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -204,6 +204,17 @@ def homebox_container(
 
     try:
         _wait_for_homebox(base_url)
+
+        # Verify the image being used by the running container
+        inspect_proc = subprocess.run(
+            ["docker", "inspect", "--format", "{{.Config.Image}} [{{.Image}}]", container_name],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        image_info = inspect_proc.stdout.strip() if inspect_proc.returncode == 0 else "unknown"
+        logger.info(f"Verified Homebox container started using image: {image_info}")
+
         yield base_url, container_name
     finally:
         # Teardown: force-remove the container (handles both running and stopped)

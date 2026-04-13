@@ -37,7 +37,7 @@ def _get_homebox_rate_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_sec(30, burst=10),
-        store=store.MemoryStore(),  # type: ignore[arg-type]
+        store=store.MemoryStore(),  # ty: ignore
         timeout=30,  # Wait up to 30s for capacity
     )
 
