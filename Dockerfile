@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:e4bf2a82ad0a4037d28035ae71529873c069b13eb0455466ae0bc13363826e34 AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:25-alpine@sha256:ad82ecad30371c43f4057aaa4800a8ed88f9446553a2d21323710c7b937177fc AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install --silent --no-progress 2>/dev/null
