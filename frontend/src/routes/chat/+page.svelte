@@ -216,26 +216,7 @@
 						Ask me about your inventory, locations, or items.
 					</p>
 
-					<!-- Experimental Feature Warning -->
-					<div
-						class="mx-4 mb-6 max-w-sm rounded-xl border border-warning-500/30 bg-warning-500/10 p-4"
-					>
-						<div class="flex items-start gap-2.5">
-							<TriangleAlert
-								class="mt-0.5 flex-shrink-0 text-warning-500"
-								size={20}
-								strokeWidth={1.5}
-							/>
-							<div>
-								<p class="mb-1 text-sm font-medium text-warning-500">Experimental Feature</p>
-								<p class="text-xs leading-relaxed text-neutral-400">
-									Chat is still experimental. While many safeguards are in place and it's been
-									tested, please <strong class="text-neutral-300">back up your inventory</strong>
-									before use.
-								</p>
-							</div>
-						</div>
-					</div>
+
 
 					<div class="flex w-full max-w-sm flex-col gap-2 px-4">
 						<button
