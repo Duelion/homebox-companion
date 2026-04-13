@@ -1,5 +1,6 @@
-# Git
+# Git & CI
 .git
+.github
 .gitignore
 
 # Python
@@ -35,6 +36,7 @@ logs/
 !.env.example
 
 # Testing
+tests/
 .pytest_cache
 .coverage
 htmlcov
@@ -50,3 +52,15 @@ server/static
 # Documentation
 *.md
 !README.md
+LICENSE
+
+# Linter / type checker caches
+.ruff_cache
+.mypy_cache
+
+# Demo
+demo/
+
+# Agent / AI
+.gemini/
+.agent/

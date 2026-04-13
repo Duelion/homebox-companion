@@ -8,6 +8,7 @@ from loguru import logger
 
 from ...ai.images import encode_image_bytes_to_data_uri
 from ...ai.llm import vision_completion
+from ...ai.response_models import get_items_response_model
 from .models import DetectedItem, get_items_adapter
 from .prompts import (
     build_detection_system_prompt,
@@ -126,12 +127,14 @@ async def _detect_items_from_data_uris(
 
     user_prompt = build_detection_user_prompt(extra_instructions, extract_extended_fields, multi_image, single_item)
 
-    # Call LLM
+    # Call LLM (with structured output when supported)
+    response_model = get_items_response_model(custom_fields)
     parsed_content = await vision_completion(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         image_data_uris=image_data_uris,
         expected_keys=["items"],
+        response_model=response_model,
     )
 
     # Validate LLM output with Pydantic (dynamic model if custom fields configured)

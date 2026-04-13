@@ -2,13 +2,13 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { Check, Camera, Package, MapPin } from 'lucide-svelte';
+	import { Check, Camera, MapPin, Eye } from 'lucide-svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import Button from '$lib/components/Button.svelte';
-	import CreatedItemPickerModal from '$lib/components/CreatedItemPickerModal.svelte';
+	import CreatedItemsModal from '$lib/components/CreatedItemsModal.svelte';
 
 	const workflow = scanWorkflow;
 
@@ -18,8 +18,8 @@
 	// Animation state - stop ping after a few cycles
 	let showPing = $state(true);
 
-	// Modal state for parent item picker
-	let showParentPicker = $state(false);
+	// Modal state
+	let showItemsModal = $state(false);
 
 	// Apply route guard: requires authentication only
 	onMount(async () => {
@@ -128,27 +128,27 @@
 			</span>
 		</Button>
 
-		<!-- Add sub-items to created items (only show if there are created items) -->
-		{#if result?.createdItems && result.createdItems.length > 0}
-			<Button variant="secondary" full onclick={() => (showParentPicker = true)}>
-				<Package size={20} strokeWidth={1.5} />
-				<span>Add Sub-Items to These</span>
-			</Button>
-		{/if}
-
 		<!-- Change location -->
 		<Button variant="secondary" full onclick={startOver}>
 			<MapPin size={20} strokeWidth={1.5} />
 			<span>Choose New Location</span>
 		</Button>
+
+		<!-- See Items (view created items with details) -->
+		{#if result?.createdItems && result.createdItems.length > 0}
+			<Button variant="secondary" full onclick={() => (showItemsModal = true)}>
+				<Eye size={20} strokeWidth={1.5} />
+				<span>See Items</span>
+			</Button>
+		{/if}
 	</div>
 </div>
 
-<!-- Parent item picker modal -->
-{#if showParentPicker && result?.createdItems}
-	<CreatedItemPickerModal
+{#if showItemsModal && result?.createdItems}
+	<CreatedItemsModal
 		items={result.createdItems}
-		onSelect={handleParentSelected}
-		onClose={() => (showParentPicker = false)}
+		bind:open={showItemsModal}
+		onclose={() => (showItemsModal = false)}
+		onScanSubItems={handleParentSelected}
 	/>
 {/if}

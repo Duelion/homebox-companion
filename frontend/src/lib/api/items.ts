@@ -92,4 +92,16 @@ export const items = {
 			signal,
 		});
 	},
+
+	/**
+	 * Trigger server-side label printing for an item.
+	 * Requires HBOX_LABEL_MAKER_PRINT_COMMAND to be configured on the Homebox server.
+	 */
+	printLabel: (itemId: string, signal?: AbortSignal) => {
+		log.debug(`Printing label for item: ${itemId}`);
+		return request<{ message: string }>(`/items/${itemId}/print-label`, {
+			method: 'POST',
+			signal,
+		});
+	},
 };

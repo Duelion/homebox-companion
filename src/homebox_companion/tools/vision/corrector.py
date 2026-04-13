@@ -15,6 +15,7 @@ from ...ai.prompts import (
     build_naming_examples,
     build_tag_prompt,
 )
+from ...ai.response_models import get_items_response_model
 from .models import DetectedItem, get_items_adapter
 
 if TYPE_CHECKING:
@@ -101,11 +102,13 @@ async def correct_item(
         "Apply the correction and return JSON with corrected item(s)."
     )
 
+    response_model = get_items_response_model(custom_fields)
     parsed_content = await vision_completion(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         image_data_uris=[image_data_uri],
         expected_keys=["items"],
+        response_model=response_model,
     )
 
     raw_items = parsed_content.get("items", [])

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
-from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient
+from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient, settings
 from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_client, get_token, get_valid_tag_ids, validate_file_size
@@ -319,3 +319,36 @@ async def delete_item(
     await client.delete_item(token, item_id)
     logger.info(f"Successfully deleted item {item_id}")
     return {"message": "Item deleted"}
+
+
+@router.post("/items/{item_id}/print-label")
+async def print_item_label(
+    item_id: str,
+    token: Annotated[str, Depends(get_token)],
+    client: Annotated[HomeboxClient, Depends(get_client)],
+) -> dict[str, str]:
+    """Trigger server-side label printing for an item.
+
+    Proxies to Homebox's undocumented labelmaker endpoint with ?print=true.
+    Requires HBOX_LABEL_MAKER_PRINT_COMMAND to be configured on the Homebox server.
+    """
+    if not settings.print_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Label printing is not enabled on this server (HBC_PRINT_ENABLED=false).",
+        )
+
+    logger.info(f"Printing label for item: {item_id}")
+
+    try:
+        result = await client.print_label(token, item_id)
+        logger.info(f"Label printed for item {item_id}: {result}")
+        return {"message": result}
+    except HomeboxAuthError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to print label for item {item_id}: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to print label. Ensure HBOX_LABEL_MAKER_PRINT_COMMAND is configured on the Homebox server.",
+        ) from e

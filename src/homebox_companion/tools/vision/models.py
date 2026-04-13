@@ -134,7 +134,7 @@ def _build_cached_list_adapter(
 ) -> TypeAdapter:
     """Cached TypeAdapter[list[DynamicDetectedItem]] factory."""
     model = _build_cached_model(cache_key)
-    return TypeAdapter(list[model])  # type: ignore[invalid-type-form]
+    return TypeAdapter(list[model])  # type: ignore[invalid-type-form]  # ty: ignore[invalid-type-form]
 
 
 @lru_cache(maxsize=4)

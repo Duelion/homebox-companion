@@ -28,7 +28,7 @@ uv run vulture --min-confidence 70 --sort-by-size
 # Testing
 uv run pytest                 # Unit tests
 uv run pytest -m integration  # Integration tests
-uv run pytest -m live         # Live tests (real services)
+uv run pytest -m live         # Live tests (requires Docker)
 
 # Frontend (in frontend/ directory)
 npm install
@@ -125,10 +125,11 @@ Design tokens are defined in `tailwind.config.js`. **Always use tokens instead o
 1. `uv run ruff check .`
 2. `uv run ty check`
 3. `uv run vulture --min-confidence 70 --sort-by-size`
-4. `npm run check`
-5. `cd frontend`
+4. `cd frontend`
+5. `npm run check`
 6. `npm run lint`
 7. `npm run format:check`
+8. `npm audit`
 
 ---
 

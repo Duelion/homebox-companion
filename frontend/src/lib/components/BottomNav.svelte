@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { resolve } from '$app/paths';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { getIsDemoModeExplicit } from '$lib/api/settings';
 	import AppContainer from '$lib/components/AppContainer.svelte';
@@ -10,10 +9,8 @@
 		getScanHref,
 		isNavItemActive,
 		handleDisabledNavClick,
+		resolveNavHref,
 	} from '$lib/navigation/config';
-
-	// Type-safe route type for dynamic paths
-	type AppRoute = Parameters<typeof resolve>[0];
 
 	// Explicit demo mode (HBC_DEMO_MODE env var) disables certain features like chat
 	let isDemoModeExplicit = $derived(getIsDemoModeExplicit());
@@ -56,8 +53,9 @@
 							<span class="text-xs font-medium">{item.label}</span>
 						</button>
 					{:else}
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved via resolveNavHref() -->
 						<a
-							href={resolve(item.href as AppRoute)}
+							href={resolveNavHref(item.href)}
 							role="menuitem"
 							aria-current={active ? 'page' : undefined}
 							class="flex flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all duration-200
