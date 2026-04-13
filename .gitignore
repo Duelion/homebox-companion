@@ -56,3 +56,5 @@ frontend/stats.html
 test_results.txt
 security_audit*.txt
 config/field_preferences.json
+HOMEBOX_LABELMAKER_API.md
+tests/label_print/

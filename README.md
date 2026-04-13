@@ -202,9 +202,12 @@ Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library t
 
 You can try other LiteLLM-compatible providers at your own risk. The app checks if your chosen model supports the required capabilities using LiteLLM's API:
 
-**Required capabilities:**
+**Required capabilities (photo scanning):**
 - **Vision** – Checked via `litellm.supports_vision(model)`
 - **Structured outputs** – Checked via `litellm.supports_response_schema(model)`
+
+**Required for Chat assistant (in addition to the above):**
+- **Function calling** – Checked via `litellm.supports_function_calling(model)`. Models without native tool calling (e.g., `llava`, `moondream`) will work for photo scanning but **not** for the Chat assistant, which relies on tool calls to query your inventory.
 
 **Finding model names:**
 
@@ -230,7 +233,7 @@ HBC_LLM_MODEL=ollama/llava:34b              # Your local model name
 HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 ```
 
-**Note:** Local models must support vision (e.g., llava, bakllava, moondream). Performance and accuracy vary widely.
+**Note:** Local models must support vision for photo scanning (e.g., llava, bakllava, moondream). For the **Chat assistant**, the model must also support **function calling** — most vision-only models do not. Check your model's capabilities with `litellm.supports_function_calling("ollama/your-model")`. Performance and accuracy vary widely.
 
 **⚠️ Important:** Other providers (Anthropic, Google, OpenRouter, local models, etc.) are **not officially supported**. If you encounter errors, we may not be able to help. Use at your own risk.
 
@@ -352,6 +355,19 @@ HBC_CORS_ORIGINS=https://inventory.example.com,https://admin.example.com
 ```
 
 > **Note:** The default `HBC_CORS_ORIGINS=*` allows requests from any origin, which is convenient for development but should be restricted in production environments exposed to the internet.
+
+</details>
+
+<details>
+<summary>🖨️ Label Printing</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_PRINT_ENABLED` | `false` | Show a "Print Label" button after items are created |
+
+When enabled, a print button appears on the post-creation screen for each item. Pressing it triggers Homebox's built-in labelmaker, which generates and prints a label via the command configured on your **Homebox server**.
+
+**Homebox server prerequisite:** Set the `HBOX_LABEL_MAKER_PRINT_COMMAND` environment variable on your Homebox instance (e.g., `lp -d MyPrinter %s`). Without it, print requests will fail. See [Homebox documentation](https://github.com/sysadminsmedia/homebox) for details.
 
 </details>
 

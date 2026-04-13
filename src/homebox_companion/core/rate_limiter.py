@@ -7,7 +7,7 @@ Uses the Token Bucket algorithm with wait-retry mode for smooth throttling.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from loguru import logger
 from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store
@@ -37,7 +37,7 @@ def _create_rpm_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_min(rpm, burst=burst),
-        store=_get_memory_store(),  # type: ignore[arg-type]
+        store=_get_memory_store(),  # ty: ignore
         # Wait up to 60 seconds for capacity instead of failing immediately
         timeout=60,
     )
@@ -54,7 +54,7 @@ def _create_tpm_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_min(tpm, burst=burst),
-        store=_get_memory_store(),  # type: ignore[arg-type]
+        store=_get_memory_store(),  # ty: ignore
         timeout=60,
     )
 
@@ -103,7 +103,7 @@ def estimate_tokens(messages: list[dict]) -> int:
 
 @runtime_checkable
 class _Limiter(Protocol):
-    async def limit(self, key: str, cost: int) -> object:  # pragma: no cover
+    async def limit(self, key: str, cost: int) -> Any:  # pragma: no cover
         """Acquire quota for a key/cost. Returns a throttled-py result object."""
 
 
@@ -139,20 +139,20 @@ async def acquire_rate_limit(
 
     # Check RPM limit (1 request)
     rpm_result = await rpm_limiter.limit("llm_rpm", cost=1)
-    if rpm_result.limited:  # type: ignore[attr-defined]
+    if rpm_result.limited:
         logger.debug(
             f"RPM limit reached, waited for capacity. "
-            f"Remaining: {rpm_result.state.remaining}, "  # type: ignore[attr-defined]
-            f"Reset after: {rpm_result.state.reset_after:.1f}s"  # type: ignore[attr-defined]
+            f"Remaining: {rpm_result.state.remaining}, "
+            f"Reset after: {rpm_result.state.reset_after:.1f}s"
         )
 
     # Check TPM limit (estimated tokens)
     tpm_result = await tpm_limiter.limit("llm_tpm", cost=estimated_tokens)
-    if tpm_result.limited:  # type: ignore[attr-defined]
+    if tpm_result.limited:
         logger.debug(
             f"TPM limit reached, waited for capacity. "
-            f"Remaining: {tpm_result.state.remaining}, "  # type: ignore[attr-defined]
-            f"Reset after: {tpm_result.state.reset_after:.1f}s"  # type: ignore[attr-defined]
+            f"Remaining: {tpm_result.state.remaining}, "
+            f"Reset after: {tpm_result.state.reset_after:.1f}s"
         )
 
 

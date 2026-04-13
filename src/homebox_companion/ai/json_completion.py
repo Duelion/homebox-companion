@@ -17,6 +17,7 @@ import json
 from typing import Any
 
 from loguru import logger
+from pydantic import BaseModel
 
 from ..core import config
 from ..core.exceptions import JSONRepairError, LLMServiceError
@@ -184,7 +185,7 @@ def _build_completion_kwargs(
     messages: list[dict[str, Any]],
     model_name: str,
     timeout: float,
-    response_format: dict[str, str] | None = None,
+    response_format: dict[str, Any] | type[BaseModel] | None = None,
 ) -> dict[str, Any]:
     """Build kwargs for Router.acompletion calls.
 
@@ -192,7 +193,9 @@ def _build_completion_kwargs(
         messages: Chat messages for the completion.
         model_name: Router model name to use.
         timeout: Request timeout in seconds.
-        response_format: Optional format hint (e.g., {"type": "json_object"}).
+        response_format: Optional format hint — a dict like
+            ``{"type": "json_object"}``, a Pydantic ``BaseModel`` class
+            for structured output, or None.
 
     Returns:
         Dict of kwargs for acompletion.
@@ -210,7 +213,7 @@ def _build_completion_kwargs(
 async def json_completion(
     messages: list[dict[str, Any]],
     *,
-    response_format: dict[str, str] | None = None,
+    response_format: dict[str, Any] | type[BaseModel] | None = None,
     expected_keys: list[str] | None = None,
     timeout: float | None = None,
 ) -> dict[str, Any]:
@@ -221,7 +224,9 @@ async def json_completion(
 
     Args:
         messages: Chat messages for the completion.
-        response_format: Optional format hint (e.g., {"type": "json_object"}).
+        response_format: Optional format hint — a dict like
+            ``{"type": "json_object"}``, a Pydantic ``BaseModel`` class
+            for structured output (json_schema), or None.
         expected_keys: Keys to check in JSON response (triggers repair if missing).
         timeout: Optional timeout override (uses config default if None).
 

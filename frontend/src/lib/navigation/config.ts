@@ -88,6 +88,7 @@ export function isNavItemActive(item: NavItem, currentPath: string): boolean {
  * Resolve a nav item's href for use in links.
  */
 export function resolveNavHref(href: string): string {
+	// @ts-expect-error — SvelteKit's resolve() uses tuple spread types that can't accept a union; the AppRoute cast is semantically correct
 	return resolve(href as AppRoute);
 }
 

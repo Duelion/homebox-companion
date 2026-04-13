@@ -37,7 +37,7 @@ def _get_homebox_rate_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_sec(30, burst=10),
-        store=store.MemoryStore(),  # type: ignore[arg-type]
+        store=store.MemoryStore(),  # ty: ignore
         timeout=30,  # Wait up to 30s for capacity
     )
 
@@ -1097,6 +1097,34 @@ class HomeboxClient:
         )
 
     @_rate_limited
+    async def print_label(self, token: str, item_id: str) -> str:
+        """Trigger server-side label printing for an item.
+
+        Calls the undocumented Homebox labelmaker endpoint with ?print=true
+        to execute the configured HBOX_LABEL_MAKER_PRINT_COMMAND on the server.
+
+        Args:
+            token: The bearer token from login.
+            item_id: The UUID of the item to print a label for.
+
+        Returns:
+            The text response from Homebox (typically "Printed!").
+
+        Raises:
+            HomeboxAPIError: If the labelmaker endpoint is not available or
+                the print command is not configured on the Homebox server.
+        """
+        response = await self.client.get(
+            f"{self.base_url}/labelmaker/item/{item_id}",
+            params={"print": "true"},
+            headers={
+                "Accept": "text/plain",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "Print label")
+        return response.text
+
     async def ensure_asset_ids(self, token: str) -> int:
         """Ensure all items have asset IDs assigned.
 
