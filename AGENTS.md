@@ -125,10 +125,11 @@ Design tokens are defined in `tailwind.config.js`. **Always use tokens instead o
 1. `uv run ruff check .`
 2. `uv run ty check`
 3. `uv run vulture --min-confidence 70 --sort-by-size`
-4. `npm run check`
-5. `cd frontend`
+4. `cd frontend`
+5. `npm run check`
 6. `npm run lint`
 7. `npm run format:check`
+8. `npm audit`
 
 ---
 
