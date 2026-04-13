@@ -66,5 +66,5 @@ def _build_dynamic_items_response(
     return create_model(
         "DynamicItemsResponse",
         __base__=BaseModel,
-        items=(list[dynamic_item], ...),  # type: ignore[valid-type]
+        items=(list[dynamic_item], ...),  # ty: ignore
     )
