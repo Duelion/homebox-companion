@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
-from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient
+from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient, settings
 from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_client, get_token, get_valid_tag_ids, validate_file_size
@@ -332,6 +332,12 @@ async def print_item_label(
     Proxies to Homebox's undocumented labelmaker endpoint with ?print=true.
     Requires HBOX_LABEL_MAKER_PRINT_COMMAND to be configured on the Homebox server.
     """
+    if not settings.print_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Label printing is not enabled on this server (HBC_PRINT_ENABLED=false).",
+        )
+
     logger.info(f"Printing label for item: {item_id}")
 
     try:

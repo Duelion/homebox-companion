@@ -359,6 +359,19 @@ HBC_CORS_ORIGINS=https://inventory.example.com,https://admin.example.com
 </details>
 
 <details>
+<summary>🖨️ Label Printing</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_PRINT_ENABLED` | `false` | Show a "Print Label" button after items are created |
+
+When enabled, a print button appears on the post-creation screen for each item. Pressing it triggers Homebox's built-in labelmaker, which generates and prints a label via the command configured on your **Homebox server**.
+
+**Homebox server prerequisite:** Set the `HBOX_LABEL_MAKER_PRINT_COMMAND` environment variable on your Homebox instance (e.g., `lp -d MyPrinter %s`). Without it, print requests will fail. See [Homebox documentation](https://github.com/sysadminsmedia/homebox) for details.
+
+</details>
+
+<details>
 <summary>AI Output Customization</summary>
 
 Customize how AI formats detected item fields. Set via environment variables or the Settings page (UI takes priority).
