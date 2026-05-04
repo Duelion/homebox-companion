@@ -4,6 +4,7 @@
 	import { CircleAlert, Lock } from 'lucide-svelte';
 	import { auth } from '$lib/api';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { showToast } from '$lib/stores/ui.svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { authLogger as log } from '$lib/utils/logger';
@@ -35,6 +36,9 @@
 			// Reset form
 			email = '';
 			password = '';
+			// Confirm session restoration to the user
+			showToast('Session restored — you can continue where you left off', 'success');
+			log.info('Re-authentication successful, session restored');
 		} catch (error) {
 			log.error('Re-authentication failed:', error);
 			errorMessage =
