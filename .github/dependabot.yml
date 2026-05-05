@@ -18,3 +18,15 @@ updates:
     directory: "/demo"
     schedule:
       interval: "weekly"
+
+  # Keep Python dependencies up to date
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Keep frontend npm dependencies up to date
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
