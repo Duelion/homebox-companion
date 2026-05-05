@@ -14,11 +14,6 @@ updates:
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "docker"
-    directory: "/demo"
-    schedule:
-      interval: "weekly"
-
   # Keep Python dependencies up to date
   - package-ecosystem: "pip"
     directory: "/"
