@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build --silent 2>/dev/null
 
 # Stage 2: Python runtime
-FROM python:3.12-slim@sha256:9e01bf1ae5db7649a236da7be1e94ffbbbdd7a93f867dd0d8d5720d9e1f89fab
+FROM python:3.14-slim@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033
 WORKDIR /app
 
 # Install curl for health checks and uv for dependency management

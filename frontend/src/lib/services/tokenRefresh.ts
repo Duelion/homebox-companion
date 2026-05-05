@@ -9,6 +9,18 @@ import { authLogger as log } from '../utils/logger';
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
+ * Timestamp of the last successful API activity or token refresh.
+ * Used by the visibility listener to avoid unnecessary refreshes on quick tab switches.
+ */
+let lastActivityTimestamp: number = Date.now();
+
+/**
+ * Minimum idle time (ms) before a visibility change triggers a refresh.
+ * Prevents unnecessary refreshes when quickly switching tabs.
+ */
+const VISIBILITY_REFRESH_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+
+/**
  * Maximum number of retry attempts for failed token refresh.
  */
 const MAX_RETRY_ATTEMPTS = 3;
@@ -53,6 +65,7 @@ export async function refreshToken(): Promise<boolean> {
 		authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
 		// Reset retry count on successful refresh
 		retryCount = 0;
+		lastActivityTimestamp = Date.now();
 		return true;
 	} catch (error) {
 		// Log error for debugging (previously swallowed silently)
@@ -69,13 +82,22 @@ export function scheduleRefresh(): void {
 	if (refreshTimer) clearTimeout(refreshTimer);
 
 	const expires = authStore.expiresAt;
-	if (!expires) return;
+	if (!expires) {
+		log.debug('[REFRESH] scheduleRefresh: no expiresAt, skipping');
+		return;
+	}
 
 	// Refresh at 50% of remaining lifetime, minimum 1 minute
 	const remaining = expires.getTime() - Date.now();
 	const delay = Math.max(remaining / 2, 60_000);
+	log.debug(
+		`[REFRESH] Scheduled next refresh in ${Math.round(delay / 1000)}s ` +
+			`(token remaining: ${Math.round(remaining / 1000 / 60)} min, ` +
+			`expires: ${expires.toISOString()})`
+	);
 
 	refreshTimer = setTimeout(async () => {
+		log.debug('[REFRESH] Timer fired, attempting refresh');
 		const success = await refreshToken();
 		if (!success) {
 			// Schedule retry with exponential backoff
@@ -124,6 +146,73 @@ export function stopRefreshTimer(): void {
 	}
 	// Reset retry count when stopping (e.g., on logout)
 	retryCount = 0;
+	stopVisibilityListener();
+}
+
+// =============================================================================
+// VISIBILITY-BASED REFRESH
+// =============================================================================
+//
+// When the app returns from background (phone unlock, tab switch back),
+// Safari/iOS may have throttled or frozen setTimeout timers. This listener
+// ensures we immediately check and refresh the token when the app wakes up,
+// preventing stale tokens that cause false 401s (issue #117).
+// =============================================================================
+
+let visibilityListenerAttached = false;
+
+/**
+ * Handle visibility change events. When the page becomes visible after being
+ * idle for more than VISIBILITY_REFRESH_THRESHOLD_MS, proactively refresh
+ * the token to ensure it's fresh for the next API call.
+ */
+async function handleVisibilityChange(): Promise<void> {
+	if (document.visibilityState !== 'visible') {
+		return;
+	}
+
+	// Only refresh if we have a token and the user is authenticated
+	if (!authStore.token || authStore.sessionExpired) {
+		return;
+	}
+
+	const idleMs = Date.now() - lastActivityTimestamp;
+	if (idleMs < VISIBILITY_REFRESH_THRESHOLD_MS) {
+		return;
+	}
+
+	log.debug(`App resumed after ${Math.round(idleMs / 1000)}s idle, refreshing token`);
+	const success = await refreshToken();
+	if (success) {
+		// Re-schedule the timer-based refresh with the new token's expiry
+		scheduleRefresh();
+	}
+	// If refresh fails, don't mark session expired here — let the next
+	// actual API call handle it naturally. The token might still be valid.
+}
+
+/**
+ * Start listening for visibility changes to proactively refresh tokens.
+ * Called during auth initialization.
+ */
+function startVisibilityListener(): void {
+	if (visibilityListenerAttached || typeof document === 'undefined') {
+		return;
+	}
+	document.addEventListener('visibilitychange', handleVisibilityChange);
+	visibilityListenerAttached = true;
+}
+
+/**
+ * Stop listening for visibility changes.
+ * Called on logout / timer stop.
+ */
+function stopVisibilityListener(): void {
+	if (!visibilityListenerAttached || typeof document === 'undefined') {
+		return;
+	}
+	document.removeEventListener('visibilitychange', handleVisibilityChange);
+	visibilityListenerAttached = false;
 }
 
 /**
@@ -131,15 +220,20 @@ export function stopRefreshTimer(): void {
  * Checks local token expiry and schedules refresh if valid
  */
 export async function initializeAuth(): Promise<void> {
+	log.debug('[AUTH INIT] initializeAuth() starting');
 	try {
 		const currentToken = authStore.token;
 		if (!currentToken) {
+			log.debug('[AUTH INIT] No token found, skipping initialization');
 			return;
 		}
+
+		log.debug(`[AUTH INIT] Token found (${currentToken.length} chars), checking expiry...`);
 
 		// Check local expiry (no server call)
 		if (authStore.tokenIsExpired()) {
 			// Token expired locally - clear and require re-login
+			log.info('[AUTH INIT] Token is EXPIRED locally, calling logout');
 			authStore.logout();
 			return;
 		}
@@ -147,16 +241,23 @@ export async function initializeAuth(): Promise<void> {
 		// If token needs refresh (< 5 minutes remaining), refresh immediately
 		// Otherwise, just schedule the next refresh
 		if (authStore.tokenNeedsRefresh()) {
+			log.info('[AUTH INIT] Token needs refresh (< 5 min remaining), refreshing now');
 			const refreshed = await refreshToken();
 			if (!refreshed) {
 				// Refresh failed - token might be invalid, clear it
+				log.warn('[AUTH INIT] Refresh failed during init, calling logout');
 				authStore.logout();
 			}
 			// scheduleRefresh() already called by refreshToken() via setAuthenticatedState
 		} else {
+			log.debug('[AUTH INIT] Token is valid and fresh, scheduling normal refresh');
 			// Token still has enough time - schedule refresh for later
 			scheduleRefresh();
 		}
+
+		// Start listening for visibility changes (phone unlock, tab switch)
+		// to proactively refresh the token when the app wakes up
+		startVisibilityListener();
 	} finally {
 		// Mark auth as initialized regardless of outcome
 		authStore.setInitialized(true);

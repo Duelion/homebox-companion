@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
-import threading
-import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
@@ -205,73 +202,6 @@ class ToolExecutorHolder:
 tool_executor_holder = ToolExecutorHolder()
 
 
-class TokenValidator:
-    """Validates tokens against Homebox with in-memory TTL cache.
-
-    On first use of a token, calls Homebox's ``GET /users/self`` to verify it.
-    Valid tokens are cached (by hash) so subsequent requests skip the check.
-    Cache entries expire after ``ttl`` seconds, forcing re-validation.
-
-    Thread-safety: Uses a lock to protect the cache dict, matching the
-    pattern used by ``MemorySessionStore``.
-    """
-
-    # Default TTL: 5 minutes
-    _DEFAULT_TTL = 5 * 60
-    # Cleanup interval: sweep expired entries at most once per 5 minutes
-    _CLEANUP_INTERVAL = 300
-
-    def __init__(self, ttl: int | None = None) -> None:
-        self._ttl = ttl or self._DEFAULT_TTL
-        self._cache: dict[str, float] = {}  # token_hash -> validated_at
-        self._lock = threading.Lock()
-        self._last_cleanup: float = time.time()
-
-    @staticmethod
-    def _hash(token: str) -> str:
-        return hashlib.sha256(token.encode()).hexdigest()[:16]
-
-    def _maybe_cleanup_expired(self) -> None:
-        """Sweep expired entries. Caller must hold self._lock."""
-        now = time.time()
-        if now - self._last_cleanup < self._CLEANUP_INTERVAL:
-            return
-        self._last_cleanup = now
-        expired = [k for k, ts in self._cache.items() if now - ts > self._ttl]
-        for k in expired:
-            del self._cache[k]
-        if expired:
-            logger.debug(f"Token cache: cleaned up {len(expired)} expired entries")
-
-    def is_cached(self, token: str) -> bool:
-        """Check if a token is in the valid cache and not expired."""
-        key = self._hash(token)
-        with self._lock:
-            self._maybe_cleanup_expired()
-            ts = self._cache.get(key)
-            if ts is None:
-                return False
-            if time.time() - ts > self._ttl:
-                del self._cache[key]
-                return False
-            return True
-
-    def mark_valid(self, token: str) -> None:
-        """Cache a token as validated."""
-        key = self._hash(token)
-        with self._lock:
-            self._cache[key] = time.time()
-
-    def reset(self) -> None:
-        """Clear all cached validations."""
-        with self._lock:
-            self._cache.clear()
-
-
-# Singleton token validator
-token_validator = TokenValidator()
-
-
 # =============================================================================
 # CORE DEPENDENCIES (defined first so they can be used in Depends())
 # =============================================================================
@@ -288,30 +218,21 @@ def get_client() -> HomeboxClient:
 
 async def get_token(
     authorization: Annotated[str | None, Header()] = None,
-    client: Annotated[HomeboxClient, Depends(get_client)] = None,
 ) -> str:
-    """Extract and validate bearer token from Authorization header.
+    """Extract bearer token from Authorization header.
 
-    Validates the token against Homebox on first use, then caches the
-    result for subsequent requests (TTL-based expiration).
+    Token validity is verified by Homebox on each actual API call.
+    No pre-validation is needed — Homebox is the single source of truth.
+
+    This avoids false 401s caused by network blips during pre-validation
+    (the root cause of issue #117).
     """
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization format")
 
-    raw_token = authorization[7:]
-
-    # Check cache first — skip Homebox call if recently validated
-    if token_validator.is_cached(raw_token):
-        return raw_token
-
-    # Validate against Homebox
-    if client and await client.validate_token(raw_token):
-        token_validator.mark_valid(raw_token)
-        return raw_token
-
-    raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return authorization[7:]
 
 
 # =============================================================================
@@ -349,7 +270,7 @@ def get_session(
 
 
 def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
-    """Dependency that validates authentication without returning the token.
+    """Dependency that requires a bearer token without returning it.
 
     Use this when a route needs authentication but doesn't use the token directly.
     This avoids injecting unused dependencies and makes intent clear.
@@ -359,7 +280,7 @@ def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
         async def protected_route() -> dict:
             return {"status": "authenticated"}
     """
-    # Token validation happens in get_token; explicitly acknowledge unused param
+    # get_token extracts the bearer token; Homebox validates on actual API calls
     _ = token
 
 

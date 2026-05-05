@@ -15,15 +15,7 @@
 	import { getInitPromise } from '$lib/services/tokenRefresh';
 	import { getIsDemoModeExplicit, setDemoMode, getConfig } from '$lib/api/settings';
 	import { createLogger } from '$lib/utils/logger';
-	import {
-		TriangleAlert,
-		CircleAlert,
-		Ban,
-		MessageSquare,
-		MapPin,
-		Tag,
-		Archive,
-	} from 'lucide-svelte';
+	import { CircleAlert, Ban, MessageSquare, MapPin, Tag, Archive } from 'lucide-svelte';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import ApprovalModal from '$lib/components/ApprovalModal.svelte';
@@ -215,8 +207,6 @@
 					<p class="mb-6 max-w-xs px-4 text-center text-body text-neutral-400">
 						Ask me about your inventory, locations, or items.
 					</p>
-
-
 
 					<div class="flex w-full max-w-sm flex-col gap-2 px-4">
 						<button
