@@ -137,7 +137,7 @@ class MockLabelPrinter:
 
 
 @pytest.fixture(scope="session")
-def mock_label_printer() -> Generator[MockLabelPrinter, None, None]:
+def mock_label_printer() -> Generator[MockLabelPrinter]:
     """Start a mock HTTP printer server for the test session.
 
     Homebox's print command will POST label PNGs to this server.
@@ -159,7 +159,7 @@ def mock_label_printer() -> Generator[MockLabelPrinter, None, None]:
 @pytest.fixture(scope="session")
 def homebox_container(
     mock_label_printer: MockLabelPrinter,
-) -> Generator[tuple[str, str], None, None]:
+) -> Generator[tuple[str, str]]:
     """Start a disposable Homebox Docker container for the test session.
 
     The container runs ``ghcr.io/sysadminsmedia/homebox:latest`` with
@@ -323,7 +323,7 @@ def homebox_credentials() -> tuple[str, str]:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def reset_settings() -> Generator[None, None, None]:
+def reset_settings() -> Generator[None]:
     """Reset settings to clean state before each test (autouse).
 
     This ensures test isolation by clearing the settings cache before and
@@ -342,7 +342,7 @@ def reset_settings() -> Generator[None, None, None]:
 
 
 @pytest.fixture(scope="module")
-def allow_unsafe_models() -> Generator[None, None, None]:
+def allow_unsafe_models() -> Generator[None]:
     """Enable HBC_LLM_ALLOW_UNSAFE_MODELS for the test module.
 
     This fixture reloads the app settings after modifying the environment

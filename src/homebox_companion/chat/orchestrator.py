@@ -313,7 +313,7 @@ class ChatOrchestrator:
         user_message: str,
         token: str,
         approval_context: list[dict[str, Any]] | None = None,
-    ) -> AsyncGenerator[ChatEvent, None]:
+    ) -> AsyncGenerator[ChatEvent]:
         """Process a user message and yield streaming events.
 
         This is the main entry point for chat interactions. It:
@@ -424,12 +424,12 @@ class ChatOrchestrator:
 
     async def _handle_stream(
         self,
-        stream: AsyncGenerator[Any, None],
+        stream: AsyncGenerator[Any],
         token: str,
         tools: list[dict[str, Any]],
         messages: list[dict[str, Any]],
         depth: int = 0,
-    ) -> AsyncGenerator[ChatEvent, None]:
+    ) -> AsyncGenerator[ChatEvent]:
         """Handle a streaming LLM response.
 
         Accumulates chunks, yields text events, and handles tool calls.
@@ -572,7 +572,7 @@ class ChatOrchestrator:
         token: str,
         tools: list[dict[str, Any]],
         depth: int = 0,
-    ) -> AsyncGenerator[ChatEvent, None]:
+    ) -> AsyncGenerator[ChatEvent]:
         """Handle LLM tool calls.
 
         Args:
@@ -667,7 +667,7 @@ class ChatOrchestrator:
         self,
         tool_calls: list[ToolCall],
         token: str,
-    ) -> AsyncGenerator[ChatEvent, None]:
+    ) -> AsyncGenerator[ChatEvent]:
         """Execute multiple READ tools in parallel, preserving message order.
 
         Executes tools concurrently for speed, but adds results to session
@@ -753,7 +753,7 @@ class ChatOrchestrator:
         tool_name: str,
         tool_args: dict[str, Any],
         token: str,
-    ) -> AsyncGenerator[ChatEvent, None]:
+    ) -> AsyncGenerator[ChatEvent]:
         """Queue a write tool for approval.
 
         Args:
@@ -814,7 +814,7 @@ class ChatOrchestrator:
         token: str,
         tools: list[dict[str, Any]],
         depth: int,
-    ) -> AsyncGenerator[ChatEvent, None]:
+    ) -> AsyncGenerator[ChatEvent]:
         """Continue conversation after tool execution.
 
         Args:
