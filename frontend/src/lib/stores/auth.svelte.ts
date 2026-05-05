@@ -28,6 +28,23 @@ const storedToken = browser ? localStorage.getItem(TOKEN_KEY) : null;
 const storedExpires = browser ? localStorage.getItem(EXPIRES_KEY) : null;
 const storedEmail = browser ? localStorage.getItem(EMAIL_KEY) : null;
 
+// Diagnostic: log what we found in localStorage on module load
+if (browser) {
+	log.debug(
+		`[AUTH INIT] localStorage state: token=${storedToken ? `present (${storedToken.length} chars)` : 'MISSING'}, ` +
+			`expires=${storedExpires ?? 'MISSING'}, email=${storedEmail ?? 'MISSING'}`
+	);
+	if (storedExpires) {
+		const expiresDate = new Date(storedExpires);
+		const remainingMs = expiresDate.getTime() - Date.now();
+		log.debug(
+			`[AUTH INIT] Token expires: ${expiresDate.toISOString()}, ` +
+				`remaining: ${Math.round(remainingMs / 1000 / 60)} minutes ` +
+				`(${remainingMs > 0 ? 'VALID' : 'EXPIRED'})`
+		);
+	}
+}
+
 // =============================================================================
 // AUTH STORE CLASS
 // =============================================================================
@@ -113,22 +130,45 @@ class AuthStore {
 	tokenNeedsRefresh(): boolean {
 		if (!this._expiresAt) return false;
 		const remaining = this._expiresAt.getTime() - Date.now();
-		return remaining < TOKEN_REFRESH_THRESHOLD_MS;
+		const needsRefresh = remaining < TOKEN_REFRESH_THRESHOLD_MS;
+		if (needsRefresh) {
+			log.debug(
+				`[AUTH CHECK] tokenNeedsRefresh=true, remaining=${Math.round(remaining / 1000)}s, ` +
+					`expiresAt=${this._expiresAt.toISOString()}`
+			);
+		}
+		return needsRefresh;
 	}
 
 	/**
 	 * Check if token is expired
 	 */
 	tokenIsExpired(): boolean {
-		if (!this._expiresAt) return true;
-		return this._expiresAt.getTime() < Date.now();
+		if (!this._expiresAt) {
+			log.warn('[AUTH CHECK] tokenIsExpired=true (no expiresAt set)');
+			return true;
+		}
+		const remaining = this._expiresAt.getTime() - Date.now();
+		const expired = remaining < 0;
+		log.debug(
+			`[AUTH CHECK] tokenIsExpired=${expired}, remaining=${Math.round(remaining / 1000)}s, ` +
+				`expiresAt=${this._expiresAt.toISOString()}, now=${new Date().toISOString()}`
+		);
+		return expired;
 	}
 
 	/**
 	 * Mark the session as expired and show re-auth modal
 	 */
 	markSessionExpired(): void {
-		log.info('Session expired, showing re-auth modal');
+		const expiresAt = this._expiresAt;
+		const remaining = expiresAt ? expiresAt.getTime() - Date.now() : null;
+		log.info(
+			`[AUTH] markSessionExpired called. ` +
+				`expiresAt=${expiresAt?.toISOString() ?? 'null'}, ` +
+				`remaining=${remaining !== null ? Math.round(remaining / 1000) + 's' : 'N/A'}, ` +
+				`hasToken=${!!this._token}, caller=${new Error().stack?.split('\n')[2]?.trim() ?? 'unknown'}`
+		);
 		this._sessionExpired = true;
 	}
 
@@ -137,7 +177,12 @@ class AuthStore {
 	 * This is the canonical way to update auth state.
 	 */
 	setAuthenticatedState(newToken: string, expiresAt: Date, email?: string): void {
-		log.debug('Setting authenticated state, expires:', expiresAt.toISOString());
+		const remainingMs = expiresAt.getTime() - Date.now();
+		log.debug(
+			`[AUTH] setAuthenticatedState: expires=${expiresAt.toISOString()}, ` +
+				`remaining=${Math.round(remainingMs / 1000 / 60)} minutes, ` +
+				`token=${newToken.length} chars, wasExpired=${this._sessionExpired}`
+		);
 		this._token = newToken;
 		this._expiresAt = expiresAt;
 		this._sessionExpired = false;
@@ -154,6 +199,9 @@ class AuthStore {
 			if (email !== undefined) {
 				localStorage.setItem(EMAIL_KEY, email);
 			}
+			// Diagnostic: verify what was actually stored
+			const verifyExpires = localStorage.getItem(EXPIRES_KEY);
+			log.debug(`[AUTH] localStorage verified: expires=${verifyExpires}`);
 		}
 
 		// Schedule token refresh
@@ -184,7 +232,15 @@ class AuthStore {
 	 * happens asynchronously in the background via cleanupRelatedStores().
 	 */
 	logout(): void {
-		log.info('User logout');
+		const expiresAt = this._expiresAt;
+		const remaining = expiresAt ? expiresAt.getTime() - Date.now() : null;
+		log.info(
+			`[AUTH] logout called. ` +
+				`expiresAt=${expiresAt?.toISOString() ?? 'null'}, ` +
+				`remaining=${remaining !== null ? Math.round(remaining / 1000) + 's' : 'N/A'}, ` +
+				`sessionExpired=${this._sessionExpired}, ` +
+				`caller=${new Error().stack?.split('\n')[2]?.trim() ?? 'unknown'}`
+		);
 		stopRefreshTimer();
 		this._token = null;
 		this._expiresAt = null;

@@ -145,17 +145,25 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 
 	if (!authStore.token) {
 		// No token - user isn't logged in, nothing to do
+		log.debug('[AUTH 401] No token present, skipping unauthorized handling');
 		return false;
 	}
+
+	log.info(
+		`[AUTH 401] Received 401 from ${response.url}, ` +
+			`attempting token refresh. Token expiry: ${authStore.expiresAt?.toISOString() ?? 'unknown'}`
+	);
 
 	// Token exists but was rejected - try to refresh
 	const refreshSucceeded = await attemptRefreshOnce();
 	if (!refreshSucceeded) {
 		// Refresh failed - show re-auth modal
+		log.warn('[AUTH 401] Refresh failed after 401, marking session expired');
 		authStore.markSessionExpired();
 		return false;
 	}
 
+	log.debug('[AUTH 401] Refresh succeeded, will retry original request');
 	// Refresh succeeded - caller should retry the request
 	return true;
 }

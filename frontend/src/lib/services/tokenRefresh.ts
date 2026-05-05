@@ -82,13 +82,22 @@ export function scheduleRefresh(): void {
 	if (refreshTimer) clearTimeout(refreshTimer);
 
 	const expires = authStore.expiresAt;
-	if (!expires) return;
+	if (!expires) {
+		log.debug('[REFRESH] scheduleRefresh: no expiresAt, skipping');
+		return;
+	}
 
 	// Refresh at 50% of remaining lifetime, minimum 1 minute
 	const remaining = expires.getTime() - Date.now();
 	const delay = Math.max(remaining / 2, 60_000);
+	log.debug(
+		`[REFRESH] Scheduled next refresh in ${Math.round(delay / 1000)}s ` +
+			`(token remaining: ${Math.round(remaining / 1000 / 60)} min, ` +
+			`expires: ${expires.toISOString()})`
+	);
 
 	refreshTimer = setTimeout(async () => {
+		log.debug('[REFRESH] Timer fired, attempting refresh');
 		const success = await refreshToken();
 		if (!success) {
 			// Schedule retry with exponential backoff
@@ -211,15 +220,20 @@ function stopVisibilityListener(): void {
  * Checks local token expiry and schedules refresh if valid
  */
 export async function initializeAuth(): Promise<void> {
+	log.debug('[AUTH INIT] initializeAuth() starting');
 	try {
 		const currentToken = authStore.token;
 		if (!currentToken) {
+			log.debug('[AUTH INIT] No token found, skipping initialization');
 			return;
 		}
+
+		log.debug(`[AUTH INIT] Token found (${currentToken.length} chars), checking expiry...`);
 
 		// Check local expiry (no server call)
 		if (authStore.tokenIsExpired()) {
 			// Token expired locally - clear and require re-login
+			log.info('[AUTH INIT] Token is EXPIRED locally, calling logout');
 			authStore.logout();
 			return;
 		}
@@ -227,13 +241,16 @@ export async function initializeAuth(): Promise<void> {
 		// If token needs refresh (< 5 minutes remaining), refresh immediately
 		// Otherwise, just schedule the next refresh
 		if (authStore.tokenNeedsRefresh()) {
+			log.info('[AUTH INIT] Token needs refresh (< 5 min remaining), refreshing now');
 			const refreshed = await refreshToken();
 			if (!refreshed) {
 				// Refresh failed - token might be invalid, clear it
+				log.warn('[AUTH INIT] Refresh failed during init, calling logout');
 				authStore.logout();
 			}
 			// scheduleRefresh() already called by refreshToken() via setAuthenticatedState
 		} else {
+			log.debug('[AUTH INIT] Token is valid and fresh, scheduling normal refresh');
 			// Token still has enough time - schedule refresh for later
 			scheduleRefresh();
 		}
