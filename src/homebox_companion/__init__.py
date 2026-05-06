@@ -16,7 +16,7 @@ Quick Start:
     ...     response = await client.login("user@example.com", "password")
     ...     token = response["token"]
     ...     for item in items:
-    ...         item.location_id = "your-location-id"
+    ...         item.parent_id = "your-location-id"
     ...         payload = item.model_dump(by_alias=True)
     ...         await client.create_item(token, payload)
 

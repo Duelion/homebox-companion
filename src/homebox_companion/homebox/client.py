@@ -94,6 +94,9 @@ class HomeboxClient:
     This client provides connection pooling and session management
     for asynchronous interaction with a Homebox instance.
 
+    All /v1/items/* and /v1/locations/* endpoints have been replaced
+    with /v1/entities/* as of Homebox 0.26 (Entity Merge).
+
     Args:
         base_url: The base URL of the Homebox API. Defaults to the configured API URL.
         client: Optional pre-configured HTTPX AsyncClient to use.
@@ -117,6 +120,7 @@ class HomeboxClient:
             timeout=DEFAULT_TIMEOUT,
             follow_redirects=True,
         )
+        self._entity_types_cache: list[dict[str, Any]] | None = None
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client if we own it."""
@@ -341,6 +345,53 @@ class HomeboxClient:
             logger.warning("Token validation failed: cannot reach Homebox server")
             return False
 
+    async def list_entity_types(self, token: str) -> list[dict[str, Any]]:
+        """Return all available entity types for the authenticated group.
+
+        Args:
+            token: The bearer token from login.
+
+        Returns:
+            List of entity type dicts (each has id, name, isLocation).
+        """
+        response = await self.client.get(
+            f"{self.base_url}/entity-types",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        self._ensure_success(response, "List entity types")
+        return response.json()
+
+    async def _resolve_entity_type_id(self, token: str, *, is_location: bool) -> str:
+        """Resolve the entity type UUID for 'Item' or 'Location'.
+
+        Fetches entity types from the API on first call, then caches
+        the result for the lifetime of this client instance.
+
+        Args:
+            token: The bearer token from login.
+            is_location: If True, resolve the location type; otherwise item type.
+
+        Returns:
+            The UUID string for the matching entity type.
+
+        Raises:
+            ValueError: If no matching entity type is found.
+        """
+        # Lazy cache on instance
+        if self._entity_types_cache is None:
+            self._entity_types_cache = await self.list_entity_types(token)
+
+        for et in self._entity_types_cache:
+            if et.get("isLocation") == is_location:
+                return et["id"]
+
+        kind = "location" if is_location else "item"
+        msg = f"No {kind} entity type found on this Homebox instance"
+        raise ValueError(msg)
+
     async def list_locations(self, token: str, *, filter_children: bool | None = None) -> list[dict[str, Any]]:
         """Return all available locations for the authenticated user.
 
@@ -351,20 +402,22 @@ class HomeboxClient:
         Returns:
             List of location dictionaries (raw API response).
         """
-        params = {}
+        params: dict[str, str] = {"isLocation": "true"}
         if filter_children is not None:
             params["filterChildren"] = str(filter_children).lower()
 
         response = await self.client.get(
-            f"{self.base_url}/locations",
+            f"{self.base_url}/entities",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
             },
-            params=params or None,
+            params=params,
         )
         self._ensure_success(response, "Fetch locations")
-        return response.json()
+        # 0.26 returns paginated {items: [...], page, pageSize, total}
+        data = response.json()
+        return data.get("items", data) if isinstance(data, dict) else data
 
     async def list_locations_typed(self, token: str, *, filter_children: bool | None = None) -> list[Location]:
         """Return all available locations as typed Location objects.
@@ -382,22 +435,41 @@ class HomeboxClient:
     async def get_location(self, token: str, location_id: str) -> dict[str, Any]:
         """Return a specific location by ID with its children.
 
+        In Homebox 0.26+, ``GET /entities/{id}`` no longer returns a nested
+        ``children`` array.  We synthesise it by issuing a second request
+        filtered to ``parentIds={id}&isLocation=true``.
+
         Args:
             token: The bearer token from login.
             location_id: The ID of the location to fetch.
 
         Returns:
-            Location dictionary including children (raw API response).
+            Location dictionary with a synthesised ``children`` list.
         """
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}",
+        }
+
         response = await self.client.get(
-            f"{self.base_url}/locations/{location_id}",
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {token}",
-            },
+            f"{self.base_url}/entities/{location_id}",
+            headers=headers,
         )
         self._ensure_success(response, "Fetch location")
-        return response.json()
+        location = response.json()
+
+        # If children are already present (future API change), skip extra call
+        if "children" not in location:
+            children_resp = await self.client.get(
+                f"{self.base_url}/entities",
+                headers=headers,
+                params={"parentIds": location_id, "isLocation": "true"},
+            )
+            self._ensure_success(children_resp, "Fetch location children")
+            children_data = children_resp.json()
+            location["children"] = children_data.get("items", children_data) if isinstance(children_data, dict) else children_data
+
+        return location
 
     async def get_location_typed(self, token: str, location_id: str) -> Location:
         """Return a specific location by ID as a typed Location object.
@@ -427,7 +499,7 @@ class HomeboxClient:
             params["withItems"] = "true"
 
         response = await self.client.get(
-            f"{self.base_url}/locations/tree",
+            f"{self.base_url}/entities/tree",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -456,15 +528,17 @@ class HomeboxClient:
         Returns:
             The created location dictionary.
         """
+        entity_type_id = await self._resolve_entity_type_id(token, is_location=True)
         payload: dict[str, Any] = {
             "name": name,
             "description": description,
+            "entityTypeId": entity_type_id,
         }
         if parent_id:
             payload["parentId"] = parent_id
 
         response = await self.client.post(
-            f"{self.base_url}/locations",
+            f"{self.base_url}/entities",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -505,7 +579,7 @@ class HomeboxClient:
             payload["parentId"] = parent_id
 
         response = await self.client.put(
-            f"{self.base_url}/locations/{location_id}",
+            f"{self.base_url}/entities/{location_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -528,7 +602,7 @@ class HomeboxClient:
             None
         """
         response = await self.client.delete(
-            f"{self.base_url}/locations/{location_id}",
+            f"{self.base_url}/entities/{location_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -694,14 +768,18 @@ class HomeboxClient:
         Returns:
             The created item dictionary from the API (raw response).
         """
+        payload = item.model_dump(by_alias=True, exclude_unset=True)
+        # Inject entityTypeId (resolved from the instance's entity type cache)
+        payload["entityTypeId"] = await self._resolve_entity_type_id(token, is_location=False)
+
         response = await self.client.post(
-            f"{self.base_url}/items",
+            f"{self.base_url}/entities",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             },
-            json=item.model_dump(by_alias=True, exclude_unset=True),
+            json=payload,
         )
         self._ensure_success(response, "Create item")
         return response.json()
@@ -732,7 +810,7 @@ class HomeboxClient:
             The updated item dictionary (raw API response).
         """
         response = await self.client.put(
-            f"{self.base_url}/items/{item_id}",
+            f"{self.base_url}/entities/{item_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -782,7 +860,7 @@ class HomeboxClient:
         """
         params = {}
         if location_id:
-            params["locations"] = location_id
+            params["parentIds"] = location_id
         if tag_ids:
             # API expects comma-separated list for array params
             params["tags"] = ",".join(tag_ids)
@@ -794,7 +872,7 @@ class HomeboxClient:
             params["pageSize"] = page_size
 
         response = await self.client.get(
-            f"{self.base_url}/items",
+            f"{self.base_url}/entities",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -843,7 +921,7 @@ class HomeboxClient:
             The item dictionary with all details (raw API response).
         """
         response = await self.client.get(
-            f"{self.base_url}/items/{item_id}",
+            f"{self.base_url}/entities/{item_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -865,7 +943,7 @@ class HomeboxClient:
             List of path elements (each with id, name, type).
         """
         response = await self.client.get(
-            f"{self.base_url}/items/{item_id}/path",
+            f"{self.base_url}/entities/{item_id}/path",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -991,7 +1069,7 @@ class HomeboxClient:
             None
         """
         response = await self.client.delete(
-            f"{self.base_url}/items/{item_id}",
+            f"{self.base_url}/entities/{item_id}",
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
@@ -1021,7 +1099,7 @@ class HomeboxClient:
             RuntimeError: If other API errors occur.
         """
         response = await self.client.get(
-            f"{self.base_url}/items/{item_id}/attachments/{attachment_id}",
+            f"{self.base_url}/entities/{item_id}/attachments/{attachment_id}",
             headers={"Authorization": f"Bearer {token}"},
         )
         # Handle 404 explicitly with a specific exception type
@@ -1057,7 +1135,7 @@ class HomeboxClient:
         files = {"file": (filename, file_bytes, mime_type)}
         data = {"type": attachment_type, "name": filename}
         response = await self.client.post(
-            f"{self.base_url}/items/{item_id}/attachments",
+            f"{self.base_url}/entities/{item_id}/attachments",
             headers={"Authorization": f"Bearer {token}"},
             files=files,
             data=data,

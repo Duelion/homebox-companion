@@ -37,7 +37,7 @@ def _configure_loguru_for_tests():
 # Test Infrastructure Constants
 # ---------------------------------------------------------------------------
 
-HOMEBOX_IMAGE = "ghcr.io/sysadminsmedia/homebox:0.25"
+HOMEBOX_IMAGE = "ghcr.io/sysadminsmedia/homebox:nightly"
 HOMEBOX_CONTAINER_PORT = 7745
 
 # Demo user credentials (created automatically by HBOX_DEMO=true)
@@ -472,9 +472,9 @@ async def cleanup_locations(homebox_api_url: str, homebox_credentials: tuple[str
                 token = response["token"]
                 for location_id in created_ids:
                     try:
-                        # Homebox API typically uses DELETE /locations/{id}
+                        # Homebox 0.26: unified entities endpoint
                         await client.client.delete(
-                            f"{client.base_url}/locations/{location_id}",
+                            f"{client.base_url}/entities/{location_id}",
                             headers={"Authorization": f"Bearer {token}"},
                         )
                     except Exception:

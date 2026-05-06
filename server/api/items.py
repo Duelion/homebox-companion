@@ -68,13 +68,13 @@ async def create_items(
     valid_tag_ids = await get_valid_tag_ids(token, client)
 
     for item_input in request.items:
-        # Use request-level location_id if item doesn't have one
-        location_id = item_input.location_id or request.location_id
+        # Resolve parent (container) ID: item-level → request-level fallback
+        # In 0.26, location_id and parent_id both map to the API's parentId field
+        parent_id = item_input.location_id or request.location_id or item_input.parent_id
 
         logger.debug(f"Creating item: {item_input.name}")
-        logger.debug(f"  location_id: {location_id}")
+        logger.debug(f"  parent_id: {parent_id}")
         logger.debug(f"  tag_ids: {item_input.tag_ids}")
-        logger.debug(f"  parent_id: {item_input.parent_id}")
 
         # Validate tag_ids against Homebox to filter out invalid/stale IDs
         validated_tag_ids: list[str] | None = None
@@ -88,7 +88,7 @@ async def create_items(
             name=item_input.name,
             quantity=item_input.quantity,
             description=item_input.description,
-            location_id=location_id,
+            parent_id=parent_id,
             tag_ids=validated_tag_ids if validated_tag_ids else None,
             manufacturer=item_input.manufacturer,
             model_number=item_input.model_number,
@@ -104,9 +104,8 @@ async def create_items(
                 name=detected_item.name,
                 quantity=detected_item.quantity,
                 description=detected_item.description or "",
-                location_id=detected_item.location_id,
+                parent_id=detected_item.parent_id,
                 tag_ids=detected_item.tag_ids,
-                parent_id=item_input.parent_id,  # Include parent_id for sub-items
             )
             result = await client.create_item(token, item_create)
             item_id = result.get("id")
@@ -126,7 +125,7 @@ async def create_items(
                             "name": full_item.get("name"),
                             "description": full_item.get("description"),
                             "quantity": full_item.get("quantity"),
-                            "locationId": full_item.get("location", {}).get("id"),
+                            "parentId": full_item.get("parent", {}).get("id"),
                             "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
                             **extended_payload,
                         }
@@ -287,7 +286,7 @@ async def update_item(
         "name": full_item.get("name"),
         "description": full_item.get("description", ""),
         "quantity": full_item.get("quantity", 1),
-        "locationId": full_item.get("location", {}).get("id"),
+        "parentId": full_item.get("parent", {}).get("id"),
         "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
     }
 

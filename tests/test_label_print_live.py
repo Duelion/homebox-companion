@@ -64,7 +64,7 @@ async def _test_item(
             name=f"Label Print Test {timestamp}",
             quantity=1,
             description="Item for label print testing",
-            location_id=location_id,
+            parent_id=location_id,
         )
         created = await client.create_item(token, item)
         item_id = created["id"]

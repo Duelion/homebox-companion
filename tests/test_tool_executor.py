@@ -209,7 +209,7 @@ class TestGetDisplayInfo:
         mock_client.get_item.return_value = {
             "id": "item1",
             "name": "Test Item",
-            "location": {"name": "Kitchen"},
+            "parent": {"name": "Kitchen"},
         }
         info = await executor.get_display_info("delete_item", {"item_id": "item1"}, "test-token")
 

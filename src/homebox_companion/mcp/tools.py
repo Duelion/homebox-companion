@@ -82,7 +82,7 @@ def _sort_items_by_location_and_name(items: list[dict]) -> list[dict]:
     return sorted(
         items,
         key=lambda item: (
-            (item.get("location", {}) or {}).get("name", "").lower(),
+            (item.get("parent", {}) or {}).get("name", "").lower(),
             item.get("name", "").lower(),
         ),
     )
@@ -628,10 +628,6 @@ class CreateItemTool:
             default=None,
             description="Optional list of tag IDs to apply",
         )
-        parent_id: str | None = Field(
-            default=None,
-            description="Optional parent item ID to nest this item under",
-        )
 
     async def execute(
         self,
@@ -643,11 +639,10 @@ class CreateItemTool:
 
         item_data = ItemCreate(
             name=params.name,
-            location_id=params.location_id,
+            parent_id=params.location_id,
             description=params.description,
             quantity=params.quantity,
             tag_ids=params.tag_ids or [],
-            parent_id=params.parent_id,
         )
         result = await client.create_item(token, item_data)
         logger.info(f"create_item created item: {result.get('name', 'unknown')}")
@@ -741,9 +736,9 @@ class UpdateItemTool:
 
         # Handle location - use new location_id if provided, else preserve current
         if params.location_id is not None:
-            update_data["locationId"] = params.location_id
-        elif current.get("location"):
-            update_data["locationId"] = current["location"].get("id")
+            update_data["parentId"] = params.location_id
+        elif current.get("parent"):
+            update_data["parentId"] = current["parent"].get("id")
 
         # Handle tags - use correct API field name "tagIds" with flat string array
         if params.tag_ids is not None:
