@@ -25,7 +25,13 @@ from homebox_companion import (
 
 from .api import api_router
 from .dependencies import client_holder, session_store_holder, tool_executor_holder
-from .middleware import RequestIDMiddleware, SecurityHeadersMiddleware, request_id_var
+from .middleware import (
+    GroupContextMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+    group_context_var,
+    request_id_var,
+)
 
 # GitHub version check cache with async lock for thread safety within a single worker.
 # NOTE: This cache is per-worker. When running with multiple workers (e.g., uvicorn --workers N),
@@ -281,7 +287,17 @@ async def lifespan(app: FastAPI):
     await _test_homebox_connectivity()
 
     # Initialize shared service holders
-    client = HomeboxClient(base_url=settings.api_url)
+    # The extra_headers_factory reads the group_context_var ContextVar at call time,
+    # so each request gets its own group scoping without threading group_id through
+    # every endpoint and client method.
+    def _group_headers_factory() -> dict[str, str]:
+        gid = group_context_var.get()
+        return {"X-Tenant": gid} if gid else {}
+
+    client = HomeboxClient(
+        base_url=settings.api_url,
+        extra_headers_factory=_group_headers_factory,
+    )
     client_holder.set(client)
 
     # Session store and executor are lazily initialized on first use
@@ -314,6 +330,9 @@ def create_app() -> FastAPI:
     # Request-ID middleware (must be added first to wrap all requests)
     # Uses pure ASGI middleware to avoid issues with SSE streaming
     app.add_middleware(RequestIDMiddleware)  # type: ignore[arg-type]
+
+    # Group context middleware (extracts X-Group-Id header into ContextVar)
+    app.add_middleware(GroupContextMiddleware)  # type: ignore[arg-type]
 
     # Security headers middleware (adds X-Content-Type-Options, X-Frame-Options, etc.)
     app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type]

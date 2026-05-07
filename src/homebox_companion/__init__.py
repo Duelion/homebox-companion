@@ -63,6 +63,7 @@ from .core import (
 # Homebox client
 from .homebox import (
     Attachment,
+    Group,
     HomeboxClient,
     Item,
     ItemCreate,
@@ -98,6 +99,7 @@ __all__ = [
     "JSONRepairError",
     # Homebox client
     "HomeboxClient",
+    "Group",
     "Location",
     "Tag",
     "Item",

@@ -11,6 +11,15 @@
 // DOMAIN MODELS
 // =============================================================================
 
+/** Homebox group (collection) - the multi-tenancy unit */
+export interface Group {
+	id: string;
+	name: string;
+	currency: string;
+	createdAt?: string;
+	updatedAt?: string;
+}
+
 /** Location in Homebox hierarchy */
 export interface Location {
 	id: string;
