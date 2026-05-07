@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "EntityType",
+    "Group",
     "Location",
     "Tag",
     "Item",
@@ -70,6 +71,23 @@ class EntityType(BaseModel):
     id: str
     name: str
     is_location: bool = Field(default=False, alias="isLocation")
+
+
+class Group(BaseModel):
+    """A Homebox group (collection).
+
+    Groups are the multi-tenancy unit in Homebox. Every item, location,
+    and tag belongs to exactly one group. A user can be a member of
+    multiple groups and switch between them using the X-Tenant header.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    name: str
+    currency: str = "USD"
+    created_at: str | None = Field(default=None, alias="createdAt")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
 
 
 class Location(BaseModel):
