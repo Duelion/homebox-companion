@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
 from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient, settings
+from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_client, get_token, get_valid_tag_ids, validate_file_size
@@ -228,6 +229,9 @@ async def upload_item_attachment(
 
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
+
+    max_dimension, jpeg_quality = settings.image_quality_params
+    file_bytes, mime_type = compress_image_for_upload(file_bytes, max_dimension, jpeg_quality)
 
     result = await client.upload_attachment(
         token=token,
