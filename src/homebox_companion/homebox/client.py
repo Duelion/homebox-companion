@@ -37,7 +37,7 @@ def _get_homebox_rate_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_sec(30, burst=10),
-        store=store.MemoryStore(),  # ty: ignore
+        store=store.MemoryStore(),
         timeout=30,  # Wait up to 30s for capacity
     )
 
@@ -1217,7 +1217,7 @@ class HomeboxClient:
         return Attachment(
             id=raw.get("id", ""),
             type=raw.get("type", ""),
-            document_id=doc.get("id") if doc else None,
+            document_id=doc.get("id") if doc else None,  # ty: ignore[unknown-argument]
         )
 
     @_rate_limited

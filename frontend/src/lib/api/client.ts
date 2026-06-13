@@ -324,7 +324,8 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	const getHeaders = (): HeadersInit => {
 		const extra: Record<string, string> = {};
 		if (options.headers) Object.assign(extra, options.headers);
-		if (options.body && typeof options.body === 'string') extra['Content-Type'] = 'application/json';
+		if (options.body && typeof options.body === 'string')
+			extra['Content-Type'] = 'application/json';
 		return buildAuthHeaders(Object.keys(extra).length > 0 ? extra : undefined);
 	};
 

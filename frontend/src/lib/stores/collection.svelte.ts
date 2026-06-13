@@ -104,9 +104,7 @@ class CollectionStore {
 			// Validate stored selection — if the stored group ID is no longer valid,
 			// fall back to the first group
 			if (this._selectedId && !fetchedGroups.some((g) => g.id === this._selectedId)) {
-				log.info(
-					`Previously selected group ${this._selectedId} no longer valid, resetting`
-				);
+				log.info(`Previously selected group ${this._selectedId} no longer valid, resetting`);
 				this._selectedId = fetchedGroups[0]?.id ?? null;
 				this.persistSelection();
 			}
