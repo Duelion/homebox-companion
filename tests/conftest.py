@@ -37,12 +37,12 @@ def _configure_loguru_for_tests():
 # Test Infrastructure Constants
 # ---------------------------------------------------------------------------
 
-HOMEBOX_IMAGE = "ghcr.io/sysadminsmedia/homebox:0.25"
+HOMEBOX_IMAGE = "ghcr.io/sysadminsmedia/homebox:0.26.1"
 HOMEBOX_CONTAINER_PORT = 7745
 
 # Demo user credentials (created automatically by HBOX_DEMO=true)
 DEMO_USERNAME = "demo@example.com"
-DEMO_PASSWORD = "demo"
+DEMO_PASSWORD = "demodemo"
 
 # Test assets directory
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
@@ -162,7 +162,7 @@ def homebox_container(
 ) -> Generator[tuple[str, str]]:
     """Start a disposable Homebox Docker container for the test session.
 
-    The container runs ``ghcr.io/sysadminsmedia/homebox:latest`` with
+    The container runs ``ghcr.io/sysadminsmedia/homebox:0.26.1`` with
     ``HBOX_DEMO=true`` which auto-populates sample data and creates the
     ``demo@example.com`` / ``demo`` user.  The label maker print command
     is configured to POST the label PNG to the ``mock_label_printer``
@@ -190,6 +190,7 @@ def homebox_container(
                 "-p", f"{host_port}:{HOMEBOX_CONTAINER_PORT}",
                 "-e", "HBOX_DEMO=true",
                 "-e", "HBOX_MODE=production",
+                "-e", "HBOX_AUTH_API_KEY_PEPPER=homebox-companion-test-pepper-value-at-least-32-bytes",
                 "-e", f"HBOX_LABEL_MAKER_PRINT_COMMAND={print_cmd}",
                 HOMEBOX_IMAGE,
             ],
@@ -472,9 +473,9 @@ async def cleanup_locations(homebox_api_url: str, homebox_credentials: tuple[str
                 token = response["token"]
                 for location_id in created_ids:
                     try:
-                        # Homebox API typically uses DELETE /locations/{id}
+                        # Homebox 0.26: unified entities endpoint
                         await client.client.delete(
-                            f"{client.base_url}/locations/{location_id}",
+                            f"{client.base_url}/entities/{location_id}",
                             headers={"Authorization": f"Bearer {token}"},
                         )
                     except Exception:

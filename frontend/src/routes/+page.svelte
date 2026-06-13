@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { auth, getConfig, setDemoMode } from '$lib/api';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { showToast, setLoading } from '$lib/stores/ui.svelte';
 	import { authLogger as log } from '$lib/utils/logger';
 	import { getInitPromise } from '$lib/services/tokenRefresh';
@@ -70,6 +71,7 @@
 		try {
 			const response = await auth.login(email, password);
 			authStore.setAuthenticatedState(response.token, new Date(response.expires_at), email);
+			await collectionStore.fetchGroups();
 			goto(resolve('/location'));
 		} catch (error) {
 			log.error('Login failed:', error);

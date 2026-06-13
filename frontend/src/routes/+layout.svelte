@@ -6,11 +6,14 @@
 	import SessionExpiredModal from '$lib/components/SessionExpiredModal.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import HeaderNav from '$lib/components/HeaderNav.svelte';
+	import CollectionSelector from '$lib/components/CollectionSelector.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
 	import { getVersion, getConfig, setDemoMode } from '$lib/api';
 	import { setLogLevel } from '$lib/utils/logger';
+
 	import { initializeAuth } from '$lib/services/tokenRefresh';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
@@ -105,6 +108,11 @@
 			// Initialize auth (check token, refresh if needed)
 			await initializeAuth();
 
+			// Fetch groups if authenticated
+			if (authStore.isAuthenticated) {
+				await collectionStore.fetchGroups();
+			}
+
 			// Check online status and register listeners
 			uiStore.setOnline(navigator.onLine);
 			window.addEventListener('online', handleOnline);
@@ -173,7 +181,8 @@
 
 				<!-- Right: Navigation (desktop/tablet only) -->
 				{#if isAuthenticated}
-					<div class="hidden md:block">
+					<div class="hidden items-center gap-3 md:flex">
+						<CollectionSelector />
 						<HeaderNav />
 					</div>
 				{/if}
@@ -183,6 +192,13 @@
 
 	<!-- Spacer for fixed header -->
 	<div class="pt-safe h-14 shrink-0"></div>
+
+	<!-- Mobile collection selector (below header, above content) -->
+	{#if isAuthenticated && collectionStore.hasMultiple}
+		<div class="flex justify-center border-b border-neutral-800 bg-neutral-950 px-4 py-2 md:hidden">
+			<CollectionSelector />
+		</div>
+	{/if}
 
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main class="flex-1">

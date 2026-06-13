@@ -19,10 +19,10 @@ class TestGetExtendedFieldsPayload:
             name="Tool",
             quantity=1,
             manufacturer="DeWalt",
-            model_number="DCD771",
-            serial_number="SN12345",
-            purchase_price=99.99,
-            purchase_from="Home Depot",
+            model_number="DCD771",  # ty: ignore[unknown-argument]
+            serial_number="SN12345",  # ty: ignore[unknown-argument]
+            purchase_price=99.99,  # ty: ignore[unknown-argument]
+            purchase_from="Home Depot",  # ty: ignore[unknown-argument]
             notes="Good condition",
         )
 
@@ -93,7 +93,7 @@ class TestPydanticValidation:
     def test_rejects_zero_price(self) -> None:
         """Zero price should be rejected (must be > 0)."""
         with pytest.raises(ValueError):
-            DetectedItem(name="Item", quantity=1, purchase_price=0)
+            DetectedItem(name="Item", quantity=1, purchase_price=0)  # ty: ignore[unknown-argument]
 
     def test_accepts_valid_item(self) -> None:
         """Valid item should be accepted."""

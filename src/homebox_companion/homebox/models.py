@@ -15,6 +15,8 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
+    "EntityType",
+    "Group",
     "Location",
     "Tag",
     "Item",
@@ -57,6 +59,37 @@ def has_extended_fields(
 # =============================================================================
 
 
+class EntityType(BaseModel):
+    """An entity type in Homebox (e.g. 'Item', 'Location').
+
+    Entity types are per-group and their UUIDs vary per Homebox instance.
+    Use the client's entity type resolution to get IDs by name.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    name: str
+    is_location: bool = Field(default=False, alias="isLocation")
+
+
+class Group(BaseModel):
+    """A Homebox group (collection).
+
+    Groups are the multi-tenancy unit in Homebox. Every item, location,
+    and tag belongs to exactly one group. A user can be a member of
+    multiple groups and switch between them using the X-Tenant header.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    name: str
+    currency: str = "USD"
+    created_at: str | None = Field(default=None, alias="createdAt")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+
 class Location(BaseModel):
     """A location in the Homebox inventory system."""
 
@@ -89,7 +122,7 @@ class Item(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=255)]
     quantity: int = Field(default=1, ge=0)
     description: Annotated[str, Field(max_length=1000)] = ""
-    location_id: str | None = Field(default=None, alias="locationId")
+    parent_id: str | None = Field(default=None, alias="parentId")
     tag_ids: list[str] = Field(default_factory=list, alias="tagIds")
     # Extended fields
     manufacturer: str | None = None
@@ -110,6 +143,7 @@ class ItemCreate(BaseModel):
     """Data for creating a new item in Homebox.
 
     Use `model_dump(by_alias=True, exclude_unset=True)` to generate the API payload.
+    Note: ``entityTypeId`` is injected by the client during creation, not set here.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -117,9 +151,8 @@ class ItemCreate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=255)]
     quantity: int = Field(default=1, ge=1)
     description: Annotated[str, Field(max_length=1000)] = ""
-    location_id: str | None = Field(default=None, alias="locationId")
-    tag_ids: list[str] | None = Field(default=None, alias="tagIds")
     parent_id: str | None = Field(default=None, alias="parentId")
+    tag_ids: list[str] | None = Field(default=None, alias="tagIds")
 
 
 class ItemUpdate(BaseModel):
@@ -134,7 +167,7 @@ class ItemUpdate(BaseModel):
     name: Annotated[str, Field(max_length=255)] | None = None
     quantity: int | None = Field(default=None, ge=1)
     description: Annotated[str, Field(max_length=1000)] | None = None
-    location_id: str | None = Field(default=None, alias="locationId")
+    parent_id: str | None = Field(default=None, alias="parentId")
     tag_ids: list[str] | None = Field(default=None, alias="tagIds")
     manufacturer: Annotated[str, Field(max_length=255)] | None = None
     model_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="modelNumber")

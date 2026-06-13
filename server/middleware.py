@@ -13,6 +13,10 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 # Default "-" handles cases outside request context (startup, background tasks)
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
+# ContextVar for group context — accessible throughout the request lifecycle
+# Default None means no group scoping (use the user's default group)
+group_context_var: ContextVar[str | None] = ContextVar("group_context", default=None)
+
 
 class RequestIDMiddleware:
     """Pure ASGI middleware for X-Request-ID header correlation.
@@ -63,6 +67,31 @@ class RequestIDMiddleware:
             finally:
                 # Reset the ContextVar
                 request_id_var.reset(token)
+
+
+class GroupContextMiddleware:
+    """Extract X-Group-Id header and set it as request-scoped context.
+
+    This enables collection scoping without threading group_id through
+    every endpoint and client method. The value is read by the client's
+    extra_headers_factory to inject X-Tenant into Homebox API requests.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        group_id = headers.get(b"x-group-id", b"").decode() or None
+        token = group_context_var.set(group_id)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            group_context_var.reset(token)
 
 
 class SecurityHeadersMiddleware:

@@ -274,6 +274,9 @@ class AuthStore {
 			import('../workflows/scan.svelte.ts')
 				.then(({ scanWorkflow }) => scanWorkflow.reset())
 				.catch((err) => log.warn('Failed to reset scan workflow:', err)),
+			import('./collection.svelte.ts')
+				.then(({ collectionStore }) => collectionStore.clear())
+				.catch((err) => log.warn('Failed to clear collection state:', err)),
 		];
 		await Promise.allSettled(cleanupTasks);
 	}

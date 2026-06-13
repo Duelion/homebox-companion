@@ -139,7 +139,7 @@ async def test_create_item_returns_item_with_id(
             name=item_name,
             quantity=3,
             description="Integration test item",
-            location_id=location_id,
+            parent_id=location_id,  # ty: ignore[unknown-argument]
         )
 
         created = await client.create_item(token, item)
@@ -174,7 +174,7 @@ async def test_update_item_returns_updated_values(
             name=f"Original Name {timestamp}",
             quantity=1,
             description="Original description",
-            location_id=location_id,
+            parent_id=location_id,  # ty: ignore[unknown-argument]
         )
         created = await client.create_item(token, item)
         item_id = created["id"]
@@ -190,7 +190,7 @@ async def test_update_item_returns_updated_values(
             "name": updated_name,
             "quantity": 5,
             "description": "Updated description",
-            "locationId": location_id,
+            "parentId": location_id,
         }
 
         updated = await client.update_item(token, item_id, update_data)
@@ -222,7 +222,7 @@ async def test_get_item_returns_full_details(
         item = ItemCreate(
             name=f"Get Test {timestamp}",
             quantity=2,
-            location_id=location_id,
+            parent_id=location_id,  # ty: ignore[unknown-argument]
         )
         created = await client.create_item(token, item)
         item_id = created["id"]
@@ -234,7 +234,7 @@ async def test_get_item_returns_full_details(
         assert fetched["id"] == item_id
         assert "name" in fetched
         assert "quantity" in fetched
-        assert "location" in fetched  # Full location object
+        assert "parent" in fetched  # Full parent (location) object
 
 
 @pytest.mark.asyncio
@@ -337,7 +337,7 @@ async def test_delete_item_removes_item(homebox_api_url: str, homebox_credential
             name=item_name,
             quantity=1,
             description="Item to be deleted",
-            location_id=location_id,
+            parent_id=location_id,  # ty: ignore[unknown-argument]
         )
 
         created = await client.create_item(token, item)
@@ -384,7 +384,7 @@ async def test_create_and_delete_item_cleanup_workflow(
         item = ItemCreate(
             name=f"Cleanup Test {timestamp}",
             quantity=1,
-            location_id=location_id,
+            parent_id=location_id,  # ty: ignore[unknown-argument]
         )
         created = await client.create_item(token, item)
         item_id = created["id"]
