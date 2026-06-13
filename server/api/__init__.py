@@ -7,6 +7,7 @@ from .chat import router as chat_router
 from .config import router as config_router
 from .custom_fields import router as custom_fields_router
 from .field_preferences import router as field_preferences_router
+from .groups import router as groups_router
 from .items import router as items_router
 from .llm_profiles import router as llm_profiles_router
 from .locations import router as locations_router
@@ -25,6 +26,7 @@ api_router.include_router(chat_router, tags=["chat"])
 api_router.include_router(config_router, tags=["config"])
 api_router.include_router(custom_fields_router, tags=["settings"])
 api_router.include_router(field_preferences_router, tags=["settings"])
+api_router.include_router(groups_router, tags=["groups"])
 api_router.include_router(llm_profiles_router, tags=["llm"])
 api_router.include_router(locations_router, tags=["locations"])
 api_router.include_router(tags_router, tags=["tags"])

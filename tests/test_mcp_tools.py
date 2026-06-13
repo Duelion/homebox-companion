@@ -375,7 +375,7 @@ class TestGetItem:
             "id": "item1",
             "name": "Smart TV",
             "description": "65 inch OLED",
-            "location": {"id": "loc1", "name": "Living Room"},
+            "parent": {"id": "loc1", "name": "Living Room"},
             "tags": [{"id": "tag1", "name": "Electronics"}],
         }
         mock_client.get_item.return_value = mock_item
@@ -390,7 +390,7 @@ class TestGetItem:
         assert result.data["name"] == "Smart TV"
         assert result.data["description"] == "65 inch OLED"
         assert "url" in result.data  # Computed URL field
-        assert result.data["location"]["id"] == "loc1"
+        assert result.data["location"]["id"] == "loc1"  # View normalizes parent → location
         assert result.data["location"]["name"] == "Living Room"
         assert len(result.data["tags"]) == 1
         assert result.data["tags"][0]["id"] == "tag1"

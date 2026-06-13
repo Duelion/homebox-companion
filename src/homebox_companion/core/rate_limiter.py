@@ -37,7 +37,7 @@ def _create_rpm_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_min(rpm, burst=burst),
-        store=_get_memory_store(),  # ty: ignore
+        store=_get_memory_store(),
         # Wait up to 60 seconds for capacity instead of failing immediately
         timeout=60,
     )
@@ -54,7 +54,7 @@ def _create_tpm_limiter() -> Throttled:
     return Throttled(
         using=RateLimiterType.TOKEN_BUCKET.value,
         quota=rate_limiter.per_min(tpm, burst=burst),
-        store=_get_memory_store(),  # ty: ignore
+        store=_get_memory_store(),
         timeout=60,
     )
 

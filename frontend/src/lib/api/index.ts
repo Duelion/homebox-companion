@@ -25,6 +25,7 @@ export {
 
 // Re-export domain APIs
 export { auth } from './auth';
+export { groups } from './groups';
 export { locations } from './locations';
 export { tags } from './tags';
 export { items, type BlobUrlResult } from './items';
@@ -51,6 +52,7 @@ export type { DetectOptions } from './vision';
 
 // Re-export domain types for consumers that import from '$lib/api'
 export type {
+	Group,
 	Location,
 	LocationTreeNode,
 	LocationCreateRequest,

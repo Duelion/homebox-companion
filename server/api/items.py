@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
 from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient, settings
+from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_client, get_token, get_valid_tag_ids, validate_file_size
@@ -68,13 +69,13 @@ async def create_items(
     valid_tag_ids = await get_valid_tag_ids(token, client)
 
     for item_input in request.items:
-        # Use request-level location_id if item doesn't have one
-        location_id = item_input.location_id or request.location_id
+        # Resolve parent (container) ID: item-level → request-level fallback
+        # In 0.26, location_id and parent_id both map to the API's parentId field
+        parent_id = item_input.location_id or request.location_id or item_input.parent_id
 
         logger.debug(f"Creating item: {item_input.name}")
-        logger.debug(f"  location_id: {location_id}")
+        logger.debug(f"  parent_id: {parent_id}")
         logger.debug(f"  tag_ids: {item_input.tag_ids}")
-        logger.debug(f"  parent_id: {item_input.parent_id}")
 
         # Validate tag_ids against Homebox to filter out invalid/stale IDs
         validated_tag_ids: list[str] | None = None
@@ -88,13 +89,13 @@ async def create_items(
             name=item_input.name,
             quantity=item_input.quantity,
             description=item_input.description,
-            location_id=location_id,
-            tag_ids=validated_tag_ids if validated_tag_ids else None,
+            parent_id=parent_id,  # ty: ignore[unknown-argument]
+            tag_ids=validated_tag_ids if validated_tag_ids else None,  # ty: ignore[unknown-argument]
             manufacturer=item_input.manufacturer,
-            model_number=item_input.model_number,
-            serial_number=item_input.serial_number,
-            purchase_price=item_input.purchase_price,
-            purchase_from=item_input.purchase_from,
+            model_number=item_input.model_number,  # ty: ignore[unknown-argument]
+            serial_number=item_input.serial_number,  # ty: ignore[unknown-argument]
+            purchase_price=item_input.purchase_price,  # ty: ignore[unknown-argument]
+            purchase_from=item_input.purchase_from,  # ty: ignore[unknown-argument]
             notes=item_input.notes,
         )
 
@@ -104,9 +105,8 @@ async def create_items(
                 name=detected_item.name,
                 quantity=detected_item.quantity,
                 description=detected_item.description or "",
-                location_id=detected_item.location_id,
-                tag_ids=detected_item.tag_ids,
-                parent_id=item_input.parent_id,  # Include parent_id for sub-items
+                parent_id=detected_item.parent_id,  # ty: ignore[unknown-argument]
+                tag_ids=detected_item.tag_ids,  # ty: ignore[unknown-argument]
             )
             result = await client.create_item(token, item_create)
             item_id = result.get("id")
@@ -126,7 +126,7 @@ async def create_items(
                             "name": full_item.get("name"),
                             "description": full_item.get("description"),
                             "quantity": full_item.get("quantity"),
-                            "locationId": full_item.get("location", {}).get("id"),
+                            "parentId": full_item.get("parent", {}).get("id"),
                             "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
                             **extended_payload,
                         }
@@ -229,6 +229,9 @@ async def upload_item_attachment(
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
 
+    max_dimension, jpeg_quality = settings.image_quality_params
+    file_bytes, mime_type = compress_image_for_upload(file_bytes, max_dimension, jpeg_quality)
+
     result = await client.upload_attachment(
         token=token,
         item_id=item_id,
@@ -287,7 +290,7 @@ async def update_item(
         "name": full_item.get("name"),
         "description": full_item.get("description", ""),
         "quantity": full_item.get("quantity", 1),
-        "locationId": full_item.get("location", {}).get("id"),
+        "parentId": full_item.get("parent", {}).get("id"),
         "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
     }
 

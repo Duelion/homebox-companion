@@ -33,7 +33,7 @@ class DetectedItem(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=255)]
     quantity: int = Field(default=1, ge=1)
     description: Annotated[str, Field(max_length=1000)] | None = None
-    location_id: str | None = Field(default=None, alias="locationId")
+    parent_id: str | None = Field(default=None, alias="parentId")
     tag_ids: list[str] | None = Field(default=None, alias="tagIds")
 
     # Extended fields (can only be set via update, not create)

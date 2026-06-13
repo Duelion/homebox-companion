@@ -134,8 +134,8 @@ class CompactItemView(BaseModel):
         - Build compact tag views (id + name only)
         - Filter out unnecessary fields from the compact representation
         """
-        # Build location view if present
-        location_data = data.get("location")
+        # Build location view if present (0.26: field renamed from 'location' to 'parent')
+        location_data = data.get("parent") or data.get("location")
         location_view = None
         if location_data and location_data.get("id"):
             location_view = LocationView(
@@ -237,17 +237,20 @@ class ItemView(BaseModel):
         - Build nested ParentItemView for parent item relationships
         - Ensure all optional fields have safe defaults
         """
-        # Build location view if present
-        location_data = data.get("location")
+        # Build location and parent views from the 'parent' field (0.26: replaces 'location')
+        # In 0.26, an item's parent can be either a location (entityType.isLocation=true)
+        # or another item (entityType.isLocation=false). We split into separate views.
+        parent_data = data.get("parent") or data.get("location")
         location_view = None
-        if location_data and location_data.get("id"):
-            location_view = LocationView.from_dict(location_data)
-
-        # Build parent view if present
-        parent_data = data.get("parent")
         parent_view = None
         if parent_data and parent_data.get("id"):
-            parent_view = ParentItemView.from_dict(parent_data)
+            parent_entity_type = parent_data.get("entityType", {})
+            if parent_entity_type.get("isLocation", True):
+                # Parent is a location → populate location view
+                location_view = LocationView.from_dict(parent_data)
+            else:
+                # Parent is another item → populate parent item view
+                parent_view = ParentItemView.from_dict(parent_data)
 
         # Validate required fields - log warnings but don't fail
         item_id = data.get("id") or ""
@@ -289,7 +292,11 @@ def add_tree_urls(node: dict[str, Any]) -> dict[str, Any]:
     """
     base_url = settings.effective_link_base_url
 
-    if node.get("type") == "location":
+    # Determine type from entityType or fall back to legacy 'type' field
+    entity_type = node.get("entityType", {})
+    is_location = entity_type.get("isLocation", False) if entity_type else node.get("type") == "location"
+
+    if is_location:
         node["url"] = f"{base_url}/location/{node.get('id')}"
     else:  # item
         node["url"] = f"{base_url}/item/{node.get('id')}"

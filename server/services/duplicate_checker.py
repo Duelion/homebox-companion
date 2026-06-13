@@ -86,7 +86,7 @@ class DuplicateChecker:
                 item_serial = (full_item.get("serialNumber") or "").strip().upper()
 
                 if item_serial == normalized:
-                    location = full_item.get("location", {})
+                    location = full_item.get("parent", {})
                     match = DuplicateMatch(
                         item_id=full_item["id"],
                         item_name=full_item.get("name", "Unknown"),

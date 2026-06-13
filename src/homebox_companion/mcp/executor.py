@@ -202,8 +202,8 @@ class ToolExecutor:
                 target_name = item_name
                 if item.get("assetId"):
                     asset_id = item.get("assetId")
-                if tool_name == "delete_item" and item.get("location"):
-                    location = item["location"].get("name")
+                if tool_name == "delete_item" and item.get("parent"):
+                    location = item["parent"].get("name")
 
             elif tool_name == "create_item":
                 if "name" in tool_args:
