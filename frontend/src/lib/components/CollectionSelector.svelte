@@ -49,7 +49,7 @@
 			// Reload data for the new collection
 			try {
 				await Promise.all([locationNavigator.loadTree(), fetchTags(true)]);
-			} catch (_err) {
+			} catch {
 				showToast('Failed to load collection data. Please try again.', 'error');
 			}
 		}
