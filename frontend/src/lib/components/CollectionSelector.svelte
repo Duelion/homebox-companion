@@ -49,7 +49,7 @@
 			// Reload data for the new collection
 			try {
 				await Promise.all([locationNavigator.loadTree(), fetchTags(true)]);
-			} catch (err) {
+			} catch (_err) {
 				showToast('Failed to load collection data. Please try again.', 'error');
 			}
 		}
@@ -96,7 +96,11 @@
 							: 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100'}"
 						onclick={() => handleSelect(group.id)}
 					>
-						<Layers size={14} strokeWidth={1.5} class={isSelected ? 'text-primary-400' : 'text-neutral-500'} />
+						<Layers
+							size={14}
+							strokeWidth={1.5}
+							class={isSelected ? 'text-primary-400' : 'text-neutral-500'}
+						/>
 						<span class="truncate">{group.name}</span>
 						{#if isSelected}
 							<span class="ml-auto text-primary-400">✓</span>

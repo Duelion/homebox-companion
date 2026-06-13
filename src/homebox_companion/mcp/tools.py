@@ -639,10 +639,10 @@ class CreateItemTool:
 
         item_data = ItemCreate(
             name=params.name,
-            parent_id=params.location_id,
+            parent_id=params.location_id,  # ty: ignore[unknown-argument]
             description=params.description,
             quantity=params.quantity,
-            tag_ids=params.tag_ids or [],
+            tag_ids=params.tag_ids or [],  # ty: ignore[unknown-argument]
         )
         result = await client.create_item(token, item_data)
         logger.info(f"create_item created item: {result.get('name', 'unknown')}")
