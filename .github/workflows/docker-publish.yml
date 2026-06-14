@@ -28,6 +28,24 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name || github.ref }}
 
+      - name: Verify version matches tag
+        if: github.event_name == 'release'
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          TAG_VERSION="${TAG#v}"
+          PYPROJECT_VERSION=$(grep -Po '^version\s*=\s*"\K[^"]+' pyproject.toml || true)
+          if [ -z "$PYPROJECT_VERSION" ]; then
+            echo "::error::Could not parse version from pyproject.toml"
+            exit 1
+          fi
+          echo "Tag version:       $TAG_VERSION"
+          echo "pyproject version: $PYPROJECT_VERSION"
+          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "::error::Version mismatch! Tag ($TAG_VERSION) != pyproject.toml ($PYPROJECT_VERSION). Bump pyproject.toml before tagging."
+            exit 1
+          fi
+
       - name: Log in to Container Registry
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:

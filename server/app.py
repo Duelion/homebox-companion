@@ -369,7 +369,9 @@ def create_app() -> FastAPI:
         # Log with appropriate level and include exception chain
         log_method = getattr(logger, exc.log_level, logger.error)
         log_method(
-            f"{exc.error_code}: {exc.to_dict()}",
+            "{error_code}: {details}",
+            error_code=exc.error_code,
+            details=str(exc.to_dict()),
             exc_info=exc if exc.log_level == "error" else None,
         )
 
