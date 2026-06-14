@@ -345,7 +345,7 @@ wheels = [
 
 [[package]]
 name = "homebox-companion"
-version = "2.6.1"
+version = "3.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
