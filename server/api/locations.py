@@ -1,6 +1,7 @@
 """Location API routes."""
 
 import asyncio
+import re
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
@@ -12,6 +13,31 @@ from ..dependencies import get_client, get_token
 from ..schemas.locations import LocationCreate, LocationUpdate
 
 router = APIRouter()
+
+_DIGIT_RUN = re.compile(r"(\d+)")
+
+
+def natural_sort_key(name: str) -> tuple[tuple[int, int | str], ...]:
+    """Sort key that orders embedded numbers numerically (1, 2, 10 instead of 1, 10, 2).
+
+    Homebox returns siblings in plain lexicographic order, which scrambles
+    numbered containers. Each digit run is compared as an integer; text runs
+    are compared case-insensitively. Numeric parts sort before text parts so
+    mixed-type comparisons stay well-defined.
+    """
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part.casefold())
+        for part in _DIGIT_RUN.split(name)
+    )
+
+
+def sort_tree_naturally(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Recursively sort tree nodes (and their children) by name using natural order."""
+    for node in nodes:
+        children = node.get("children")
+        if children:
+            node["children"] = sort_tree_naturally(children)
+    return sorted(nodes, key=lambda n: natural_sort_key(str(n.get("name") or "")))
 
 
 @router.get("/locations")
@@ -38,7 +64,7 @@ async def get_locations_tree(
     Uses the native Homebox tree endpoint which returns all nesting levels,
     ensuring deeply nested locations are visible in search results.
     """
-    return await client.get_location_tree(token)
+    return sort_tree_naturally(await client.get_location_tree(token))
 
 
 @router.get("/locations/{location_id}")
@@ -85,7 +111,9 @@ async def get_location(
                 }
 
         enriched_children = await asyncio.gather(*[fetch_child_details(child) for child in children])
-        location["children"] = list(enriched_children)
+        location["children"] = sorted(
+            enriched_children, key=lambda c: natural_sort_key(str(c.get("name") or ""))
+        )
 
     return location
 
