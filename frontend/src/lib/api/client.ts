@@ -190,6 +190,12 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 		return false;
 	}
 
+	if (authStore.authMethod === 'api_key') {
+		log.warn('[AUTH 401] API key rejected, marking session expired');
+		authStore.markSessionExpired();
+		return false;
+	}
+
 	log.info(
 		`[AUTH 401] Received 401 from ${response.url}, ` +
 			`attempting token refresh. Token expiry: ${authStore.expiresAt?.toISOString() ?? 'unknown'}`

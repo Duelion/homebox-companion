@@ -23,6 +23,7 @@ from ..core.exceptions import (
     HomeboxConnectionError,
     HomeboxTimeoutError,
 )
+from .auth_utils import is_homebox_api_key
 from .models import Attachment, Group, Item, ItemCreate, Location, Tag
 
 
@@ -325,6 +326,92 @@ class HomeboxClient:
             # clear local state. Log but don't propagate.
             logger.warning("Logout: Failed to invalidate token on Homebox server")
 
+    async def get_status(self) -> dict[str, Any]:
+        """Fetch Homebox application status including OIDC configuration.
+
+        Returns:
+            Full JSON response from GET /api/v1/status.
+
+        Raises:
+            HomeboxConnectionError: If the server cannot be reached.
+            HomeboxTimeoutError: If the request times out.
+            HomeboxAPIError: For other non-success responses.
+        """
+        url = f"{self.base_url}/status"
+        try:
+            response = await self.client.get(url, headers={"Accept": "application/json"})
+        except httpx.TimeoutException as e:
+            raise HomeboxTimeoutError(
+                message=str(e),
+                user_message="Connection timed out. Check if server is reachable.",
+                context={"url": url},
+            ) from e
+        except httpx.ConnectError as e:
+            raise HomeboxConnectionError(
+                message=str(e),
+                user_message=self._classify_connection_error(e),
+                context={"url": url},
+            ) from e
+
+        self._ensure_success(response, "Status")
+        return response.json()
+
+    async def get_user_self(self, token: str) -> dict[str, Any]:
+        """Fetch the authenticated user's profile from Homebox.
+
+        Args:
+            token: Bearer token or API key.
+
+        Returns:
+            User dict from the wrapped response (email, name, id, etc.).
+
+        Raises:
+            HomeboxAuthError: If the token is invalid or rejected.
+        """
+        normalized = _normalize_token(token.strip())
+        response = await self.client.get(
+            f"{self.base_url}/users/self",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {normalized}",
+            },
+        )
+        if response.status_code == 401:
+            raise HomeboxAuthError(
+                message="Invalid API key or token",
+                user_message="Invalid credentials. Check your API key and try again.",
+            )
+        self._ensure_success(response, "Get user self")
+        data = response.json()
+        user = data.get("item") or data
+        if not isinstance(user, dict):
+            raise HomeboxAuthError("Unexpected user response format from Homebox")
+        return user
+
+    async def login_with_api_key(self, api_key: str) -> dict[str, Any]:
+        """Validate a Homebox API key and return token + user email.
+
+        Args:
+            api_key: Raw Homebox API key (hb_… prefix).
+
+        Returns:
+            Dictionary with ``token`` and ``email`` keys.
+
+        Raises:
+            HomeboxAuthError: If the key is invalid or rejected.
+        """
+        normalized = _normalize_token(api_key.strip())
+        if not is_homebox_api_key(normalized):
+            raise HomeboxAuthError(
+                message="Invalid API key format",
+                user_message="Invalid API key format. Keys start with hb_.",
+            )
+
+        user = await self.get_user_self(normalized)
+        email = user.get("email") or user.get("Email")
+        logger.debug("API key login: successfully validated key for user")
+        return {"token": normalized, "email": email}
+
     async def validate_token(self, token: str) -> bool:
         """Validate a token by calling Homebox's user self endpoint.
 
@@ -340,14 +427,10 @@ class HomeboxClient:
         """
         # NOTE: Inline headers — /users/* is not group-scoped (see refresh_token).
         try:
-            response = await self.client.get(
-                f"{self.base_url}/users/self",
-                headers={
-                    "Accept": "application/json",
-                    "Authorization": f"Bearer {token}",
-                },
-            )
-            return response.status_code == 200
+            await self.get_user_self(token)
+            return True
+        except HomeboxAuthError:
+            return False
         except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
             # If we can't reach Homebox, we can't validate — reject the token
             logger.warning("Token validation failed: cannot reach Homebox server")

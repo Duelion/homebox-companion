@@ -59,10 +59,18 @@ export function getInitPromise(): Promise<void> {
  * @returns true if refresh succeeded, false otherwise
  */
 export async function refreshToken(): Promise<boolean> {
+	if (authStore.authMethod === 'api_key') {
+		return false;
+	}
 	try {
 		const response = await auth.refresh();
 		// Use setAuthenticatedState to ensure all state updates happen atomically
-		authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
+		authStore.setAuthenticatedState(
+			response.token,
+			response.expires_at ? new Date(response.expires_at) : null,
+			response.user_email ?? undefined,
+			response.auth_method
+		);
 		// Reset retry count on successful refresh
 		retryCount = 0;
 		lastActivityTimestamp = Date.now();
@@ -225,6 +233,11 @@ export async function initializeAuth(): Promise<void> {
 		const currentToken = authStore.token;
 		if (!currentToken) {
 			log.debug('[AUTH INIT] No token found, skipping initialization');
+			return;
+		}
+
+		if (authStore.authMethod === 'api_key') {
+			log.debug('[AUTH INIT] API key auth — skipping expiry/refresh scheduling');
 			return;
 		}
 

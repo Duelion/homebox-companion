@@ -68,6 +68,20 @@ Before you start, you'll need:
 
 > **Compatibility:** Tested with Homebox v0.21+. Earlier versions may have different authentication behavior.
 
+### OIDC / SSO (Single Sign-On)
+
+If your Homebox instance uses OIDC/SSO (e.g. Keycloak, Authentik, Google), password login in Companion may not work — especially when local login is disabled (`HBOX_OPTIONS_ALLOW_LOCAL_LOGIN=false`).
+
+**Use a Homebox API key instead:**
+
+1. Sign in to your Homebox instance in a browser using SSO
+2. Open **Profile → API Keys** and create a named key (optionally set an expiry)
+3. In Homebox Companion, paste the key on the login screen (keys start with `hb_`)
+
+Each user creates their own key. Revoke keys anytime from Homebox Profile without affecting your browser SSO session.
+
+When OIDC-only mode is detected, Companion shows the API key login form automatically. Hybrid instances (SSO + local login) offer both password and API key options.
+
 ## 🚀 Quick Start
 
 ### Try with Demo Server

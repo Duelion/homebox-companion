@@ -3,10 +3,13 @@
  */
 
 import { request, NetworkError } from './client';
+import type { AuthMethod } from '../stores/auth.svelte';
 
 export interface LoginResponse {
 	token: string;
-	expires_at: string;
+	expires_at: string | null;
+	auth_method: AuthMethod;
+	user_email: string | null;
 	message: string;
 }
 
@@ -15,6 +18,12 @@ export const auth = {
 		request<LoginResponse>('/login', {
 			method: 'POST',
 			body: JSON.stringify({ username, password }),
+		}),
+
+	loginWithApiKey: (api_key: string) =>
+		request<LoginResponse>('/login', {
+			method: 'POST',
+			body: JSON.stringify({ api_key }),
 		}),
 
 	/**

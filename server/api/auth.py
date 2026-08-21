@@ -5,10 +5,12 @@ import time
 from collections import defaultdict
 from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from loguru import logger
 
 from homebox_companion import settings
+from homebox_companion.homebox.auth_utils import is_homebox_api_key
+from homebox_companion.homebox.client import HomeboxClient
 
 from ..dependencies import get_client, get_token
 from ..schemas.auth import LoginRequest, LoginResponse
@@ -108,8 +110,14 @@ _limiter = RateLimiter()
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest, client_request: Request) -> LoginResponse:
+async def login(
+    request: LoginRequest,
+    client_request: Request,
+    client: Annotated[HomeboxClient, Depends(get_client)],
+) -> LoginResponse:
     """Authenticate with Homebox and return bearer token.
+
+    Accepts either username/password (session token) or a Homebox API key (hb_…).
 
     Connection and authentication errors are wrapped by the client layer
     and handled by the centralized exception handler in app.py.
@@ -119,48 +127,73 @@ async def login(request: LoginRequest, client_request: Request) -> LoginResponse
     # Verify rate limit
     _limiter.check(client_request, settings.auth_rate_limit_rpm, context="login attempts")
 
+    if request.api_key:
+        logger.info("API key login attempt")
+        response_data = await client.login_with_api_key(request.api_key)
+        logger.info("API key login successful")
+        return LoginResponse(
+            token=response_data["token"],
+            expires_at=None,
+            auth_method="api_key",
+            user_email=response_data.get("email"),
+        )
+
     logger.info("Login attempt")
     logger.debug(f"Login: HBC_HOMEBOX_URL configured as: {settings.homebox_url}")
 
-    client = get_client()
+    assert request.username is not None and request.password is not None
     response_data = await client.login(request.username, request.password)
 
     logger.info("Login successful")
     return LoginResponse(
         token=response_data.get("token", ""),
         expires_at=response_data.get("expiresAt", ""),
+        auth_method="session",
+        user_email=request.username,
     )
 
 
 @router.post("/refresh", response_model=LoginResponse)
 async def refresh_token(
+    client: Annotated[HomeboxClient, Depends(get_client)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> LoginResponse:
     """Refresh the access token using Homebox's refresh endpoint.
 
     Exchanges the current valid token for a new one with extended expiry.
     Returns the new token and expiry time.
+
+    API keys do not support refresh — returns 400 if an hb_ key is supplied.
     """
     token = await get_token(authorization)
-    client = get_client()
+
+    if is_homebox_api_key(token):
+        raise HTTPException(status_code=400, detail="API keys do not require refresh")
 
     data = await client.refresh_token(token)
     logger.info("Token refresh successful")
     return LoginResponse(
         token=data.get("token", ""),
         expires_at=data.get("expiresAt", ""),
+        auth_method="session",
     )
 
 
 @router.post("/logout", status_code=204)
 async def logout(
+    client: Annotated[HomeboxClient, Depends(get_client)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Logout from Homebox, invalidating the current token.
+    """Logout from Homebox, invalidating the current session token.
 
-    Calls the Homebox server to revoke the token so it can no longer be used.
+    Calls the Homebox server to revoke session tokens. API keys are revoked
+    from Homebox Profile — this endpoint only clears local Companion state for keys.
     """
     token = await get_token(authorization)
-    client = get_client()
+
+    if is_homebox_api_key(token):
+        logger.info("API key logout — local cleanup only")
+        return None
+
     await client.logout(token)
     logger.info("User logged out successfully")

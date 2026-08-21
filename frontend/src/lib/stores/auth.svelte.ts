@@ -16,9 +16,20 @@ import { authLogger as log } from '../utils/logger';
 const TOKEN_KEY = 'hbc_token';
 const EXPIRES_KEY = 'hbc_token_expires';
 const EMAIL_KEY = 'hbc_user_email';
+const AUTH_METHOD_KEY = 'hbc_auth_method';
+
+export type AuthMethod = 'session' | 'api_key';
 
 /** Token refresh threshold in milliseconds (5 minutes) */
 const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+
+function readStoredAuthMethod(): AuthMethod {
+	if (!browser) return 'session';
+	const stored = localStorage.getItem(AUTH_METHOD_KEY);
+	if (stored === 'api_key') return 'api_key';
+	// Backward compat: existing tokens without auth method are session JWTs
+	return 'session';
+}
 
 // =============================================================================
 // INITIAL STATE FROM STORAGE
@@ -27,14 +38,15 @@ const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 const storedToken = browser ? localStorage.getItem(TOKEN_KEY) : null;
 const storedExpires = browser ? localStorage.getItem(EXPIRES_KEY) : null;
 const storedEmail = browser ? localStorage.getItem(EMAIL_KEY) : null;
+const storedAuthMethod = readStoredAuthMethod();
 
 // Diagnostic: log what we found in localStorage on module load
 if (browser) {
 	log.debug(
 		`[AUTH INIT] localStorage state: token=${storedToken ? `present (${storedToken.length} chars)` : 'MISSING'}, ` +
-			`expires=${storedExpires ?? 'MISSING'}, email=${storedEmail ?? 'MISSING'}`
+			`expires=${storedExpires ?? 'MISSING'}, email=${storedEmail ?? 'MISSING'}, authMethod=${storedAuthMethod}`
 	);
-	if (storedExpires) {
+	if (storedExpires && storedAuthMethod === 'session') {
 		const expiresDate = new Date(storedExpires);
 		const remainingMs = expiresDate.getTime() - Date.now();
 		log.debug(
@@ -58,10 +70,15 @@ class AuthStore {
 	private _token = $state<string | null>(storedToken);
 
 	/** Token expiration date */
-	private _expiresAt = $state<Date | null>(storedExpires ? new Date(storedExpires) : null);
+	private _expiresAt = $state<Date | null>(
+		storedExpires && storedAuthMethod === 'session' ? new Date(storedExpires) : null
+	);
 
 	/** User email address */
 	private _email = $state<string | null>(storedEmail);
+
+	/** How the user authenticated */
+	private _authMethod = $state<AuthMethod>(storedAuthMethod);
 
 	/** Whether initial auth check has completed */
 	private _initialized = $state(false);
@@ -89,6 +106,11 @@ class AuthStore {
 	/** Get the user email */
 	get email(): string | null {
 		return this._email;
+	}
+
+	/** Get the authentication method */
+	get authMethod(): AuthMethod {
+		return this._authMethod;
 	}
 
 	/** Check if user is authenticated (reactive via $derived) */
@@ -128,6 +150,7 @@ class AuthStore {
 	 * Check if token needs refresh (< 5 minutes remaining)
 	 */
 	tokenNeedsRefresh(): boolean {
+		if (this._authMethod === 'api_key') return false;
 		if (!this._expiresAt) return false;
 		const remaining = this._expiresAt.getTime() - Date.now();
 		const needsRefresh = remaining < TOKEN_REFRESH_THRESHOLD_MS;
@@ -144,6 +167,7 @@ class AuthStore {
 	 * Check if token is expired
 	 */
 	tokenIsExpired(): boolean {
+		if (this._authMethod === 'api_key') return false;
 		if (!this._expiresAt) {
 			log.warn('[AUTH CHECK] tokenIsExpired=true (no expiresAt set)');
 			return true;
@@ -167,7 +191,8 @@ class AuthStore {
 			`[AUTH] markSessionExpired called. ` +
 				`expiresAt=${expiresAt?.toISOString() ?? 'null'}, ` +
 				`remaining=${remaining !== null ? Math.round(remaining / 1000) + 's' : 'N/A'}, ` +
-				`hasToken=${!!this._token}, caller=${new Error().stack?.split('\n')[2]?.trim() ?? 'unknown'}`
+				`hasToken=${!!this._token}, authMethod=${this._authMethod}, ` +
+				`caller=${new Error().stack?.split('\n')[2]?.trim() ?? 'unknown'}`
 		);
 		this._sessionExpired = true;
 	}
@@ -176,16 +201,29 @@ class AuthStore {
 	 * Set authenticated state atomically with all required side effects.
 	 * This is the canonical way to update auth state.
 	 */
-	setAuthenticatedState(newToken: string, expiresAt: Date, email?: string): void {
-		const remainingMs = expiresAt.getTime() - Date.now();
-		log.debug(
-			`[AUTH] setAuthenticatedState: expires=${expiresAt.toISOString()}, ` +
-				`remaining=${Math.round(remainingMs / 1000 / 60)} minutes, ` +
-				`token=${newToken.length} chars, wasExpired=${this._sessionExpired}`
-		);
+	setAuthenticatedState(
+		newToken: string,
+		expiresAt: Date | null,
+		email?: string,
+		authMethod: AuthMethod = 'session'
+	): void {
 		this._token = newToken;
 		this._expiresAt = expiresAt;
+		this._authMethod = authMethod;
 		this._sessionExpired = false;
+
+		if (expiresAt) {
+			const remainingMs = expiresAt.getTime() - Date.now();
+			log.debug(
+				`[AUTH] setAuthenticatedState: expires=${expiresAt.toISOString()}, ` +
+					`remaining=${Math.round(remainingMs / 1000 / 60)} minutes, ` +
+					`token=${newToken.length} chars, authMethod=${authMethod}, wasExpired=${this._sessionExpired}`
+			);
+		} else {
+			log.debug(
+				`[AUTH] setAuthenticatedState: no expiry (api_key), token=${newToken.length} chars, authMethod=${authMethod}`
+			);
+		}
 
 		// Only update email if provided (preserves existing email on token refresh)
 		if (email !== undefined) {
@@ -195,17 +233,26 @@ class AuthStore {
 		// Persist to localStorage
 		if (browser) {
 			localStorage.setItem(TOKEN_KEY, newToken);
-			localStorage.setItem(EXPIRES_KEY, expiresAt.toISOString());
+			if (expiresAt) {
+				localStorage.setItem(EXPIRES_KEY, expiresAt.toISOString());
+			} else {
+				localStorage.removeItem(EXPIRES_KEY);
+			}
+			localStorage.setItem(AUTH_METHOD_KEY, authMethod);
 			if (email !== undefined) {
 				localStorage.setItem(EMAIL_KEY, email);
 			}
 			// Diagnostic: verify what was actually stored
-			const verifyExpires = localStorage.getItem(EXPIRES_KEY);
-			log.debug(`[AUTH] localStorage verified: expires=${verifyExpires}`);
+			if (expiresAt) {
+				const verifyExpires = localStorage.getItem(EXPIRES_KEY);
+				log.debug(`[AUTH] localStorage verified: expires=${verifyExpires}`);
+			}
 		}
 
 		// Schedule token refresh
-		this.scheduleRefresh();
+		if (authMethod === 'session') {
+			this.scheduleRefresh();
+		}
 	}
 
 	/**
@@ -213,6 +260,7 @@ class AuthStore {
 	 * Dynamic import avoids circular dependency with tokenRefresh.ts.
 	 */
 	private async scheduleRefresh(): Promise<void> {
+		if (this._authMethod === 'api_key') return;
 		try {
 			const { scheduleRefresh } = await import('../services/tokenRefresh');
 			scheduleRefresh();
@@ -238,13 +286,14 @@ class AuthStore {
 			`[AUTH] logout called. ` +
 				`expiresAt=${expiresAt?.toISOString() ?? 'null'}, ` +
 				`remaining=${remaining !== null ? Math.round(remaining / 1000) + 's' : 'N/A'}, ` +
-				`sessionExpired=${this._sessionExpired}, ` +
+				`sessionExpired=${this._sessionExpired}, authMethod=${this._authMethod}, ` +
 				`caller=${new Error().stack?.split('\n')[2]?.trim() ?? 'unknown'}`
 		);
 		stopRefreshTimer();
 		this._token = null;
 		this._expiresAt = null;
 		this._email = null;
+		this._authMethod = 'session';
 		this._sessionExpired = false;
 
 		// Clear from localStorage
@@ -252,6 +301,7 @@ class AuthStore {
 			localStorage.removeItem(TOKEN_KEY);
 			localStorage.removeItem(EXPIRES_KEY);
 			localStorage.removeItem(EMAIL_KEY);
+			localStorage.removeItem(AUTH_METHOD_KEY);
 		}
 
 		// Clear related stores (non-blocking, errors logged)
