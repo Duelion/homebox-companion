@@ -1221,15 +1221,15 @@ class HomeboxClient:
         )
 
     @_rate_limited
-    async def print_label(self, token: str, item_id: str) -> str:
-        """Trigger server-side label printing for an item.
+    async def print_label(self, token: str, asset_id: str) -> str:
+        """Trigger server-side label printing for an asset.
 
-        Calls the undocumented Homebox labelmaker endpoint with ?print=true
+        Calls the undocumented Homebox asset labelmaker endpoint with ?print=true
         to execute the configured HBOX_LABEL_MAKER_PRINT_COMMAND on the server.
 
         Args:
             token: The bearer token from login.
-            item_id: The UUID of the item to print a label for.
+            asset_id: The Homebox asset ID to print a label for.
 
         Returns:
             The text response from Homebox (typically "Printed!").
@@ -1239,7 +1239,7 @@ class HomeboxClient:
                 the print command is not configured on the Homebox server.
         """
         response = await self.client.get(
-            f"{self.base_url}/labelmaker/item/{item_id}",
+            f"{self.base_url}/labelmaker/asset/{asset_id}",
             params={"print": "true"},
             headers=self._raw_auth_headers(token, accept="text/plain"),
         )
