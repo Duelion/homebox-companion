@@ -46,8 +46,8 @@ pytestmark = pytest.mark.live
 @pytest_asyncio.fixture(scope="module")
 async def _test_item(
     homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> AsyncGenerator[str]:
-    """Create a test item and return its ID. Cleaned up after module."""
+) -> AsyncGenerator[tuple[str, str]]:
+    """Create a test item and return its item UUID and asset ID."""
     username, password = homebox_credentials
     async with HomeboxClient(base_url=homebox_api_url) as client:
         response = await client.login(username, password)
@@ -69,7 +69,12 @@ async def _test_item(
         created = await client.create_item(token, item)
         item_id = created["id"]
 
-        yield item_id
+        await client.ensure_asset_ids(token)
+        fetched = await client.get_item(token, item_id)
+        asset_id = fetched.get("assetId")
+        assert asset_id, "Homebox should assign an asset ID to the test item"
+
+        yield item_id, asset_id
 
         # Cleanup
         try:
@@ -91,18 +96,18 @@ class TestLabelPreview:
         self,
         homebox_api_url: str,
         homebox_credentials: tuple[str, str],
-        _test_item: str,
+        _test_item: tuple[str, str],
     ) -> None:
-        """GET /labelmaker/item/{id} without ?print should return a PNG image."""
+        """GET /labelmaker/asset/{id} without ?print should return a PNG image."""
         username, password = homebox_credentials
-        item_id = _test_item
+        _, asset_id = _test_item
 
         async with HomeboxClient(base_url=homebox_api_url) as client:
             response = await client.login(username, password)
             token = response["token"]
 
             resp = await client.client.get(
-                f"{client.base_url}/labelmaker/item/{item_id}",
+                f"{client.base_url}/labelmaker/asset/{asset_id}",
                 headers={"Authorization": f"Bearer {token}"},
             )
 
@@ -123,19 +128,19 @@ class TestMockPrinterReceivesLabel:
         homebox_credentials: tuple[str, str],
         homebox_container_name: str,
         mock_label_printer: MockLabelPrinter,
-        _test_item: str,
+        _test_item: tuple[str, str],
     ) -> None:
         """When print_label is called, Homebox should POST the label PNG
         to the mock printer server."""
         username, password = homebox_credentials
-        item_id = _test_item
+        _, asset_id = _test_item
         mock_label_printer.clear()
 
         async with HomeboxClient(base_url=homebox_api_url) as client:
             response = await client.login(username, password)
             token = response["token"]
 
-            result = await client.print_label(token, item_id)
+            result = await client.print_label(token, asset_id)
 
         # Homebox should have returned "Printed!"
         assert "Printed" in result, f"Expected 'Printed' in response, got: {result!r}"
@@ -153,17 +158,17 @@ class TestMockPrinterReceivesLabel:
         homebox_api_url: str,
         homebox_credentials: tuple[str, str],
         mock_label_printer: MockLabelPrinter,
-        _test_item: str,
+        _test_item: tuple[str, str],
     ) -> None:
         """The POST body sent to the mock printer should be a valid PNG image."""
         username, password = homebox_credentials
-        item_id = _test_item
+        _, asset_id = _test_item
         mock_label_printer.clear()
 
         async with HomeboxClient(base_url=homebox_api_url) as client:
             response = await client.login(username, password)
             token = response["token"]
-            await client.print_label(token, item_id)
+            await client.print_label(token, asset_id)
 
         assert mock_label_printer.requests, "No requests received by mock printer"
         last_request = mock_label_printer.requests[-1]
@@ -183,17 +188,17 @@ class TestMockPrinterReceivesLabel:
         homebox_api_url: str,
         homebox_credentials: tuple[str, str],
         mock_label_printer: MockLabelPrinter,
-        _test_item: str,
+        _test_item: tuple[str, str],
     ) -> None:
         """The POST should hit the /print path on the mock printer."""
         username, password = homebox_credentials
-        item_id = _test_item
+        _, asset_id = _test_item
         mock_label_printer.clear()
 
         async with HomeboxClient(base_url=homebox_api_url) as client:
             response = await client.login(username, password)
             token = response["token"]
-            await client.print_label(token, item_id)
+            await client.print_label(token, asset_id)
 
         assert mock_label_printer.requests, "No requests received by mock printer"
         last_request = mock_label_printer.requests[-1]
