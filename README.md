@@ -44,7 +44,7 @@ flowchart LR
     
 ```
 
-1. **Login** – Authenticate with your existing Homebox credentials
+1. **Login** – Authenticate with your existing Homebox credentials, or use a Homebox API key
 2. **Select Location** – Browse the location tree, search, or scan a Homebox QR code
 3. **Capture Photos** – Take or upload photos of items (supports multiple photos per item)
 4. **AI Detection** – AI vision (via LiteLLM*) identifies items, quantities, and metadata
@@ -52,6 +52,8 @@ flowchart LR
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
 > *LiteLLM is a Python adaptor library we use to call OpenAI directly, no Local AI model required (unless you want to), just your API key.
+
+> **Login options:** On the login screen you can sign in with your Homebox credentials (email & password) or switch to the **API Key** tab and paste a Homebox API key (keys start with `hb_`). Generate one in Homebox → Profile → API Keys. API-key sessions are long-lived and are not auto-refreshed or logged out server-side.
 
 ## 💰 OpenAI Cost Estimates
 

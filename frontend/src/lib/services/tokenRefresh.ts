@@ -59,6 +59,12 @@ export function getInitPromise(): Promise<void> {
  * @returns true if refresh succeeded, false otherwise
  */
 export async function refreshToken(): Promise<boolean> {
+	// API keys cannot be refreshed (Homebox rejects /users/refresh for them).
+	// Return failure so 401 handling marks the session expired instead.
+	if (authStore.isApiKey) {
+		log.debug('[REFRESH] API key session — skipping refresh');
+		return false;
+	}
 	try {
 		const response = await auth.refresh();
 		// Use setAuthenticatedState to ensure all state updates happen atomically
@@ -80,6 +86,11 @@ export async function refreshToken(): Promise<boolean> {
  */
 export function scheduleRefresh(): void {
 	if (refreshTimer) clearTimeout(refreshTimer);
+
+	if (authStore.isApiKey) {
+		log.debug('[REFRESH] API key session — no refresh to schedule');
+		return;
+	}
 
 	const expires = authStore.expiresAt;
 	if (!expires) {
@@ -229,6 +240,12 @@ export async function initializeAuth(): Promise<void> {
 		}
 
 		log.debug(`[AUTH INIT] Token found (${currentToken.length} chars), checking expiry...`);
+
+		// API keys are long-lived and cannot be refreshed — nothing to schedule.
+		if (authStore.isApiKey) {
+			log.debug('[AUTH INIT] API key session — no expiry check or refresh needed');
+			return;
+		}
 
 		// Check local expiry (no server call)
 		if (authStore.tokenIsExpired()) {

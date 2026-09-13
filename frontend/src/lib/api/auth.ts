@@ -7,6 +7,9 @@ import { request, NetworkError } from './client';
 export interface LoginResponse {
 	token: string;
 	expires_at: string;
+	/** 'jwt' for session tokens (refreshable), 'api_key' for Homebox API keys */
+	auth_type: 'jwt' | 'api_key';
+	email?: string | null;
 	message: string;
 }
 
@@ -15,6 +18,17 @@ export const auth = {
 		request<LoginResponse>('/login', {
 			method: 'POST',
 			body: JSON.stringify({ username, password }),
+		}),
+
+	/**
+	 * Login with a Homebox API key (hb_-prefixed token from the Homebox
+	 * profile page). API-key sessions are not refreshable and are never
+	 * logged out server-side.
+	 */
+	loginWithApiKey: (apiKey: string) =>
+		request<LoginResponse>('/login/api-key', {
+			method: 'POST',
+			body: JSON.stringify({ api_key: apiKey }),
 		}),
 
 	/**

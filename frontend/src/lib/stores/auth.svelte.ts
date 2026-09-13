@@ -16,6 +16,7 @@ import { authLogger as log } from '../utils/logger';
 const TOKEN_KEY = 'hbc_token';
 const EXPIRES_KEY = 'hbc_token_expires';
 const EMAIL_KEY = 'hbc_user_email';
+const AUTH_TYPE_KEY = 'hbc_auth_type';
 
 /** Token refresh threshold in milliseconds (5 minutes) */
 const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
@@ -27,12 +28,14 @@ const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 const storedToken = browser ? localStorage.getItem(TOKEN_KEY) : null;
 const storedExpires = browser ? localStorage.getItem(EXPIRES_KEY) : null;
 const storedEmail = browser ? localStorage.getItem(EMAIL_KEY) : null;
+const storedAuthType = browser ? localStorage.getItem(AUTH_TYPE_KEY) : null;
 
 // Diagnostic: log what we found in localStorage on module load
 if (browser) {
 	log.debug(
 		`[AUTH INIT] localStorage state: token=${storedToken ? `present (${storedToken.length} chars)` : 'MISSING'}, ` +
-			`expires=${storedExpires ?? 'MISSING'}, email=${storedEmail ?? 'MISSING'}`
+			`expires=${storedExpires ?? 'MISSING'}, email=${storedEmail ?? 'MISSING'}, ` +
+			`authType=${storedAuthType ?? 'MISSING'}`
 	);
 	if (storedExpires) {
 		const expiresDate = new Date(storedExpires);
@@ -63,6 +66,11 @@ class AuthStore {
 	/** User email address */
 	private _email = $state<string | null>(storedEmail);
 
+	/** Credential type: 'jwt' for refreshable session tokens, 'api_key' for Homebox API keys */
+	private _authType = $state<'jwt' | 'api_key'>(
+		browser && storedAuthType === 'api_key' ? 'api_key' : 'jwt'
+	);
+
 	/** Whether initial auth check has completed */
 	private _initialized = $state(false);
 
@@ -89,6 +97,16 @@ class AuthStore {
 	/** Get the user email */
 	get email(): string | null {
 		return this._email;
+	}
+
+	/** Get the credential type (session JWT vs Homebox API key) */
+	get authType(): 'jwt' | 'api_key' {
+		return this._authType;
+	}
+
+	/** True if the current credential is a Homebox API key (not refreshable / not logoutable) */
+	get isApiKey(): boolean {
+		return this._authType === 'api_key';
 	}
 
 	/** Check if user is authenticated (reactive via $derived) */
@@ -128,6 +146,8 @@ class AuthStore {
 	 * Check if token needs refresh (< 5 minutes remaining)
 	 */
 	tokenNeedsRefresh(): boolean {
+		// API keys are long-lived and cannot be refreshed — never schedule one
+		if (this._authType === 'api_key') return false;
 		if (!this._expiresAt) return false;
 		const remaining = this._expiresAt.getTime() - Date.now();
 		const needsRefresh = remaining < TOKEN_REFRESH_THRESHOLD_MS;
@@ -144,6 +164,8 @@ class AuthStore {
 	 * Check if token is expired
 	 */
 	tokenIsExpired(): boolean {
+		// API keys have no locally known expiry — only Homebox can tell if they're revoked
+		if (this._authType === 'api_key') return false;
 		if (!this._expiresAt) {
 			log.warn('[AUTH CHECK] tokenIsExpired=true (no expiresAt set)');
 			return true;
@@ -176,15 +198,22 @@ class AuthStore {
 	 * Set authenticated state atomically with all required side effects.
 	 * This is the canonical way to update auth state.
 	 */
-	setAuthenticatedState(newToken: string, expiresAt: Date, email?: string): void {
-		const remainingMs = expiresAt.getTime() - Date.now();
+	setAuthenticatedState(
+		newToken: string,
+		expiresAt: Date | null,
+		email?: string,
+		opts?: { authType?: 'jwt' | 'api_key' }
+	): void {
+		const authType = opts?.authType ?? this._authType ?? 'jwt';
+		const remainingMs = expiresAt ? expiresAt.getTime() - Date.now() : null;
 		log.debug(
-			`[AUTH] setAuthenticatedState: expires=${expiresAt.toISOString()}, ` +
-				`remaining=${Math.round(remainingMs / 1000 / 60)} minutes, ` +
-				`token=${newToken.length} chars, wasExpired=${this._sessionExpired}`
+			`[AUTH] setAuthenticatedState: expires=${expiresAt?.toISOString() ?? 'none'}, ` +
+				`remaining=${remainingMs !== null ? Math.round(remainingMs / 1000 / 60) + ' minutes' : 'N/A'}, ` +
+				`token=${newToken.length} chars, authType=${authType}, wasExpired=${this._sessionExpired}`
 		);
 		this._token = newToken;
 		this._expiresAt = expiresAt;
+		this._authType = authType;
 		this._sessionExpired = false;
 
 		// Only update email if provided (preserves existing email on token refresh)
@@ -195,7 +224,12 @@ class AuthStore {
 		// Persist to localStorage
 		if (browser) {
 			localStorage.setItem(TOKEN_KEY, newToken);
-			localStorage.setItem(EXPIRES_KEY, expiresAt.toISOString());
+			localStorage.setItem(AUTH_TYPE_KEY, authType);
+			if (expiresAt) {
+				localStorage.setItem(EXPIRES_KEY, expiresAt.toISOString());
+			} else {
+				localStorage.removeItem(EXPIRES_KEY);
+			}
 			if (email !== undefined) {
 				localStorage.setItem(EMAIL_KEY, email);
 			}
@@ -204,7 +238,7 @@ class AuthStore {
 			log.debug(`[AUTH] localStorage verified: expires=${verifyExpires}`);
 		}
 
-		// Schedule token refresh
+		// Schedule token refresh (no-op for API keys)
 		this.scheduleRefresh();
 	}
 
@@ -245,6 +279,7 @@ class AuthStore {
 		this._token = null;
 		this._expiresAt = null;
 		this._email = null;
+		this._authType = 'jwt';
 		this._sessionExpired = false;
 
 		// Clear from localStorage
@@ -252,6 +287,7 @@ class AuthStore {
 			localStorage.removeItem(TOKEN_KEY);
 			localStorage.removeItem(EXPIRES_KEY);
 			localStorage.removeItem(EMAIL_KEY);
+			localStorage.removeItem(AUTH_TYPE_KEY);
 		}
 
 		// Clear related stores (non-blocking, errors logged)

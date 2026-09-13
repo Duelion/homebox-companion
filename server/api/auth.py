@@ -11,7 +11,7 @@ from loguru import logger
 from homebox_companion import settings
 
 from ..dependencies import get_client, get_token
-from ..schemas.auth import LoginRequest, LoginResponse
+from ..schemas.auth import ApiKeyLoginRequest, LoginRequest, LoginResponse
 
 router = APIRouter()
 
@@ -129,6 +129,41 @@ async def login(request: LoginRequest, client_request: Request) -> LoginResponse
     return LoginResponse(
         token=response_data.get("token", ""),
         expires_at=response_data.get("expiresAt", ""),
+    )
+
+
+@router.post("/login/api-key", response_model=LoginResponse)
+async def login_with_api_key(
+    request: ApiKeyLoginRequest, client_request: Request
+) -> LoginResponse:
+    """Authenticate with Homebox using an API key.
+
+    Homebox API keys (``hb_``-prefixed) are long-lived credentials created
+    from the Homebox profile page. They go through the same ``Bearer``
+    authorization as session tokens but, unlike sessions, can never be
+    refreshed or logged out — so the companion treats API-key sessions
+    specially (no refresh, no server-side logout).
+
+    Rate limited like password login to prevent brute-force attempts.
+    """
+    # Verify rate limit
+    _limiter.check(client_request, settings.auth_rate_limit_rpm, context="login attempts")
+
+    api_key = request.api_key.strip()
+    if not api_key.startswith("hb_"):
+        raise HTTPException(status_code=400, detail="Invalid API key format. Keys must start with 'hb_'.")
+
+    logger.debug("API key login: validating key against Homebox")
+
+    client = get_client()
+    user_data = await client.validate_api_key(api_key)
+
+    logger.info("API key login successful")
+    return LoginResponse(
+        token=api_key,
+        expires_at="",
+        auth_type="api_key",
+        email=user_data.get("email"),
     )
 
 

@@ -13,8 +13,11 @@
 
 	let email = $state('');
 	let password = $state('');
+	let loginMode = $state<'password' | 'apiKey'>('password');
+	let apiKey = $state('');
 	let isSubmitting = $state(false);
 	let showPassword = $state(false);
+	let showApiKey = $state(false);
 	let isCheckingAuth = $state(true); // Show loading during auth check
 
 	// Redirect if already authenticated, or auto-fill demo credentials
@@ -60,6 +63,11 @@
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 
+		if (loginMode === 'apiKey') {
+			await handleApiKeyLogin();
+			return;
+		}
+
 		if (!email || !password) {
 			showToast('Please enter email and password', 'warning');
 			return;
@@ -70,7 +78,9 @@
 
 		try {
 			const response = await auth.login(email, password);
-			authStore.setAuthenticatedState(response.token, new Date(response.expires_at), email);
+			authStore.setAuthenticatedState(response.token, new Date(response.expires_at), email, {
+				authType: 'jwt',
+			});
 			await collectionStore.fetchGroups();
 			goto(resolve('/location'));
 		} catch (error) {
@@ -85,8 +95,45 @@
 		}
 	}
 
+	async function handleApiKeyLogin() {
+		const trimmedKey = apiKey.trim();
+		if (!trimmedKey) {
+			showToast('Please enter your Homebox API key', 'warning');
+			return;
+		}
+		if (!trimmedKey.startsWith('hb_')) {
+			showToast("API keys start with 'hb_'. Copy it from Homebox → Profile → API Keys.", 'error');
+			return;
+		}
+
+		isSubmitting = true;
+		setLoading(true, 'Signing in...');
+
+		try {
+			const response = await auth.loginWithApiKey(trimmedKey);
+			authStore.setAuthenticatedState(response.token, null, response.email ?? undefined, {
+				authType: 'api_key',
+			});
+			await collectionStore.fetchGroups();
+			goto(resolve('/location'));
+		} catch (error) {
+			log.error('API key login failed:', error);
+			showToast(
+				error instanceof Error ? error.message : 'Login failed. Please check your API key.',
+				'error'
+			);
+		} finally {
+			isSubmitting = false;
+			setLoading(false);
+		}
+	}
+
 	function togglePasswordVisibility() {
 		showPassword = !showPassword;
+	}
+
+	function toggleApiKeyVisibility() {
+		showApiKey = !showApiKey;
 	}
 </script>
 
@@ -128,51 +175,109 @@
 		</p>
 
 		<form class="w-full max-w-sm space-y-5 px-4" onsubmit={handleSubmit}>
-			<div>
-				<label for="email" class="label">Email</label>
-				<input
-					type="email"
-					id="email"
-					bind:value={email}
-					placeholder="you@example.com"
-					required
-					autocomplete="email"
-					class="input"
-				/>
+			<!-- Login method tabs -->
+			<div class="grid grid-cols-2 gap-1 rounded-xl border border-neutral-700 bg-neutral-900 p-1">
+				<button
+					type="button"
+					class="flex min-h-touch items-center justify-center rounded-lg px-4 py-2 text-body-sm font-medium transition-colors {loginMode ===
+					'password'
+						? 'bg-neutral-800 text-neutral-100 shadow'
+						: 'text-neutral-400 hover:text-neutral-200'}"
+					onclick={() => (loginMode = 'password')}
+				>
+					Email &amp; Password
+				</button>
+				<button
+					type="button"
+					class="flex min-h-touch items-center justify-center rounded-lg px-4 py-2 text-body-sm font-medium transition-colors {loginMode ===
+					'apiKey'
+						? 'bg-neutral-800 text-neutral-100 shadow'
+						: 'text-neutral-400 hover:text-neutral-200'}"
+					onclick={() => (loginMode = 'apiKey')}
+				>
+					API Key
+				</button>
 			</div>
 
-			<div>
-				<label for="password" class="label">Password</label>
-				<div class="relative">
+			{#if loginMode === 'password'}
+				<div>
+					<label for="email" class="label">Email</label>
 					<input
-						type={showPassword ? 'text' : 'password'}
-						id="password"
-						bind:value={password}
-						placeholder="Enter your password"
+						type="email"
+						id="email"
+						bind:value={email}
+						placeholder="you@example.com"
 						required
-						autocomplete="current-password"
-						class="input pr-12"
+						autocomplete="email"
+						class="input"
 					/>
-					<button
-						type="button"
-						onclick={togglePasswordVisibility}
-						class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
-						aria-label={showPassword ? 'Hide password' : 'Show password'}
-					>
-						{#if showPassword}
-							<!-- Eye off icon -->
-							<EyeOff size={20} strokeWidth={1.5} />
-						{:else}
-							<!-- Eye icon -->
-							<Eye size={20} strokeWidth={1.5} />
-						{/if}
-					</button>
 				</div>
-			</div>
+
+				<div>
+					<label for="password" class="label">Password</label>
+					<div class="relative">
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="password"
+							bind:value={password}
+							placeholder="Enter your password"
+							required
+							autocomplete="current-password"
+							class="input pr-12"
+						/>
+						<button
+							type="button"
+							onclick={togglePasswordVisibility}
+							class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
+							aria-label={showPassword ? 'Hide password' : 'Show password'}
+						>
+							{#if showPassword}
+								<!-- Eye off icon -->
+								<EyeOff size={20} strokeWidth={1.5} />
+							{:else}
+								<!-- Eye icon -->
+								<Eye size={20} strokeWidth={1.5} />
+							{/if}
+						</button>
+					</div>
+				</div>
+			{:else}
+				<div>
+					<label for="api-key" class="label">Homebox API Key</label>
+					<div class="relative">
+						<input
+							type={showApiKey ? 'text' : 'password'}
+							id="api-key"
+							bind:value={apiKey}
+							placeholder="hb_..."
+							autocomplete="off"
+							spellcheck="false"
+							class="input pr-12"
+						/>
+						<button
+							type="button"
+							onclick={toggleApiKeyVisibility}
+							class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
+							aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+						>
+							{#if showApiKey}
+								<!-- Eye off icon -->
+								<EyeOff size={20} strokeWidth={1.5} />
+							{:else}
+								<!-- Eye icon -->
+								<Eye size={20} strokeWidth={1.5} />
+							{/if}
+						</button>
+					</div>
+					<p class="mt-1.5 text-caption text-neutral-500">
+						Create one in Homebox — Profile → API Keys. It expires in 30 days by default.
+					</p>
+				</div>
+			{/if}
 
 			<div class="pt-2">
 				<Button type="submit" variant="primary" full loading={isSubmitting}>
-					<span>Sign In</span>
+					<span>{loginMode === 'apiKey' ? 'Sign In with API Key' : 'Sign In'}</span>
 					<ArrowRight size={20} strokeWidth={2} />
 				</Button>
 			</div>

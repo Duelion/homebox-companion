@@ -353,6 +353,54 @@ class HomeboxClient:
             logger.warning("Token validation failed: cannot reach Homebox server")
             return False
 
+    async def validate_api_key(self, api_key: str) -> dict[str, Any]:
+        """Validate a Homebox API key and return the owning user's profile.
+
+        Homebox API keys (``hb_``-prefixed) are accepted through the same
+        ``Authorization: Bearer`` header as session tokens, but unlike a
+        session they can never be refreshed or logged out — the key itself is
+        used as the bearer token for all subsequent requests.
+
+        Args:
+            api_key: The ``hb_``-prefixed API key to validate.
+
+        Returns:
+            The parsed JSON body of ``/users/self`` (includes the user's
+            email/name) on success.
+
+        Raises:
+            HomeboxAuthError: If the API key is invalid or expired.
+            HomeboxConnectionError: If Homebox cannot be reached.
+            HomeboxTimeoutError: If the request times out.
+        """
+        # NOTE: Inline headers — /users/* is not group-scoped (see refresh_token).
+        self_url = f"{self.base_url}/users/self"
+        try:
+            response = await self.client.get(
+                self_url,
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                },
+            )
+        except httpx.TimeoutException as e:
+            logger.debug(f"API key login: Timeout connecting to {self_url}")
+            raise HomeboxTimeoutError(
+                message=str(e),
+                user_message="Connection timed out. Check if server is reachable.",
+                context={"url": self_url},
+            ) from e
+        except httpx.ConnectError as e:
+            logger.debug(f"API key login: Connection failed to {self_url}: {e}")
+            raise HomeboxConnectionError(
+                message=str(e),
+                user_message=self._classify_connection_error(e),
+                context={"url": self_url},
+            ) from e
+
+        self._ensure_success(response, "Validate API key")
+        return response.json()
+
     def _auth_headers(
         self, token: str, *, group_id: str | None = None, content_type: str | None = None,
     ) -> dict[str, str]:

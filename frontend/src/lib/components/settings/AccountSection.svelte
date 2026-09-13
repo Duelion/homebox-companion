@@ -14,11 +14,17 @@
 	import Button from '$lib/components/Button.svelte';
 
 	async function handleLogout() {
-		// Invalidate token on the Homebox server (best-effort)
-		try {
-			await auth.logout();
-		} catch (e) {
-			log.warn('Server-side logout failed, proceeding with local cleanup', e);
+		// Invalidate token on the Homebox server (best-effort).
+		// API keys cannot be logged out — they are revoked from the Homebox
+		// profile page, so skip the server call entirely.
+		if (!authStore.isApiKey) {
+			try {
+				await auth.logout();
+			} catch (e) {
+				log.warn('Server-side logout failed, proceeding with local cleanup', e);
+			}
+		} else {
+			log.debug('API key session — skipping server-side logout');
 		}
 
 		scanWorkflow.reset();
@@ -36,21 +42,23 @@
 	</h2>
 
 	<!-- Signed in as -->
-	{#if authStore.email}
+	<div
+		class="flex items-center gap-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4"
+	>
 		<div
-			class="flex items-center gap-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4"
+			class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-600/20 text-primary-400"
 		>
-			<div
-				class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-600/20 text-primary-400"
-			>
-				<User size={20} strokeWidth={1.5} />
-			</div>
-			<div class="min-w-0 flex-1">
-				<p class="text-xs text-neutral-500">Signed in as</p>
-				<p class="truncate font-medium text-neutral-100">{authStore.email}</p>
-			</div>
+			<User size={20} strokeWidth={1.5} />
 		</div>
-	{/if}
+		<div class="min-w-0 flex-1">
+			<p class="text-xs text-neutral-500">Signed in as</p>
+			{#if authStore.email}
+				<p class="truncate font-medium text-neutral-100">{authStore.email}</p>
+			{:else if authStore.isApiKey}
+				<p class="font-medium text-neutral-100">API key</p>
+			{/if}
+		</div>
+	</div>
 
 	<Button variant="danger" full onclick={handleLogout}>
 		<LogOut size={20} strokeWidth={1.5} />
