@@ -116,6 +116,8 @@ export interface ConfigResponse {
 	/** Explicit demo mode from HBC_DEMO_MODE env var only (not URL detection) */
 	demo_mode_explicit: boolean;
 	homebox_url: string;
+	/** Only set when HBC_LINK_BASE_URL is explicitly configured (not the homebox_url fallback) */
+	link_base_url?: string | null;
 	llm_model: string;
 	update_check_enabled: boolean;
 	image_quality: string;

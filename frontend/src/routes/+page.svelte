@@ -19,6 +19,8 @@
 	let showPassword = $state(false);
 	let showApiKey = $state(false);
 	let isCheckingAuth = $state(true); // Show loading during auth check
+	// Homebox link base (HBC_LINK_BASE_URL) when explicitly configured — used to link to API key creation
+	let linkBaseUrl = $state<string | null>(null);
 
 	// Redirect if already authenticated, or auto-fill demo credentials
 	onMount(async () => {
@@ -46,6 +48,7 @@
 			try {
 				const config = await getConfig();
 				setDemoMode(config.is_demo_mode, config.demo_mode_explicit);
+				linkBaseUrl = config.link_base_url ?? null;
 				if (config.is_demo_mode) {
 					email = 'demo@example.com';
 					password = 'demo';
@@ -270,7 +273,22 @@
 						</button>
 					</div>
 					<p class="mt-1.5 text-caption text-neutral-500">
-						Create one in Homebox — Profile → API Keys. It expires in 30 days by default.
+						{#if linkBaseUrl}
+							Need a key?
+							<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
+							<a
+								href="{linkBaseUrl}/profile"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="font-medium text-primary-400 underline underline-offset-2 hover:text-primary-300"
+							>
+								Create one in Homebox (Profile → API Keys)
+							</a>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{:else}
+							Create one in Homebox — Profile → API Keys.
+						{/if}
+						It expires in 30 days by default.
 					</p>
 				</div>
 			{/if}

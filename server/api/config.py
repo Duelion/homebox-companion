@@ -16,6 +16,9 @@ class ConfigResponse(BaseModel):
     # Used for security-sensitive features like disabling chat.
     demo_mode_explicit: bool
     homebox_url: str
+    # Homebox link base (HBC_LINK_BASE_URL) when explicitly configured.
+    # Distinct from homebox_url fallback so the frontend can show public links only when intended.
+    link_base_url: str | None = None
     llm_model: str
     update_check_enabled: bool
     image_quality: str
@@ -36,6 +39,7 @@ async def get_config() -> ConfigResponse:
         is_demo_mode=settings.is_demo_mode,
         demo_mode_explicit=settings.demo_mode,
         homebox_url=settings.effective_link_base_url,
+        link_base_url=settings.link_base_url or None,
         llm_model=settings.effective_llm_model,
         update_check_enabled=not settings.disable_update_check,
         image_quality=settings.image_quality.value,
