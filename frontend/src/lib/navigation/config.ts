@@ -88,7 +88,7 @@ export function isNavItemActive(item: NavItem, currentPath: string): boolean {
  * Resolve a nav item's href for use in links.
  */
 export function resolveNavHref(href: string): string {
-	return resolve(href as AppRoute);
+	return (resolve as (route: AppRoute) => string)(href as AppRoute);
 }
 
 /**
