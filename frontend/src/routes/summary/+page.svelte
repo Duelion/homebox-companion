@@ -90,8 +90,12 @@
 		}
 	}
 
-	function editItem(index: number) {
-		workflow.editConfirmedItem(index);
+	async function editItem(index: number) {
+		if (itemStatuses[index] === 'failed') {
+			await workflow.editFailedItem(index);
+		} else {
+			await workflow.editConfirmedItem(index);
+		}
 		goto(resolve('/review'));
 	}
 
@@ -285,7 +289,19 @@
 
 				<!-- Action buttons / status -->
 				<div class="flex min-w-11 flex-col items-center justify-start gap-1">
-					{#if itemStatuses[index] && itemStatuses[index] !== 'pending'}
+					{#if itemStatuses[index] === 'failed'}
+						<StatusIcon status="failed" />
+						<button
+							type="button"
+							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+							aria-label={`Edit failed item ${item.name}`}
+							title="Edit failed item"
+							disabled={isSubmitting}
+							onclick={() => editItem(index)}
+						>
+							<Pencil size={20} strokeWidth={1.5} />
+						</button>
+					{:else if itemStatuses[index] && itemStatuses[index] !== 'pending'}
 						<!-- Show status icon during/after submission -->
 						<StatusIcon status={itemStatuses[index]} />
 					{:else}

@@ -98,6 +98,9 @@ class ScanWorkflow {
 	private _isFirstEffectRun = true;
 	private contextGeneration = 0;
 
+	/** Confirmed-item index currently being edited after a failed submission. */
+	private failedItemEditIndex = $state<number | null>(null);
+
 	// =========================================================================
 	// CONSTRUCTOR (auto-persist setup)
 	// =========================================================================
@@ -130,6 +133,7 @@ class ScanWorkflow {
 				const confirmedItems = this.reviewService.confirmedItems;
 				const currentReviewIndex = this.reviewService.currentReviewIndex;
 				const imageStatuses = this.analysisService.imageStatuses;
+				const isEditingFailedItem = this.failedItemEditIndex !== null;
 
 				// DEPENDENCY TRACKING:
 				// Svelte 5's $effect tracks reads automatically. The void statements below
@@ -148,6 +152,7 @@ class ScanWorkflow {
 				void parentItemName;
 				void parentItemId;
 				void currentReviewIndex;
+				void isEditingFailedItem;
 
 				// Skip the very first effect run (avoids persisting on construction)
 				if (this._isFirstEffectRun) {
@@ -157,6 +162,7 @@ class ScanWorkflow {
 
 				// Don't persist terminal/transient states
 				if (
+					isEditingFailedItem ||
 					status === 'idle' ||
 					status === 'complete' ||
 					status === 'analyzing' ||
@@ -197,6 +203,8 @@ class ScanWorkflow {
 	 * (e.g., after analysis completes, before navigation).
 	 */
 	private flushPendingPersist(): void {
+		if (this.failedItemEditIndex !== null) return;
+
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);
 			this._persistTimeout = null;
@@ -754,6 +762,16 @@ class ScanWorkflow {
 
 	/** Confirm current item and move to next */
 	async confirmItem(item: ReviewItem): Promise<void> {
+		if (this.failedItemEditIndex !== null) {
+			const editIndex = this.failedItemEditIndex;
+			if (this.reviewService.replaceConfirmedItem(editIndex, item)) {
+				this.failedItemEditIndex = null;
+				this._status = 'confirming';
+				await this.persistAsync();
+			}
+			return;
+		}
+
 		const hasMore = this.reviewService.confirmCurrentItem(item);
 		if (!hasMore) {
 			await this.finishReview();
@@ -813,6 +831,38 @@ class ScanWorkflow {
 			// Persist the state change
 			await this.persistAsync();
 		}
+	}
+
+	/** Open one failed submission in the existing item editor without changing list indexes. */
+	async editFailedItem(index: number): Promise<void> {
+		if (this.submissionService.itemStatuses[index] !== 'failed') return;
+
+		const item = this.reviewService.stageConfirmedItemForEdit(index);
+		if (!item) return;
+
+		// The focused edit is ephemeral. Keep the last persisted summary as the
+		// reload recovery point and prevent an already scheduled autosave from
+		// writing the staged review state.
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+		}
+		this.failedItemEditIndex = index;
+		this._status = 'reviewing';
+	}
+
+	/** Cancel a failed-item edit and return to the unchanged submission summary. */
+	async cancelFailedItemEdit(): Promise<void> {
+		if (this.failedItemEditIndex === null) return;
+
+		this.failedItemEditIndex = null;
+		this._status = 'confirming';
+		await this.persistAsync();
+	}
+
+	/** Whether review is currently editing an item that failed submission. */
+	get isEditingFailedItem(): boolean {
+		return this.failedItemEditIndex !== null;
 	}
 
 	// =========================================================================
@@ -1173,6 +1223,7 @@ class ScanWorkflow {
 		this.captureService.clear();
 		this.reviewService.reset();
 		this.submissionService.reset();
+		this.failedItemEditIndex = null;
 		this._status = 'idle';
 		this._locationId = null;
 		this._locationName = null;

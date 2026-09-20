@@ -254,6 +254,31 @@ export class ReviewService {
 		return reviewItem;
 	}
 
+	/**
+	 * Open a confirmed item in the focused editor without removing it from the
+	 * confirmed list. This is used after submission so status indexes continue
+	 * to refer to the same items while the user edits a failed row.
+	 */
+	stageConfirmedItemForEdit(index: number): ReviewItem | null {
+		const item = this._confirmedItems[index];
+		if (!item) return null;
+
+		const reviewItem: ReviewItem = { ...item };
+		this._detectedItems = [{ ...reviewItem }];
+		this._currentReviewIndex = 0;
+		return this._detectedItems[0];
+	}
+
+	/** Replace a confirmed item in place, preserving submission status indexes. */
+	replaceConfirmedItem(index: number, item: ReviewItem): boolean {
+		if (!this._confirmedItems[index]) return false;
+
+		this._confirmedItems = this._confirmedItems.map((existing, itemIndex) =>
+			itemIndex === index ? { ...item, confirmed: true } : existing
+		);
+		return true;
+	}
+
 	/** Clear all confirmed items */
 	clearConfirmedItems(): void {
 		this._confirmedItems = [];

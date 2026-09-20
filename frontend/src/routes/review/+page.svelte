@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';
 	import { vision } from '$lib/api/vision';
@@ -37,6 +37,14 @@
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
+
+	// Native browser history and app navigation must not leave the workflow in
+	// the ephemeral failed-item editor state.
+	beforeNavigate(({ to }) => {
+		if (workflow.isEditingFailedItem && to?.url.pathname !== resolve('/review')) {
+			void workflow.cancelFailedItemEdit();
+		}
+	});
 
 	// Object URL manager for cleanup
 	const urlManager = createObjectUrlManager();
@@ -164,8 +172,13 @@
 		}
 	});
 
-	function goBack() {
-		workflow.backToCapture();
+	async function goBack() {
+		if (workflow.isEditingFailedItem) {
+			await workflow.cancelFailedItemEdit();
+			goto(resolve('/summary'));
+			return;
+		}
+		await workflow.backToCapture();
 		goto(resolve('/capture'));
 	}
 
@@ -235,6 +248,7 @@
 	}
 
 	function handleLongPressConfirm() {
+		if (workflow.isEditingFailedItem) return;
 		showConfirmAllDialog = true;
 	}
 
@@ -391,7 +405,12 @@
 	<h2 class="mb-1 text-h2 text-neutral-100">Review Items</h2>
 	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
 
-	<BackLink href="/capture" label="Back to Capture" onclick={goBack} disabled={isProcessing} />
+	<BackLink
+		href={workflow.isEditingFailedItem ? '/summary' : '/capture'}
+		label={workflow.isEditingFailedItem ? 'Back to Summary' : 'Back to Capture'}
+		onclick={goBack}
+		disabled={isProcessing}
+	/>
 
 	{#if editedItem}
 		{@const thumbnail = displayThumbnail}
@@ -542,21 +561,28 @@
 			</div>
 			<!-- Action buttons -->
 			<div class="flex gap-3 px-4 pb-4">
-				<div class="flex-1">
-					<Button variant="secondary" full onclick={skipItem} disabled={isProcessing}>
-						<ChevronsRight size={20} strokeWidth={1.5} />
-						<span>Skip</span>
-					</Button>
-				</div>
+				{#if !workflow.isEditingFailedItem}
+					<div class="flex-1">
+						<Button variant="secondary" full onclick={skipItem} disabled={isProcessing}>
+							<ChevronsRight size={20} strokeWidth={1.5} />
+							<span>Skip</span>
+						</Button>
+					</div>
+				{/if}
 				<div
 					class="flex flex-1 items-center gap-1"
-					use:longpress={{ onLongPress: handleLongPressConfirm, disabled: isProcessing }}
+					use:longpress={{
+						onLongPress: handleLongPressConfirm,
+						disabled: isProcessing || workflow.isEditingFailedItem,
+					}}
 				>
 					<Button variant="primary" full onclick={confirmItem} disabled={isProcessing}>
 						<Check size={20} strokeWidth={2} />
-						<span>Confirm</span>
+						<span>{workflow.isEditingFailedItem ? 'Save Changes' : 'Confirm'}</span>
 					</Button>
-					<InfoTooltip text="Long-press to confirm all remaining items at once." />
+					{#if !workflow.isEditingFailedItem}
+						<InfoTooltip text="Long-press to confirm all remaining items at once." />
+					{/if}
 				</div>
 			</div>
 		</AppContainer>
