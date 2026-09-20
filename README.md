@@ -426,6 +426,30 @@ Customize how AI formats detected item fields. Set via environment variables or 
 - **Use the Settings page** – Customize AI behavior, define custom fields, and manage LLM profiles without restarting.
 - **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.
 
+## Development
+
+Target recovery contributions at `dev`. Changes on `dev` are not yet a release;
+promotion to `main` and publishing are separate steps.
+
+Use Python 3.14+, Node 22, and locked installs:
+
+```bash
+uv sync --locked
+cd frontend
+npm ci
+```
+
+The PR and `dev` CI workflow runs Python checks, frontend checks, mocked browser
+tests, and disposable Homebox integration tests. See [tests/README.md](tests/README.md)
+for local commands and Docker/browser prerequisites. These suites require no paid
+LLM calls.
+
+For a deliberate Python dependency refresh, run
+`uv sync --upgrade --exclude-newer "30 days"`. The same rolling 30-day cooldown is
+configured in `pyproject.toml`; routine installs use the committed lockfile.
+For frontend updates, verify selected releases and transitive dependencies are
+at least 30 days old, update the lockfile, and rerun the checks and `npm audit`.
+
 ## 📄 License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.

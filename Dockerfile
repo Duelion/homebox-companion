@@ -17,26 +17,29 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl \
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /uvx /usr/local/bin/
 
+# Create the runtime user before copying application files so dependency and
+# application layers are owned without a recursive ownership pass.
+RUN useradd --create-home --shell /bin/bash appuser \
+    && chown appuser:appuser /app
+ENV HOME=/home/appuser
+ENV UV_CACHE_DIR=/home/appuser/.cache/uv
+USER appuser
+
 # Copy Python project files for dependency installation
-COPY pyproject.toml uv.lock ./
+COPY --chown=appuser:appuser pyproject.toml uv.lock ./
 
 # Install external dependencies first (cached)
 RUN uv sync --locked --no-dev --no-install-project --quiet
 
 # Copy source code
-COPY src/ ./src/
-COPY server/ ./server/
+COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser server/ ./server/
 
 # Final sync to install the project itself
 RUN uv sync --locked --no-dev --quiet
 
 # Copy built frontend to server static directory
-COPY --from=frontend-builder /app/frontend/build ./server/static/
-
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /app
-USER appuser
+COPY --chown=appuser:appuser --from=frontend-builder /app/frontend/build ./server/static/
 
 # Expose the default port
 EXPOSE 8000

@@ -4,7 +4,8 @@ The default pytest command runs fast unit and integration tests and excludes tes
 marked `live`:
 
 ```powershell
-uv run pytest
+uv sync --locked
+uv run --no-sync pytest
 ```
 
 The shared Homebox business and authentication suites use disposable Docker
@@ -46,17 +47,29 @@ refresh, and logout tests use `homebox_api_url` and `homebox_credentials` direct
 API-key-only classes can override `homebox_auth_mode`; see `TestAPIKeyLifecycle` in
 `test_homebox_auth_live.py`.
 
-The browser auth suite uses mocked API responses and a local SvelteKit preview; it
-does not call Homebox or an LLM. From `frontend/`, install dependencies and run:
+The browser auth and failed-item recovery suites use mocked API responses and a
+local SvelteKit preview; they do not call Homebox or an LLM. From `frontend/`,
+install dependencies and run:
 
 ```powershell
-npm install
+npm ci
 npx playwright install chrome   # required when the Chrome channel is absent
 npm run test:browser
 ```
 
-`frontend/playwright.config.ts` selects the installed Google Chrome channel, builds
-the frontend, starts its preview server on `127.0.0.1:4173`, and runs
-`frontend/tests/browser/auth.spec.ts`. A system Chrome installation that the
-Playwright `chrome` channel can launch is required; bundled Chromium alone is not
-sufficient for this configuration.
+`frontend/playwright.config.ts` builds the frontend and starts its preview server
+on `127.0.0.1:4173`. Local runs select the installed Google Chrome channel. CI
+selects bundled Chromium and installs it with
+`npx playwright install --with-deps chromium`. To use bundled Chromium locally,
+install it and set `CI=true` for the test command.
+
+The validation workflow runs on pull requests and `dev` pushes. Python checks use
+the committed `uv.lock`; frontend checks use `npm ci`. Docker-backed Homebox tests
+run in a separate bounded job with a sentinel LLM key and the explicit six-file
+allowlist above. Do not broaden that job to all live tests: other live tests may
+require a real LLM account.
+
+CI runs `ty check --exit-zero-on-warning` to preserve the project's existing
+warning-level diagnostics as informational output. Type errors still fail the
+job. The recovery baseline currently has 51 warnings, primarily stale suppression
+comments and existing MCP typing diagnostics; this is not a warning-free result.
