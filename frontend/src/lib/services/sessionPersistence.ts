@@ -6,9 +6,9 @@
  *
  * Key design decisions:
  * - Uses IndexedDB (via idb library) for storage > 5MB limit of localStorage
- * - Single-session pattern: only ONE session stored at a time (no accumulation)
- * - TTL-based cleanup: sessions auto-expire after 7 days
- * - Explicit persistence: no $effect watchers, manual save() calls only
+ * - One session per verified Homebox identity and collection
+ * - TTL-based cleanup: expired sessions are removed when accessed after 7 days
+ * - Storage operations are called by the workflow's autosave and explicit checkpoints
  */
 
 import { browser } from '$app/environment';
@@ -34,6 +34,15 @@ export interface SessionScope {
 }
 
 export function captureSessionScope(): SessionScope | null {
+	// Reconnection must reconcile old in-memory work before a new scope can persist it.
+	if (
+		authStore.phase === 'initializing' ||
+		authStore.phase === 'connecting' ||
+		authStore.phase === 'connection_error' ||
+		!collectionStore.ready
+	) {
+		return null;
+	}
 	const context = authStore.contextId;
 	const group = collectionStore.selectedId;
 	return context && group ? { contextId: context, groupId: group } : null;
@@ -246,7 +255,7 @@ export async function load(scope = captureSessionScope()): Promise<StoredSession
 
 /**
  * Save the current session state.
- * Overwrites any existing session (single-session guarantee).
+ * Overwrites the existing session for the supplied identity and collection.
  */
 export async function save(session: StoredSession, scope = captureSessionScope()): Promise<void> {
 	if (!browser) {

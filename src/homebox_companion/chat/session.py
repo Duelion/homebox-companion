@@ -108,7 +108,8 @@ class ChatSession:
     """Manages conversation state for a user session.
 
     This class tracks message history and pending approvals for a single
-    conversation session. Sessions are identified by the user's auth token.
+    conversation session. The server resolves its storage scope from the
+    deployment, auth mode, verified user, collection, and browser chat context.
 
     Attributes:
         session_id: Unique identifier for this session instance (for frontend sync)

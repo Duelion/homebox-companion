@@ -235,8 +235,8 @@ class Settings(BaseSettings):
     def browser_origins_list(self) -> list[str]:
         """Effective cross-origin browser policy for the selected auth mode."""
         origins = self.cors_origins_list
-        if self.auth_mode == "api_key" and "*" in origins:
-            return []
+        if self.auth_mode == "api_key":
+            return [origin for origin in origins if origin != "*"]
         return origins
 
     @computed_field

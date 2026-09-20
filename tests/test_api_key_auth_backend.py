@@ -6,7 +6,7 @@ import asyncio
 import json
 from types import SimpleNamespace
 from typing import Protocol, cast
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -256,6 +256,7 @@ async def test_chat_bootstrap_verifies_identity_and_scopes_user_and_effective_gr
     )
     request = SimpleNamespace(app=SimpleNamespace(state=app_state))
     client = AsyncMock()
+    client.for_group = Mock(return_value=client)
     client.get_current_user.side_effect = [
         {"id": "same-user", "defaultGroupId": "group-a"},
         {"id": "same-user", "defaultGroupId": "group-a"},

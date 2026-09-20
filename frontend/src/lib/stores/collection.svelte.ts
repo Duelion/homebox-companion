@@ -12,6 +12,7 @@ import type { Group } from '$lib/types';
 import { groups as groupsApi } from '$lib/api';
 import { setActiveGroupId } from '$lib/api/client';
 import { createLogger } from '$lib/utils/logger';
+import { authStore } from './auth.svelte';
 
 const log = createLogger({ prefix: 'CollectionStore' });
 
@@ -154,6 +155,7 @@ class CollectionStore {
 		this._selectedId = id;
 		this.persistSelection();
 		setActiveGroupId(id);
+		authStore.rememberVerifiedScope(id);
 
 		const changed = previousId !== id;
 		if (changed) {

@@ -10,14 +10,31 @@ interface Submission {
 	name: string;
 }
 
-async function openSummary(page: Page, itemNames: string[], submissions: Submission[]) {
+async function openSummary(
+	page: Page,
+	itemNames: string[],
+	submissions: Submission[],
+	options: {
+		authMode?: 'legacy' | 'api_key';
+		selectedGroupId?: string;
+		expireOnItem?: string;
+	} = {}
+) {
+	if (options.authMode === 'legacy') {
+		await page.addInitScript((groupId) => {
+			localStorage.setItem('hbc_token', 'valid-token');
+			localStorage.setItem('hbc_token_expires', new Date(Date.now() + 3_600_000).toISOString());
+			if (groupId) localStorage.setItem('hbc_group_id', groupId);
+		}, options.selectedGroupId);
+	}
+	let expired = false;
 	await page.route('**/api/**', async (route) => {
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
 		if (path === '/api/config') {
 			return route.fulfill(
 				json({
-					auth_mode: 'api_key',
+					auth_mode: options.authMode ?? 'api_key',
 					is_demo_mode: false,
 					demo_mode_explicit: false,
 					homebox_url: 'http://homebox.test',
@@ -41,7 +58,20 @@ async function openSummary(page: Page, itemNames: string[], submissions: Submiss
 				})
 			);
 		}
-		if (path === '/api/groups') return route.fulfill(json([{ id: 'g1', name: 'Personal' }]));
+		if (path === '/api/groups') {
+			return route.fulfill(
+				json([
+					{ id: 'g1', name: 'Personal' },
+					...(options.selectedGroupId ? [{ id: options.selectedGroupId, name: 'Shared' }] : []),
+				])
+			);
+		}
+		if (path === '/api/login') {
+			return route.fulfill(
+				json({ token: 'new-token', expires_at: new Date(Date.now() + 3_600_000).toISOString() })
+			);
+		}
+		if (path === '/api/refresh') return route.fulfill(json({ detail: 'Session expired' }, 401));
 		if (path === '/api/locations/tree') {
 			return route.fulfill(json([{ id: 'loc-1', name: 'Storage', itemCount: 0, children: [] }]));
 		}
@@ -66,6 +96,10 @@ async function openSummary(page: Page, itemNames: string[], submissions: Submiss
 		if (path === '/api/items' && request.method() === 'POST') {
 			const name = request.postDataJSON().items[0].name as string;
 			submissions.push({ name });
+			if (name === options.expireOnItem && !expired) {
+				expired = true;
+				return route.fulfill(json({ detail: 'Session expired' }, 401));
+			}
 			if (name.startsWith('Bad')) {
 				return route.fulfill(json({ created: [], errors: [`${name} rejected`] }, 207));
 			}
@@ -175,3 +209,85 @@ test('native browser back cancels editing and a new scan does not reuse its inde
 	await page.getByRole('button', { name: /Scan More Items/ }).click();
 	await expect(page).toHaveURL(/\/capture$/);
 });
+
+test('same-account reauthentication preserves successful rows and the selected collection', async ({
+	page,
+}) => {
+	const submissions: Submission[] = [];
+	const submittedGroups: string[] = [];
+	page.on('request', (request) => {
+		if (new URL(request.url()).pathname === '/api/items' && request.method() === 'POST') {
+			submittedGroups.push(request.headers()['x-group-id']);
+		}
+	});
+	await openSummary(page, ['Good chair', 'Later table', 'Pending lamp'], submissions, {
+		authMode: 'legacy',
+		selectedGroupId: 'g2',
+		expireOnItem: 'Later table',
+	});
+	await expect(page.getByRole('heading', { name: 'Session Expired' })).toBeVisible();
+	await page.locator('#reauth-email').fill('same@example.com');
+	await page.locator('#reauth-password').fill('password');
+	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+
+	await expect(page.getByRole('button', { name: 'Retry Failed Items' })).toBeVisible();
+	await expect(page).toHaveURL(/\/summary$/);
+	await expect(page.getByRole('button', { name: /Shared/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /Submit All Items/ })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Resume Session' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Retry Failed Items' }).click();
+	await expect(page).toHaveURL(/\/success$/);
+	expect(submissions.map(({ name }) => name)).toEqual([
+		'Good chair',
+		'Later table',
+		'Later table',
+		'Pending lamp',
+	]);
+	expect(submittedGroups).toEqual(['g2', 'g2', 'g2', 'g2']);
+});
+
+for (const identityChanged of [true, false]) {
+	test(`connection retry clears old scan and caches when ${identityChanged ? 'identity' : 'collection membership'} changes`, async ({
+		page,
+	}) => {
+		const submissions: Submission[] = [];
+		await openSummary(page, ['Bad private inventory'], submissions);
+		await expect(page.getByRole('button', { name: 'Retry Failed Items' })).toBeVisible();
+		await page.route('**/api/chat/health', (route) =>
+			route.fulfill(json({ status: 'ok', chat_enabled: true }))
+		);
+		await page.route('**/api/chat/status', (route) =>
+			route.fulfill(json({ detail: 'Rejected key', code: 'HOMEBOX_API_KEY_REJECTED' }, 502))
+		);
+		await page.locator('a[href="/chat"]').first().click();
+		await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+		await page.route('**/api/homebox/connection', (route) =>
+			route.fulfill(
+				json({
+					connected: true,
+					context_id: identityChanged ? 'deployment:other-user' : 'deployment:user',
+					user_id: identityChanged ? 'other-user' : 'user-1',
+					default_group_id: 'g2',
+				})
+			)
+		);
+		await page.route('**/api/groups', (route) =>
+			route.fulfill(json([{ id: 'g2', name: 'New collection' }]))
+		);
+		await page.route('**/api/locations/tree', (route) =>
+			route.fulfill(json([{ id: 'new-location', name: 'New location', children: [] }]))
+		);
+		await page.route('**/api/chat/status', (route) =>
+			route.fulfill(json({ session_id: 'new-session', message_count: 0 }))
+		);
+		await page.getByRole('button', { name: 'Retry', exact: true }).click();
+		await expect(page.getByLabel('Chat message input')).toBeVisible();
+		await page.locator('a[href="/location"]').first().click();
+		await expect(page.getByRole('heading', { name: 'Select Location' })).toBeVisible();
+		await expect(page.getByRole('button', { name: /New location/ })).toBeVisible();
+		await expect(page.getByRole('button', { name: /Storage/ })).toHaveCount(0);
+		await expect(page.getByText('Bad private inventory', { exact: true })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Resume Session' })).toHaveCount(0);
+		expect(submissions.map(({ name }) => name)).toEqual(['Bad private inventory']);
+	});
+}

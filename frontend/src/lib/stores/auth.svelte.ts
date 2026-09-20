@@ -40,6 +40,11 @@ export interface HomeboxConnection {
 	default_group_id: string | null;
 }
 
+interface VerifiedScope {
+	contextId: string;
+	groupId: string | null;
+}
+
 // =============================================================================
 // AUTH STORE CLASS
 // =============================================================================
@@ -61,6 +66,8 @@ class AuthStore {
 	private _phase = $state<AuthPhase>('initializing');
 	private _connection = $state<HomeboxConnection | null>(null);
 	private _connectionError = $state<string | null>(null);
+	/** Last ready scope survives connection failures so reconnects can reconcile in-memory work. */
+	private _verifiedScope: VerifiedScope | null = null;
 
 	/** Whether initial auth check has completed */
 	private _initialized = $state(false);
@@ -68,7 +75,7 @@ class AuthStore {
 	/** Whether the session has expired (shows re-auth modal) */
 	private _sessionExpired = $state(false);
 
-	/** Whether user is authenticated - derived from token presence */
+	/** Whether the connection and collection discovery are ready. */
 	private _isAuthenticated = $derived.by(() => this._phase === 'ready');
 
 	// =========================================================================
@@ -100,6 +107,9 @@ class AuthStore {
 	}
 	get contextId(): string | null {
 		return this._connection?.context_id ?? null;
+	}
+	get verifiedScope(): Readonly<VerifiedScope> | null {
+		return this._verifiedScope;
 	}
 	get connectionError(): string | null {
 		return this._connectionError;
@@ -167,6 +177,12 @@ class AuthStore {
 
 	markReady(): void {
 		if (this._connection) this._phase = 'ready';
+	}
+
+	rememberVerifiedScope(groupId: string | null): void {
+		if (this._connection) {
+			this._verifiedScope = { contextId: this._connection.context_id, groupId };
+		}
 	}
 
 	setConnectionError(message: string): void {

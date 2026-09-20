@@ -163,12 +163,12 @@ class ToolExecutorHolder:
     This makes the ToolExecutor a singleton, ensuring that schema caching
     is effective across requests rather than being recreated per-request.
 
-    The holder tracks the client reference to ensure the executor is
-    recreated if the client changes (important for testing).
+    Request-bound executors supply their own Homebox gateway while sharing
+    this registry and schema cache.
 
     Usage:
         # Get executor (auto-creates if needed):
-        executor = tool_executor_holder.get(client)
+        executor = tool_executor_holder.get()
 
         # In tests:
         tool_executor_holder.reset()
@@ -176,16 +176,9 @@ class ToolExecutorHolder:
 
     def __init__(self) -> None:
         self._executor: ToolExecutor | None = None
-        self._client_id: int | None = None  # Track client identity
 
     def get(self) -> ToolExecutor:
         """Get or create the shared executor instance.
-
-        If the client reference has changed (e.g., during testing),
-        the executor is recreated with the new client.
-
-        Args:
-            client: HomeboxClient for tool execution.
 
         Returns:
             The shared ToolExecutor instance.
@@ -204,7 +197,6 @@ class ToolExecutorHolder:
         Use this in tests to reset state between test cases.
         """
         self._executor = None
-        self._client_id = None
 
 
 # Singleton tool executor holder
@@ -239,13 +231,11 @@ async def get_token(
     request: Request,
     authorization: Annotated[str | None, Header()] = None,
 ) -> str:
-    """Extract bearer token from Authorization header.
+    """Resolve the configured API key or the browser's legacy bearer token.
 
-    Token validity is verified by Homebox on each actual API call.
-    No pre-validation is needed — Homebox is the single source of truth.
-
-    This avoids false 401s caused by network blips during pre-validation
-    (the root cause of issue #117).
+    This dependency only resolves credentials. Inventory calls validate them
+    upstream; local-resource and chat dependencies explicitly verify identity
+    before serving Companion-owned data.
     """
     try:
         return get_credential_provider(request).resolve(authorization).credential.get_secret_value()
@@ -290,19 +280,18 @@ async def get_verified_homebox_access(
     client: Annotated[HomeboxClient, Depends(get_client)],
     x_group_id: Annotated[str | None, Header()] = None,
 ) -> HomeboxAccess:
-    """Resolve chat access from a verified Homebox identity, caching bootstrap data."""
+    """Authenticate every chat request before resolving its conversation scope."""
     app_settings = getattr(request.app.state, "settings", settings)
     kind = HomeboxAuthKind.API_KEY if app_settings.auth_mode == "api_key" else HomeboxAuthKind.LEGACY
     credential_scope = hashlib.sha256(token.encode()).hexdigest()
     identities = request.app.state.homebox_identities
-    identity = identities.get(credential_scope)
-    if identity is None:
-        user = await client.get_current_user(token)
-        user_id = user["id"]
-        default_group_id = _default_group_id(user)
-        identity = (user_id, default_group_id)
-        identities[credential_scope] = identity
-    user_id, default_group_id = identity
+    # Cached identity metadata must never authorize an expired or revoked token.
+    # Use the gateway so configured-key rejection retains its server-error contract.
+    gateway = HomeboxGateway(client, HomeboxAccess(SecretStr(token), kind, credential_scope))
+    user = await gateway.get_current_user()
+    user_id = user["id"]
+    default_group_id = _default_group_id(user)
+    identities[credential_scope] = (user_id, default_group_id)
     return HomeboxAccess(SecretStr(token), kind, user_id, x_group_id or default_group_id)
 
 
@@ -377,16 +366,13 @@ def get_session(
     chat_context: Annotated[str, Depends(get_chat_context)],
     access: Annotated[HomeboxAccess, Depends(get_verified_homebox_access)],
 ) -> ChatSession:
-    """Get the chat session for the current user.
+    """Get the conversation scoped to this browser and authenticated Homebox access.
 
     This is a FastAPI dependency that retrieves (or creates) the session
-    for the authenticated user.
-
-    Args:
-        token: The user's auth token (from get_token dependency).
+    for the deployment, auth mode, user, group and browser conversation context.
 
     Returns:
-        The ChatSession for this user.
+        The ChatSession for this conversation scope.
     """
     store = getattr(request.app.state, "session_store", None) or session_store_holder.get()
     scope = get_chat_scope(request, chat_context, access)
@@ -562,8 +548,7 @@ async def get_valid_tag_ids(gateway: HomeboxGateway) -> set[str]:
     Used to filter out invalid/stale tag IDs before creating items.
 
     Args:
-        token: The bearer token for authentication.
-        client: The HomeboxClient instance.
+        gateway: Request-bound Homebox access for the selected collection.
 
     Returns:
         Set of valid tag ID strings, or empty set on failure.
@@ -594,7 +579,7 @@ class VisionContext:
     only loaded once per request.
 
     Attributes:
-        token: Bearer token for Homebox API authentication.
+        gateway: Request-bound Homebox access for inventory operations.
         tags: List of available tags for AI context.
         field_preferences: Custom field instructions dict, or None if no customizations.
         output_language: Configured output language, or None for default (English).

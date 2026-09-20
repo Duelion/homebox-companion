@@ -300,8 +300,8 @@ async def lifespan(app: FastAPI):
 
     app.state.session_store = MemorySessionStore()
 
-    # Session store and executor are lazily initialized on first use
-    # (see their .get() methods in dependencies.py)
+    # The session store belongs to this app lifespan. The shared tool registry
+    # and schema cache are initialized lazily by ToolExecutorHolder.
 
     yield
 

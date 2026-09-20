@@ -176,7 +176,7 @@ Profile values must be literal: LiteLLM's `os.environ/...` references are reject
 <details>
 <summary>Available Tools</summary>
 
-The chat assistant has access to 21 tools for interacting with your Homebox inventory:
+The chat assistant has access to 24 tools for interacting with your Homebox inventory:
 
 **Read-Only** (auto-execute):
 | Tool | Description |

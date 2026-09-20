@@ -6,7 +6,6 @@
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
-	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { authLogger as log } from '$lib/utils/logger';
 	import { completeLegacyLogin } from '$lib/services/bootstrap';
@@ -34,16 +33,12 @@
 
 		try {
 			const response = await auth.login(email, password);
-			scanWorkflow.switchContext();
-			resetLocationState();
-			collectionStore.clear();
-			authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
+			authStore.setAuthenticatedState(response.token, new Date(response.expires_at), email);
 			await completeLegacyLogin();
 			// Reset form
 			email = '';
 			password = '';
-			// Confirm session restoration to the user
-			showToast('Session restored — you can continue where you left off', 'success');
+			showToast('Signed in successfully', 'success');
 			log.info('Re-authentication successful, session restored');
 		} catch (error) {
 			log.error('Re-authentication failed:', error);

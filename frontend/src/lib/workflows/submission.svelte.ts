@@ -349,6 +349,7 @@ export class SubmissionService {
 			// Check for 401 authentication error
 			if (error instanceof ApiError && error.status === 401) {
 				// Session expired - mark and re-throw
+				this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
 				throw error;
 			}
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -476,6 +477,13 @@ export class SubmissionService {
 			}
 			// Check for 401 authentication error
 			if (error instanceof ApiError && error.status === 401) {
+				// Include rows that were never attempted when retrying after reauthentication.
+				this.itemStatuses = Object.fromEntries(
+					Object.entries(this.itemStatuses).map(([index, status]) => [
+						index,
+						status === 'pending' ? 'failed' : status,
+					])
+				);
 				result.sessionExpired = true;
 				this.lastErrors = result.errors;
 				return result;

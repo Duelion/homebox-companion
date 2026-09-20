@@ -8,6 +8,22 @@ import { setLogLevel } from '$lib/utils/logger';
 
 let bootstrapPromise: Promise<void> | null = null;
 
+async function clearScopedState(): Promise<void> {
+	const [{ scanWorkflow }, { chatStore }, { tagStore }, { locationStore }, { locationNavigator }] =
+		await Promise.all([
+			import('$lib/workflows/scan.svelte'),
+			import('$lib/stores/chat.svelte'),
+			import('$lib/stores/tags.svelte'),
+			import('$lib/stores/locations.svelte'),
+			import('./locationNavigator.svelte'),
+		]);
+	scanWorkflow.switchContext();
+	chatStore.invalidateContext();
+	tagStore.clear();
+	locationStore.clear();
+	locationNavigator.reset();
+}
+
 async function discoverConfig(): Promise<ConfigResponse> {
 	const response = await fetch('/api/config', { headers: { Accept: 'application/json' } });
 	if (!response.ok) throw new Error(`Unable to load Companion configuration (${response.status})`);
@@ -24,14 +40,24 @@ async function discoverConfig(): Promise<ConfigResponse> {
 }
 
 async function establishConnection(): Promise<void> {
+	const previousScope = authStore.verifiedScope;
 	const connection = await request<HomeboxConnection>('/homebox/connection', {
 		omitGroup: true,
 	});
 	if (!connection.connected || !connection.context_id || !connection.user_id) {
 		throw new Error('Homebox returned an invalid connection response');
 	}
+	const identityChanged = previousScope && previousScope.contextId !== connection.context_id;
+	if (identityChanged) {
+		await clearScopedState();
+		collectionStore.clear();
+	}
 	authStore.setConnection(connection, false);
 	await collectionStore.fetchGroups(connection.default_group_id);
+	if (!identityChanged && previousScope && previousScope.groupId !== collectionStore.selectedId) {
+		await clearScopedState();
+	}
+	authStore.rememberVerifiedScope(collectionStore.selectedId);
 	authStore.markReady();
 }
 

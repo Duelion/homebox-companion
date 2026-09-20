@@ -11,6 +11,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from homebox_companion.chat.store import MemorySessionStore
 from homebox_companion.core.config import Settings
 from homebox_companion.homebox.client import HomeboxClient
 from server.app import create_app
@@ -49,6 +50,108 @@ async def _contract_client(app_settings: Settings, handler: UpstreamHandler) -> 
 
 def _user_response(_: httpx.Request) -> httpx.Response:
     return httpx.Response(200, json={"item": {"id": "user-1", "defaultGroupId": "group-1"}})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("GET", "/api/chat/status", None),
+        ("GET", "/api/chat/pending", None),
+        ("DELETE", "/api/chat/history", None),
+        ("POST", "/api/chat/reject/pending-id", None),
+        ("POST", "/api/chat/approve/pending-id", None),
+        ("POST", "/api/chat/messages", {"message": "hello"}),
+    ],
+)
+@pytest.mark.parametrize("api_key", [None, "hb_configured"])
+async def test_cached_chat_identity_does_not_authorize_revoked_credentials(method, path, body, api_key):
+    settings = _settings(_env_file=None, homebox_api_key=api_key, chat_enabled=True, demo_mode=False)
+    app = create_app(settings)
+    app.state.session_store = MemorySessionStore()
+    revoked = False
+    requests = []
+
+    def upstream(request):
+        requests.append(request)
+        assert request.url.path.endswith("/users/self")
+        return httpx.Response(401, json={"detail": "revoked"}) if revoked else _user_response(request)
+
+    headers = {
+        "Authorization": "Bearer old-session",
+        "X-Companion-Request": "1",
+        "X-Companion-Chat-Context": "11111111-1111-4111-8111-111111111111",
+    }
+    async with HomeboxClient(base_url=settings.api_url, transport=httpx.MockTransport(upstream)) as homebox:
+        app.state.homebox_client = homebox
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://companion.test", headers=headers
+        ) as client:
+            initial = await client.get("/api/chat/status")
+            assert initial.status_code == 200
+            assert app.state.homebox_identities
+            revoked = True
+            response = await client.request(method, path, json=body)
+    assert response.status_code == (502 if api_key else 401)
+    assert response.json()["code"] == ("HOMEBOX_API_KEY_REJECTED" if api_key else "AUTH_FAILED")
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("header_token", [None, "different-header-token"])
+async def test_legacy_mcp_executes_with_body_token_and_selected_collection(header_token):
+    seen = []
+
+    def upstream(request):
+        seen.append((request.headers.get("Authorization"), request.headers.get("X-Tenant")))
+        return httpx.Response(200, json=[])
+
+    settings = _settings(_env_file=None, homebox_api_key=None, chat_enabled=True)
+    headers = {"X-Group-Id": "selected-group"}
+    if header_token:
+        headers["Authorization"] = f"Bearer {header_token}"
+    async with _contract_client(settings, upstream) as client:
+        response = await client.post(
+            "/api/mcp/v1/tools/list_tags", headers=headers, json={"token": "body-token"}
+        )
+    assert response.status_code == 200
+    assert response.json()["success"]
+    assert seen == [("Bearer body-token", "selected-group")]
+
+
+@pytest.mark.asyncio
+async def test_key_mode_mcp_ignores_both_caller_tokens():
+    seen = []
+
+    def upstream(request):
+        seen.append(request.headers.get("Authorization"))
+        return httpx.Response(200, json=[])
+
+    settings = _settings(_env_file=None, homebox_api_key="hb_configured", chat_enabled=True)
+    async with _contract_client(settings, upstream) as client:
+        response = await client.post(
+            "/api/mcp/v1/tools/list_tags",
+            headers={"Authorization": "Bearer header-token", "X-Companion-Request": "1"},
+            json={"token": "body-token"},
+        )
+    assert response.status_code == 200
+    assert seen == ["Bearer hb_configured"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [{}, {"token": ""}, {"token": 123}, []])
+async def test_legacy_mcp_rejects_missing_or_invalid_body_credentials(body):
+    seen = []
+
+    def upstream(request):
+        seen.append(request)
+        return httpx.Response(200, json=[])
+
+    settings = _settings(_env_file=None, homebox_api_key=None, chat_enabled=True)
+    async with _contract_client(settings, upstream) as client:
+        response = await client.post("/api/mcp/v1/tools/list_tags", json=body)
+    assert response.status_code == (400 if isinstance(body, list) else 401)
+    assert not seen
 
 
 @pytest.mark.asyncio

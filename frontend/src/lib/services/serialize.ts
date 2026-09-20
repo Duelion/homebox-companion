@@ -4,10 +4,10 @@
  * Handles conversion between runtime types (with File objects and Object URLs)
  * and storable types (with base64 data URLs only).
  *
- * Why this is needed:
- * - File objects cannot be stored in IndexedDB directly
+ * Persistence format:
+ * - This format represents images as base64 data URLs rather than File objects
  * - Object URLs (blob:...) are session-scoped and become invalid after page reload
- * - We need base64 data URLs for persistence which survive reloads
+ * - Base64 data URLs preserve image bytes across reloads
  */
 
 import type {
