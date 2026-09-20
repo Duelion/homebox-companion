@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from ..dependencies import require_admin
+from ..dependencies import require_auth
 
 router = APIRouter()
 
@@ -76,7 +76,7 @@ class LogsResponse(BaseModel):
     truncated: bool
 
 
-@router.get("/logs", response_model=LogsResponse, dependencies=[Depends(require_admin)])
+@router.get("/logs", response_model=LogsResponse, dependencies=[Depends(require_auth)])
 async def get_logs(
     lines: int = Query(default=200, ge=1, le=2000, description="Number of lines to return"),
     date: str | None = Query(default=None, description="Log date in YYYY-MM-DD format"),
@@ -128,7 +128,7 @@ async def get_logs(
         ) from e
 
 
-@router.get("/logs/download", dependencies=[Depends(require_admin)])
+@router.get("/logs/download", dependencies=[Depends(require_auth)])
 async def download_logs(
     date: str | None = Query(default=None, description="Log date in YYYY-MM-DD format"),
 ) -> FileResponse:
@@ -157,7 +157,7 @@ async def download_logs(
     )
 
 
-@router.get("/logs/llm-debug", response_model=LogsResponse, dependencies=[Depends(require_admin)])
+@router.get("/logs/llm-debug", response_model=LogsResponse, dependencies=[Depends(require_auth)])
 async def get_llm_debug_logs(
     lines: int = Query(default=200, ge=1, le=2000, description="Number of lines to return"),
     date: str | None = Query(default=None, description="Log date in YYYY-MM-DD format"),
@@ -209,7 +209,7 @@ async def get_llm_debug_logs(
         ) from e
 
 
-@router.get("/logs/llm-debug/download", dependencies=[Depends(require_admin)])
+@router.get("/logs/llm-debug/download", dependencies=[Depends(require_auth)])
 async def download_llm_debug_logs(
     date: str | None = Query(default=None, description="Log date in YYYY-MM-DD format"),
 ) -> FileResponse:

@@ -11,21 +11,25 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from homebox_companion.core import config, llm_utils
+from homebox_companion.core import config, field_preferences, llm_utils
 from homebox_companion.core.config import Settings
 from homebox_companion.core.llm_security import NO_API_KEY, build_llm_params
-from homebox_companion.core.persistent_settings import ModelProfile, PersistentSettings, ProfileStatus
+from homebox_companion.core.persistent_settings import (
+    CustomFieldDefinition,
+    ModelProfile,
+    PersistentSettings,
+    ProfileStatus,
+)
 from homebox_companion.homebox.client import HomeboxClient
-from server.api import llm_profiles
+from server.api import custom_fields, llm_profiles, logs
 from server.app import create_app
 
 
 @asynccontextmanager
-async def security_client(*, user_id="admin", upstream_status=200, admin_ids="admin", api_key=None):
+async def security_client(*, user_id="member", upstream_status=200, api_key=None):
     settings = Settings(
         _env_file=None,
         homebox_api_key=api_key,
-        admin_user_ids=admin_ids,
     )
     app = create_app(settings)
     requests = []
@@ -86,7 +90,7 @@ async def test_invalid_token_cannot_access_local_resources(path, profile_store):
     async with security_client(upstream_status=401) as (client, app, requests):
         # A prior successful bootstrap must not authorize a revoked token.
         digest = hashlib.sha256(b"test-session").hexdigest()
-        app.state.homebox_identities[digest] = ("admin", "group")
+        app.state.homebox_identities[digest] = ("member", "group")
         response = await client.get(path)
     assert response.status_code == 401
     assert len(requests) == 1
@@ -95,39 +99,48 @@ async def test_invalid_token_cannot_access_local_resources(path, profile_store):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("api_key", [None, SecretStr("hb_synthetic-configured")])
 @pytest.mark.parametrize(
-    ("method", "path", "body"),
+    ("method", "path", "body", "status"),
     [
-        ("GET", "/api/llm/profiles", None),
-        ("GET", "/api/logs", None),
-        ("POST", "/api/llm/profiles/primary/test", {}),
-        ("PUT", "/api/llm/profiles/primary", {"api_base": "https://different.test/v1"}),
-        ("PUT", "/api/settings/field-preferences", {}),
-        ("DELETE", "/api/settings/field-preferences", None),
-        ("PUT", "/api/settings/custom-fields", []),
-        ("DELETE", "/api/settings/custom-fields/example", None),
+        ("GET", "/api/llm/profiles", None, 200),
+        ("POST", "/api/llm/profiles", {"name": "new", "model": "gpt-5-mini"}, 201),
+        ("GET", "/api/logs", None, 200),
+        ("GET", "/api/logs/download", None, 200),
+        ("GET", "/api/logs/llm-debug", None, 200),
+        ("GET", "/api/logs/llm-debug/download", None, 200),
+        ("POST", "/api/llm/profiles/primary/test", {}, 200),
+        ("POST", "/api/llm/profiles/primary/activate", None, 200),
+        ("PUT", "/api/llm/profiles/primary", {"model": "gpt-5-nano"}, 200),
+        ("DELETE", "/api/llm/profiles/primary", None, 204),
+        ("PUT", "/api/settings/field-preferences", {}, 200),
+        ("DELETE", "/api/settings/field-preferences", None, 200),
+        ("PUT", "/api/settings/custom-fields", [], 200),
+        ("DELETE", "/api/settings/custom-fields/example", None, 200),
     ],
 )
-async def test_regular_user_cannot_manage_shared_resources(method, path, body, profile_store):
-    async with security_client(user_id="member") as (client, _, requests):
+async def test_authenticated_user_can_manage_shared_resources(
+    method, path, body, status, api_key, profile_store, monkeypatch, tmp_path
+):
+    store, save, _ = profile_store
+    store.custom_fields = [CustomFieldDefinition(name="example", ai_instruction="Example field")]
+    monkeypatch.setattr(custom_fields, "get_settings", lambda: store)
+    monkeypatch.setattr(custom_fields, "save_settings", save)
+    monkeypatch.setattr(field_preferences, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", tmp_path / "field_preferences.json")
+    monkeypatch.setattr(logs, "_LOGS_DIR", str(tmp_path))
+    (tmp_path / "homebox_companion_2026-09-20.log").write_text("Test log\n")
+    (tmp_path / "llm_debug_2026-09-20.log").write_text("Test LLM log\n")
+    async with security_client(api_key=api_key) as (client, _, requests):
         response = await client.request(method, path, json=body)
-    assert response.status_code == 403
+    assert response.status_code == status, response.text
     assert len(requests) == 1
-    profile_store[1].assert_not_called()
-    profile_store[2].assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_empty_admin_allowlist_denies_legacy_admin_access(profile_store):
-    async with security_client(admin_ids="") as (client, _, _):
-        response = await client.get("/api/llm/profiles")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("api_key", [None, SecretStr("hb_synthetic-configured")])
-async def test_verified_admin_can_list_profiles_without_exposing_secrets(profile_store, api_key):
-    async with security_client(admin_ids=" other, admin ", api_key=api_key) as (client, _, requests):
+async def test_authenticated_user_can_list_profiles_without_exposing_secrets(profile_store, api_key):
+    async with security_client(api_key=api_key) as (client, _, requests):
         response = await client.get("/api/llm/profiles")
     assert response.status_code == 200
     assert "synthetic-saved-key" not in response.text
@@ -136,7 +149,7 @@ async def test_verified_admin_can_list_profiles_without_exposing_secrets(profile
 
 
 @pytest.mark.asyncio
-async def test_configured_key_must_still_be_valid_for_admin_routes(profile_store):
+async def test_configured_key_must_still_be_valid_for_settings_routes(profile_store):
     async with security_client(api_key=SecretStr("hb_synthetic"), upstream_status=401) as (client, _, _):
         response = await client.get("/api/llm/profiles")
     assert response.status_code == 502

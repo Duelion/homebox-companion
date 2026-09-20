@@ -21,9 +21,9 @@ from homebox_companion.core.persistent_settings import (
     save_settings,
 )
 
-from ..dependencies import require_admin
+from ..dependencies import require_auth
 
-router = APIRouter(dependencies=[Depends(require_admin)])
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 # ============================================================================

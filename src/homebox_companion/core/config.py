@@ -9,8 +9,6 @@ Environment Variables:
     HBC_LINK_BASE_URL: Optional public-facing URL for Homebox links shown to users.
         Defaults to HBC_HOMEBOX_URL if not set. Useful when the API is accessed
         internally (e.g., 127.0.0.1) but users access via a public domain.
-    HBC_ADMIN_USER_IDS: Comma-separated Homebox user IDs allowed to administer
-        a legacy-mode deployment (empty denies administrator access).
     HBC_OPENAI_API_KEY: (Legacy) API key for LLM provider (use HBC_LLM_API_KEY instead)
     HBC_OPENAI_MODEL: (Legacy) LLM model to use (use HBC_LLM_MODEL instead, default: gpt-5-mini)
     HBC_LLM_API_KEY: API key for the configured LLM provider (preferred)
@@ -84,8 +82,6 @@ class Settings(BaseSettings):
     # Homebox configuration - user provides base URL, we append /api/v1
     homebox_url: str = DEMO_HOMEBOX_URL
     homebox_api_key: SecretStr | None = None
-    # Explicit deployment administrators in legacy mode; empty denies admin access.
-    admin_user_ids: str = ""
     # Optional public-facing URL for links (defaults to homebox_url)
     link_base_url: str = ""
 

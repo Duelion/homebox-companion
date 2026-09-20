@@ -413,21 +413,6 @@ def require_auth(user: Annotated[dict[str, object], Depends(get_authenticated_us
     _ = user
 
 
-def require_admin(
-    request: Request,
-    user: Annotated[dict[str, object], Depends(get_authenticated_user)],
-) -> None:
-    """Authorize access to deployment-wide secrets, logs and configuration."""
-    app_settings = request.app.state.settings
-    # Key mode deliberately grants the configured owner's access to everyone
-    # admitted by the deployment's network/proxy boundary.
-    if app_settings.auth_mode == "api_key":
-        return
-    admin_ids = {value.strip() for value in app_settings.admin_user_ids.split(",") if value.strip()}
-    if user.get("id") not in admin_ids:
-        raise HTTPException(status_code=403, detail="Companion administrator access required")
-
-
 def require_llm_configured() -> str:
     """
     FastAPI dependency to ensure LLM is configured.
