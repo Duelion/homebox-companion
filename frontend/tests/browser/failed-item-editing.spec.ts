@@ -18,6 +18,9 @@ async function openSummary(
 		authMode?: 'legacy' | 'api_key';
 		selectedGroupId?: string;
 		expireOnItem?: string;
+		incompleteItem?: string;
+		failedUploadCleanup?: boolean;
+		operations?: string[];
 	} = {}
 ) {
 	if (options.authMode === 'legacy') {
@@ -31,6 +34,7 @@ async function openSummary(
 	await page.route('**/api/**', async (route) => {
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
+		options.operations?.push(`${request.method()} ${path}`);
 		if (path === '/api/config') {
 			return route.fulfill(
 				json({
@@ -103,11 +107,33 @@ async function openSummary(
 			if (name.startsWith('Bad')) {
 				return route.fulfill(json({ created: [], errors: [`${name} rejected`] }, 207));
 			}
+			if (name === options.incompleteItem) {
+				return route.fulfill(
+					json(
+						{
+							created: [{ id: `created-${submissions.length}` }],
+							errors: [`Authentication failed for '${name}'`],
+						},
+						207
+					)
+				);
+			}
 			return route.fulfill(
 				json({ created: [{ id: `created-${submissions.length}` }], errors: [] })
 			);
 		}
-		if (/\/api\/items\/[^/]+\/attachments$/.test(path)) return route.fulfill(json({}));
+		if (/\/api\/items\/[^/]+\/attachments$/.test(path)) {
+			return route.fulfill(
+				options.failedUploadCleanup ? json({ detail: 'Upload failed' }, 400) : json({})
+			);
+		}
+		if (
+			/\/api\/items\/[^/]+$/.test(path) &&
+			request.method() === 'DELETE' &&
+			options.failedUploadCleanup
+		) {
+			return route.fulfill(json({ detail: 'Cleanup failed' }, 400));
+		}
 		return route.fulfill(json({}));
 	});
 
@@ -161,6 +187,70 @@ test('mixed batch retries only the corrected failure', async ({ page }) => {
 
 	expect(submissions.map(({ name }) => name)).toEqual(['Good chair', 'Bad table', 'Fixed table']);
 	await expect(page).toHaveURL(/\/success$/);
+});
+
+test('post-create auth failure is visible and cannot be retried as a new item', async ({
+	page,
+}) => {
+	const submissions: Submission[] = [];
+	const operations: string[] = [];
+	await openSummary(page, ['Incomplete lamp'], submissions, {
+		incompleteItem: 'Incomplete lamp',
+		operations,
+	});
+	await expect(page.getByRole('heading', { name: 'Items need attention' })).toBeVisible();
+	await expect(
+		page.getByText(/some details were not saved and photos were not uploaded/)
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Retry Failed Items' })).toHaveCount(0);
+	expect(operations.filter((op) => op.includes('/attachments') || op.startsWith('DELETE'))).toEqual(
+		[]
+	);
+	expect(submissions).toEqual([{ name: 'Incomplete lamp' }]);
+});
+
+for (const reload of [false, true]) {
+	test(`mixed batch protects completed and incomplete items on retry, reload=${reload}`, async ({
+		page,
+	}) => {
+		const submissions: Submission[] = [];
+		await openSummary(page, ['Good chair', 'Incomplete lamp', 'Bad table'], submissions, {
+			incompleteItem: 'Incomplete lamp',
+		});
+		await expect(page.getByRole('button', { name: 'Retry Failed Items' })).toBeVisible();
+		if (reload) {
+			await page.reload();
+			await page.getByRole('button', { name: 'Resume Session' }).click();
+		}
+		await expect(page.getByRole('button', { name: 'Submit All Items' })).toHaveCount(0);
+		await page.getByRole('button', { name: 'Edit failed item Bad table' }).click();
+		await page.getByLabel('Name').fill('Fixed table');
+		await page.getByRole('button', { name: 'Save Changes' }).click();
+		await page.getByRole('button', { name: 'Retry Failed Items' }).click();
+		await expect(page.getByRole('heading', { name: 'Items need attention' })).toBeVisible();
+		expect(submissions.map(({ name }) => name)).toEqual([
+			'Good chair',
+			'Incomplete lamp',
+			'Bad table',
+			'Fixed table',
+		]);
+	});
+}
+
+test('failed primary-photo cleanup is an incomplete item, not a retryable create', async ({
+	page,
+}) => {
+	const submissions: Submission[] = [];
+	const operations: string[] = [];
+	await openSummary(page, ['Created lamp'], submissions, { failedUploadCleanup: true, operations });
+	await expect(page.getByRole('heading', { name: 'Items need attention' })).toBeVisible();
+	await expect(
+		page.getByText(/Image upload failed and item deletion could not be confirmed/)
+	).toBeVisible();
+	expect(operations.filter((op) => op.startsWith('DELETE'))).toEqual([
+		'DELETE /api/items/created-1',
+	]);
+	expect(submissions).toEqual([{ name: 'Created lamp' }]);
 });
 
 test('back cancels a failed-item edit without losing the original row', async ({ page }) => {

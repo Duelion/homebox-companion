@@ -910,6 +910,7 @@ class ScanWorkflow {
 		if (generation !== this.contextGeneration) return result;
 
 		if (result.sessionExpired) {
+			await this.persistAsync();
 			return result;
 		}
 
@@ -921,7 +922,7 @@ class ScanWorkflow {
 			this._error = `Created ${result.successCount + result.partialSuccessCount} items, ${result.failCount} failed`;
 			// Keep status as 'submitting' to show per-item status UI
 		} else if (result.partialSuccessCount > 0) {
-			this._error = `${result.partialSuccessCount} item(s) created with missing attachments`;
+			this._error = `${result.partialSuccessCount} item(s) created with incomplete details or attachments`;
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
 			await this.clearPersistedSession();
@@ -931,6 +932,7 @@ class ScanWorkflow {
 			await this.clearPersistedSession();
 		}
 
+		if (this._status !== 'complete') await this.persistAsync();
 		return result;
 	}
 
@@ -971,6 +973,7 @@ class ScanWorkflow {
 		if (generation !== this.contextGeneration) return result;
 
 		if (result.sessionExpired) {
+			await this.persistAsync();
 			return result;
 		}
 
@@ -983,6 +986,7 @@ class ScanWorkflow {
 			this._error = `Retried: ${result.successCount + result.partialSuccessCount} succeeded, ${result.failCount} still failing`;
 		}
 
+		if (this._status !== 'complete') await this.persistAsync();
 		return result;
 	}
 
@@ -1077,6 +1081,7 @@ class ScanWorkflow {
 				confirmedItems,
 				currentReviewIndex: this.reviewService.currentReviewIndex,
 				imageStatuses,
+				submission: this.submissionService.snapshot(),
 			};
 			log.debug('_doPersist: Session object built, saving to IndexedDB...');
 
@@ -1158,9 +1163,14 @@ class ScanWorkflow {
 			}
 
 			// Restore status - handle mid-analysis state
+			if (session.submission) this.submissionService.restore(session.submission);
+
 			if (session.status === 'analyzing') {
 				// If crashed during analysis, go back to capturing
 				this._status = 'capturing';
+			} else if (session.status === 'submitting') {
+				// No request is running after recovery. Show the saved row outcomes.
+				this._status = 'confirming';
 			} else {
 				this._status = session.status;
 			}

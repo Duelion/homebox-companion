@@ -73,7 +73,7 @@ async def create_items(
     # Fetch valid tag IDs once for the batch to validate against
     valid_tag_ids = await get_valid_tag_ids(gateway)
 
-    for item_input in request.items:
+    for index, item_input in enumerate(request.items):
         # Resolve parent (container) ID: item-level → request-level fallback
         # In 0.26, location_id and parent_id both map to the API's parentId field
         parent_id = item_input.location_id or request.location_id or item_input.parent_id
@@ -150,9 +150,10 @@ async def create_items(
                         result = await gateway.update_item(item_id, update_data)
                         logger.info("  Updated item with extended fields")
                     except HomeboxAuthError:
-                        # Auth failure during update - don't delete the item!
-                        # The item was created successfully, user just needs fresh token.
-                        # Re-raise to trigger the outer auth handler.
+                        # The initial POST succeeded. Return its identity even though
+                        # enrichment failed so callers cannot mistake it for an item
+                        # that is safe to create again.
+                        created.append(result)
                         raise
                     except Exception as update_err:
                         # Non-auth update failures - clean up the partially created item
@@ -165,6 +166,9 @@ async def create_items(
                             logger.info(f"  Cleaned up partial item {item_id}")
                         except Exception as delete_err:
                             logger.error(f"  Failed to clean up item {item_id}: {delete_err}")
+                            # Deletion was not confirmed; treat the known ID as an
+                            # incomplete creation rather than inviting another POST.
+                            created.append(result)
                         raise update_err
 
             created.append(result)
@@ -173,7 +177,7 @@ async def create_items(
             logger.error(f"Authentication failed while creating '{item_input.name}'")
             errors.append(f"Authentication failed for '{item_input.name}'")
             # Add remaining items as not attempted
-            remaining = len(request.items) - len(created) - len(errors)
+            remaining = len(request.items) - index - 1
             if remaining > 0:
                 errors.append(f"{remaining} more item(s) not attempted due to auth failure")
             break

@@ -143,7 +143,7 @@
 			);
 		} else if (result.partialSuccessCount > 0) {
 			showToast(
-				`${result.partialSuccessCount} item(s) created with missing attachments`,
+				`${result.partialSuccessCount} item(s) created with incomplete details or attachments`,
 				'warning'
 			);
 			goto(resolve('/success'));
@@ -172,7 +172,7 @@
 			);
 		} else if (result.partialSuccessCount > 0) {
 			showToast(
-				`Retry complete: ${result.partialSuccessCount} item(s) with missing attachments`,
+				`Retry complete: ${result.partialSuccessCount} item(s) need attention in Homebox`,
 				'warning'
 			);
 			goto(resolve('/success'));

@@ -19,6 +19,7 @@ import type {
 	ItemCore,
 	ItemExtended,
 	ImageAnalysisStatus,
+	ItemSubmissionStatus,
 	DuplicateMatch,
 } from '$lib/types';
 
@@ -88,6 +89,12 @@ export interface StoredSession {
 
 	// Analysis state (for partial_analysis recovery)
 	imageStatuses?: Record<number, ImageAnalysisStatus>;
+	// Optional for compatibility with drafts saved before submission recovery.
+	submission?: {
+		itemStatuses: Record<number, ItemSubmissionStatus>;
+		createdItemIds: Record<number, string>;
+		lastErrors: string[];
+	};
 }
 
 // =============================================================================

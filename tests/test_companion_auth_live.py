@@ -14,7 +14,7 @@ import pytest_asyncio
 from conftest import HomeboxAuth, HomeboxTestAccount, _find_free_port
 from pydantic import SecretStr
 
-from homebox_companion import HomeboxClient
+from homebox_companion import HomeboxAuthError, HomeboxClient
 from homebox_companion.core.config import Settings
 from server.app import create_app
 
@@ -132,6 +132,42 @@ async def test_zero_purchase_price_round_trips_through_companion_and_upstream(
     cleanup_items.append(item_id)
     fresh = await homebox_client.get_item(homebox_auth.token, item_id)
     assert fresh["purchasePrice"] == 0
+
+
+@pytest.mark.asyncio
+async def test_post_create_auth_failure_keeps_real_item_visible_in_response(
+    companion_client: tuple[httpx.AsyncClient, dict[str, str]],
+    homebox_auth: HomeboxAuth,
+    homebox_client: HomeboxClient,
+    cleanup_items: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Inject an auth failure after the real Homebox POST, in both auth modes."""
+    client, headers = companion_client
+    original_update = HomeboxClient.update_item
+
+    async def reject_extended_update(self, token, item_id, item_data):
+        if item_data.get("name") == "Incomplete creation regression":
+            # Register the real ID for cleanup even if the response assertion fails.
+            cleanup_items.append(item_id)
+            raise HomeboxAuthError("Simulated expiry after creation")
+        return await original_update(self, token, item_id, item_data)
+
+    monkeypatch.setattr(HomeboxClient, "update_item", reject_extended_update)
+    response = await client.post(
+        "/api/items",
+        headers=headers,
+        json={"items": [{"name": "Incomplete creation regression", "manufacturer": "Not saved"}]},
+    )
+
+    assert response.status_code == 207
+    assert len(response.json()["created"]) == 1
+    item_id = response.json()["created"][0]["id"]
+    assert item_id in cleanup_items
+    assert response.json()["errors"]
+    fresh = await homebox_client.get_item(homebox_auth.token, item_id)
+    assert fresh["name"] == "Incomplete creation regression"
+    assert fresh.get("manufacturer") != "Not saved"
 
 
 @pytest.mark.asyncio
