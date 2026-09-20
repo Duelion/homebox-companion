@@ -1,5 +1,3 @@
-version: "3.4"
-
 services:
   homebox-companion:
     image: ghcr.io/duelion/homebox-companion:latest

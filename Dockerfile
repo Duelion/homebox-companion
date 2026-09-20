@@ -2,7 +2,7 @@
 FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:e4bf2a82ad0a4037d28035ae71529873c069b13eb0455466ae0bc13363826e34 AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install --silent --no-progress 2>/dev/null
+RUN npm ci --no-progress
 COPY frontend/ ./
 RUN npm run build --silent 2>/dev/null
 
@@ -21,14 +21,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 COPY pyproject.toml uv.lock ./
 
 # Install external dependencies first (cached)
-RUN uv sync --no-dev --no-install-project --quiet
+RUN uv sync --locked --no-dev --no-install-project --quiet
 
 # Copy source code
 COPY src/ ./src/
 COPY server/ ./server/
 
 # Final sync to install the project itself
-RUN uv sync --no-dev --quiet
+RUN uv sync --locked --no-dev --quiet
 
 # Copy built frontend to server static directory
 COPY --from=frontend-builder /app/frontend/build ./server/static/
@@ -50,4 +50,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/api/version || exit 1
 
 # Run the server
-CMD ["uv", "run", "python", "-m", "server.app"]
+CMD ["uv", "run", "--no-sync", "python", "-m", "server.app"]

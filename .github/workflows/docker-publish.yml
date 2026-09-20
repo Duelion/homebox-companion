@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Build only, do not push to registry (for testing ARM64 builds)'
+        description: "Build only, do not push to registry (for testing ARM64 builds)"
         required: false
         default: false
         type: boolean
@@ -47,6 +47,7 @@ jobs:
           fi
 
       - name: Log in to Container Registry
+        if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -82,6 +83,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Make package public
+        if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
         run: |
           curl -X PATCH \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -89,4 +91,3 @@ jobs:
             "https://api.github.com/user/packages/container/${{ github.event.repository.name }}/visibility" \
             -d '{"visibility":"public"}' || true
         continue-on-error: true
-
