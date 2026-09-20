@@ -330,10 +330,11 @@ async def print_item_label(
     token: Annotated[str, Depends(get_token)],
     client: Annotated[HomeboxClient, Depends(get_client)],
 ) -> dict[str, str]:
-    """Trigger server-side label printing for an item.
+    """Trigger server-side asset label printing for an item.
 
-    Proxies to Homebox's undocumented labelmaker endpoint with ?print=true.
-    Requires HBOX_LABEL_MAKER_PRINT_COMMAND to be configured on the Homebox server.
+    Homebox's asset label endpoint requires the item's asset ID rather than
+    its entity UUID. Requires HBOX_LABEL_MAKER_PRINT_COMMAND to be configured
+    on the Homebox server.
     """
     if not settings.print_enabled:
         raise HTTPException(
@@ -344,10 +345,21 @@ async def print_item_label(
     logger.info(f"Printing label for item: {item_id}")
 
     try:
-        result = await client.print_label(token, item_id)
-        logger.info(f"Label printed for item {item_id}: {result}")
+        item = await client.get_item_typed(token, item_id)
+        if not item.asset_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Item does not have an asset ID assigned yet.",
+            )
+
+        result = await client.print_label(token, item.asset_id)
+        logger.info(
+            f"Label printed for item {item_id} (asset {item.asset_id}): {result}"
+        )
         return {"message": result}
     except HomeboxAuthError:
+        raise
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to print label for item {item_id}: {e}")
