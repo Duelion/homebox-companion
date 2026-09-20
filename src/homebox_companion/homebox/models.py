@@ -47,7 +47,7 @@ def has_extended_fields(
             manufacturer,
             model_number,
             serial_number,
-            purchase_price is not None and purchase_price > 0,
+            purchase_price is not None,
             purchase_from,
             notes,
         ]

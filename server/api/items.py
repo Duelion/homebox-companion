@@ -90,21 +90,21 @@ async def create_items(
             if filtered_count > 0:
                 logger.warning(f"Filtered out {filtered_count} invalid tag ID(s) for '{item_input.name}'")
 
-        detected_item = DetectedItem(
-            name=item_input.name,
-            quantity=item_input.quantity,
-            description=item_input.description,
-            parent_id=parent_id,  # ty: ignore[unknown-argument]
-            tag_ids=validated_tag_ids if validated_tag_ids else None,  # ty: ignore[unknown-argument]
-            manufacturer=item_input.manufacturer,
-            model_number=item_input.model_number,  # ty: ignore[unknown-argument]
-            serial_number=item_input.serial_number,  # ty: ignore[unknown-argument]
-            purchase_price=item_input.purchase_price,  # ty: ignore[unknown-argument]
-            purchase_from=item_input.purchase_from,  # ty: ignore[unknown-argument]
-            notes=item_input.notes,
-        )
-
         try:
+            detected_item = DetectedItem(
+                name=item_input.name,
+                quantity=item_input.quantity,
+                description=item_input.description,
+                parent_id=parent_id,  # ty: ignore[unknown-argument]
+                tag_ids=validated_tag_ids if validated_tag_ids else None,  # ty: ignore[unknown-argument]
+                manufacturer=item_input.manufacturer,
+                model_number=item_input.model_number,  # ty: ignore[unknown-argument]
+                serial_number=item_input.serial_number,  # ty: ignore[unknown-argument]
+                purchase_price=item_input.purchase_price,  # ty: ignore[unknown-argument]
+                purchase_from=item_input.purchase_from,  # ty: ignore[unknown-argument]
+                notes=item_input.notes,
+            )
+
             # Step 1: Create item with basic fields
             item_create = ItemCreate(
                 name=detected_item.name,

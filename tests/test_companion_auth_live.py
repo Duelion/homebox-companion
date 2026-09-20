@@ -105,6 +105,36 @@ async def test_connection_and_inventory_routes_share_the_selected_auth_context(
 
 
 @pytest.mark.asyncio
+async def test_zero_purchase_price_round_trips_through_companion_and_upstream(
+    companion_client: tuple[httpx.AsyncClient, dict[str, str]],
+    homebox_auth: HomeboxAuth,
+    homebox_client: HomeboxClient,
+    cleanup_items: list[str],
+    cleanup_locations: list[str],
+) -> None:
+    """A zero price is an explicit extended field, not an omitted value."""
+    client, headers = companion_client
+    location = await homebox_client.create_location(homebox_auth.token, "Zero-price location")
+    cleanup_locations.append(location["id"])
+
+    created = await client.post(
+        "/api/items",
+        headers=headers,
+        json={
+            "items": [
+                {"name": "Zero-price item", "location_id": location["id"], "purchase_price": 0},
+            ]
+        },
+    )
+
+    assert created.status_code == 200
+    item_id = created.json()["created"][0]["id"]
+    cleanup_items.append(item_id)
+    fresh = await homebox_client.get_item(homebox_auth.token, item_id)
+    assert fresh["purchasePrice"] == 0
+
+
+@pytest.mark.asyncio
 async def test_key_mode_rejects_invalid_configured_credentials_without_browser_auth(
     homebox_test_account: HomeboxTestAccount,
 ) -> None:

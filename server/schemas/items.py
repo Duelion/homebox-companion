@@ -1,6 +1,6 @@
 """Item-related request/response schemas."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ItemInput(BaseModel):
@@ -22,7 +22,7 @@ class ItemInput(BaseModel):
     serial_number: str | None = None
     model_number: str | None = None
     manufacturer: str | None = None
-    purchase_price: float | None = None
+    purchase_price: float | None = Field(default=None, ge=0)
     purchase_from: str | None = None
     notes: str | None = None
     insured: bool = False
