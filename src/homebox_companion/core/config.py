@@ -9,6 +9,8 @@ Environment Variables:
     HBC_LINK_BASE_URL: Optional public-facing URL for Homebox links shown to users.
         Defaults to HBC_HOMEBOX_URL if not set. Useful when the API is accessed
         internally (e.g., 127.0.0.1) but users access via a public domain.
+    HBC_ADMIN_USER_IDS: Comma-separated Homebox user IDs allowed to administer
+        a legacy-mode deployment (empty denies administrator access).
     HBC_OPENAI_API_KEY: (Legacy) API key for LLM provider (use HBC_LLM_API_KEY instead)
     HBC_OPENAI_MODEL: (Legacy) LLM model to use (use HBC_LLM_MODEL instead, default: gpt-5-mini)
     HBC_LLM_API_KEY: API key for the configured LLM provider (preferred)
@@ -23,6 +25,7 @@ Environment Variables:
     HBC_LOG_LEVEL: Logging level (default: INFO)
     HBC_DISABLE_UPDATE_CHECK: Set to true to disable GitHub update checks (default: false)
     HBC_MAX_UPLOAD_SIZE_MB: Maximum file upload size in MB (default: 20)
+    HBC_MAX_REQUEST_SIZE_MB: Maximum total streamed request body in MB (default: 100)
     HBC_CORS_ORIGINS: Allowed CORS origins, comma-separated or "*" for all (default: "*")
     HBC_IMAGE_QUALITY: Image quality for Homebox uploads (default: medium).
         Options: raw (original), high (2560px, 85%), medium (1920px, 75%), low (1280px, 60%)
@@ -41,7 +44,7 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import SecretStr, computed_field, field_validator
+from pydantic import Field, SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Demo server for testing - users should replace with their own instance
@@ -81,6 +84,8 @@ class Settings(BaseSettings):
     # Homebox configuration - user provides base URL, we append /api/v1
     homebox_url: str = DEMO_HOMEBOX_URL
     homebox_api_key: SecretStr | None = None
+    # Explicit deployment administrators in legacy mode; empty denies admin access.
+    admin_user_ids: str = ""
     # Optional public-facing URL for links (defaults to homebox_url)
     link_base_url: str = ""
 
@@ -107,7 +112,8 @@ class Settings(BaseSettings):
     github_repo: str = "Duelion/homebox-companion"
 
     # Security configuration
-    max_upload_size_mb: int = 20  # Maximum file upload size in MB
+    max_upload_size_mb: int = Field(default=20, gt=0)  # Maximum individual file size in MB
+    max_request_size_mb: int = Field(default=100, gt=0)  # Aggregate body, including multipart overhead
     cors_origins: str = "*"  # Comma-separated origins or "*" for all
 
     # Image processing configuration

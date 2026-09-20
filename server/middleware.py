@@ -6,14 +6,95 @@ import uuid
 from contextvars import ContextVar
 
 from loguru import logger
-from starlette.datastructures import MutableHeaders
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.formparsers import MultiPartException
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from homebox_companion.core.config import Settings
+from homebox_companion.homebox.auth import LegacySessionProvider
 
 # ContextVar for request ID - accessible throughout the request lifecycle
 # Default "-" handles cases outside request context (startup, background tasks)
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
+
+
+class RequestBodyLimitMiddleware:
+    """Limit bytes before body parsers can buffer or spool an unbounded request."""
+
+    def __init__(self, app: ASGIApp, settings: Settings) -> None:
+        self.app = app
+        self.settings = settings
+        self.max_bytes = settings.max_request_size_mb * 1024 * 1024
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        multipart = headers.get("content-type", "").split(";", 1)[0].strip().lower() == "multipart/form-data"
+        if multipart and scope.get("path", "").startswith("/api/") and self.settings.auth_mode == "legacy":
+            # Every multipart API route requires a session. Reject absent/malformed
+            # credentials before reading files; route dependencies still validate it.
+            try:
+                LegacySessionProvider().resolve(headers.get("authorization"))
+            except ValueError as exc:
+                await JSONResponse({"detail": str(exc)}, status_code=401)(scope, receive, send)
+                return
+
+        rejection = JSONResponse(
+            {"detail": f"Request too large. Maximum total size is {self.settings.max_request_size_mb}MB"},
+            status_code=413,
+        )
+        content_length = headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared_size = int(content_length)
+            except ValueError:
+                declared_size = -1
+            if declared_size < 0:
+                await JSONResponse({"detail": "Invalid Content-Length"}, status_code=400)(scope, receive, send)
+                return
+            if declared_size > self.max_bytes:
+                await rejection(scope, receive, send)
+                return
+
+        consumed = 0
+        exceeded = False
+        rejection_sent = False
+
+        async def limited_receive() -> Message:
+            nonlocal consumed, exceeded
+            message = await receive()
+            if message["type"] == "http.request":
+                consumed += len(message.get("body", b""))
+                if consumed > self.max_bytes:
+                    exceeded = True
+                    # MultiPartException also closes partially spooled files in
+                    # Starlette versions that only clean up parser exceptions.
+                    raise MultiPartException("Request body exceeds configured limit")
+            return message
+
+        async def limited_send(message: Message) -> None:
+            nonlocal rejection_sent
+            if exceeded:
+                # Starlette maps parser exceptions to 400; return the actual
+                # cause (413) after the parser has unwound and closed its files.
+                if not rejection_sent:
+                    rejection_sent = True
+                    await rejection(scope, receive, send)
+                return
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, limited_send)
+        except MultiPartException:
+            if not exceeded:
+                raise
+            if not rejection_sent:
+                await rejection(scope, receive, send)
+
 
 class RequestIDMiddleware:
     """Pure ASGI middleware for X-Request-ID header correlation.

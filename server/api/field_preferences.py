@@ -14,7 +14,7 @@ from homebox_companion.core.field_preferences import (
 from homebox_companion.core.persistent_settings import CustomFieldDefinition
 from homebox_companion.tools.vision.prompts import build_detection_system_prompt
 
-from ..dependencies import require_auth
+from ..dependencies import require_admin, require_auth
 
 # Router with authentication required for all routes
 # Uses FastAPI's dependencies parameter to apply auth at router level
@@ -34,7 +34,7 @@ async def get_field_preferences() -> dict[str, str | None]:
     return load_user_overrides()
 
 
-@router.put("/settings/field-preferences")
+@router.put("/settings/field-preferences", dependencies=[Depends(require_admin)])
 async def update_field_preferences(
     prefs: FieldPreferences,
 ) -> dict[str, str | None]:
@@ -58,7 +58,7 @@ async def update_field_preferences(
     return load_user_overrides()
 
 
-@router.delete("/settings/field-preferences")
+@router.delete("/settings/field-preferences", dependencies=[Depends(require_admin)])
 async def delete_field_preferences() -> dict[str, str | None]:
     """Reset field preferences to defaults.
 

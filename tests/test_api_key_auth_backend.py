@@ -96,9 +96,14 @@ async def test_config_and_browser_guard_are_mode_aware() -> None:
 async def test_mcp_schema_hides_token_in_key_mode() -> None:
     app = create_app(_settings(homebox_api_key="hb_configured"))
     app.dependency_overrides[get_executor] = lambda: ToolExecutor()
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://companion.test") as client:
-        response = await client.get("/api/mcp/v1/tools")
+    async with HomeboxClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"id": "owner"})),
+        allow_cookies=False,
+    ) as homebox:
+        app.state.homebox_client = homebox
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://companion.test") as client:
+            response = await client.get("/api/mcp/v1/tools")
     assert response.status_code == 200
     for tool in response.json()["tools"].values():
         assert "token" not in tool["parameters"].get("properties", {})

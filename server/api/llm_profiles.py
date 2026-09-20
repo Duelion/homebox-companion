@@ -8,8 +8,10 @@ import litellm
 from fastapi import APIRouter, Depends, HTTPException
 from litellm.exceptions import APIConnectionError, AuthenticationError, NotFoundError
 from loguru import logger
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, SecretStr, field_validator
 
+from homebox_companion.core.llm_security import build_llm_params, validate_literal_llm_value
+from homebox_companion.core.llm_utils import same_llm_destination
 from homebox_companion.core.persistent_settings import (
     ModelProfile,
     PersistentSettings,
@@ -19,9 +21,9 @@ from homebox_companion.core.persistent_settings import (
     save_settings,
 )
 
-from ..dependencies import require_auth
+from ..dependencies import require_admin
 
-router = APIRouter(dependencies=[Depends(require_auth)])
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 # ============================================================================
@@ -45,7 +47,16 @@ class ProfileListResponse(BaseModel):
     profiles: list[ProfileResponse]
 
 
-class ProfileCreateRequest(BaseModel):
+class ProfileRequest(BaseModel):
+    """Profile credentials must be literal, never server-secret references."""
+
+    @field_validator("model", "api_base", "api_key", mode="before", check_fields=False)
+    @classmethod
+    def validate_literal_credentials(cls, value: object) -> object:
+        return validate_literal_llm_value(value)
+
+
+class ProfileCreateRequest(ProfileRequest):
     """Request to create a new profile."""
 
     name: str
@@ -55,7 +66,7 @@ class ProfileCreateRequest(BaseModel):
     status: str = "off"
 
 
-class ProfileUpdateRequest(BaseModel):
+class ProfileUpdateRequest(ProfileRequest):
     """Request to update an existing profile.
 
     For api_key:
@@ -70,7 +81,7 @@ class ProfileUpdateRequest(BaseModel):
     status: str | None = None
 
 
-class TestConnectionRequest(BaseModel):
+class TestConnectionRequest(ProfileRequest):
     """Request to test a profile connection."""
 
     # Optional override for testing before saving
@@ -165,6 +176,11 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
     settings = load_settings()
 
     _, profile = _find_profile(settings, name)
+
+    model = request.model if request.model is not None else profile.model
+    api_base = request.api_base if request.api_base is not None else profile.api_base
+    if not same_llm_destination(profile.model, profile.api_base, model, api_base) and not request.api_key:
+        raise HTTPException(status_code=422, detail="Enter an API key when changing the provider or API base URL")
 
     # Handle renaming
     if request.new_name is not None and request.new_name != name:
@@ -274,14 +290,19 @@ async def test_profile_connection(name: str, request: TestConnectionRequest | No
         else (profile.api_key.get_secret_value() if profile.api_key else None)
     )
     api_base = request.api_base if request and request.api_base else profile.api_base
+    if (
+        not same_llm_destination(profile.model, profile.api_base, model, api_base)
+        and not (request and request.api_key)
+    ):
+        raise HTTPException(
+            status_code=422, detail="Enter an API key when testing a different provider or API base URL"
+        )
 
     try:
         # Simple completion test
         response = await litellm.acompletion(
-            model=model,
+            **build_llm_params(model, api_key, api_base),
             messages=[{"role": "user", "content": "Say 'connection successful' in exactly two words."}],
-            api_key=api_key,
-            api_base=api_base,
             max_tokens=10,
             timeout=15,
         )
@@ -297,30 +318,30 @@ async def test_profile_connection(name: str, request: TestConnectionRequest | No
             model_info=model_info,
         )
 
-    except AuthenticationError as e:
-        logger.warning(f"Auth error testing profile {name}: {e}")
+    except AuthenticationError:
+        logger.warning(f"Authentication failed testing profile {name}")
         return TestConnectionResponse(
             success=False,
             message="Authentication failed. Check your API key.",
         )
 
-    except NotFoundError as e:
-        logger.warning(f"Model not found testing profile {name}: {e}")
+    except NotFoundError:
+        logger.warning(f"Model not found testing profile {name}")
         return TestConnectionResponse(
             success=False,
             message=f"Model '{model}' not found. Check the model name.",
         )
 
-    except APIConnectionError as e:
-        logger.warning(f"Connection error testing profile {name}: {e}")
+    except APIConnectionError:
+        logger.warning(f"Connection error testing profile {name}")
         return TestConnectionResponse(
             success=False,
             message=f"Could not connect to API. Check api_base URL: {api_base or 'default'}",
         )
 
     except Exception as e:
-        logger.error(f"Error testing profile {name}: {e}")
+        logger.error(f"Error testing profile {name}: {type(e).__name__}")
         return TestConnectionResponse(
             success=False,
-            message=f"Connection test failed: {e!s}",
+            message="Connection test failed. Check the provider configuration.",
         )

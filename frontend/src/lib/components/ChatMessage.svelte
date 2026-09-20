@@ -166,7 +166,7 @@
 			return renderMarkdown(message.content);
 		} catch (e) {
 			console.error('Markdown render failed:', e);
-			return message.content; // fallback to raw text
+			return null; // Render failures through Svelte's escaped text interpolation.
 		}
 	});
 
@@ -200,8 +200,10 @@
 			{#if message.content}
 				{#if isUser}
 					<p class="m-0 whitespace-pre-wrap">{message.content}</p>
+				{:else if renderedContent === null}
+					<p class="m-0 whitespace-pre-wrap">{message.content}</p>
 				{:else}
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Rendered markdown from trusted AI response -->
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Successfully sanitized Markdown only -->
 					<div class="markdown-content">{@html renderedContent}</div>
 				{/if}
 			{:else if hasExecutedActions && !message.isStreaming}

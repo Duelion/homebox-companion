@@ -9,7 +9,7 @@ from homebox_companion.core.persistent_settings import (
     save_settings,
 )
 
-from ..dependencies import require_auth
+from ..dependencies import require_admin, require_auth
 
 # Router with authentication required for all routes
 router = APIRouter(dependencies=[Depends(require_auth)])
@@ -22,7 +22,7 @@ async def get_custom_fields() -> list[CustomFieldDefinition]:
     return persistent.custom_fields
 
 
-@router.put("/settings/custom-fields")
+@router.put("/settings/custom-fields", dependencies=[Depends(require_admin)])
 async def update_custom_fields(
     fields: list[CustomFieldDefinition],
 ) -> list[CustomFieldDefinition]:
@@ -48,7 +48,7 @@ async def update_custom_fields(
     return persistent.custom_fields
 
 
-@router.delete("/settings/custom-fields/{field_name}")
+@router.delete("/settings/custom-fields/{field_name}", dependencies=[Depends(require_admin)])
 async def delete_custom_field(field_name: str) -> list[CustomFieldDefinition]:
     """Delete a single custom field definition by name."""
     persistent = get_settings()

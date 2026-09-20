@@ -411,19 +411,35 @@ def get_chat_scope(
     )
 
 
-def require_auth(token: Annotated[str, Depends(get_token)]) -> None:
-    """Dependency that requires a bearer token without returning it.
+async def get_authenticated_user(
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
+) -> dict[str, object]:
+    """Validate credentials upstream on every local-resource request.
 
-    Use this when a route needs authentication but doesn't use the token directly.
-    This avoids injecting unused dependencies and makes intent clear.
-
-    Usage:
-        @router.get("/protected", dependencies=[Depends(require_auth)])
-        async def protected_route() -> dict:
-            return {"status": "authenticated"}
+    The bootstrap identity cache is not an authentication cache: expired or
+    revoked credentials must not retain access to Companion's local resources.
     """
-    # get_token extracts the bearer token; Homebox validates on actual API calls
-    _ = token
+    return await gateway.get_current_user()
+
+
+def require_auth(user: Annotated[dict[str, object], Depends(get_authenticated_user)]) -> None:
+    """Require a currently authenticated Homebox identity."""
+    _ = user
+
+
+def require_admin(
+    request: Request,
+    user: Annotated[dict[str, object], Depends(get_authenticated_user)],
+) -> None:
+    """Authorize access to deployment-wide secrets, logs and configuration."""
+    app_settings = request.app.state.settings
+    # Key mode deliberately grants the configured owner's access to everyone
+    # admitted by the deployment's network/proxy boundary.
+    if app_settings.auth_mode == "api_key":
+        return
+    admin_ids = {value.strip() for value in app_settings.admin_user_ids.split(",") if value.strip()}
+    if user.get("id") not in admin_ids:
+        raise HTTPException(status_code=403, detail="Companion administrator access required")
 
 
 def require_llm_configured() -> str:
@@ -467,12 +483,14 @@ async def validate_file_size(file: UploadFile) -> bytes:
     Raises:
         HTTPException: If file exceeds size limit or is empty.
     """
-    contents = await file.read()
+    max_size = settings.max_upload_size_bytes
+    if file.size is not None and file.size > max_size:
+        raise HTTPException(status_code=413, detail=f"File too large. Maximum size is {settings.max_upload_size_mb}MB")
+    contents = await file.read(max_size + 1)
 
     if not contents:
         raise HTTPException(status_code=400, detail="Empty file")
 
-    max_size = settings.max_upload_size_bytes
     if len(contents) > max_size:
         max_mb = settings.max_upload_size_mb
         raise HTTPException(

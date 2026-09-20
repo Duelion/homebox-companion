@@ -29,6 +29,7 @@ async function mockApi(
 		chatStatus?: number;
 		locationTree?: (request: Request) => Promise<unknown>;
 		refreshStatus?: number;
+		assistantResponse?: string;
 	} = {}
 ) {
 	const mode = options.mode ?? 'api_key';
@@ -99,7 +100,7 @@ async function mockApi(
 			return route.fulfill({
 				status: 200,
 				contentType: 'text/event-stream',
-				body: 'event: text\ndata: {"content":"Hello"}\n\nevent: done\ndata: {}\n\n',
+				body: `event: text\ndata: ${JSON.stringify({ content: options.assistantResponse ?? 'Hello' })}\n\nevent: done\ndata: {}\n\n`,
 			});
 		}
 		if (path === '/api/login') {
@@ -131,6 +132,27 @@ function lifecycleRequests(requests: Request[]) {
 		/\/api\/(login|refresh|logout)$/.test(new URL(request.url()).pathname)
 	);
 }
+
+test('Markdown rendering failures display assistant content as escaped text', async ({ page }) => {
+	// Deeply nested, benign Markdown exercises a real parser failure without script content.
+	const response = '<strong>Literal markup</strong>\n\n' + '> '.repeat(10_000) + 'Nested text';
+	const renderErrors: string[] = [];
+	page.on('console', (message) => {
+		if (message.type() === 'error' && message.text().includes('Markdown render failed:')) {
+			renderErrors.push(message.text());
+		}
+	});
+	await mockApi(page, { assistantResponse: response });
+	await page.goto('/chat');
+	await page.getByLabel('Chat message input').fill('Show the sample');
+	await page.getByRole('button', { name: 'Send message' }).click();
+
+	const bubble = page.locator('.chat-bubble').last();
+	await expect(bubble.locator('p')).toHaveText(response);
+	await expect(bubble.locator('strong')).toHaveCount(0);
+	await expect(bubble.locator('.markdown-content')).toHaveCount(0);
+	expect(renderErrors.length).toBeGreaterThan(0);
+});
 
 test('configured-key deep link enters directly and never sends browser credentials', async ({
 	page,

@@ -132,6 +132,16 @@ All people who can reach a key-mode deployment act as the key's Homebox owner. U
 
 To rotate a key, create a replacement in Homebox, update the server environment, restart Companion and verify its connection, then revoke the old key in Homebox. Companion does not refresh or revoke API keys. Homebox v0.26.x requires its own stable `HBOX_AUTH_API_KEY_PEPPER` of at least 32 bytes; configure that on **Homebox**, never on Companion. See [Homebox configuration](https://github.com/sysadminsmedia/homebox/blob/e01dd737238a3fa7e1a6454b37de6c6fc88c86e4/docs/src/content/docs/en/quick-start/configure/index.mdx).
 
+### Administrator access
+
+In legacy login mode, set `HBC_ADMIN_USER_IDS` to a comma-separated list of trusted Homebox user IDs and restart Companion. Use the `user_id` returned by `/api/homebox/connection` for the signed-in account; names, email addresses and collection IDs are not accepted. For example, `HBC_ADMIN_USER_IDS=your-homebox-user-id` grants that account access to LLM profiles and server logs, and permission to change shared field preferences and custom fields. With an empty allowlist, these administrator operations are disabled; authenticated users can still scan, chat and read field preferences.
+
+Existing legacy deployments must configure this allowlist to keep managing settings through the UI. In API-key mode, the verified configured Homebox owner retains administrator access under the network/proxy access model described above. Homebox credentials are revalidated when accessing Companion's local settings and logs.
+
+Changing an LLM profile's provider or API base URL requires entering a key for the new destination. Saved and inherited keys are reused only for the same provider and endpoint, including the base URL path. This applies to connection tests and primary/fallback profile credential inheritance.
+
+Profile values must be literal: LiteLLM's `os.environ/...` references are rejected. Configure credentials through `HBC_LLM_API_KEY` or a profile; missing profile credentials do not silently use ambient provider variables such as `OPENAI_API_KEY` for another destination.
+
 ## ✨ Features
 
 ### AI-Powered Detection
@@ -287,11 +297,16 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
 | `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
 | `HBC_LLM_STREAM_TIMEOUT` | `300` | Streaming timeout for large responses (e.g., hierarchical views) |
+| `HBC_ADMIN_USER_IDS` | Empty | Comma-separated Homebox user IDs allowed to administer a legacy-mode deployment. Empty disables administrator access. |
+| `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum bytes per file, expressed in MiB; must be positive. |
+| `HBC_MAX_REQUEST_SIZE_MB` | `100` | Maximum aggregate API request body in MiB, including all files and multipart overhead; enforced while streaming, before parsing can exceed the limit. Must be positive. |
 | `HBC_IMAGE_QUALITY` | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
 
 </details>
 
 ### Advanced Settings
+
+Requests exceeding the body limit return HTTP 413, including chunked uploads. Missing or malformed legacy bearer credentials are rejected before multipart files are read. Configure matching body and concurrency limits on your reverse proxy to bound simultaneous uploads as well. If legitimate multi-image requests exceed 100 MiB, raise `HBC_MAX_REQUEST_SIZE_MB` deliberately; the per-file limit still applies.
 
 <details>
 <summary>Image Quality</summary>

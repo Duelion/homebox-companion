@@ -28,6 +28,7 @@ from .api import api_router
 from .dependencies import client_holder, tool_executor_holder
 from .middleware import (
     APIKeyBrowserGuardMiddleware,
+    RequestBodyLimitMiddleware,
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
     request_id_var,
@@ -329,7 +330,9 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     app.state.homebox_identities = {}
     resolved_settings = app.state.settings
 
-    # Request-ID middleware (must be added first to wrap all requests)
+    app.add_middleware(RequestBodyLimitMiddleware, settings=resolved_settings)  # type: ignore[arg-type]
+
+    # Wrap the body limiter so rejected requests also receive a request ID.
     # Uses pure ASGI middleware to avoid issues with SSE streaming
     app.add_middleware(RequestIDMiddleware)  # type: ignore[arg-type]
 
