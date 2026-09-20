@@ -446,7 +446,7 @@ Customize how AI formats detected item fields. Set via environment variables or 
 Target recovery contributions at `dev`. Changes on `dev` are not yet a release;
 promotion to `main` and publishing are separate steps.
 
-Use Python 3.14+, Node 22, and locked installs:
+Use Python 3.14+, Node 22, uv 0.9.17+ (CI and Docker use 0.12.5), and locked installs:
 
 ```bash
 uv sync --locked
@@ -462,6 +462,12 @@ LLM calls.
 For a deliberate Python dependency refresh, run
 `uv sync --upgrade --exclude-newer "30 days"`. The same rolling 30-day cooldown is
 configured in `pyproject.toml`; routine installs use the committed lockfile.
+Older uv versions cannot parse `exclude-newer = "30 days"`. If sync reports
+`failed to parse year in date "30 days"`, update uv on the machine running sync
+before retrying. For a standalone uv installation, run `uv self update 0.12.5`;
+for a package-managed installation, update it through that package manager.
+Check `uv --version` in the same shell or service environment that runs sync,
+then rerun `uv sync --locked`. Keep the cooldown and committed lockfile intact.
 For frontend updates, verify selected releases and transitive dependencies are
 at least 30 days old, update the lockfile, and rerun the checks and `npm audit`.
 
