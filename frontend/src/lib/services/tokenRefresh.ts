@@ -59,6 +59,7 @@ export function getInitPromise(): Promise<void> {
  * @returns true if refresh succeeded, false otherwise
  */
 export async function refreshToken(): Promise<boolean> {
+	if (!authStore.isLegacy) return false;
 	try {
 		const response = await auth.refresh();
 		// Use setAuthenticatedState to ensure all state updates happen atomically
@@ -79,6 +80,7 @@ export async function refreshToken(): Promise<boolean> {
  * Refreshes at 50% of remaining lifetime, minimum 1 minute
  */
 export function scheduleRefresh(): void {
+	if (!authStore.isLegacy) return;
 	if (refreshTimer) clearTimeout(refreshTimer);
 
 	const expires = authStore.expiresAt;
@@ -172,7 +174,7 @@ async function handleVisibilityChange(): Promise<void> {
 	}
 
 	// Only refresh if we have a token and the user is authenticated
-	if (!authStore.token || authStore.sessionExpired) {
+	if (!authStore.isLegacy || !authStore.token || authStore.sessionExpired) {
 		return;
 	}
 
@@ -222,6 +224,7 @@ function stopVisibilityListener(): void {
 export async function initializeAuth(): Promise<void> {
 	log.debug('[AUTH INIT] initializeAuth() starting');
 	try {
+		if (!authStore.isLegacy) return;
 		const currentToken = authStore.token;
 		if (!currentToken) {
 			log.debug('[AUTH INIT] No token found, skipping initialization');

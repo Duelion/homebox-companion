@@ -13,21 +13,52 @@ The ToolExecutor is the single source of truth for:
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from loguru import logger
 from pydantic import ValidationError
 
+from ..core.exceptions import HomeboxCompanionError
+from ..homebox.client import HomeboxClient, HomeboxGateway
 from .tools import get_tools
 from .types import DisplayInfo, Tool, ToolPermission, ToolResult, get_action_type_from_tool_name
 
-if TYPE_CHECKING:
-    from ..homebox.client import HomeboxClient
-
-
 # Cache TTL for tool schemas (5 minutes)
 _SCHEMA_CACHE_TTL = 300
+
+
+@dataclass(frozen=True, slots=True)
+class ToolExecutionContext:
+    """Request-owned resources used for one tool invocation."""
+
+    client: Any
+    token: str
+
+    @classmethod
+    def for_gateway(cls, gateway: HomeboxGateway) -> ToolExecutionContext:
+        """Adapt token-argument tools to an immutable bound gateway."""
+        return cls(client=_GatewayToolClient(gateway), token="<request-bound>")
+
+
+class _GatewayToolClient:
+    """Thin compatibility adapter for tools that still accept a token argument."""
+
+    __slots__ = ("_gateway",)
+
+    def __init__(self, gateway: HomeboxGateway) -> None:
+        self._gateway = gateway
+
+    def __getattr__(self, name: str) -> Any:
+        target = getattr(self._gateway, name)
+        if not callable(target):
+            return target
+
+        async def bound(_token: str, *args: Any, **kwargs: Any) -> Any:
+            return await target(*args, **kwargs)
+
+        return bound
 
 
 class ToolExecutor:
@@ -49,19 +80,49 @@ class ToolExecutor:
         ...     result = await executor.execute("list_items", {"page": 1}, token)
     """
 
-    def __init__(self, client: HomeboxClient):
+    def __init__(self, client: HomeboxClient | HomeboxGateway | None = None):
         """Initialize the executor with a Homebox client.
 
         Args:
             client: HomeboxClient instance for tool API calls.
         """
-        self._client = client
+        self._gateway: HomeboxGateway | None
+        self._client: HomeboxClient | None
+        if isinstance(client, HomeboxGateway):
+            self._gateway = client
+            self._client = client.transport_client
+        else:
+            self._gateway = None
+            self._client = client
         self._schema_cache: tuple[list[dict[str, Any]], float] | None = None
 
     @property
     def client(self) -> HomeboxClient:
         """Get the Homebox client."""
+        if self._client is None:
+            raise RuntimeError("Tool execution requires a request context")
         return self._client
+
+    @property
+    def execution_token(self) -> str | None:
+        """Credential of a request-bound gateway, unavailable on legacy executors."""
+        if self._gateway is None:
+            return None
+        return self._gateway.access.credential.get_secret_value()
+
+    @property
+    def identity_scope(self) -> str | None:
+        """Verified identity scope carried by a request-bound gateway."""
+        return self._gateway.access.identity_scope if self._gateway else None
+
+    @property
+    def group_id(self) -> str | None:
+        """Effective Homebox group carried by a request-bound gateway."""
+        return self._gateway.access.group_id if self._gateway else None
+
+    def bind(self, gateway: HomeboxGateway) -> BoundToolExecutor:
+        """Bind request access while retaining this executor's shared caches."""
+        return BoundToolExecutor(self, gateway)
 
     @cached_property
     def _tools_by_name(self) -> dict[str, Tool]:
@@ -172,6 +233,8 @@ class ToolExecutor:
         tool_name: str,
         tool_args: dict[str, Any],
         token: str,
+        *,
+        context: ToolExecutionContext | None = None,
     ) -> DisplayInfo:
         """Fetch human-readable info for approval UI.
 
@@ -193,11 +256,12 @@ class ToolExecutor:
         item_name: str | None = None  # Kept for backward compatibility
         asset_id: str | None = None
         location: str | None = None
+        client = context.client if context else self.client
 
         try:
             # Item operations
             if tool_name in ("delete_item", "update_item") and "item_id" in tool_args:
-                item = await self._client.get_item(token, tool_args["item_id"])
+                item = await client.get_item(token, tool_args["item_id"])
                 item_name = item.get("name")
                 target_name = item_name
                 if item.get("assetId"):
@@ -211,14 +275,14 @@ class ToolExecutor:
                     target_name = item_name
                 if "location_id" in tool_args:
                     try:
-                        loc = await self._client.get_location(token, tool_args["location_id"])
+                        loc = await client.get_location(token, tool_args["location_id"])
                         location = loc.get("name")
                     except Exception as e:
                         logger.debug(f"Location lookup failed: {e}")
 
             # Location operations
             elif tool_name in ("update_location", "delete_location") and "location_id" in tool_args:
-                loc = await self._client.get_location(token, tool_args["location_id"])
+                loc = await client.get_location(token, tool_args["location_id"])
                 target_name = loc.get("name")
 
             elif tool_name == "create_location":
@@ -226,7 +290,7 @@ class ToolExecutor:
 
             # Tag operations
             elif tool_name in ("update_tag", "delete_tag") and "tag_id" in tool_args:
-                tag = await self._client.get_tag(token, tool_args["tag_id"])
+                tag = await client.get_tag(token, tool_args["tag_id"])
                 target_name = tag.get("name")
 
             elif tool_name == "create_tag":
@@ -271,7 +335,9 @@ class ToolExecutor:
         self,
         tool_name: str,
         params: dict[str, Any],
-        token: str,
+        token: str | None = None,
+        *,
+        context: ToolExecutionContext | None = None,
     ) -> ToolResult:
         """Execute a tool with validated parameters.
 
@@ -289,6 +355,10 @@ class ToolExecutor:
         Returns:
             ToolResult with success/error status and data.
         """
+        client = context.client if context else self.client
+        effective_token = context.token if context else (token or self.execution_token)
+        if not effective_token:
+            return ToolResult(success=False, error="Tool execution requires Homebox access")
         tool = self.get_tool(tool_name)
         if not tool:
             logger.warning(f"Attempted to execute unknown tool: {tool_name}")
@@ -304,8 +374,66 @@ class ToolExecutor:
         # Execute the tool
         logger.info(f"Executing tool: {tool_name}")
         try:
-            result = await tool.execute(self._client, token, validated_params)
+            result = await tool.execute(client, effective_token, validated_params)
             return result
+        except HomeboxCompanionError:
+            # Preserve centralized safe status/code handling for HTTP and SSE.
+            raise
         except Exception as e:
             logger.exception(f"Tool {tool_name} execution failed")
             return ToolResult(success=False, error=str(e))
+
+
+class BoundToolExecutor(ToolExecutor):
+    """Request binding over a shared stateless registry/schema executor."""
+
+    def __init__(self, shared: ToolExecutor, gateway: HomeboxGateway) -> None:
+        super().__init__(gateway)
+        self._shared = shared
+        self._context = ToolExecutionContext.for_gateway(gateway)
+
+    def get_tool(self, name: str) -> Tool | None:
+        return self._shared.get_tool(name)
+
+    def list_tools(self, permission_filter: ToolPermission | None = None) -> list[Tool]:
+        return self._shared.list_tools(permission_filter)
+
+    def get_tool_schemas(
+        self,
+        include_write: bool = True,
+        include_token: bool = False,
+    ) -> list[dict[str, Any]]:
+        return self._shared.get_tool_schemas(include_write, include_token)
+
+    def requires_approval(self, tool_name: str) -> bool:
+        return self._shared.requires_approval(tool_name)
+
+    async def get_display_info(
+        self,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        token: str,
+        *,
+        context: ToolExecutionContext | None = None,
+    ) -> DisplayInfo:
+        return await self._shared.get_display_info(
+            tool_name,
+            tool_args,
+            token,
+            context=context or self._context,
+        )
+
+    async def execute(
+        self,
+        tool_name: str,
+        params: dict[str, Any],
+        token: str | None = None,
+        *,
+        context: ToolExecutionContext | None = None,
+    ) -> ToolResult:
+        return await self._shared.execute(
+            tool_name,
+            params,
+            token,
+            context=context or self._context,
+        )

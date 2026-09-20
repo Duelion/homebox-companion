@@ -22,14 +22,14 @@ from loguru import logger
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from homebox_companion import settings
 from homebox_companion.chat.approvals import ApprovalService
 from homebox_companion.chat.orchestrator import ChatOrchestrator
 from homebox_companion.chat.session import ChatSession
 from homebox_companion.chat.stream import StreamEmitter
+from homebox_companion.core.exceptions import HomeboxCompanionError
 from homebox_companion.mcp.executor import ToolExecutor
 
-from ..dependencies import get_executor, get_session, get_token, session_store_holder
+from ..dependencies import get_bound_executor, get_chat_scope, get_session
 from .auth import RateLimiter
 
 router = APIRouter()
@@ -91,11 +91,18 @@ async def _event_generator(
                 "event": event.type.value,
                 "data": json.dumps(event.data),
             }
-    except Exception as e:
+    except HomeboxCompanionError as exc:
+        logger.warning("Chat stream failed: {}", exc.error_code)
+        yield {
+            "event": "error",
+            "data": json.dumps({"message": exc.user_message, "code": exc.error_code}),
+        }
+        yield {"event": "done", "data": json.dumps({})}
+    except Exception:
         logger.exception("Event generation failed")
         yield {
             "event": "error",
-            "data": json.dumps({"message": str(e)}),
+            "data": json.dumps({"message": "Chat processing failed. Please retry.", "code": "CHAT_ERROR"}),
         }
         yield {
             "event": "done",
@@ -107,9 +114,8 @@ async def _event_generator(
 async def send_message(
     request: ChatMessageRequest,
     client_request: Request,
-    token: Annotated[str, Depends(get_token)],
     session: Annotated[ChatSession, Depends(get_session)],
-    executor: Annotated[ToolExecutor, Depends(get_executor)],
+    executor: Annotated[ToolExecutor, Depends(get_bound_executor)],
 ) -> EventSourceResponse:
     """Send a message and receive SSE stream of events.
 
@@ -131,13 +137,14 @@ async def send_message(
     Returns:
         EventSourceResponse with streaming events
     """
-    if not settings.chat_enabled:
+    app_settings = client_request.app.state.settings
+    if not app_settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
-    if settings.demo_mode:
+    if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     # Rate limit chat messages to prevent LLM cost abuse
-    _chat_limiter.check(client_request, settings.chat_rate_limit_rpm, context="chat messages")
+    _chat_limiter.check(client_request, app_settings.chat_rate_limit_rpm, context="chat messages")
 
     # TRACE: Log incoming chat message
     logger.trace(f"[API] Incoming chat message: {request.message}")
@@ -152,13 +159,14 @@ async def send_message(
     orchestrator = ChatOrchestrator(session=session, executor=executor)
 
     return EventSourceResponse(
-        _event_generator(orchestrator, request.message, token, approval_context),
+        _event_generator(orchestrator, request.message, executor.execution_token or "", approval_context),
         media_type="text/event-stream",
     )
 
 
 @router.get("/chat/pending")
 async def list_pending_approvals(
+    request: Request,
     session: Annotated[ChatSession, Depends(get_session)],
 ) -> dict[str, Any]:
     """List pending approval requests for this session.
@@ -166,9 +174,10 @@ async def list_pending_approvals(
     Returns:
         Dict with 'approvals' list containing pending approval objects
     """
-    if not settings.chat_enabled:
+    app_settings = request.app.state.settings
+    if not app_settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
-    if settings.demo_mode:
+    if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     approvals = session.list_pending_approvals()
@@ -181,9 +190,9 @@ async def list_pending_approvals(
 @router.post("/chat/approve/{approval_id}")
 async def approve_action(
     approval_id: str,
-    token: Annotated[str, Depends(get_token)],
+    request: Request,
     session: Annotated[ChatSession, Depends(get_session)],
-    executor: Annotated[ToolExecutor, Depends(get_executor)],
+    executor: Annotated[ToolExecutor, Depends(get_bound_executor)],
     body: ApproveRequest | None = None,
 ) -> JSONResponse:
     """Approve a pending action and execute it.
@@ -205,9 +214,10 @@ async def approve_action(
     Returns:
         Result of the action execution
     """
-    if not settings.chat_enabled:
+    app_settings = request.app.state.settings
+    if not app_settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
-    if settings.demo_mode:
+    if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     # Create approval service with injected executor
@@ -220,7 +230,7 @@ async def approve_action(
         # Use approval service for atomic execution (validates approval internally)
         result, approval = await approval_service.execute(
             approval_id=approval_id,
-            token=token,
+            token=executor.execution_token or "",
             modified_params=modified_params,
         )
 
@@ -270,6 +280,7 @@ async def approve_action(
 @router.post("/chat/reject/{approval_id}")
 async def reject_action(
     approval_id: str,
+    request: Request,
     session: Annotated[ChatSession, Depends(get_session)],
 ) -> ApprovalResponse:
     """Reject a pending action.
@@ -281,9 +292,10 @@ async def reject_action(
     Returns:
         Success status
     """
-    if not settings.chat_enabled:
+    app_settings = request.app.state.settings
+    if not app_settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
-    if settings.demo_mode:
+    if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     # Use the session's reject_approval method which handles history update
@@ -298,19 +310,21 @@ async def reject_action(
 
 @router.delete("/chat/history")
 async def clear_history(
-    token: Annotated[str, Depends(get_token)],
+    request: Request,
+    chat_scope: Annotated[str, Depends(get_chat_scope)],
 ) -> ApprovalResponse:
     """Clear conversation history for this session.
 
     Returns:
         Success status
     """
-    if not settings.chat_enabled:
+    app_settings = request.app.state.settings
+    if not app_settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
-    if settings.demo_mode:
+    if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
-    session_store_holder.get().delete(token)
+    request.app.state.session_store.delete(chat_scope)
 
     # Note: LLM debug logs are now managed by loguru with automatic retention,
     # so we don't clear them here. They provide cross-session debugging value.
@@ -320,6 +334,7 @@ async def clear_history(
 
 @router.get("/chat/status")
 async def get_session_status(
+    request: Request,
     session: Annotated[ChatSession, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get session status for frontend synchronization.
@@ -332,9 +347,10 @@ async def get_session_status(
     Returns:
         Dict with session_id and message_count
     """
-    if not settings.chat_enabled:
+    app_settings = request.app.state.settings
+    if not app_settings.chat_enabled:
         raise HTTPException(status_code=503, detail="Chat feature is disabled")
-    if settings.demo_mode:
+    if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
     return {
@@ -344,15 +360,15 @@ async def get_session_status(
 
 
 @router.get("/chat/health")
-async def chat_health() -> dict[str, Any]:
+async def chat_health(request: Request) -> dict[str, Any]:
     """Health check for chat API.
 
     Returns:
         Status information about the chat service
     """
     return {
-        "status": "healthy" if settings.chat_enabled else "disabled",
-        "chat_enabled": settings.chat_enabled,
-        "max_history": settings.chat_max_history,
-        "approval_timeout_seconds": settings.chat_approval_timeout,
+        "status": "healthy" if request.app.state.settings.chat_enabled else "disabled",
+        "chat_enabled": request.app.state.settings.chat_enabled,
+        "max_history": request.app.state.settings.chat_max_history,
+        "approval_timeout_seconds": request.app.state.settings.chat_approval_timeout,
     }

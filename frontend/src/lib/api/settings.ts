@@ -112,6 +112,7 @@ export const getVersion = (forceCheck: boolean = false) =>
 // =============================================================================
 
 export interface ConfigResponse {
+	auth_mode: 'legacy' | 'api_key';
 	is_demo_mode: boolean;
 	/** Explicit demo mode from HBC_DEMO_MODE env var only (not URL detection) */
 	demo_mode_explicit: boolean;

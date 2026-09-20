@@ -52,6 +52,11 @@ docs/contributor_analysis/**
 # Bundle analyzer output
 frontend/stats.html
 
+# Playwright generated browser-test artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
 # Test/audit artifacts
 test_results.txt
 security_audit*.txt

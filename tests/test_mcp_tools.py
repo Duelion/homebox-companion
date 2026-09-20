@@ -9,7 +9,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import HomeboxAuth
 
+from homebox_companion import HomeboxClient
 from homebox_companion.mcp.tools import (
     GetItemTool,
     GetLocationTool,
@@ -422,37 +424,27 @@ class TestMCPToolsLive:
     """Live integration tests for MCP tools against Docker Homebox container."""
 
     @pytest.mark.asyncio
-    async def test_list_locations_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
+    async def test_list_locations_live(
+        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
+    ) -> None:
         """List locations should return data from demo server."""
-        from homebox_companion import HomeboxClient
+        tool = ListLocationsTool()
+        params = tool.Params()
+        result = await tool.execute(homebox_client, homebox_auth.token, params)
 
-        username, password = homebox_credentials
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
-
-            tool = ListLocationsTool()
-            params = tool.Params()
-            result = await tool.execute(client, token, params)
-
-            assert result.success is True
-            assert isinstance(result.data, list)
-            # Demo server should have at least some locations
-            assert len(result.data) > 0
+        assert result.success is True
+        assert isinstance(result.data, list)
+        # Demo server should have at least some locations
+        assert len(result.data) > 0
 
     @pytest.mark.asyncio
-    async def test_list_tags_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
+    async def test_list_tags_live(
+        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
+    ) -> None:
         """List tags should return data from demo server."""
-        from homebox_companion import HomeboxClient
+        tool = ListTagsTool()
+        params = tool.Params()
+        result = await tool.execute(homebox_client, homebox_auth.token, params)
 
-        username, password = homebox_credentials
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
-
-            tool = ListTagsTool()
-            params = tool.Params()
-            result = await tool.execute(client, token, params)
-
-            assert result.success is True
-            assert isinstance(result.data, list)
+        assert result.success is True
+        assert isinstance(result.data, list)

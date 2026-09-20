@@ -40,12 +40,12 @@
 
 	async function handleSelect(groupId: string) {
 		open = false;
+		if (collectionStore.selectedId !== groupId) scanWorkflow.switchContext();
 		const changed = collectionStore.selectGroup(groupId);
 		if (changed) {
 			// Clear dependent state and re-fetch for the new collection
 			locationStore.clear();
 			clearTagsCache();
-			scanWorkflow.reset();
 			// Reload data for the new collection
 			try {
 				await Promise.all([locationNavigator.loadTree(), fetchTags(true)]);

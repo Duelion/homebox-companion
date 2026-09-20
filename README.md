@@ -33,7 +33,7 @@ Use the **AI Chat** to manage your inventory, find locations, or update details 
 
 ```mermaid
 flowchart LR
-    A[🔐 Login<br/>Homebox] --> B[📍 Select<br/>Location]
+    A[Connect to Homebox<br/>Configured key or legacy login] --> B[📍 Select<br/>Location]
     B --> C[📸 Capture<br/>Photos]
     C --> D[✏️ Review &<br/>Edit Items]
     D --> E[✅ Submit to<br/>Homebox]
@@ -44,7 +44,7 @@ flowchart LR
     
 ```
 
-1. **Login** – Authenticate with your existing Homebox credentials
+1. **Connect** – Enter directly with a configured Homebox API key, or use your existing Homebox credentials when no key is configured
 2. **Select Location** – Browse the location tree, search, or scan a Homebox QR code
 3. **Capture Photos** – Take or upload photos of items (supports multiple photos per item)
 4. **AI Detection** – AI vision (via LiteLLM*) identifies items, quantities, and metadata
@@ -66,7 +66,7 @@ Before you start, you'll need:
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
 - **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test
 
-> **Compatibility:** Tested with Homebox v0.21+. Earlier versions may have different authentication behavior.
+> **Compatibility:** Integration tests use Homebox v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
 
 ## 🚀 Quick Start
 
@@ -95,6 +95,7 @@ services:
     environment:
       - HBC_LLM_API_KEY=sk-your-api-key-here
       - HBC_HOMEBOX_URL=http://your-homebox-ip:7745
+      - HBC_HOMEBOX_API_KEY=${HBC_HOMEBOX_API_KEY:-}
     ports:
       - 8000:8000
 ```
@@ -107,7 +108,29 @@ Open `http://localhost:8000` in your browser.
 
 > **Tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
 
+If Homebox runs in another Compose service, put both services on the same Docker
+network and use the Homebox service name, for example `http://homebox:7745`.
+`localhost` from inside the Companion container refers to the Companion
+container itself.
+
 > **ARM64/Raspberry Pi:** Docker images are built for both `linux/amd64` and `linux/arm64` architectures.
+
+### Homebox API key or legacy login
+
+To enter Companion without a login screen, create a key in **Homebox → Profile → API Keys** and copy its one-time token. Set it on the Companion server:
+
+```dotenv
+HBC_HOMEBOX_URL=http://your-homebox-ip:7745
+HBC_HOMEBOX_API_KEY=hb_your_homebox_issued_key
+```
+
+Restart Companion after changing these values. With Docker Compose, keep the explicit `HBC_HOMEBOX_API_KEY` environment entry shown above and run `docker compose up -d --force-recreate`. A Compose `.env` file supplies interpolation values; it does not automatically pass every variable into the container.
+
+A configured key is used only by the server. The browser receives no Homebox key and has no login, session refresh or Homebox logout action. Missing, empty or whitespace-only keys preserve the username/password flow. An invalid, expired or revoked key shows a connection error with Retry; it never falls back to a password prompt. Removing the key and restarting restores legacy login.
+
+All people who can reach a key-mode deployment act as the key's Homebox owner. Use a dedicated Homebox user with the intended collection permissions and control access through your network or reverse proxy. Browser chat contexts separate conversation history and pending approvals; they are not accounts or access credentials. Existing contextless chats and scan drafts remain stored, but are not loaded automatically into a newly verified context. Clearing browser data creates a new chat context. Server chat state remains in memory with its existing TTL and requires a single worker for consistent conversations.
+
+To rotate a key, create a replacement in Homebox, update the server environment, restart Companion and verify its connection, then revoke the old key in Homebox. Companion does not refresh or revoke API keys. Homebox v0.26.x requires its own stable `HBOX_AUTH_API_KEY_PEPPER` of at least 32 bytes; configure that on **Homebox**, never on Companion. See [Homebox configuration](https://github.com/sysadminsmedia/homebox/blob/e01dd737238a3fa7e1a6454b37de6c6fc88c86e4/docs/src/content/docs/en/quick-start/configure/index.mdx).
 
 ## ✨ Features
 
@@ -251,6 +274,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 |----------|----------|-------------|
 | `HBC_LLM_API_KEY` | **Yes** | Your OpenAI API key |
 | `HBC_HOMEBOX_URL` | No | Your Homebox instance URL (defaults to demo server) |
+| `HBC_HOMEBOX_API_KEY` | No | Homebox-issued key for direct entry; empty retains legacy login. Server-only; restart after changing. |
 | `HBC_LINK_BASE_URL` | No | Public URL for Homebox links in chat (defaults to `HBC_HOMEBOX_URL`) |
 
 <details>
@@ -330,7 +354,7 @@ HBC_IMAGE_QUALITY=high
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
 | `HBC_DISABLE_UPDATE_CHECK` | `false` | Disable update notifications |
 | `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MB |
-| `HBC_CORS_ORIGINS` | `*` | Allowed CORS origins (comma-separated or `*`) |
+| `HBC_CORS_ORIGINS` | `*` | Explicit allowed origins, comma-separated. Wildcard applies only in legacy mode; key mode defaults to same-origin. |
 
 </details>
 
@@ -354,7 +378,7 @@ HBC_CORS_ORIGINS=https://inventory.example.com
 HBC_CORS_ORIGINS=https://inventory.example.com,https://admin.example.com
 ```
 
-> **Note:** The default `HBC_CORS_ORIGINS=*` allows requests from any origin, which is convenient for development but should be restricted in production environments exposed to the internet.
+> **Note:** In legacy mode, `HBC_CORS_ORIGINS=*` allows any origin. API-key mode ignores the wildcard and permits same-origin requests plus explicitly listed origins. For a separate development frontend or reverse proxy, list its browser-facing origin. CORS and request-origin checks do not replace network or proxy access control.
 
 </details>
 

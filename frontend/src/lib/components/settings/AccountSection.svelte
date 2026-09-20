@@ -52,8 +52,16 @@
 		</div>
 	{/if}
 
-	<Button variant="danger" full onclick={handleLogout}>
-		<LogOut size={20} strokeWidth={1.5} />
-		<span>Sign Out</span>
-	</Button>
+	{#if authStore.isLegacy}
+		<Button variant="danger" full onclick={handleLogout}>
+			<LogOut size={20} strokeWidth={1.5} />
+			<span>Sign Out</span>
+		</Button>
+	{:else}
+		<div
+			class="rounded-xl border border-success-500/30 bg-success-500/10 p-4 text-body-sm text-success-500"
+		>
+			Connected using a Homebox API key
+		</div>
+	{/if}
 </section>

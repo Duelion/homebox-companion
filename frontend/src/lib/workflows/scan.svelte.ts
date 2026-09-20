@@ -96,6 +96,7 @@ class ScanWorkflow {
 
 	/** Flag to skip the initial effect run (avoids persist on construction) */
 	private _isFirstEffectRun = true;
+	private contextGeneration = 0;
 
 	// =========================================================================
 	// CONSTRUCTOR (auto-persist setup)
@@ -830,6 +831,10 @@ class ScanWorkflow {
 		failCount: number;
 		sessionExpired: boolean;
 	}> {
+		const generation = this.contextGeneration;
+		if (!sessionPersistence.captureSessionScope()) {
+			throw new Error('Cannot submit without a verified Homebox context and collection');
+		}
 		const items = this.reviewService.confirmedItems;
 
 		if (items.length === 0) {
@@ -852,6 +857,7 @@ class ScanWorkflow {
 			this._parentItemId,
 			options
 		);
+		if (generation !== this.contextGeneration) return result;
 
 		if (result.sessionExpired) {
 			return result;
@@ -889,6 +895,10 @@ class ScanWorkflow {
 		failCount: number;
 		sessionExpired: boolean;
 	}> {
+		const generation = this.contextGeneration;
+		if (!sessionPersistence.captureSessionScope()) {
+			throw new Error('Cannot submit without a verified Homebox context and collection');
+		}
 		const items = this.reviewService.confirmedItems;
 
 		if (!this.submissionService.hasFailedItems()) {
@@ -908,6 +918,7 @@ class ScanWorkflow {
 			this._locationId,
 			this._parentItemId
 		);
+		if (generation !== this.contextGeneration) return result;
 
 		if (result.sessionExpired) {
 			return result;
@@ -959,6 +970,9 @@ class ScanWorkflow {
 	 */
 	private async _doPersist(): Promise<void> {
 		log.debug('_doPersist: Starting session persistence...');
+		const scope = sessionPersistence.captureSessionScope();
+		const generation = this.contextGeneration;
+		if (!scope) return;
 
 		try {
 			// Step 1: Serialize images (convert File objects to base64)
@@ -1017,7 +1031,11 @@ class ScanWorkflow {
 			log.debug('_doPersist: Session object built, saving to IndexedDB...');
 
 			// Step 6: Save to IndexedDB
-			await sessionPersistence.save(session);
+			if (generation !== this.contextGeneration) {
+				log.debug('_doPersist: Context changed during serialization, discarding stale write');
+				return;
+			}
+			await sessionPersistence.save(session, scope);
 			log.debug(
 				`_doPersist: SUCCESS - status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`
 			);
@@ -1039,11 +1057,15 @@ class ScanWorkflow {
 	 * Returns true if recovery was successful.
 	 */
 	async recover(): Promise<boolean> {
+		const scope = sessionPersistence.captureSessionScope();
+		const generation = this.contextGeneration;
+		if (!scope) return false;
 		try {
-			const session = await sessionPersistence.load();
+			const session = await sessionPersistence.load(scope);
 			if (!session) {
 				return false;
 			}
+			if (generation !== this.contextGeneration) return false;
 
 			log.info(`Recovering session: status=${session.status}, images=${session.images.length}`);
 
@@ -1056,11 +1078,13 @@ class ScanWorkflow {
 
 			// Deserialize images (convert base64 back to File objects)
 			const images = await Promise.all(session.images.map(deserializeImage));
+			if (generation !== this.contextGeneration) return false;
 			this.captureService.images = images;
 
 			// Deserialize review items
 			if (session.detectedItems.length > 0) {
 				const detectedItems = await Promise.all(session.detectedItems.map(deserializeReviewItem));
+				if (generation !== this.contextGeneration) return false;
 				this.reviewService.setDetectedItems(detectedItems);
 			}
 
@@ -1068,6 +1092,7 @@ class ScanWorkflow {
 				const confirmedItems = await Promise.all(
 					session.confirmedItems.map(deserializeConfirmedItem)
 				);
+				if (generation !== this.contextGeneration) return false;
 				// Restore confirmed items directly (not via confirmCurrentItem which affects navigation)
 				this.reviewService.setConfirmedItems(confirmedItems);
 			}
@@ -1127,7 +1152,8 @@ class ScanWorkflow {
 	 * Clear the persisted session from IndexedDB.
 	 */
 	async clearPersistedSession(): Promise<void> {
-		await sessionPersistence.clear();
+		const scope = sessionPersistence.captureSessionScope();
+		if (scope) await sessionPersistence.clear(scope);
 	}
 
 	// =========================================================================
@@ -1135,7 +1161,9 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/** Reset workflow to initial state */
-	reset(): void {
+	reset(clearPersisted = true): void {
+		const scope = sessionPersistence.captureSessionScope();
+		this.contextGeneration++;
 		// Cancel any pending debounced persist to prevent stale writes after reset
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);
@@ -1154,8 +1182,12 @@ class ScanWorkflow {
 		this._error = null;
 		this._persistedCreatedAt = null; // Reset for next session
 		this._persistedSessionId = null; // Reset for next session
-		// Clear persisted session (fire and forget)
-		this.clearPersistedSession();
+		if (clearPersisted && scope) void sessionPersistence.clear(scope);
+	}
+
+	/** Drop in-memory work when changing collection while preserving the old scoped draft. */
+	switchContext(): void {
+		this.reset(false);
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */

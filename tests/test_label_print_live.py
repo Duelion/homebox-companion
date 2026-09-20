@@ -22,14 +22,13 @@ Architecture:
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
 
-# Import the MockLabelPrinter type for type hints
-from conftest import MockLabelPrinter
+# Import the shared live-test auth and mock printer types for type hints.
+from conftest import HomeboxAuth, MockLabelPrinter
 
 from homebox_companion import HomeboxClient
 from homebox_companion.homebox import ItemCreate
@@ -43,44 +42,40 @@ pytestmark = pytest.mark.live
 # ---------------------------------------------------------------------------
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture
 async def _test_item(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
-) -> AsyncGenerator[tuple[str, str]]:
+    homebox_client: HomeboxClient,
+    homebox_auth: HomeboxAuth,
+    cleanup_items: list[str],
+) -> tuple[str, str]:
     """Create a test item and return its item UUID and asset ID."""
-    username, password = homebox_credentials
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
+    client = homebox_client
+    token = homebox_auth.token
 
-        # Get a location for the item
-        locations = await client.list_locations(token)
-        assert locations, "Demo data should have at least one location"
-        location_id = locations[0]["id"]
+    # Get a location for the item
+    locations = await client.list_locations(token)
+    assert locations, "Demo data should have at least one location"
+    location_id = locations[0]["id"]
 
-        # Create test item
-        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-        item = ItemCreate(
-            name=f"Label Print Test {timestamp}",
-            quantity=1,
-            description="Item for label print testing",
-            parent_id=location_id,  # ty: ignore[unknown-argument]
-        )
-        created = await client.create_item(token, item)
-        item_id = created["id"]
+    # Create test item
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    item = ItemCreate(
+        name=f"Label Print Test {timestamp}",
+        quantity=1,
+        description="Item for label print testing",
+        parent_id=location_id,  # ty: ignore[unknown-argument]
+    )
+    created = await client.create_item(token, item)
+    item_id = created["id"]
+    # This dependency tears down even if the remaining setup fails before returning.
+    cleanup_items.append(item_id)
 
-        await client.ensure_asset_ids(token)
-        fetched = await client.get_item(token, item_id)
-        asset_id = fetched.get("assetId")
-        assert asset_id, "Homebox should assign an asset ID to the test item"
+    await client.ensure_asset_ids(token)
+    fetched = await client.get_item(token, item_id)
+    asset_id = fetched.get("assetId")
+    assert asset_id, "Homebox should assign an asset ID to the test item"
 
-        yield item_id, asset_id
-
-        # Cleanup
-        try:
-            await client.delete_item(token, item_id)
-        except Exception:
-            pass
+    return item_id, asset_id
 
 
 # ---------------------------------------------------------------------------
@@ -94,28 +89,24 @@ class TestLabelPreview:
     @pytest.mark.asyncio
     async def test_label_preview_returns_png_image(
         self,
-        homebox_api_url: str,
-        homebox_credentials: tuple[str, str],
+        homebox_client: HomeboxClient,
+        homebox_auth: HomeboxAuth,
         _test_item: tuple[str, str],
     ) -> None:
         """GET /labelmaker/asset/{id} without ?print should return a PNG image."""
-        username, password = homebox_credentials
         _, asset_id = _test_item
+        token = homebox_auth.token
 
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
+        resp = await homebox_client.client.get(
+            f"{homebox_client.base_url}/labelmaker/asset/{asset_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
-            resp = await client.client.get(
-                f"{client.base_url}/labelmaker/asset/{asset_id}",
-                headers={"Authorization": f"Bearer {token}"},
-            )
-
-            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
-            content_type = resp.headers.get("content-type", "")
-            assert "image/png" in content_type, f"Expected image/png, got {content_type}"
-            assert resp.content[:4] == b"\x89PNG", "Response is not a valid PNG file"
-            assert len(resp.content) > 100, f"PNG too small ({len(resp.content)} bytes)"
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+        content_type = resp.headers.get("content-type", "")
+        assert "image/png" in content_type, f"Expected image/png, got {content_type}"
+        assert resp.content[:4] == b"\x89PNG", "Response is not a valid PNG file"
+        assert len(resp.content) > 100, f"PNG too small ({len(resp.content)} bytes)"
 
 
 class TestMockPrinterReceivesLabel:
@@ -124,23 +115,17 @@ class TestMockPrinterReceivesLabel:
     @pytest.mark.asyncio
     async def test_print_triggers_post_to_mock_printer(
         self,
-        homebox_api_url: str,
-        homebox_credentials: tuple[str, str],
+        homebox_client: HomeboxClient,
+        homebox_auth: HomeboxAuth,
         homebox_container_name: str,
         mock_label_printer: MockLabelPrinter,
         _test_item: tuple[str, str],
     ) -> None:
         """When print_label is called, Homebox should POST the label PNG
         to the mock printer server."""
-        username, password = homebox_credentials
         _, asset_id = _test_item
         mock_label_printer.clear()
-
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
-
-            result = await client.print_label(token, asset_id)
+        result = await homebox_client.print_label(homebox_auth.token, asset_id)
 
         # Homebox should have returned "Printed!"
         assert "Printed" in result, f"Expected 'Printed' in response, got: {result!r}"
@@ -155,20 +140,15 @@ class TestMockPrinterReceivesLabel:
     @pytest.mark.asyncio
     async def test_mock_printer_receives_valid_png(
         self,
-        homebox_api_url: str,
-        homebox_credentials: tuple[str, str],
+        homebox_client: HomeboxClient,
+        homebox_auth: HomeboxAuth,
         mock_label_printer: MockLabelPrinter,
         _test_item: tuple[str, str],
     ) -> None:
         """The POST body sent to the mock printer should be a valid PNG image."""
-        username, password = homebox_credentials
         _, asset_id = _test_item
         mock_label_printer.clear()
-
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
-            await client.print_label(token, asset_id)
+        await homebox_client.print_label(homebox_auth.token, asset_id)
 
         assert mock_label_printer.requests, "No requests received by mock printer"
         last_request = mock_label_printer.requests[-1]
@@ -185,20 +165,15 @@ class TestMockPrinterReceivesLabel:
     @pytest.mark.asyncio
     async def test_mock_printer_receives_post_to_correct_path(
         self,
-        homebox_api_url: str,
-        homebox_credentials: tuple[str, str],
+        homebox_client: HomeboxClient,
+        homebox_auth: HomeboxAuth,
         mock_label_printer: MockLabelPrinter,
         _test_item: tuple[str, str],
     ) -> None:
         """The POST should hit the /print path on the mock printer."""
-        username, password = homebox_credentials
         _, asset_id = _test_item
         mock_label_printer.clear()
-
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
-            await client.print_label(token, asset_id)
+        await homebox_client.print_label(homebox_auth.token, asset_id)
 
         assert mock_label_printer.requests, "No requests received by mock printer"
         last_request = mock_label_printer.requests[-1]

@@ -4,10 +4,9 @@
 	import { resolve } from '$app/paths';
 	import { auth, getConfig, setDemoMode } from '$lib/api';
 	import { authStore } from '$lib/stores/auth.svelte';
-	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { showToast, setLoading } from '$lib/stores/ui.svelte';
 	import { authLogger as log } from '$lib/utils/logger';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { completeLegacyLogin, getInitPromise } from '$lib/services/bootstrap';
 	import Button from '$lib/components/Button.svelte';
 	import { onMount } from 'svelte';
 
@@ -23,6 +22,10 @@
 			// Wait for auth initialization to complete to avoid race conditions
 			// where we check isAuthenticated before initializeAuth clears expired tokens
 			await getInitPromise();
+			if (authStore.mode === 'api_key' && authStore.isAuthenticated) {
+				goto(resolve('/location'));
+				return;
+			}
 
 			// Check if token exists and validate it before redirecting
 			if (authStore.isAuthenticated) {
@@ -71,7 +74,7 @@
 		try {
 			const response = await auth.login(email, password);
 			authStore.setAuthenticatedState(response.token, new Date(response.expires_at), email);
-			await collectionStore.fetchGroups();
+			await completeLegacyLogin();
 			goto(resolve('/location'));
 		} catch (error) {
 			log.error('Login failed:', error);

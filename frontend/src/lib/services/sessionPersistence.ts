@@ -15,6 +15,8 @@ import { browser } from '$app/environment';
 import { openDB, type IDBPDatabase } from 'idb';
 import type { StoredSession } from './serialize';
 import { createLogger } from '$lib/utils/logger';
+import { authStore } from '$lib/stores/auth.svelte';
+import { collectionStore } from '$lib/stores/collection.svelte';
 
 const log = createLogger({ prefix: 'SessionPersistence' });
 
@@ -23,9 +25,23 @@ const log = createLogger({ prefix: 'SessionPersistence' });
 // =============================================================================
 
 const DB_NAME = 'hbc-scan-recovery';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'sessions';
-const SESSION_KEY = 'current';
+
+export interface SessionScope {
+	contextId: string;
+	groupId: string;
+}
+
+export function captureSessionScope(): SessionScope | null {
+	const context = authStore.contextId;
+	const group = collectionStore.selectedId;
+	return context && group ? { contextId: context, groupId: group } : null;
+}
+
+function sessionKey(scope: SessionScope): string {
+	return `${scope.contextId}:${scope.groupId}`;
+}
 
 /** Session TTL in milliseconds (7 days) */
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -59,11 +75,8 @@ function getDb(): Promise<IDBPDatabase> {
 		dbPromise = openDB(DB_NAME, DB_VERSION, {
 			upgrade(db, oldVersion) {
 				log.info(`Upgrading database from version ${oldVersion} to ${DB_VERSION}`);
-				// Clear old data on schema change
-				if (db.objectStoreNames.contains(STORE_NAME)) {
-					db.deleteObjectStore(STORE_NAME);
-				}
-				db.createObjectStore(STORE_NAME);
+				// Keep context-free records quarantined under their old key.
+				if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
 			},
 			blocked() {
 				log.warn('Database upgrade blocked by another tab');
@@ -118,19 +131,21 @@ function formatAge(timestamp: number): string {
  * Check if there's a recoverable session available.
  * Fast check for recovery UI - doesn't load the full session.
  */
-export async function hasRecoverableSession(): Promise<boolean> {
+export async function hasRecoverableSession(scope = captureSessionScope()): Promise<boolean> {
 	if (!browser) return false;
+	if (!scope) return false;
 
 	try {
 		const db = await getDb();
-		const session = await db.get(STORE_NAME, SESSION_KEY);
+		const key = sessionKey(scope);
+		const session = await db.get(STORE_NAME, key);
 
 		if (!session) return false;
 
 		// Check TTL expiration
 		if (isSessionExpired(session)) {
 			log.info('Session expired (TTL), clearing');
-			await clear();
+			await clear(scope);
 			return false;
 		}
 
@@ -156,12 +171,16 @@ export async function hasRecoverableSession(): Promise<boolean> {
 /**
  * Get a summary of the stored session for the recovery UI.
  */
-export async function getSessionSummary(): Promise<SessionSummary | null> {
+export async function getSessionSummary(
+	scope = captureSessionScope()
+): Promise<SessionSummary | null> {
 	if (!browser) return null;
+	if (!scope) return null;
 
 	try {
 		const db = await getDb();
-		const session: StoredSession | undefined = await db.get(STORE_NAME, SESSION_KEY);
+		const key = sessionKey(scope);
+		const session: StoredSession | undefined = await db.get(STORE_NAME, key);
 
 		if (!session) return null;
 
@@ -182,12 +201,14 @@ export async function getSessionSummary(): Promise<SessionSummary | null> {
  * Load the stored session.
  * Returns null if no session exists, session is expired, or data is corrupted.
  */
-export async function load(): Promise<StoredSession | null> {
+export async function load(scope = captureSessionScope()): Promise<StoredSession | null> {
 	if (!browser) return null;
+	if (!scope) return null;
 
 	try {
 		const db = await getDb();
-		const session: StoredSession | undefined = await db.get(STORE_NAME, SESSION_KEY);
+		const key = sessionKey(scope);
+		const session: StoredSession | undefined = await db.get(STORE_NAME, key);
 
 		if (!session) {
 			log.debug('No stored session found');
@@ -198,14 +219,14 @@ export async function load(): Promise<StoredSession | null> {
 		if (isSessionExpired(session)) {
 			const ageDays = Math.floor((Date.now() - session.createdAt) / (1000 * 60 * 60 * 24));
 			log.info(`Session expired (${ageDays} days old), clearing`);
-			await clear();
+			await clear(scope);
 			return null;
 		}
 
 		// Basic validation
 		if (!session.id || typeof session.status !== 'string') {
 			log.warn('Session data appears corrupted, clearing');
-			await clear();
+			await clear(scope);
 			return null;
 		}
 
@@ -215,7 +236,7 @@ export async function load(): Promise<StoredSession | null> {
 		log.error('Error loading session:', error);
 		// Clear corrupted data
 		try {
-			await clear();
+			await clear(scope);
 		} catch (clearError) {
 			log.warn('Failed to clear corrupted session during recovery:', clearError);
 		}
@@ -227,18 +248,23 @@ export async function load(): Promise<StoredSession | null> {
  * Save the current session state.
  * Overwrites any existing session (single-session guarantee).
  */
-export async function save(session: StoredSession): Promise<void> {
+export async function save(session: StoredSession, scope = captureSessionScope()): Promise<void> {
 	if (!browser) {
+		return;
+	}
+	if (!scope) {
+		log.warn('Refusing to persist a scan without a verified context and collection');
 		return;
 	}
 
 	try {
 		const db = await getDb();
+		const key = sessionKey(scope);
 
 		// Update the updatedAt timestamp
 		session.updatedAt = Date.now();
 
-		await db.put(STORE_NAME, session, SESSION_KEY);
+		await db.put(STORE_NAME, session, key);
 		log.debug(`Saved session: status=${session.status}, images=${session.images?.length ?? 0}`);
 	} catch (error) {
 		// Extract meaningful error info for logging (avoids minified stack traces)
@@ -253,12 +279,13 @@ export async function save(session: StoredSession): Promise<void> {
  * Clear the stored session.
  * Called on successful submission, logout, "start fresh", etc.
  */
-export async function clear(): Promise<void> {
+export async function clear(scope = captureSessionScope()): Promise<void> {
 	if (!browser) return;
+	if (!scope) return;
 
 	try {
 		const db = await getDb();
-		await db.delete(STORE_NAME, SESSION_KEY);
+		await db.delete(STORE_NAME, sessionKey(scope));
 		log.info('Session cleared');
 	} catch (error) {
 		log.warn('Error clearing session:', error);

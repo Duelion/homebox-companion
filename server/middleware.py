@@ -9,14 +9,11 @@ from loguru import logger
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from homebox_companion.core.config import Settings
+
 # ContextVar for request ID - accessible throughout the request lifecycle
 # Default "-" handles cases outside request context (startup, background tasks)
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
-
-# ContextVar for group context — accessible throughout the request lifecycle
-# Default None means no group scoping (use the user's default group)
-group_context_var: ContextVar[str | None] = ContextVar("group_context", default=None)
-
 
 class RequestIDMiddleware:
     """Pure ASGI middleware for X-Request-ID header correlation.
@@ -69,29 +66,44 @@ class RequestIDMiddleware:
                 request_id_var.reset(token)
 
 
-class GroupContextMiddleware:
-    """Extract X-Group-Id header and set it as request-scoped context.
+class APIKeyBrowserGuardMiddleware:
+    """Require an explicit non-simple header on unsafe API-key-mode requests."""
 
-    This enables collection scoping without threading group_id through
-    every endpoint and client method. The value is read by the client's
-    extra_headers_factory to inject X-Tenant into Homebox API requests.
-    """
-
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, settings: Settings) -> None:
         self.app = app
+        self.settings = settings
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if (
+            scope["type"] != "http"
+            or self.settings.auth_mode != "api_key"
+            or scope.get("method") not in {"POST", "PUT", "PATCH", "DELETE"}
+            or not scope.get("path", "").startswith("/api/")
+        ):
             await self.app(scope, receive, send)
             return
 
-        headers = dict(scope.get("headers", []))
-        group_id = headers.get(b"x-group-id", b"").decode() or None
-        token = group_context_var.set(group_id)
-        try:
-            await self.app(scope, receive, send)
-        finally:
-            group_context_var.reset(token)
+        headers = {key.decode().lower(): value.decode() for key, value in scope.get("headers", [])}
+        if headers.get("x-companion-request") != "1":
+            await self._reject(send)
+            return
+
+        origin = headers.get("origin")
+        if origin:
+            host = headers.get("host", "")
+            same_origin = origin.rstrip("/") in {f"http://{host}", f"https://{host}"}
+            configured = self.settings.browser_origins_list
+            allowed = origin in configured
+            if not same_origin and not allowed:
+                await self._reject(send)
+                return
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _reject(send: Send) -> None:
+        body = b'{"detail":"Unsafe API-key request rejected","code":"REQUEST_GUARD_REQUIRED"}'
+        await send({"type": "http.response.start", "status": 403, "headers": [(b"content-type", b"application/json")]})
+        await send({"type": "http.response.body", "body": body})
 
 
 class SecurityHeadersMiddleware:

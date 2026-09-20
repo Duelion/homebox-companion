@@ -41,7 +41,7 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import computed_field
+from pydantic import SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Demo server for testing - users should replace with their own instance
@@ -80,6 +80,7 @@ class Settings(BaseSettings):
 
     # Homebox configuration - user provides base URL, we append /api/v1
     homebox_url: str = DEMO_HOMEBOX_URL
+    homebox_api_key: SecretStr | None = None
     # Optional public-facing URL for links (defaults to homebox_url)
     link_base_url: str = ""
 
@@ -146,6 +147,24 @@ class Settings(BaseSettings):
     # Label printing configuration
     print_enabled: bool = False  # Enable server-side label printing via Homebox labelmaker
 
+    @field_validator("homebox_api_key", mode="before")
+    @classmethod
+    def normalize_homebox_api_key(cls, value: object) -> object:
+        """Trim configured keys and treat blank legacy values as absent."""
+        if value is None:
+            return None
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else str(value)
+        raw = raw.strip()
+        if not raw:
+            return None
+        return raw
+
+    @computed_field
+    @property
+    def auth_mode(self) -> str:
+        """Authentication mode selected once from resolved settings."""
+        return "api_key" if self.homebox_api_key is not None else "legacy"
+
     @computed_field
     @property
     def api_url(self) -> str:
@@ -204,6 +223,15 @@ class Settings(BaseSettings):
         if self.cors_origins == "*":
             return ["*"]
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @computed_field
+    @property
+    def browser_origins_list(self) -> list[str]:
+        """Effective cross-origin browser policy for the selected auth mode."""
+        origins = self.cors_origins_list
+        if self.auth_mode == "api_key" and "*" in origins:
+            return []
+        return origins
 
     @computed_field
     @property

@@ -6,11 +6,18 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
-from homebox_companion import DetectedItem, HomeboxAuthError, HomeboxClient, settings
+from homebox_companion import (
+    DetectedItem,
+    HomeboxAuthError,
+    HomeboxCompanionError,
+    HomeboxGateway,
+    settings,
+)
 from homebox_companion.ai.images import compress_image_for_upload
+from homebox_companion.core import HomeboxAPIError
 from homebox_companion.homebox import ItemCreate
 
-from ..dependencies import get_client, get_token, get_valid_tag_ids, validate_file_size
+from ..dependencies import get_gateway, get_valid_tag_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
 
 router = APIRouter()
@@ -18,8 +25,7 @@ router = APIRouter()
 
 @router.get("/items")
 async def list_items(
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
     location_id: str | None = Query(None, alias="location_id"),
 ) -> list[dict]:
     """
@@ -29,7 +35,7 @@ async def list_items(
     """
     logger.debug(f"Fetching items for location_id={location_id}")
 
-    response = await client.list_items(token, location_id=location_id)
+    response = await gateway.list_items(location_id=location_id)
     items = response.get("items", [])
 
     # Return simplified item data
@@ -50,8 +56,7 @@ async def list_items(
 @router.post("/items")
 async def create_items(
     request: BatchCreateRequest,
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> JSONResponse:
     """Create multiple items in Homebox.
 
@@ -66,7 +71,7 @@ async def create_items(
     errors: list[str] = []
 
     # Fetch valid tag IDs once for the batch to validate against
-    valid_tag_ids = await get_valid_tag_ids(token, client)
+    valid_tag_ids = await get_valid_tag_ids(gateway)
 
     for item_input in request.items:
         # Resolve parent (container) ID: item-level → request-level fallback
@@ -108,7 +113,7 @@ async def create_items(
                 parent_id=detected_item.parent_id,  # ty: ignore[unknown-argument]
                 tag_ids=detected_item.tag_ids,  # ty: ignore[unknown-argument]
             )
-            result = await client.create_item(token, item_create)
+            result = await gateway.create_item(item_create)
             item_id = result.get("id")
             logger.info(f"Created item: {result.get('name')} (id: {item_id})")
 
@@ -120,7 +125,7 @@ async def create_items(
                     logger.debug(f"  Updating with extended fields: {extended_payload.keys()}")
                     try:
                         # Get the full item to merge with extended fields
-                        full_item = await client.get_item(token, item_id)
+                        full_item = await gateway.get_item(item_id)
                         # Merge extended fields into the full item data
                         update_data = {
                             "name": full_item.get("name"),
@@ -142,7 +147,7 @@ async def create_items(
                         # Preserve parentId if it was set
                         if item_input.parent_id:
                             update_data["parentId"] = item_input.parent_id
-                        result = await client.update_item(token, item_id, update_data)
+                        result = await gateway.update_item(item_id, update_data)
                         logger.info("  Updated item with extended fields")
                     except HomeboxAuthError:
                         # Auth failure during update - don't delete the item!
@@ -156,7 +161,7 @@ async def create_items(
                             f"cleaning up item {item_id}: {update_err}"
                         )
                         try:
-                            await client.delete_item(token, item_id)
+                            await gateway.delete_item(item_id)
                             logger.info(f"  Cleaned up partial item {item_id}")
                         except Exception as delete_err:
                             logger.error(f"  Failed to clean up item {item_id}: {delete_err}")
@@ -187,7 +192,7 @@ async def create_items(
     # After all items created, ensure asset IDs are assigned
     if created:
         try:
-            assigned = await client.ensure_asset_ids(token)
+            assigned = await gateway.ensure_asset_ids()
             if assigned > 0:
                 logger.info(f"Assigned asset IDs to {assigned} item(s)")
         except Exception as e:
@@ -208,8 +213,7 @@ async def create_items(
 async def upload_item_attachment(
     item_id: str,
     file: Annotated[UploadFile, File(description="Image file to upload")],
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> dict[str, Any]:
     """Upload an attachment (image) to an existing item."""
     logger.info(f"Uploading attachment to item: {item_id}")
@@ -232,8 +236,7 @@ async def upload_item_attachment(
     max_dimension, jpeg_quality = settings.image_quality_params
     file_bytes, mime_type = compress_image_for_upload(file_bytes, max_dimension, jpeg_quality)
 
-    result = await client.upload_attachment(
-        token=token,
+    result = await gateway.upload_attachment(
         item_id=item_id,
         file_bytes=file_bytes,
         filename=filename,
@@ -248,8 +251,7 @@ async def upload_item_attachment(
 async def get_item_attachment(
     item_id: str,
     attachment_id: str,
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> Response:
     """Proxy attachment requests to Homebox with proper auth.
 
@@ -260,7 +262,7 @@ async def get_item_attachment(
     logger.debug(f"Proxying attachment request: item={item_id}, attachment={attachment_id}")
 
     try:
-        content, content_type = await client.get_attachment(token, item_id, attachment_id)
+        content, content_type = await gateway.get_attachment(item_id, attachment_id)
         return Response(content=content, media_type=content_type)
     except FileNotFoundError as e:
         # Route-specific: 404 for missing attachments
@@ -271,8 +273,7 @@ async def get_item_attachment(
 async def update_item(
     item_id: str,
     request: dict[str, Any],
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> dict[str, Any]:
     """Update an existing item in Homebox.
 
@@ -283,7 +284,7 @@ async def update_item(
     logger.debug(f"Update data: {request}")
 
     # Fetch current item to get required fields
-    full_item = await client.get_item(token, item_id)
+    full_item = await gateway.get_item(item_id)
 
     # Build update payload with current values + updates
     update_data = {
@@ -302,7 +303,7 @@ async def update_item(
     if "description" in request:
         update_data["description"] = request["description"]
 
-    result = await client.update_item(token, item_id, update_data)
+    result = await gateway.update_item(item_id, update_data)
     logger.info(f"Successfully updated item {item_id}")
     return result
 
@@ -310,8 +311,7 @@ async def update_item(
 @router.delete("/items/{item_id}")
 async def delete_item(
     item_id: str,
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> dict[str, str]:
     """Delete an item from Homebox.
 
@@ -319,7 +319,7 @@ async def delete_item(
     """
     logger.info(f"Deleting item: {item_id}")
 
-    await client.delete_item(token, item_id)
+    await gateway.delete_item(item_id)
     logger.info(f"Successfully deleted item {item_id}")
     return {"message": "Item deleted"}
 
@@ -327,8 +327,7 @@ async def delete_item(
 @router.post("/items/{item_id}/print-label")
 async def print_item_label(
     item_id: str,
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> dict[str, str]:
     """Trigger server-side asset label printing for an item.
 
@@ -345,25 +344,26 @@ async def print_item_label(
     logger.info(f"Printing label for item: {item_id}")
 
     try:
-        item = await client.get_item_typed(token, item_id)
+        item = await gateway.get_item_typed(item_id)
         if not item.asset_id:
             raise HTTPException(
                 status_code=409,
                 detail="Item does not have an asset ID assigned yet.",
             )
 
-        result = await client.print_label(token, item.asset_id)
+        result = await gateway.print_label(item.asset_id)
         logger.info(
             f"Label printed for item {item_id} (asset {item.asset_id}): {result}"
         )
         return {"message": result}
-    except HomeboxAuthError:
-        raise
-    except HTTPException:
+    except (HomeboxCompanionError, HTTPException):
         raise
     except Exception as e:
-        logger.error(f"Failed to print label for item {item_id}: {e}")
-        raise HTTPException(
-            status_code=502,
-            detail="Failed to print label. Ensure HBOX_LABEL_MAKER_PRINT_COMMAND is configured on the Homebox server.",
+        raise HomeboxAPIError(
+            message=f"Unexpected error while printing label for item {item_id}",
+            user_message=(
+                "Failed to print label. Ensure HBOX_LABEL_MAKER_PRINT_COMMAND "
+                "is configured on the Homebox server."
+            ),
+            context={"item_id": item_id},
         ) from e

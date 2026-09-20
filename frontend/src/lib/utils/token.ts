@@ -14,5 +14,5 @@ import { authStore } from '../stores/auth.svelte';
  * @returns true if token exists locally, false if no token
  */
 export function hasToken(): boolean {
-	return !!authStore.token;
+	return authStore.isAuthenticated;
 }

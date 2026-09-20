@@ -6,7 +6,7 @@
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getInitPromise } from '$lib/services/bootstrap';
 	import Button from '$lib/components/Button.svelte';
 	import CreatedItemsModal from '$lib/components/CreatedItemsModal.svelte';
 

@@ -32,6 +32,14 @@ function getActiveGroupId(): string | null {
 	return _activeGroupId;
 }
 
+function requestScope(): string {
+	return `${authStore.mode ?? 'unknown'}:${authStore.contextId ?? 'unverified'}:${_activeGroupId ?? 'none'}`;
+}
+
+function assertCurrentScope(scope: string): void {
+	if (scope !== requestScope()) throw new DOMException('Request context changed', 'AbortError');
+}
+
 // =============================================================================
 // SHARED HEADER BUILDER
 // =============================================================================
@@ -40,14 +48,21 @@ function getActiveGroupId(): string | null {
  * Build auth + context headers for all API requests.
  * Single source of truth for Authorization and X-Group-Id injection.
  */
-function buildAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+export function buildApiHeaders(
+	extra?: Record<string, string>,
+	options: { omitGroup?: boolean } = {}
+): Record<string, string> {
 	const headers: Record<string, string> = {};
-	const token = authStore.token;
+	const token = authStore.isLegacy ? authStore.token : null;
 	if (token) headers['Authorization'] = `Bearer ${token}`;
 	const groupId = getActiveGroupId();
-	if (groupId) headers['X-Group-Id'] = groupId;
+	if (groupId && !options.omitGroup) headers['X-Group-Id'] = groupId;
 	if (extra) Object.assign(headers, extra);
 	return headers;
+}
+
+function isUnsafeMethod(method?: string): boolean {
+	return !['GET', 'HEAD', 'OPTIONS'].includes((method ?? 'GET').toUpperCase());
 }
 
 /**
@@ -184,7 +199,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 		return false;
 	}
 
-	if (!authStore.token) {
+	if (!authStore.isLegacy || !authStore.token) {
 		// No token - user isn't logged in, nothing to do
 		log.debug('[AUTH 401] No token present, skipping unauthorized handling');
 		return false;
@@ -260,6 +275,31 @@ function isJsonResponse(response: Response): boolean {
 	return contentType !== null && contentType.includes('application/json');
 }
 
+export function promoteConfiguredKeyFailure(
+	status: number,
+	errorData: unknown,
+	fallback: string
+): void {
+	if (!authStore.isLegacy && (status === 401 || status === 502 || status === 503)) {
+		const code =
+			typeof errorData === 'object' && errorData !== null && 'code' in errorData
+				? String((errorData as { code: unknown }).code)
+				: '';
+		if (
+			status !== 503 ||
+			code === 'HOMEBOX_UNAVAILABLE' ||
+			code === 'HOMEBOX_TIMEOUT' ||
+			code === 'HOMEBOX_API_KEY_REJECTED'
+		) {
+			authStore.setConnectionError(
+				typeof errorData === 'object' && errorData !== null && 'detail' in errorData
+					? String((errorData as { detail: unknown }).detail)
+					: fallback
+			);
+		}
+	}
+}
+
 /**
  * Safely parse response body based on status and content type.
  * Returns undefined for 204 No Content or empty responses.
@@ -305,6 +345,8 @@ export interface RequestOptions extends RequestInit {
 	 * When true, a 401 response will immediately throw an ApiError.
 	 */
 	skipAuthRetry?: boolean;
+	/** Omit a cached collection while discovering connection/groups. */
+	omitGroup?: boolean;
 }
 
 /**
@@ -318,6 +360,7 @@ export interface RequestOptions extends RequestInit {
  * @throws {NetworkError} When a network-level error occurs (connection, DNS, timeout)
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+	const scope = requestScope();
 	const timeoutMs = options.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
 	// Build headers with current token, group context, and request-specific extras
@@ -326,7 +369,10 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		if (options.headers) Object.assign(extra, options.headers);
 		if (options.body && typeof options.body === 'string')
 			extra['Content-Type'] = 'application/json';
-		return buildAuthHeaders(Object.keys(extra).length > 0 ? extra : undefined);
+		if (isUnsafeMethod(options.method)) extra['X-Companion-Request'] = '1';
+		return buildApiHeaders(Object.keys(extra).length > 0 ? extra : undefined, {
+			omitGroup: options.omitGroup,
+		});
 	};
 
 	// Create signal with default timeout, combining with caller's signal if provided
@@ -348,6 +394,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		log.error(`Network error for ${endpoint}`, networkError);
 		throw networkError;
 	}
+	assertCurrentScope(scope);
 
 	// Handle 401 with automatic retry after refresh
 	// Skip for refresh endpoint itself to avoid circular retry loops
@@ -373,6 +420,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 				log.error(`Network error on retry for ${endpoint}`, networkError);
 				throw networkError;
 			}
+			assertCurrentScope(scope);
 		}
 	}
 
@@ -387,6 +435,11 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		} catch {
 			errorData = text;
 		}
+		promoteConfiguredKeyFailure(
+			response.status,
+			errorData,
+			`Request failed with status ${response.status}`
+		);
 		throw new ApiError(
 			response.status,
 			typeof errorData === 'object' && errorData !== null && 'detail' in errorData
@@ -395,6 +448,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 			errorData
 		);
 	}
+	assertCurrentScope(scope);
 
 	return parseResponseBody<T>(response);
 }
@@ -476,13 +530,14 @@ export async function requestBlobUrl(
 	endpoint: string,
 	options?: AbortSignal | BlobUrlRequestOptions
 ): Promise<BlobUrlResult> {
+	const scope = requestScope();
 	// Support both legacy AbortSignal parameter and new options object
 	const opts: BlobUrlRequestOptions =
 		options instanceof AbortSignal ? { signal: options } : (options ?? {});
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
 	// Build headers using shared builder (no extra headers for blob requests)
-	const getHeaders = (): HeadersInit => buildAuthHeaders();
+	const getHeaders = (): HeadersInit => buildApiHeaders();
 
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal =
@@ -502,6 +557,7 @@ export async function requestBlobUrl(
 		log.debug(`Blob request network error for ${endpoint}:`, networkError.message);
 		throw networkError;
 	}
+	assertCurrentScope(scope);
 
 	// Handle 401 with automatic retry after refresh
 	if (!response.ok && response.status === 401) {
@@ -525,14 +581,21 @@ export async function requestBlobUrl(
 				log.debug(`Blob request network error on retry for ${endpoint}:`, networkError.message);
 				throw networkError;
 			}
+			assertCurrentScope(scope);
 		}
 	}
 
 	// Handle other errors
 	if (!response.ok) {
 		log.debug(`Blob request failed for ${endpoint}: ${response.status}`);
+		promoteConfiguredKeyFailure(
+			response.status,
+			undefined,
+			`Blob request failed with status ${response.status}`
+		);
 		throw new ApiError(response.status, `Blob request failed with status ${response.status}`);
 	}
+	assertCurrentScope(scope);
 
 	const blob = await response.blob();
 	const url = URL.createObjectURL(blob);
@@ -559,11 +622,13 @@ export async function requestFormData<T>(
 	formData: FormData,
 	options: FormDataRequestOptions = {}
 ): Promise<T> {
+	const scope = requestScope();
 	const errorMessage = options.errorMessage ?? 'Request failed';
 	const timeoutMs = options.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
 	// Build headers using shared builder with any additional caller headers
-	const getHeaders = (): HeadersInit => buildAuthHeaders(options.headers);
+	const getHeaders = (): HeadersInit =>
+		buildApiHeaders({ ...options.headers, 'X-Companion-Request': '1' });
 
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal =
@@ -586,6 +651,7 @@ export async function requestFormData<T>(
 		log.error(`Network error for ${endpoint}`, networkError);
 		throw networkError;
 	}
+	assertCurrentScope(scope);
 
 	log.debug(`Response from ${endpoint}:`, response.status, response.statusText);
 
@@ -614,6 +680,7 @@ export async function requestFormData<T>(
 				log.error(`Network error on retry for ${endpoint}`, networkError);
 				throw networkError;
 			}
+			assertCurrentScope(scope);
 		}
 	}
 
@@ -628,6 +695,7 @@ export async function requestFormData<T>(
 		} catch {
 			errorData = text;
 		}
+		promoteConfiguredKeyFailure(response.status, errorData, errorMessage);
 		throw new ApiError(
 			response.status,
 			typeof errorData === 'object' && errorData !== null && 'detail' in errorData
@@ -636,6 +704,7 @@ export async function requestFormData<T>(
 			errorData
 		);
 	}
+	assertCurrentScope(scope);
 
 	return parseResponseBody<T>(response);
 }

@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from conftest import HomeboxAuth
 
 from homebox_companion import HomeboxAuthError, HomeboxClient, ItemCreate
 from homebox_companion.core.exceptions import HomeboxAPIError
@@ -40,268 +41,264 @@ async def test_login_with_valid_credentials_returns_token(
 
 
 @pytest.mark.asyncio
+async def test_refreshed_token_authenticates_against_homebox(
+    homebox_api_url: str, homebox_credentials: tuple[str, str]
+) -> None:
+    """Homebox's refresh response must produce a usable canonical token."""
+    async with HomeboxClient(base_url=homebox_api_url) as client:
+        login = await client.login(*homebox_credentials)
+        refreshed = await client.refresh_token(login["token"])
+
+        assert refreshed["token"]
+        assert not refreshed["token"].startswith("Bearer ")
+
+    # Validate the returned bearer itself, without cookies from login or refresh.
+    async with HomeboxClient(base_url=homebox_api_url) as verifier:
+        assert await verifier.validate_token(refreshed["token"])
+
+
+@pytest.mark.asyncio
 async def test_login_with_invalid_credentials_raises_error(
     homebox_api_url: str,
 ) -> None:
     """Login with invalid credentials should raise an error."""
     async with HomeboxClient(base_url=homebox_api_url) as client:
-        # Demo server returns 500 for invalid credentials, not 401
+        # Preserve compatibility with Homebox versions that report a generic API error.
         with pytest.raises((HomeboxAuthError, RuntimeError)):
             await client.login("invalid@example.com", "wrongpassword")
 
 
 @pytest.mark.asyncio
 async def test_list_locations_returns_non_empty_list(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
 ) -> None:
     """List locations should return a non-empty list with expected structure."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    locations = await client.list_locations(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        locations = await client.list_locations(token)
+    assert locations
+    assert isinstance(locations, list)
+    assert len(locations) > 0
 
-        assert locations
-        assert isinstance(locations, list)
-        assert len(locations) > 0
-
-        # Check structure of first location
-        first_location = locations[0]
-        assert "id" in first_location
-        assert "name" in first_location
-        assert isinstance(first_location["id"], str)
-        assert isinstance(first_location["name"], str)
+    # Check structure of first location
+    first_location = locations[0]
+    assert "id" in first_location
+    assert "name" in first_location
+    assert isinstance(first_location["id"], str)
+    assert isinstance(first_location["name"], str)
 
 
 @pytest.mark.asyncio
-async def test_list_locations_with_filter_children(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
+async def test_list_locations_with_filter_children(
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
+) -> None:
     """List locations with filter_children should only return top-level locations."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
+    all_locations = await client.list_locations(token)
+    filtered_locations = await client.list_locations(token, filter_children=True)
 
-        all_locations = await client.list_locations(token)
-        filtered_locations = await client.list_locations(token, filter_children=True)
-
-        # Filtered list should be <= all locations
-        assert len(filtered_locations) <= len(all_locations)
-        # All filtered locations should have expected structure
-        for location in filtered_locations:
-            assert "id" in location
-            assert "name" in location
+    # Filtered list should be <= all locations
+    assert len(filtered_locations) <= len(all_locations)
+    # All filtered locations should have expected structure
+    for location in filtered_locations:
+        assert "id" in location
+        assert "name" in location
 
 
 @pytest.mark.asyncio
 async def test_get_single_location_returns_with_children(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
 ) -> None:
     """Get single location should return location with children field."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    locations = await client.list_locations(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        locations = await client.list_locations(token)
+    assert locations
+    location_id = locations[0]["id"]
 
-        assert locations
-        location_id = locations[0]["id"]
+    location = await client.get_location(token, location_id)
 
-        location = await client.get_location(token, location_id)
-
-        assert location["id"] == location_id
-        assert "name" in location
-        assert "children" in location  # Should include children
+    assert location["id"] == location_id
+    assert "name" in location
+    assert "children" in location  # Should include children
 
 
 @pytest.mark.asyncio
 async def test_create_item_returns_item_with_id(
-    homebox_api_url: str, homebox_credentials: tuple[str, str], cleanup_items: list[str]
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth, cleanup_items: list[str]
 ) -> None:
     """Create item should return item with ID matching request data."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    locations = await client.list_locations(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        locations = await client.list_locations(token)
+    assert locations
+    location_id = locations[0]["id"]
 
-        assert locations
-        location_id = locations[0]["id"]
+    # Create unique item name with timestamp
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    item_name = f"Test Item {timestamp}"
 
-        # Create unique item name with timestamp
-        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-        item_name = f"Test Item {timestamp}"
+    item = ItemCreate(
+        name=item_name,
+        quantity=3,
+        description="Integration test item",
+        parent_id=location_id,  # ty: ignore[unknown-argument]
+    )
 
-        item = ItemCreate(
-            name=item_name,
-            quantity=3,
-            description="Integration test item",
-            parent_id=location_id,  # ty: ignore[unknown-argument]
-        )
+    created = await client.create_item(token, item)
+    cleanup_items.append(created["id"])  # Track for cleanup
 
-        created = await client.create_item(token, item)
-        cleanup_items.append(created["id"])  # Track for cleanup
-
-        # Verify response structure
-        assert "id" in created
-        assert created["id"]  # Non-empty ID
-        assert created["name"] == item_name
-        assert created["quantity"] == 3
-        assert created["description"] == "Integration test item"
+    # Verify response structure
+    assert "id" in created
+    assert created["id"]  # Non-empty ID
+    assert created["name"] == item_name
+    assert created["quantity"] == 3
+    assert created["description"] == "Integration test item"
 
 
 @pytest.mark.asyncio
 async def test_update_item_returns_updated_values(
-    homebox_api_url: str, homebox_credentials: tuple[str, str], cleanup_items: list[str]
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth, cleanup_items: list[str]
 ) -> None:
     """Update item should return item reflecting changes."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    locations = await client.list_locations(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        locations = await client.list_locations(token)
+    assert locations
+    location_id = locations[0]["id"]
 
-        assert locations
-        location_id = locations[0]["id"]
+    # Create item first
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    item = ItemCreate(
+        name=f"Original Name {timestamp}",
+        quantity=1,
+        description="Original description",
+        parent_id=location_id,  # ty: ignore[unknown-argument]
+    )
+    created = await client.create_item(token, item)
+    item_id = created["id"]
+    cleanup_items.append(item_id)  # Track for cleanup
 
-        # Create item first
-        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-        item = ItemCreate(
-            name=f"Original Name {timestamp}",
-            quantity=1,
-            description="Original description",
-            parent_id=location_id,  # ty: ignore[unknown-argument]
-        )
-        created = await client.create_item(token, item)
-        item_id = created["id"]
-        cleanup_items.append(item_id)  # Track for cleanup
+    # Fetch the item to get its full structure
+    await client.get_item(token, item_id)
 
-        # Fetch the item to get its full structure
-        await client.get_item(token, item_id)
+    # Update the item with complete payload
+    updated_name = f"Updated Name {timestamp}"
+    update_data = {
+        "id": item_id,
+        "name": updated_name,
+        "quantity": 5,
+        "description": "Updated description",
+        "parentId": location_id,
+    }
 
-        # Update the item with complete payload
-        updated_name = f"Updated Name {timestamp}"
-        update_data = {
-            "id": item_id,
-            "name": updated_name,
-            "quantity": 5,
-            "description": "Updated description",
-            "parentId": location_id,
-        }
+    updated = await client.update_item(token, item_id, update_data)
 
-        updated = await client.update_item(token, item_id, update_data)
-
-        # Verify updates
-        assert updated["id"] == item_id
-        assert updated["name"] == updated_name
-        assert updated["quantity"] == 5
-        assert updated["description"] == "Updated description"
+    # Verify updates
+    assert updated["id"] == item_id
+    assert updated["name"] == updated_name
+    assert updated["quantity"] == 5
+    assert updated["description"] == "Updated description"
 
 
 @pytest.mark.asyncio
 async def test_get_item_returns_full_details(
-    homebox_api_url: str, homebox_credentials: tuple[str, str], cleanup_items: list[str]
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth, cleanup_items: list[str]
 ) -> None:
     """Get item should return full item details."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    locations = await client.list_locations(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        locations = await client.list_locations(token)
+    assert locations
+    location_id = locations[0]["id"]
 
-        assert locations
-        location_id = locations[0]["id"]
+    # Create item
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    item = ItemCreate(
+        name=f"Get Test {timestamp}",
+        quantity=2,
+        parent_id=location_id,  # ty: ignore[unknown-argument]
+    )
+    created = await client.create_item(token, item)
+    item_id = created["id"]
+    cleanup_items.append(item_id)  # Track for cleanup
 
-        # Create item
-        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-        item = ItemCreate(
-            name=f"Get Test {timestamp}",
-            quantity=2,
-            parent_id=location_id,  # ty: ignore[unknown-argument]
-        )
-        created = await client.create_item(token, item)
-        item_id = created["id"]
-        cleanup_items.append(item_id)  # Track for cleanup
+    # Get the item
+    fetched = await client.get_item(token, item_id)
 
-        # Get the item
-        fetched = await client.get_item(token, item_id)
-
-        assert fetched["id"] == item_id
-        assert "name" in fetched
-        assert "quantity" in fetched
-        assert "parent" in fetched  # Full parent (location) object
+    assert fetched["id"] == item_id
+    assert "name" in fetched
+    assert "quantity" in fetched
+    assert "parent" in fetched  # Full parent (location) object
 
 
 @pytest.mark.asyncio
-async def test_list_tags_returns_tags_list(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
+async def test_list_tags_returns_tags_list(
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
+) -> None:
     """List tags should return available tags."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    tags = await client.list_tags(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        tags = await client.list_tags(token)
+    # Demo server might or might not have tags
+    assert isinstance(tags, list)
 
-        # Demo server might or might not have tags
-        assert isinstance(tags, list)
-
-        # If tags exist, check structure
-        if tags:
-            first_tag = tags[0]
-            assert "id" in first_tag
-            assert "name" in first_tag
+    # If tags exist, check structure
+    if tags:
+        first_tag = tags[0]
+        assert "id" in first_tag
+        assert "name" in first_tag
 
 
 @pytest.mark.asyncio
 async def test_create_location_returns_created_location(
-    homebox_api_url: str, homebox_credentials: tuple[str, str], cleanup_locations: list[str]
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth, cleanup_locations: list[str]
 ) -> None:
     """Create location should return the created location."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    location_name = f"Test Location {timestamp}"
 
-        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-        location_name = f"Test Location {timestamp}"
+    created = await client.create_location(
+        token=token,
+        name=location_name,
+        description="Integration test location",
+    )
+    cleanup_locations.append(created["id"])  # Track for cleanup
 
-        created = await client.create_location(
-            token=token,
-            name=location_name,
-            description="Integration test location",
-        )
-        cleanup_locations.append(created["id"])  # Track for cleanup
-
-        assert "id" in created
-        assert created["name"] == location_name
-        assert created["description"] == "Integration test location"
+    assert "id" in created
+    assert created["name"] == location_name
+    assert created["description"] == "Integration test location"
 
 
 @pytest.mark.asyncio
-async def test_typed_methods_return_correct_types(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
+async def test_typed_methods_return_correct_types(
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
+) -> None:
     """Typed methods should return proper model instances."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
+    # Test list_locations_typed
+    locations = await client.list_locations_typed(token)
+    assert locations
+    # Check it has Location attributes
+    assert hasattr(locations[0], "id")
+    assert hasattr(locations[0], "name")
 
-        # Test list_locations_typed
-        locations = await client.list_locations_typed(token)
-        assert locations
-        # Check it has Location attributes
-        assert hasattr(locations[0], "id")
-        assert hasattr(locations[0], "name")
-
-        # Test list_tags_typed
-        tags = await client.list_tags_typed(token)
-        assert isinstance(tags, list)
+    # Test list_tags_typed
+    tags = await client.list_tags_typed(token)
+    assert isinstance(tags, list)
 
 
 @pytest.mark.asyncio
@@ -317,50 +314,50 @@ async def test_client_context_manager_closes_properly(homebox_api_url: str) -> N
 
 
 @pytest.mark.asyncio
-async def test_delete_item_removes_item(homebox_api_url: str, homebox_credentials: tuple[str, str]) -> None:
+async def test_delete_item_removes_item(
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth, cleanup_items: list[str]
+) -> None:
     """Delete item should remove the item from Homebox."""
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    locations = await client.list_locations(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        locations = await client.list_locations(token)
+    assert locations
+    location_id = locations[0]["id"]
 
-        assert locations
-        location_id = locations[0]["id"]
+    # Create an item
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    item_name = f"Delete Test Item {timestamp}"
 
-        # Create an item
-        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-        item_name = f"Delete Test Item {timestamp}"
+    item = ItemCreate(
+        name=item_name,
+        quantity=1,
+        description="Item to be deleted",
+        parent_id=location_id,  # ty: ignore[unknown-argument]
+    )
 
-        item = ItemCreate(
-            name=item_name,
-            quantity=1,
-            description="Item to be deleted",
-            parent_id=location_id,  # ty: ignore[unknown-argument]
-        )
+    created = await client.create_item(token, item)
+    item_id = created["id"]
+    cleanup_items.append(item_id)  # Track for cleanup if deletion fails
 
-        created = await client.create_item(token, item)
-        item_id = created["id"]
+    # Verify item exists
+    fetched = await client.get_item(token, item_id)
+    assert fetched["id"] == item_id
 
-        # Verify item exists
-        fetched = await client.get_item(token, item_id)
-        assert fetched["id"] == item_id
+    # Delete the item
+    await client.delete_item(token, item_id)
 
-        # Delete the item
-        await client.delete_item(token, item_id)
+    # Verify item is gone (should raise 404)
+    with pytest.raises(HomeboxAPIError) as exc_info:
+        await client.get_item(token, item_id)
 
-        # Verify item is gone (should raise 404)
-        with pytest.raises(HomeboxAPIError) as exc_info:
-            await client.get_item(token, item_id)
-
-        # Check it's a 404 error
-        assert "404" in str(exc_info.value)
+    # Check it's a 404 error
+    assert "404" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
 async def test_create_and_delete_item_cleanup_workflow(
-    homebox_api_url: str, homebox_credentials: tuple[str, str]
+    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth, cleanup_items: list[str]
 ) -> None:
     """Test the create-then-delete workflow for failed upload cleanup.
 
@@ -369,33 +366,31 @@ async def test_create_and_delete_item_cleanup_workflow(
     2. (Image upload would fail here)
     3. Delete item to clean up
     """
-    username, password = homebox_credentials
+    client = homebox_client
+    token = homebox_auth.token
+    locations = await client.list_locations(token)
 
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        response = await client.login(username, password)
-        token = response["token"]
-        locations = await client.list_locations(token)
+    assert locations
+    location_id = locations[0]["id"]
 
-        assert locations
-        location_id = locations[0]["id"]
+    # Create item
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    item = ItemCreate(
+        name=f"Cleanup Test {timestamp}",
+        quantity=1,
+        parent_id=location_id,  # ty: ignore[unknown-argument]
+    )
+    created = await client.create_item(token, item)
+    item_id = created["id"]
+    cleanup_items.append(item_id)  # Track for cleanup if deletion fails
 
-        # Create item
-        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-        item = ItemCreate(
-            name=f"Cleanup Test {timestamp}",
-            quantity=1,
-            parent_id=location_id,  # ty: ignore[unknown-argument]
-        )
-        created = await client.create_item(token, item)
-        item_id = created["id"]
+    # Simulate upload failure by immediately deleting
+    # (In real scenario, this happens after upload retries fail)
+    await client.delete_item(token, item_id)
 
-        # Simulate upload failure by immediately deleting
-        # (In real scenario, this happens after upload retries fail)
-        await client.delete_item(token, item_id)
-
-        # Confirm deletion
-        with pytest.raises(HomeboxAPIError):
-            await client.get_item(token, item_id)
+    # Confirm deletion
+    with pytest.raises(HomeboxAPIError):
+        await client.get_item(token, item_id)
 
 
 @pytest.mark.asyncio

@@ -10,10 +10,23 @@ from loguru import logger
 
 from homebox_companion import settings
 
-from ..dependencies import get_client, get_token
+from ..dependencies import client_holder, get_token
 from ..schemas.auth import LoginRequest, LoginResponse
 
 router = APIRouter()
+
+
+def get_client():
+    """Compatibility seam for auth route tests and legacy integrations."""
+    return client_holder.get()
+
+
+def _require_legacy_mode(request: Request) -> None:
+    if request.app.state.settings.auth_mode != "legacy":
+        raise HTTPException(
+            status_code=409,
+            detail={"detail": "Legacy session endpoint unavailable in API-key mode", "code": "AUTH_MODE_MISMATCH"},
+        )
 
 
 class RateLimiter:
@@ -116,6 +129,7 @@ async def login(request: LoginRequest, client_request: Request) -> LoginResponse
 
     Rate limited to prevent brute-force attacks (configurable via HBC_AUTH_RATE_LIMIT_RPM).
     """
+    _require_legacy_mode(client_request)
     # Verify rate limit
     _limiter.check(client_request, settings.auth_rate_limit_rpm, context="login attempts")
 
@@ -134,6 +148,7 @@ async def login(request: LoginRequest, client_request: Request) -> LoginResponse
 
 @router.post("/refresh", response_model=LoginResponse)
 async def refresh_token(
+    request: Request,
     authorization: Annotated[str | None, Header()] = None,
 ) -> LoginResponse:
     """Refresh the access token using Homebox's refresh endpoint.
@@ -141,7 +156,8 @@ async def refresh_token(
     Exchanges the current valid token for a new one with extended expiry.
     Returns the new token and expiry time.
     """
-    token = await get_token(authorization)
+    _require_legacy_mode(request)
+    token = await get_token(request, authorization)
     client = get_client()
 
     data = await client.refresh_token(token)
@@ -154,13 +170,15 @@ async def refresh_token(
 
 @router.post("/logout", status_code=204)
 async def logout(
+    request: Request,
     authorization: Annotated[str | None, Header()] = None,
 ) -> None:
     """Logout from Homebox, invalidating the current token.
 
     Calls the Homebox server to revoke the token so it can no longer be used.
     """
-    token = await get_token(authorization)
+    _require_legacy_mode(request)
+    token = await get_token(request, authorization)
     client = get_client()
     await client.logout(token)
     logger.info("User logged out successfully")

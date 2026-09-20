@@ -73,6 +73,8 @@ class PendingApproval(BaseModel):
     parameters: dict[str, Any]
     tool_call_id: str | None = None  # Links to the tool message in history
     display_info: DisplayInfo = Field(default_factory=DisplayInfo)
+    identity_scope: str | None = Field(default=None, exclude=True)
+    group_id: str | None = Field(default=None, exclude=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime = Field(default_factory=_compute_default_expiry)
 

@@ -11,7 +11,7 @@
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getInitPromise } from '$lib/services/bootstrap';
 	import { createLogger } from '$lib/utils/logger';
 	import { resolveQrUrl } from '$lib/utils/qrUrl';
 	import type { Location } from '$lib/types';

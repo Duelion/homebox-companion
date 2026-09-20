@@ -63,11 +63,16 @@ from .core import (
 # Homebox client
 from .homebox import (
     Attachment,
+    ConfiguredAPIKeyProvider,
     Group,
+    HomeboxAccess,
+    HomeboxAuthKind,
     HomeboxClient,
+    HomeboxGateway,
     Item,
     ItemCreate,
     ItemUpdate,
+    LegacySessionProvider,
     Location,
     Tag,
 )
@@ -99,6 +104,11 @@ __all__ = [
     "JSONRepairError",
     # Homebox client
     "HomeboxClient",
+    "HomeboxGateway",
+    "HomeboxAccess",
+    "HomeboxAuthKind",
+    "LegacySessionProvider",
+    "ConfiguredAPIKeyProvider",
     "Group",
     "Location",
     "Tag",

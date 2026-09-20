@@ -22,14 +22,14 @@ from homebox_companion import (
     settings,
     setup_logging,
 )
+from homebox_companion.core.config import Settings
 
 from .api import api_router
-from .dependencies import client_holder, session_store_holder, tool_executor_holder
+from .dependencies import client_holder, tool_executor_holder
 from .middleware import (
-    GroupContextMiddleware,
+    APIKeyBrowserGuardMiddleware,
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
-    group_context_var,
     request_id_var,
 )
 
@@ -244,15 +244,16 @@ class CachedStaticFiles(StaticFiles):
 async def lifespan(app: FastAPI):
     """Manage shared resources across the app lifecycle."""
     # Setup
+    app_settings: Settings = app.state.settings
     setup_logging()
     logger.info("Starting Homebox Companion API")
     logger.info(f"Version: {__version__}")
-    logger.info(f"Homebox URL (HBC_HOMEBOX_URL): {settings.homebox_url}")
-    logger.info(f"Full API endpoint: {settings.api_url}")
-    logger.info(f"LLM Model: {settings.effective_llm_model}")
-    logger.info(f"Log level: {settings.log_level}")
+    logger.info(f"Homebox URL (HBC_HOMEBOX_URL): {app_settings.homebox_url}")
+    logger.info(f"Full API endpoint: {app_settings.api_url}")
+    logger.info(f"LLM Model: {app_settings.effective_llm_model}")
+    logger.info(f"Log level: {app_settings.log_level}")
 
-    if settings.using_legacy_openai_env:
+    if app_settings.using_legacy_openai_env:
         logger.warning(
             "DEPRECATION WARNING: You are using legacy environment variables "
             "(HBC_OPENAI_API_KEY and/or HBC_OPENAI_MODEL). "
@@ -273,32 +274,30 @@ async def lifespan(app: FastAPI):
         )
 
     # Check for demo conditions and log appropriately
-    is_using_demo_server = "demo.homebox.software" in settings.homebox_url.lower()
+    is_using_demo_server = "demo.homebox.software" in app_settings.homebox_url.lower()
     if is_using_demo_server:
         logger.warning("Using demo server - set HBC_HOMEBOX_URL for your own instance")
-    elif settings.demo_mode:
+    elif app_settings.demo_mode:
         logger.info("Demo mode enabled (HBC_DEMO_MODE=true)")
 
     # Validate settings on startup
-    for issue in settings.validate_config():
+    for issue in app_settings.validate_config():
         logger.warning(issue)
 
     # Run connectivity test in debug mode
     await _test_homebox_connectivity()
 
-    # Initialize shared service holders
-    # The extra_headers_factory reads the group_context_var ContextVar at call time,
-    # so each request gets its own group scoping without threading group_id through
-    # every endpoint and client method.
-    def _group_headers_factory() -> dict[str, str]:
-        gid = group_context_var.get()
-        return {"X-Tenant": gid} if gid else {}
-
+    # The transport is lifespan-owned; request dependencies create lightweight
+    # group-bound gateways without mutable global tenant state.
     client = HomeboxClient(
-        base_url=settings.api_url,
-        extra_headers_factory=_group_headers_factory,
+        base_url=app_settings.api_url,
+        allow_cookies=app_settings.auth_mode == "legacy",
     )
+    app.state.homebox_client = client
     client_holder.set(client)
+    from homebox_companion.chat.store import MemorySessionStore
+
+    app.state.session_store = MemorySessionStore()
 
     # Session store and executor are lazily initialized on first use
     # (see their .get() methods in dependencies.py)
@@ -310,12 +309,12 @@ async def lifespan(app: FastAPI):
 
     # Reset holders (executor and session store don't need async cleanup)
     tool_executor_holder.reset()
-    session_store_holder.reset()
-    await client_holder.close()
+    await client.aclose()
+    client_holder.reset_if(client)
     logger.info("Shutdown complete")
 
 
-def create_app() -> FastAPI:
+def create_app(app_settings: Settings | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Homebox Companion",
@@ -326,32 +325,33 @@ def create_app() -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
+    app.state.settings = app_settings or settings
+    app.state.homebox_identities = {}
+    resolved_settings = app.state.settings
 
     # Request-ID middleware (must be added first to wrap all requests)
     # Uses pure ASGI middleware to avoid issues with SSE streaming
     app.add_middleware(RequestIDMiddleware)  # type: ignore[arg-type]
 
-    # Group context middleware (extracts X-Group-Id header into ContextVar)
-    app.add_middleware(GroupContextMiddleware)  # type: ignore[arg-type]
-
     # Security headers middleware (adds X-Content-Type-Options, X-Frame-Options, etc.)
     app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type]
+    app.add_middleware(APIKeyBrowserGuardMiddleware, settings=resolved_settings)  # type: ignore[arg-type]
 
     # CORS middleware for browser access
     # Use HBC_CORS_ORIGINS to restrict origins in production
     app.add_middleware(
         CORSMiddleware,  # type: ignore[arg-type]
-        allow_origins=settings.cors_origins_list,
+        allow_origins=resolved_settings.browser_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     # Log security settings
-    if settings.cors_origins == "*":
+    if resolved_settings.browser_origins_list == ["*"]:
         logger.debug("CORS: Allowing all origins (set HBC_CORS_ORIGINS to restrict)")
     else:
-        logger.info(f"CORS: Restricted to origins: {settings.cors_origins_list}")
+        logger.info(f"CORS: Restricted to origins: {resolved_settings.browser_origins_list}")
 
     # Include API routes
     app.include_router(api_router)
@@ -396,7 +396,7 @@ def create_app() -> FastAPI:
         result: dict[str, str | bool | None] = {"version": __version__}
 
         # Check for updates if enabled OR if force_check is requested
-        if not settings.disable_update_check or force_check:
+        if not resolved_settings.disable_update_check or force_check:
             latest_version = await _get_latest_github_version()
             result["latest_version"] = latest_version
             result["update_available"] = _is_newer_version(latest_version, __version__) if latest_version else False

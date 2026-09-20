@@ -15,17 +15,18 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from homebox_companion import settings
-from homebox_companion.mcp.executor import ToolExecutor
+from homebox_companion import HomeboxGateway, settings
+from homebox_companion.mcp.executor import ToolExecutionContext, ToolExecutor
 from homebox_companion.mcp.types import ToolPermission
 
-from ..dependencies import get_executor, require_auth
+from ..dependencies import get_credential_provider, get_executor, get_gateway, require_auth
 
 router = APIRouter()
 
 
 @router.get("/mcp/v1/tools", dependencies=[Depends(require_auth)])
 async def list_mcp_tools(
+    request: Request,
     executor: Annotated[ToolExecutor, Depends(get_executor)],
 ) -> JSONResponse:
     """List available MCP tools and their schemas.
@@ -41,7 +42,10 @@ async def list_mcp_tools(
         return JSONResponse(status_code=503, content={"error": "Chat/MCP feature is disabled"})
 
     # Get schemas with token parameter included for MCP protocol
-    schemas = executor.get_tool_schemas(include_write=False, include_token=True)
+    schemas = executor.get_tool_schemas(
+        include_write=False,
+        include_token=request.app.state.settings.auth_mode == "legacy",
+    )
 
     # Convert to dict format for JSON response
     tools_dict = {
@@ -60,6 +64,7 @@ async def execute_mcp_tool(
     tool_name: str,
     request: Request,
     executor: Annotated[ToolExecutor, Depends(get_executor)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> JSONResponse:
     """Execute an MCP tool directly via HTTP.
 
@@ -86,7 +91,10 @@ async def execute_mcp_tool(
         return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON body"})
 
     # Extract token without mutating the input dict
-    token = body.get("token")
+    if request.app.state.settings.auth_mode == "api_key":
+        token = get_credential_provider(request).resolve(None).credential.get_secret_value()
+    else:
+        token = body.get("token")
     if not token:
         return JSONResponse(
             status_code=401,
@@ -116,7 +124,11 @@ async def execute_mcp_tool(
 
     # Execute via ToolExecutor
     logger.debug(f"Executing MCP tool via HTTP: {tool_name}")
-    result = await executor.execute(tool_name, tool_args, token)
+    result = await executor.execute(
+        tool_name,
+        tool_args,
+        context=ToolExecutionContext.for_gateway(gateway),
+    )
 
     if not result.success:
         return JSONResponse(status_code=400, content=result.to_dict())

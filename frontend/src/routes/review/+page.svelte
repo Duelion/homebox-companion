@@ -8,7 +8,7 @@
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import { routeGuards } from '$lib/utils/routeGuard';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getInitPromise } from '$lib/services/bootstrap';
 	import type { ReviewItem } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';

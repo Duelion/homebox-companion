@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { WifiOff, Download } from 'lucide-svelte';
+	import { WifiOff, Download, CircleAlert, RefreshCw } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import '../app.css';
 	import Toast from '$lib/components/Toast.svelte';
@@ -11,10 +11,10 @@
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
-	import { getVersion, getConfig, setDemoMode } from '$lib/api';
-	import { setLogLevel } from '$lib/utils/logger';
+	import { getVersion } from '$lib/api';
 
-	import { initializeAuth } from '$lib/services/tokenRefresh';
+	import { initializeApp, retryConnection } from '$lib/services/bootstrap';
+	import Button from '$lib/components/Button.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { afterNavigate, onNavigate } from '$app/navigation';
@@ -105,27 +105,12 @@
 				document.documentElement.classList.add('vt-enabled');
 			}
 
-			// Initialize auth (check token, refresh if needed)
-			await initializeAuth();
-
-			// Fetch groups if authenticated
-			if (authStore.isAuthenticated) {
-				await collectionStore.fetchGroups();
-			}
+			await initializeApp();
 
 			// Check online status and register listeners
 			uiStore.setOnline(navigator.onLine);
 			window.addEventListener('online', handleOnline);
 			window.addEventListener('offline', handleOffline);
-
-			// Fetch config, sync log level, and initialize demo mode state early
-			try {
-				const config = await getConfig();
-				setLogLevel(config.log_level);
-				setDemoMode(config.is_demo_mode, config.demo_mode_explicit);
-			} catch {
-				// Config fetch failed - keep default INFO level and demo mode off
-			}
 
 			// Fetch app version and check for updates
 			try {
@@ -203,7 +188,23 @@
 	<!-- Main content - add bottom padding when nav is visible -->
 	<main class="flex-1">
 		<AppContainer class="px-4 py-6 {isAuthenticated ? 'pb-24 md:pb-6' : ''}">
-			{@render children()}
+			{#if authStore.phase === 'initializing' || authStore.phase === 'connecting'}
+				<div class="flex min-h-64 items-center justify-center text-neutral-300">
+					Connecting to Homebox…
+				</div>
+			{:else if authStore.phase === 'connection_error'}
+				<div
+					class="mx-auto max-w-lg rounded-xl border border-error-500/30 bg-error-500/10 p-6 text-neutral-100"
+				>
+					<div class="mb-3 flex items-center gap-2 font-semibold">
+						<CircleAlert class="text-error-500" size={20} />Homebox connection failed
+					</div>
+					<p class="mb-5 text-body-sm text-neutral-300">{authStore.connectionError}</p>
+					<Button onclick={() => retryConnection()}><RefreshCw size={18} />Retry</Button>
+				</div>
+			{:else}
+				{@render children()}
+			{/if}
 		</AppContainer>
 	</main>
 
@@ -270,5 +271,5 @@
 	<Toast />
 
 	<!-- Session expired re-auth modal -->
-	<SessionExpiredModal />
+	{#if authStore.isLegacy}<SessionExpiredModal />{/if}
 </div>

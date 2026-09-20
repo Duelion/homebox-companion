@@ -13,10 +13,12 @@
 		"lint": "eslint src",
 		"lint:fix": "eslint src --fix",
 		"format": "prettier --write src",
-		"format:check": "prettier --check src"
+		"format:check": "prettier --check src",
+		"test:browser": "playwright test"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@playwright/test": "^1.63.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.53.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",

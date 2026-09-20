@@ -7,5 +7,5 @@ import type { Group } from '../types';
 
 export const groups = {
 	/** Fetch all groups the authenticated user belongs to */
-	list: () => request<Group[]>('/groups'),
+	list: () => request<Group[]>('/groups', { omitGroup: true }),
 };
