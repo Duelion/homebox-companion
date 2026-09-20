@@ -4,6 +4,9 @@ import svelte from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
 import tailwindcss from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
+import { fileURLToPath } from 'node:url';
+
+const tailwindConfig = fileURLToPath(new URL('./tailwind.config.js', import.meta.url));
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -74,8 +77,8 @@ export default [
 	{
 		settings: {
 			tailwindcss: {
-				// Path to your tailwind config (relative to eslint.config.js)
-				config: 'tailwind.config.js',
+				// tailwind-api-utils resolves Tailwind relative to this config path.
+				config: tailwindConfig,
 				// Support class attributes in Svelte templates
 				callees: ['classnames', 'clsx', 'cn'],
 				// Validate classes in Svelte files
