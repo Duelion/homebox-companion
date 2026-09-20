@@ -286,14 +286,16 @@ class HomeboxClient:
 
         data = response.json()
 
-        # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix
-        new_token = data.get("token", "")
+        # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix,
+        # and sysadminsmedia Homebox >= 0.24 returns it in the "raw" field
+        # (UserAuthTokenDetail) instead of "token" (see issue #160).
+        new_token = data.get("token") or data.get("raw", "")
         if new_token:
             original_token = new_token
             new_token = _normalize_token(new_token)
             if new_token != original_token:
                 logger.debug("Token refresh: Stripped 'Bearer ' prefix from token (Homebox v0.22+ format)")
-                data["token"] = new_token
+            data["token"] = new_token
 
         logger.debug("Token refresh: Successfully obtained new token")
         return data
