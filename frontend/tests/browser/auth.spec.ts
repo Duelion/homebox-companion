@@ -76,6 +76,7 @@ async function mockApi(
 			return route.fulfill(json(options.locationTree ? await options.locationTree(request) : []));
 		}
 		if (path === '/api/tags') return route.fulfill(json([]));
+		if (path === '/api/locations') return route.fulfill(json([]));
 		if (path === '/api/chat/health') {
 			return route.fulfill(
 				json({ status: 'ok', chat_enabled: true, max_history: 20, approval_timeout_seconds: 300 })
@@ -153,6 +154,38 @@ test('Markdown rendering failures display assistant content as escaped text', as
 	await expect(bubble.locator('.markdown-content')).toHaveCount(0);
 	expect(renderErrors.length).toBeGreaterThan(0);
 });
+
+for (const mode of ['api_key', 'legacy'] as const) {
+	test(`${mode} startup redirects without briefly rendering the login form`, async ({ page }) => {
+		await mockApi(page, { mode });
+		await page.addInitScript((authMode) => {
+			if (authMode === 'legacy') {
+				localStorage.setItem('hbc_token', 'valid-legacy-token');
+				localStorage.setItem('hbc_token_expires', new Date(Date.now() + 3_600_000).toISOString());
+			}
+			// Observe every DOM insertion so a transient form cannot escape the assertion.
+			new MutationObserver((records) => {
+				for (const record of records) {
+					for (const node of record.addedNodes) {
+						if (
+							node instanceof Element &&
+							(node.matches('#email') || node.querySelector('#email'))
+						) {
+							document.documentElement.dataset.loginFormSeen = 'true';
+						}
+					}
+				}
+			}).observe(document, { childList: true, subtree: true });
+		}, mode);
+
+		await page.goto('/');
+		await expect(page).toHaveURL(/\/location$/);
+		await expect(page.getByRole('heading', { name: 'Select Location' })).toBeVisible();
+		expect(
+			await page.evaluate(() => document.documentElement.dataset.loginFormSeen)
+		).toBeUndefined();
+	});
+}
 
 test('configured-key deep link enters directly and never sends browser credentials', async ({
 	page,
