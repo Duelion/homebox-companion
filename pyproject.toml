@@ -62,10 +62,7 @@ dev = [
 ]
 
 [tool.uv]
-# Relative dependency cooldowns require uv 0.9.17 or newer.
 required-version = ">=0.9.17"
-# Keep newly uploaded distributions out of routine resolution for 30 days.
-exclude-newer = "30 days"
 
 [tool.ruff]
 line-length = 120

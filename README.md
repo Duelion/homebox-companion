@@ -136,9 +136,7 @@ To rotate a key, create a replacement in Homebox, update the server environment,
 
 Authenticated Homebox users can manage shared settings, AI model profiles, custom fields and server logs without additional account configuration. In API-key mode, access uses the configured key's Homebox identity. Homebox credentials are revalidated when accessing Companion's local settings and logs.
 
-Changing an LLM profile's provider or API base URL requires entering a key for the new destination. Saved and inherited keys are reused only for the same provider and endpoint, including the base URL path. This applies to connection tests and primary/fallback profile credential inheritance.
-
-Profile values must be literal: LiteLLM's `os.environ/...` references are rejected. Configure credentials through `HBC_LLM_API_KEY` or a profile; missing profile credentials do not silently use ambient provider variables such as `OPENAI_API_KEY` for another destination.
+When editing an AI profile, leave the API key blank to keep its saved key, including when changing the model or API base URL. A primary profile without a key uses the configured environment default; a fallback without a key inherits the primary key. Set a profile's own key when it needs different credentials.
 
 ## ✨ Features
 
@@ -457,14 +455,9 @@ for local commands and Docker/browser prerequisites. These suites require no pai
 LLM calls.
 
 For a deliberate Python dependency refresh, run
-`uv sync --upgrade --exclude-newer "30 days"`. The same rolling 30-day cooldown is
-configured in `pyproject.toml`; routine installs use the committed lockfile.
-Older uv versions cannot parse `exclude-newer = "30 days"`. If sync reports
-`failed to parse year in date "30 days"`, update uv on the machine running sync
-before retrying. For a standalone uv installation, run `uv self update 0.12.5`;
-for a package-managed installation, update it through that package manager.
-Check `uv --version` in the same shell or service environment that runs sync,
-then rerun `uv sync --locked`. Keep the cooldown and committed lockfile intact.
+`uv sync --upgrade --exclude-newer "30 days"` with a uv version that supports
+relative durations (0.9.17+). This applies the cooldown only to that refresh;
+routine installs use the committed lockfile with `uv sync --locked`.
 For frontend updates, verify selected releases and transitive dependencies are
 at least 30 days old, update the lockfile, and rerun the checks and `npm audit`.
 

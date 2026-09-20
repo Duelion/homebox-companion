@@ -13,7 +13,6 @@ from pydantic import SecretStr
 
 from homebox_companion.core import config, field_preferences, llm_utils
 from homebox_companion.core.config import Settings
-from homebox_companion.core.llm_security import NO_API_KEY, build_llm_params
 from homebox_companion.core.persistent_settings import (
     CustomFieldDefinition,
     ModelProfile,
@@ -166,16 +165,24 @@ async def test_configured_key_must_still_be_valid_for_settings_routes(profile_st
     ],
 )
 @pytest.mark.parametrize("test_connection", [False, True])
-async def test_destination_changes_require_explicit_key(overrides, test_connection, profile_store):
+async def test_destination_changes_reuse_saved_key(overrides, test_connection, profile_store):
     store, save, completion = profile_store
     async with security_client() as (client, _, _):
         method = "POST" if test_connection else "PUT"
         path = "/api/llm/profiles/primary" + ("/test" if test_connection else "")
         response = await client.request(method, path, json=overrides)
-    assert response.status_code == 422
-    assert store.llm_profiles[0].api_base == "https://provider.test/v1"
-    save.assert_not_called()
-    completion.assert_not_called()
+    assert response.status_code == 200, response.text
+    assert store.llm_profiles[0].api_key.get_secret_value() == "synthetic-saved-key"
+    if test_connection:
+        save.assert_not_called()
+        assert completion.call_args.kwargs["api_key"] == "synthetic-saved-key"
+        for field, value in overrides.items():
+            assert completion.call_args.kwargs[field] == value
+    else:
+        save.assert_called_once_with(store)
+        completion.assert_not_called()
+        for field, value in overrides.items():
+            assert getattr(store.llm_profiles[0], field) == value
 
 
 @pytest.mark.asyncio
@@ -200,7 +207,7 @@ async def test_explicit_key_is_used_for_new_destination(profile_store):
     assert profile_store[2].call_args.kwargs["api_key"] == "synthetic-new-key"
 
 
-def test_primary_cannot_inherit_environment_key_for_different_destination(monkeypatch):
+def test_primary_inherits_environment_key_for_different_destination(monkeypatch):
     monkeypatch.setattr(
         config,
         "settings",
@@ -220,10 +227,10 @@ def test_primary_cannot_inherit_environment_key_for_different_destination(monkey
             api_base="https://different.test/v1",
         ),
     )
-    assert llm_utils.resolve_llm_credentials().api_key is None
+    assert llm_utils.resolve_llm_credentials().api_key == "synthetic-env-key"
 
 
-def test_fallback_cannot_inherit_primary_key_for_different_destination(monkeypatch):
+def test_fallback_inherits_primary_key_for_different_destination(monkeypatch):
     from homebox_companion.core import llm_router
 
     monkeypatch.setattr(
@@ -248,13 +255,13 @@ def test_fallback_cannot_inherit_primary_key_for_different_destination(monkeypat
     monkeypatch.setattr(llm_router, "Router", router)
     llm_router._build_router_from_profiles()
     fallback = router.call_args.kwargs["model_list"][1]["litellm_params"]
-    assert fallback["api_key"] == NO_API_KEY
+    assert fallback["api_key"] == "synthetic-primary-key"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("field", ["api_key", "model", "api_base"])
 @pytest.mark.parametrize("operation", ["create", "update", "test"])
-async def test_profile_requests_reject_environment_references(field, operation, profile_store):
+async def test_profile_requests_accept_environment_references(field, operation, profile_store):
     body = {field: "os.environ/HBC_SYNTHETIC_KEY"}
     if operation == "create":
         body = {"name": "new", "model": "gpt-5-mini", **body}
@@ -263,31 +270,25 @@ async def test_profile_requests_reject_environment_references(field, operation, 
         path += "/test"
     async with security_client() as (client, _, _):
         response = await client.request("PUT" if operation == "update" else "POST", path, json=body)
-    assert response.status_code == 422
-    profile_store[1].assert_not_called()
-    profile_store[2].assert_not_called()
-
-
-@pytest.mark.parametrize("field", ["api_key", "model", "api_base"])
-def test_provider_boundary_rejects_environment_references(field):
-    params = {"model": "gpt-5-mini", "api_key": "synthetic-key", "api_base": "https://provider.test/v1"}
-    params[field] = "os.environ/HBC_SYNTHETIC_KEY"
-    with pytest.raises(ValueError, match="Environment references"):
-        build_llm_params(**params)
-
-
-def test_keyless_params_do_not_resolve_ambient_openai_key(monkeypatch):
-    import litellm
-
-    monkeypatch.setenv("OPENAI_API_KEY", "synthetic-ambient-key")
-    params = build_llm_params("gpt-5-mini", None, "https://provider.test/v1")
-    assert litellm.get_api_key("openai", params["api_key"]) == NO_API_KEY
+    assert response.status_code == (201 if operation == "create" else 200), response.text
+    store, save, completion = profile_store
+    if operation == "test":
+        assert completion.call_args.kwargs[field] == body[field]
+        save.assert_not_called()
+    else:
+        save.assert_called_once_with(store)
+        value = getattr(store.llm_profiles[-1 if operation == "create" else 0], field)
+        assert (value.get_secret_value() if isinstance(value, SecretStr) else value) == body[field]
+        completion.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_keyless_connection_test_passes_explicit_placeholder(profile_store):
+async def test_keyless_profile_can_change_endpoint_and_test_without_key(profile_store):
     profile_store[0].llm_profiles[0].api_key = None
     async with security_client() as (client, _, _):
+        update = await client.put("/api/llm/profiles/primary", json={"api_base": "http://localhost:11434/v1"})
         response = await client.post("/api/llm/profiles/primary/test", json={})
+    assert update.status_code == 200
     assert response.status_code == 200
-    assert profile_store[2].call_args.kwargs["api_key"] == NO_API_KEY
+    assert profile_store[2].call_args.kwargs["api_key"] is None
+    assert profile_store[2].call_args.kwargs["api_base"] == "http://localhost:11434/v1"

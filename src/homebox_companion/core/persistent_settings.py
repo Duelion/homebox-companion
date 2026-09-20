@@ -20,10 +20,9 @@ from typing import Self
 
 import yaml
 from loguru import logger
-from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
+from pydantic import BaseModel, Field, SecretStr, model_validator
 
 from .field_preferences import FieldPreferences
-from .llm_security import validate_literal_llm_value
 
 # Data directory for persistent storage (mounted volume in Docker).
 # This is relative to the working directory, which should be the project root
@@ -64,11 +63,6 @@ class ModelProfile(BaseModel):
     api_key: SecretStr | None = None
     api_base: str | None = None
     status: ProfileStatus = ProfileStatus.OFF
-
-    @field_validator("model", "api_base", "api_key", mode="before")
-    @classmethod
-    def validate_literal_credentials(cls, value: object) -> object:
-        return validate_literal_llm_value(value)
 
 
 class CustomFieldDefinition(BaseModel):

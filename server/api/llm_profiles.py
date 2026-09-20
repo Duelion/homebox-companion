@@ -8,10 +8,8 @@ import litellm
 from fastapi import APIRouter, Depends, HTTPException
 from litellm.exceptions import APIConnectionError, AuthenticationError, NotFoundError
 from loguru import logger
-from pydantic import BaseModel, SecretStr, field_validator
+from pydantic import BaseModel, SecretStr
 
-from homebox_companion.core.llm_security import build_llm_params, validate_literal_llm_value
-from homebox_companion.core.llm_utils import same_llm_destination
 from homebox_companion.core.persistent_settings import (
     ModelProfile,
     PersistentSettings,
@@ -47,16 +45,7 @@ class ProfileListResponse(BaseModel):
     profiles: list[ProfileResponse]
 
 
-class ProfileRequest(BaseModel):
-    """Profile credentials must be literal, never server-secret references."""
-
-    @field_validator("model", "api_base", "api_key", mode="before", check_fields=False)
-    @classmethod
-    def validate_literal_credentials(cls, value: object) -> object:
-        return validate_literal_llm_value(value)
-
-
-class ProfileCreateRequest(ProfileRequest):
+class ProfileCreateRequest(BaseModel):
     """Request to create a new profile."""
 
     name: str
@@ -66,7 +55,7 @@ class ProfileCreateRequest(ProfileRequest):
     status: str = "off"
 
 
-class ProfileUpdateRequest(ProfileRequest):
+class ProfileUpdateRequest(BaseModel):
     """Request to update an existing profile.
 
     For api_key:
@@ -81,7 +70,7 @@ class ProfileUpdateRequest(ProfileRequest):
     status: str | None = None
 
 
-class TestConnectionRequest(ProfileRequest):
+class TestConnectionRequest(BaseModel):
     """Request to test a profile connection."""
 
     # Optional override for testing before saving
@@ -176,11 +165,6 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
     settings = load_settings()
 
     _, profile = _find_profile(settings, name)
-
-    model = request.model if request.model is not None else profile.model
-    api_base = request.api_base if request.api_base is not None else profile.api_base
-    if not same_llm_destination(profile.model, profile.api_base, model, api_base) and not request.api_key:
-        raise HTTPException(status_code=422, detail="Enter an API key when changing the provider or API base URL")
 
     # Handle renaming
     if request.new_name is not None and request.new_name != name:
@@ -290,19 +274,14 @@ async def test_profile_connection(name: str, request: TestConnectionRequest | No
         else (profile.api_key.get_secret_value() if profile.api_key else None)
     )
     api_base = request.api_base if request and request.api_base else profile.api_base
-    if (
-        not same_llm_destination(profile.model, profile.api_base, model, api_base)
-        and not (request and request.api_key)
-    ):
-        raise HTTPException(
-            status_code=422, detail="Enter an API key when testing a different provider or API base URL"
-        )
 
     try:
         # Simple completion test
         response = await litellm.acompletion(
-            **build_llm_params(model, api_key, api_base),
+            model=model,
             messages=[{"role": "user", "content": "Say 'connection successful' in exactly two words."}],
+            api_key=api_key,
+            api_base=api_base,
             max_tokens=10,
             timeout=15,
         )

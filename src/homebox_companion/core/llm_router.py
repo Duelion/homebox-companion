@@ -23,7 +23,6 @@ from litellm.integrations.custom_logger import CustomLogger
 from litellm.router import Router
 from loguru import logger
 
-from .llm_security import build_llm_params
 from .persistent_settings import get_fallback_profile
 
 if TYPE_CHECKING:
@@ -192,7 +191,7 @@ def _build_router_from_profiles() -> Router:
     Returns:
         Configured Router with retry and cooldown settings.
     """
-    from .llm_utils import resolve_llm_credentials, same_llm_destination
+    from .llm_utils import resolve_llm_credentials
 
     # Register our fallback logger with litellm (idempotent check)
     if _fallback_logger not in litellm.callbacks:
@@ -210,7 +209,13 @@ def _build_router_from_profiles() -> Router:
             "or configure a PRIMARY LLM profile in Settings."
         )
 
-    primary_params = build_llm_params(primary_creds.model, primary_creds.api_key, primary_creds.api_base)
+    primary_params: dict[str, Any] = {
+        "model": primary_creds.model,
+    }
+    if primary_creds.api_key:
+        primary_params["api_key"] = primary_creds.api_key
+    if primary_creds.api_base:
+        primary_params["api_base"] = primary_creds.api_base
 
     model_list.append(
         {
@@ -226,12 +231,7 @@ def _build_router_from_profiles() -> Router:
     # Add fallback deployment if configured
     fallback = get_fallback_profile()
     if fallback:
-        shared_key = (
-            primary_creds.api_key
-            if same_llm_destination(primary_creds.model, primary_creds.api_base, fallback.model, fallback.api_base)
-            else None
-        )
-        fallback_params = _profile_to_params(fallback, inherit_key=shared_key)
+        fallback_params = _profile_to_params(fallback, inherit_key=primary_creds.api_key)
         model_list.append(
             {
                 "model_name": "fallback",
@@ -273,5 +273,17 @@ def _profile_to_params(
     Returns:
         Dict suitable for litellm_params in Router model_list.
     """
-    api_key = profile.api_key.get_secret_value() if profile.api_key else inherit_key
-    return build_llm_params(profile.model, api_key, profile.api_base)
+    params: dict[str, Any] = {
+        "model": profile.model,
+    }
+
+    # Use profile's key, or inherit from primary if not specified
+    if profile.api_key:
+        params["api_key"] = profile.api_key.get_secret_value()
+    elif inherit_key:
+        params["api_key"] = inherit_key
+
+    if profile.api_base:
+        params["api_base"] = profile.api_base
+
+    return params
