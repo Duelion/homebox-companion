@@ -61,6 +61,10 @@ dev = [
     "vulture>=2.14",
 ]
 
+[tool.uv]
+# Keep newly uploaded distributions out of routine resolution for 30 days.
+exclude-newer = "30 days"
+
 [tool.ruff]
 line-length = 120
 target-version = "py314"
