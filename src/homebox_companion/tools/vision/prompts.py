@@ -225,7 +225,7 @@ def build_discriminatory_system_prompt(
         "SPECIFICITY RULES:\n"
         "- Each distinct variant = separate entry (80 Grit vs 120 Grit = 2 items)\n"
         "- Include size, color, brand, model in names when visible\n"
-        "- Only use what's visible - do NOT guess\n\n"
+        "- Only report factual details that are visible or user-stated - do NOT guess\n\n"
         # 4. Schema
         f"{item_schema}"
         f"{extended_schema}"
@@ -304,7 +304,7 @@ def build_analysis_system_prompt(
         f"{language_instr}\n"
         # 3. Critical instruction
         "Extract ALL visible details: serial numbers, model numbers, brand, "
-        "price tags, condition issues. Only use what's visible.\n\n"
+        "price tags, condition issues. Only report facts that are visible or user-stated.\n\n"
         # 4. Output schema
         "Return JSON with:\n"
         f"- name: string ({name_instr})\n"

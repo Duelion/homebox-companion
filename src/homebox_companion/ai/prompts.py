@@ -31,7 +31,14 @@ def build_custom_fields_schema(custom_fields: list[CustomFieldDefinition]) -> st
     if not custom_fields:
         return ""
 
-    lines = ["\nCUSTOM FIELDS (always populate these for every item):"]
+    lines = [
+        "\nCUSTOM FIELDS (include every key; use null when the requested value is unknown):",
+        "Follow each field's instruction. When a custom field asks for a recommendation, "
+        "estimate, or typical use/location, provide a reasonable answer based on the identified item "
+        "even when that answer is not visible in the image. "
+        "Do not present a recommendation as an observed fact. "
+        "For factual fields, use only visible or user-stated information; otherwise return null.",
+    ]
     for cf in custom_fields:
         # Use camelCase key to match default fields (modelNumber, serialNumber, etc.)
         lines.append(f"- {cf.prompt_key}: string or null ({cf.ai_instruction})")
@@ -55,13 +62,15 @@ def build_critical_constraints(single_item: bool = False) -> str:
         return (
             "CRITICAL: Treat EVERYTHING in this image as ONE item type. "
             "Do NOT separate into multiple entries. Count how many are visible.\n"
-            "Do NOT guess or infer - only use what's visible or user-stated."
+            "Do NOT guess factual details - only report facts that are visible or user-stated. "
+            "Custom fields may request recommendations or estimates as described below."
         )
     return (
         "RULES:\n"
         "- Combine identical objects into one entry with correct quantity\n"
         "- Separate distinctly different items into separate entries\n"
-        "- Do NOT guess or infer - only use what's visible or user-stated\n"
+        "- Do NOT guess factual details - only report facts that are visible or user-stated\n"
+        "- Custom fields may request recommendations or estimates as described below\n"
         "- Ignore background elements (floors, walls, shelves, packaging)"
     )
 

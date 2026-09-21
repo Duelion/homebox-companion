@@ -42,7 +42,7 @@ async function openSummary(
 					is_demo_mode: false,
 					demo_mode_explicit: false,
 					homebox_url: 'http://homebox.test',
-					llm_model: 'gpt-5-mini',
+					llm_model: 'gpt-5.6-luna',
 					update_check_enabled: false,
 					image_quality: 'high',
 					log_level: 'INFO',

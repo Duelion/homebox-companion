@@ -56,7 +56,7 @@ def profile_store(monkeypatch):
         llm_profiles=[
             ModelProfile(
                 name="primary",
-                model="gpt-5-mini",
+                model="gpt-5.6-luna",
                 api_key=SecretStr("synthetic-saved-key"),
                 api_base="https://provider.test/v1",
                 status=ProfileStatus.PRIMARY,
@@ -64,7 +64,7 @@ def profile_store(monkeypatch):
         ]
     )
     save = Mock()
-    completion = AsyncMock(return_value=SimpleNamespace(model="gpt-5-mini"))
+    completion = AsyncMock(return_value=SimpleNamespace(model="gpt-5.6-luna"))
     monkeypatch.setattr(llm_profiles, "load_settings", lambda: store)
     monkeypatch.setattr(llm_profiles, "clear_settings_cache", lambda: None)
     monkeypatch.setattr(llm_profiles, "save_settings", save)
@@ -103,7 +103,7 @@ async def test_invalid_token_cannot_access_local_resources(path, profile_store):
     ("method", "path", "body", "status"),
     [
         ("GET", "/api/llm/profiles", None, 200),
-        ("POST", "/api/llm/profiles", {"name": "new", "model": "gpt-5-mini"}, 201),
+        ("POST", "/api/llm/profiles", {"name": "new", "model": "gpt-5.6-luna"}, 201),
         ("GET", "/api/logs", None, 200),
         ("GET", "/api/logs/download", None, 200),
         ("GET", "/api/logs/llm-debug", None, 200),
@@ -213,7 +213,7 @@ def test_primary_inherits_environment_key_for_different_destination(monkeypatch)
         "settings",
         Settings(
             _env_file=None,
-            llm_model="gpt-5-mini",
+            llm_model="gpt-5.6-luna",
             llm_api_key="synthetic-env-key",
             llm_api_base="https://provider.test/v1",
         ),
@@ -223,7 +223,7 @@ def test_primary_inherits_environment_key_for_different_destination(monkeypatch)
         "get_primary_profile",
         lambda: ModelProfile(
             name="new",
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_base="https://different.test/v1",
         ),
     )
@@ -237,7 +237,7 @@ def test_fallback_inherits_primary_key_for_different_destination(monkeypatch):
         llm_utils,
         "resolve_llm_credentials",
         lambda: llm_utils.LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="synthetic-primary-key",
             api_base="https://provider.test/v1",
         ),
@@ -264,7 +264,7 @@ def test_fallback_inherits_primary_key_for_different_destination(monkeypatch):
 async def test_profile_requests_accept_environment_references(field, operation, profile_store):
     body = {field: "os.environ/HBC_SYNTHETIC_KEY"}
     if operation == "create":
-        body = {"name": "new", "model": "gpt-5-mini", **body}
+        body = {"name": "new", "model": "gpt-5.6-luna", **body}
     path = "/api/llm/profiles" + ("" if operation == "create" else "/primary")
     if operation == "test":
         path += "/test"

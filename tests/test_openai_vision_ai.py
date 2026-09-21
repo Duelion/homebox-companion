@@ -5,7 +5,7 @@ if no key is available. They hit the real OpenAI API.
 
 Environment variables:
     - TEST_OPENAI_API_KEY (required)
-    - TEST_OPENAI_MODEL (optional, defaults to gpt-5-mini)
+    - TEST_OPENAI_MODEL (optional, defaults to gpt-5.6-luna)
 
 Run with: TEST_OPENAI_API_KEY=your-key uv run pytest tests/test_openai_vision_ai.py
 """

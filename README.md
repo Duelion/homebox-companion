@@ -47,9 +47,17 @@ flowchart LR
 
 ## 💰 OpenAI Cost Estimates
 
-**GPT-5 mini** (default) offers the best accuracy. **GPT-5 nano** is 3x cheaper but may need more corrections. Typical cost: **~$0.30 per 100 items** (mini) or **~$0.10 per 100 items** (nano).
+| Model | Input/1M | Output/1M | Cost per 100 items | Avg Latency | Notes |
+|-------|----------|-----------|---------------------|-------------|-------|
+| **GPT-5.6 Luna** | $0.20 | $1.20 | **$0.019** 🏆 | ~3.4s | Cheapest. Requires `reasoning_effort=none` |
+| GPT-5.4 Nano | $0.20 | $1.25 | $0.024 | ~1.9s | Fastest. Good budget option |
+| GPT-5.4 Mini | $0.75 | $4.50 | $0.076 | ~2.0s | 3× more expensive |
 
-*Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.*
+**GPT-5.6 Luna** is the recommended model — cheapest at $0.019/100 items with `reasoning_effort=none`. All three models achieved zero errors and comparable detection on inventory classification tasks.
+
+> **Benchmark methodology:** 100 API calls per model using 3 test images with extended field extraction. Costs include OpenAI automatic prompt caching (54–66% of input tokens cached at $0.02/1M). Real-world costs depend on image complexity and item count per photo.
+>
+> *Prices as of **2026-09-21**, measured against OpenAI's live API.*
 
 ## 📋 Requirements
 
@@ -200,8 +208,9 @@ Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library t
 <details>
 <summary>Officially Supported Models</summary>
 
-- **GPT-5 mini** (default) – Recommended for best balance of speed and accuracy
-- **GPT-5 nano**
+- **GPT-5.6 Luna** (recommended) – Cheapest and most efficient (use with `reasoning_effort=none`)
+- **GPT-5 mini** – Previous default
+- **GPT-5 nano** – Fastest response times
 
 </details>
 
@@ -223,7 +232,7 @@ Model names are passed directly to LiteLLM. Use the exact names from LiteLLM's d
 - [LiteLLM Supported Models](https://docs.litellm.ai/docs/providers)
 
 Common examples:
-- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5-mini`
+- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5.6-luna`
 - Anthropic: `claude-sonnet-4-5`, `claude-3-5-sonnet-20241022`
 
 > **Note:** Model names must exactly match LiteLLM's expected format. Typos or incorrect formats will cause errors. Check [LiteLLM's provider documentation](https://docs.litellm.ai/docs/providers) for the correct model names.
@@ -267,7 +276,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HBC_LLM_MODEL` | `gpt-5-mini` | Model to use. Supported: `gpt-5-mini`, `gpt-5-nano`. |
+| `HBC_LLM_MODEL` | `gpt-5.6-luna` | Model to use. Supported: `gpt-5.6-luna` (recommended), `gpt-5-nano`. |
 | `HBC_LLM_API_BASE` | – | Custom API base URL (for proxies or experimental providers) |
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
 | `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |

@@ -5,7 +5,7 @@ const config = (authMode: 'legacy' | 'api_key') => ({
 	is_demo_mode: false,
 	demo_mode_explicit: false,
 	homebox_url: 'http://homebox.test',
-	llm_model: 'gpt-5-mini',
+	llm_model: 'gpt-5.6-luna',
 	update_check_enabled: false,
 	image_quality: 'high',
 	log_level: 'INFO',
@@ -343,28 +343,68 @@ test('legacy bootstrap refreshes a rejected token once and retries connection', 
 	expect(connections[1].headers().authorization).toBe('Bearer refreshed-token');
 });
 
-test('legacy failed refresh shows the modal and reauthentication completes bootstrap', async ({
-	page,
-}) => {
-	let connectionAttempts = 0;
-	await mockApi(page, {
-		mode: 'legacy',
-		refreshStatus: 401,
-		connectionStatus: () => (++connectionAttempts === 1 ? 401 : 200),
-	});
-	await page.addInitScript(() => {
-		localStorage.setItem('hbc_token', 'rejected-token');
-		localStorage.setItem('hbc_token_expires', new Date(Date.now() + 3_600_000).toISOString());
-	});
-
+test('signed-out legacy deep link still redirects to login', async ({ page }) => {
+	await mockApi(page, { mode: 'legacy' });
 	await page.goto('/location');
-	await expect(page.getByRole('heading', { name: 'Session Expired' })).toBeVisible();
-	await page.locator('#reauth-email').fill('demo@example.com');
-	await page.locator('#reauth-password').fill('demo');
-	await page.getByRole('button', { name: 'Sign In' }).click();
-	await expect(page.getByRole('heading', { name: 'Select Location' })).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Session Expired' })).toHaveCount(0);
+	await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+	await expect(page).toHaveURL('/');
 });
+
+for (const delayedErrorBody of [false, true]) {
+	test(`legacy failed refresh completes reauthentication without leaving the deep link, delayed body=${delayedErrorBody}`, async ({
+		page,
+	}) => {
+		const navigations: string[] = [];
+		page.on('framenavigated', (frame) => {
+			if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
+		});
+		let releaseErrorBody!: () => void;
+		if (delayedErrorBody) {
+			const errorBodyGate = new Promise<void>((resolve) => (releaseErrorBody = resolve));
+			await page.exposeFunction('waitForConnectionError', () => errorBodyGate);
+			await page.addInitScript(() => {
+				const originalText = Response.prototype.text;
+				Response.prototype.text = async function () {
+					if (this.status === 401 && new URL(this.url).pathname === '/api/homebox/connection') {
+						await (
+							window as unknown as { waitForConnectionError: () => Promise<void> }
+						).waitForConnectionError();
+					}
+					return originalText.call(this);
+				};
+			});
+		}
+		const requests: Request[] = [];
+		let connectionAttempts = 0;
+		await mockApi(page, {
+			mode: 'legacy',
+			requests,
+			refreshStatus: 401,
+			connectionStatus: () => (++connectionAttempts === 1 ? 401 : 200),
+		});
+		await page.addInitScript(() => {
+			localStorage.setItem('hbc_token', 'rejected-token');
+			localStorage.setItem('hbc_token_expires', new Date(Date.now() + 3_600_000).toISOString());
+		});
+
+		await page.goto('/location');
+		await expect(page.getByRole('heading', { name: 'Session Expired' })).toBeVisible();
+		await page.locator('#reauth-email').fill('demo@example.com');
+		if (delayedErrorBody) {
+			// Keep the expired phase active until the modal is usable, then finish bootstrap.
+			const bootstrapFinished = page.waitForResponse('**/api/version');
+			releaseErrorBody();
+			await bootstrapFinished;
+		}
+		await page.locator('#reauth-password').fill('demo');
+		await page.getByRole('button', { name: 'Sign In' }).click();
+		await expect(page.getByRole('heading', { name: 'Select Location' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Session Expired' })).toHaveCount(0);
+		expect([...new Set(navigations)]).toEqual(['/location']);
+		const login = requests.find((request) => new URL(request.url()).pathname === '/api/login');
+		expect(login?.postDataJSON()).toEqual({ username: 'demo@example.com', password: 'demo' });
+	});
+}
 
 test('configured-key rejection after readiness returns to the retry shell', async ({ page }) => {
 	const requests: Request[] = [];

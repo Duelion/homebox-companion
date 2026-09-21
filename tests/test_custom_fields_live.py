@@ -5,7 +5,7 @@ are included in the AI prompt and populated in the detection response.
 
 Environment variables:
     - TEST_OPENAI_API_KEY (required)
-    - TEST_OPENAI_MODEL (optional, defaults to gpt-5-mini)
+    - TEST_OPENAI_MODEL (optional, defaults to gpt-5.6-luna)
 
 Run with: TEST_OPENAI_API_KEY=your-key uv run pytest tests/test_custom_fields_live.py -v
 """
@@ -122,6 +122,39 @@ class TestCustomFieldsDetection:
         assert any(c in condition_lower for c in valid_conditions), (
             f"Condition '{custom_dict['Condition']}' doesn't match expected values"
         )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("owner", [None, "Alex Morgan"])
+    async def test_custom_field_recommendations_do_not_invent_facts(
+        self,
+        single_item_single_image_path: Path,
+        owner: str | None,
+    ) -> None:
+        """Recommend storage while extracting ownership only from user context."""
+        custom_fields = [
+            CUSTOM_FIELDS[0],
+            CustomFieldDefinition(
+                name="Owner",
+                ai_instruction="The full name of the person who owns this item",
+            ),
+        ]
+        detected_items = await detect_items_from_bytes(
+            image_bytes=single_item_single_image_path.read_bytes(),
+            single_item=True,
+            custom_fields=custom_fields,
+            extra_instructions=f"This item is owned by {owner}." if owner else None,
+        )
+
+        assert len(detected_items) == 1
+        item = detected_items[0]
+        custom_dict = get_custom_fields_dict(item, custom_fields)
+        assert custom_dict is not None
+        assert custom_dict.get("Storage Location", "").strip(), "Storage recommendation should be populated"
+        if owner is None:
+            assert item.model_dump()["owner"] is None, "Unknown factual values must remain null"
+            assert "Owner" not in custom_dict
+        else:
+            assert custom_dict.get("Owner") == owner, "User-stated facts should be extracted"
 
     @pytest.mark.asyncio
     async def test_detection_without_custom_fields_returns_none(

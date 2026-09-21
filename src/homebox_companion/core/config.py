@@ -10,7 +10,7 @@ Environment Variables:
         Defaults to HBC_HOMEBOX_URL if not set. Useful when the API is accessed
         internally (e.g., 127.0.0.1) but users access via a public domain.
     HBC_OPENAI_API_KEY: (Legacy) API key for LLM provider (use HBC_LLM_API_KEY instead)
-    HBC_OPENAI_MODEL: (Legacy) LLM model to use (use HBC_LLM_MODEL instead, default: gpt-5-mini)
+    HBC_OPENAI_MODEL: (Legacy) LLM model to use (use HBC_LLM_MODEL instead, default: gpt-5.6-luna)
     HBC_LLM_API_KEY: API key for the configured LLM provider (preferred)
     HBC_LLM_MODEL: LLM model identifier (preferred)
     HBC_LLM_API_BASE: Optional API base URL for LLM-compatible gateways
@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     # Backward compatibility: Also accepts HBC_OPENAI_API_KEY and HBC_OPENAI_MODEL
     # These are legacy env vars from before the LiteLLM migration
     openai_api_key: str = ""
-    openai_model: str = "gpt-5-mini"
+    openai_model: str = "gpt-5.6-luna"
 
     # LLM configuration (preferred)
     llm_api_key: str = ""
@@ -131,7 +131,7 @@ class Settings(BaseSettings):
     # Default values are 80% of Tier 1 limits for safety margin
     rate_limit_enabled: bool = True  # Set to false to disable rate limiting
     rate_limit_rpm: int = 400  # Requests per minute (Tier 1 limit: 500)
-    rate_limit_tpm: int = 400_000  # Tokens per minute (Tier 1 limit: 500k for gpt-5-mini)
+    rate_limit_tpm: int = 400_000  # Tokens per minute (Tier 1 limit: 500k for gpt-5.6-luna)
     rate_limit_burst_multiplier: float = 1.5  # Burst capacity multiplier
 
     # Chat/MCP configuration
@@ -190,7 +190,7 @@ class Settings(BaseSettings):
     @property
     def effective_llm_model(self) -> str:
         """Effective LLM model (HBC_LLM_MODEL preferred, fallback to HBC_OPENAI_MODEL)."""
-        return (self.llm_model or self.openai_model or "gpt-5-mini").strip()
+        return (self.llm_model or self.openai_model or "gpt-5.6-luna").strip()
 
     @computed_field
     @property

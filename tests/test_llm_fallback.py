@@ -43,7 +43,7 @@ class TestRouterConstruction:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="primary-key",
             api_base=None,
             profile_name="primary",
@@ -64,7 +64,7 @@ class TestRouterConstruction:
             # Router should have one deployment
             assert len(router.model_list) == 1
             assert router.model_list[0]["model_name"] == "primary"
-            assert router.model_list[0]["litellm_params"]["model"] == "gpt-5-mini"
+            assert router.model_list[0]["litellm_params"]["model"] == "gpt-5.6-luna"
             assert router.model_list[0]["litellm_params"]["api_key"] == "primary-key"
 
     def test_router_includes_fallback_deployment(self) -> None:
@@ -72,7 +72,7 @@ class TestRouterConstruction:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="primary-key",
             api_base=None,
             profile_name="primary",
@@ -108,7 +108,7 @@ class TestRouterConstruction:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="primary-key",
             api_base=None,
             profile_name="primary",
@@ -144,7 +144,7 @@ class TestRouterSingleton:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="test-key",
             api_base=None,
             profile_name="test",
@@ -170,7 +170,7 @@ class TestRouterSingleton:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="test-key",
             api_base=None,
             profile_name="test",
@@ -203,7 +203,7 @@ class TestRouterFallbackBehavior:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="primary-key",
             api_base=None,
             profile_name="primary",
@@ -250,7 +250,7 @@ class TestLLMClientWithRouter:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="test-key",
             api_base=None,
             profile_name="test",
@@ -299,7 +299,7 @@ class TestLLMClientWithRouter:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="test-key",
             api_base=None,
             profile_name="test",
@@ -348,7 +348,7 @@ class TestJsonCompletionWithRouter:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="test-key",
             api_base=None,
             profile_name="test",
@@ -399,7 +399,7 @@ class TestJsonCompletionWithRouter:
         from homebox_companion.core.llm_utils import LLMCredentials
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="test-key",
             api_base=None,
             profile_name="test",
@@ -461,7 +461,7 @@ class TestSettingsInvalidation:
         )
 
         mock_creds = LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="test-key",
             api_base=None,
             profile_name="test",
@@ -490,7 +490,7 @@ class TestSettingsInvalidation:
                 llm_profiles=[
                     ModelProfile(
                         name="test",
-                        model="gpt-5-mini",
+                        model="gpt-5.6-luna",
                         status=ProfileStatus.PRIMARY,
                     )
                 ]

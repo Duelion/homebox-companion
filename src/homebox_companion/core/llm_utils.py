@@ -23,7 +23,7 @@ class LLMCredentials:
     """Resolved LLM credentials ready for use.
 
     Attributes:
-        model: The model identifier (e.g., 'gpt-5-mini', 'claude-3-opus')
+        model: The model identifier (e.g., 'gpt-5.6-luna', 'claude-3-opus')
         api_key: The API key for authentication
         api_base: Optional custom API base URL
         profile_name: Name of the profile used, or None if using env defaults

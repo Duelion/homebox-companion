@@ -348,7 +348,7 @@ class TestSettings(BaseSettings):
 
     # Legacy OpenAI config (kept for backwards compatibility in tests)
     openai_api_key: str = ""
-    openai_model: str = "gpt-5-mini"
+    openai_model: str = "gpt-5.6-luna"
 
     # New generic LLM config (preferred)
     llm_api_key: str = ""
@@ -375,7 +375,7 @@ def api_key(test_settings: TestSettings) -> str:
 @pytest.fixture(scope="session")
 def model(test_settings: TestSettings) -> str:
     """Provide LLM model name."""
-    return (test_settings.llm_model or test_settings.openai_model or "gpt-5-mini").strip()
+    return (test_settings.llm_model or test_settings.openai_model or "gpt-5.6-luna").strip()
 
 
 @pytest.fixture(scope="session")
@@ -390,7 +390,7 @@ def openai_api_key() -> str:
 @pytest.fixture(scope="session")
 def openai_model() -> str:
     """Provide OpenAI model name."""
-    return os.environ.get("TEST_OPENAI_MODEL", "gpt-5-mini").strip()
+    return os.environ.get("TEST_OPENAI_MODEL", "gpt-5.6-luna").strip()
 
 
 @pytest.fixture(scope="session")

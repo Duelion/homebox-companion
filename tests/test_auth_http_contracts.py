@@ -97,7 +97,7 @@ async def test_chat_message_and_approval_use_bound_executor(api_key, monkeypatch
 
     monkeypatch.setattr("homebox_companion.chat.orchestrator.settings.chat_enabled", True)
     monkeypatch.setattr(LLMClient, "complete_stream", complete_stream)
-    monkeypatch.setattr(LLMClient, "get_resolved_model", staticmethod(lambda: "gpt-5-mini"))
+    monkeypatch.setattr(LLMClient, "get_resolved_model", staticmethod(lambda: "gpt-5.6-luna"))
     headers = {
         "Authorization": "Bearer browser-session",
         "X-Companion-Request": "1",
