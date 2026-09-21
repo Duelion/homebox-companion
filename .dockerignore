@@ -64,3 +64,4 @@ demo/
 # Agent / AI
 .gemini/
 .agent/
+scratch_pad/
