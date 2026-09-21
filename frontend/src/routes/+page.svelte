@@ -16,7 +16,7 @@
 	let showPassword = $state(false);
 	let isCheckingAuth = $state(true); // Show loading during auth check
 
-	// Redirect if already authenticated, or auto-fill demo credentials
+	// Redirect if already authenticated, or auto-fill explicit demo-mode credentials
 	onMount(async () => {
 		try {
 			// Wait for auth initialization to complete to avoid race conditions

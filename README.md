@@ -21,14 +21,6 @@ AI-powered companion for [Homebox](https://github.com/sysadminsmedia/homebox) in
 Take a photo of your stuff, and let AI identify and catalog items directly into your Homebox instance. Perfect for quickly inventorying a room, shelf, or collection.
 Use the **AI Chat** to manage your inventory, find locations, or update details just by asking.
 
-<div align="center">
-  <a href="https://demo.hbcompanion.duelion.com/" target="_blank">
-    <img src=".github/assets/images/demo_button.png" alt="Try Live Demo" width="280">
-  </a>
-  <br>
-  <sub><i>AI Chat is disabled in demo mode.</i></sub>
-</div>
-
 ## 🔄 How It Works
 
 ```mermaid
@@ -64,24 +56,11 @@ flowchart LR
 Before you start, you'll need:
 
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
-- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server, or use the [demo server](#try-with-demo-server) to test
+- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server
 
 > **Compatibility:** Integration tests use Homebox v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
 
 ## 🚀 Quick Start
-
-### Try with Demo Server
-
-Want to try it out without setting up Homebox? Use the public demo server:
-
-```bash
-docker run -p 8000:8000 \
-  -e HBC_LLM_API_KEY=sk-your-key \
-  -e HBC_HOMEBOX_URL=https://demo.homebox.software \
-  ghcr.io/duelion/homebox-companion:latest
-```
-
-Open `http://localhost:8000` and login with `demo@example.com` / `demo`
 
 ### Docker (Recommended)
 
@@ -279,7 +258,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `HBC_LLM_API_KEY` | **Yes** | Your OpenAI API key |
-| `HBC_HOMEBOX_URL` | No | Your Homebox instance URL (defaults to demo server) |
+| `HBC_HOMEBOX_URL` | No | Your Homebox instance URL (defaults to `http://localhost:7745`) |
 | `HBC_HOMEBOX_API_KEY` | No | Homebox-issued key for direct entry; empty retains legacy login. Server-only; restart after changing. |
 | `HBC_LINK_BASE_URL` | No | Public URL for Homebox links in chat (defaults to `HBC_HOMEBOX_URL`) |
 

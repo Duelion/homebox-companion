@@ -4,7 +4,7 @@ All environment variables use the HBC_ prefix to avoid
 clashes with other applications on the same system.
 
 Environment Variables:
-    HBC_HOMEBOX_URL: Base URL of your Homebox instance (default: demo server).
+    HBC_HOMEBOX_URL: Base URL of your Homebox instance (default: http://localhost:7745).
         We automatically append /api/v1 to this URL for API calls.
     HBC_LINK_BASE_URL: Optional public-facing URL for Homebox links shown to users.
         Defaults to HBC_HOMEBOX_URL if not set. Useful when the API is accessed
@@ -45,8 +45,8 @@ from functools import lru_cache
 from pydantic import Field, SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Demo server for testing - users should replace with their own instance
-DEMO_HOMEBOX_URL = "https://demo.homebox.software"
+# Local Homebox is the default; deployments should set HBC_HOMEBOX_URL explicitly.
+DEFAULT_HOMEBOX_URL = "http://localhost:7745"
 
 
 class ImageQuality(StrEnum):
@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     )
 
     # Homebox configuration - user provides base URL, we append /api/v1
-    homebox_url: str = DEMO_HOMEBOX_URL
+    homebox_url: str = DEFAULT_HOMEBOX_URL
     homebox_api_key: SecretStr | None = None
     # Optional public-facing URL for links (defaults to homebox_url)
     link_base_url: str = ""
@@ -201,16 +201,8 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def is_demo_mode(self) -> bool:
-        """Check if demo mode is enabled.
-
-        Demo mode is enabled when:
-        - HBC_DEMO_MODE=true environment variable is set, OR
-        - The Homebox URL points to the official demo server (demo.homebox.software)
-        """
-        if self.demo_mode:
-            return True
-        # Auto-detect demo mode when connected to the official demo server
-        return "demo.homebox.software" in self.homebox_url.lower()
+        """Check if explicit demo mode is enabled."""
+        return self.demo_mode
 
     @computed_field
     @property

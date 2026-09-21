@@ -58,9 +58,6 @@ LICENSE
 .ruff_cache
 .mypy_cache
 
-# Demo
-demo/
-
 # Agent / AI
 .gemini/
 .agent/

@@ -424,7 +424,7 @@ def homebox_container_name(homebox_container: tuple[str, str]) -> str:
 
 @pytest.fixture(scope="session")
 def homebox_credentials() -> tuple[str, str]:
-    """Provide Homebox demo credentials (created by HBOX_DEMO=true)."""
+    """Provide seeded Homebox credentials (created by HBOX_DEMO=true)."""
     return DEMO_USERNAME, DEMO_PASSWORD
 
 
