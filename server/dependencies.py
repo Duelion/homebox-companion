@@ -1,4 +1,8 @@
-"""FastAPI dependencies for dependency injection."""
+"""FastAPI dependencies for dependency injection.
+
+Types used in dependency parameters must be imported at runtime so FastAPI can
+resolve their Annotated metadata, including Depends declarations.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ from pydantic import SecretStr
 
 from homebox_companion import HomeboxAuthError, HomeboxClient, HomeboxGateway, settings
 from homebox_companion.core.exceptions import HomeboxAPIError
+from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
 from homebox_companion.homebox.auth import (
     ConfiguredAPIKeyProvider,
     CredentialProvider,
@@ -21,14 +26,12 @@ from homebox_companion.homebox.auth import (
     HomeboxAuthKind,
     LegacySessionProvider,
 )
+from homebox_companion.mcp.executor import ToolExecutor
 
 if TYPE_CHECKING:
     from homebox_companion.chat.session import ChatSession
     from homebox_companion.chat.store import SessionStoreProtocol
     from homebox_companion.core.persistent_settings import CustomFieldDefinition
-    from homebox_companion.mcp.executor import ToolExecutor
-
-from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
 
 
 class ClientHolder:
@@ -183,8 +186,6 @@ class ToolExecutorHolder:
         Returns:
             The shared ToolExecutor instance.
         """
-        from homebox_companion.mcp.executor import ToolExecutor
-
         if self._executor is None:
             self._executor = ToolExecutor()
             logger.debug("Created shared ToolExecutor instance")
