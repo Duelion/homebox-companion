@@ -14,7 +14,7 @@ from conftest import HomeboxAuth
 from homebox_companion import HomeboxAuthError, HomeboxClient, ItemCreate
 from homebox_companion.core.exceptions import HomeboxAPIError
 
-# All tests in this module hit the real Homebox demo server
+# All tests in this module hit the disposable Homebox Docker server.
 pytestmark = pytest.mark.live
 
 
@@ -248,7 +248,7 @@ async def test_list_tags_returns_tags_list(
     token = homebox_auth.token
     tags = await client.list_tags(token)
 
-    # Demo server might or might not have tags
+    # The test server might or might not have tags.
     assert isinstance(tags, list)
 
     # If tags exist, check structure

@@ -482,21 +482,21 @@ class TestMCPToolsLive:
     async def test_list_locations_live(
         self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
     ) -> None:
-        """List locations should return data from demo server."""
+        """List locations should return data from the Docker test server."""
         tool = ListLocationsTool()
         params = tool.Params()
         result = await tool.execute(homebox_client, homebox_auth.token, params)
 
         assert result.success is True
         assert isinstance(result.data, list)
-        # Demo server should have at least some locations
+        # The seeded test server should have at least some locations.
         assert len(result.data) > 0
 
     @pytest.mark.asyncio
     async def test_list_tags_live(
         self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
     ) -> None:
-        """List tags should return data from demo server."""
+        """List tags should return data from the Docker test server."""
         tool = ListTagsTool()
         params = tool.Params()
         result = await tool.execute(homebox_client, homebox_auth.token, params)
