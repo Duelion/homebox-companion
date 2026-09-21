@@ -40,7 +40,6 @@ server/static/
 Thumbs.db
 homebox_api.json
 litellm_docs.txt
-litellm_relevant_docs.md
 all_models_capabilities.csv
 temp_test_expiry.py
 demo/DEPLOYMENT_GUIDE.md
@@ -49,16 +48,9 @@ demo/README.md
 # Contributor analysis working files
 docs/contributor_analysis/**
 
-# Local agent instructions, plans, handoffs and unpublished release drafts
+# Local agent instructions and working files
 /AGENTS.md
-/API_KEY_AUTH_PLAN.md
-/DOCKER_API_KEY_TEST_PLAN.md
-/HANDOFF.md
-/RECOVERY_RELEASE_NOTES.md
-/RELEASE_NOTES.md
-/RELEASE_REPLY_DRAFTS.md
-/RELEASE_REPLY_FACT_CHECK.md
-/SPRINT_PLAN.md
+/scratch_pad/
 
 # Bundle analyzer output
 frontend/stats.html
@@ -72,9 +64,7 @@ frontend/blob-report/
 test_results.txt
 security_audit*.txt
 config/field_preferences.json
-HOMEBOX_LABELMAKER_API.md
 tests/label_print/
 
 # Antigravity
 .gemini/
-diff_*.txt

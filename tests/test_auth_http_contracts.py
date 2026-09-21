@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Protocol, cast
 
 import httpx
 import pytest
 from pydantic import SecretStr
 
+from homebox_companion.chat.llm_client import LLMClient
 from homebox_companion.chat.store import MemorySessionStore
 from homebox_companion.core.config import Settings
 from homebox_companion.homebox.client import HomeboxClient
@@ -50,6 +53,83 @@ async def _contract_client(app_settings: Settings, handler: UpstreamHandler) -> 
 
 def _user_response(_: httpx.Request) -> httpx.Response:
     return httpx.Response(200, json={"item": {"id": "user-1", "defaultGroupId": "group-1"}})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("api_key", [None, "hb_configured"])
+async def test_chat_message_and_approval_use_bound_executor(api_key, monkeypatch):
+    """Exercise the real dependency chain, mocking only Homebox and the LLM stream."""
+    settings = _settings(
+        _env_file=None, homebox_api_key=api_key, chat_enabled=True, demo_mode=False, chat_rate_limit_rpm=0
+    )
+    app = create_app(settings)
+    app.state.session_store = MemorySessionStore()
+    writes = []
+
+    def upstream(request):
+        assert request.headers["Authorization"] == f"Bearer {api_key or 'browser-session'}"
+        if request.method == "GET" and request.url.path.endswith("/users/self"):
+            return _user_response(request)
+        assert request.method == "POST" and request.url.path.endswith("/tags")
+        assert request.headers["X-Tenant"] == "selected-group"
+        writes.append(json.loads(request.content))
+        return httpx.Response(201, json={"id": "tag-1", "name": "Fragile"})
+
+    async def complete_stream(self, messages, tools):
+        assert messages[-1]["content"] == "Create a Fragile tag"
+        assert any(tool["function"]["name"] == "create_tag" for tool in tools)
+        yield SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        content="I'll create that tag.",
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id="call-create-tag",
+                                function=SimpleNamespace(name="create_tag", arguments='{"name":"Fragile"}'),
+                            )
+                        ],
+                    )
+                )
+            ]
+        )
+
+    monkeypatch.setattr("homebox_companion.chat.orchestrator.settings.chat_enabled", True)
+    monkeypatch.setattr(LLMClient, "complete_stream", complete_stream)
+    monkeypatch.setattr(LLMClient, "get_resolved_model", staticmethod(lambda: "gpt-5-mini"))
+    headers = {
+        "Authorization": "Bearer browser-session",
+        "X-Companion-Request": "1",
+        "X-Companion-Chat-Context": "11111111-1111-4111-8111-111111111111",
+        "X-Group-Id": "selected-group",
+    }
+    async with HomeboxClient(base_url=settings.api_url, transport=httpx.MockTransport(upstream)) as homebox:
+        app.state.homebox_client = homebox
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://companion.test", headers=headers
+        ) as client:
+            response = await client.post("/api/chat/messages", json={"message": "Create a Fragile tag"})
+            assert response.status_code == 200, response.text
+            assert response.headers["content-type"].startswith("text/event-stream")
+            assert "event: text" in response.text
+            assert "event: approval_required" in response.text
+            assert "event: done" in response.text
+            assert "event: error" not in response.text
+            assert writes == []
+
+            pending = await client.get("/api/chat/pending")
+            assert pending.status_code == 200
+            (approval,) = pending.json()["approvals"]
+            assert approval["tool_name"] == "create_tag"
+            approved = await client.post(f"/api/chat/approve/{approval['id']}")
+            assert approved.status_code == 200, approved.text
+            assert approved.json()["success"] is True
+            assert approved.json()["data"]["id"] == "tag-1"
+            assert len(writes) == 1 and writes[0]["name"] == "Fragile"
+
+            pending = await client.get("/api/chat/pending")
+            assert pending.json()["approvals"] == []
 
 
 @pytest.mark.asyncio
