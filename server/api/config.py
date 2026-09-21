@@ -1,9 +1,7 @@
 """Configuration API routes."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
-
-from homebox_companion import settings
 
 router = APIRouter()
 
@@ -23,24 +21,27 @@ class ConfigResponse(BaseModel):
     capture_max_images: int
     capture_max_file_size_mb: int
     print_enabled: bool
+    auth_mode: str
 
 
 @router.get("/config", response_model=ConfigResponse)
-async def get_config() -> ConfigResponse:
+async def get_config(request: Request) -> ConfigResponse:
     """Return safe configuration information.
 
     This endpoint exposes non-sensitive configuration
     for display in the Settings page.
     """
+    app_settings = request.app.state.settings
     return ConfigResponse(
-        is_demo_mode=settings.is_demo_mode,
-        demo_mode_explicit=settings.demo_mode,
-        homebox_url=settings.effective_link_base_url,
-        llm_model=settings.effective_llm_model,
-        update_check_enabled=not settings.disable_update_check,
-        image_quality=settings.image_quality.value,
-        log_level=settings.log_level,
-        capture_max_images=settings.capture_max_images,
-        capture_max_file_size_mb=settings.capture_max_file_size_mb,
-        print_enabled=settings.print_enabled,
+        is_demo_mode=app_settings.is_demo_mode,
+        demo_mode_explicit=app_settings.demo_mode,
+        homebox_url=app_settings.effective_link_base_url,
+        llm_model=app_settings.effective_llm_model,
+        update_check_enabled=not app_settings.disable_update_check,
+        image_quality=app_settings.image_quality.value,
+        log_level=app_settings.log_level,
+        capture_max_images=app_settings.capture_max_images,
+        capture_max_file_size_mb=app_settings.capture_max_file_size_mb,
+        print_enabled=app_settings.print_enabled,
+        auth_mode=app_settings.auth_mode,
     )

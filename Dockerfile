@@ -1,8 +1,8 @@
 # Stage 1: Build frontend
-FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:e4bf2a82ad0a4037d28035ae71529873c069b13eb0455466ae0bc13363826e34 AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:22.23.2-alpine3.23@sha256:72c5815a06aed9a2273aea5628d74d348af57843a7b547af2fe53dd3e4b95261 AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install --silent --no-progress 2>/dev/null
+RUN npm ci --no-progress
 COPY frontend/ ./
 RUN npm run build --silent 2>/dev/null
 
@@ -15,28 +15,31 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /uvx /usr/local/bin/
+
+# Create the runtime user before copying application files so dependency and
+# application layers are owned without a recursive ownership pass.
+RUN useradd --create-home --shell /bin/bash appuser \
+    && chown appuser:appuser /app
+ENV HOME=/home/appuser
+ENV UV_CACHE_DIR=/home/appuser/.cache/uv
+USER appuser
 
 # Copy Python project files for dependency installation
-COPY pyproject.toml uv.lock ./
+COPY --chown=appuser:appuser pyproject.toml uv.lock ./
 
 # Install external dependencies first (cached)
-RUN uv sync --no-dev --no-install-project --quiet
+RUN uv sync --locked --no-dev --no-install-project --quiet
 
 # Copy source code
-COPY src/ ./src/
-COPY server/ ./server/
+COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser server/ ./server/
 
 # Final sync to install the project itself
-RUN uv sync --no-dev --quiet
+RUN uv sync --locked --no-dev --quiet
 
 # Copy built frontend to server static directory
-COPY --from=frontend-builder /app/frontend/build ./server/static/
-
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /app
-USER appuser
+COPY --chown=appuser:appuser --from=frontend-builder /app/frontend/build ./server/static/
 
 # Expose the default port
 EXPOSE 8000
@@ -50,4 +53,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/api/version || exit 1
 
 # Run the server
-CMD ["uv", "run", "python", "-m", "server.app"]
+CMD ["uv", "run", "--no-sync", "python", "-m", "server.app"]

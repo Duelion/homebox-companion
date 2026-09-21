@@ -24,7 +24,6 @@ from homebox_companion.tools.vision.models import get_custom_fields_dict
 
 from ...dependencies import (
     VisionContext,
-    get_client,
     get_vision_context,
     require_llm_configured,
     validate_file_size,
@@ -214,14 +213,13 @@ async def detect_items(
     items_with_serials = [item for item in response_items if item.serial_number]
     if items_with_serials:
         logger.info(f"Checking {len(items_with_serials)} item(s) with serial numbers for duplicates")
-        client = get_client()
-        checker = DuplicateChecker(client)
+        checker = DuplicateChecker(ctx.gateway)
 
         async def check_one(item: DetectedItemResponse) -> None:
             """Check a single item for duplicates and attach match if found."""
             try:
                 assert item.serial_number is not None
-                match = await checker.check_serial_number(ctx.token, item.serial_number)
+                match = await checker.check_serial_number(item.serial_number)
                 if match:
                     item.duplicate_match = DuplicateMatchResponse(
                         item_id=match.item_id,

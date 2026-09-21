@@ -1,0 +1,91 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Run pytest
+        run: uv run --no-sync pytest
+      - name: Run Ruff
+        run: uv run --no-sync ruff check .
+      - name: Run ty
+        run: uv run --no-sync ty check --exit-zero-on-warning
+      - name: Run Vulture
+        run: uv run --no-sync vulture --min-confidence 70 --sort-by-size
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run Svelte checks
+        run: npm run check
+      - name: Run ESLint
+        run: npm run lint
+      - name: Check formatting
+        run: npm run format:check
+      - name: Build frontend
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run mocked browser tests
+        run: npm run test:browser
+
+  homebox-live:
+    name: Homebox live checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      HBC_LLM_API_KEY: ci-sentinel-no-network
+      HBC_LLM_MODEL: gpt-5-mini
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Run disposable Homebox tests
+        run: >-
+          uv run --no-sync pytest -m live
+          tests/test_homebox_client.py
+          tests/test_homebox_auth_live.py
+          tests/test_homebox_upstream_live.py
+          tests/test_companion_auth_live.py
+          tests/test_label_print_live.py
+          tests/test_mcp_tools.py

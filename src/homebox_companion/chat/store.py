@@ -32,7 +32,10 @@ class SessionStoreProtocol(Protocol):
     """Protocol for session storage backends.
 
     Implementations must provide thread-safe session management.
-    The token is hashed internally to avoid storing sensitive data.
+    The memory implementation hashes the supplied conversation scope. The
+    ``token`` parameter name is retained for library compatibility; the server
+    passes a scope covering deployment, auth mode, user, collection, and browser
+    chat context, rather than an authentication credential.
 
     Example implementation:
         class RedisSessionStore:
@@ -42,13 +45,13 @@ class SessionStoreProtocol(Protocol):
     """
 
     def get(self, token: str) -> ChatSession:
-        """Get or create a session for the given token.
+        """Get or create a session for the given conversation scope.
 
         Args:
-            token: The user's auth token (will be hashed internally)
+            token: Conversation scope (legacy parameter name).
 
         Returns:
-            The ChatSession for this user
+            The ChatSession for this conversation scope
         """
         ...
 
@@ -56,7 +59,7 @@ class SessionStoreProtocol(Protocol):
         """Delete a session.
 
         Args:
-            token: The user's auth token
+            token: Conversation scope (legacy parameter name).
 
         Returns:
             True if session existed and was deleted
@@ -77,7 +80,7 @@ class MemorySessionStore:
 
     This is the default implementation suitable for single-worker
     deployments. Sessions are stored in a dictionary keyed by
-    a hash of the user's auth token.
+    a hash of the caller-supplied conversation scope.
 
     Sessions automatically expire after a configurable TTL (default 24 hours)
     to prevent memory leaks from abandoned sessions.
@@ -92,8 +95,8 @@ class MemorySessionStore:
 
     Example:
         >>> store = MemorySessionStore()
-        >>> session = store.get("user-token")
-        >>> store.delete("user-token")
+        >>> session = store.get("conversation-scope")
+        >>> store.delete("conversation-scope")
     """
 
     def __init__(self, session_ttl: int | None = None) -> None:
@@ -113,10 +116,10 @@ class MemorySessionStore:
         self._lock = threading.Lock()
 
     def _get_session_key(self, token: str) -> str:
-        """Generate a deterministic session key from a token.
+        """Generate a deterministic session key from a conversation scope.
 
         Args:
-            token: The user's auth token
+            token: Conversation scope (legacy parameter name).
 
         Returns:
             A hashed session key (first 16 chars of SHA-256)
@@ -146,13 +149,13 @@ class MemorySessionStore:
             logger.info(f"Cleaned up {len(expired_keys)} expired sessions")
 
     def get(self, token: str) -> ChatSession:
-        """Get or create a session for the given token.
+        """Get or create a session for the given conversation scope.
 
         Args:
-            token: The user's auth token
+            token: Conversation scope (legacy parameter name).
 
         Returns:
-            The ChatSession for this user
+            The ChatSession for this conversation scope
         """
         # Import here to avoid circular imports at module load
         from .session import ChatSession
@@ -186,7 +189,7 @@ class MemorySessionStore:
         """Delete a session.
 
         Args:
-            token: The user's auth token
+            token: Conversation scope (legacy parameter name).
 
         Returns:
             True if session existed and was deleted

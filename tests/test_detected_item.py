@@ -53,6 +53,7 @@ class TestHasExtendedFields:
         [
             ({}, False),  # Basic item without extended fields
             ({"manufacturer": "Bosch"}, True),  # With manufacturer
+            ({"purchase_price": 0.0}, True),  # Zero is a valid explicit price
             ({"purchase_price": 50.0}, True),  # With positive price
             ({"notes": "Damaged"}, True),  # With notes
             ({"model_number": "ABC123"}, True),  # With model number
@@ -90,10 +91,17 @@ class TestPydanticValidation:
         with pytest.raises(ValueError):
             DetectedItem(name="Item", quantity=0)
 
-    def test_rejects_zero_price(self) -> None:
-        """Zero price should be rejected (must be > 0)."""
+    def test_accepts_zero_price(self) -> None:
+        """Zero is a valid price and remains in the update payload."""
+        item = DetectedItem(name="Item", quantity=1, purchase_price=0)
+
+        assert item.purchase_price == 0
+        assert item.get_extended_fields_payload() == {"purchasePrice": 0}
+
+    def test_rejects_negative_price(self) -> None:
+        """Negative prices are invalid."""
         with pytest.raises(ValueError):
-            DetectedItem(name="Item", quantity=1, purchase_price=0)  # ty: ignore[unknown-argument]
+            DetectedItem(name="Item", quantity=1, purchase_price=-0.01)
 
     def test_accepts_valid_item(self) -> None:
         """Valid item should be accepted."""

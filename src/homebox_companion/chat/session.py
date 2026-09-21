@@ -73,6 +73,8 @@ class PendingApproval(BaseModel):
     parameters: dict[str, Any]
     tool_call_id: str | None = None  # Links to the tool message in history
     display_info: DisplayInfo = Field(default_factory=DisplayInfo)
+    identity_scope: str | None = Field(default=None, exclude=True)
+    group_id: str | None = Field(default=None, exclude=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime = Field(default_factory=_compute_default_expiry)
 
@@ -106,7 +108,8 @@ class ChatSession:
     """Manages conversation state for a user session.
 
     This class tracks message history and pending approvals for a single
-    conversation session. Sessions are identified by the user's auth token.
+    conversation session. The server resolves its storage scope from the
+    deployment, auth mode, verified user, collection, and browser chat context.
 
     Attributes:
         session_id: Unique identifier for this session instance (for frontend sync)

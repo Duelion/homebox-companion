@@ -788,6 +788,8 @@ class ChatOrchestrator:
             parameters=normalized_args,
             tool_call_id=tool_call_id,  # Store for efficient lookup later
             display_info=display_info,
+            identity_scope=self._executor.identity_scope,
+            group_id=self._executor.group_id,
         )
         self._session.add_pending_approval(approval)
 

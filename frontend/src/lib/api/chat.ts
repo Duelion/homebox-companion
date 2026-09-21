@@ -7,8 +7,10 @@
 
 import { authStore } from '../stores/auth.svelte';
 import { abortSignalAny } from '../utils/abortSignal';
-import { ApiError, request } from './client';
+import { ApiError, request, promoteConfiguredKeyFailure } from './client';
 import { chatLogger as log } from '../utils/logger';
+import { buildApiHeaders } from './client';
+import { chatContextHeader } from '../services/chatContext';
 
 const BASE_URL = '/api';
 
@@ -65,7 +67,7 @@ export interface ChatApprovalEvent {
 
 export interface ChatErrorEvent {
 	type: 'error';
-	data: { message: string };
+	data: { message: string; code?: string };
 }
 
 export interface ChatUsageEvent {
@@ -166,12 +168,11 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 		);
 
 		try {
-			const headers: Record<string, string> = {
+			const headers = buildApiHeaders({
 				'Content-Type': 'application/json',
-			};
-			if (authStore.token) {
-				headers['Authorization'] = `Bearer ${authStore.token}`;
-			}
+				'X-Companion-Request': '1',
+				...chatContextHeader(),
+			});
 
 			// Build request body with optional approval context
 			const requestBody: { message: string; approval_context?: ApprovalOutcomeContext[] } = {
@@ -192,15 +193,12 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 			// TRACE: Log response received
 			log.trace(`SSE stream started after ${(performance.now() - startTime).toFixed(0)}ms`);
 
-			// Handle 401 - trigger session expired modal
-			if (response.status === 401) {
-				log.warn('Chat request received 401 - marking session as expired');
-				authStore.markSessionExpired();
-				throw new ApiError(401, 'Session expired. Please re-authenticate.');
-			}
-
 			if (!response.ok) {
-				throw new ApiError(response.status, `Chat request failed: ${response.statusText}`);
+				const data = await response.json().catch(() => null);
+				const message = typeof data?.detail === 'string' ? data.detail : 'Chat request failed';
+				if (response.status === 401 && authStore.isLegacy) authStore.markSessionExpired();
+				promoteConfiguredKeyFailure(response.status, data, message);
+				throw new ApiError(response.status, message, data);
 			}
 
 			if (!response.body) {
@@ -252,18 +250,25 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 							}
 
 							// Check for auth-related error events from the backend
-							if (currentEvent === 'error' && data.message) {
-								const errorMsg = String(data.message).toLowerCase();
-								if (
-									errorMsg.includes('authorization') ||
-									errorMsg.includes('authenticate') ||
-									errorMsg.includes('token') ||
-									errorMsg.includes('unauthorized') ||
-									errorMsg.includes('401')
-								) {
-									log.warn('Chat SSE received auth error - marking session as expired');
-									authStore.markSessionExpired();
-								}
+							if (currentEvent === 'error') {
+								const authFailure = ['AUTH_FAILED', 'LEGACY_SESSION_EXPIRED'].includes(data.code);
+								if (authFailure && authStore.isLegacy) authStore.markSessionExpired();
+								const status = authFailure
+									? 401
+									: ['HOMEBOX_UNAVAILABLE', 'HOMEBOX_TIMEOUT'].includes(data.code)
+										? 503
+										: [
+													'HOMEBOX_API_KEY_REJECTED',
+													'HOMEBOX_API_KEY_INVALID_CONFIG',
+													'HOMEBOX_ERROR',
+											  ].includes(data.code)
+											? 502
+											: 0;
+								promoteConfiguredKeyFailure(
+									status,
+									{ ...data, detail: data.message },
+									'Homebox connection failed'
+								);
 							}
 
 							options.onEvent?.(event);
@@ -305,7 +310,9 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
  */
 export async function getPendingApprovals(): Promise<PendingApproval[]> {
 	log.debug('Fetching pending approvals');
-	const data = await request<{ approvals: PendingApproval[] }>('/chat/pending');
+	const data = await request<{ approvals: PendingApproval[] }>('/chat/pending', {
+		headers: chatContextHeader(),
+	});
 	log.debug(`Received ${data.approvals.length} pending approvals`);
 	return data.approvals;
 }
@@ -325,6 +332,7 @@ export async function approveAction(
 		`/chat/approve/${approvalId}`,
 		{
 			method: 'POST',
+			headers: chatContextHeader(),
 			body: modifiedParams ? JSON.stringify({ parameters: modifiedParams }) : undefined,
 		}
 	);
@@ -339,6 +347,7 @@ export async function rejectAction(
 	log.info(`Rejecting action: ${approvalId}`);
 	return request<{ success: boolean; message?: string }>(`/chat/reject/${approvalId}`, {
 		method: 'POST',
+		headers: chatContextHeader(),
 	});
 }
 
@@ -349,6 +358,7 @@ export async function clearHistory(): Promise<void> {
 	log.info('Clearing chat history');
 	await request<void>('/chat/history', {
 		method: 'DELETE',
+		headers: chatContextHeader(),
 	});
 	log.success('Chat history cleared');
 }
@@ -358,7 +368,7 @@ export async function clearHistory(): Promise<void> {
  */
 export async function getChatHealth(): Promise<ChatHealthResponse> {
 	log.debug('Checking chat health');
-	return request<ChatHealthResponse>('/chat/health');
+	return request<ChatHealthResponse>('/chat/health', { headers: chatContextHeader() });
 }
 
 /**
@@ -369,7 +379,7 @@ export async function getChatHealth(): Promise<ChatHealthResponse> {
  */
 export async function getStatus(): Promise<ChatStatusResponse> {
 	log.debug('Fetching session status');
-	return request<ChatStatusResponse>('/chat/status');
+	return request<ChatStatusResponse>('/chat/status', { headers: chatContextHeader() });
 }
 
 // =============================================================================

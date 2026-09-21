@@ -11,7 +11,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getInitPromise } from '$lib/services/bootstrap';
 	import { settingsService } from '$lib/workflows/settings.svelte';
 
 	import AccountSection from '$lib/components/settings/AccountSection.svelte';

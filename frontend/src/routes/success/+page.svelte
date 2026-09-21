@@ -6,7 +6,7 @@
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getInitPromise } from '$lib/services/bootstrap';
 	import Button from '$lib/components/Button.svelte';
 	import CreatedItemsModal from '$lib/components/CreatedItemsModal.svelte';
 
@@ -14,6 +14,10 @@
 
 	// Get submission result
 	const result = $derived(workflow.submissionResult);
+	const hasIncompleteItems = $derived(
+		Object.values(workflow.state.itemStatuses).some((status) => status === 'partial_success')
+	);
+	const submissionErrors = $derived(workflow.state.submissionErrors);
 
 	// Animation state - stop ping after a few cycles
 	let showPing = $state(true);
@@ -79,7 +83,28 @@
 	</div>
 
 	<!-- Heading -->
-	<h2 class="mb-3 text-h1 text-neutral-100">Success!</h2>
+	<h2 class="mb-3 text-h1 text-neutral-100">
+		{hasIncompleteItems ? 'Items need attention' : 'Success!'}
+	</h2>
+
+	{#if hasIncompleteItems}
+		<div
+			class="mb-6 w-full max-w-sm rounded-xl border border-warning-500/30 bg-warning-500/10 p-4 text-left text-body-sm text-warning-300"
+			role="status"
+		>
+			<p>
+				Some items were created with incomplete details or attachments. Review and finish them in
+				Homebox; they will not be created again by Retry Failed Items.
+			</p>
+			{#if submissionErrors.length > 0}
+				<ul class="mt-2 list-inside list-disc space-y-2">
+					{#each submissionErrors as error, index (index)}
+						<li>{error}</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Specific feedback with count and location -->
 	{#if result}
@@ -98,14 +123,16 @@
 						Item{result.itemCount !== 1 ? 's' : ''}
 					</div>
 				</div>
-				<div>
-					<div class="text-2xl font-bold text-primary-400">
-						{result.photoCount}
+				{#if !hasIncompleteItems}
+					<div>
+						<div class="text-2xl font-bold text-primary-400">
+							{result.photoCount}
+						</div>
+						<div class="text-caption text-neutral-500">
+							Photo{result.photoCount !== 1 ? 's' : ''}
+						</div>
 					</div>
-					<div class="text-caption text-neutral-500">
-						Photo{result.photoCount !== 1 ? 's' : ''}
-					</div>
-				</div>
+				{/if}
 			</div>
 		</div>
 	{:else}

@@ -23,6 +23,7 @@ Environment Variables:
     HBC_LOG_LEVEL: Logging level (default: INFO)
     HBC_DISABLE_UPDATE_CHECK: Set to true to disable GitHub update checks (default: false)
     HBC_MAX_UPLOAD_SIZE_MB: Maximum file upload size in MB (default: 20)
+    HBC_MAX_REQUEST_SIZE_MB: Maximum total streamed request body in MB (default: 100)
     HBC_CORS_ORIGINS: Allowed CORS origins, comma-separated or "*" for all (default: "*")
     HBC_IMAGE_QUALITY: Image quality for Homebox uploads (default: medium).
         Options: raw (original), high (2560px, 85%), medium (1920px, 75%), low (1280px, 60%)
@@ -41,7 +42,7 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import computed_field
+from pydantic import Field, SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Demo server for testing - users should replace with their own instance
@@ -80,6 +81,7 @@ class Settings(BaseSettings):
 
     # Homebox configuration - user provides base URL, we append /api/v1
     homebox_url: str = DEMO_HOMEBOX_URL
+    homebox_api_key: SecretStr | None = None
     # Optional public-facing URL for links (defaults to homebox_url)
     link_base_url: str = ""
 
@@ -106,7 +108,8 @@ class Settings(BaseSettings):
     github_repo: str = "Duelion/homebox-companion"
 
     # Security configuration
-    max_upload_size_mb: int = 20  # Maximum file upload size in MB
+    max_upload_size_mb: int = Field(default=20, gt=0)  # Maximum individual file size in MB
+    max_request_size_mb: int = Field(default=100, gt=0)  # Aggregate body, including multipart overhead
     cors_origins: str = "*"  # Comma-separated origins or "*" for all
 
     # Image processing configuration
@@ -145,6 +148,24 @@ class Settings(BaseSettings):
 
     # Label printing configuration
     print_enabled: bool = False  # Enable server-side label printing via Homebox labelmaker
+
+    @field_validator("homebox_api_key", mode="before")
+    @classmethod
+    def normalize_homebox_api_key(cls, value: object) -> object:
+        """Trim configured keys and treat blank legacy values as absent."""
+        if value is None:
+            return None
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else str(value)
+        raw = raw.strip()
+        if not raw:
+            return None
+        return raw
+
+    @computed_field
+    @property
+    def auth_mode(self) -> str:
+        """Authentication mode selected once from resolved settings."""
+        return "api_key" if self.homebox_api_key is not None else "legacy"
 
     @computed_field
     @property
@@ -204,6 +225,15 @@ class Settings(BaseSettings):
         if self.cors_origins == "*":
             return ["*"]
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @computed_field
+    @property
+    def browser_origins_list(self) -> list[str]:
+        """Effective cross-origin browser policy for the selected auth mode."""
+        origins = self.cors_origins_list
+        if self.auth_mode == "api_key":
+            return [origin for origin in origins if origin != "*"]
+        return origins
 
     @computed_field
     @property

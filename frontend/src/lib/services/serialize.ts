@@ -4,10 +4,10 @@
  * Handles conversion between runtime types (with File objects and Object URLs)
  * and storable types (with base64 data URLs only).
  *
- * Why this is needed:
- * - File objects cannot be stored in IndexedDB directly
+ * Persistence format:
+ * - This format represents images as base64 data URLs rather than File objects
  * - Object URLs (blob:...) are session-scoped and become invalid after page reload
- * - We need base64 data URLs for persistence which survive reloads
+ * - Base64 data URLs preserve image bytes across reloads
  */
 
 import type {
@@ -19,6 +19,7 @@ import type {
 	ItemCore,
 	ItemExtended,
 	ImageAnalysisStatus,
+	ItemSubmissionStatus,
 	DuplicateMatch,
 } from '$lib/types';
 
@@ -88,6 +89,12 @@ export interface StoredSession {
 
 	// Analysis state (for partial_analysis recovery)
 	imageStatuses?: Record<number, ImageAnalysisStatus>;
+	// Optional for compatibility with drafts saved before submission recovery.
+	submission?: {
+		itemStatuses: Record<number, ItemSubmissionStatus>;
+		createdItemIds: Record<number, string>;
+		lastErrors: string[];
+	};
 }
 
 // =============================================================================

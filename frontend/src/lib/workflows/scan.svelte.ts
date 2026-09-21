@@ -96,6 +96,10 @@ class ScanWorkflow {
 
 	/** Flag to skip the initial effect run (avoids persist on construction) */
 	private _isFirstEffectRun = true;
+	private contextGeneration = 0;
+
+	/** Confirmed-item index currently being edited after a failed submission. */
+	private failedItemEditIndex = $state<number | null>(null);
 
 	// =========================================================================
 	// CONSTRUCTOR (auto-persist setup)
@@ -129,6 +133,7 @@ class ScanWorkflow {
 				const confirmedItems = this.reviewService.confirmedItems;
 				const currentReviewIndex = this.reviewService.currentReviewIndex;
 				const imageStatuses = this.analysisService.imageStatuses;
+				const isEditingFailedItem = this.failedItemEditIndex !== null;
 
 				// DEPENDENCY TRACKING:
 				// Svelte 5's $effect tracks reads automatically. The void statements below
@@ -147,6 +152,7 @@ class ScanWorkflow {
 				void parentItemName;
 				void parentItemId;
 				void currentReviewIndex;
+				void isEditingFailedItem;
 
 				// Skip the very first effect run (avoids persisting on construction)
 				if (this._isFirstEffectRun) {
@@ -156,6 +162,7 @@ class ScanWorkflow {
 
 				// Don't persist terminal/transient states
 				if (
+					isEditingFailedItem ||
 					status === 'idle' ||
 					status === 'complete' ||
 					status === 'analyzing' ||
@@ -196,6 +203,8 @@ class ScanWorkflow {
 	 * (e.g., after analysis completes, before navigation).
 	 */
 	private flushPendingPersist(): void {
+		if (this.failedItemEditIndex !== null) return;
+
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);
 			this._persistTimeout = null;
@@ -753,6 +762,16 @@ class ScanWorkflow {
 
 	/** Confirm current item and move to next */
 	async confirmItem(item: ReviewItem): Promise<void> {
+		if (this.failedItemEditIndex !== null) {
+			const editIndex = this.failedItemEditIndex;
+			if (this.reviewService.replaceConfirmedItem(editIndex, item)) {
+				this.failedItemEditIndex = null;
+				this._status = 'confirming';
+				await this.persistAsync();
+			}
+			return;
+		}
+
 		const hasMore = this.reviewService.confirmCurrentItem(item);
 		if (!hasMore) {
 			await this.finishReview();
@@ -814,6 +833,38 @@ class ScanWorkflow {
 		}
 	}
 
+	/** Open one failed submission in the existing item editor without changing list indexes. */
+	async editFailedItem(index: number): Promise<void> {
+		if (this.submissionService.itemStatuses[index] !== 'failed') return;
+
+		const item = this.reviewService.stageConfirmedItemForEdit(index);
+		if (!item) return;
+
+		// The focused edit is ephemeral. Keep the last persisted summary as the
+		// reload recovery point and prevent an already scheduled autosave from
+		// writing the staged review state.
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+		}
+		this.failedItemEditIndex = index;
+		this._status = 'reviewing';
+	}
+
+	/** Cancel a failed-item edit and return to the unchanged submission summary. */
+	async cancelFailedItemEdit(): Promise<void> {
+		if (this.failedItemEditIndex === null) return;
+
+		this.failedItemEditIndex = null;
+		this._status = 'confirming';
+		await this.persistAsync();
+	}
+
+	/** Whether review is currently editing an item that failed submission. */
+	get isEditingFailedItem(): boolean {
+		return this.failedItemEditIndex !== null;
+	}
+
 	// =========================================================================
 	// SUBMISSION (delegated to SubmissionService)
 	// =========================================================================
@@ -830,6 +881,10 @@ class ScanWorkflow {
 		failCount: number;
 		sessionExpired: boolean;
 	}> {
+		const generation = this.contextGeneration;
+		if (!sessionPersistence.captureSessionScope()) {
+			throw new Error('Cannot submit without a verified Homebox context and collection');
+		}
 		const items = this.reviewService.confirmedItems;
 
 		if (items.length === 0) {
@@ -852,8 +907,10 @@ class ScanWorkflow {
 			this._parentItemId,
 			options
 		);
+		if (generation !== this.contextGeneration) return result;
 
 		if (result.sessionExpired) {
+			await this.persistAsync();
 			return result;
 		}
 
@@ -865,7 +922,7 @@ class ScanWorkflow {
 			this._error = `Created ${result.successCount + result.partialSuccessCount} items, ${result.failCount} failed`;
 			// Keep status as 'submitting' to show per-item status UI
 		} else if (result.partialSuccessCount > 0) {
-			this._error = `${result.partialSuccessCount} item(s) created with missing attachments`;
+			this._error = `${result.partialSuccessCount} item(s) created with incomplete details or attachments`;
 			this.submissionService.saveResult(items, this._locationName, this._locationId);
 			this._status = 'complete';
 			await this.clearPersistedSession();
@@ -875,6 +932,7 @@ class ScanWorkflow {
 			await this.clearPersistedSession();
 		}
 
+		if (this._status !== 'complete') await this.persistAsync();
 		return result;
 	}
 
@@ -889,6 +947,10 @@ class ScanWorkflow {
 		failCount: number;
 		sessionExpired: boolean;
 	}> {
+		const generation = this.contextGeneration;
+		if (!sessionPersistence.captureSessionScope()) {
+			throw new Error('Cannot submit without a verified Homebox context and collection');
+		}
 		const items = this.reviewService.confirmedItems;
 
 		if (!this.submissionService.hasFailedItems()) {
@@ -908,8 +970,10 @@ class ScanWorkflow {
 			this._locationId,
 			this._parentItemId
 		);
+		if (generation !== this.contextGeneration) return result;
 
 		if (result.sessionExpired) {
+			await this.persistAsync();
 			return result;
 		}
 
@@ -922,6 +986,7 @@ class ScanWorkflow {
 			this._error = `Retried: ${result.successCount + result.partialSuccessCount} succeeded, ${result.failCount} still failing`;
 		}
 
+		if (this._status !== 'complete') await this.persistAsync();
 		return result;
 	}
 
@@ -959,6 +1024,9 @@ class ScanWorkflow {
 	 */
 	private async _doPersist(): Promise<void> {
 		log.debug('_doPersist: Starting session persistence...');
+		const scope = sessionPersistence.captureSessionScope();
+		const generation = this.contextGeneration;
+		if (!scope) return;
 
 		try {
 			// Step 1: Serialize images (convert File objects to base64)
@@ -1013,11 +1081,16 @@ class ScanWorkflow {
 				confirmedItems,
 				currentReviewIndex: this.reviewService.currentReviewIndex,
 				imageStatuses,
+				submission: this.submissionService.snapshot(),
 			};
 			log.debug('_doPersist: Session object built, saving to IndexedDB...');
 
 			// Step 6: Save to IndexedDB
-			await sessionPersistence.save(session);
+			if (generation !== this.contextGeneration) {
+				log.debug('_doPersist: Context changed during serialization, discarding stale write');
+				return;
+			}
+			await sessionPersistence.save(session, scope);
 			log.debug(
 				`_doPersist: SUCCESS - status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`
 			);
@@ -1039,11 +1112,15 @@ class ScanWorkflow {
 	 * Returns true if recovery was successful.
 	 */
 	async recover(): Promise<boolean> {
+		const scope = sessionPersistence.captureSessionScope();
+		const generation = this.contextGeneration;
+		if (!scope) return false;
 		try {
-			const session = await sessionPersistence.load();
+			const session = await sessionPersistence.load(scope);
 			if (!session) {
 				return false;
 			}
+			if (generation !== this.contextGeneration) return false;
 
 			log.info(`Recovering session: status=${session.status}, images=${session.images.length}`);
 
@@ -1056,11 +1133,13 @@ class ScanWorkflow {
 
 			// Deserialize images (convert base64 back to File objects)
 			const images = await Promise.all(session.images.map(deserializeImage));
+			if (generation !== this.contextGeneration) return false;
 			this.captureService.images = images;
 
 			// Deserialize review items
 			if (session.detectedItems.length > 0) {
 				const detectedItems = await Promise.all(session.detectedItems.map(deserializeReviewItem));
+				if (generation !== this.contextGeneration) return false;
 				this.reviewService.setDetectedItems(detectedItems);
 			}
 
@@ -1068,6 +1147,7 @@ class ScanWorkflow {
 				const confirmedItems = await Promise.all(
 					session.confirmedItems.map(deserializeConfirmedItem)
 				);
+				if (generation !== this.contextGeneration) return false;
 				// Restore confirmed items directly (not via confirmCurrentItem which affects navigation)
 				this.reviewService.setConfirmedItems(confirmedItems);
 			}
@@ -1083,9 +1163,14 @@ class ScanWorkflow {
 			}
 
 			// Restore status - handle mid-analysis state
+			if (session.submission) this.submissionService.restore(session.submission);
+
 			if (session.status === 'analyzing') {
 				// If crashed during analysis, go back to capturing
 				this._status = 'capturing';
+			} else if (session.status === 'submitting') {
+				// No request is running after recovery. Show the saved row outcomes.
+				this._status = 'confirming';
 			} else {
 				this._status = session.status;
 			}
@@ -1127,7 +1212,8 @@ class ScanWorkflow {
 	 * Clear the persisted session from IndexedDB.
 	 */
 	async clearPersistedSession(): Promise<void> {
-		await sessionPersistence.clear();
+		const scope = sessionPersistence.captureSessionScope();
+		if (scope) await sessionPersistence.clear(scope);
 	}
 
 	// =========================================================================
@@ -1135,7 +1221,9 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/** Reset workflow to initial state */
-	reset(): void {
+	reset(clearPersisted = true): void {
+		const scope = sessionPersistence.captureSessionScope();
+		this.contextGeneration++;
 		// Cancel any pending debounced persist to prevent stale writes after reset
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);
@@ -1145,6 +1233,7 @@ class ScanWorkflow {
 		this.captureService.clear();
 		this.reviewService.reset();
 		this.submissionService.reset();
+		this.failedItemEditIndex = null;
 		this._status = 'idle';
 		this._locationId = null;
 		this._locationName = null;
@@ -1154,8 +1243,12 @@ class ScanWorkflow {
 		this._error = null;
 		this._persistedCreatedAt = null; // Reset for next session
 		this._persistedSessionId = null; // Reset for next session
-		// Clear persisted session (fire and forget)
-		this.clearPersistedSession();
+		if (clearPersisted && scope) void sessionPersistence.clear(scope);
+	}
+
+	/** Drop in-memory work when changing collection while preserving the old scoped draft. */
+	switchContext(): void {
+		this.reset(false);
 	}
 
 	/** Start a new scan (keeps location and parent item if set) */

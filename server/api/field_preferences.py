@@ -49,7 +49,9 @@ async def update_field_preferences(
 
     # Log which fields differ from defaults
     defaults = get_defaults()
-    customized_fields = [field for field in prefs.model_fields if getattr(prefs, field) != getattr(defaults, field)]
+    customized_fields = [
+        field for field in FieldPreferences.model_fields if getattr(prefs, field) != getattr(defaults, field)
+    ]
 
     logger.info(f"Field preferences saved: {len(customized_fields)} fields customized")
     if customized_fields:

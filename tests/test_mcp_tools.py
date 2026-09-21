@@ -9,13 +9,16 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import HomeboxAuth
 
+from homebox_companion import HomeboxClient, ItemCreate
 from homebox_companion.mcp.tools import (
     GetItemTool,
     GetLocationTool,
     ListItemsTool,
     ListLocationsTool,
     ListTagsTool,
+    UpdateItemTool,
     get_tools,
 )
 from homebox_companion.mcp.types import ToolPermission, ToolResult
@@ -35,6 +38,7 @@ def mock_client() -> MagicMock:
     client.list_tags = AsyncMock()
     client.list_items = AsyncMock()
     client.get_item = AsyncMock()
+    client.update_item = AsyncMock()
     return client
 
 
@@ -361,6 +365,59 @@ class TestListItems:
 
 
 # =============================================================================
+# update_item Tests
+# =============================================================================
+
+
+class TestUpdateItem:
+    """Parent selection keeps the documented compatibility precedence."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("params", "expected_parent"),
+        [
+            ({"location_id": "location-new"}, "location-new"),
+            ({"parent_id": "parent-new"}, "parent-new"),
+            ({"clear_parent": True}, None),
+            ({}, "parent-current"),
+            ({"location_id": "location-new", "parent_id": "parent-new"}, "parent-new"),
+            (
+                {"location_id": "location-new", "parent_id": "parent-new", "clear_parent": True},
+                None,
+            ),
+        ],
+    )
+    async def test_resolves_parent_once_with_documented_precedence(
+        self, mock_client: MagicMock, params: dict[str, object], expected_parent: str | None
+    ) -> None:
+        mock_client.get_item.return_value = {
+            "id": "item-1",
+            "name": "Existing item",
+            "parent": {"id": "parent-current"},
+        }
+        mock_client.update_item.return_value = {"id": "item-1", "name": "Existing item"}
+
+        tool = UpdateItemTool()
+        result = await tool.execute(mock_client, "test-token", tool.Params(item_id="item-1", **params))
+
+        assert result.success is True
+        payload = mock_client.update_item.await_args.args[2]
+        assert payload["parentId"] == expected_parent
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("parent_fields", [{"parent": None}, {}])
+    async def test_preserves_unparented_item(self, mock_client: MagicMock, parent_fields: dict) -> None:
+        mock_client.get_item.return_value = {"id": "item-1", "name": "Existing item", **parent_fields}
+        mock_client.update_item.return_value = {"id": "item-1", "name": "Existing item"}
+
+        tool = UpdateItemTool()
+        result = await tool.execute(mock_client, "test-token", tool.Params(item_id="item-1"))
+
+        assert result.success is True
+        assert mock_client.update_item.await_args.args[2]["parentId"] is None
+
+
+# =============================================================================
 # get_item Tests
 # =============================================================================
 
@@ -422,37 +479,57 @@ class TestMCPToolsLive:
     """Live integration tests for MCP tools against Docker Homebox container."""
 
     @pytest.mark.asyncio
-    async def test_list_locations_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
+    async def test_list_locations_live(
+        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
+    ) -> None:
         """List locations should return data from demo server."""
-        from homebox_companion import HomeboxClient
+        tool = ListLocationsTool()
+        params = tool.Params()
+        result = await tool.execute(homebox_client, homebox_auth.token, params)
 
-        username, password = homebox_credentials
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
-
-            tool = ListLocationsTool()
-            params = tool.Params()
-            result = await tool.execute(client, token, params)
-
-            assert result.success is True
-            assert isinstance(result.data, list)
-            # Demo server should have at least some locations
-            assert len(result.data) > 0
+        assert result.success is True
+        assert isinstance(result.data, list)
+        # Demo server should have at least some locations
+        assert len(result.data) > 0
 
     @pytest.mark.asyncio
-    async def test_list_tags_live(self, homebox_api_url: str, homebox_credentials: tuple[str, str]):
+    async def test_list_tags_live(
+        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
+    ) -> None:
         """List tags should return data from demo server."""
-        from homebox_companion import HomeboxClient
+        tool = ListTagsTool()
+        params = tool.Params()
+        result = await tool.execute(homebox_client, homebox_auth.token, params)
 
-        username, password = homebox_credentials
-        async with HomeboxClient(base_url=homebox_api_url) as client:
-            response = await client.login(username, password)
-            token = response["token"]
+        assert result.success is True
+        assert isinstance(result.data, list)
 
-            tool = ListTagsTool()
-            params = tool.Params()
-            result = await tool.execute(client, token, params)
+    @pytest.mark.asyncio
+    async def test_update_item_location_persists_after_fresh_upstream_read(
+        self,
+        homebox_client: HomeboxClient,
+        homebox_auth: HomeboxAuth,
+        cleanup_items: list[str],
+        cleanup_locations: list[str],
+    ) -> None:
+        """A location-only MCP update must not be overwritten by the old parent."""
+        token = homebox_auth.token
+        original_location = await homebox_client.create_location(token, "MCP original location")
+        target_location = await homebox_client.create_location(token, "MCP target location")
+        cleanup_locations.extend([original_location["id"], target_location["id"]])
+        item = await homebox_client.create_item(
+            token,
+            ItemCreate(name="MCP movable item", quantity=1, parent_id=original_location["id"]),
+        )
+        cleanup_items.append(item["id"])
 
-            assert result.success is True
-            assert isinstance(result.data, list)
+        tool = UpdateItemTool()
+        result = await tool.execute(
+            homebox_client,
+            token,
+            tool.Params(item_id=item["id"], location_id=target_location["id"]),
+        )
+
+        assert result.success is True
+        fresh = await homebox_client.get_item(token, item["id"])
+        assert fresh["parent"]["id"] == target_location["id"]

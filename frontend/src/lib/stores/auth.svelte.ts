@@ -24,25 +24,25 @@ const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 // INITIAL STATE FROM STORAGE
 // =============================================================================
 
-const storedToken = browser ? localStorage.getItem(TOKEN_KEY) : null;
-const storedExpires = browser ? localStorage.getItem(EXPIRES_KEY) : null;
-const storedEmail = browser ? localStorage.getItem(EMAIL_KEY) : null;
+export type AuthMode = 'legacy' | 'api_key';
+export type AuthPhase =
+	| 'initializing'
+	| 'signed_out'
+	| 'connecting'
+	| 'ready'
+	| 'session_expired'
+	| 'connection_error';
 
-// Diagnostic: log what we found in localStorage on module load
-if (browser) {
-	log.debug(
-		`[AUTH INIT] localStorage state: token=${storedToken ? `present (${storedToken.length} chars)` : 'MISSING'}, ` +
-			`expires=${storedExpires ?? 'MISSING'}, email=${storedEmail ?? 'MISSING'}`
-	);
-	if (storedExpires) {
-		const expiresDate = new Date(storedExpires);
-		const remainingMs = expiresDate.getTime() - Date.now();
-		log.debug(
-			`[AUTH INIT] Token expires: ${expiresDate.toISOString()}, ` +
-				`remaining: ${Math.round(remainingMs / 1000 / 60)} minutes ` +
-				`(${remainingMs > 0 ? 'VALID' : 'EXPIRED'})`
-		);
-	}
+export interface HomeboxConnection {
+	connected: true;
+	context_id: string;
+	user_id: string;
+	default_group_id: string | null;
+}
+
+interface VerifiedScope {
+	contextId: string;
+	groupId: string | null;
 }
 
 // =============================================================================
@@ -55,13 +55,19 @@ class AuthStore {
 	// =========================================================================
 
 	/** Auth token */
-	private _token = $state<string | null>(storedToken);
+	private _token = $state<string | null>(null);
 
 	/** Token expiration date */
-	private _expiresAt = $state<Date | null>(storedExpires ? new Date(storedExpires) : null);
+	private _expiresAt = $state<Date | null>(null);
 
 	/** User email address */
-	private _email = $state<string | null>(storedEmail);
+	private _email = $state<string | null>(null);
+	private _mode = $state<AuthMode | null>(null);
+	private _phase = $state<AuthPhase>('initializing');
+	private _connection = $state<HomeboxConnection | null>(null);
+	private _connectionError = $state<string | null>(null);
+	/** Last ready scope survives connection failures so reconnects can reconcile in-memory work. */
+	private _verifiedScope: VerifiedScope | null = null;
 
 	/** Whether initial auth check has completed */
 	private _initialized = $state(false);
@@ -69,8 +75,8 @@ class AuthStore {
 	/** Whether the session has expired (shows re-auth modal) */
 	private _sessionExpired = $state(false);
 
-	/** Whether user is authenticated - derived from token presence */
-	private _isAuthenticated = $derived.by(() => !!this._token);
+	/** Whether the connection and collection discovery are ready. */
+	private _isAuthenticated = $derived.by(() => this._phase === 'ready');
 
 	// =========================================================================
 	// GETTERS (read-only access to state)
@@ -89,6 +95,27 @@ class AuthStore {
 	/** Get the user email */
 	get email(): string | null {
 		return this._email;
+	}
+	get mode(): AuthMode | null {
+		return this._mode;
+	}
+	get phase(): AuthPhase {
+		return this._phase;
+	}
+	get connection(): HomeboxConnection | null {
+		return this._connection;
+	}
+	get contextId(): string | null {
+		return this._connection?.context_id ?? null;
+	}
+	get verifiedScope(): Readonly<VerifiedScope> | null {
+		return this._verifiedScope;
+	}
+	get connectionError(): string | null {
+		return this._connectionError;
+	}
+	get isLegacy(): boolean {
+		return this._mode === 'legacy';
 	}
 
 	/** Check if user is authenticated (reactive via $derived) */
@@ -113,6 +140,68 @@ class AuthStore {
 	/** Mark auth as initialized */
 	setInitialized(value: boolean): void {
 		this._initialized = value;
+	}
+
+	beginMode(mode: AuthMode): void {
+		this._mode = mode;
+		this._phase = mode === 'api_key' ? 'connecting' : 'initializing';
+		this._connection = null;
+		this._connectionError = null;
+		if (mode === 'api_key') this.clearLegacyStorage();
+	}
+
+	loadLegacyStorage(): void {
+		if (!browser || this._mode !== 'legacy') return;
+		this._token = localStorage.getItem(TOKEN_KEY);
+		const expires = localStorage.getItem(EXPIRES_KEY);
+		this._expiresAt = expires ? new Date(expires) : null;
+		this._email = localStorage.getItem(EMAIL_KEY);
+	}
+
+	setSignedOut(): void {
+		this._phase = 'signed_out';
+		this._connection = null;
+	}
+
+	beginConnection(): void {
+		this._phase = 'connecting';
+		this._connection = null;
+		this._connectionError = null;
+	}
+
+	setConnection(connection: HomeboxConnection, ready = true): void {
+		this._connection = connection;
+		this._connectionError = null;
+		if (ready) this._phase = 'ready';
+	}
+
+	markReady(): void {
+		if (this._connection) this._phase = 'ready';
+	}
+
+	rememberVerifiedScope(groupId: string | null): void {
+		if (this._connection) {
+			this._verifiedScope = { contextId: this._connection.context_id, groupId };
+		}
+	}
+
+	setConnectionError(message: string): void {
+		this._connection = null;
+		this._connectionError = message;
+		this._phase = 'connection_error';
+	}
+
+	private clearLegacyStorage(): void {
+		stopRefreshTimer();
+		this._token = null;
+		this._expiresAt = null;
+		this._email = null;
+		this._sessionExpired = false;
+		if (browser) {
+			localStorage.removeItem(TOKEN_KEY);
+			localStorage.removeItem(EXPIRES_KEY);
+			localStorage.removeItem(EMAIL_KEY);
+		}
 	}
 
 	/** Mark session as expired */
@@ -161,6 +250,7 @@ class AuthStore {
 	 * Mark the session as expired and show re-auth modal
 	 */
 	markSessionExpired(): void {
+		if (this._mode !== 'legacy') return;
 		const expiresAt = this._expiresAt;
 		const remaining = expiresAt ? expiresAt.getTime() - Date.now() : null;
 		log.info(
@@ -170,6 +260,7 @@ class AuthStore {
 				`hasToken=${!!this._token}, caller=${new Error().stack?.split('\n')[2]?.trim() ?? 'unknown'}`
 		);
 		this._sessionExpired = true;
+		this._phase = 'session_expired';
 	}
 
 	/**
@@ -177,6 +268,7 @@ class AuthStore {
 	 * This is the canonical way to update auth state.
 	 */
 	setAuthenticatedState(newToken: string, expiresAt: Date, email?: string): void {
+		if (this._mode !== 'legacy') return;
 		const remainingMs = expiresAt.getTime() - Date.now();
 		log.debug(
 			`[AUTH] setAuthenticatedState: expires=${expiresAt.toISOString()}, ` +
@@ -186,6 +278,7 @@ class AuthStore {
 		this._token = newToken;
 		this._expiresAt = expiresAt;
 		this._sessionExpired = false;
+		this._phase = this._connection ? 'ready' : 'connecting';
 
 		// Only update email if provided (preserves existing email on token refresh)
 		if (email !== undefined) {
@@ -232,6 +325,7 @@ class AuthStore {
 	 * happens asynchronously in the background via cleanupRelatedStores().
 	 */
 	logout(): void {
+		if (this._mode !== 'legacy') return;
 		const expiresAt = this._expiresAt;
 		const remaining = expiresAt ? expiresAt.getTime() - Date.now() : null;
 		log.info(
@@ -246,6 +340,7 @@ class AuthStore {
 		this._expiresAt = null;
 		this._email = null;
 		this._sessionExpired = false;
+		this._phase = 'signed_out';
 
 		// Clear from localStorage
 		if (browser) {

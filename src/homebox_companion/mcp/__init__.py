@@ -11,12 +11,13 @@ Tools are classified as:
 Tools are registered using the @register_tool decorator.
 """
 
-from .executor import ToolExecutor
+from .executor import ToolExecutionContext, ToolExecutor
 from .tools import get_tools, register_tool
 from .types import DisplayInfo, ToolPermission, ToolResult
 
 __all__ = [
     "ToolExecutor",
+    "ToolExecutionContext",
     "get_tools",
     "register_tool",
     "ToolPermission",

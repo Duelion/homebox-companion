@@ -12,7 +12,7 @@
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getInitPromise } from '$lib/services/bootstrap';
 	import { getIsDemoModeExplicit, setDemoMode, getConfig } from '$lib/api/settings';
 	import { createLogger } from '$lib/utils/logger';
 	import { CircleAlert, Ban, MessageSquare, MapPin, Tag, Archive } from 'lucide-svelte';

@@ -4,17 +4,16 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
-from homebox_companion import HomeboxClient
+from homebox_companion import HomeboxGateway
 
-from ..dependencies import get_client, get_token
+from ..dependencies import get_gateway
 
 router = APIRouter()
 
 
 @router.get("/groups")
 async def get_groups(
-    token: Annotated[str, Depends(get_token)],
-    client: Annotated[HomeboxClient, Depends(get_client)],
+    gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> list[dict[str, Any]]:
     """Get all collections the authenticated user belongs to."""
-    return await client.list_groups(token)
+    return await gateway.list_groups()

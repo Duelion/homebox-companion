@@ -10,7 +10,7 @@
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { hasToken } from '$lib/utils/token';
 	import { routeGuards } from '$lib/utils/routeGuard';
-	import { getInitPromise } from '$lib/services/tokenRefresh';
+	import { getInitPromise } from '$lib/services/bootstrap';
 	import { createLogger } from '$lib/utils/logger';
 	import { getConfig } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';

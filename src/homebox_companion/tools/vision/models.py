@@ -40,7 +40,7 @@ class DetectedItem(BaseModel):
     manufacturer: Annotated[str, Field(max_length=255)] | None = None
     model_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="modelNumber")
     serial_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="serialNumber")
-    purchase_price: float | None = Field(default=None, gt=0, alias="purchasePrice")
+    purchase_price: float | None = Field(default=None, ge=0, alias="purchasePrice")
     purchase_from: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="purchaseFrom")
     notes: Annotated[str, Field(max_length=1000)] | None = None
 

@@ -10,6 +10,9 @@ import { chat, type ChatEvent, type ChatStatusResponse, type PendingApproval } f
 import { locationNavigator } from '../services/locationNavigator.svelte';
 import { chatLogger as log } from '../utils/logger';
 import { tagStore } from './tags.svelte';
+import { authStore } from './auth.svelte';
+import { collectionStore } from './collection.svelte';
+import { getChatContextId } from '../services/chatContext';
 
 // =============================================================================
 // TYPES
@@ -125,6 +128,8 @@ class ChatStore {
 
 	/** Backend session ID for synchronization */
 	private _sessionId: string | null = null;
+	private activeScope: string | null = null;
+	private scopeGeneration = 0;
 
 	// =========================================================================
 	// CONSTRUCTOR
@@ -133,13 +138,31 @@ class ChatStore {
 	constructor() {
 		// Load persisted messages from localStorage on initialization
 		// Guard against SSR/test contexts where localStorage is unavailable
-		if (browser) {
-			this.loadFromStorage();
-		}
+		// Storage is loaded only after bootstrap establishes the verified user/group scope.
 	}
 
 	/** localStorage key for persisting chat data */
-	private static readonly STORAGE_KEY = 'hbc-chat-messages';
+	private storageKey(): string | null {
+		if (!browser || !authStore.contextId || !collectionStore.selectedId) return null;
+		return `hbc-chat-messages:${authStore.contextId}:${getChatContextId()}:${collectionStore.selectedId}`;
+	}
+
+	private ensureScope(): void {
+		const scope = this.storageKey();
+		if (!scope || scope === this.activeScope) return;
+		this.abortController?.abort();
+		this.scopeGeneration++;
+		this.activeScope = scope;
+		this._messages = [];
+		this._pendingApprovals = [];
+		this._recentApprovalOutcomes = [];
+		this._sessionId = null;
+		this.hasValidatedSession = false;
+		for (const timeout of this.toolTimeouts.values()) clearTimeout(timeout);
+		this.toolTimeouts.clear();
+		this.pendingTools.clear();
+		this.loadFromStorage();
+	}
 
 	// =========================================================================
 	// PERSISTENCE
@@ -152,7 +175,9 @@ class ChatStore {
 	 */
 	private loadFromStorage(): void {
 		try {
-			const stored = localStorage.getItem(ChatStore.STORAGE_KEY);
+			const key = this.storageKey();
+			if (!key) return;
+			const stored = localStorage.getItem(key);
 			if (!stored) return;
 
 			const parsed = JSON.parse(stored);
@@ -229,7 +254,9 @@ class ChatStore {
 				messages: this._messages,
 			};
 			const serialized = JSON.stringify(data);
-			localStorage.setItem(ChatStore.STORAGE_KEY, serialized);
+			const key = this.storageKey();
+			if (!key) return;
+			localStorage.setItem(key, serialized);
 			log.trace(`Saved ${this._messages.length} messages to storage`);
 		} catch (error) {
 			// Handle quota exceeded or other storage errors gracefully
@@ -242,7 +269,8 @@ class ChatStore {
 	 */
 	private clearStorage(): void {
 		try {
-			localStorage.removeItem(ChatStore.STORAGE_KEY);
+			const key = this.storageKey();
+			if (key) localStorage.removeItem(key);
 			this._sessionId = null;
 			log.trace('Cleared chat data from storage');
 		} catch (error) {
@@ -269,6 +297,7 @@ class ChatStore {
 	 * Should be called once when the chat page mounts.
 	 */
 	async validateSession(): Promise<void> {
+		this.ensureScope();
 		// Only validate once per page load to avoid redundant API calls
 		if (this.hasValidatedSession) return;
 		this.hasValidatedSession = true;
@@ -349,6 +378,23 @@ class ChatStore {
 
 	get isEnabled(): boolean {
 		return this._isEnabled;
+	}
+
+	/** Invalidate in-flight work before another auth/collection scope becomes active. */
+	invalidateContext(): void {
+		this.abortController?.abort();
+		this.abortController = null;
+		this.scopeGeneration++;
+		this.activeScope = null;
+		this._messages = [];
+		this._pendingApprovals = [];
+		this._recentApprovalOutcomes = [];
+		this._isStreaming = false;
+		this._sessionId = null;
+		this.hasValidatedSession = false;
+		for (const timeout of this.toolTimeouts.values()) clearTimeout(timeout);
+		this.toolTimeouts.clear();
+		this.pendingTools.clear();
 	}
 
 	// =========================================================================
@@ -628,6 +674,7 @@ class ChatStore {
 	 * Send a message and stream the response.
 	 */
 	sendMessage(content: string): void {
+		this.ensureScope();
 		if (this._isStreaming) {
 			log.warn('Already streaming, ignoring send request');
 			return;
@@ -664,11 +711,12 @@ class ChatStore {
 		// Start streaming
 		this._isStreaming = true;
 
+		const generation = this.scopeGeneration;
 		this.abortController = chat.sendMessage(content, {
 			approvalContext: approvalContext.length > 0 ? approvalContext : undefined,
-			onEvent: (event: ChatEvent) => this.handleEvent(event),
-			onError: (error: Error) => this.handleError(error),
-			onComplete: () => this.handleComplete(),
+			onEvent: (event: ChatEvent) => generation === this.scopeGeneration && this.handleEvent(event),
+			onError: (error: Error) => generation === this.scopeGeneration && this.handleError(error),
+			onComplete: () => generation === this.scopeGeneration && this.handleComplete(),
 		});
 	}
 

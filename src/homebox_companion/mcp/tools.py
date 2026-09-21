@@ -734,11 +734,17 @@ class UpdateItemTool:
         elif current.get("purchasePrice") is not None:
             update_data["purchasePrice"] = current.get("purchasePrice")
 
-        # Handle location - use new location_id if provided, else preserve current
-        if params.location_id is not None:
+        # Resolve parent once. Explicitly clearing a parent takes precedence over
+        # parent_id, which takes precedence over location_id for compatibility.
+        # When no parent change was requested, retain the current parent.
+        if params.clear_parent:
+            update_data["parentId"] = None
+        elif params.parent_id is not None:
+            update_data["parentId"] = params.parent_id
+        elif params.location_id is not None:
             update_data["parentId"] = params.location_id
-        elif current.get("parent"):
-            update_data["parentId"] = current["parent"].get("id")
+        else:
+            update_data["parentId"] = (current.get("parent") or {}).get("id")
 
         # Handle tags - use correct API field name "tagIds" with flat string array
         if params.tag_ids is not None:
@@ -746,14 +752,6 @@ class UpdateItemTool:
         elif current.get("tags"):
             # Preserve existing tags using correct format
             update_data["tagIds"] = [tag.get("id") for tag in current["tags"] if tag.get("id")]
-
-        # Handle parent - determine parentId based on clear_parent flag
-        if params.clear_parent:
-            update_data["parentId"] = None
-        elif params.parent_id is not None:
-            update_data["parentId"] = params.parent_id
-        else:
-            update_data["parentId"] = current.get("parent", {}).get("id")
 
         result = await client.update_item(token, params.item_id, update_data)
         logger.info(f"update_item updated item: {result.get('name', 'unknown')}")

@@ -12,6 +12,7 @@ import type { Group } from '$lib/types';
 import { groups as groupsApi } from '$lib/api';
 import { setActiveGroupId } from '$lib/api/client';
 import { createLogger } from '$lib/utils/logger';
+import { authStore } from './auth.svelte';
 
 const log = createLogger({ prefix: 'CollectionStore' });
 
@@ -44,6 +45,8 @@ class CollectionStore {
 
 	/** Whether groups are currently being fetched */
 	private _loading = $state(false);
+	private _error = $state<string | null>(null);
+	private _ready = $state(false);
 
 	// =========================================================================
 	// DERIVED
@@ -86,6 +89,12 @@ class CollectionStore {
 	get loading(): boolean {
 		return this._loading;
 	}
+	get ready(): boolean {
+		return this._ready;
+	}
+	get error(): string | null {
+		return this._error;
+	}
 
 	// =========================================================================
 	// METHODS
@@ -95,17 +104,30 @@ class CollectionStore {
 	 * Fetch all groups the user belongs to.
 	 * Restores the previously selected group if still valid.
 	 */
-	async fetchGroups(): Promise<void> {
+	async fetchGroups(defaultGroupId?: string | null): Promise<void> {
 		this._loading = true;
+		this._ready = false;
+		this._error = null;
+		setActiveGroupId(null);
 		try {
 			const fetchedGroups = await groupsApi.list();
 			this._groups = fetchedGroups;
+			if (!this._selectedId) {
+				this._selectedId =
+					(defaultGroupId && fetchedGroups.some((group) => group.id === defaultGroupId)
+						? defaultGroupId
+						: fetchedGroups[0]?.id) ?? null;
+				this.persistSelection();
+			}
 
 			// Validate stored selection — if the stored group ID is no longer valid,
 			// fall back to the first group
 			if (this._selectedId && !fetchedGroups.some((g) => g.id === this._selectedId)) {
 				log.info(`Previously selected group ${this._selectedId} no longer valid, resetting`);
-				this._selectedId = fetchedGroups[0]?.id ?? null;
+				this._selectedId =
+					(defaultGroupId && fetchedGroups.some((group) => group.id === defaultGroupId)
+						? defaultGroupId
+						: fetchedGroups[0]?.id) ?? null;
 				this.persistSelection();
 			}
 
@@ -113,9 +135,12 @@ class CollectionStore {
 			setActiveGroupId(this.selectedId);
 
 			log.debug(`Fetched ${fetchedGroups.length} group(s)`);
+			this._ready = true;
 		} catch (err) {
 			log.warn('Failed to fetch groups:', err);
-			// Non-fatal: app continues with default group
+			this._groups = [];
+			this._error = err instanceof Error ? err.message : 'Failed to load collections';
+			throw err;
 		} finally {
 			this._loading = false;
 		}
@@ -130,10 +155,12 @@ class CollectionStore {
 		this._selectedId = id;
 		this.persistSelection();
 		setActiveGroupId(id);
+		authStore.rememberVerifiedScope(id);
 
 		const changed = previousId !== id;
 		if (changed) {
 			log.info(`Switched from ${previousId} to ${id}`);
+			void import('./chat.svelte').then(({ chatStore }) => chatStore.invalidateContext());
 		}
 		return changed;
 	}
@@ -142,6 +169,8 @@ class CollectionStore {
 	clear(): void {
 		this._groups = [];
 		this._selectedId = null;
+		this._ready = false;
+		this._error = null;
 		setActiveGroupId(null);
 		if (browser) {
 			localStorage.removeItem(GROUP_ID_KEY);

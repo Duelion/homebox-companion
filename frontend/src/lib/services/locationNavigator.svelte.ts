@@ -47,6 +47,12 @@ class LocationNavigator {
 		return this._currentLocation;
 	}
 
+	/** Drop navigation state when the verified Homebox scope changes. */
+	reset(): void {
+		this._currentLocation = null;
+		this._isLoading = false;
+	}
+
 	// =========================================================================
 	// LOADING OPERATIONS
 	// =========================================================================

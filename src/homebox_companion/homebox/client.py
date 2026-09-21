@@ -23,6 +23,7 @@ from ..core.exceptions import (
     HomeboxConnectionError,
     HomeboxTimeoutError,
 )
+from .auth import HomeboxAccess
 from .models import Attachment, Group, Item, ItemCreate, Location, Tag
 
 
@@ -114,15 +115,23 @@ class HomeboxClient:
         client: httpx.AsyncClient | None = None,
         *,
         extra_headers_factory: Callable[[], dict[str, str]] | None = None,
+        allow_cookies: bool = True,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = (base_url or settings.api_url).rstrip("/")
         self._owns_client = client is None
+        async def strip_cookie_header(request: httpx.Request) -> None:
+            request.headers.pop("Cookie", None)
+
         self.client = client or httpx.AsyncClient(
             headers=DEFAULT_HEADERS,
             timeout=DEFAULT_TIMEOUT,
             follow_redirects=True,
+            event_hooks={"request": [] if allow_cookies else [strip_cookie_header]},
+            transport=transport,
         )
-        self._entity_types_cache: dict[str | None, list[dict[str, Any]]] = {}
+        self._entity_types_cache: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+        self._cache_scope = "legacy-unbound"
         self._extra_headers_factory = extra_headers_factory
 
     async def aclose(self) -> None:
@@ -135,6 +144,18 @@ class HomeboxClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
+
+    def for_group(self, group_id: str | None, *, cache_scope: str | None = None) -> HomeboxClient:
+        """Create a lightweight request-bound gateway sharing this transport."""
+        headers_factory = (lambda: {"X-Tenant": group_id}) if group_id else None
+        bound = HomeboxClient(
+            base_url=self.base_url,
+            client=self.client,
+            extra_headers_factory=headers_factory,
+        )
+        bound._entity_types_cache = self._entity_types_cache
+        bound._cache_scope = cache_scope or self._cache_scope
+        return bound
 
     @staticmethod
     def _classify_connection_error(e: Exception) -> str:
@@ -270,7 +291,7 @@ class HomeboxClient:
 
         Raises:
             HomeboxAuthError: If the token is expired or invalid.
-            RuntimeError: If the refresh fails for other reasons.
+            HomeboxAPIError: If Homebox returns an error or an unusable refresh response.
         """
         # NOTE: Intentionally uses inline headers instead of _auth_headers()
         # because /users/* endpoints are not group-scoped and must not
@@ -284,16 +305,34 @@ class HomeboxClient:
         )
         self._ensure_success(response, "Token refresh")
 
-        data = response.json()
+        # A malformed success response must not overwrite a working session
+        # with an empty token. Keep upstream response contents out of errors.
+        invalid_response_message = "Homebox returned an invalid token refresh response. Please try again."
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise HomeboxAPIError(
+                "Token refresh returned invalid JSON.", user_message=invalid_response_message
+            ) from exc
 
-        # Normalize token - Homebox v0.22.0+ returns with "Bearer " prefix
-        new_token = data.get("token", "")
-        if new_token:
-            original_token = new_token
-            new_token = _normalize_token(new_token)
-            if new_token != original_token:
-                logger.debug("Token refresh: Stripped 'Bearer ' prefix from token (Homebox v0.22+ format)")
-                data["token"] = new_token
+        if not isinstance(data, dict):
+            raise HomeboxAPIError(
+                "Token refresh response must be an object.", user_message=invalid_response_message
+            )
+
+        # Homebox >= 0.24 uses "raw"; older responses use "token".
+        new_token = data.get("token") or data.get("raw")
+        if not isinstance(new_token, str):
+            raise HomeboxAPIError(
+                "Token refresh response did not include a string token.", user_message=invalid_response_message
+            )
+
+        new_token = _normalize_token(new_token)
+        if not new_token or any(char.isspace() for char in new_token):
+            raise HomeboxAPIError(
+                "Token refresh response did not include a usable token.", user_message=invalid_response_message
+            )
+        data["token"] = new_token
 
         logger.debug("Token refresh: Successfully obtained new token")
         return data
@@ -352,6 +391,49 @@ class HomeboxClient:
             # If we can't reach Homebox, we can't validate — reject the token
             logger.warning("Token validation failed: cannot reach Homebox server")
             return False
+
+    async def get_current_user(self, token: str) -> dict[str, Any]:
+        """Return the authenticated Homebox user without tenant scoping."""
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/users/self",
+                headers={"Accept": "application/json", "Authorization": f"Bearer {_normalize_token(token)}"},
+            )
+        except httpx.TimeoutException as exc:
+            raise HomeboxTimeoutError(
+                str(exc), user_message="Homebox connection timed out. Please retry."
+            ) from exc
+        except httpx.NetworkError as exc:
+            raise HomeboxConnectionError(
+                str(exc), user_message="Homebox is unavailable. Please retry."
+            ) from exc
+        self._ensure_success(response, "Get current user")
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise HomeboxAPIError(
+                "User response was not JSON",
+                user_message="Homebox returned an invalid connection response.",
+            ) from exc
+        if not isinstance(data, dict):
+            raise HomeboxAPIError(
+                "User response must be an object",
+                user_message="Homebox returned an invalid connection response.",
+            )
+        # Some Homebox response middleware wraps endpoint results. Accept the
+        # documented direct object and known object wrappers, but never infer
+        # identity from a display name or credential.
+        for key in ("item", "user", "data"):
+            nested = data.get(key)
+            if isinstance(nested, dict) and isinstance(nested.get("id"), str):
+                data = nested
+                break
+        if not isinstance(data.get("id"), str):
+            raise HomeboxAPIError(
+                "User response missing id",
+                user_message="Homebox returned an invalid connection response.",
+            )
+        return data
 
     def _auth_headers(
         self, token: str, *, group_id: str | None = None, content_type: str | None = None,
@@ -479,10 +561,11 @@ class HomeboxClient:
         # Cache keyed by effective group ID so a collection switch
         # doesn't reuse stale entity-type UUIDs from another group.
         gid = self._effective_group_id()
-        if gid not in self._entity_types_cache:
-            self._entity_types_cache[gid] = await self.list_entity_types(token)
+        cache_key = (self._cache_scope, gid)
+        if cache_key not in self._entity_types_cache:
+            self._entity_types_cache[cache_key] = await self.list_entity_types(token)
 
-        for et in self._entity_types_cache[gid]:
+        for et in self._entity_types_cache[cache_key]:
             if et.get("isLocation") == is_location:
                 return et["id"]
 
@@ -1221,15 +1304,15 @@ class HomeboxClient:
         )
 
     @_rate_limited
-    async def print_label(self, token: str, item_id: str) -> str:
-        """Trigger server-side label printing for an item.
+    async def print_label(self, token: str, asset_id: str) -> str:
+        """Trigger server-side label printing for an asset.
 
-        Calls the undocumented Homebox labelmaker endpoint with ?print=true
+        Calls the undocumented Homebox asset labelmaker endpoint with ?print=true
         to execute the configured HBOX_LABEL_MAKER_PRINT_COMMAND on the server.
 
         Args:
             token: The bearer token from login.
-            item_id: The UUID of the item to print a label for.
+            asset_id: The Homebox asset ID to print a label for.
 
         Returns:
             The text response from Homebox (typically "Printed!").
@@ -1239,7 +1322,7 @@ class HomeboxClient:
                 the print command is not configured on the Homebox server.
         """
         response = await self.client.get(
-            f"{self.base_url}/labelmaker/item/{item_id}",
+            f"{self.base_url}/labelmaker/asset/{asset_id}",
             params={"print": "true"},
             headers=self._raw_auth_headers(token, accept="text/plain"),
         )
@@ -1294,6 +1377,17 @@ class HomeboxClient:
             logger.debug(f"{context}: {request_info}-> 401 (unauthenticated)")
             raise HomeboxAuthError(f"{context} failed: {detail}")
 
+        if response.status_code == 403:
+            error = HomeboxAPIError(
+                message=f"{context} forbidden",
+                user_message="Homebox denied access to the requested collection.",
+                context={"status_code": 403},
+            )
+            error.status_code = 403
+            error.error_code = "HOMEBOX_FORBIDDEN"
+            error.log_level = "warning"
+            raise error
+
         # Use domain exception for all other non-success responses
         # This allows centralized exception handling in the FastAPI layer
         logger.error(f"{context} failed: {request_info}-> {response.status_code}")
@@ -1303,3 +1397,67 @@ class HomeboxClient:
             user_message=f"Homebox API error: {context} failed",
             context={"status_code": response.status_code, "detail": str(detail)[:200]},
         )
+
+
+class HomeboxGateway:
+    """Immutable request-bound business gateway.
+
+    The legacy ``HomeboxClient`` remains the transport/API implementation for
+    library compatibility. Server business code uses this adapter so outbound
+    credentials cannot be accidentally swapped between calls.
+    """
+
+    __slots__ = ("_client", "access", "_initialized")
+
+    def __init__(self, client: HomeboxClient, access: HomeboxAccess) -> None:
+        object.__setattr__(
+            self,
+            "_client",
+            client.for_group(access.group_id, cache_scope=access.identity_scope)
+            if hasattr(client, "for_group")
+            else client,
+        )
+        object.__setattr__(self, "access", access)
+        object.__setattr__(self, "_initialized", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "_initialized", False):
+            raise AttributeError("HomeboxGateway is immutable")
+        object.__setattr__(self, name, value)
+
+    @property
+    def transport_client(self) -> HomeboxClient:
+        """Underlying implementation for legacy tool adapters."""
+        return self._client
+
+    def __getattr__(self, name: str) -> Any:
+        target = getattr(self._client, name)
+        if not callable(target):
+            return target
+
+        async def bound(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await target(self.access.credential.get_secret_value(), *args, **kwargs)
+            except HomeboxAuthError as exc:
+                if self.access.kind.value == "api_key":
+                    exc.status_code = 502
+                    exc.error_code = "HOMEBOX_API_KEY_REJECTED"
+                    exc.user_message = "The configured Homebox API key was rejected."
+                raise
+            except httpx.TimeoutException as exc:
+                raise HomeboxTimeoutError(
+                    "Homebox request timed out",
+                    user_message="Homebox connection timed out. Please retry.",
+                ) from exc
+            except httpx.NetworkError as exc:
+                raise HomeboxConnectionError(
+                    "Homebox network request failed",
+                    user_message="Homebox is unavailable. Please retry.",
+                ) from exc
+            except (ValueError, TypeError) as exc:
+                raise HomeboxAPIError(
+                    "Homebox response could not be processed",
+                    user_message="Homebox returned an invalid response.",
+                ) from exc
+
+        return bound

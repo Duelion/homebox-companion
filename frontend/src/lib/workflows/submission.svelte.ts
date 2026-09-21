@@ -248,8 +248,14 @@ export class SubmissionService {
 					this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
 					return { status: 'failed', error: errorMsg };
 				}
-				// Item was created but there was also an error (shouldn't happen for single item)
-				log.warn(`Item ${confirmedItem.name} created with warnings: ${response.errors.join(', ')}`);
+				// Creation succeeded, but a later update or cleanup failed. Never
+				// upload/delete/recreate this item as if the initial POST had failed.
+				this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
+				return {
+					status: 'partial_success',
+					createdId: response.created[0]?.id,
+					error: `Item created, but some details were not saved and photos were not uploaded. Review this item in Homebox. ${response.errors.join('; ')}`,
+				};
 			}
 
 			if (response.created.length > 0) {
@@ -267,11 +273,17 @@ export class SubmissionService {
 							await itemsApi.delete(createdItem.id, signal);
 							log.info(`Deleted item ${createdItem.id} after image upload failure`);
 						} catch (deleteError) {
-							// Log but don't fail - the item might be orphaned but that's better than hiding the failure
 							log.error(
 								`Failed to cleanup item ${createdItem.id} after upload failure`,
 								deleteError
 							);
+							this.itemStatuses = { ...this.itemStatuses, [index]: 'partial_success' };
+							return {
+								status: 'partial_success',
+								createdId: createdItem.id,
+								error:
+									'Image upload failed and item deletion could not be confirmed. Review this item in Homebox before creating it again.',
+							};
 						}
 						this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
 						return {
@@ -349,6 +361,7 @@ export class SubmissionService {
 			// Check for 401 authentication error
 			if (error instanceof ApiError && error.status === 401) {
 				// Session expired - mark and re-throw
+				this.itemStatuses = { ...this.itemStatuses, [index]: 'failed' };
 				throw error;
 			}
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -476,6 +489,13 @@ export class SubmissionService {
 			}
 			// Check for 401 authentication error
 			if (error instanceof ApiError && error.status === 401) {
+				// Include rows that were never attempted when retrying after reauthentication.
+				this.itemStatuses = Object.fromEntries(
+					Object.entries(this.itemStatuses).map(([index, status]) => [
+						index,
+						status === 'pending' ? 'failed' : status,
+					])
+				);
 				result.sessionExpired = true;
 				this.lastErrors = result.errors;
 				return result;
@@ -535,6 +555,8 @@ export class SubmissionService {
 				}
 
 				const itemResult = await this.submitItem(i, items[i], locationId, parentId, signal);
+
+				if (itemResult.createdId) this.createdItemIds.set(i, itemResult.createdId);
 
 				if (itemResult.status === 'success') {
 					result.successCount++;
@@ -665,6 +687,24 @@ export class SubmissionService {
 	// =========================================================================
 	// RESET
 	// =========================================================================
+
+	/** Preserve known creations across reloads so recovery cannot resubmit them. */
+	snapshot() {
+		return {
+			itemStatuses: { ...this.itemStatuses },
+			createdItemIds: Object.fromEntries(this.createdItemIds),
+			lastErrors: [...this.lastErrors],
+		};
+	}
+
+	restore(snapshot: ReturnType<SubmissionService['snapshot']>): void {
+		this.itemStatuses = { ...snapshot.itemStatuses };
+		this.createdItemIds.clear();
+		for (const [index, id] of Object.entries(snapshot.createdItemIds)) {
+			this.createdItemIds.set(Number(index), id);
+		}
+		this.lastErrors = [...snapshot.lastErrors];
+	}
 
 	/** Reset all submission state */
 	reset(): void {

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from loguru import logger
 
-from homebox_companion import HomeboxClient
+from homebox_companion import HomeboxGateway
 
 
 @dataclass
@@ -39,7 +39,7 @@ class DuplicateChecker:
     # Maximum candidates to check (API doesn't expose serial in search results)
     MAX_CANDIDATES = 10
 
-    def __init__(self, client: HomeboxClient) -> None:
+    def __init__(self, client: HomeboxGateway) -> None:
         """Initialize the duplicate checker.
 
         Args:
@@ -49,7 +49,6 @@ class DuplicateChecker:
 
     async def check_serial_number(
         self,
-        token: str,
         serial: str,
     ) -> DuplicateMatch | None:
         """Check if an item with this serial number already exists.
@@ -70,7 +69,7 @@ class DuplicateChecker:
 
         # Search Homebox - the query param searches across multiple fields
         try:
-            results = await self.client.list_items(token, query=normalized)
+            results = await self.client.list_items(query=normalized)
         except Exception as e:
             logger.warning(f"Failed to search for duplicates: {e}")
             return None
@@ -82,7 +81,7 @@ class DuplicateChecker:
         # Limit to MAX_CANDIDATES to avoid excessive API calls
         for item_summary in items[: self.MAX_CANDIDATES]:
             try:
-                full_item = await self.client.get_item(token, item_summary["id"])
+                full_item = await self.client.get_item(item_summary["id"])
                 item_serial = (full_item.get("serialNumber") or "").strip().upper()
 
                 if item_serial == normalized:

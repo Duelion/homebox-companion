@@ -6,16 +6,94 @@ import uuid
 from contextvars import ContextVar
 
 from loguru import logger
-from starlette.datastructures import MutableHeaders
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.formparsers import MultiPartException
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from homebox_companion.core.config import Settings
+from homebox_companion.homebox.auth import LegacySessionProvider
 
 # ContextVar for request ID - accessible throughout the request lifecycle
 # Default "-" handles cases outside request context (startup, background tasks)
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
-# ContextVar for group context — accessible throughout the request lifecycle
-# Default None means no group scoping (use the user's default group)
-group_context_var: ContextVar[str | None] = ContextVar("group_context", default=None)
+
+class RequestBodyLimitMiddleware:
+    """Limit bytes before body parsers can buffer or spool an unbounded request."""
+
+    def __init__(self, app: ASGIApp, settings: Settings) -> None:
+        self.app = app
+        self.settings = settings
+        self.max_bytes = settings.max_request_size_mb * 1024 * 1024
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        multipart = headers.get("content-type", "").split(";", 1)[0].strip().lower() == "multipart/form-data"
+        if multipart and scope.get("path", "").startswith("/api/") and self.settings.auth_mode == "legacy":
+            # Every multipart API route requires a session. Reject absent/malformed
+            # credentials before reading files; route dependencies still validate it.
+            try:
+                LegacySessionProvider().resolve(headers.get("authorization"))
+            except ValueError as exc:
+                await JSONResponse({"detail": str(exc)}, status_code=401)(scope, receive, send)
+                return
+
+        rejection = JSONResponse(
+            {"detail": f"Request too large. Maximum total size is {self.settings.max_request_size_mb}MB"},
+            status_code=413,
+        )
+        content_length = headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared_size = int(content_length)
+            except ValueError:
+                declared_size = -1
+            if declared_size < 0:
+                await JSONResponse({"detail": "Invalid Content-Length"}, status_code=400)(scope, receive, send)
+                return
+            if declared_size > self.max_bytes:
+                await rejection(scope, receive, send)
+                return
+
+        consumed = 0
+        exceeded = False
+        rejection_sent = False
+
+        async def limited_receive() -> Message:
+            nonlocal consumed, exceeded
+            message = await receive()
+            if message["type"] == "http.request":
+                consumed += len(message.get("body", b""))
+                if consumed > self.max_bytes:
+                    exceeded = True
+                    # MultiPartException also closes partially spooled files in
+                    # Starlette versions that only clean up parser exceptions.
+                    raise MultiPartException("Request body exceeds configured limit")
+            return message
+
+        async def limited_send(message: Message) -> None:
+            nonlocal rejection_sent
+            if exceeded:
+                # Starlette maps parser exceptions to 400; return the actual
+                # cause (413) after the parser has unwound and closed its files.
+                if not rejection_sent:
+                    rejection_sent = True
+                    await rejection(scope, receive, send)
+                return
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, limited_send)
+        except MultiPartException:
+            if not exceeded:
+                raise
+            if not rejection_sent:
+                await rejection(scope, receive, send)
 
 
 class RequestIDMiddleware:
@@ -69,29 +147,44 @@ class RequestIDMiddleware:
                 request_id_var.reset(token)
 
 
-class GroupContextMiddleware:
-    """Extract X-Group-Id header and set it as request-scoped context.
+class APIKeyBrowserGuardMiddleware:
+    """Require an explicit non-simple header on unsafe API-key-mode requests."""
 
-    This enables collection scoping without threading group_id through
-    every endpoint and client method. The value is read by the client's
-    extra_headers_factory to inject X-Tenant into Homebox API requests.
-    """
-
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, settings: Settings) -> None:
         self.app = app
+        self.settings = settings
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if (
+            scope["type"] != "http"
+            or self.settings.auth_mode != "api_key"
+            or scope.get("method") not in {"POST", "PUT", "PATCH", "DELETE"}
+            or not scope.get("path", "").startswith("/api/")
+        ):
             await self.app(scope, receive, send)
             return
 
-        headers = dict(scope.get("headers", []))
-        group_id = headers.get(b"x-group-id", b"").decode() or None
-        token = group_context_var.set(group_id)
-        try:
-            await self.app(scope, receive, send)
-        finally:
-            group_context_var.reset(token)
+        headers = {key.decode().lower(): value.decode() for key, value in scope.get("headers", [])}
+        if headers.get("x-companion-request") != "1":
+            await self._reject(send)
+            return
+
+        origin = headers.get("origin")
+        if origin:
+            host = headers.get("host", "")
+            same_origin = origin.rstrip("/") in {f"http://{host}", f"https://{host}"}
+            configured = self.settings.browser_origins_list
+            allowed = origin in configured
+            if not same_origin and not allowed:
+                await self._reject(send)
+                return
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _reject(send: Send) -> None:
+        body = b'{"detail":"Unsafe API-key request rejected","code":"REQUEST_GUARD_REQUIRED"}'
+        await send({"type": "http.response.start", "status": 403, "headers": [(b"content-type", b"application/json")]})
+        await send({"type": "http.response.body", "body": body})
 
 
 class SecurityHeadersMiddleware:

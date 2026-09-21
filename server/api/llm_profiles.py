@@ -297,30 +297,30 @@ async def test_profile_connection(name: str, request: TestConnectionRequest | No
             model_info=model_info,
         )
 
-    except AuthenticationError as e:
-        logger.warning(f"Auth error testing profile {name}: {e}")
+    except AuthenticationError:
+        logger.warning(f"Authentication failed testing profile {name}")
         return TestConnectionResponse(
             success=False,
             message="Authentication failed. Check your API key.",
         )
 
-    except NotFoundError as e:
-        logger.warning(f"Model not found testing profile {name}: {e}")
+    except NotFoundError:
+        logger.warning(f"Model not found testing profile {name}")
         return TestConnectionResponse(
             success=False,
             message=f"Model '{model}' not found. Check the model name.",
         )
 
-    except APIConnectionError as e:
-        logger.warning(f"Connection error testing profile {name}: {e}")
+    except APIConnectionError:
+        logger.warning(f"Connection error testing profile {name}")
         return TestConnectionResponse(
             success=False,
             message=f"Could not connect to API. Check api_base URL: {api_base or 'default'}",
         )
 
     except Exception as e:
-        logger.error(f"Error testing profile {name}: {e}")
+        logger.error(f"Error testing profile {name}: {type(e).__name__}")
         return TestConnectionResponse(
             success=False,
-            message=f"Connection test failed: {e!s}",
+            message="Connection test failed. Check the provider configuration.",
         )

@@ -71,6 +71,10 @@ class ApprovalService:
         approval = self._session.get_pending_approval(approval_id)
         if not approval:
             raise ValueError(f"Approval not found or expired: {approval_id}")
+        identity_scope = self._executor.identity_scope
+        current_group = self._executor.group_id
+        if approval.identity_scope != identity_scope or approval.group_id != current_group:
+            raise ValueError("Approval does not belong to the current Homebox identity and group")
 
         # 2. Merge parameters
         final_params = {**approval.parameters}
