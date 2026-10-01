@@ -429,7 +429,8 @@ Customize how AI formats detected item fields. Set via environment variables or 
 Target recovery contributions at `dev`. Changes on `dev` are not yet a release;
 promotion to `main` and publishing are separate steps.
 
-Use Python 3.14+, Node 22, uv 0.9.17+ (CI and Docker use 0.12.5), and locked installs:
+Use Python 3.14+, Node 26.10.0 (matching CI and the Docker frontend builder),
+uv 0.9.17+ (CI and Docker use 0.12.5), and locked installs:
 
 ```bash
 uv sync --locked

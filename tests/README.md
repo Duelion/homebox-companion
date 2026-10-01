@@ -48,7 +48,8 @@ API-key-only classes can override `homebox_auth_mode`; see `TestAPIKeyLifecycle`
 `test_homebox_auth_live.py`.
 
 The browser suite uses mocked API responses and a local SvelteKit preview; it
-does not call Homebox or an LLM. From `frontend/`, install dependencies, build
+does not call Homebox or an LLM. Use Node 26.10.0 to match frontend CI and the
+Docker frontend builder. From `frontend/`, install dependencies, build
 once, and run Playwright against that build:
 
 ```powershell
@@ -88,6 +89,11 @@ checkout, so avoid a simultaneous host build. The named `node_modules` volume
 keeps Linux dependencies separate from host dependencies. For subsequent runs
 using the same volume, omit `npm ci` unless dependencies changed, and rebuild
 only after frontend source changes.
+
+The Playwright image supplies its own Node runtime. For a Node migration,
+install the selected runtime into that environment and verify `node --version`
+before running the checks; the canonical browser image alone does not validate
+the application's selected Node version.
 
 To debug a test, narrow by file/title and use the HTML report or retained trace:
 
