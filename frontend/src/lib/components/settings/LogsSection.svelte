@@ -123,7 +123,7 @@
 			hasFullscreen={true}
 		>
 			{#snippet icon()}
-				<Monitor class="h-4 w-4 text-neutral-400" size={16} strokeWidth={1.5} />
+				<Monitor class="text-neutral-400 size-4" size={16} strokeWidth={1.5} />
 			{/snippet}
 			<LogViewer source={{ type: 'frontend', entries: service.frontendLogs }} />
 			{#snippet fullscreenContent()}
@@ -148,7 +148,7 @@
 			hasFullscreen={true}
 		>
 			{#snippet icon()}
-				<MessageSquare class="h-4 w-4 text-neutral-400" size={16} strokeWidth={1.5} />
+				<MessageSquare class="text-neutral-400 size-4" size={16} strokeWidth={1.5} />
 			{/snippet}
 			<LogViewer source={{ type: 'json', data: chatStore.messages }} />
 			{#snippet fullscreenContent()}
@@ -178,7 +178,7 @@
 			hasFullscreen={true}
 		>
 			{#snippet icon()}
-				<Code class="h-4 w-4 text-neutral-400" size={16} strokeWidth={1.5} />
+				<Code class="text-neutral-400 size-4" size={16} strokeWidth={1.5} />
 			{/snippet}
 			{#if service.llmDebugLog}
 				<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} />

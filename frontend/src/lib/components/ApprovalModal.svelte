@@ -208,7 +208,7 @@
 			<div
 				class="flex items-center gap-3 border-b border-warning-500/20 bg-warning-500/10 px-5 py-4"
 			>
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-warning-500/20">
+				<div class="flex items-center justify-center rounded-xl bg-warning-500/20 size-10">
 					<TriangleAlert class="text-warning-500" size={20} />
 				</div>
 				<div class="flex-1">

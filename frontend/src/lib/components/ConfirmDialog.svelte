@@ -69,7 +69,7 @@
 		use:showModal
 		aria-labelledby={`${dialogId}-title`}
 		aria-describedby={`${dialogId}-message`}
-		class="animate-in fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center bg-neutral-950/60 p-0 backdrop-blur-sm backdrop:bg-transparent"
+		class="animate-in fixed inset-0 z-50 m-0 flex max-h-none max-w-none items-center justify-center bg-neutral-950/60 p-0 backdrop-blur-sm backdrop:bg-transparent size-full"
 		onclick={handleBackdropClick}
 		oncancel={handleCancel}
 	>

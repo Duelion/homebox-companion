@@ -27,7 +27,7 @@
 
 <!-- Mobile only - hidden on tablet/desktop -->
 <nav
-	class="glass pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-700 md:hidden"
+	class="glass pb-safe fixed bottom-0 z-50 border-t border-neutral-700 md:hidden inset-x-0"
 	style="view-transition-name: bottom-nav; transform: translateZ(0); -webkit-transform: translateZ(0);"
 	aria-label="Main navigation"
 >
@@ -47,7 +47,7 @@
 							onclick={() => handleDisabledNavClick(item)}
 							class="relative flex w-full cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-neutral-600"
 						>
-							<span class="flex h-6 w-6 items-center justify-center">
+							<span class="flex items-center justify-center size-6">
 								<NavIcon icon={item.icon} />
 							</span>
 							<span class="text-xs font-medium">{item.label}</span>
@@ -63,7 +63,7 @@
 								? 'bg-primary-500/10 text-primary-500'
 								: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"
 						>
-							<span class="flex h-6 w-6 items-center justify-center">
+							<span class="flex items-center justify-center size-6">
 								<NavIcon icon={item.icon} />
 							</span>
 							<span class="text-xs font-medium">{item.label}</span>

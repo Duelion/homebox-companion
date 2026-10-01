@@ -95,13 +95,13 @@ async def create_items(
                 name=item_input.name,
                 quantity=item_input.quantity,
                 description=item_input.description,
-                parent_id=parent_id,  # ty: ignore[unknown-argument]
-                tag_ids=validated_tag_ids if validated_tag_ids else None,  # ty: ignore[unknown-argument]
+                parent_id=parent_id,
+                tag_ids=validated_tag_ids if validated_tag_ids else None,
                 manufacturer=item_input.manufacturer,
-                model_number=item_input.model_number,  # ty: ignore[unknown-argument]
-                serial_number=item_input.serial_number,  # ty: ignore[unknown-argument]
-                purchase_price=item_input.purchase_price,  # ty: ignore[unknown-argument]
-                purchase_from=item_input.purchase_from,  # ty: ignore[unknown-argument]
+                model_number=item_input.model_number,
+                serial_number=item_input.serial_number,
+                purchase_price=item_input.purchase_price,
+                purchase_from=item_input.purchase_from,
                 notes=item_input.notes,
             )
 
@@ -110,8 +110,8 @@ async def create_items(
                 name=detected_item.name,
                 quantity=detected_item.quantity,
                 description=detected_item.description or "",
-                parent_id=detected_item.parent_id,  # ty: ignore[unknown-argument]
-                tag_ids=detected_item.tag_ids,  # ty: ignore[unknown-argument]
+                parent_id=detected_item.parent_id,
+                tag_ids=detected_item.tag_ids,
             )
             result = await gateway.create_item(item_create)
             item_id = result.get("id")

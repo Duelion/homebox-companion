@@ -501,12 +501,12 @@
 					type="button"
 					onclick={openQrScanner}
 					disabled={isProcessingQr}
-					class="flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-600 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/5 hover:text-primary-400 disabled:opacity-50"
+					class="flex items-center justify-center rounded-xl border border-neutral-600 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/5 hover:text-primary-400 disabled:opacity-50 size-12"
 					title="Scan QR Code"
 				>
 					{#if isProcessingQr}
 						<div
-							class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+							class="animate-spin rounded-full border-2 border-current border-t-transparent size-5"
 						></div>
 					{:else}
 						<QrCode size={20} strokeWidth={1.5} />
@@ -620,7 +620,7 @@
 
 				<!-- Sublocations section -->
 				{#if locationStore.currentLevel.length > 0 && locationStore.path.length > 0}
-					<div class="mb-2 mt-2 flex items-center gap-2">
+					<div class="flex items-center gap-2 my-2">
 						<div class="flex items-center gap-1.5 text-neutral-500">
 							<FolderOpen size={16} strokeWidth={1.5} />
 							<span class="text-body-sm font-medium"

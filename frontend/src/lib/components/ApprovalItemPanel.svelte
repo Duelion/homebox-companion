@@ -369,7 +369,7 @@
 	<div class="flex items-start gap-3 px-5 py-4">
 		<!-- Action Icon -->
 		<div
-			class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {actionType === 'delete'
+			class="flex shrink-0 items-center justify-center rounded-xl size-9 {actionType === 'delete'
 				? 'bg-error-500/15'
 				: actionType === 'create'
 					? 'bg-success-500/15'
@@ -407,7 +407,7 @@
 			<!-- Expand/Edit Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 {expanded
+				class="flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 size-9 {expanded
 					? 'border-primary-500/50 bg-primary-500/10 text-primary-400'
 					: ''}"
 				disabled={approval.is_expired}
@@ -425,14 +425,14 @@
 			<!-- Reject Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50"
+				class="flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50 size-9"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleReject}
 				aria-label="Reject"
 			>
 				{#if processingAction === 'reject'}
 					<div
-						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+						class="animate-spin rounded-full border-2 border-current border-t-transparent size-4"
 					></div>
 				{:else}
 					<X size={16} strokeWidth={2} />
@@ -442,7 +442,7 @@
 			<!-- Approve Button -->
 			<button
 				type="button"
-				class="flex h-9 w-9 items-center justify-center rounded-lg border transition-all disabled:opacity-50 {expanded &&
+				class="flex items-center justify-center rounded-lg border transition-all disabled:opacity-50 size-9 {expanded &&
 				hasModifications
 					? 'border-primary-500/50 bg-primary-500/20 text-primary-400 shadow-primary-glow-sm hover:border-primary-400 hover:bg-primary-500/30 hover:text-primary-300'
 					: 'border-neutral-700 bg-neutral-800 text-neutral-400 hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500'}"
@@ -453,7 +453,7 @@
 			>
 				{#if processingAction === 'approve'}
 					<div
-						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+						class="animate-spin rounded-full border-2 border-current border-t-transparent size-4"
 					></div>
 				{:else}
 					<Check size={16} strokeWidth={2} />

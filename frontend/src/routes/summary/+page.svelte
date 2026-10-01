@@ -239,13 +239,11 @@
 			>
 				<!-- Larger thumbnail -->
 				{#if thumbnail}
-					<div class="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
-						<img src={thumbnail} alt={item.name} class="h-full w-full object-cover" />
+					<div class="shrink-0 overflow-hidden rounded-lg bg-neutral-800 size-20">
+						<img src={thumbnail} alt={item.name} class="object-cover size-full" />
 					</div>
 				{:else}
-					<div
-						class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-neutral-800"
-					>
+					<div class="flex shrink-0 items-center justify-center rounded-lg bg-neutral-800 size-20">
 						<ImageIcon class="text-neutral-600" size={32} strokeWidth={1} />
 					</div>
 				{/if}
@@ -291,7 +289,7 @@
 						<StatusIcon status="failed" />
 						<button
 							type="button"
-							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50"
+							class="flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50 size-11"
 							aria-label={`Edit failed item ${item.name}`}
 							title="Edit failed item"
 							disabled={isSubmitting}
@@ -305,7 +303,7 @@
 					{:else}
 						<button
 							type="button"
-							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50"
+							class="flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50 size-11"
 							aria-label="Edit item"
 							title="Edit item"
 							disabled={isSubmitting}
@@ -315,7 +313,7 @@
 						</button>
 						<button
 							type="button"
-							class="hover:text-error-400 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-error-500/10 focus:outline-hidden focus:ring-2 focus:ring-error-500/50"
+							class="hover:text-error-400 flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-error-500/10 focus:outline-hidden focus:ring-2 focus:ring-error-500/50 size-11"
 							aria-label="Remove item"
 							title="Remove item"
 							disabled={isSubmitting}
@@ -373,7 +371,7 @@
 
 <!-- Sticky Submit button at bottom - above navigation bar -->
 <div
-	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
+	class="bottom-nav-offset fixed z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg inset-x-0"
 >
 	<AppContainer class="space-y-3">
 		{#if !workflow.hasFailedItems() && !workflow.allItemsSuccessful()}

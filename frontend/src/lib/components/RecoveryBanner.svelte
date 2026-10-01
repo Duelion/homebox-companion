@@ -54,9 +54,7 @@
 		<!-- Header -->
 		<div class="mb-3 flex items-start gap-3">
 			<!-- Recovery icon -->
-			<div
-				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500/20"
-			>
+			<div class="flex shrink-0 items-center justify-center rounded-full bg-primary-500/20 size-10">
 				<RefreshCw class="text-primary-400" size={20} strokeWidth={1.5} />
 			</div>
 
@@ -94,7 +92,7 @@
 			<Button variant="primary" onclick={onResume} disabled={loading}>
 				{#if loading}
 					<div
-						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+						class="animate-spin rounded-full border-2 border-current border-t-transparent size-4"
 					></div>
 					<span>Recovering...</span>
 				{:else}

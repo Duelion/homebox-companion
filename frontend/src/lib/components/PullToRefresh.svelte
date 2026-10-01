@@ -180,7 +180,7 @@
 			style="top: -3rem; transform: translateX(-50%); opacity: {Math.min(pullDistance / 40, 1)}"
 		>
 			<div
-				class="flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-colors duration-200
+				class="flex items-center justify-center rounded-full shadow-lg transition-colors duration-200 size-10
                     {isRefreshing || shouldTrigger
 					? 'border border-primary-500/50 bg-primary-600/20 text-primary-400'
 					: 'border border-neutral-600/50 bg-neutral-800/95 text-neutral-400'}"

@@ -113,7 +113,7 @@
 				type="text"
 				bind:value={name}
 				placeholder="e.g., Living Room, Drawer 1, Shelf A"
-				class="placeholder:text-neutral-200-dim w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/50"
+				class="placeholder:text-neutral-400 w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/50"
 				disabled={isSaving}
 			/>
 		</div>
@@ -127,7 +127,7 @@
 				bind:value={description}
 				placeholder="e.g., Second drawer from top, left side of garage"
 				rows="3"
-				class="placeholder:text-neutral-200-dim w-full resize-none rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/50"
+				class="placeholder:text-neutral-400 w-full resize-none rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/50"
 				disabled={isSaving}></textarea>
 		</div>
 
@@ -142,11 +142,11 @@
 			<Button variant="primary" full type="submit" disabled={isSaving || !name.trim()}>
 				{#if saveState === 'saving'}
 					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+						class="animate-spin rounded-full border-2 border-white/30 border-t-white size-5"
 					></div>
 					<span>Saving...</span>
 				{:else if saveState === 'success'}
-					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
+					<div class="flex items-center justify-center rounded-full bg-success-500/20 size-8">
 						<Check class="text-success-500" size={20} strokeWidth={2.5} />
 					</div>
 					<span>Saved!</span>

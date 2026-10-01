@@ -43,7 +43,7 @@ async def test_extended_fields_and_attachment_round_trip_for_both_auth_modes(
     cleanup_locations.append(location["id"])
     item = await homebox_client.create_item(
         token,
-        ItemCreate(name="Isolated upstream item", quantity=1, parent_id=location["id"]),  # ty: ignore[unknown-argument]
+        ItemCreate(name="Isolated upstream item", quantity=1, parent_id=location["id"]),
     )
     cleanup_items.append(item["id"])
     updated = await homebox_client.update_item(

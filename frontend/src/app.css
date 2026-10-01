@@ -30,6 +30,8 @@
 
 	--color-success-50: #ecfdf5;
 	--color-success-100: #d1fae5;
+	--color-success-300: #6ee7b7;
+	--color-success-400: #34d399;
 	--color-success-500: #10b981;
 	--color-success-600: #059669;
 	--color-success-700: #047857;
@@ -49,6 +51,9 @@
 	--color-warning-bg: rgba(245, 158, 11, 0.1);
 	--color-error-50: #fef2f2;
 	--color-error-100: #fee2e2;
+	--color-error-200: #fecaca;
+	--color-error-300: #fca5a5;
+	--color-error-400: #f87171;
 	--color-error-500: #ef4444;
 	--color-error-600: #dc2626;
 	--color-error-700: #b91c1c;

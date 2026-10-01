@@ -1300,7 +1300,7 @@ class HomeboxClient:
         return Attachment(
             id=raw.get("id", ""),
             type=raw.get("type", ""),
-            document_id=doc.get("id") if doc else None,  # ty: ignore[unknown-argument]
+            document_id=doc.get("id") if doc else None,
         )
 
     @_rate_limited

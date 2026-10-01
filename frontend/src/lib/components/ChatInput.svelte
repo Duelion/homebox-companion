@@ -53,7 +53,7 @@
 </script>
 
 <form
-	class="mx-auto flex w-full max-w-2xl flex-col border-t border-white/[0.08] bg-neutral-950 px-3 py-1"
+	class="mx-auto flex w-full max-w-2xl flex-col border-t border-white/8 bg-neutral-950 px-3 py-1"
 	onsubmit={(e) => {
 		e.preventDefault();
 		handleSubmit();
@@ -88,7 +88,7 @@
 			type="submit"
 			disabled={isDisabled}
 			aria-label="Send message"
-			class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-linear-to-br/srgb from-primary-500 to-primary-600 text-white shadow-primary-glow-sm transition-all duration-fast hover:scale-105 hover:shadow-primary-glow active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
+			class="flex shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-linear-to-br/srgb from-primary-500 to-primary-600 text-white shadow-primary-glow-sm transition-all duration-fast hover:scale-105 hover:shadow-primary-glow active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none size-8"
 		>
 			{#if chatStore.isStreaming}
 				<span class="loading-spinner"></span>
@@ -102,7 +102,7 @@
 				type="button"
 				onclick={handleCancel}
 				aria-label="Stop generating"
-				class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-error-glow-sm transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-error-glow active:scale-95"
+				class="flex shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-error-500 text-white shadow-error-glow-sm transition-all duration-fast hover:scale-105 hover:bg-error-600 hover:shadow-error-glow active:scale-95 size-8"
 			>
 				<Square size={12} fill="currentColor" />
 			</button>

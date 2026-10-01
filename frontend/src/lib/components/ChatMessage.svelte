@@ -232,7 +232,7 @@
 					class="chat-approval-badge approval-badge border-warning-500/40 bg-warning-500/15 text-warning-500 hover:border-warning-500/60 hover:bg-warning-500/20"
 					onclick={onOpenApprovals}
 				>
-					<div class="flex h-5 w-5 items-center justify-center rounded-md bg-warning-500/20">
+					<div class="flex items-center justify-center rounded-md bg-warning-500/20 size-5">
 						<TriangleAlert size={12} />
 					</div>
 					<span class="flex-1">
@@ -319,7 +319,7 @@
 		<!-- Copy button (appears on hover for all messages) -->
 		{#if message.content && !message.isStreaming}
 			<button
-				class="copy-btn absolute -top-1 rounded-md p-1.5 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
+				class="absolute -top-1 rounded-md p-1.5 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
 					? '-right-1 bg-primary-700/80 text-primary-200 hover:bg-primary-600 hover:text-white'
 					: '-left-1 bg-neutral-700/80 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-200'}"
 				onclick={handleCopy}

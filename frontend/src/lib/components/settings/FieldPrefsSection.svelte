@@ -63,7 +63,7 @@
 	{#if service.isLoading.fieldPrefs}
 		<div class="flex items-center gap-2 px-4 py-3 text-neutral-400">
 			<div
-				class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+				class="animate-spin rounded-full border-2 border-current border-t-transparent size-5"
 			></div>
 			<span>Loading preferences...</span>
 		</div>
@@ -431,7 +431,7 @@
 			>
 				{#if service.isLoading.promptPreview}
 					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+						class="animate-spin rounded-full border-2 border-current border-t-transparent size-5"
 					></div>
 					<span>Generating preview...</span>
 				{:else}
@@ -460,7 +460,7 @@
 					</div>
 					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 						<pre
-							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap wrap-break-word p-4 font-mono text-xs text-neutral-400">{service.promptPreview}</pre>
+							class="max-h-80 whitespace-pre-wrap wrap-break-word p-4 font-mono text-xs text-neutral-400 overflow-auto">{service.promptPreview}</pre>
 					</div>
 					<p class="text-xs text-neutral-500">
 						This is what the AI will see when analyzing your images. Tags shown are examples; actual
@@ -482,11 +482,11 @@
 			>
 				{#if service.saveState === 'saving'}
 					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+						class="animate-spin rounded-full border-2 border-white/30 border-t-white size-5"
 					></div>
 					<span>Saving...</span>
 				{:else if service.saveState === 'success'}
-					<div class="flex h-8 w-8 items-center justify-center rounded-full bg-success-500/20">
+					<div class="flex items-center justify-center rounded-full bg-success-500/20 size-8">
 						<Check class="text-success-500" size={20} strokeWidth={2.5} />
 					</div>
 					<span>Saved!</span>

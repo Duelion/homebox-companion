@@ -187,7 +187,7 @@
 	>
 		{#if isLoading}
 			<div
-				class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+				class="animate-spin rounded-full border-2 border-current border-t-transparent size-4"
 			></div>
 			<span>Loading...</span>
 		{:else}

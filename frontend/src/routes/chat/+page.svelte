@@ -166,7 +166,7 @@
 		<div class="empty-state min-h-[60vh]">
 			{#if isDemoMode}
 				<!-- Demo mode specific disabled state -->
-				<div class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-warning-500/10">
+				<div class="mb-5 flex items-center justify-center rounded-2xl bg-warning-500/10 size-16">
 					<CircleAlert class="text-warning-500" size={32} strokeWidth={1.5} />
 				</div>
 				<h2 class="mb-2 text-h3 text-neutral-100">Chat Unavailable</h2>
@@ -178,7 +178,7 @@
 				</p>
 			{:else}
 				<!-- Server disabled state -->
-				<div class="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-error-500/10">
+				<div class="mb-5 flex items-center justify-center rounded-2xl bg-error-500/10 size-16">
 					<Ban class="text-error-500" size={32} strokeWidth={1.5} />
 				</div>
 				<h2 class="mb-2 text-h3 text-neutral-100">Chat Disabled</h2>
@@ -199,7 +199,7 @@
 			{#if chatStore.messages.length === 0}
 				<div class="flex flex-col items-center justify-center pb-16 pt-8">
 					<div
-						class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg"
+						class="mb-6 flex items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg size-20"
 					>
 						<MessageSquare class="text-primary-400" size={56} strokeWidth={1.5} />
 					</div>
@@ -210,21 +210,21 @@
 
 					<div class="flex w-full max-w-sm flex-col gap-2 px-4">
 						<button
-							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
+							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-98"
 							onclick={() => chatStore.sendMessage('What locations do I have?')}
 						>
 							<MapPin class="shrink-0 text-primary-500" size={18} strokeWidth={1.5} />
 							<span class="flex-1">What locations do I have?</span>
 						</button>
 						<button
-							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
+							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-98"
 							onclick={() => chatStore.sendMessage('List my tags')}
 						>
 							<Tag class="shrink-0 text-primary-500" size={18} strokeWidth={1.5} />
 							<span class="flex-1">List my tags</span>
 						</button>
 						<button
-							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-[0.98]"
+							class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-left text-body-sm text-neutral-200 transition-all duration-fast hover:-translate-y-px hover:border-primary-500 hover:bg-neutral-800 active:scale-98"
 							onclick={() => chatStore.sendMessage('How many items are in my inventory?')}
 						>
 							<Archive class="shrink-0 text-primary-500" size={18} strokeWidth={1.5} />

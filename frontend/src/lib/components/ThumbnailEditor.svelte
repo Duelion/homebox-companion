@@ -454,12 +454,12 @@
 							onclick={() => loadImage(index)}
 						>
 							<div
-								class="h-16 w-16 overflow-hidden rounded-lg border-2 transition-all {selectedImageIndex ===
+								class="overflow-hidden rounded-lg border-2 transition-all size-16 {selectedImageIndex ===
 								index
 									? 'border-primary-500 ring-2 ring-primary-500/30'
 									: 'border-neutral-700 hover:border-neutral-600'}"
 							>
-								<img src={img.dataUrl} alt="Image {index + 1}" class="h-full w-full object-cover" />
+								<img src={img.dataUrl} alt="Image {index + 1}" class="object-cover size-full" />
 							</div>
 							<span
 								class="text-xs {selectedImageIndex === index
@@ -493,7 +493,7 @@
 		</div>
 
 		<!-- Slider Controls -->
-		<div class="space-y-5 border-t border-neutral-700/50 px-4 py-4">
+		<div class="space-y-5 border-t border-neutral-700/50 p-4">
 			<!-- Zoom slider with tick marks -->
 			<div>
 				<div class="mb-2 flex items-center justify-between">

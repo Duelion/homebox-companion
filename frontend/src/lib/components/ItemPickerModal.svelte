@@ -169,11 +169,11 @@
 					onclick={() => selectItem(item)}
 				>
 					<!-- Thumbnail -->
-					<div class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-neutral-700">
+					<div class="shrink-0 overflow-hidden rounded-lg bg-neutral-700 size-14">
 						{#if thumbnailUrl}
-							<img src={thumbnailUrl} alt="" class="h-full w-full object-cover" />
+							<img src={thumbnailUrl} alt="" class="object-cover size-full" />
 						{:else}
-							<div class="flex h-full w-full items-center justify-center">
+							<div class="flex items-center justify-center size-full">
 								<Package class="text-neutral-500" size={28} strokeWidth={1} />
 							</div>
 						{/if}
@@ -189,7 +189,7 @@
 					</div>
 
 					{#if selectedItemId === item.id}
-						<div class="flex h-6 w-6 items-center justify-center text-primary-400">
+						<div class="flex items-center justify-center text-primary-400 size-6">
 							<Check class="text-primary-400" size={20} strokeWidth={2.5} />
 						</div>
 					{/if}

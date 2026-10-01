@@ -56,8 +56,8 @@ dev = [
     "pyright>=1.1.408",
     "pytest>=9.0.1",
     "pytest-asyncio>=0.24.0",
-    "ruff>=0.14.7",
-    "ty>=0.0.5",
+    "ruff>=0.16.5",
+    "ty>=0.0.77",
     "vulture>=2.14",
 ]
 

@@ -355,7 +355,7 @@
 		{#if cameraFailed}
 			<div class="max-w-sm p-6 text-center">
 				<div
-					class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20"
+					class="mx-auto mb-4 flex items-center justify-center rounded-full bg-amber-500/20 size-16"
 				>
 					<TriangleAlert class="text-amber-400" size={32} />
 				</div>
@@ -375,7 +375,7 @@
 					>
 						{#if isProcessingFile}
 							<div
-								class="h-5 w-5 animate-spin rounded-full border-2 border-neutral-100 border-t-transparent"
+								class="animate-spin rounded-full border-2 border-neutral-100 border-t-transparent size-5"
 							></div>
 							<span>Processing...</span>
 						{:else}
@@ -422,7 +422,7 @@
 					>
 						<div class="text-center">
 							<div
-								class="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-neutral-100 border-t-transparent"
+								class="mx-auto mb-2 animate-spin rounded-full border-2 border-neutral-100 border-t-transparent size-8"
 							></div>
 							<p class="text-body-sm text-neutral-300">Starting camera...</p>
 						</div>

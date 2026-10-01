@@ -67,7 +67,7 @@
 
 <div class="animate-in flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
 	<!-- Success animation with animated checkmark -->
-	<div class="relative mb-8 h-28 w-28">
+	<div class="relative mb-8 size-28">
 		<!-- Ping animation (stops after 3 seconds) -->
 		{#if showPing}
 			<div class="absolute inset-0 animate-ping rounded-full bg-success-500/20"></div>
@@ -78,7 +78,7 @@
 		<div class="success-scale absolute inset-2 rounded-full bg-success-500/20 delay-100"></div>
 		<!-- Checkmark icon with draw animation -->
 		<div class="success-scale absolute inset-0 flex items-center justify-center delay-150">
-			<Check class="checkmark-draw h-14 w-14 text-success-500" strokeWidth={2.5} />
+			<Check class="checkmark-draw text-success-500 size-14" strokeWidth={2.5} />
 		</div>
 	</div>
 

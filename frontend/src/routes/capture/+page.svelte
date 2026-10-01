@@ -445,7 +445,7 @@
 			<!-- Back arrow button, vertically centered between the two lines -->
 			<button
 				type="button"
-				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-neutral-400 transition-colors hover:bg-primary-500/20 hover:text-neutral-200"
+				class="flex shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-neutral-400 transition-colors hover:bg-primary-500/20 hover:text-neutral-200 size-10"
 				aria-label="Change location"
 				onclick={goBack}
 				disabled={isAnalyzing}
@@ -504,15 +504,15 @@
 					<!-- Stats -->
 					<div class="mb-4 flex gap-4 text-caption">
 						<div class="flex items-center gap-1.5">
-							<div class="bg-success-400 h-2 w-2 rounded-full"></div>
+							<div class="bg-success-400 rounded-full size-2"></div>
 							<span class="text-neutral-300">{succeededImageCount} succeeded</span>
 						</div>
 						<div class="flex items-center gap-1.5">
-							<div class="bg-error-400 h-2 w-2 rounded-full"></div>
+							<div class="bg-error-400 rounded-full size-2"></div>
 							<span class="text-neutral-300">{failedImageCount} failed</span>
 						</div>
 						<div class="flex items-center gap-1.5">
-							<div class="h-2 w-2 rounded-full bg-primary-400"></div>
+							<div class="rounded-full bg-primary-400 size-2"></div>
 							<span class="text-neutral-300">{detectedItemCount} items detected</span>
 						</div>
 					</div>
@@ -609,12 +609,8 @@
 					<!-- Header (always visible) -->
 					<div class="flex items-center gap-3 p-3">
 						<!-- Thumbnail -->
-						<div class="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
-							<img
-								src={image.dataUrl}
-								alt="Captured {index + 1}"
-								class="h-full w-full object-cover"
-							/>
+						<div class="relative shrink-0 overflow-hidden rounded-lg bg-neutral-800 size-16">
+							<img src={image.dataUrl} alt="Captured {index + 1}" class="object-cover size-full" />
 							<div
 								class="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white"
 							>
@@ -697,7 +693,7 @@
 										class="h-6 w-10 rounded-full bg-neutral-700 transition-colors peer-checked:bg-primary-600"
 									></div>
 									<div
-										class="absolute left-1 top-1 h-4 w-4 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-white"
+										class="absolute left-1 top-1 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-white size-4"
 									></div>
 								</div>
 								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
@@ -810,16 +806,16 @@
 										{#each image.additionalDataUrls as additionalUrl (additionalUrl)}
 											{@const additionalIndex = image.additionalDataUrls.indexOf(additionalUrl)}
 											<div
-												class="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700"
+												class="group relative shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700 size-20"
 											>
 												<img
 													src={additionalUrl}
 													alt="Additional {additionalIndex + 1}"
-													class="h-full w-full object-cover"
+													class="object-cover size-full"
 												/>
 												<button
 													type="button"
-													class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-600 group-hover:opacity-100"
+													class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-black/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-600 group-hover:opacity-100 size-6"
 													aria-label="Remove additional image"
 													onclick={() => removeAdditionalImage(index, additionalIndex)}
 													disabled={isAnalyzing}
@@ -914,7 +910,7 @@
 
 <!-- Sticky Analyze button at bottom - above navigation bar -->
 <div
-	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
+	class="bottom-nav-offset fixed z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg inset-x-0"
 >
 	<AppContainer>
 		{#if showAnalyzingUI && isAnalyzing}

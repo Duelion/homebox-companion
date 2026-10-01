@@ -27,7 +27,7 @@
 		onblur={() => (showTooltip = false)}
 		aria-label="Possible duplicate item"
 	>
-		<WarningTriangleIcon class="h-5 w-5" />
+		<WarningTriangleIcon class="size-5" />
 	</button>
 
 	<!-- Tooltip -->
@@ -48,7 +48,7 @@
 			</div>
 			<!-- Tooltip arrow -->
 			<div
-				class="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-neutral-700 bg-neutral-800"
+				class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rotate-45 border-b border-r border-neutral-700 bg-neutral-800 size-3"
 			></div>
 		</div>
 	{/if}

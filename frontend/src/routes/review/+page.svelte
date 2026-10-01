@@ -421,11 +421,11 @@
 			<!-- Thumbnail section -->
 			{#if thumbnail}
 				<div class="group relative aspect-video bg-neutral-800">
-					<img src={thumbnail} alt={editedItem.name} class="h-full w-full object-contain" />
+					<img src={thumbnail} alt={editedItem.name} class="object-contain size-full" />
 					<!-- Edit overlay - always visible on mobile, hover on desktop -->
 					<button
 						type="button"
-						class="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-hidden focus:ring-2 focus:ring-white/50 md:[@media(hover:hover)]:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
+						class="absolute bottom-3 right-3 flex min-h-11 items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-hidden focus:ring-2 focus:ring-white/50 md:[@media(hover:hover)]:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
 						onclick={openThumbnailEditor}
 						aria-label="Edit thumbnail image"
 					>
@@ -550,7 +550,7 @@
 <!-- Sticky action footer -->
 {#if editedItem}
 	<div
-		class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg"
+		class="bottom-nav-offset fixed z-40 border-t border-neutral-700 bg-neutral-900/95 backdrop-blur-lg inset-x-0"
 	>
 		<AppContainer>
 			<!-- Item counter in footer for mobile - positioned above bottom nav -->

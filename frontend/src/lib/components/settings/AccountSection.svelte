@@ -41,7 +41,7 @@
 			class="flex items-center gap-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4"
 		>
 			<div
-				class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-600/20 text-primary-400"
+				class="flex items-center justify-center rounded-full bg-primary-600/20 text-primary-400 size-10"
 			>
 				<User size={20} strokeWidth={1.5} />
 			</div>

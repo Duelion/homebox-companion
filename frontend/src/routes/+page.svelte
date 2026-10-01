@@ -102,17 +102,17 @@
 		<!-- Loading state during auth check -->
 		<div class="flex flex-col items-center gap-4">
 			<div
-				class="h-12 w-12 animate-spin rounded-full border-4 border-primary-500/30 border-t-primary-500"
+				class="animate-spin rounded-full border-4 border-primary-500/30 border-t-primary-500 size-12"
 			></div>
 			<p class="text-sm text-neutral-400">Loading...</p>
 		</div>
 	{:else if authStore.isLegacy && !authStore.isAuthenticated}
 		<!-- Refined logo icon -->
 		<div
-			class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg"
+			class="mb-6 flex items-center justify-center rounded-2xl bg-primary-600/20 shadow-lg size-20"
 		>
 			<svg
-				class="h-14 w-14 text-primary-400"
+				class="text-primary-400 size-14"
 				fill="none"
 				stroke="currentColor"
 				viewBox="0 0 24 24"

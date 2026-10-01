@@ -123,12 +123,12 @@
 								<img
 									src={item.thumbnail}
 									alt={item.name}
-									class="h-10 w-10 shrink-0 rounded-lg object-cover"
+									class="shrink-0 rounded-lg object-cover size-10"
 									onerror={() => handleImageError(item.id)}
 								/>
 							{:else}
 								<div
-									class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-700"
+									class="flex shrink-0 items-center justify-center rounded-lg bg-neutral-700 size-10"
 								>
 									<Package class="text-neutral-400" size={20} strokeWidth={1.5} />
 								</div>
@@ -190,7 +190,7 @@
 						<!-- Bottom row: tags + scan action -->
 						<!-- pl-[52px] = 40px thumbnail + 12px gap, aligns with item name -->
 						{#if (item.tag_ids && item.tag_ids.length > 0) || onScanSubItems}
-							<div class="mt-2 flex flex-wrap items-center gap-1.5 pl-[52px]">
+							<div class="mt-2 flex flex-wrap items-center gap-1.5 pl-13">
 								{#if item.tag_ids}
 									{#each item.tag_ids as tagId (tagId)}
 										{@const tagName = getTagName(tagId)}

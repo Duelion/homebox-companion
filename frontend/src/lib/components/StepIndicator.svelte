@@ -25,7 +25,7 @@
 		{/if}
 		<!-- Step circle -->
 		<span
-			class="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold shadow-sm transition-all duration-300 {step ===
+			class="flex items-center justify-center rounded-full text-sm font-semibold shadow-sm transition-all duration-300 size-10 {step ===
 			currentStep
 				? 'bg-primary-600 text-white ring-4 ring-primary-500/20'
 				: step < currentStep

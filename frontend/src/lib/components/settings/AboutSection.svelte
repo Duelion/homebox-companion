@@ -57,7 +57,7 @@
 			>
 				{#if service.isLoading.updateCheck}
 					<div
-						class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+						class="animate-spin rounded-full border-2 border-current border-t-transparent size-3"
 					></div>
 				{:else}
 					<RefreshCw size={12} strokeWidth={2} />
@@ -121,7 +121,7 @@
 							href={service.config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
+							class="flex max-w-50 items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
 							title={service.config.homebox_url}
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -154,7 +154,7 @@
 			{:else if service.isLoading.config}
 				<div class="flex items-center justify-center py-4">
 					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+						class="animate-spin rounded-full border-2 border-primary-500 border-t-transparent size-5"
 					></div>
 				</div>
 			{/if}

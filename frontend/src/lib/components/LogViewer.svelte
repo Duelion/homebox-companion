@@ -52,7 +52,7 @@
 	{#if source.type === 'json'}
 		<pre
 			bind:this={containerRef}
-			class="overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all p-3 font-mono text-xs text-neutral-400 {maxHeight}">{JSON.stringify(
+			class="whitespace-pre-wrap break-all p-3 font-mono text-xs text-neutral-400 overflow-auto {maxHeight}">{JSON.stringify(
 				source.data,
 				null,
 				2
@@ -61,7 +61,7 @@
 		<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output with escaped content -->
 		<pre
 			bind:this={containerRef}
-			class="overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all p-3 font-mono text-xs text-neutral-400 {maxHeight}">{@html colorizedContent}</pre>
+			class="whitespace-pre-wrap break-all p-3 font-mono text-xs text-neutral-400 overflow-auto {maxHeight}">{@html colorizedContent}</pre>
 		<!-- eslint-enable svelte/no-at-html-tags -->
 	{/if}
 </div>

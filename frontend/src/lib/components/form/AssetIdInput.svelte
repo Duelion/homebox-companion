@@ -92,7 +92,7 @@
 			type="button"
 			onclick={() => (showScanner = true)}
 			{disabled}
-			class="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-600 bg-neutral-800 text-neutral-400 transition-colors hover:border-neutral-500 hover:bg-neutral-700 hover:text-neutral-200 disabled:opacity-50"
+			class="flex items-center justify-center rounded-lg border border-neutral-600 bg-neutral-800 text-neutral-400 transition-colors hover:border-neutral-500 hover:bg-neutral-700 hover:text-neutral-200 disabled:opacity-50 size-9"
 			aria-label="Scan QR code"
 			title="Scan QR code"
 		>

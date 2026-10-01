@@ -192,7 +192,7 @@
 	{#if loading}
 		<div class="flex items-center justify-center py-8">
 			<div
-				class="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+				class="animate-spin rounded-full border-2 border-primary-500 border-t-transparent size-6"
 			></div>
 		</div>
 	{:else if profiles.length === 0}
@@ -244,7 +244,7 @@
 						>
 							{#if testingProfile === profile.name}
 								<div
-									class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+									class="animate-spin rounded-full border-2 border-primary-500 border-t-transparent size-4"
 								></div>
 							{:else}
 								<Zap size={16} strokeWidth={2} />

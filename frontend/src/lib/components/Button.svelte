@@ -104,15 +104,13 @@
 	onclick={handleClick}
 	ontouchend={handleTouchEnd}
 	disabled={disabled || loading}
-	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950 active:scale-[0.98] disabled:cursor-not-allowed {variantClasses[
+	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950 active:scale-98 disabled:cursor-not-allowed {variantClasses[
 		variant
 	]} {sizeClasses[size]}"
 	class:w-full={full}
 >
 	{#if loading}
-		<div
-			class="border-current/30 h-5 w-5 animate-spin rounded-full border-2 border-t-current"
-		></div>
+		<div class="border-current/30 animate-spin rounded-full border-2 border-t-current size-5"></div>
 	{/if}
 	{@render children()}
 </button>
