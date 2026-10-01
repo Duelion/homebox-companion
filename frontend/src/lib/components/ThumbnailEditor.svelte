@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { X, Search, RotateCcw, RotateCw, Check } from 'lucide-svelte';
+	import { X, Search, RotateCcw, RotateCw, Check } from '@lucide/svelte';
 	import Button from './Button.svelte';
 	import type { ThumbnailTransform } from '$lib/types';
 	import { CANVAS_COLORS } from '$lib/utils/canvas-colors';

@@ -7,7 +7,7 @@
 	 * Follows the same pattern as ItemExtendedFields.
 	 */
 	import { slide } from 'svelte/transition';
-	import { ChevronDown, Layers } from 'lucide-svelte';
+	import { ChevronDown, Layers } from '@lucide/svelte';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 

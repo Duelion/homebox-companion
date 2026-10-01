@@ -11,7 +11,7 @@
 	 * - Scrollable content with bottom padding for mobile nav
 	 */
 	import type { Snippet } from 'svelte';
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 
 	interface Props {
 		open: boolean;

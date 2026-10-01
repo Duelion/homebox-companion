@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { LoaderCircle, ArrowUp } from 'lucide-svelte';
+	import { LoaderCircle, ArrowUp } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	/**
 	 * Pull-to-refresh component for mobile touch devices.

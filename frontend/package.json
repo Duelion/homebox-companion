@@ -42,9 +42,9 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^1.0.1",
 		"heic2any": "^0.0.4",
 		"idb": "^8.0.3",
-		"lucide-svelte": "^0.575.0",
 		"qr-scanner": "^1.4.2",
 		"rehype-external-links": "^3.0.0",
 		"rehype-sanitize": "^6.0.0",

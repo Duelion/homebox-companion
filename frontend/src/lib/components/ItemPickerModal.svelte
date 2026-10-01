@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search, Package, Check, X } from 'lucide-svelte';
+	import { Search, Package, Check, X } from '@lucide/svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { items as itemsApi, type BlobUrlResult } from '$lib/api';

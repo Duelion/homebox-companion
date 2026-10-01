@@ -6,7 +6,7 @@
 	 * - settingsService: Centralized state and API calls
 	 * - Section components: UI rendering for each settings area
 	 */
-	import { AlertTriangle } from 'lucide-svelte';
+	import { AlertTriangle } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';

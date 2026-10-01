@@ -4,7 +4,7 @@
 	 */
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { User, LogOut } from 'lucide-svelte';
+	import { User, LogOut } from '@lucide/svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';

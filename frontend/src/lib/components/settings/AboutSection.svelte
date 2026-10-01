@@ -9,11 +9,11 @@
 		Download,
 		Check,
 		RefreshCw,
-		Github,
+		Code,
 		Star,
 		ChevronDown,
 		ExternalLink,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	const service = settingsService;
 </script>
@@ -79,10 +79,14 @@
 			class="group flex items-center justify-between py-2 text-neutral-400 transition-colors hover:text-neutral-100"
 		>
 			<span class="flex items-center gap-2">
-				<Github size={20} />
+				<Code size={20} aria-hidden="true" />
 				<span>View on GitHub</span>
 			</span>
-			<ExternalLink class="opacity-50 transition-opacity group-hover:opacity-100" size={16} />
+			<ExternalLink
+				class="opacity-50 transition-opacity group-hover:opacity-100"
+				size={16}
+				aria-hidden="true"
+			/>
 		</a>
 		<p class="flex items-start gap-1.5 text-xs text-neutral-500">
 			<Star class="mt-0.5 flex-shrink-0 text-warning-500" size={14} fill="currentColor" />

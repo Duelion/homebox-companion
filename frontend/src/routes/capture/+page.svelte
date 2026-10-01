@@ -33,7 +33,7 @@
 		Image,
 		MapPin,
 		Lightbulb,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	const log = createLogger({ prefix: 'Capture' });
 

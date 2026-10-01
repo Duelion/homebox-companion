@@ -3,7 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
-	import { Camera, Upload, ChevronDown, ImageIcon, X, SquarePen } from 'lucide-svelte';
+	import { Camera, Upload, ChevronDown, ImageIcon, X, SquarePen } from '@lucide/svelte';
 
 	interface Props {
 		images: File[];

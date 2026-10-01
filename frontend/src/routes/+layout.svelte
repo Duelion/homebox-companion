@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { WifiOff, Download, CircleAlert, RefreshCw } from 'lucide-svelte';
+	import { WifiOff, Download, CircleAlert, RefreshCw } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import '../app.css';
 	import Toast from '$lib/components/Toast.svelte';

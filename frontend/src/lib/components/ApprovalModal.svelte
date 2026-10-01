@@ -7,7 +7,7 @@
 	 * Supports expanding items to view details or edit parameters.
 	 */
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import { TriangleAlert, X } from 'lucide-svelte';
+	import { TriangleAlert, X } from '@lucide/svelte';
 	import type { PendingApproval } from '../api/chat';
 	import { chatStore } from '../stores/chat.svelte';
 	import { showToast } from '../stores/ui.svelte';

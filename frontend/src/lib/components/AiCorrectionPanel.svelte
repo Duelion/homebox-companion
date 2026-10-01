@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { ChevronDown, RefreshCcw } from 'lucide-svelte';
+	import { ChevronDown, RefreshCcw } from '@lucide/svelte';
 	import Button from './Button.svelte';
 	import AnalysisProgressBar from './AnalysisProgressBar.svelte';
 

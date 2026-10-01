@@ -7,7 +7,7 @@
 	 * - QR scan button to scan pre-printed QR codes
 	 * - Parses QR URL format: https://homebox.duelion.com/a/{asset_id}
 	 */
-	import { QrCode } from 'lucide-svelte';
+	import { QrCode } from '@lucide/svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
 	import { resolveQrUrl } from '$lib/utils/qrUrl';
 

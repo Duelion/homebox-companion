@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronDown, Layers } from 'lucide-svelte';
+	import { ChevronDown, Layers } from '@lucide/svelte';
 	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { locationStore } from '$lib/stores/locations.svelte';
 	import { clearTagsCache, fetchTags } from '$lib/stores/tags.svelte';

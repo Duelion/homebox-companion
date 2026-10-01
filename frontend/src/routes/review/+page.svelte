@@ -29,7 +29,7 @@
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import { workflowLogger as log } from '$lib/utils/logger';
 	import { longpress } from '$lib/actions/longpress';
-	import { SquarePen, ImageIcon, ChevronsRight, Check } from 'lucide-svelte';
+	import { SquarePen, ImageIcon, ChevronsRight, Check } from '@lucide/svelte';
 
 	// Capture limits (loaded from config, with safe defaults)
 	let maxImages = $state(30);

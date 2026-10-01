@@ -37,7 +37,7 @@
 		ChevronRight,
 		FolderOpen,
 		Plus,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	const log = createLogger({ prefix: 'LocationPage' });
 

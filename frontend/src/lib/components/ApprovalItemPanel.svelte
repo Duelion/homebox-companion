@@ -8,7 +8,7 @@
 	 * - delete: Read-only verification view with entity-specific tagging
 	 */
 	import { slide } from 'svelte/transition';
-	import { Trash2, Plus, Pencil, Eye, X, Check } from 'lucide-svelte';
+	import { Trash2, Plus, Pencil, Eye, X, Check } from '@lucide/svelte';
 	import type { PendingApproval } from '../api/chat';
 	import {
 		ItemCoreFields,

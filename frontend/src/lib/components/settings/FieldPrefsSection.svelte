@@ -23,7 +23,7 @@
 		Pencil,
 		Settings2,
 		FileText,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { settingsService, FIELD_META } from '$lib/workflows/settings.svelte';
 
 	import Button from '$lib/components/Button.svelte';

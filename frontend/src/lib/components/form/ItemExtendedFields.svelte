@@ -6,7 +6,7 @@
 	 * Works with any object that implements the ItemExtended interface.
 	 */
 	import { slide } from 'svelte/transition';
-	import { ChevronDown } from 'lucide-svelte';
+	import { ChevronDown } from '@lucide/svelte';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 

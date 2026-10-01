@@ -8,7 +8,7 @@
 	 * Groups tools and executed actions with counters (x2, x3, etc.).
 	 */
 	import { onDestroy } from 'svelte';
-	import { TriangleAlert, ChevronRight, Check, Copy } from 'lucide-svelte';
+	import { TriangleAlert, ChevronRight, Check, Copy } from '@lucide/svelte';
 	import type { ChatMessage as ChatMessageType, ToolResult } from '../stores/chat.svelte';
 	import { renderMarkdown } from '../markdown';
 

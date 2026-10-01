@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Package, ExternalLink, ScanLine, Printer, Check, LoaderCircle } from 'lucide-svelte';
+	import { Package, ExternalLink, ScanLine, Printer, Check, LoaderCircle } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount } from 'svelte';
 	import Modal from './Modal.svelte';

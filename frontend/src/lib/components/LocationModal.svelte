@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MapPin, Home, Check } from 'lucide-svelte';
+	import { MapPin, Home, Check } from '@lucide/svelte';
 	import type { Location } from '$lib/types';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';

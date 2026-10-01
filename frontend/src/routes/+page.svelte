@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Eye, EyeOff, ArrowRight } from 'lucide-svelte';
+	import { Eye, EyeOff, ArrowRight } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { auth, getConfig, setDemoMode } from '$lib/api';

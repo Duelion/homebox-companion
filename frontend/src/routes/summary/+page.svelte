@@ -26,7 +26,7 @@
 		AlertCircle,
 		Check,
 		RefreshCw,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;

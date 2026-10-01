@@ -5,7 +5,7 @@
 	 * Auto-resizing textarea with send button.
 	 * Disabled while streaming.
 	 */
-	import { Send, Square } from 'lucide-svelte';
+	import { Send, Square } from '@lucide/svelte';
 	import { chatStore } from '../stores/chat.svelte';
 
 	interface Props {
