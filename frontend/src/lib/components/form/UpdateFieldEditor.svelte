@@ -146,8 +146,7 @@
 				placeholder="Description"
 				rows="2"
 				class="{inputClass} resize-none"
-				{disabled}
-			></textarea>
+				{disabled}></textarea>
 		</div>
 	{/if}
 
@@ -203,8 +202,7 @@
 				placeholder="Notes"
 				rows="2"
 				class="{inputClass} resize-none"
-				{disabled}
-			></textarea>
+				{disabled}></textarea>
 		</div>
 	{/if}
 
@@ -291,8 +289,7 @@
 				placeholder="Notes"
 				rows="2"
 				class="{inputClass} resize-none"
-				{disabled}
-			></textarea>
+				{disabled}></textarea>
 		</div>
 	{/if}
 

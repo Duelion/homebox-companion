@@ -138,8 +138,7 @@
 					rows="2"
 					placeholder="e.g., Good condition, minor scratches on left side"
 					class="{inputClass} resize-none"
-					{disabled}
-				></textarea>
+					{disabled}></textarea>
 			</div>
 		</div>
 	{/if}

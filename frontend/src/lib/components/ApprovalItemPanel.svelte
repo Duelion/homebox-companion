@@ -533,8 +533,7 @@
 								placeholder="Optional description"
 								rows="2"
 								class="input-sm resize-none"
-								disabled={isProcessing}
-							></textarea>
+								disabled={isProcessing}></textarea>
 						</div>
 					</div>
 				{/if}

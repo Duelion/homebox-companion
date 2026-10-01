@@ -55,8 +55,7 @@
 				placeholder="Item name"
 				class="input-expandable"
 				use:expandable
-				{disabled}
-			></textarea>
+				{disabled}></textarea>
 		{/if}
 	</div>
 
@@ -83,8 +82,7 @@
 				placeholder="Optional description"
 				rows="2"
 				class="{inputClass} resize-none"
-				{disabled}
-			></textarea>
+				{disabled}></textarea>
 		{:else}
 			<textarea
 				id="{idPrefix}-description"
@@ -93,8 +91,7 @@
 				placeholder="Optional description"
 				class="input-expandable"
 				use:expandable
-				{disabled}
-			></textarea>
+				{disabled}></textarea>
 		{/if}
 	</div>
 </div>

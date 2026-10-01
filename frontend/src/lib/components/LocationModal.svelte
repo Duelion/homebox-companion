@@ -128,8 +128,7 @@
 				placeholder="e.g., Second drawer from top, left side of garage"
 				rows="3"
 				class="placeholder:text-neutral-200-dim w-full resize-none rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-200 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-				disabled={isSaving}
-			></textarea>
+				disabled={isSaving}></textarea>
 		</div>
 
 		{#if error}

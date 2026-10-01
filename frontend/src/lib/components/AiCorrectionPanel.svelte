@@ -45,8 +45,7 @@
 					bind:value={correctionPrompt}
 					placeholder="e.g., 'The brand is Sony, not Samsung' or 'This is a multimeter, not a voltmeter'"
 					rows="2"
-					class="input resize-none"
-				></textarea>
+					class="input resize-none"></textarea>
 				<Button
 					variant="secondary"
 					full

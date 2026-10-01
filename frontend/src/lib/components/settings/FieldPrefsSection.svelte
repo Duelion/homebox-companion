@@ -212,8 +212,7 @@
 							oninput={(e) => service.updateFieldPref('naming_examples', e.currentTarget.value)}
 							placeholder={service.effectiveDefaults?.naming_examples || 'No default'}
 							rows="2"
-							class="input resize-none text-sm"
-						></textarea>
+							class="input resize-none text-sm"></textarea>
 					</div>
 				</div>
 			{/if}
@@ -272,8 +271,7 @@
 								}}
 								onblur={(e) => {
 									e.currentTarget.rows = 1;
-								}}
-							></textarea>
+								}}></textarea>
 						</div>
 					{/each}
 				</div>
@@ -350,8 +348,7 @@
 												service.updateCustomFieldProp(i, 'ai_instruction', e.currentTarget.value)}
 											placeholder="AI instruction (e.g. Where this item should be stored)"
 											rows="3"
-											class="input resize-none text-sm"
-										></textarea>
+											class="input resize-none text-sm"></textarea>
 									</div>
 								{:else}
 									<!-- Display mode: matches Default Fields card pattern -->
@@ -402,8 +399,7 @@
 											}}
 											onblur={(e) => {
 												e.currentTarget.rows = 1;
-											}}
-										></textarea>
+											}}></textarea>
 									</div>
 								{/if}
 							{/each}
