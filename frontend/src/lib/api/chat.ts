@@ -19,13 +19,7 @@ const BASE_URL = '/api';
 // =============================================================================
 
 export type ChatEventType =
-	| 'text'
-	| 'tool_start'
-	| 'tool_result'
-	| 'approval_required'
-	| 'error'
-	| 'usage'
-	| 'done';
+	'text' | 'tool_start' | 'tool_result' | 'approval_required' | 'error' | 'usage' | 'done';
 
 export interface ChatTextEvent {
 	type: 'text';

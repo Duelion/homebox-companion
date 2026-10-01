@@ -26,12 +26,7 @@ const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 
 export type AuthMode = 'legacy' | 'api_key';
 export type AuthPhase =
-	| 'initializing'
-	| 'signed_out'
-	| 'connecting'
-	| 'ready'
-	| 'session_expired'
-	| 'connection_error';
+	'initializing' | 'signed_out' | 'connecting' | 'ready' | 'session_expired' | 'connection_error';
 
 export interface HomeboxConnection {
 	connected: true;

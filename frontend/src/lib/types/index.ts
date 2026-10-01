@@ -154,11 +154,7 @@ export type ScanStatus =
 
 /** Status of individual item submission */
 export type ItemSubmissionStatus =
-	| 'pending'
-	| 'creating'
-	| 'success'
-	| 'partial_success'
-	| 'failed';
+	'pending' | 'creating' | 'success' | 'partial_success' | 'failed';
 
 /** Status of individual image analysis */
 export type ImageAnalysisStatus = 'pending' | 'analyzing' | 'success' | 'failed';

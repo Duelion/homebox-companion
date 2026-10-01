@@ -8,13 +8,7 @@
 	import { Check, TriangleAlert, X } from '@lucide/svelte';
 
 	type Status =
-		| 'pending'
-		| 'processing'
-		| 'creating'
-		| 'analyzing'
-		| 'success'
-		| 'partial_success'
-		| 'failed';
+		'pending' | 'processing' | 'creating' | 'analyzing' | 'success' | 'partial_success' | 'failed';
 
 	interface Props {
 		status: Status;
