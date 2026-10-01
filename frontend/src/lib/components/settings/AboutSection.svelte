@@ -89,7 +89,7 @@
 			/>
 		</a>
 		<p class="flex items-start gap-1.5 text-xs text-neutral-500">
-			<Star class="mt-0.5 flex-shrink-0 text-warning-500" size={14} fill="currentColor" />
+			<Star class="mt-0.5 shrink-0 text-warning-500" size={14} fill="currentColor" />
 			<span>Enjoying the app? Consider giving us a star on GitHub!</span>
 		</p>
 	</div>
@@ -114,7 +114,7 @@
 			{#if service.config}
 				<!-- Homebox URL -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
-					<span class="flex-shrink-0 text-neutral-400">Homebox URL</span>
+					<span class="shrink-0 text-neutral-400">Homebox URL</span>
 					<div class="flex min-w-0 items-center gap-2">
 						<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
 						<a
@@ -126,11 +126,11 @@
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 							<span class="truncate">{service.config.homebox_url}</span>
-							<ExternalLink class="flex-shrink-0 opacity-70" size={12} />
+							<ExternalLink class="shrink-0 opacity-70" size={12} />
 						</a>
 						{#if service.config.is_demo_mode}
 							<span
-								class="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
+								class="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
 							>
 								Demo
 							</span>

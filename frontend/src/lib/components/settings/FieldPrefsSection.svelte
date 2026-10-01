@@ -133,7 +133,7 @@
 						/>
 						<div class="rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
 							<p class="flex items-start gap-2 text-xs text-warning-500">
-								<TriangleAlert class="mt-0.5 flex-shrink-0" size={16} strokeWidth={1.5} />
+								<TriangleAlert class="mt-0.5 shrink-0" size={16} strokeWidth={1.5} />
 								<span>
 									<strong>Note:</strong> Field customization instructions below should still be written
 									in English. Only the AI output will be in the configured language.
@@ -460,7 +460,7 @@
 					</div>
 					<div class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950">
 						<pre
-							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-neutral-400">{service.promptPreview}</pre>
+							class="max-h-80 overflow-x-auto overflow-y-auto whitespace-pre-wrap wrap-break-word p-4 font-mono text-xs text-neutral-400">{service.promptPreview}</pre>
 					</div>
 					<p class="text-xs text-neutral-500">
 						This is what the AI will see when analyzing your images. Tags shown are examples; actual
@@ -511,5 +511,5 @@
 	{/snippet}
 
 	<pre
-		class="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-neutral-400">{service.promptPreview}</pre>
+		class="whitespace-pre-wrap wrap-break-word font-mono text-sm leading-relaxed text-neutral-400">{service.promptPreview}</pre>
 </FullscreenPanel>

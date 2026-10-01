@@ -443,6 +443,14 @@ tests, and disposable Homebox integration tests. See [tests/README.md](tests/REA
 for local commands and Docker/browser prerequisites. These suites require no paid
 LLM calls.
 
+Frontend design tokens and reusable utilities live in `frontend/src/app.css`.
+Use the semantic color, typography, spacing, and touch-target tokens when styling
+components. Svelte style blocks that use Tailwind directives reference this
+stylesheet with `@reference`; ordinary CSS can use its theme variables, such as
+`var(--color-primary-500)`. Keep canvas drawing colors in
+`frontend/src/lib/utils/canvas-colors.ts` synchronized with these tokens.
+Tailwind 4's CSS browser baseline is Safari 16.4+, Chrome 111+, and Firefox 128+.
+
 For a deliberate Python dependency refresh, run
 `uv sync --upgrade --exclude-newer "30 days"` with a uv version that supports
 relative durations (0.9.17+). This applies the cooldown only to that refresh;

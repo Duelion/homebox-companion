@@ -74,6 +74,15 @@ test('main scan actions remain usable on a phone @mobile', async ({ page }) => {
 	await expect(page.getByRole('heading', { name: 'Success!' })).toBeVisible();
 });
 
+test('thumbnail editing remains discoverable on a touch tablet @mobile', async ({ page }) => {
+	await page.setViewportSize({ width: 1024, height: 768 });
+	await reviewItems(page);
+	const edit = page.getByRole('button', { name: 'Edit thumbnail image' });
+	await expect(edit).toHaveCSS('opacity', '1');
+	await edit.tap();
+	await expect(page.getByRole('heading', { name: 'Edit Thumbnail', exact: true })).toBeVisible();
+});
+
 for (const [layout, viewport] of [
 	['desktop', { width: 1280, height: 900 }],
 	['mobile', { width: 390, height: 844 }],

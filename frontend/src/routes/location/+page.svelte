@@ -482,7 +482,7 @@
 						type="text"
 						placeholder="Search all locations..."
 						bind:value={searchQuery}
-						class="h-12 w-full rounded-xl border border-neutral-600 bg-neutral-800 pl-11 pr-10 text-neutral-100 transition-all placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+						class="h-12 w-full rounded-xl border border-neutral-600 bg-neutral-800 pl-11 pr-10 text-neutral-100 transition-all placeholder:text-neutral-500 focus:border-primary-500 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50"
 					/>
 					{#if searchQuery}
 						<button

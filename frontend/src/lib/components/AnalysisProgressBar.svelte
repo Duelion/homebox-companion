@@ -148,6 +148,8 @@
 </div>
 
 <style>
+	@reference "../../app.css";
+
 	.complete-pop {
 		@apply animate-pop shadow-success-glow;
 	}

@@ -80,7 +80,7 @@
 				rows="1"
 				autocomplete="off"
 				aria-label="Chat message input"
-				class="max-h-20 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-body leading-relaxed text-neutral-200 outline-none placeholder:text-neutral-500"
+				class="max-h-20 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-body leading-relaxed text-neutral-200 outline-hidden placeholder:text-neutral-500"
 			></textarea>
 		{/if}
 
@@ -88,7 +88,7 @@
 			type="submit"
 			disabled={isDisabled}
 			aria-label="Send message"
-			class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-primary-glow-sm transition-all duration-fast hover:scale-105 hover:shadow-primary-glow active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
+			class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-linear-to-br/srgb from-primary-500 to-primary-600 text-white shadow-primary-glow-sm transition-all duration-fast hover:scale-105 hover:shadow-primary-glow active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-600 disabled:shadow-none"
 		>
 			{#if chatStore.isStreaming}
 				<span class="loading-spinner"></span>
@@ -122,6 +122,8 @@
 </form>
 
 <style>
+	@reference "../../app.css";
+
 	.loading-spinner {
 		@apply h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white;
 	}

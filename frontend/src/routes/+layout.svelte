@@ -134,7 +134,7 @@
 	});
 </script>
 
-<div class="flex min-h-dvh min-h-screen flex-col bg-neutral-950">
+<div class="flex min-h-dvh flex-col bg-neutral-950">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div

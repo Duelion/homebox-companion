@@ -609,7 +609,7 @@
 					<!-- Header (always visible) -->
 					<div class="flex items-center gap-3 p-3">
 						<!-- Thumbnail -->
-						<div class="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-800">
+						<div class="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
 							<img
 								src={image.dataUrl}
 								alt="Captured {index + 1}"
@@ -810,7 +810,7 @@
 										{#each image.additionalDataUrls as additionalUrl (additionalUrl)}
 											{@const additionalIndex = image.additionalDataUrls.indexOf(additionalUrl)}
 											<div
-												class="group relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700"
+												class="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700"
 											>
 												<img
 													src={additionalUrl}
@@ -819,7 +819,7 @@
 												/>
 												<button
 													type="button"
-													class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all hover:bg-error-600 group-hover:opacity-100"
+													class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-600 group-hover:opacity-100"
 													aria-label="Remove additional image"
 													onclick={() => removeAdditionalImage(index, additionalIndex)}
 													disabled={isAnalyzing}

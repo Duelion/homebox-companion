@@ -159,7 +159,7 @@
 				<div class="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
 					{#each images as img, index (`${img.name}-${img.size}-${index}`)}
 						<div
-							class="group relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-700 ring-1 ring-white/10"
+							class="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-700 ring-1 ring-white/10"
 						>
 							<img
 								src={getThumbnailUrl(img, index)}
@@ -168,7 +168,7 @@
 							/>
 							<button
 								type="button"
-								class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 opacity-0 transition-all hover:bg-error-500 group-hover:opacity-100"
+								class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-500 group-hover:opacity-100"
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
 							>

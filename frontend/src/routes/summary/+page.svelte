@@ -239,12 +239,12 @@
 			>
 				<!-- Larger thumbnail -->
 				{#if thumbnail}
-					<div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-800">
+					<div class="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
 						<img src={thumbnail} alt={item.name} class="h-full w-full object-cover" />
 					</div>
 				{:else}
 					<div
-						class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800"
+						class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-neutral-800"
 					>
 						<ImageIcon class="text-neutral-600" size={32} strokeWidth={1} />
 					</div>
@@ -260,9 +260,7 @@
 								<DuplicateWarningIcon match={item.duplicate_match} />
 							{/if}
 						</div>
-						<span
-							class="flex-shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400"
-						>
+						<span class="shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400">
 							×{item.quantity}
 						</span>
 					</div>
@@ -293,7 +291,7 @@
 						<StatusIcon status="failed" />
 						<button
 							type="button"
-							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50"
 							aria-label={`Edit failed item ${item.name}`}
 							title="Edit failed item"
 							disabled={isSubmitting}
@@ -307,7 +305,7 @@
 					{:else}
 						<button
 							type="button"
-							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50"
 							aria-label="Edit item"
 							title="Edit item"
 							disabled={isSubmitting}
@@ -317,7 +315,7 @@
 						</button>
 						<button
 							type="button"
-							class="hover:text-error-400 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-error-500/10 focus:outline-none focus:ring-2 focus:ring-error-500/50"
+							class="hover:text-error-400 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-error-500/10 focus:outline-hidden focus:ring-2 focus:ring-error-500/50"
 							aria-label="Remove item"
 							title="Remove item"
 							disabled={isSubmitting}
@@ -362,8 +360,8 @@
 					<ul class="text-error-200/80 space-y-1.5 text-body-sm">
 						{#each submissionErrors as error, i (i)}
 							<li class="flex items-start gap-2">
-								<span class="text-error-400 flex-shrink-0">•</span>
-								<span class="break-words">{error}</span>
+								<span class="text-error-400 shrink-0">•</span>
+								<span class="wrap-break-word">{error}</span>
 							</li>
 						{/each}
 					</ul>

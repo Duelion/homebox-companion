@@ -169,7 +169,7 @@
 					onclick={() => selectItem(item)}
 				>
 					<!-- Thumbnail -->
-					<div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-700">
+					<div class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-neutral-700">
 						{#if thumbnailUrl}
 							<img src={thumbnailUrl} alt="" class="h-full w-full object-cover" />
 						{:else}

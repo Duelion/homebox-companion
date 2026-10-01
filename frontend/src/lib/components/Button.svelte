@@ -104,7 +104,7 @@
 	onclick={handleClick}
 	ontouchend={handleTouchEnd}
 	disabled={disabled || loading}
-	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950 active:scale-[0.98] disabled:cursor-not-allowed {variantClasses[
+	class="inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950 active:scale-[0.98] disabled:cursor-not-allowed {variantClasses[
 		variant
 	]} {sizeClasses[size]}"
 	class:w-full={full}

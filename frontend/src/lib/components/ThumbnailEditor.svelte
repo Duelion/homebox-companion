@@ -450,7 +450,7 @@
 					{#each images as img, index (`${img.file.name}-${img.file.size}-${index}`)}
 						<button
 							type="button"
-							class="flex flex-shrink-0 flex-col items-center gap-1"
+							class="flex shrink-0 flex-col items-center gap-1"
 							onclick={() => loadImage(index)}
 						>
 							<div
@@ -549,7 +549,7 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="relative z-10 flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateLeft90}
 						aria-label="Rotate 90° left"
 						title="-90°"
@@ -568,7 +568,7 @@
 					/>
 					<button
 						type="button"
-						class="relative z-10 flex min-h-touch min-w-touch flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+						class="relative z-10 flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateRight90}
 						aria-label="Rotate 90° right"
 						title="+90°"

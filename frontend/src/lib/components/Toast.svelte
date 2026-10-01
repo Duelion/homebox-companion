@@ -77,7 +77,7 @@
 					</div>
 					<button
 						type="button"
-						class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
+						class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:outline-hidden focus:ring-2 focus:ring-white/30"
 						aria-label="Dismiss notification"
 						onclick={() => dismissToast(toast.id)}
 					>
@@ -100,6 +100,8 @@
 {/if}
 
 <style>
+	@reference "../../app.css";
+
 	.toast-enter {
 		@apply animate-toast-in;
 	}

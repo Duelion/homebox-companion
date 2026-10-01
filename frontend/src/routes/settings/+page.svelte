@@ -52,7 +52,7 @@
 	{#if settingsService.errors.init}
 		<div class="card border-error-500/30 bg-error-500/10">
 			<div class="flex items-start gap-3">
-				<AlertTriangle class="mt-0.5 flex-shrink-0 text-error-500" size={20} strokeWidth={1.5} />
+				<AlertTriangle class="mt-0.5 shrink-0 text-error-500" size={20} strokeWidth={1.5} />
 				<div>
 					<p class="font-medium text-error-500">Failed to load settings</p>
 					<p class="mt-1 text-sm text-neutral-400">{settingsService.errors.init}</p>

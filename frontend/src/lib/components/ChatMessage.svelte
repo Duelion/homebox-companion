@@ -192,7 +192,7 @@
 	<div class="relative">
 		<div
 			class="chat-bubble {isUser
-				? 'chat-bubble-user rounded-br bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-primary-glow-sm'
+				? 'chat-bubble-user rounded-br bg-linear-to-br/srgb from-primary-600 to-primary-500 text-white shadow-primary-glow-sm'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
 				: ''}"
@@ -319,7 +319,7 @@
 		<!-- Copy button (appears on hover for all messages) -->
 		{#if message.content && !message.isStreaming}
 			<button
-				class="copy-btn absolute -top-1 rounded-md p-1.5 opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
+				class="copy-btn absolute -top-1 rounded-md p-1.5 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
 					? '-right-1 bg-primary-700/80 text-primary-200 hover:bg-primary-600 hover:text-white'
 					: '-left-1 bg-neutral-700/80 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-200'}"
 				onclick={handleCopy}
@@ -348,6 +348,8 @@
 </div>
 
 <style>
+	@reference "../../app.css";
+
 	/* Component-specific styles only.
 	 * Markdown content styles are now global in app.css
 	 * for reuse across the application.
@@ -379,7 +381,7 @@
 		list-style: none;
 	}
 
-	/* Approval badge pulse animation - uses consolidated animation from tailwind.config.js */
+	/* Approval badge pulse animation - uses the shared animation from app.css */
 	.approval-badge {
 		@apply animate-approval-pulse;
 	}

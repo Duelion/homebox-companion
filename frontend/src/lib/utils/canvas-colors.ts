@@ -1,13 +1,13 @@
 /**
  * Canvas drawing color constants synchronized with the Tailwind design system.
  *
- * These values must be kept in sync with tailwind.config.js color definitions.
+ * These values must be kept in sync with app.css @theme color definitions.
  * Canvas 2D context doesn't support CSS classes, so we use hex values here.
  */
 
 /**
  * Design system color tokens for canvas operations.
- * @see tailwind.config.js for the source of truth
+ * @see ../../app.css for the source of truth
  */
 export const CANVAS_COLORS = {
 	/** neutral-950 - App background */

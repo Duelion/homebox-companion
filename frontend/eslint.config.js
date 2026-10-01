@@ -4,9 +4,6 @@ import svelte from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
 import tailwindcss from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
-import { fileURLToPath } from 'node:url';
-
-const tailwindConfig = fileURLToPath(new URL('./tailwind.config.js', import.meta.url));
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -20,7 +17,7 @@ export default [
 	...svelte.configs['flat/recommended'],
 
 	// Tailwind CSS plugin - flat config presets
-	...tailwindcss.configs['flat/recommended'],
+	tailwindcss.configs.recommended,
 
 	// Global config for JS/TS files
 	{
@@ -77,46 +74,71 @@ export default [
 	{
 		settings: {
 			tailwindcss: {
-				// tailwind-api-utils resolves Tailwind relative to this config path.
-				config: tailwindConfig,
+				// Tailwind v4 configuration and custom utilities live in this stylesheet.
+				cssConfigPath: './src/app.css',
 				// Support class attributes in Svelte templates
-				callees: ['classnames', 'clsx', 'cn'],
+				functions: ['classnames', 'clsx', 'cn'],
 				// Validate classes in Svelte files
-				classRegex: '^class(Name)?$',
+				attributes: ['class', 'className'],
 			},
 		},
 		rules: {
 			// Catch invalid/non-existent Tailwind classes
-			'tailwindcss/no-custom-classname': ['warn', {
-				// Allow these custom utility classes from app.css
-				whitelist: [
-					'btn-icon',
-					'btn-icon-touch',
-					'input',
-					'input-error',
-					'input-expandable',
-					'label',
-					'label-chip',
-					'label-chip-selected',
-					'animate-in',
-					'glass',
-					'pb-safe',
-					'pt-safe',
-					'bottom-nav-offset',
-					'skeleton',
-					'stagger-\\d+',
-					'animate-stagger',
-					'checkmark-draw',
-					'success-scale',
-					'success-badge',
-					'page-content',
-					'fixed-bottom-panel',
-					'empty-state',
-					'complete-pop',
-					'vt-enabled',
-					'markdown-content',
-				],
-			}],
+			'tailwindcss/no-custom-classname': [
+				'warn',
+				{
+					// Allow these custom utility classes from app.css
+					whitelist: [
+						'btn-icon',
+						'btn-icon-touch',
+						'input',
+						'input-error',
+						'input-sm',
+						'input-expandable',
+						'input-with-icon',
+						'label',
+						'label-sm',
+						'label-chip',
+						'label-chip-selected',
+						'selectable-item',
+						'selectable-item-selected',
+						'chat-bubble',
+						'chat-bubble-user',
+						'chat-meta',
+						'chat-tools-section',
+						'chat-tools-summary',
+						'chat-tools-grid',
+						'chat-tool-badge',
+						'chat-approval-badge',
+						'animate-in',
+						'glass',
+						'pb-safe',
+						'pt-safe',
+						'bottom-nav-offset',
+						'skeleton',
+						'checkmark-draw',
+						'success-scale',
+						'page-content',
+						'fixed-bottom-panel',
+						'chat-input-keyboard-aware',
+						'empty-state',
+						'slider-primary',
+						'complete-pop',
+						'loading-spinner',
+						'typing-ellipsis',
+						'typing-dot',
+						'tool-spinner',
+						'streaming-glow',
+						'tool-accordion',
+						'approval-badge',
+						'toast-enter',
+						'toast-exit',
+						'toast-progress',
+						'vt-enabled',
+						'markdown-content',
+					],
+				},
+			],
 			// Enforce consistent class ordering - handled by prettier-plugin-tailwindcss
 			'tailwindcss/classnames-order': 'off',
 			// Warn about conflicting classes like "p-2 p-4"
@@ -149,10 +171,6 @@ export default [
 
 	// Ignore build output and dependencies
 	{
-		ignores: [
-			'build/**',
-			'.svelte-kit/**',
-			'node_modules/**',
-		],
+		ignores: ['build/**', '.svelte-kit/**', 'node_modules/**'],
 	},
 ];
