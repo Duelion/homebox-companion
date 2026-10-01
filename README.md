@@ -451,12 +451,10 @@ stylesheet with `@reference`; ordinary CSS can use its theme variables, such as
 `frontend/src/lib/utils/canvas-colors.ts` synchronized with these tokens.
 Tailwind 4's CSS browser baseline is Safari 16.4+, Chrome 111+, and Firefox 128+.
 
-For a deliberate Python dependency refresh, run
-`uv sync --upgrade --exclude-newer "30 days"` with a uv version that supports
-relative durations (0.9.17+). This applies the cooldown only to that refresh;
+For a deliberate Python dependency refresh, run `uv sync --upgrade`;
 routine installs use the committed lockfile with `uv sync --locked`.
-For frontend updates, verify selected releases and transitive dependencies are
-at least 30 days old, update the lockfile, and rerun the checks and `npm audit`.
+For frontend updates, verify compatibility, update the lockfile, and rerun the
+checks and `npm audit`. Dependency updates have no minimum release-age requirement.
 
 ## 📄 License
 
