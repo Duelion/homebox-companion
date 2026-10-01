@@ -8,6 +8,9 @@ uv sync --locked
 uv run --no-sync pytest
 ```
 
+The development dependencies include HTTPX2, which Starlette automatically uses
+as its `TestClient` backend. Install them with `uv sync --locked` before testing.
+
 The shared Homebox business and authentication suites use disposable Docker
 servers and isolated accounts. No operator-provided Homebox credentials or paid
 LLM account is required:
