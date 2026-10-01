@@ -17,7 +17,7 @@ from __future__ import annotations
 import base64
 import binascii
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 from pydantic import Field
@@ -33,10 +33,12 @@ if TYPE_CHECKING:
 # TOOL REGISTRY
 # =============================================================================
 
-_TOOL_REGISTRY: list[type[Tool]] = []
+# The registry contains tools with different Params models, so its type parameter
+# is erased at this boundary. A concrete Tool[ParamsT] retains the relationship.
+_TOOL_REGISTRY: list[type[Tool[Any]]] = []
 
 
-def register_tool[T: type[Tool]](cls: T) -> T:
+def register_tool[T: Tool[Any]](cls: type[T]) -> type[T]:
     """Decorator to register a tool class for discovery.
 
     This provides explicit tool registration rather than fragile
@@ -53,7 +55,7 @@ def register_tool[T: type[Tool]](cls: T) -> T:
     return cls
 
 
-def get_tools() -> list[Tool]:
+def get_tools() -> list[Tool[Any]]:
     """Get all registered tool instances.
 
     Returns:

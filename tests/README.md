@@ -148,7 +148,6 @@ run in a separate bounded job with a sentinel LLM key and the explicit six-file
 allowlist above. Do not broaden that job to all live tests: other live tests may
 require a real LLM account.
 
-CI runs `ty check --exit-zero-on-warning` to preserve the project's existing
-warning-level diagnostics as informational output. Type errors still fail the
-job. The recovery baseline currently has 51 warnings, primarily stale suppression
-comments and existing MCP typing diagnostics; this is not a warning-free result.
+CI runs `ty check --error-on-warning` so both type errors and warnings fail the
+job. Keep the type-check baseline free of diagnostics; validate dynamic inputs
+at model boundaries and preserve each tool's parameter type in its interface.

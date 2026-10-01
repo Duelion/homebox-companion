@@ -398,7 +398,8 @@ class TestUpdateItem:
         mock_client.update_item.return_value = {"id": "item-1", "name": "Existing item"}
 
         tool = UpdateItemTool()
-        result = await tool.execute(mock_client, "test-token", tool.Params(item_id="item-1", **params))
+        validated_params = tool.Params.model_validate({"item_id": "item-1", **params})
+        result = await tool.execute(mock_client, "test-token", validated_params)
 
         assert result.success is True
         payload = mock_client.update_item.await_args.args[2]
