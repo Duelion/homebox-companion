@@ -35,7 +35,8 @@ jobs:
 
   frontend:
     name: Frontend checks
-    runs-on: ubuntu-latest
+    # Match the noble environment used for reviewed Playwright screenshot baselines.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
@@ -57,10 +58,20 @@ jobs:
         run: npm run format:check
       - name: Build frontend
         run: npm run build
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
       - name: Run mocked browser tests
-        run: npm run test:browser
+        run: npm run test:browser:run
+      - name: Upload browser test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-test-reports
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: warn
+          retention-days: 7
 
   homebox-live:
     name: Homebox live checks

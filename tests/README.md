@@ -47,21 +47,94 @@ refresh, and logout tests use `homebox_api_url` and `homebox_credentials` direct
 API-key-only classes can override `homebox_auth_mode`; see `TestAPIKeyLifecycle` in
 `test_homebox_auth_live.py`.
 
-The browser auth and failed-item recovery suites use mocked API responses and a
-local SvelteKit preview; they do not call Homebox or an LLM. From `frontend/`,
-install dependencies and run:
+The browser suite uses mocked API responses and a local SvelteKit preview; it
+does not call Homebox or an LLM. From `frontend/`, install dependencies, build
+once, and run Playwright against that build:
 
 ```powershell
 npm ci
-npx playwright install chrome   # required when the Chrome channel is absent
-npm run test:browser
+npx playwright install --with-deps chromium webkit
+npm run build
+npm run test:browser:run
 ```
 
-`frontend/playwright.config.ts` builds the frontend and starts its preview server
-on `127.0.0.1:4173`. Local runs select the installed Google Chrome channel. CI
-selects bundled Chromium and installs it with
-`npx playwright install --with-deps chromium`. To use bundled Chromium locally,
-install it and set `CI=true` for the test command.
+`frontend/playwright.config.ts` starts the preview server on
+`127.0.0.1:4173` with a strict port and does not build. Its `browser-test` mode
+disables Vite's backend proxy so late teardown requests cannot reach a real API.
+`npm run test:browser`
+is the convenience command that builds once and then runs the suite. The normal
+project is bundled Chromium. Linux runs include `@visual` tests; the short
+`@mobile` selection runs in mobile WebKit. `PLAYWRIGHT_SYSTEM_CHROME=1` opts into
+an additional installed Chrome project for local debugging. CI installs both
+browser engines, runs the build, then runs `test:browser:run`.
+
+For the canonical screenshot platform on Windows or macOS, Docker can run the
+same Linux/browser version used to create the baselines. From the repository
+root in PowerShell, run this in one session (the named volume retains Linux
+dependencies; source and build output remain in the checkout):
+
+```powershell
+$repo = (Get-Location).Path
+docker run --rm --init --ipc=host `
+  -v "${repo}:/work" `
+  -v homebox-browser-node-modules:/work/frontend/node_modules `
+  -w /work/frontend mcr.microsoft.com/playwright:v1.63.0-noble `
+  bash -lc "npm ci && npm run build && npm run test:browser:run"
+```
+
+Run `npm run build` only once before `npm run test:browser:run`; the Playwright
+web server serves that build. The container writes build output into the
+checkout, so avoid a simultaneous host build. The named `node_modules` volume
+keeps Linux dependencies separate from host dependencies. For subsequent runs
+using the same volume, omit `npm ci` unless dependencies changed, and rebuild
+only after frontend source changes.
+
+To debug a test, narrow by file/title and use the HTML report or retained trace:
+
+```powershell
+npx playwright test tests/browser/scan.spec.ts --grep "submits a corrected item"
+npx playwright show-report
+$trace = Get-ChildItem test-results -Recurse -Filter trace.zip | Select-Object -First 1
+npx playwright show-trace $trace.FullName
+```
+
+Reports are written to `playwright-report/`; traces and failure screenshots go
+under `test-results/`. The shared fixture releases request gates and reports
+undeclared `/api/` calls, unexpected external requests, mock-handler errors, and
+unhandled page errors at teardown. Allow a page error only inside the specific
+test that deliberately exercises it (`api.allowPageError(...)`); investigate
+unknown API calls by adding an explicit method/path handler or correcting the
+request under test. Do not silence fixture diagnostics globally.
+
+Shared setup lives in `tests/browser/fixtures/`. Extend `fixtures/api.ts` with
+an explicit baseline only for stable startup behavior needed across workflows;
+otherwise, add a test-specific `api.on(method, path, handler)` in the test or a
+focused helper. Handlers are matched by HTTP method and path, with the latest
+registration taking precedence, so an override stays local and explicit. Put
+typed scenario builders in `fixtures/data.ts`; put reusable user actions in
+`helpers/` while leaving the main action and outcome assertion readable in each
+test. Add `@mobile` only to a small interaction case intended for the mobile
+WebKit project. Add `@visual` only for an intentional Linux screenshot baseline.
+
+The screenshot set has two visual tests and five PNG baselines. Update them only
+on the canonical Linux Chromium project after reviewing the rendered change:
+
+```powershell
+npx playwright test presentation.spec.ts --project chromium --grep '@visual' --update-snapshots
+git diff -- tests/browser
+```
+
+Do not update snapshots in a full-suite command or CI. Locally served font bytes
+are pinned under `tests/browser/assets/fonts/`; their adjacent files preserve
+the SIL Open Font License notices. Keep these files and source/version notes
+together when refreshing typography so screenshots do not depend on network font
+responses.
+
+These browser tests establish UI behavior against declared mock responses. They
+do not establish agreement with a running FastAPI/Homebox deployment or a real
+LLM/provider, nor do mobile emulation and screenshot comparisons replace
+real-device checks. Backend contract and live behavior remain covered by the
+appropriate Python suites.
 
 The validation workflow runs on pull requests and `dev` pushes. Python checks use
 the committed `uv.lock`; frontend checks use `npm ci`. Docker-backed Homebox tests

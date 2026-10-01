@@ -1,10 +1,15 @@
-import { expect, test, type Page } from '@playwright/test';
-
-const json = (body: unknown, status = 200) => ({
-	status,
-	contentType: 'application/json',
-	body: JSON.stringify(body),
-});
+import { type Page } from '@playwright/test';
+import { test, expect } from './fixtures/test';
+import { installApi, json } from './fixtures/api';
+import { detectedItems, createdItem, rejectedItem, incompleteItem } from './fixtures/data';
+import { seedLegacySession } from './fixtures/auth';
+import {
+	selectLocation,
+	uploadPhoto,
+	analyzePhotos,
+	confirmItems,
+	submitItems,
+} from './helpers/scan';
 
 interface Submission {
 	name: string;
@@ -17,153 +22,69 @@ async function openSummary(
 	options: {
 		authMode?: 'legacy' | 'api_key';
 		selectedGroupId?: string;
+		rejectedItems?: string[];
 		expireOnItem?: string;
 		incompleteItem?: string;
 		failedUploadCleanup?: boolean;
 		operations?: string[];
 	} = {}
 ) {
+	const api = await installApi(page.context());
+	api.setAuthMode(options.authMode ?? 'api_key');
 	if (options.authMode === 'legacy') {
-		await page.addInitScript((groupId) => {
-			localStorage.setItem('hbc_token', 'valid-token');
-			localStorage.setItem('hbc_token_expires', new Date(Date.now() + 3_600_000).toISOString());
-			if (groupId) localStorage.setItem('hbc_group_id', groupId);
-		}, options.selectedGroupId);
+		await seedLegacySession(page, 'valid-token', options.selectedGroupId);
 	}
-	let expired = false;
-	await page.route('**/api/**', async (route) => {
-		const request = route.request();
-		const path = new URL(request.url()).pathname;
-		options.operations?.push(`${request.method()} ${path}`);
-		if (path === '/api/config') {
-			return route.fulfill(
-				json({
-					auth_mode: options.authMode ?? 'api_key',
-					is_demo_mode: false,
-					demo_mode_explicit: false,
-					homebox_url: 'http://homebox.test',
-					llm_model: 'gpt-5.6-luna',
-					update_check_enabled: false,
-					image_quality: 'high',
-					log_level: 'INFO',
-					capture_max_images: 10,
-					capture_max_file_size_mb: 20,
-					print_enabled: false,
-				})
-			);
-		}
-		if (path === '/api/homebox/connection') {
-			return route.fulfill(
-				json({
-					connected: true,
-					context_id: 'deployment:user',
-					user_id: 'user-1',
-					default_group_id: 'g1',
-				})
-			);
-		}
-		if (path === '/api/groups') {
-			return route.fulfill(
-				json([
-					{ id: 'g1', name: 'Personal' },
-					...(options.selectedGroupId ? [{ id: options.selectedGroupId, name: 'Shared' }] : []),
-				])
-			);
-		}
-		if (path === '/api/login') {
-			return route.fulfill(
-				json({ token: 'new-token', expires_at: new Date(Date.now() + 3_600_000).toISOString() })
-			);
-		}
-		if (path === '/api/refresh') return route.fulfill(json({ detail: 'Session expired' }, 401));
-		if (path === '/api/locations/tree') {
-			return route.fulfill(json([{ id: 'loc-1', name: 'Storage', itemCount: 0, children: [] }]));
-		}
-		if (path === '/api/locations/loc-1') {
-			return route.fulfill(json({ id: 'loc-1', name: 'Storage', itemCount: 0, children: [] }));
-		}
-		if (path === '/api/tags') return route.fulfill(json([]));
-		if (path === '/api/version') {
-			return route.fulfill(
-				json({ version: 'test', latest_version: null, update_available: false })
-			);
-		}
-		if (path === '/api/field-preferences') return route.fulfill(json({ default_tag_id: null }));
-		if (path === '/api/tools/vision/detect') {
-			return route.fulfill(
-				json({
-					items: itemNames.map((name) => ({ name, quantity: 1, description: `${name} photo` })),
-					compressed_images: [],
-				})
-			);
-		}
-		if (path === '/api/items' && request.method() === 'POST') {
-			const name = request.postDataJSON().items[0].name as string;
-			submissions.push({ name });
-			if (name === options.expireOnItem && !expired) {
-				expired = true;
-				return route.fulfill(json({ detail: 'Session expired' }, 401));
-			}
-			if (name.startsWith('Bad')) {
-				return route.fulfill(json({ created: [], errors: [`${name} rejected`] }, 207));
-			}
-			if (name === options.incompleteItem) {
-				return route.fulfill(
-					json(
-						{
-							created: [{ id: `created-${submissions.length}` }],
-							errors: [`Authentication failed for '${name}'`],
-						},
-						207
-					)
-				);
-			}
-			return route.fulfill(
-				json({ created: [{ id: `created-${submissions.length}` }], errors: [] })
-			);
-		}
-		if (/\/api\/items\/[^/]+\/attachments$/.test(path)) {
-			return route.fulfill(
-				options.failedUploadCleanup ? json({ detail: 'Upload failed' }, 400) : json({})
-			);
-		}
-		if (
-			/\/api\/items\/[^/]+$/.test(path) &&
-			request.method() === 'DELETE' &&
-			options.failedUploadCleanup
-		) {
-			return route.fulfill(json({ detail: 'Cleanup failed' }, 400));
-		}
-		return route.fulfill(json({}));
-	});
-
-	await page.goto('/location');
-	await page.getByRole('button', { name: /Storage/ }).click();
-	await page.getByRole('button', { name: 'Select current location' }).click();
-	await page.getByRole('button', { name: 'Continue to Capture' }).click();
-	await page
-		.locator('input[type="file"]')
-		.first()
-		.setInputFiles({
-			name: 'item.png',
-			mimeType: 'image/png',
-			buffer: Buffer.from(
-				'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-				'base64'
-			),
+	if (options.operations) {
+		page.on('request', (request) => {
+			const path = new URL(request.url()).pathname;
+			if (path.startsWith('/api/')) options.operations?.push(`${request.method()} ${path}`);
 		});
-	await page.getByRole('button', { name: /Analyze with AI/ }).click();
-	await expect(page).toHaveURL(/\/review$/);
-	for (let index = 0; index < itemNames.length; index++) {
-		await page.getByRole('button', { name: 'Confirm' }).click();
 	}
-	await expect(page).toHaveURL(/\/summary$/);
-	await page.getByRole('button', { name: /Submit All Items/ }).click();
+	if (options.selectedGroupId) {
+		api.on('GET', '/api/groups', () =>
+			json([
+				{ id: 'g1', name: 'Personal' },
+				{ id: options.selectedGroupId!, name: 'Shared' },
+			])
+		);
+	}
+	if (options.authMode === 'legacy') {
+		api.on('POST', '/api/refresh', () => json({ detail: 'Session expired' }, 401));
+	}
+	api.on('POST', '/api/tools/vision/detect', () => json(detectedItems(itemNames)));
+	let expired = false;
+	api.on('POST', '/api/items', (request) => {
+		const name = request.postDataJSON().items[0].name as string;
+		submissions.push({ name });
+		if (name === options.expireOnItem && !expired) {
+			expired = true;
+			return json({ detail: 'Session expired' }, 401);
+		}
+		if (options.rejectedItems?.includes(name)) {
+			return json(rejectedItem(name), 207);
+		}
+		if (name === options.incompleteItem) {
+			return json(incompleteItem(`created-${submissions.length}`, name), 207);
+		}
+		return json(createdItem(`created-${submissions.length}`, name));
+	});
+	api.on('POST', /^\/api\/items\/[^/]+\/attachments$/, () =>
+		options.failedUploadCleanup ? json({ detail: 'Upload failed' }, 400) : json({})
+	);
+	api.on('DELETE', /^\/api\/items\/[^/]+$/, () =>
+		options.failedUploadCleanup
+			? json({ detail: 'Cleanup failed' }, 400)
+			: json({ message: 'deleted' })
+	);
+	await selectLocation(page);
+	await uploadPhoto(page);
+	await analyzePhotos(page);
+	await confirmItems(page, itemNames.length);
+	await submitItems(page);
 }
-
 test('edits and retries a single failed item with its photo', async ({ page }) => {
 	const submissions: Submission[] = [];
-	await openSummary(page, ['Bad lamp'], submissions);
+	await openSummary(page, ['Bad lamp'], submissions, { rejectedItems: ['Bad lamp'] });
 
 	await page.getByRole('button', { name: 'Edit failed item Bad lamp' }).click();
 	await page.getByLabel('Name').fill('Fixed lamp');
@@ -178,7 +99,9 @@ test('edits and retries a single failed item with its photo', async ({ page }) =
 
 test('mixed batch retries only the corrected failure', async ({ page }) => {
 	const submissions: Submission[] = [];
-	await openSummary(page, ['Good chair', 'Bad table'], submissions);
+	await openSummary(page, ['Good chair', 'Bad table'], submissions, {
+		rejectedItems: ['Bad table'],
+	});
 
 	await page.getByRole('button', { name: 'Edit failed item Bad table' }).click();
 	await page.getByLabel('Name').fill('Fixed table');
@@ -212,10 +135,13 @@ test('post-create auth failure is visible and cannot be retried as a new item', 
 for (const reload of [false, true]) {
 	test(`mixed batch protects completed and incomplete items on retry, reload=${reload}`, async ({
 		page,
+		api,
 	}) => {
+		if (reload) api.allowPageError(/^navigation aborted$/);
 		const submissions: Submission[] = [];
 		await openSummary(page, ['Good chair', 'Incomplete lamp', 'Bad table'], submissions, {
 			incompleteItem: 'Incomplete lamp',
+			rejectedItems: ['Bad table'],
 		});
 		await expect(page.getByRole('button', { name: 'Retry Failed Items' })).toBeVisible();
 		if (reload) {
@@ -253,9 +179,10 @@ test('failed primary-photo cleanup is an incomplete item, not a retryable create
 	expect(submissions).toEqual([{ name: 'Created lamp' }]);
 });
 
-test('back cancels a failed-item edit without losing the original row', async ({ page }) => {
+test('back cancels a failed-item edit without losing the original row', async ({ page, api }) => {
+	api.allowPageError(/^(navigation aborted|Transition was skipped\. New ViewTransition started)$/);
 	const submissions: Submission[] = [];
-	await openSummary(page, ['Bad camera'], submissions);
+	await openSummary(page, ['Bad camera'], submissions, { rejectedItems: ['Bad camera'] });
 
 	await page.getByRole('button', { name: 'Edit failed item Bad camera' }).click();
 	await page.getByLabel('Name').fill('Discarded change');
@@ -267,9 +194,10 @@ test('back cancels a failed-item edit without losing the original row', async ({
 	expect(submissions.map(({ name }) => name)).toEqual(['Bad camera']);
 });
 
-test('reload during a failed-item edit recovers the unchanged summary', async ({ page }) => {
+test('reload during a failed-item edit recovers the unchanged summary', async ({ page, api }) => {
+	api.allowPageError(/^navigation aborted$/);
 	const submissions: Submission[] = [];
-	await openSummary(page, ['Bad monitor'], submissions);
+	await openSummary(page, ['Bad monitor'], submissions, { rejectedItems: ['Bad monitor'] });
 
 	await page.getByRole('button', { name: 'Edit failed item Bad monitor' }).click();
 	await page.getByLabel('Name').fill('Unsaved monitor');
@@ -286,7 +214,7 @@ test('native browser back cancels editing and a new scan does not reuse its inde
 	page,
 }) => {
 	const submissions: Submission[] = [];
-	await openSummary(page, ['Bad speaker'], submissions);
+	await openSummary(page, ['Bad speaker'], submissions, { rejectedItems: ['Bad speaker'] });
 
 	await page.getByRole('button', { name: 'Edit failed item Bad speaker' }).click();
 	await page.getByLabel('Name').fill('Unsaved speaker');
@@ -341,35 +269,29 @@ for (const identityChanged of [true, false]) {
 		page,
 	}) => {
 		const submissions: Submission[] = [];
-		await openSummary(page, ['Bad private inventory'], submissions);
+		await openSummary(page, ['Bad private inventory'], submissions, {
+			rejectedItems: ['Bad private inventory'],
+		});
 		await expect(page.getByRole('button', { name: 'Retry Failed Items' })).toBeVisible();
-		await page.route('**/api/chat/health', (route) =>
-			route.fulfill(json({ status: 'ok', chat_enabled: true }))
-		);
-		await page.route('**/api/chat/status', (route) =>
-			route.fulfill(json({ detail: 'Rejected key', code: 'HOMEBOX_API_KEY_REJECTED' }, 502))
+		const api = await installApi(page.context());
+		api.on('GET', '/api/chat/status', () =>
+			json({ detail: 'Rejected key', code: 'HOMEBOX_API_KEY_REJECTED' }, 502)
 		);
 		await page.locator('a[href="/chat"]').first().click();
 		await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
-		await page.route('**/api/homebox/connection', (route) =>
-			route.fulfill(
-				json({
-					connected: true,
-					context_id: identityChanged ? 'deployment:other-user' : 'deployment:user',
-					user_id: identityChanged ? 'other-user' : 'user-1',
-					default_group_id: 'g2',
-				})
-			)
+		api.on('GET', '/api/homebox/connection', () =>
+			json({
+				connected: true,
+				context_id: identityChanged ? 'deployment:other-user' : 'deployment:user',
+				user_id: identityChanged ? 'other-user' : 'user-1',
+				default_group_id: 'g2',
+			})
 		);
-		await page.route('**/api/groups', (route) =>
-			route.fulfill(json([{ id: 'g2', name: 'New collection' }]))
+		api.on('GET', '/api/groups', () => json([{ id: 'g2', name: 'New collection' }]));
+		api.on('GET', '/api/locations/tree', () =>
+			json([{ id: 'new-location', name: 'New location', children: [] }])
 		);
-		await page.route('**/api/locations/tree', (route) =>
-			route.fulfill(json([{ id: 'new-location', name: 'New location', children: [] }]))
-		);
-		await page.route('**/api/chat/status', (route) =>
-			route.fulfill(json({ session_id: 'new-session', message_count: 0 }))
-		);
+		api.on('GET', '/api/chat/status', () => json({ session_id: 'new-session', message_count: 0 }));
 		await page.getByRole('button', { name: 'Retry', exact: true }).click();
 		await expect(page.getByLabel('Chat message input')).toBeVisible();
 		await page.locator('a[href="/location"]').first().click();

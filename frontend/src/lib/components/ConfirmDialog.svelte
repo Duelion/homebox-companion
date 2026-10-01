@@ -21,6 +21,35 @@
 		onConfirm,
 		onCancel,
 	}: Props = $props();
+	const dialogId = $props.id();
+
+	function showModal(dialog: HTMLDialogElement) {
+		const previousFocus = document.activeElement;
+		dialog.showModal();
+		function keepFocus(event: KeyboardEvent) {
+			if (event.key !== 'Tab') return;
+			const buttons = dialog.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
+			const first = buttons[0];
+			const last = buttons[buttons.length - 1];
+			if (event.shiftKey && document.activeElement === first) {
+				event.preventDefault();
+				last?.focus();
+			} else if (!event.shiftKey && document.activeElement === last) {
+				event.preventDefault();
+				first?.focus();
+			}
+		}
+		dialog.addEventListener('keydown', keepFocus);
+		return {
+			destroy() {
+				dialog.removeEventListener('keydown', keepFocus);
+				dialog.close();
+				if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+					previousFocus.focus();
+				}
+			},
+		};
+	}
 
 	function handleBackdropClick(event: MouseEvent) {
 		if (event.target === event.currentTarget) {
@@ -28,28 +57,28 @@
 		}
 	}
 
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			onCancel();
-		}
+	function handleCancel(event: Event) {
+		event.preventDefault();
+		onCancel();
 	}
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
 {#if open}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="animate-in fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-sm"
+	<dialog
+		use:showModal
+		aria-labelledby={`${dialogId}-title`}
+		aria-describedby={`${dialogId}-message`}
+		class="animate-in fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center bg-neutral-950/60 p-0 backdrop-blur-sm backdrop:bg-transparent"
 		onclick={handleBackdropClick}
+		oncancel={handleCancel}
 	>
 		<div class="mx-4 w-full max-w-sm">
 			<Card padding="lg">
-				<h2 id="dialog-title" class="mb-2 text-h3 text-neutral-100">
+				<h2 id={`${dialogId}-title`} class="mb-2 text-h3 text-neutral-100">
 					{title}
 				</h2>
-				<p class="mb-6 text-body text-neutral-400">
+				<p id={`${dialogId}-message`} class="mb-6 text-body text-neutral-400">
 					{message}
 				</p>
 				<div class="flex gap-3">
@@ -62,5 +91,5 @@
 				</div>
 			</Card>
 		</div>
-	</div>
+	</dialog>
 {/if}
