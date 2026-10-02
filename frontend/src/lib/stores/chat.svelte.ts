@@ -661,16 +661,6 @@ class ChatStore {
 	// =========================================================================
 
 	/**
-	 * Consume and clear the recent approval outcomes.
-	 * Used to send context with the next message.
-	 */
-	private consumeApprovalOutcomes(): ApprovalOutcome[] {
-		const outcomes = this._recentApprovalOutcomes;
-		this._recentApprovalOutcomes = [];
-		return outcomes;
-	}
-
-	/**
 	 * Send a message and stream the response.
 	 */
 	sendMessage(content: string): void {
@@ -690,23 +680,8 @@ class ChatStore {
 		// Clear any previous error
 		this._error = null;
 
-		// Auto-reject pending approvals on the original assistant message
-		// (mirrors backend behavior which auto-rejects when new message arrives)
-		if (this._pendingApprovals.length > 0) {
-			this.autoRejectPendingApprovals();
-		}
-
-		// Consume any pending approval outcomes to send as context
-		const approvalContext = this.consumeApprovalOutcomes();
-		if (approvalContext.length > 0) {
-			log.trace(`Including ${approvalContext.length} approval outcomes as context`);
-		}
-
-		// Add user message
-		this.addUserMessage(content);
-
-		// Add placeholder assistant message
-		this.addAssistantMessage();
+		// Keep outcomes and history intact until the server accepts the request.
+		const approvalContext = [...this._recentApprovalOutcomes];
 
 		// Start streaming
 		this._isStreaming = true;
@@ -714,6 +689,13 @@ class ChatStore {
 		const generation = this.scopeGeneration;
 		this.abortController = chat.sendMessage(content, {
 			approvalContext: approvalContext.length > 0 ? approvalContext : undefined,
+			onAccepted: () => {
+				if (generation !== this.scopeGeneration) return;
+				this.autoRejectPendingApprovals();
+				this._recentApprovalOutcomes.splice(0, approvalContext.length);
+				this.addUserMessage(content);
+				this.addAssistantMessage();
+			},
 			onEvent: (event: ChatEvent) => generation === this.scopeGeneration && this.handleEvent(event),
 			onError: (error: Error) => generation === this.scopeGeneration && this.handleError(error),
 			onComplete: () => generation === this.scopeGeneration && this.handleComplete(),

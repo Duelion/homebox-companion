@@ -125,6 +125,8 @@ export interface ApprovalOutcomeContext {
 // =============================================================================
 
 export interface SendMessageOptions {
+	/** Called after the server accepts the message, before stream events. */
+	onAccepted?: () => void;
 	onEvent?: (event: ChatEvent) => void;
 	onError?: (error: Error) => void;
 	onComplete?: () => void;
@@ -198,6 +200,9 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 			if (!response.body) {
 				throw new Error('No response body');
 			}
+
+			if (signal.aborted) return;
+			options.onAccepted?.();
 
 			// Parse SSE stream
 			const reader = response.body.getReader();

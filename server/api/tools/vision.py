@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from loguru import logger
 
 from homebox_companion import (
@@ -15,7 +14,6 @@ from homebox_companion import (
     detect_items_from_bytes,
     encode_compressed_image_to_base64,
     encode_image_bytes_to_data_uri,
-    settings,
 )
 from homebox_companion import (
     correct_item as llm_correct_item,
@@ -39,48 +37,9 @@ from ...schemas.vision import (
     DuplicateMatchResponse,
 )
 from ...services.duplicate_checker import DuplicateChecker
+from ...services.image_processing import run_image_processing
 
 router = APIRouter()
-
-
-# Limit concurrent CPU-intensive compression to available cores.
-# This prevents 100+ parallel requests from overwhelming the CPU.
-# We track both the semaphore and the event loop it was created for,
-# so we can recreate it if the loop changes (e.g., during tests or reloads).
-_COMPRESSION_SEMAPHORE: asyncio.Semaphore | None = None
-_COMPRESSION_SEMAPHORE_LOOP: asyncio.AbstractEventLoop | None = None
-
-
-def _get_compression_semaphore() -> asyncio.Semaphore:
-    """Get or create the compression semaphore for the current event loop.
-
-    The semaphore is bound to the event loop it was created on.
-    If the loop changes (tests, reloads), we create a new semaphore.
-
-    Note: This function is safe from race conditions in async code because:
-    - There's no `await` between the check and the assignment
-    - Asyncio is cooperative, so this runs atomically within a single event loop
-    """
-    global _COMPRESSION_SEMAPHORE, _COMPRESSION_SEMAPHORE_LOOP
-
-    try:
-        current_loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # No running loop - this shouldn't happen in normal request handling
-        # but can occur in tests. Create semaphore anyway; it will be
-        # recreated when a proper loop is running.
-        current_loop = None
-
-    # Recreate semaphore if loop changed or doesn't exist
-    if (
-        _COMPRESSION_SEMAPHORE is None
-        or _COMPRESSION_SEMAPHORE_LOOP is None
-        or (current_loop is not None and _COMPRESSION_SEMAPHORE_LOOP is not current_loop)
-    ):
-        _COMPRESSION_SEMAPHORE = asyncio.Semaphore(os.cpu_count() or 4)
-        _COMPRESSION_SEMAPHORE_LOOP = current_loop
-
-    return _COMPRESSION_SEMAPHORE
 
 
 def filter_default_tag(tag_ids: list[str] | None, default_tag_id: str | None) -> list[str]:
@@ -105,6 +64,7 @@ def filter_default_tag(tag_ids: list[str] | None, default_tag_id: str | None) ->
 
 @router.post("/detect", response_model=DetectionResponse)
 async def detect_items(
+    request: Request,
     image: Annotated[UploadFile, File(description="Primary image file to analyze")],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
     api_key: Annotated[str, Depends(require_llm_configured)],
@@ -132,7 +92,7 @@ async def detect_items(
     logger.info(f"Extract extended fields: {extract_extended_fields}")
 
     # Read and validate primary image
-    image_bytes = await validate_file_size(image)
+    image_bytes = await validate_file_size(image, request.app.state.settings)
     logger.debug(f"Primary image size: {len(image_bytes)} bytes")
     content_type = image.content_type or "image/jpeg"
 
@@ -140,7 +100,7 @@ async def detect_items(
     additional_image_data: list[tuple[bytes, str]] = []
     if additional_images:
         for add_img in additional_images:
-            add_bytes = await validate_file_size(add_img)
+            add_bytes = await validate_file_size(add_img, request.app.state.settings)
             add_mime = add_img.content_type or "image/jpeg"
             additional_image_data.append((add_bytes, add_mime))
             logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
@@ -148,7 +108,7 @@ async def detect_items(
     logger.debug(f"Loaded {len(ctx.tags)} tags for context")
 
     # Get image quality settings
-    max_dimension, jpeg_quality = settings.image_quality_params
+    max_dimension, jpeg_quality = request.app.state.settings.image_quality_params
 
     # Run AI detection and image compression in parallel
     async def compress_all_images() -> list[CompressedImage]:
@@ -157,12 +117,10 @@ async def detect_items(
 
         async def compress_one(img_bytes: bytes, _mime: str) -> CompressedImage:
             """Compress a single image with concurrency limiting."""
-            # Limit concurrent compressions to prevent CPU overload
-            async with _get_compression_semaphore():
-                base64_data, mime = await asyncio.to_thread(
-                    encode_compressed_image_to_base64, img_bytes, max_dimension, jpeg_quality
-                )
-                return CompressedImage(data=base64_data, mime_type=mime)
+            base64_data, mime = await run_image_processing(
+                encode_compressed_image_to_base64, img_bytes, max_dimension, jpeg_quality
+            )
+            return CompressedImage(data=base64_data, mime_type=mime)
 
         # Compress all images in parallel
         return await asyncio.gather(*[compress_one(img_bytes, mime) for img_bytes, mime in all_images_to_compress])
@@ -244,6 +202,7 @@ async def detect_items(
 
 @router.post("/analyze", response_model=AdvancedItemDetails)
 async def analyze_item_advanced(
+    request: Request,
     images: Annotated[list[UploadFile], File(description="Images to analyze")],
     item_name: Annotated[str, Form()],
     ctx: Annotated[VisionContext, Depends(get_vision_context)],
@@ -260,7 +219,7 @@ async def analyze_item_advanced(
         raise HTTPException(status_code=400, detail="At least one image is required")
 
     # Validate and convert images to data URIs
-    validated_images = await validate_files_size(images)
+    validated_images = await validate_files_size(images, request.app.state.settings)
     image_data_uris = [
         encode_image_bytes_to_data_uri(img_bytes, mime_type) for img_bytes, mime_type in validated_images
     ]
@@ -298,6 +257,7 @@ MAX_CORRECTION_INSTRUCTIONS_LENGTH = 2000
 
 @router.post("/correct", response_model=CorrectionResponse)
 async def correct_item(
+    request: Request,
     image: Annotated[UploadFile, File(description="Original image of the item")],
     current_item: Annotated[str, Form(description="JSON string of current item")],
     correction_instructions: Annotated[str, Form(description="User's correction feedback")],
@@ -338,7 +298,7 @@ async def correct_item(
     logger.debug(f"Current item: {current_item_dict}")
 
     # Read and validate image size
-    image_bytes = await validate_file_size(image)
+    image_bytes = await validate_file_size(image, request.app.state.settings)
     content_type = image.content_type or "image/jpeg"
     image_data_uri = encode_image_bytes_to_data_uri(image_bytes, content_type)
 

@@ -2,12 +2,14 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
+from pydantic import BaseModel
 
 from homebox_companion.core.persistent_settings import (
     CustomFieldDefinition,
     get_settings,
     save_settings,
 )
+from homebox_companion.tools.vision.models import DetectedItem
 
 from ..dependencies import require_auth
 
@@ -32,10 +34,22 @@ async def update_custom_fields(
     idempotent replace operation — the frontend sends the complete
     desired state.
     """
-    # Validate no duplicate names
+    # Dynamic vision models inherit DetectedItem and BaseModel. A custom key
+    # must not shadow either a field/alias or a model method.
     names = [f.name for f in fields]
     if len(names) != len(set(names)):
         raise HTTPException(status_code=400, detail="Custom field names must be unique")
+    field_keys = [f.field_key for f in fields]
+    prompt_keys = [f.prompt_key for f in fields]
+    if len(field_keys) != len(set(field_keys)) or len(prompt_keys) != len(set(prompt_keys)):
+        raise HTTPException(status_code=400, detail="Custom field keys must be unique")
+    reserved = set(dir(BaseModel)) | set(dir(DetectedItem)) | set(DetectedItem.model_fields)
+    reserved.update(field.alias for field in DetectedItem.model_fields.values() if field.alias)
+    if any(
+        field_key in reserved or prompt_key in reserved
+        for field_key, prompt_key in zip(field_keys, prompt_keys, strict=True)
+    ):
+        raise HTTPException(status_code=400, detail="Custom field name conflicts with an item field")
 
     persistent = get_settings()
     persistent.custom_fields = fields

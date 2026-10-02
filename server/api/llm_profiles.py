@@ -8,7 +8,7 @@ import litellm
 from fastapi import APIRouter, Depends, HTTPException
 from litellm.exceptions import APIConnectionError, AuthenticationError, NotFoundError
 from loguru import logger
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, SecretStr, ValidationError
 
 from homebox_companion.core.persistent_settings import (
     ModelProfile,
@@ -52,7 +52,7 @@ class ProfileCreateRequest(BaseModel):
     model: str
     api_key: str | None = None
     api_base: str | None = None
-    status: str = "off"
+    status: ProfileStatus = ProfileStatus.OFF
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -67,7 +67,7 @@ class ProfileUpdateRequest(BaseModel):
     model: str | None = None
     api_key: str | None = None
     api_base: str | None = None
-    status: str | None = None
+    status: ProfileStatus | None = None
 
 
 class TestConnectionRequest(BaseModel):
@@ -111,6 +111,17 @@ def _find_profile(settings: PersistentSettings, name: str) -> tuple[int, ModelPr
     raise HTTPException(status_code=404, detail=f"Profile '{name}' not found")
 
 
+def _save_validated_settings(settings: PersistentSettings) -> None:
+    """Check the full profile invariant before writing the candidate settings."""
+    try:
+        PersistentSettings.model_validate(settings.model_dump())
+    except ValidationError:
+        raise HTTPException(
+            status_code=400, detail="Profiles must have exactly one primary and at most one fallback"
+        ) from None
+    save_settings(settings)
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================
@@ -138,7 +149,7 @@ async def create_profile(request: ProfileCreateRequest) -> ProfileResponse:
             raise HTTPException(status_code=409, detail=f"Profile '{request.name}' already exists")
 
     # If this is the first profile, make it active
-    status = ProfileStatus(request.status)
+    status = request.status
     if not settings.llm_profiles:
         status = ProfileStatus.PRIMARY
         logger.info("First profile created, setting as primary")
@@ -151,8 +162,13 @@ async def create_profile(request: ProfileCreateRequest) -> ProfileResponse:
         status=status,
     )
 
+    if status in (ProfileStatus.PRIMARY, ProfileStatus.FALLBACK):
+        for profile in settings.llm_profiles:
+            if profile.status == status:
+                profile.status = ProfileStatus.OFF
+
     settings.llm_profiles.append(new_profile)
-    save_settings(settings)
+    _save_validated_settings(settings)
     logger.info(f"Created LLM profile: {request.name}")
 
     return _profile_to_response(new_profile)
@@ -190,7 +206,7 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
             profile.api_key = SecretStr(request.api_key)
 
     if request.status is not None:
-        new_status = ProfileStatus(request.status)
+        new_status = request.status
 
         # If setting to active, deactivate others
         if new_status == ProfileStatus.PRIMARY:
@@ -206,7 +222,7 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
 
         profile.status = new_status
 
-    save_settings(settings)
+    _save_validated_settings(settings)
     logger.info(f"Updated LLM profile: {profile.name}")
 
     return _profile_to_response(profile)
@@ -229,7 +245,7 @@ async def delete_profile(name: str) -> None:
         settings.llm_profiles[0].status = ProfileStatus.PRIMARY
         logger.info(f"Activated '{settings.llm_profiles[0].name}' after deleting primary profile")
 
-    save_settings(settings)
+    _save_validated_settings(settings)
     logger.info(f"Deleted LLM profile: {name}")
 
 
@@ -248,7 +264,7 @@ async def activate_profile(name: str) -> ProfileResponse:
 
     # Activate the target profile (already in the list, mutated in-place)
     profile.status = ProfileStatus.PRIMARY
-    save_settings(settings)
+    _save_validated_settings(settings)
     logger.info(f"Activated LLM profile: {name}")
 
     return _profile_to_response(profile)

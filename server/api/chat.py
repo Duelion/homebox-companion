@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
+from starlette.types import Receive, Scope, Send
 
 from homebox_companion.chat.approvals import ApprovalService
 from homebox_companion.chat.orchestrator import ChatOrchestrator
@@ -29,7 +30,7 @@ from homebox_companion.chat.stream import StreamEmitter
 from homebox_companion.core.exceptions import HomeboxCompanionError
 from homebox_companion.mcp.executor import ToolExecutor
 
-from ..dependencies import get_bound_executor, get_chat_scope, get_session
+from ..dependencies import get_bound_executor, get_session
 from .auth import RateLimiter
 
 router = APIRouter()
@@ -65,6 +66,23 @@ class ApproveRequest(BaseModel):
     """Optional request body for approve action with modified parameters."""
 
     parameters: dict[str, Any] | None = None
+
+
+def _claim_session(session: ChatSession, operation: str) -> None:
+    if not session.begin_operation(operation):
+        raise HTTPException(status_code=409, detail="A chat operation is already in progress for this session")
+
+
+class _SessionEventSourceResponse(EventSourceResponse):
+    """Keep the session claimed for the entire ASGI response lifetime."""
+
+    session: ChatSession
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            self.session.end_operation("message")
 
 
 async def _event_generator(
@@ -156,12 +174,19 @@ async def send_message(
         logger.trace(f"[API] Approval context: {len(approval_context)} outcomes")
 
     # Create orchestrator with injected dependencies
-    orchestrator = ChatOrchestrator(session=session, executor=executor)
+    orchestrator = ChatOrchestrator(session=session, executor=executor, app_settings=app_settings)
+    _claim_session(session, "message")
 
-    return EventSourceResponse(
-        _event_generator(orchestrator, request.message, executor.execution_token or "", approval_context),
-        media_type="text/event-stream",
-    )
+    try:
+        response = _SessionEventSourceResponse(
+            _event_generator(orchestrator, request.message, executor.execution_token or "", approval_context),
+            media_type="text/event-stream",
+        )
+        response.session = session
+        return response
+    except BaseException:
+        session.end_operation("message")
+        raise
 
 
 @router.get("/chat/pending")
@@ -180,7 +205,11 @@ async def list_pending_approvals(
     if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
-    approvals = session.list_pending_approvals()
+    _claim_session(session, "pending")
+    try:
+        approvals = session.list_pending_approvals()
+    finally:
+        session.end_operation("pending")
 
     return {
         "approvals": [a.to_dict() for a in approvals],
@@ -226,6 +255,7 @@ async def approve_action(
     # Get modified params if provided
     modified_params = body.parameters if body and body.parameters else None
 
+    _claim_session(session, "approve")
     try:
         # Use approval service for atomic execution (validates approval internally)
         result, approval = await approval_service.execute(
@@ -264,8 +294,6 @@ async def approve_action(
 
     except Exception as e:
         logger.exception(f"Approved action execution failed: {approval_id}")
-        # Remove approval on failure (may already be removed if execute partially succeeded)
-        session.remove_approval(approval_id)
         return JSONResponse(
             status_code=500,
             content={
@@ -275,6 +303,8 @@ async def approve_action(
                 "confirmation": f"✗ Action failed: {e}",
             },
         )
+    finally:
+        session.end_operation("approve")
 
 
 @router.post("/chat/reject/{approval_id}")
@@ -298,9 +328,13 @@ async def reject_action(
     if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
-    # Use the session's reject_approval method which handles history update
-    if not session.reject_approval(approval_id, "user rejected"):
-        raise HTTPException(status_code=404, detail="Approval not found or expired")
+    _claim_session(session, "reject")
+    try:
+        # Use the session's reject_approval method which handles history update
+        if not session.reject_approval(approval_id, "user rejected"):
+            raise HTTPException(status_code=404, detail="Approval not found or expired")
+    finally:
+        session.end_operation("reject")
 
     # Log rejection for audit trail
     logger.info(f"Action rejected by user: approval_id={approval_id}")
@@ -311,7 +345,7 @@ async def reject_action(
 @router.delete("/chat/history")
 async def clear_history(
     request: Request,
-    chat_scope: Annotated[str, Depends(get_chat_scope)],
+    session: Annotated[ChatSession, Depends(get_session)],
 ) -> ApprovalResponse:
     """Clear conversation history for this session.
 
@@ -324,7 +358,11 @@ async def clear_history(
     if app_settings.demo_mode:
         raise HTTPException(status_code=403, detail="Chat is disabled in demo mode")
 
-    request.app.state.session_store.delete(chat_scope)
+    _claim_session(session, "clear")
+    try:
+        session.clear()
+    finally:
+        session.end_operation("clear")
 
     # Note: LLM debug logs are now managed by loguru with automatic retention,
     # so we don't clear them here. They provide cross-session debugging value.

@@ -11,12 +11,14 @@ from typing import Protocol, cast
 
 import httpx
 import pytest
+from fastapi import HTTPException, Request
 from pydantic import SecretStr
 
 from homebox_companion.chat.llm_client import LLMClient
 from homebox_companion.chat.store import MemorySessionStore
 from homebox_companion.core.config import Settings
 from homebox_companion.homebox.client import HomeboxClient
+from server.api.auth import RateLimiter
 from server.app import create_app
 from server.dependencies import get_client
 
@@ -36,6 +38,27 @@ class _SettingsConstructor(Protocol):
 
 
 _settings = cast(_SettingsConstructor, Settings)
+
+
+def test_rate_limit_ignores_untrusted_forwarded_ip() -> None:
+    limiter = RateLimiter()
+
+    def request(forwarded_ip: str) -> Request:
+        return Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/api/login",
+                "headers": [(b"x-forwarded-for", forwarded_ip.encode())],
+                "client": ("192.0.2.10", 12345),
+            }
+        )
+
+    limiter.check(request("198.51.100.1"), limit=1)
+    with pytest.raises(HTTPException) as caught:
+        limiter.check(request("198.51.100.2"), limit=1)
+
+    assert caught.value.status_code == 429
 
 
 @asynccontextmanager

@@ -142,3 +142,38 @@ test('legacy stream AUTH_FAILED opens reauthentication', async ({ page }) => {
 	await page.getByRole('button', { name: 'Send message' }).click();
 	await expect(page.getByRole('heading', { name: 'Session Expired' })).toBeVisible();
 });
+
+test('a busy chat response preserves pending approvals and accepted history', async ({ page }) => {
+	const api = await mockApi(page);
+	api.on('POST', '/api/chat/messages', () =>
+		sse([
+			{ event: 'text', data: { content: 'Ready to add a lamp.' } },
+			{
+				event: 'approval_required',
+				data: {
+					id: 'lamp-approval',
+					tool: 'create_item',
+					params: { name: 'Lamp', location_id: 'loc-1', quantity: 1 },
+					display_info: { item_name: 'Lamp', action_type: 'create' },
+					expires_at: null,
+				},
+			},
+			{ event: 'done', data: {} },
+		])
+	);
+	await page.goto('/chat');
+	await page.getByLabel('Chat message input').fill('Add a lamp');
+	await page.getByRole('button', { name: 'Send message' }).click();
+	const approval = page.getByRole('button', { name: '1 action requires approval' });
+	await expect(approval).toBeVisible();
+	api.on('POST', '/api/chat/messages', () => json({ detail: 'Chat session is busy' }, 409));
+	await page.getByLabel('Chat message input').fill('Try another message');
+	await page.getByRole('button', { name: 'Send message' }).click();
+	await expect(page.getByText('Chat session is busy', { exact: true })).toBeVisible();
+	await expect(approval).toBeVisible();
+	await expect(page.locator('.chat-bubble')).toHaveCount(2);
+	await expect(page.locator('.chat-bubble').filter({ hasText: 'Try another message' })).toHaveCount(
+		0
+	);
+	await expect(page.getByText('(superseded)', { exact: false })).toHaveCount(0);
+});

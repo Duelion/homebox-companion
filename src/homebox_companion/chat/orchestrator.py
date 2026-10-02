@@ -21,7 +21,7 @@ from typing import Any
 
 from loguru import logger
 
-from ..core.config import settings
+from ..core.config import Settings, settings
 from ..mcp.executor import ToolExecutor
 from .llm_client import LLMClient, TokenUsage, log_streaming_interaction
 from .session import ApprovalOutcome, ChatSession, PendingApproval, create_approval_id
@@ -233,6 +233,7 @@ class ChatOrchestrator:
         executor: ToolExecutor,
         llm: LLMClient | None = None,
         emitter: StreamEmitter | None = None,
+        app_settings: Settings | None = None,
     ):
         """Initialize the orchestrator with required components.
 
@@ -241,11 +242,13 @@ class ChatOrchestrator:
             executor: ToolExecutor for tool discovery and execution.
             llm: LLMClient for LLM calls. Created if not provided.
             emitter: StreamEmitter for event generation. Created if not provided.
+            app_settings: App configuration. Defaults to library settings.
         """
         self._session = session
         self._executor = executor
         self._llm = llm or LLMClient()
         self._emitter = emitter or StreamEmitter()
+        self._settings = app_settings or settings
 
     # =========================================================================
     # HELPER METHODS
@@ -333,7 +336,7 @@ class ChatOrchestrator:
         Yields:
             ChatEvent objects for SSE streaming.
         """
-        if not settings.chat_enabled:
+        if not self._settings.chat_enabled:
             yield self._emitter.error("Chat feature is disabled")
             return
 
@@ -565,6 +568,11 @@ class ChatOrchestrator:
     # TOOL HANDLING
     # =========================================================================
 
+    def _record_tool_result(self, tool_call_id: str, content: str) -> None:
+        """Replace an interruption placeholder, or add a result if none exists."""
+        if not self._session.update_tool_message(tool_call_id, content):
+            self._session.add_message(ChatMessage(role="tool", content=content, tool_call_id=tool_call_id))
+
     async def _handle_tool_calls(
         self,
         content: str,
@@ -620,6 +628,18 @@ class ChatOrchestrator:
 
         # Add assistant message with tool_calls BEFORE executing
         self._session.add_message(ChatMessage(role="assistant", content=content, tool_calls=tool_calls))
+        # Every call needs a result in LLM history, even if the response is
+        # cancelled while a tool is running or approval details are loading.
+        for tc in tool_calls:
+            self._session.add_message(
+                ChatMessage(
+                    role="tool",
+                    content=json.dumps(
+                        {"success": False, "error": "Tool handling was interrupted before a result was available."}
+                    ),
+                    tool_call_id=tc.id,
+                )
+            )
 
         # Categorize tools: READ (parallel), WRITE (approval), unknown (error)
         read_calls: list[ToolCall] = []
@@ -638,13 +658,7 @@ class ChatOrchestrator:
         # Handle unknown tools first (add error messages to history)
         for tc in unknown_calls:
             error_dict = {"success": False, "error": f"Unknown tool: {tc.name}"}
-            self._session.add_message(
-                ChatMessage(
-                    role="tool",
-                    content=json.dumps(error_dict),
-                    tool_call_id=tc.id,
-                )
-            )
+            self._record_tool_result(tc.id, json.dumps(error_dict))
             yield self._emitter.error(f"Unknown tool: {tc.name}")
 
         # Execute READ tools in parallel, preserving message order
@@ -714,13 +728,7 @@ class ChatOrchestrator:
                     "success": False,
                     "error": f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT}s",
                 }
-                self._session.add_message(
-                    ChatMessage(
-                        role="tool",
-                        content=json.dumps(error_dict),
-                        tool_call_id=tc.id,
-                    )
-                )
+                self._record_tool_result(tc.id, json.dumps(error_dict))
                 # Emit tool_result for timeout case so frontend can show error state
                 yield self._emitter.tool_result(tc.name, error_dict, tc.id)
             yield self._emitter.error(f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT:.0f} seconds")
@@ -735,13 +743,7 @@ class ChatOrchestrator:
             logger.trace(f"[CHAT] Tool '{tc.name}' completed in {execution.elapsed_ms:.0f}ms with args: {tc.arguments}")
 
             # Add tool result to history (in order)
-            self._session.add_message(
-                ChatMessage(
-                    role="tool",
-                    content=json.dumps(result_dict),
-                    tool_call_id=tc.id,
-                )
-            )
+            self._record_tool_result(tc.id, json.dumps(result_dict))
 
             # Yield tool_result event (tool_start was already emitted before execution)
             yield self._emitter.tool_result(tc.name, result_dict, tc.id)
@@ -794,19 +796,16 @@ class ChatOrchestrator:
         self._session.add_pending_approval(approval)
 
         # Add placeholder tool result (OpenAI API requirement)
-        self._session.add_message(
-            ChatMessage(
-                role="tool",
-                content=json.dumps(
-                    {
-                        "status": "awaiting_approval",
-                        "approval_id": approval_id,
-                        "message": f"Action '{tool_name}' queued for user approval. "
-                        f"An approval badge is now visible to the user.",
-                    }
-                ),
-                tool_call_id=tool_call_id,
-            )
+        self._record_tool_result(
+            tool_call_id,
+            json.dumps(
+                {
+                    "status": "awaiting_approval",
+                    "approval_id": approval_id,
+                    "message": f"Action '{tool_name}' queued for user approval. "
+                    f"An approval badge is now visible to the user.",
+                }
+            ),
         )
 
         yield self._emitter.approval_required(approval)

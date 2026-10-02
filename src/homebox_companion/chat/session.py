@@ -128,6 +128,21 @@ class ChatSession:
         self._tool_message_index: dict[str, ChatMessage] = {}
         # Track recent auto-rejections for context injection
         self._recent_auto_rejections: list[ApprovalOutcome] = []
+        # API operations claim the session before their first await. A stream keeps
+        # its claim until the response generator closes.
+        self._active_operation: str | None = None
+
+    def begin_operation(self, operation: str) -> bool:
+        """Claim this session for one state-changing API operation."""
+        if self._active_operation is not None:
+            return False
+        self._active_operation = operation
+        return True
+
+    def end_operation(self, operation: str) -> None:
+        """Release an operation claim, including after stream cancellation."""
+        if self._active_operation == operation:
+            self._active_operation = None
 
     def add_message(self, message: ChatMessage) -> None:
         """Add a message to the conversation history.
@@ -283,6 +298,13 @@ class ChatSession:
             logger.debug(f"Removed approval {approval_id}")
             return True
         return False
+
+    def claim_pending_approval(self, approval_id: str) -> PendingApproval | None:
+        """Take a valid approval out of the retryable pending set."""
+        approval = self.get_pending_approval(approval_id)
+        if approval is not None:
+            self.remove_approval(approval_id)
+        return approval
 
     def update_tool_message(self, tool_call_id: str, new_content: str) -> bool:
         """Update a tool message's content by tool_call_id.
@@ -442,6 +464,7 @@ class ChatSession:
 
     def clear(self) -> None:
         """Clear all messages, pending approvals, and indexes."""
+        self.session_id = uuid.uuid4().hex[:12]
         self.messages.clear()
         self.pending_approvals.clear()
         self._tool_message_index.clear()

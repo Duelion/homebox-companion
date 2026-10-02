@@ -11,8 +11,11 @@ Settings flow:
 
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 import threading
+from contextlib import suppress
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
@@ -32,6 +35,14 @@ SETTINGS_FILE = DATA_DIR / "settings.yaml"
 
 # Current schema version for migrations
 CURRENT_VERSION = 2
+
+# Serialize reads and writes within the process. An RLock is required because a
+# first load or migration persists settings while the load lock is held.
+_settings_lock = threading.RLock()
+
+
+class SettingsLoadError(RuntimeError):
+    """Raised when an existing settings file cannot be loaded safely."""
 
 
 class ProfileStatus(StrEnum):
@@ -272,42 +283,68 @@ def load_settings() -> PersistentSettings:
     Returns:
         PersistentSettings instance with all configuration
     """
-    if not SETTINGS_FILE.exists():
-        logger.info("No settings.yaml found, bootstrapping from environment")
-        settings = bootstrap_from_env()
-        save_settings(settings)
-        return settings
-
-    try:
-        raw_data = yaml.safe_load(SETTINGS_FILE.read_text(encoding="utf-8"))
-        if raw_data is None:
-            raw_data = {}
-
-        # Apply any needed migrations
-        migrated_data = migrate_settings(raw_data)
-
-        settings = _yaml_dict_to_settings(migrated_data)
-
-        # Save if migration occurred
-        if raw_data.get("version", 1) < CURRENT_VERSION:
+    with _settings_lock:
+        if not SETTINGS_FILE.exists():
+            logger.info("No settings.yaml found, bootstrapping from environment")
+            settings = bootstrap_from_env()
             save_settings(settings)
+            return settings
 
-        return settings
+        try:
+            raw_data = yaml.safe_load(SETTINGS_FILE.read_text(encoding="utf-8"))
+            if raw_data is None:
+                raise SettingsLoadError("settings file is empty")
+            if not isinstance(raw_data, dict):
+                raise ValueError("settings root must be a mapping")
 
-    except Exception as e:
-        logger.error(f"Failed to load settings.yaml: {e}")
-        logger.warning("Using bootstrapped settings as fallback")
-        return bootstrap_from_env()
+            original_version = raw_data.get("version", 1)
+            migrated_data = migrate_settings(raw_data)
+            settings = _yaml_dict_to_settings(migrated_data)
+
+            if original_version < CURRENT_VERSION:
+                save_settings(settings)
+
+            return settings
+        except SettingsLoadError:
+            raise
+        except Exception:
+            # YAML parser diagnostics can include the complete source line,
+            # including saved API keys. Leave the exception handler before
+            # raising so no raw exception remains in the exception context.
+            pass
+
+        logger.error("Failed to load existing settings file")
+        raise SettingsLoadError("Failed to load existing settings file")
 
 
-# Lock for thread-safe settings file access
-_settings_lock = threading.Lock()
+def _atomic_write_settings(yaml_content: str) -> None:
+    """Write settings beside the destination and atomically replace it."""
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        dir=SETTINGS_FILE.parent,
+        prefix=f".{SETTINGS_FILE.name}.",
+        suffix=".tmp",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        temporary_file = os.fdopen(file_descriptor, "w", encoding="utf-8")
+        file_descriptor = -1  # The file object now owns the descriptor.
+        with temporary_file:
+            temporary_file.write(yaml_content)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, SETTINGS_FILE)
+    except BaseException:
+        if file_descriptor != -1:
+            with suppress(OSError):
+                os.close(file_descriptor)
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def save_settings(settings: PersistentSettings) -> None:
     """Save settings to YAML file.
 
-    Thread-safe with file locking to prevent race conditions.
+    Thread-safe within this process to prevent concurrent reads and writes.
     Automatically clears the settings cache to ensure fresh data on next access.
 
     Args:
@@ -321,7 +358,7 @@ def save_settings(settings: PersistentSettings) -> None:
         # Use default_flow_style=False for readable multi-line output
         yaml_content = yaml.dump(yaml_dict, default_flow_style=False, allow_unicode=True)
 
-        SETTINGS_FILE.write_text(yaml_content, encoding="utf-8")
+        _atomic_write_settings(yaml_content)
         logger.debug("Settings saved to settings.yaml")
 
         # Clear cache inside lock to prevent race conditions
@@ -345,7 +382,8 @@ def get_settings() -> PersistentSettings:
     Returns a copy to prevent mutation of cached data.
     Use clear_settings_cache() after modifications to refresh.
     """
-    return _get_settings_cached().model_copy(deep=True)
+    with _settings_lock:
+        return _get_settings_cached().model_copy(deep=True)
 
 
 def clear_settings_cache() -> None:

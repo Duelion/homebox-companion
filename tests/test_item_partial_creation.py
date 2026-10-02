@@ -35,6 +35,21 @@ async def submit(gateway, items):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("extended", [False, True])
+async def test_explicit_container_wins_over_location_with_or_without_enrichment(gateway, extended):
+    item = {"name": "Lamp", "parent_id": "container", "location_id": "item-location"}
+    if extended:
+        item["manufacturer"] = "Example"
+    response = await submit(gateway, [item])
+    assert response.status_code == 200
+    assert gateway.create_item.call_args.args[0].parent_id == "container"
+    if extended:
+        assert gateway.update_item.call_args.args[1]["parentId"] == "container"
+    else:
+        gateway.update_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("stage", ["get_item", "update_item"])
 async def test_post_create_auth_failure_returns_created_id_and_stops_batch(gateway, stage):
     getattr(gateway, stage).side_effect = HomeboxAuthError("Expired")

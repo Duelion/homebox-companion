@@ -17,6 +17,7 @@ from loguru import logger
 from pydantic import SecretStr
 
 from homebox_companion import HomeboxAuthError, HomeboxClient, HomeboxGateway, settings
+from homebox_companion.core.config import Settings
 from homebox_companion.core.exceptions import HomeboxAPIError
 from homebox_companion.core.field_preferences import FieldPreferences, load_field_preferences
 from homebox_companion.homebox.auth import (
@@ -443,7 +444,7 @@ def require_llm_configured() -> str:
     return creds.api_key
 
 
-async def validate_file_size(file: UploadFile) -> bytes:
+async def validate_file_size(file: UploadFile, app_settings: Settings = settings) -> bytes:
     """Read and validate file size against configured limit.
 
     Args:
@@ -455,16 +456,18 @@ async def validate_file_size(file: UploadFile) -> bytes:
     Raises:
         HTTPException: If file exceeds size limit or is empty.
     """
-    max_size = settings.max_upload_size_bytes
+    max_size = app_settings.max_upload_size_bytes
     if file.size is not None and file.size > max_size:
-        raise HTTPException(status_code=413, detail=f"File too large. Maximum size is {settings.max_upload_size_mb}MB")
+        raise HTTPException(
+            status_code=413, detail=f"File too large. Maximum size is {app_settings.max_upload_size_mb}MB"
+        )
     contents = await file.read(max_size + 1)
 
     if not contents:
         raise HTTPException(status_code=400, detail="Empty file")
 
     if len(contents) > max_size:
-        max_mb = settings.max_upload_size_mb
+        max_mb = app_settings.max_upload_size_mb
         raise HTTPException(
             status_code=413,
             detail=f"File too large. Maximum size is {max_mb}MB",
@@ -473,7 +476,7 @@ async def validate_file_size(file: UploadFile) -> bytes:
     return contents
 
 
-async def validate_files_size(files: list[UploadFile]) -> list[tuple[bytes, str]]:
+async def validate_files_size(files: list[UploadFile], app_settings: Settings = settings) -> list[tuple[bytes, str]]:
     """Read and validate multiple files against configured limit.
 
     Args:
@@ -487,7 +490,7 @@ async def validate_files_size(files: list[UploadFile]) -> list[tuple[bytes, str]
     """
     results = []
     for file in files:
-        contents = await validate_file_size(file)
+        contents = await validate_file_size(file, app_settings)
         content_type = file.content_type or "application/octet-stream"
         results.append((contents, content_type))
     return results

@@ -1,6 +1,5 @@
 """Authentication API routes."""
 
-import ipaddress
 import time
 from collections import defaultdict
 from typing import Annotated
@@ -30,7 +29,7 @@ def _require_legacy_mode(request: Request) -> None:
 
 
 class RateLimiter:
-    """In-memory rate limiter with cleanup and trusted proxy support."""
+    """In-memory rate limiter keyed by the ASGI client address."""
 
     def __init__(self, window_seconds: float = 60.0):
         self.window_seconds = window_seconds
@@ -93,24 +92,7 @@ class RateLimiter:
         logger.debug(f"Rate limiter cleanup: removed {len(expired_ips)} expired IPs")
 
     def _get_client_ip(self, request: Request) -> str:
-        """Extract client IP, respecting X-Forwarded-For only if configured to trust proxies."""
-        # In a real production app, we should check if the immediate peer is a trusted proxy
-        # For this companion app, we'll try to be smart but fail safe.
-
-        # If running in Docker (common case), we might trust X-Forwarded-For check local IPs
-        forwarded = request.headers.get("X-Forwarded-For")
-
-        if forwarded:
-            # Get the first IP in the list (client IP)
-            client_ip = forwarded.split(",")[0].strip()
-            # Simple validation to ensure it looks like an IP
-            try:
-                ipaddress.ip_address(client_ip)
-                return client_ip
-            except ValueError:
-                logger.warning(f"Invalid IP in X-Forwarded-For: {client_ip}")
-
-        # Fallback to direct connection IP
+        """Use the peer recorded in the ASGI scope, never a caller-supplied header."""
         if request.client and request.client.host:
             return request.client.host
         return "unknown"

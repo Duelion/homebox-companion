@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
@@ -11,7 +11,6 @@ from homebox_companion import (
     HomeboxAuthError,
     HomeboxCompanionError,
     HomeboxGateway,
-    settings,
 )
 from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.core import HomeboxAPIError
@@ -19,6 +18,7 @@ from homebox_companion.homebox import ItemCreate
 
 from ..dependencies import get_gateway, get_valid_tag_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
+from ..services.image_processing import run_image_processing
 
 router = APIRouter()
 
@@ -74,9 +74,9 @@ async def create_items(
     valid_tag_ids = await get_valid_tag_ids(gateway)
 
     for index, item_input in enumerate(request.items):
-        # Resolve parent (container) ID: item-level → request-level fallback
+        # Explicit container takes precedence over item/request location.
         # In 0.26, location_id and parent_id both map to the API's parentId field
-        parent_id = item_input.location_id or request.location_id or item_input.parent_id
+        parent_id = item_input.parent_id or item_input.location_id or request.location_id
 
         logger.debug(f"Creating item: {item_input.name}")
         logger.debug(f"  parent_id: {parent_id}")
@@ -145,8 +145,8 @@ async def create_items(
                                 if value  # skip empty/null values
                             ]
                         # Preserve parentId if it was set
-                        if item_input.parent_id:
-                            update_data["parentId"] = item_input.parent_id
+                        if parent_id:
+                            update_data["parentId"] = parent_id
                         result = await gateway.update_item(item_id, update_data)
                         logger.info("  Updated item with extended fields")
                     except HomeboxAuthError:
@@ -215,6 +215,7 @@ async def create_items(
 
 @router.post("/items/{item_id}/attachments")
 async def upload_item_attachment(
+    request: Request,
     item_id: str,
     file: Annotated[UploadFile, File(description="Image file to upload")],
     gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
@@ -224,7 +225,7 @@ async def upload_item_attachment(
     logger.debug(f"File: {file.filename}, content_type: {file.content_type}")
 
     # Validate file size (raises HTTPException if too large)
-    file_bytes = await validate_file_size(file)
+    file_bytes = await validate_file_size(file, request.app.state.settings)
 
     # Log file size for diagnostics - helps identify empty/corrupted uploads
     file_size = len(file_bytes)
@@ -237,8 +238,10 @@ async def upload_item_attachment(
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
 
-    max_dimension, jpeg_quality = settings.image_quality_params
-    file_bytes, mime_type = compress_image_for_upload(file_bytes, max_dimension, jpeg_quality)
+    max_dimension, jpeg_quality = request.app.state.settings.image_quality_params
+    file_bytes, mime_type = await run_image_processing(
+        compress_image_for_upload, file_bytes, max_dimension, jpeg_quality
+    )
 
     result = await gateway.upload_attachment(
         item_id=item_id,
@@ -330,6 +333,7 @@ async def delete_item(
 
 @router.post("/items/{item_id}/print-label")
 async def print_item_label(
+    request: Request,
     item_id: str,
     gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> dict[str, str]:
@@ -339,7 +343,7 @@ async def print_item_label(
     its entity UUID. Requires HBOX_LABEL_MAKER_PRINT_COMMAND to be configured
     on the Homebox server.
     """
-    if not settings.print_enabled:
+    if not request.app.state.settings.print_enabled:
         raise HTTPException(
             status_code=403,
             detail="Label printing is not enabled on this server (HBC_PRINT_ENABLED=false).",

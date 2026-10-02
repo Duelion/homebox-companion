@@ -476,11 +476,11 @@ class TestSettingsInvalidation:
                 "homebox_companion.core.llm_router.get_fallback_profile",
                 return_value=None,
             ),
-            patch("homebox_companion.core.persistent_settings.SETTINGS_FILE") as mock_file,
+            patch("homebox_companion.core.persistent_settings.SETTINGS_FILE"),
             patch("homebox_companion.core.persistent_settings.DATA_DIR") as mock_dir,
+            patch("homebox_companion.core.persistent_settings._atomic_write_settings"),
         ):
             mock_dir.mkdir = MagicMock()
-            mock_file.write_text = MagicMock()
 
             # Get router (creates singleton)
             router1 = get_router()
