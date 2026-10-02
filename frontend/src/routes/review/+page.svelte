@@ -6,6 +6,7 @@
 	import { getConfig } from '$lib/api/settings';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
+	import { prepareReviewItem } from '$lib/workflows/prepare-review-item';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import { getInitPromise } from '$lib/services/bootstrap';
@@ -67,7 +68,7 @@
 	let showConfirmAllDialog = $state(false);
 
 	// Track original images to detect modifications (for invalidating compressed URLs)
-	let originalImageSet = $state<Set<File>>(new Set());
+	let originalImages: readonly File[] = [];
 
 	// Check if item has any extended field data
 	function hasExtendedFieldData(item: ReviewItem | null): boolean {
@@ -97,6 +98,7 @@
 				...(currentItem.originalFile ? [currentItem.originalFile] : []),
 				...(currentItem.additionalImages || []),
 			];
+			originalImages = [...imageArray];
 			allImages = imageArray;
 			showExtendedFields = hasExtendedFieldData(currentItem);
 			showCustomFields = hasCustomFieldData(currentItem);
@@ -189,57 +191,9 @@
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
-	/**
-	 * Prepare the edited item for confirmation by syncing images and clearing stale URLs.
-	 * Returns the prepared item ready for confirmation.
-	 */
-	function prepareItemForConfirmation(): ReviewItem | null {
-		if (!editedItem) return null;
-
-		// Check if images were modified (added, removed, or reordered)
-		// If so, compressed URLs are stale and must be cleared
-		const imagesModified = (() => {
-			// Check if count changed
-			if (allImages.length !== originalImageSet.size) return true;
-			// Check if any image was removed or a new one added
-			for (const img of allImages) {
-				if (!originalImageSet.has(img)) return true;
-			}
-			// Check if order changed - compare full array order, not just primary
-			// This ensures reordering additional images also invalidates compressed data
-			const originalArray = currentItem?.originalFile
-				? [currentItem.originalFile, ...(currentItem.additionalImages || [])]
-				: [];
-			for (let i = 0; i < allImages.length; i++) {
-				if (allImages[i] !== originalArray[i]) return true;
-			}
-			return false;
-		})();
-
-		// Sync unified allImages back to item structure
-		// First image becomes "original", rest become "additional"
-		if (allImages.length > 0) {
-			editedItem.originalFile = allImages[0];
-			editedItem.additionalImages = allImages.slice(1);
-		} else {
-			// No images left - clear everything including custom thumbnail
-			editedItem.originalFile = undefined;
-			editedItem.additionalImages = [];
-			editedItem.customThumbnail = undefined;
-		}
-
-		// Clear stale compressed URLs if images were modified
-		if (imagesModified) {
-			editedItem.compressedDataUrl = undefined;
-			editedItem.compressedAdditionalDataUrls = undefined;
-		}
-
-		return editedItem;
-	}
-
 	function confirmItem() {
-		const item = prepareItemForConfirmation();
-		if (!item) return;
+		if (!editedItem) return;
+		const item = prepareReviewItem(editedItem, allImages, originalImages);
 
 		workflow.confirmItem(item);
 
@@ -254,10 +208,12 @@
 
 	function handleConfirmAll() {
 		// Prepare the current item with any user edits
-		const preparedItem = prepareItemForConfirmation();
+		const preparedItem = editedItem
+			? prepareReviewItem(editedItem, allImages, originalImages)
+			: undefined;
 
 		// Use the workflow method that handles confirming all items including the current one
-		workflow.confirmAllRemainingItems(preparedItem ?? undefined);
+		workflow.confirmAllRemainingItems(preparedItem);
 		showConfirmAllDialog = false;
 
 		// Navigate to summary
