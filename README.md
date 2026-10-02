@@ -450,6 +450,8 @@ stylesheet with `@reference`; ordinary CSS can use its theme variables, such as
 `var(--color-primary-500)`. Keep canvas drawing colors in
 `frontend/src/lib/utils/canvas-colors.ts` synchronized with these tokens.
 Tailwind 4's CSS browser baseline is Safari 16.4+, Chrome 111+, and Firefox 128+.
+For workflow ownership, Svelte state, authentication transport, and frontend
+styling conventions, see [the frontend architecture guide](docs/frontend-architecture.md).
 
 For a deliberate Python dependency refresh, run `uv sync --upgrade`;
 routine installs use the committed lockfile with `uv sync --locked`.

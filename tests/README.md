@@ -96,6 +96,18 @@ npm run build
 npm run test:browser:run
 ```
 
+The focused Node unit suite, including the local design-token ESLint rule
+contracts, runs without a browser or build:
+
+```powershell
+npm run test:unit
+```
+
+The browser `styling-contracts.spec.ts` also checks computed Tailwind utility
+values and saves diagnostic review screenshots. They are separate from the
+visual snapshot tests, whose canonical baselines use Linux Chromium. Update
+those baselines only on that platform after reviewing the rendered change.
+
 `frontend/playwright.config.ts` starts the preview server on
 `127.0.0.1:4173` with a strict port and does not build. Its `browser-test` mode
 disables Vite's backend proxy so late teardown requests cannot reach a real API.
