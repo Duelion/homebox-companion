@@ -4,6 +4,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { markSessionExpired } from '$lib/stores/auth.svelte';
@@ -513,7 +514,7 @@
 	{#if status === 'partial_analysis'}
 		<div
 			class="mb-4 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4"
-			transition:slide={{ duration: 200 }}
+			transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
 		>
 			<div class="mb-4 flex items-start gap-3">
 				<!-- Warning icon -->
@@ -699,7 +700,7 @@
 					{#if expandedImages.has(index)}
 						<div
 							class="mt-0 space-y-3 border-t border-neutral-800 px-3 pb-3 pt-0"
-							transition:slide={{ duration: 200 }}
+							transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
 						>
 							<!-- Separate into multiple items toggle -->
 							<label class="flex cursor-pointer items-center gap-3 pt-3">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import Card from './Card.svelte';
+	import { modalDialog } from '$lib/actions/dialog';
 
 	interface Props {
 		open: boolean;
@@ -23,34 +24,6 @@
 	}: Props = $props();
 	const dialogId = $props.id();
 
-	function showModal(dialog: HTMLDialogElement) {
-		const previousFocus = document.activeElement;
-		dialog.showModal();
-		function keepFocus(event: KeyboardEvent) {
-			if (event.key !== 'Tab') return;
-			const buttons = dialog.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
-			const first = buttons[0];
-			const last = buttons[buttons.length - 1];
-			if (event.shiftKey && document.activeElement === first) {
-				event.preventDefault();
-				last?.focus();
-			} else if (!event.shiftKey && document.activeElement === last) {
-				event.preventDefault();
-				first?.focus();
-			}
-		}
-		dialog.addEventListener('keydown', keepFocus);
-		return {
-			destroy() {
-				dialog.removeEventListener('keydown', keepFocus);
-				dialog.close();
-				if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
-					previousFocus.focus();
-				}
-			},
-		};
-	}
-
 	function handleBackdropClick(event: MouseEvent) {
 		if (event.target === event.currentTarget) {
 			onCancel();
@@ -66,7 +39,7 @@
 {#if open}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<dialog
-		use:showModal
+		use:modalDialog
 		aria-labelledby={`${dialogId}-title`}
 		aria-describedby={`${dialogId}-message`}
 		class="animate-in fixed inset-0 z-50 m-0 flex max-h-none max-w-none items-center justify-center bg-neutral-950/60 p-0 backdrop-blur-sm backdrop:bg-transparent size-full"

@@ -13,6 +13,7 @@
 	import { showToast } from '../stores/ui.svelte';
 	import Button from './Button.svelte';
 	import ApprovalItemPanel from './ApprovalItemPanel.svelte';
+	import { modalDialog } from '$lib/actions/dialog';
 
 	interface Props {
 		open: boolean;
@@ -78,10 +79,9 @@
 		}
 	}
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (open && e.key === 'Escape') {
-			handleClose();
-		}
+	function handleCancel(event: Event) {
+		event.preventDefault();
+		handleClose();
 	}
 
 	// Get earliest expiry time for header countdown
@@ -192,17 +192,17 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
 {#if open && approvals.length > 0}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-neutral-950/70 p-4 backdrop-blur-sm"
+	<dialog
+		use:modalDialog
+		aria-label="Actions Require Approval"
+		class="fixed inset-0 z-50 m-0 flex max-h-none max-w-none animate-fade-in items-center justify-center bg-neutral-950/70 p-4 backdrop-blur-sm backdrop:bg-transparent size-full"
 		onclick={handleBackdropClick}
+		oncancel={handleCancel}
 	>
 		<div
-			class="flex w-full max-w-md animate-scale-in flex-col overflow-hidden rounded-2xl border border-warning-500/30 bg-neutral-900 shadow-xl"
+			class="flex max-h-full w-full max-w-md animate-scale-in flex-col overflow-hidden rounded-2xl border border-warning-500/30 bg-neutral-900 shadow-xl"
 		>
 			<!-- Header -->
 			<div
@@ -222,7 +222,7 @@
 						</p>
 					{/if}
 				</div>
-				<button type="button" class="btn-icon" onclick={handleClose} aria-label="Close">
+				<button type="button" class="btn-icon-touch" onclick={handleClose} aria-label="Close">
 					<X size={20} />
 				</button>
 			</div>
@@ -246,7 +246,7 @@
 			<div class="flex gap-3 border-t border-neutral-800 bg-neutral-950/50 px-5 py-4">
 				<Button
 					variant="secondary"
-					size="sm"
+					size="md"
 					full
 					disabled={isProcessingAny}
 					loading={isProcessingAny}
@@ -256,7 +256,7 @@
 				</Button>
 				<Button
 					variant="warning"
-					size="sm"
+					size="md"
 					full
 					disabled={isProcessingAny}
 					loading={isProcessingAny}
@@ -266,5 +266,5 @@
 				</Button>
 			</div>
 		</div>
-	</div>
+	</dialog>
 {/if}

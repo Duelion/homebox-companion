@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { ChevronDown, RefreshCcw } from '@lucide/svelte';
 	import Button from './Button.svelte';
 	import AnalysisProgressBar from './AnalysisProgressBar.svelte';
@@ -26,7 +27,7 @@
 <div class="border-t border-neutral-700 pt-4">
 	<button
 		type="button"
-		class="flex w-full items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200"
+		class="flex w-full items-center gap-2 text-body-sm text-neutral-400 hover:text-neutral-200"
 		onclick={onToggle}
 	>
 		<ChevronDown class="transition-transform {expanded ? 'rotate-180' : ''}" size={16} />
@@ -34,11 +35,14 @@
 	</button>
 
 	{#if expanded}
-		<div class="mt-3 space-y-3" transition:slide={{ duration: 200 }}>
+		<div
+			class="mt-3 space-y-3"
+			transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+		>
 			{#if loading}
 				<AnalysisProgressBar current={0} total={1} message="Correcting with AI..." />
 			{:else}
-				<p class="text-xs text-neutral-500">
+				<p class="text-caption text-neutral-500">
 					Tell the AI what's wrong and it will re-analyze the image
 				</p>
 				<textarea

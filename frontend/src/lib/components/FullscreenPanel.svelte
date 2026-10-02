@@ -12,6 +12,7 @@
 	 */
 	import type { Snippet } from 'svelte';
 	import { X } from '@lucide/svelte';
+	import { modalDialog } from '$lib/actions/dialog';
 
 	interface Props {
 		open: boolean;
@@ -34,23 +35,26 @@
 		headerActions,
 		children,
 	}: Props = $props();
+	const titleId = $props.id();
 
 	function handleClose() {
 		open = false;
 		onclose();
 	}
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (open && e.key === 'Escape') {
-			handleClose();
-		}
+	function handleCancel(event: Event) {
+		event.preventDefault();
+		handleClose();
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
 {#if open}
-	<div class="fixed inset-0 z-modal flex flex-col bg-neutral-950">
+	<dialog
+		use:modalDialog
+		aria-labelledby={titleId}
+		class="fixed inset-0 z-modal m-0 flex max-h-none max-w-none flex-col bg-neutral-950 p-0 backdrop:bg-transparent size-full"
+		oncancel={handleCancel}
+	>
 		<!-- Header -->
 		<div class="flex items-center justify-between border-b border-neutral-700 bg-neutral-900 p-4">
 			<div class="flex items-center gap-3">
@@ -58,9 +62,9 @@
 					{@render icon()}
 				{/if}
 				<div>
-					<h2 class="text-body-lg font-semibold text-neutral-100">{title}</h2>
+					<h2 id={titleId} class="text-body-lg font-semibold text-neutral-100">{title}</h2>
 					{#if subtitle}
-						<p class="text-xs text-neutral-500">{subtitle}</p>
+						<p class="text-caption text-neutral-500">{subtitle}</p>
 					{/if}
 				</div>
 			</div>
@@ -84,5 +88,5 @@
 		<div class="flex-1 overflow-auto p-4 pb-24">
 			{@render children()}
 		</div>
-	</div>
+	</dialog>
 {/if}

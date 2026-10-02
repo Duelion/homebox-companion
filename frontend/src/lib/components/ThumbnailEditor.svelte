@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { modalDialog } from '$lib/actions/dialog';
 	import { X, Search, RotateCcw, RotateCw, Check } from '@lucide/svelte';
 	import Button from './Button.svelte';
 	import type { ThumbnailTransform } from '$lib/types';
@@ -71,6 +72,10 @@
 
 	// Convert screen-space delta to rotated-space delta (for panning)
 	function screenToRotatedSpace(dx: number, dy: number): { rdx: number; rdy: number } {
+		// The canvas can shrink to fit a narrow viewport; map CSS pixels to canvas pixels.
+		const displayScale = canvas.width / canvas.getBoundingClientRect().width;
+		dx *= displayScale;
+		dy *= displayScale;
 		const rad = (-rotation * Math.PI) / 180;
 		return {
 			rdx: dx * Math.cos(rad) - dy * Math.sin(rad),
@@ -412,8 +417,14 @@
 	}
 </script>
 
-<div
-	class="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:p-8"
+<dialog
+	use:modalDialog
+	aria-label="Edit Thumbnail"
+	oncancel={(event) => {
+		event.preventDefault();
+		onClose();
+	}}
+	class="m-0 max-h-none max-w-none size-full backdrop:bg-transparent fixed inset-0 z-modal flex items-start justify-center overflow-y-auto bg-neutral-950/80 p-4 sm:p-8"
 >
 	<div
 		class="my-auto w-full max-w-lg rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl sm:my-8"
@@ -421,13 +432,13 @@
 		<div class="flex items-center justify-between border-b border-neutral-700 p-4">
 			<div>
 				<h3 class="text-body-lg font-semibold text-neutral-100">Edit Thumbnail</h3>
-				<p class="max-w-xs truncate text-sm text-neutral-400">
+				<p class="max-w-xs truncate text-body-sm text-neutral-400">
 					{itemName}
 				</p>
 			</div>
 			<button
 				type="button"
-				class="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+				class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 				onclick={onClose}
 				aria-label="Close"
 			>
@@ -437,7 +448,7 @@
 
 		<!-- Instructions at top for better discovery -->
 		<div class="border-b border-neutral-700/50 bg-neutral-800/50 px-4 py-2">
-			<p class="text-center text-xs text-neutral-400">
+			<p class="text-center text-caption text-neutral-400">
 				Drag to pan • Scroll to zoom • On mobile: pinch to zoom, two fingers to rotate
 			</p>
 		</div>
@@ -445,7 +456,9 @@
 		<!-- Image selector with larger thumbnails and labels -->
 		{#if images.length > 1}
 			<div class="border-b border-neutral-700/50 px-4 py-3">
-				<span class="mb-2 block text-xs font-medium text-neutral-400">Select source image:</span>
+				<span class="mb-2 block text-caption font-medium text-neutral-400"
+					>Select source image:</span
+				>
 				<div class="flex gap-3 overflow-x-auto pb-2">
 					{#each images as img, index (`${img.file.name}-${img.file.size}-${index}`)}
 						<button
@@ -462,7 +475,7 @@
 								<img src={img.dataUrl} alt="Image {index + 1}" class="object-cover size-full" />
 							</div>
 							<span
-								class="text-xs {selectedImageIndex === index
+								class="text-caption {selectedImageIndex === index
 									? 'font-medium text-primary-400'
 									: 'text-neutral-500'}"
 							>
@@ -480,7 +493,7 @@
 				bind:this={canvas}
 				width={canvasSize}
 				height={canvasSize}
-				class="rounded-lg {isDragging ? 'cursor-grabbing' : 'cursor-grab'}"
+				class="max-w-full h-auto rounded-lg {isDragging ? 'cursor-grabbing' : 'cursor-grab'}"
 				onmousedown={handleMouseDown}
 				onmousemove={handleMouseMove}
 				onmouseup={handleMouseUp}
@@ -499,7 +512,7 @@
 				<div class="mb-2 flex items-center justify-between">
 					<label
 						for="zoomSlider"
-						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
+						class="flex items-center gap-1.5 text-caption font-medium text-neutral-300"
 					>
 						<Search class="text-primary-400" size={16} strokeWidth={1.5} />
 						Zoom
@@ -530,7 +543,7 @@
 				<div class="mb-2 flex items-center justify-between">
 					<label
 						for="rotationSlider"
-						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300"
+						class="flex items-center gap-1.5 text-caption font-medium text-neutral-300"
 					>
 						<RotateCcw class="text-primary-400" size={16} strokeWidth={1.5} />
 						Rotation
@@ -582,7 +595,7 @@
 			<div class="flex justify-center">
 				<button
 					type="button"
-					class="min-h-touch rounded-lg bg-neutral-800 px-4 py-2 text-sm text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+					class="min-h-touch rounded-lg bg-neutral-800 px-4 py-2 text-body-sm text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={resetTransform}
 				>
 					Reset to Default
@@ -599,6 +612,6 @@
 			</Button>
 		</div>
 	</div>
-</div>
+</dialog>
 
 <!-- Slider styling now provided by global .slider-primary utility in app.css -->

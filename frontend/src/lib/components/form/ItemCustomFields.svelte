@@ -7,6 +7,7 @@
 	 * Follows the same pattern as ItemExtendedFields.
 	 */
 	import { slide } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { ChevronDown, Layers } from '@lucide/svelte';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
@@ -46,7 +47,7 @@
 <div class="border-t border-neutral-700 pt-4">
 	<button
 		type="button"
-		class="flex w-full items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200"
+		class="flex w-full items-center gap-2 text-body-sm text-neutral-400 hover:text-neutral-200"
 		onclick={onToggle}
 		aria-expanded={expanded}
 	>
@@ -54,12 +55,17 @@
 		<Layers size={14} strokeWidth={1.5} class="text-primary-400" />
 		<span>Custom Fields</span>
 		{#if hasData}
-			<span class="rounded bg-primary-500/20 px-1.5 py-0.5 text-xs text-primary-300">Has data</span>
+			<span class="rounded bg-primary-500/20 px-1.5 py-0.5 text-caption text-primary-300"
+				>Has data</span
+			>
 		{/if}
 	</button>
 
 	{#if expanded}
-		<div class="mt-4 {spacing}" transition:slide={{ duration: 200 }}>
+		<div
+			class="mt-4 {spacing}"
+			transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+		>
 			{#each entries as [key, value] (key)}
 				<div>
 					<label for="{idPrefix}-cf-{key}" class={labelClass}>{key}</label>

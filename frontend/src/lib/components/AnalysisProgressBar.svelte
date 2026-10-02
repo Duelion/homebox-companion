@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { prefersReducedMotion } from 'svelte/motion';
+
 	// Props
 	interface Props {
 		current: number;
@@ -49,6 +51,7 @@
 		const effectTotal = total;
 		const canComplete = ready && effectTotal > 0 && effectCurrent >= effectTotal;
 		const complete = onComplete;
+		const reduceMotion = prefersReducedMotion.current;
 
 		if (lastRunId !== effectRunId) {
 			lastRunId = effectRunId;
@@ -72,7 +75,23 @@
 			displayProgress = !canComplete && effectCurrent >= effectTotal ? 95 : milestone;
 		}
 
-		if (!canComplete || completedRunId === effectRunId) {
+		if (reduceMotion) {
+			displayProgress = canComplete
+				? 100
+				: !ready && effectCurrent >= effectTotal
+					? 95
+					: targetProgress();
+			isComplete = canComplete;
+			if (canComplete && completedRunId !== effectRunId) {
+				// A zero-delay task keeps completion cancellable when the user leaves this run.
+				completionTimeout = window.setTimeout(() => {
+					completionTimeout = null;
+					if (completedRunId === effectRunId) return;
+					completedRunId = effectRunId;
+					complete?.();
+				}, 0);
+			}
+		} else if (!canComplete || completedRunId === effectRunId) {
 			if (canComplete && completedRunId === effectRunId) {
 				displayProgress = 100;
 				isComplete = true;
@@ -124,8 +143,8 @@
 <div class="mb-6 rounded-xl border border-neutral-700 bg-neutral-800 p-4">
 	<!-- Header with message and count -->
 	<div class="mb-2 flex items-center justify-between">
-		<span class="text-sm font-medium text-neutral-200">{message}</span>
-		<span class="text-sm text-neutral-400">{current} / {total}</span>
+		<span class="text-body-sm font-medium text-neutral-200">{message}</span>
+		<span class="text-body-sm text-neutral-400">{current} / {total}</span>
 	</div>
 
 	<!-- Progress bar with notches -->

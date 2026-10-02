@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import { Camera, Upload, ChevronDown, ImageIcon, X, SquarePen } from '@lucide/svelte';
@@ -96,7 +97,7 @@
 			onclick={() => cameraInput.click()}
 		>
 			<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
-			<span class="text-xs font-medium text-neutral-400">Camera</span>
+			<span class="text-caption font-medium text-neutral-400">Camera</span>
 		</button>
 		<button
 			type="button"
@@ -104,7 +105,7 @@
 			onclick={() => fileInput.click()}
 		>
 			<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
-			<span class="text-xs font-medium text-neutral-400">Upload</span>
+			<span class="text-caption font-medium text-neutral-400">Upload</span>
 		</button>
 	</div>
 {/snippet}
@@ -130,7 +131,7 @@
 <div class="border-t border-neutral-700 pt-4">
 	<button
 		type="button"
-		class="mb-3 flex w-full items-center gap-2 text-sm text-neutral-400 transition-colors hover:text-neutral-100"
+		class="mb-3 flex w-full items-center gap-2 text-body-sm text-neutral-400 transition-colors hover:text-neutral-100"
 		onclick={onToggle}
 	>
 		<ChevronDown
@@ -140,17 +141,19 @@
 		/>
 		<span class="font-medium">Attached Photos</span>
 		{#if images.length > 0}
-			<span class="ml-auto rounded-full bg-neutral-800 px-2 py-0.5 text-xs">{images.length}</span>
+			<span class="ml-auto rounded-full bg-neutral-800 px-2 py-0.5 text-caption"
+				>{images.length}</span
+			>
 		{/if}
 	</button>
 
 	{#if expanded}
-		<div transition:slide={{ duration: 200 }}>
+		<div transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}>
 			{#if images.length > 0}
 				<!-- Has images: show gallery strip -->
 				<div class="mb-3 flex items-center gap-2">
 					<ImageIcon class="text-primary-300" size={16} />
-					<span class="text-sm font-medium text-neutral-200">
+					<span class="text-body-sm font-medium text-neutral-200">
 						{images.length} photo{images.length !== 1 ? 's' : ''}
 					</span>
 				</div>
@@ -159,7 +162,7 @@
 				<div class="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
 					{#each images as img, index (`${img.name}-${img.size}-${index}`)}
 						<div
-							class="group relative shrink-0 overflow-hidden rounded-xl bg-neutral-700 ring-1 ring-white/10 size-20"
+							class="group relative shrink-0 overflow-hidden rounded-xl bg-neutral-700 ring-1 ring-neutral-100/10 size-20"
 						>
 							<img
 								src={getThumbnailUrl(img, index)}
@@ -168,14 +171,14 @@
 							/>
 							<button
 								type="button"
-								class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-black/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-500 group-hover:opacity-100 size-6"
+								class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-neutral-950/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-500 group-hover:opacity-100 size-6"
 								aria-label="Remove image"
 								onclick={() => removeImage(index)}
 							>
-								<X class="text-white" size={14} strokeWidth={2.5} />
+								<X class="text-neutral-100" size={14} strokeWidth={2.5} />
 							</button>
 							<div
-								class="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-xxs font-medium text-white"
+								class="absolute bottom-1 left-1 rounded bg-neutral-950/60 px-1.5 py-0.5 text-xxs font-medium text-neutral-100"
 							>
 								{#if index === 0}
 									{#if customThumbnail}
@@ -200,7 +203,9 @@
 				</div>
 			{:else}
 				<!-- Empty state: compact add buttons (same style as when photos exist) -->
-				<p class="mb-2 text-xs text-neutral-500">Add labels, serial numbers, different angles</p>
+				<p class="mb-2 text-caption text-neutral-500">
+					Add labels, serial numbers, different angles
+				</p>
 				{@render addPhotoButtons()}
 			{/if}
 		</div>

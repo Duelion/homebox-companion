@@ -831,6 +831,28 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition-duration: 0s !important;
+		transition-delay: 0s !important;
+		scroll-behavior: auto !important;
+	}
+
+	/* These elements start hidden and rely on their animation to reveal them. */
+	.success-scale {
+		transform: scale(1);
+	}
+
+	.checkmark-draw {
+		stroke-dashoffset: 0;
+	}
+
+	.typing-ellipsis > span {
+		opacity: 1 !important;
+	}
+
 	::view-transition-old(root),
 	::view-transition-new(root) {
 		animation: none;

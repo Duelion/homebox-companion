@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { modalDialog } from '$lib/actions/dialog';
 	import { onMount, onDestroy } from 'svelte';
 	import QrScanner from 'qr-scanner';
 	// heic2any is lazy-loaded in convertHeicIfNeeded() to save ~350KB initial bundle
@@ -325,25 +326,31 @@
 	}
 </script>
 
-<!-- Hidden file input for camera capture fallback -->
-<input
-	bind:this={fileInput}
-	type="file"
-	accept="image/*"
-	capture="environment"
-	onchange={handleFileSelect}
-	class="hidden"
-/>
+<dialog
+	use:modalDialog
+	aria-label={title}
+	oncancel={(event) => {
+		event.preventDefault();
+		handleClose();
+	}}
+	class="fixed inset-0 z-overlay m-0 flex max-h-none max-w-none flex-col overflow-y-auto bg-neutral-950 p-0 size-full"
+>
+	<input
+		bind:this={fileInput}
+		type="file"
+		accept="image/*"
+		capture="environment"
+		onchange={handleFileSelect}
+		class="hidden"
+	/>
 
-<!-- Full-screen modal overlay -->
-<div class="fixed inset-0 z-overlay flex flex-col bg-neutral-950">
 	<!-- Header -->
 	<div class="flex items-center justify-between bg-neutral-950/80 p-4">
 		<h2 class="font-semibold text-neutral-100">{title}</h2>
 		<button
 			type="button"
 			onclick={handleClose}
-			class="p-2 text-neutral-400 transition-colors hover:text-neutral-100"
+			class="min-h-touch min-w-touch p-2 text-neutral-400 transition-colors hover:text-neutral-100"
 			aria-label="Close scanner"
 		>
 			<X size={24} />
@@ -355,13 +362,13 @@
 		{#if cameraFailed}
 			<div class="max-w-sm p-6 text-center">
 				<div
-					class="mx-auto mb-4 flex items-center justify-center rounded-full bg-amber-500/20 size-16"
+					class="mx-auto mb-4 flex items-center justify-center rounded-full bg-warning-500/20 size-16"
 				>
-					<TriangleAlert class="text-amber-400" size={32} />
+					<TriangleAlert class="text-warning-400" size={32} />
 				</div>
 				<p class="mb-2 text-neutral-300">{error}</p>
 				{#if errorDebugCode}
-					<p class="mb-4 font-mono text-xs text-neutral-500">Error code: {errorDebugCode}</p>
+					<p class="mb-4 font-mono text-caption text-neutral-500">Error code: {errorDebugCode}</p>
 				{/if}
 
 				<!-- Action buttons -->
@@ -389,7 +396,7 @@
 						<button
 							type="button"
 							onclick={handleRetryCamera}
-							class="rounded-lg bg-neutral-800 px-4 py-2 text-neutral-100 transition-colors hover:bg-neutral-700"
+							class="min-h-touch rounded-lg bg-neutral-800 px-4 py-2 text-neutral-100 transition-colors hover:bg-neutral-700"
 						>
 							Try Camera Again
 						</button>
@@ -398,7 +405,7 @@
 					<button
 						type="button"
 						onclick={handleClose}
-						class="px-4 py-2 text-neutral-500 transition-colors hover:text-neutral-100"
+						class="min-h-touch px-4 py-2 text-neutral-500 transition-colors hover:text-neutral-100"
 					>
 						Cancel
 					</button>
@@ -440,7 +447,7 @@
 			<p class="text-body-sm text-neutral-500">Point your camera at a Homebox location QR code</p>
 		{/if}
 	</div>
-</div>
+</dialog>
 
 <style>
 	/* Style the qr-scanner overlay - uses CSS custom property for primary color */

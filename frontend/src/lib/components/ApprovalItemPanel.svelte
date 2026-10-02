@@ -8,6 +8,7 @@
 	 * - delete: Read-only verification view with entity-specific tagging
 	 */
 	import { slide } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { Trash2, Plus, Pencil, Eye, X, Check } from '@lucide/svelte';
 	import type { PendingApproval } from '../api/chat';
 	import {
@@ -386,9 +387,9 @@
 
 		<!-- Action Info -->
 		<div class="min-w-0 flex-1">
-			<p class="text-sm font-medium text-neutral-200">
+			<p class="text-body-sm font-medium text-neutral-200">
 				<span
-					class="mr-1.5 text-xs font-semibold uppercase tracking-wide {actionType === 'delete'
+					class="mr-1.5 text-caption font-semibold uppercase tracking-wide {actionType === 'delete'
 						? 'text-error-400'
 						: actionType === 'create'
 							? 'text-success-400'
@@ -407,7 +408,7 @@
 			<!-- Expand/Edit Button -->
 			<button
 				type="button"
-				class="flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 size-9 {expanded
+				class="flex min-h-touch min-w-touch items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400 disabled:opacity-50 {expanded
 					? 'border-primary-500/50 bg-primary-500/10 text-primary-400'
 					: ''}"
 				disabled={approval.is_expired}
@@ -425,7 +426,7 @@
 			<!-- Reject Button -->
 			<button
 				type="button"
-				class="flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50 size-9"
+				class="flex min-h-touch min-w-touch items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 transition-all hover:border-error-500/50 hover:bg-error-500/10 hover:text-error-500 disabled:opacity-50"
 				disabled={isProcessing || approval.is_expired}
 				onclick={handleReject}
 				aria-label="Reject"
@@ -442,7 +443,7 @@
 			<!-- Approve Button -->
 			<button
 				type="button"
-				class="flex items-center justify-center rounded-lg border transition-all disabled:opacity-50 size-9 {expanded &&
+				class="flex min-h-touch min-w-touch items-center justify-center rounded-lg border transition-all disabled:opacity-50 {expanded &&
 				hasModifications
 					? 'border-primary-500/50 bg-primary-500/20 text-primary-400 shadow-primary-glow-sm hover:border-primary-400 hover:bg-primary-500/30 hover:text-primary-300'
 					: 'border-neutral-700 bg-neutral-800 text-neutral-400 hover:border-success-500/50 hover:bg-success-500/10 hover:text-success-500'}"
@@ -466,7 +467,7 @@
 	{#if expanded}
 		<div
 			class="border-t border-neutral-800 bg-neutral-950/30 px-5 py-4"
-			transition:slide={{ duration: 200 }}
+			transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
 		>
 			{#if actionType === 'create'}
 				{#if approval.tool_name === 'create_item'}
@@ -563,34 +564,38 @@
 			{:else if actionType === 'delete'}
 				<!-- Delete Entity: Read-only verification -->
 				<div class="space-y-2">
-					<p class="text-sm text-neutral-400">
+					<p class="text-body-sm text-neutral-400">
 						Are you sure you want to delete this {entityType}? This action cannot be undone.
 					</p>
 					<div class="space-y-1 rounded-lg border border-error-500/20 bg-error-500/10 px-3 py-2">
 						{#if approval.display_info?.target_name || approval.display_info?.item_name}
 							<div>
-								<span class="text-xs capitalize text-neutral-500">{entityType}:</span>
-								<span class="text-error-300 ml-1 text-sm"
+								<span class="text-caption capitalize text-neutral-500">{entityType}:</span>
+								<span class="text-error-300 ml-1 text-body-sm"
 									>{approval.display_info.target_name ?? approval.display_info.item_name}</span
 								>
 							</div>
 						{/if}
 						{#if approval.display_info?.asset_id}
 							<div>
-								<span class="text-xs text-neutral-500">Asset ID:</span>
-								<span class="ml-1 text-sm text-neutral-300">{approval.display_info.asset_id}</span>
+								<span class="text-caption text-neutral-500">Asset ID:</span>
+								<span class="ml-1 text-body-sm text-neutral-300"
+									>{approval.display_info.asset_id}</span
+								>
 							</div>
 						{/if}
 						{#if approval.display_info?.location}
 							<div>
-								<span class="text-xs text-neutral-500">Location:</span>
-								<span class="ml-1 text-sm text-neutral-300">{approval.display_info.location}</span>
+								<span class="text-caption text-neutral-500">Location:</span>
+								<span class="ml-1 text-body-sm text-neutral-300"
+									>{approval.display_info.location}</span
+								>
 							</div>
 						{/if}
 						{#if !approval.display_info?.target_name && !approval.display_info?.item_name}
 							<div>
-								<span class="text-xs capitalize text-neutral-500">{entityType} ID:</span>
-								<span class="ml-1 text-sm text-neutral-300">{entityIdParam}</span>
+								<span class="text-caption capitalize text-neutral-500">{entityType} ID:</span>
+								<span class="ml-1 text-body-sm text-neutral-300">{entityIdParam}</span>
 							</div>
 						{/if}
 					</div>
