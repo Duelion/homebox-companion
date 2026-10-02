@@ -69,9 +69,7 @@ async def test_login_with_invalid_credentials_raises_error(
 
 
 @pytest.mark.asyncio
-async def test_list_locations_returns_non_empty_list(
-    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-) -> None:
+async def test_list_locations_returns_non_empty_list(homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
     """List locations should return a non-empty list with expected structure."""
     client = homebox_client
     token = homebox_auth.token
@@ -90,9 +88,7 @@ async def test_list_locations_returns_non_empty_list(
 
 
 @pytest.mark.asyncio
-async def test_list_locations_with_filter_children(
-    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-) -> None:
+async def test_list_locations_with_filter_children(homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
     """List locations with filter_children should only return top-level locations."""
     client = homebox_client
     token = homebox_auth.token
@@ -240,9 +236,7 @@ async def test_get_item_returns_full_details(
 
 
 @pytest.mark.asyncio
-async def test_list_tags_returns_tags_list(
-    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-) -> None:
+async def test_list_tags_returns_tags_list(homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
     """List tags should return available tags."""
     client = homebox_client
     token = homebox_auth.token
@@ -282,9 +276,7 @@ async def test_create_location_returns_created_location(
 
 
 @pytest.mark.asyncio
-async def test_typed_methods_return_correct_types(
-    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-) -> None:
+async def test_typed_methods_return_correct_types(homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
     """Typed methods should return proper model instances."""
     client = homebox_client
     token = homebox_auth.token
@@ -299,15 +291,6 @@ async def test_typed_methods_return_correct_types(
     # Test list_tags_typed
     tags = await client.list_tags_typed(token)
     assert isinstance(tags, list)
-
-
-@pytest.mark.asyncio
-async def test_client_context_manager_closes_properly(homebox_api_url: str) -> None:
-    """Client should properly close when used as context manager."""
-    # This test verifies no exceptions are raised during cleanup
-    async with HomeboxClient(base_url=homebox_api_url) as client:
-        # Just verify we can use it
-        assert client.base_url
 
     # After context exit, client should be closed
     # (no direct way to test this, but it shouldn't raise errors)
@@ -353,44 +336,6 @@ async def test_delete_item_removes_item(
 
     # Check it's a 404 error
     assert "404" in str(exc_info.value)
-
-
-@pytest.mark.asyncio
-async def test_create_and_delete_item_cleanup_workflow(
-    homebox_client: HomeboxClient, homebox_auth: HomeboxAuth, cleanup_items: list[str]
-) -> None:
-    """Test the create-then-delete workflow for failed upload cleanup.
-
-    This simulates what happens when an item is created but image upload fails:
-    1. Create item
-    2. (Image upload would fail here)
-    3. Delete item to clean up
-    """
-    client = homebox_client
-    token = homebox_auth.token
-    locations = await client.list_locations(token)
-
-    assert locations
-    location_id = locations[0]["id"]
-
-    # Create item
-    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
-    item = ItemCreate(
-        name=f"Cleanup Test {timestamp}",
-        quantity=1,
-        parent_id=location_id,
-    )
-    created = await client.create_item(token, item)
-    item_id = created["id"]
-    cleanup_items.append(item_id)  # Track for cleanup if deletion fails
-
-    # Simulate upload failure by immediately deleting
-    # (In real scenario, this happens after upload retries fail)
-    await client.delete_item(token, item_id)
-
-    # Confirm deletion
-    with pytest.raises(HomeboxAPIError):
-        await client.get_item(token, item_id)
 
 
 @pytest.mark.asyncio

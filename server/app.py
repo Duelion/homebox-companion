@@ -312,7 +312,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown complete")
 
 
-def create_app(app_settings: Settings | None = None) -> FastAPI:
+def create_app(app_settings: Settings | None = None, *, static_directory: str | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Homebox Companion",
@@ -407,7 +407,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         return result
 
     # Serve static frontend files (SvelteKit SPA)
-    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    static_dir = static_directory if static_directory is not None else os.path.join(os.path.dirname(__file__), "static")
 
     if os.path.isdir(static_dir):
         # Mount static files at root to serve _app/, favicon, etc.

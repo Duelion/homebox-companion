@@ -2,52 +2,12 @@ import type { Page, Request } from '@playwright/test';
 import { test, expect } from './fixtures/test';
 import { json } from './fixtures/api';
 import { createdItem, detectedItems } from './fixtures/data';
+import { readDrafts } from './helpers/recovery';
 import { analyzePhotos, selectLocation, uploadPhoto } from './helpers/scan';
 
-type StoredSession = {
-	confirmedItems?: Array<{ name: string; manufacturer?: string | null }>;
-};
-
-async function readStoredSession(page: Page): Promise<StoredSession | null> {
-	return page.evaluate(
-		() =>
-			new Promise<StoredSession | null>((resolve, reject) => {
-				const open = indexedDB.open('hbc-scan-recovery');
-				open.onerror = () => reject(open.error ?? new Error('Could not open recovery database'));
-				open.onblocked = () => reject(new Error('Recovery database is blocked'));
-				open.onsuccess = () => {
-					const database = open.result;
-					try {
-						const transaction = database.transaction('sessions', 'readonly');
-						const request = transaction.objectStore('sessions').get('deployment:user:g1');
-						let session: StoredSession | null = null;
-						let readError: DOMException | Error | null = null;
-						request.onsuccess = () => {
-							session = request.result ?? null;
-						};
-						request.onerror = () => {
-							readError = request.error ?? new Error('Could not read recovery session');
-						};
-						transaction.oncomplete = () => {
-							database.close();
-							if (readError) reject(readError);
-							else resolve(session);
-						};
-						transaction.onerror = () => {
-							database.close();
-							reject(transaction.error ?? new Error('Recovery session transaction failed'));
-						};
-						transaction.onabort = () => {
-							database.close();
-							reject(transaction.error ?? new Error('Recovery session transaction was aborted'));
-						};
-					} catch (error) {
-						database.close();
-						reject(error);
-					}
-				};
-			})
-	);
+async function readStoredSession(page: Page) {
+	const drafts = await readDrafts(page, 'deployment:user:g1');
+	return drafts[0] ?? null;
 }
 
 async function createConfirmedScan(page: Page, itemName: string, manufacturer?: string) {

@@ -22,35 +22,18 @@ pytestmark = pytest.mark.unit
 class TestHomeboxClientErrorHandling:
     """Test HTTP error handling in HomeboxClient."""
 
-    def test_401_response_raises_authentication_error(self) -> None:
-        """401 responses should raise HomeboxAuthError."""
-        response = httpx.Response(
-            401,
-            json={"error": "Token expired"},
-        )
-
-        with pytest.raises(HomeboxAuthError, match="Token expired"):
+    @pytest.mark.parametrize(
+        "status,message,error,match",
+        [
+            pytest.param(401, "Token expired", HomeboxAuthError, "Token expired", id="authentication"),
+            pytest.param(404, "Not found", HomeboxAPIError, "404", id="not-found"),
+            pytest.param(500, "Internal server error", HomeboxAPIError, "500", id="server-error"),
+        ],
+    )
+    def test_http_error_classification(self, status, message, error, match) -> None:
+        response = httpx.Response(status, json={"error": message})
+        with pytest.raises(error, match=match):
             HomeboxClient._ensure_success(response, "Test operation")
-
-    def test_404_response_raises_homebox_api_error(self) -> None:
-        """404 responses should raise HomeboxAPIError with status code."""
-        response = httpx.Response(
-            404,
-            json={"error": "Not found"},
-        )
-
-        with pytest.raises(HomeboxAPIError, match="404"):
-            HomeboxClient._ensure_success(response, "Fetch item")
-
-    def test_500_response_raises_homebox_api_error(self) -> None:
-        """500 responses should raise HomeboxAPIError with status code."""
-        response = httpx.Response(
-            500,
-            json={"error": "Internal server error"},
-        )
-
-        with pytest.raises(HomeboxAPIError, match="500"):
-            HomeboxClient._ensure_success(response, "Create item")
 
     def test_malformed_json_response_raises_with_text(self) -> None:
         """Non-JSON responses should raise HomeboxAPIError with text content."""
@@ -62,22 +45,9 @@ class TestHomeboxClientErrorHandling:
         with pytest.raises(HomeboxAPIError, match="Bad request"):
             HomeboxClient._ensure_success(response, "Update item")
 
-    def test_success_response_does_not_raise(self) -> None:
-        """2xx responses should not raise any errors."""
-        response = httpx.Response(
-            200,
-            json={"id": "123", "name": "Test"},
-        )
-
-        # Should not raise
-        HomeboxClient._ensure_success(response, "Successful operation")
-
-    def test_204_no_content_does_not_raise(self) -> None:
-        """204 No Content responses should not raise errors."""
-        response = httpx.Response(204)
-
-        # Should not raise
-        HomeboxClient._ensure_success(response, "Delete operation")
+    @pytest.mark.parametrize("status", [200, 204], ids=["success", "no-content"])
+    def test_success_response_does_not_raise(self, status) -> None:
+        HomeboxClient._ensure_success(httpx.Response(status), "Successful operation")
 
 
 class TestFieldPreferencesFileCorruption:

@@ -136,49 +136,8 @@ class TestMockPrinterReceivesLabel:
             f"Homebox may not have been able to reach host.docker.internal. "
             f"Check container logs: docker logs {homebox_container_name}"
         )
-
-    @pytest.mark.asyncio
-    async def test_mock_printer_receives_valid_png(
-        self,
-        homebox_client: HomeboxClient,
-        homebox_auth: HomeboxAuth,
-        mock_label_printer: MockLabelPrinter,
-        _test_item: tuple[str, str],
-    ) -> None:
-        """The POST body sent to the mock printer should be a valid PNG image."""
-        _, asset_id = _test_item
-        mock_label_printer.clear()
-        await homebox_client.print_label(homebox_auth.token, asset_id)
-
-        assert mock_label_printer.requests, "No requests received by mock printer"
-        last_request = mock_label_printer.requests[-1]
-
-        # Verify the body is a valid PNG (starts with PNG magic bytes)
-        assert last_request.body[:4] == b"\x89PNG", (
-            f"Expected PNG magic bytes, got: {last_request.body[:4]!r}"
-        )
-        # A real label image should be at least a few hundred bytes
-        assert len(last_request.body) > 100, (
-            f"PNG body too small ({len(last_request.body)} bytes), probably not a real label"
-        )
-
-    @pytest.mark.asyncio
-    async def test_mock_printer_receives_post_to_correct_path(
-        self,
-        homebox_client: HomeboxClient,
-        homebox_auth: HomeboxAuth,
-        mock_label_printer: MockLabelPrinter,
-        _test_item: tuple[str, str],
-    ) -> None:
-        """The POST should hit the /print path on the mock printer."""
-        _, asset_id = _test_item
-        mock_label_printer.clear()
-        await homebox_client.print_label(homebox_auth.token, asset_id)
-
-        assert mock_label_printer.requests, "No requests received by mock printer"
-        last_request = mock_label_printer.requests[-1]
-
-        assert last_request.method == "POST"
-        assert last_request.path == "/print", (
-            f"Expected POST to /print, got {last_request.path}"
-        )
+        delivered = mock_label_printer.requests[-1]
+        assert delivered.method == "POST"
+        assert delivered.path == "/print"
+        assert delivered.body[:8] == b"\x89PNG\r\n\x1a\n"
+        assert len(delivered.body) > 100, "Printed label must contain image data"

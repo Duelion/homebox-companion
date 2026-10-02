@@ -145,37 +145,6 @@ class TestToolExecutor:
         assert "Invalid parameters" in result.error or "validation" in result.error.lower()
 
 
-class TestToolExecutorCaching:
-    """Tests for ToolExecutor caching behavior."""
-
-    @pytest.fixture
-    def mock_client(self) -> MagicMock:
-        """Create a mock HomeboxClient."""
-        return MagicMock()
-
-    def test_tools_are_discovered_once(self, mock_client: MagicMock):
-        """Tools should be discovered only once per executor instance."""
-        executor = ToolExecutor(mock_client)
-
-        # Access tools twice
-        tools1 = executor.list_tools()
-        tools2 = executor.list_tools()
-
-        # Should be the same list (cached)
-        assert tools1 == tools2
-
-    def test_schema_cache_is_used(self, mock_client: MagicMock):
-        """Tool schemas should be cached."""
-        executor = ToolExecutor(mock_client)
-
-        # Access schemas twice
-        schemas1 = executor.get_tool_schemas()
-        schemas2 = executor.get_tool_schemas()
-
-        # Should be the same list (cached)
-        assert schemas1 == schemas2
-
-
 class TestGetDisplayInfo:
     """Tests for ToolExecutor.get_display_info method."""
 

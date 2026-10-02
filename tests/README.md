@@ -11,6 +11,40 @@ uv run --no-sync pytest
 The development dependencies include HTTPX2, which Starlette automatically uses
 as its `TestClient` backend. Install them with `uv sync --locked` before testing.
 
+## Optional full-stack smoke test
+
+Before a release or after a substantial integration change, run one real
+browser → Companion → disposable Homebox journey. It uploads a photo, edits the
+name and manufacturer, saves the item, and independently verifies the stored
+fields, location, and downloadable image in Homebox. Only the AI completion is
+replaced with a deterministic result; no provider credentials or paid calls are
+needed. The test uses API-key mode and Chromium, with no screenshots to maintain.
+
+With Docker running and Node available on `PATH`, from the repository root:
+
+```powershell
+uv sync --locked
+cd frontend
+npm ci
+npm run build
+npx playwright install chromium
+cd ..
+uv run --no-sync pytest -m live tests/test_fullstack_smoke.py
+```
+
+Use Node 26.10.0 to match the frontend build environment. The runner reuses the
+existing isolated Homebox fixtures, starts Companion in a temporary working
+directory, and serves `frontend/build` through FastAPI. It cleans up its server,
+Homebox container, and volume. Diagnostics are in `frontend/test-results/`,
+including a server log and browser traces/screenshots on failure. Docker
+unavailability skips locally and fails in CI, matching the other live tests.
+
+This test is excluded from default pytest and the mocked browser suite, and is
+not a required CI job. It checks the successful save path; recovery and failure
+handling remain covered by the existing focused tests.
+
+## Live Homebox tests
+
 The shared Homebox business and authentication suites use disposable Docker
 servers and isolated accounts. No operator-provided Homebox credentials or paid
 LLM account is required:
@@ -154,3 +188,21 @@ require a real LLM account.
 CI runs `ty check --error-on-warning` so both type errors and warnings fail the
 job. Keep the type-check baseline free of diagnostics; validate dynamic inputs
 at model boundaries and preserve each tool's parameter type in its interface.
+
+## Keeping tests useful
+
+Prefer observable outcomes over implementation details. Parametrize repeated
+input/output cases with readable IDs. Combine assertions about one expensive
+operation (for example, a delivered print's acknowledgment, path, and image)
+rather than repeating its setup. Keep distinct failure and security scenarios
+separate.
+
+Rate-limiter tests cover our estimates and RPM/TPM wiring with deterministic
+fakes; they do not benchmark the scheduler or retest the dependency's token
+bucket. Client ownership tests check transport closure without starting Docker.
+Preference tests own temporary files and clear cached defaults before and after
+each case. Browser recovery tests share the IndexedDB reader.
+
+For focused development, use `uv run pytest --lf`, `uv run pytest -k <name>`,
+or `uv run pytest --durations=15`. Keep provider/AI tests and their explicit
+live-test selection separate from this maintenance workflow.
