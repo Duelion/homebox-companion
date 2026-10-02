@@ -177,57 +177,7 @@
 		description: string;
 		parentId: string | null;
 	}) {
-		try {
-			if (locationModalMode === 'create') {
-				const newLocation = await locationsApi.create({
-					name: data.name,
-					description: data.description,
-					parent_id: data.parentId,
-				});
-
-				log.debug('Created location:', newLocation.name, 'under parent:', data.parentId);
-
-				// Refresh current level by fetching parent's children directly
-				// This avoids tree traversal and works at any depth
-				await locationNavigator.refreshCurrentLevel(data.parentId);
-
-				showToast(`Location "${newLocation.name}" created`, 'success');
-			} else if (locationModalMode === 'edit' && locationStore.selected) {
-				const updatedLocation = await locationsApi.update(locationStore.selected.id, {
-					name: data.name,
-					description: data.description,
-				});
-
-				log.debug('Updated location:', updatedLocation.name);
-
-				// Update selected location with new data
-				const locationData: Location = {
-					id: updatedLocation.id,
-					name: updatedLocation.name,
-					description: updatedLocation.description,
-					children: locationStore.selected.children || [],
-				};
-				locationStore.setSelected(locationData);
-
-				// Update workflow with new name
-				scanWorkflow.setLocation(locationData.id, locationData.name, locationStore.selectedPath);
-
-				// Refresh flat list for search - fetch tree to preserve hierarchy for disambiguation
-				try {
-					const tree = await locationsApi.tree();
-					locationStore.setTree(tree);
-					locationStore.setFlatList(tree);
-				} catch (error) {
-					log.warn('Failed to refresh search list after edit', error);
-				}
-
-				showToast(`Location "${updatedLocation.name}" updated`, 'success');
-			}
-		} catch (error) {
-			log.error('Failed to save location', error);
-			// Re-throw to let LocationModal handle the error display
-			throw error;
-		}
+		await locationNavigator.saveLocation(locationModalMode, data);
 	}
 
 	// QR Scanner handlers

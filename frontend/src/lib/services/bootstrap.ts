@@ -1,22 +1,35 @@
 import { browser } from '$app/environment';
-import { authStore, type HomeboxConnection } from '$lib/stores/auth.svelte';
+import { authStore, registerAuthLifecycle, type HomeboxConnection } from '$lib/stores/auth.svelte';
 import { collectionStore } from '$lib/stores/collection.svelte';
 import { setDemoMode, type ConfigResponse } from '$lib/api/settings';
 import { request } from '$lib/api/client';
 import { initializeAuth } from './tokenRefresh';
-import { setLogLevel } from '$lib/utils/logger';
+import { setLogLevel, authLogger as log } from '$lib/utils/logger';
+
+import { scanWorkflow } from '$lib/workflows/scan.svelte';
+import { chatStore } from '$lib/stores/chat.svelte';
+import { tagStore } from '$lib/stores/tags.svelte';
+import { locationStore } from '$lib/stores/locations.svelte';
+import { locationNavigator } from './locationNavigator.svelte';
+
+registerAuthLifecycle({
+	async cleanupRelatedStores() {
+		// Run each cleanup even when another store fails.
+		const results = await Promise.allSettled([
+			Promise.resolve().then(() => locationStore.clear()),
+			Promise.resolve().then(() => tagStore.clear()),
+			Promise.resolve().then(() => scanWorkflow.reset()),
+			Promise.resolve().then(() => collectionStore.clear()),
+		]);
+		for (const result of results) {
+			if (result.status === 'rejected') log.warn('Failed to clear related state:', result.reason);
+		}
+	},
+});
 
 let bootstrapPromise: Promise<void> | null = null;
 
 async function clearScopedState(): Promise<void> {
-	const [{ scanWorkflow }, { chatStore }, { tagStore }, { locationStore }, { locationNavigator }] =
-		await Promise.all([
-			import('$lib/workflows/scan.svelte'),
-			import('$lib/stores/chat.svelte'),
-			import('$lib/stores/tags.svelte'),
-			import('$lib/stores/locations.svelte'),
-			import('./locationNavigator.svelte'),
-		]);
 	scanWorkflow.switchContext();
 	chatStore.invalidateContext();
 	tagStore.clear();

@@ -2,7 +2,7 @@
  * Settings and configuration API endpoints
  */
 
-import { request } from './client';
+import { requestBlobUrl, request } from './client';
 
 // =============================================================================
 // DEMO MODE STORAGE
@@ -142,8 +142,6 @@ export interface LogsResponse {
 export const getLogs = (lines: number = 200) => request<LogsResponse>(`/logs?lines=${lines}`);
 
 export const downloadLogs = async (filename: string) => {
-	const { requestBlobUrl } = await import('./client');
-
 	const result = await requestBlobUrl('/logs/download');
 
 	// Create a temporary link and trigger download
@@ -162,8 +160,6 @@ export const getLLMDebugLogs = (lines: number = 200) =>
 	request<LogsResponse>(`/logs/llm-debug?lines=${lines}`);
 
 export const downloadLLMDebugLogs = async (filename: string) => {
-	const { requestBlobUrl } = await import('./client');
-
 	const result = await requestBlobUrl('/logs/llm-debug/download');
 
 	// Create a temporary link and trigger download

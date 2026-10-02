@@ -12,11 +12,11 @@
 		id: string;
 		name: string;
 		thumbnail?: string;
-		tag_ids?: string[];
+		tag_ids?: readonly string[];
 	}
 
 	interface Props {
-		items: CreatedItem[];
+		items: readonly CreatedItem[];
 		open: boolean;
 		onclose: () => void;
 		/** Called when user wants to scan sub-items for a specific parent */

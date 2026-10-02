@@ -12,6 +12,7 @@
 import { locations as locationsApi } from '$lib/api';
 import { locationStore } from '$lib/stores/locations.svelte';
 import { scanWorkflow } from '$lib/workflows/scan.svelte';
+import { authStore } from '$lib/stores/auth.svelte';
 import { showToast } from '$lib/stores/ui.svelte';
 import { createLogger } from '$lib/utils/logger';
 import type { Location } from '$lib/types';
@@ -32,6 +33,7 @@ class LocationNavigator {
 
 	/** Currently navigated location (the location we're viewing children of) */
 	private _currentLocation = $state<Location | null>(null);
+	private generation = 0;
 
 	// =========================================================================
 	// GETTERS
@@ -49,8 +51,79 @@ class LocationNavigator {
 
 	/** Drop navigation state when the verified Homebox scope changes. */
 	reset(): void {
+		this.generation++;
 		this._currentLocation = null;
 		this._isLoading = false;
+	}
+
+	/** Persist a location and synchronize selection, breadcrumbs, search and workflow together. */
+	async saveLocation(
+		mode: 'create' | 'edit',
+		data: { name: string; description: string; parentId: string | null }
+	): Promise<void> {
+		const selected = locationStore.selected;
+		if (mode === 'edit' && !selected) throw new Error('Please select a location');
+		const generation = this.generation;
+		const connection = authStore.connection;
+		const scope = authStore.verifiedScope;
+		const valid = () =>
+			generation === this.generation &&
+			authStore.connection === connection &&
+			authStore.verifiedScope?.contextId === scope?.contextId &&
+			authStore.verifiedScope?.groupId === scope?.groupId;
+		const pathIds = locationStore.path.map((part) => part.id).join('/');
+		const sameView = () => locationStore.path.map((part) => part.id).join('/') === pathIds;
+		const saved =
+			mode === 'create'
+				? await locationsApi.create({
+						name: data.name,
+						description: data.description,
+						parent_id: data.parentId,
+					})
+				: await locationsApi.update(selected!.id, {
+						name: data.name,
+						description: data.description,
+					});
+		if (!valid()) return;
+
+		if (mode === 'edit') {
+			locationStore.setPath(
+				locationStore.path.map((part) =>
+					part.id === saved.id ? { id: saved.id, name: saved.name } : part
+				)
+			);
+			if (this._currentLocation?.id === saved.id)
+				this._currentLocation = { ...this._currentLocation, ...saved };
+			if (locationStore.selected?.id === saved.id) {
+				const updated = {
+					...locationStore.selected,
+					...saved,
+					children: saved.children ?? locationStore.selected.children,
+				};
+				locationStore.setSelected(updated);
+				scanWorkflow.setLocation(updated.id, updated.name, locationStore.selectedPath);
+			}
+		}
+
+		// Saving succeeded even if this optional cache refresh fails.
+		try {
+			const tree = await locationsApi.tree();
+			if (!valid()) return;
+			locationStore.setTree(tree);
+			locationStore.setFlatList(tree);
+			if (sameView() && locationStore.path.length === 0) locationStore.setCurrentLevel(tree);
+			const parentId = locationStore.path.at(-1)?.id;
+			if (sameView() && parentId) {
+				const details = await locationsApi.get(parentId);
+				if (!valid() || !sameView()) return;
+				this._currentLocation = details;
+				locationStore.setCurrentLevel(details.children ?? []);
+			}
+		} catch (error) {
+			if (valid()) log.warn('Failed to refresh locations after save', error);
+		}
+		if (valid())
+			showToast(`Location "${saved.name}" ${mode === 'create' ? 'created' : 'updated'}`, 'success');
 	}
 
 	// =========================================================================

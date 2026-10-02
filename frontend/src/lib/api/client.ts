@@ -5,7 +5,7 @@
 import { authStore } from '../stores/auth.svelte';
 import { abortSignalAny, abortSignalTimeout } from '../utils/abortSignal';
 import { apiLogger as log } from '../utils/logger';
-import { refreshToken } from '../services/tokenRefresh';
+import { refreshToken, registerRefreshTransport } from '../services/tokenRefresh';
 
 const BASE_URL = '/api';
 
@@ -708,3 +708,11 @@ export async function requestFormData<T>(
 
 	return parseResponseBody<T>(response);
 }
+
+// Refresh uses this same transport (headers, timeout, context checks) without an API import cycle.
+registerRefreshTransport(() =>
+	request<{ token: string; expires_at: string }>('/refresh', {
+		method: 'POST',
+		skipAuthRetry: true,
+	})
+);

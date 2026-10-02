@@ -99,7 +99,9 @@
 		goto(resolve('/review'));
 	}
 
-	function getThumbnail(item: ConfirmedItem): string | null {
+	function getThumbnail(
+		item: Pick<ConfirmedItem, 'customThumbnail' | 'originalFile'>
+	): string | null {
 		if (item.customThumbnail) return item.customThumbnail;
 		if (item.originalFile) return urlManager.getUrl(item.originalFile);
 		return null;

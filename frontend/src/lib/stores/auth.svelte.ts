@@ -4,10 +4,19 @@
  * Manages authentication state using Svelte 5 runes for fine-grained reactivity.
  */
 import { browser } from '$app/environment';
-import { stopRefreshTimer } from '../services/tokenRefresh';
 import { authLogger as log } from '../utils/logger';
 
-// Note: scheduleRefresh is imported dynamically in setAuthenticatedState to avoid circular dependency
+// Services install side effects without making this state store import their dependency graph.
+interface AuthLifecycle {
+	scheduleRefresh?: () => void;
+	stopRefreshTimer?: () => void;
+	cleanupRelatedStores?: () => Promise<void>;
+}
+const lifecycle: AuthLifecycle = {};
+
+export function registerAuthLifecycle(callbacks: AuthLifecycle): void {
+	Object.assign(lifecycle, callbacks);
+}
 
 // =============================================================================
 // CONSTANTS
@@ -187,7 +196,7 @@ class AuthStore {
 	}
 
 	private clearLegacyStorage(): void {
-		stopRefreshTimer();
+		lifecycle.stopRefreshTimer?.();
 		this._token = null;
 		this._expiresAt = null;
 		this._email = null;
@@ -293,31 +302,17 @@ class AuthStore {
 		}
 
 		// Schedule token refresh
-		this.scheduleRefresh();
-	}
-
-	/**
-	 * Schedule token refresh via dynamic import.
-	 * Dynamic import avoids circular dependency with tokenRefresh.ts.
-	 */
-	private async scheduleRefresh(): Promise<void> {
-		try {
-			const { scheduleRefresh } = await import('../services/tokenRefresh');
-			scheduleRefresh();
-		} catch (err) {
-			// Dynamic imports rarely fail; log and continue (session may expire unexpectedly)
-			log.error('Failed to schedule token refresh - session may expire unexpectedly:', err);
-		}
+		lifecycle.scheduleRefresh?.();
 	}
 
 	/**
 	 * Logout and clear all auth state.
-	 * Note: Store cleanup uses dynamic imports to avoid circular dependencies.
+	 * Services register related store cleanup during app bootstrap.
 	 * Cleanup failures are logged but do not block logout completion.
 	 *
 	 * @remarks This method is intentionally synchronous (returns void, not Promise).
 	 * Callers should not need to await logout completion. Related store cleanup
-	 * happens asynchronously in the background via cleanupRelatedStores().
+	 * happens asynchronously in the background via registered lifecycle callbacks.
 	 */
 	logout(): void {
 		if (this._mode !== 'legacy') return;
@@ -330,7 +325,7 @@ class AuthStore {
 				`sessionExpired=${this._sessionExpired}, ` +
 				`caller=${new Error().stack?.split('\n')[2]?.trim() ?? 'unknown'}`
 		);
-		stopRefreshTimer();
+		lifecycle.stopRefreshTimer?.();
 		this._token = null;
 		this._expiresAt = null;
 		this._email = null;
@@ -345,33 +340,12 @@ class AuthStore {
 		}
 
 		// Clear related stores (non-blocking, errors logged)
-		// Uses Promise.allSettled to ensure all cleanup attempts run
-		this.cleanupRelatedStores();
-	}
-
-	/**
-	 * Clear related stores on logout. Non-critical failures are logged.
-	 * Uses Promise.allSettled to run all cleanup in parallel.
-	 */
-	private async cleanupRelatedStores(): Promise<void> {
-		const cleanupTasks = [
-			import('./locations.svelte.ts')
-				.then(({ locationStore }) => locationStore.clear())
-				.catch((err) => log.warn('Failed to clear location state:', err)),
-			import('./tags.svelte.ts')
-				.then(({ clearTagsCache }) => clearTagsCache())
-				.catch((err) => log.warn('Failed to clear tags cache:', err)),
-			import('../workflows/scan.svelte.ts')
-				.then(({ scanWorkflow }) => scanWorkflow.reset())
-				.catch((err) => log.warn('Failed to reset scan workflow:', err)),
-			import('./collection.svelte.ts')
-				.then(({ collectionStore }) => collectionStore.clear())
-				.catch((err) => log.warn('Failed to clear collection state:', err)),
-		];
-		await Promise.allSettled(cleanupTasks);
+		// The registered service runs each cleanup independently
+		void lifecycle
+			.cleanupRelatedStores?.()
+			.catch((err) => log.warn('Failed to clear related state:', err));
 	}
 }
-
 // =============================================================================
 // SINGLETON EXPORT
 // =============================================================================

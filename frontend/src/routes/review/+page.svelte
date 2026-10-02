@@ -2,15 +2,14 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, onDestroy } from 'svelte';
-	import { vision } from '$lib/api/vision';
+	import { ReviewEditor, copyReviewItem } from '$lib/services/reviewEditor.svelte';
 	import { getConfig } from '$lib/api/settings';
-	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { prepareReviewItem } from '$lib/workflows/prepare-review-item';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
 	import { routeGuards } from '$lib/utils/routeGuard';
 	import { getInitPromise } from '$lib/services/bootstrap';
-	import type { ReviewItem } from '$lib/types';
+	import type { DeepReadonly, ReviewItem } from '$lib/types';
 	import Button from '$lib/components/Button.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import ThumbnailEditor from '$lib/components/ThumbnailEditor.svelte';
@@ -63,7 +62,8 @@
 	let showImagesPanel = $state(false);
 	let showAiCorrection = $state(false);
 	let showThumbnailEditor = $state(false);
-	let isProcessing = $state(false);
+	const editor = new ReviewEditor();
+	const isProcessing = $derived(editor.isProcessing);
 	let allImages = $state<File[]>([]);
 	let showConfirmAllDialog = $state(false);
 
@@ -71,7 +71,7 @@
 	let originalImages: readonly File[] = [];
 
 	// Check if item has any extended field data
-	function hasExtendedFieldData(item: ReviewItem | null): boolean {
+	function hasExtendedFieldData(item: DeepReadonly<ReviewItem> | null): boolean {
 		if (!item) return false;
 		return !!(
 			item.manufacturer ||
@@ -84,15 +84,16 @@
 	}
 
 	// Check if item has any custom field data
-	function hasCustomFieldData(item: ReviewItem | null): boolean {
+	function hasCustomFieldData(item: DeepReadonly<ReviewItem> | null): boolean {
 		if (!item?.custom_fields) return false;
 		return Object.keys(item.custom_fields).length > 0;
 	}
 
 	// Sync editedItem when currentItem changes
 	$effect(() => {
+		editor.invalidate();
 		if (currentItem) {
-			editedItem = { ...currentItem };
+			editedItem = copyReviewItem(currentItem);
 			// Build unified images array: original first, then additional
 			const imageArray = [
 				...(currentItem.originalFile ? [currentItem.originalFile] : []),
@@ -164,6 +165,7 @@
 
 	// Cleanup on component unmount
 	onDestroy(() => {
+		editor.invalidate();
 		urlManager.cleanup();
 	});
 
@@ -242,58 +244,17 @@
 
 	async function handleAiCorrection(correctionPrompt: string) {
 		if (!editedItem) return;
-
-		const sourceImage = images[editedItem.sourceImageIndex];
-		if (!sourceImage) {
-			showToast('Original image not found', 'error');
-			return;
-		}
-
-		isProcessing = true;
-
-		try {
-			const response = await vision.correct(
-				sourceImage.file,
-				{
-					name: editedItem.name,
-					quantity: editedItem.quantity,
-					description: editedItem.description,
-					manufacturer: editedItem.manufacturer,
-					model_number: editedItem.model_number,
-					serial_number: editedItem.serial_number,
-					purchase_price: editedItem.purchase_price,
-					purchase_from: editedItem.purchase_from,
-					notes: editedItem.notes,
-				},
-				correctionPrompt
-			);
-
-			if (response.items.length > 0) {
-				const corrected = response.items[0];
-				editedItem = {
-					...editedItem,
-					name: corrected.name,
-					quantity: corrected.quantity,
-					description: corrected.description ?? null,
-					tag_ids: corrected.tag_ids ?? null,
-					manufacturer: corrected.manufacturer ?? null,
-					model_number: corrected.model_number ?? null,
-					serial_number: corrected.serial_number ?? null,
-					purchase_price: corrected.purchase_price ?? null,
-					purchase_from: corrected.purchase_from ?? null,
-					notes: corrected.notes ?? null,
-					custom_fields: corrected.custom_fields ?? editedItem.custom_fields,
-				};
-
-				// Visual feedback is sufficient - form updates are visible
-				showAiCorrection = false;
+		const reviewedItem = currentItem;
+		const corrected = await editor.correct(
+			editedItem,
+			images[editedItem.sourceImageIndex]?.file,
+			correctionPrompt,
+			() => workflow.currentItem === reviewedItem,
+			(updates) => {
+				if (editedItem) editedItem = { ...editedItem, ...updates };
 			}
-		} catch (error) {
-			log.error('AI correction failed:', error);
-			showToast(error instanceof Error ? error.message : 'Correction failed', 'error');
-		} finally {
-			isProcessing = false;
-		}
+		);
+		if (corrected) showAiCorrection = false;
 	}
 
 	// Derived images with data URLs for thumbnail editor

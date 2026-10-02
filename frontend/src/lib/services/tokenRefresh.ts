@@ -2,8 +2,17 @@
  * Token refresh service
  * Handles automatic token refresh and scheduling with retry logic
  */
-import { authStore } from '../stores/auth.svelte';
-import { auth } from '../api';
+import { authStore, registerAuthLifecycle } from '../stores/auth.svelte';
+interface RefreshResponse {
+	token: string;
+	expires_at: string;
+}
+let requestRefresh: (() => Promise<RefreshResponse>) | null = null;
+
+/** The client supplies transport so refresh scheduling never imports the API client. */
+export function registerRefreshTransport(transport: () => Promise<RefreshResponse>): void {
+	requestRefresh = transport;
+}
 import { authLogger as log } from '../utils/logger';
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -61,7 +70,8 @@ export function getInitPromise(): Promise<void> {
 export async function refreshToken(): Promise<boolean> {
 	if (!authStore.isLegacy) return false;
 	try {
-		const response = await auth.refresh();
+		if (!requestRefresh) throw new Error('Token refresh transport is not initialized');
+		const response = await requestRefresh();
 		// Use setAuthenticatedState to ensure all state updates happen atomically
 		authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
 		// Reset retry count on successful refresh
@@ -271,3 +281,5 @@ export async function initializeAuth(): Promise<void> {
 		}
 	}
 }
+
+registerAuthLifecycle({ scheduleRefresh, stopRefreshTimer });
