@@ -204,6 +204,12 @@ for (const delayedErrorBody of [false, true]) {
 
 		await page.goto('/location');
 		await expect(page.getByRole('heading', { name: 'Session Expired' })).toBeVisible();
+		const dialog = page.getByRole('dialog', { name: 'Session Expired', exact: true });
+		await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toHaveCount(0);
+		await page.keyboard.press('Escape');
+		await expect(dialog).toBeVisible();
+		await dialog.click({ position: { x: 5, y: 5 } });
+		await expect(dialog).toBeVisible();
 		await page.locator('#reauth-email').fill('demo@example.com');
 		if (delayedErrorBody) {
 			// Keep the expired phase active until the modal is usable, then finish bootstrap.

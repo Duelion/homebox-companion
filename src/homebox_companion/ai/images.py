@@ -75,7 +75,7 @@ def _normalize_image(img: Image.Image) -> Image.Image:
                 img = img.rotate(270, expand=True)
             elif orientation_value == 8:
                 img = img.rotate(90, expand=True)
-    except (AttributeError, KeyError, TypeError):
+    except AttributeError, KeyError, TypeError:
         # No EXIF data or no orientation tag
         pass
 

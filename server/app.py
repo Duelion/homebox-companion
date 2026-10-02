@@ -71,7 +71,7 @@ def _is_newer_version(latest: str, current: str) -> bool:
         latest_parts = _parse_version(latest)
         current_parts = _parse_version(current)
         return latest_parts > current_parts
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         return False
 
 

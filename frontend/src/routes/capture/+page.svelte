@@ -737,6 +737,7 @@
 										/>
 									</div>
 									<AssetIdInput
+										identity={image.dataUrl}
 										value={image.assetId ?? null}
 										disabled={isAnalyzing}
 										onChange={(value) => updateImageOption(index, 'assetId', value)}

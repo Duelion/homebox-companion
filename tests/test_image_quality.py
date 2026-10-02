@@ -62,9 +62,7 @@ class TestCompressImageForUpload:
         ("max_dim", "jpeg_q"),
         [(2560, 85), (1920, 75), (1280, 60)],
     )
-    def test_resizes_when_larger_than_max(
-        self, large_jpeg: bytes, max_dim: int, jpeg_q: int
-    ) -> None:
+    def test_resizes_when_larger_than_max(self, large_jpeg: bytes, max_dim: int, jpeg_q: int) -> None:
         out_bytes, mime = compress_image_for_upload(large_jpeg, max_dimension=max_dim, quality=jpeg_q)
         w, h = _image_dimensions(out_bytes)
         assert max(w, h) == max_dim, f"expected longest side {max_dim}, got {(w, h)}"
@@ -78,6 +76,7 @@ class TestCompressImageForUpload:
         out_bytes, _ = compress_image_for_upload(original, max_dimension=1920, quality=75)
         w, h = _image_dimensions(out_bytes)
         assert (w, h) == (800, 600), "compression should not upscale smaller images"
+
 
 class _CapturingHomeboxClient:
     """Minimal stand-in for HomeboxClient that records upload_attachment calls."""
@@ -148,14 +147,11 @@ def test_upload_endpoint_compresses_per_image_quality(
 
     forwarded = capture.last_file_bytes
     assert forwarded != original, (
-        "Endpoint forwarded the original bytes — HBC_IMAGE_QUALITY was ignored. "
-        "See issue #135."
+        "Endpoint forwarded the original bytes — HBC_IMAGE_QUALITY was ignored. See issue #135."
     )
 
     w, h = _image_dimensions(forwarded)
-    assert max(w, h) == max_dim, (
-        f"Forwarded image longest side is {max(w, h)} but {quality} requires {max_dim}."
-    )
+    assert max(w, h) == max_dim, f"Forwarded image longest side is {max(w, h)} but {quality} requires {max_dim}."
     assert len(forwarded) < len(original)
 
 

@@ -69,9 +69,18 @@ export function getInitPromise(): Promise<void> {
  */
 export async function refreshToken(): Promise<boolean> {
 	if (!authStore.isLegacy) return false;
+	const generation = authStore.sessionGeneration;
+	const token = authStore.token;
+	const connection = authStore.connection;
 	try {
 		if (!requestRefresh) throw new Error('Token refresh transport is not initialized');
 		const response = await requestRefresh();
+		if (
+			generation !== authStore.sessionGeneration ||
+			token !== authStore.token ||
+			connection !== authStore.connection
+		)
+			return false;
 		// Use setAuthenticatedState to ensure all state updates happen atomically
 		authStore.setAuthenticatedState(response.token, new Date(response.expires_at));
 		// Reset retry count on successful refresh
@@ -108,14 +117,17 @@ export function scheduleRefresh(): void {
 			`expires: ${expires.toISOString()})`
 	);
 
-	refreshTimer = setTimeout(async () => {
-		log.debug('[REFRESH] Timer fired, attempting refresh');
-		const success = await refreshToken();
-		if (!success) {
-			// Schedule retry with exponential backoff
-			scheduleRetry();
-		}
-		// Note: retryCount is reset to 0 in refreshToken() on success (line 55)
+	const session = authStore.sessionGeneration;
+	refreshTimer = setTimeout(() => {
+		void (async () => {
+			log.debug('[REFRESH] Timer fired, attempting refresh');
+			const success = await refreshToken();
+			if (!success && session === authStore.sessionGeneration) {
+				// Schedule retry with exponential backoff
+				scheduleRetry();
+			}
+			// Note: retryCount is reset to 0 in refreshToken() on success (line 55)
+		})().catch((error) => log.error('Scheduled refresh failed:', error));
 	}, delay);
 }
 
@@ -138,13 +150,16 @@ function scheduleRetry(): void {
 	const backoffMs = Math.min(60_000 * Math.pow(2, retryCount - 1), 300_000);
 	log.warn(`Scheduling token refresh retry ${retryCount}/${MAX_RETRY_ATTEMPTS} in ${backoffMs}ms`);
 
-	refreshTimer = setTimeout(async () => {
-		const success = await refreshToken();
-		if (!success) {
-			// Try again with next backoff
-			scheduleRetry();
-		}
-		// If successful, retryCount is already reset by refreshToken()
+	const session = authStore.sessionGeneration;
+	refreshTimer = setTimeout(() => {
+		void (async () => {
+			const success = await refreshToken();
+			if (!success && session === authStore.sessionGeneration) {
+				// Try again with next backoff
+				scheduleRetry();
+			}
+			// If successful, retryCount is already reset by refreshToken()
+		})().catch((error) => log.error('Refresh retry failed:', error));
 	}, backoffMs);
 }
 
@@ -207,11 +222,15 @@ async function handleVisibilityChange(): Promise<void> {
  * Start listening for visibility changes to proactively refresh tokens.
  * Called during auth initialization.
  */
+function onVisibilityChange(): void {
+	void handleVisibilityChange().catch((error) => log.error('Visibility refresh failed:', error));
+}
+
 function startVisibilityListener(): void {
 	if (visibilityListenerAttached || typeof document === 'undefined') {
 		return;
 	}
-	document.addEventListener('visibilitychange', handleVisibilityChange);
+	document.addEventListener('visibilitychange', onVisibilityChange);
 	visibilityListenerAttached = true;
 }
 
@@ -223,7 +242,7 @@ function stopVisibilityListener(): void {
 	if (!visibilityListenerAttached || typeof document === 'undefined') {
 		return;
 	}
-	document.removeEventListener('visibilitychange', handleVisibilityChange);
+	document.removeEventListener('visibilitychange', onVisibilityChange);
 	visibilityListenerAttached = false;
 }
 
@@ -255,8 +274,9 @@ export async function initializeAuth(): Promise<void> {
 		// Otherwise, just schedule the next refresh
 		if (authStore.tokenNeedsRefresh()) {
 			log.info('[AUTH INIT] Token needs refresh (< 5 min remaining), refreshing now');
+			const session = authStore.sessionGeneration;
 			const refreshed = await refreshToken();
-			if (!refreshed) {
+			if (!refreshed && session === authStore.sessionGeneration) {
 				// Refresh failed - token might be invalid, clear it
 				log.warn('[AUTH INIT] Refresh failed during init, calling logout');
 				authStore.logout();

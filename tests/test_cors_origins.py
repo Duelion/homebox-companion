@@ -15,9 +15,7 @@ from server.app import create_app
 )
 async def test_explicit_key_mode_origin_survives_wildcard(origins: str) -> None:
     app = create_app(Settings(homebox_api_key=SecretStr("hb_configured"), cors_origins=origins))
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://companion.test"
-    ) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://companion.test") as client:
         allowed = await client.post(
             "/api/logout", headers={"Origin": "https://allowed.test", "X-Companion-Request": "1"}
         )

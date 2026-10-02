@@ -191,9 +191,7 @@ async def test_legacy_mcp_executes_with_body_token_and_selected_collection(heade
     if header_token:
         headers["Authorization"] = f"Bearer {header_token}"
     async with _contract_client(settings, upstream) as client:
-        response = await client.post(
-            "/api/mcp/v1/tools/list_tags", headers=headers, json={"token": "body-token"}
-        )
+        response = await client.post("/api/mcp/v1/tools/list_tags", headers=headers, json={"token": "body-token"})
     assert response.status_code == 200
     assert response.json()["success"]
     assert seen == [("Bearer body-token", "selected-group")]

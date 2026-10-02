@@ -65,6 +65,28 @@ test('confirm-all dialog contains keyboard focus and returns it when cancelled',
 	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Desk tools');
 });
 
+test('shared info modal contains focus and restores its trigger after dismissal', async ({
+	page,
+}) => {
+	await reviewItems(page);
+	const trigger = page.getByRole('button', { name: 'Show info' });
+	await trigger.click();
+	const dialog = page.getByRole('dialog', { name: 'Information', exact: true });
+	const close = dialog.getByRole('button', { name: 'Close', exact: true });
+	await expect(close).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(close).toBeFocused();
+	await page.keyboard.press('Shift+Tab');
+	await expect(close).toBeFocused();
+	await page.keyboard.press('Escape');
+	await expect(dialog).not.toBeVisible();
+	await expect(trigger).toBeFocused();
+	await trigger.click();
+	await dialog.click({ position: { x: 5, y: 5 } });
+	await expect(dialog).not.toBeVisible();
+	await expect(trigger).toBeFocused();
+});
+
 test('main scan actions remain usable on a phone @mobile', async ({ page }) => {
 	await reviewItems(page);
 	await page.getByLabel('Name', { exact: true }).fill('Travel tools');

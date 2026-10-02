@@ -47,7 +47,6 @@
 </script>
 
 {#if open}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<dialog
 		use:modalDialog
 		aria-labelledby={title && !compact ? `${dialogId}-title` : undefined}

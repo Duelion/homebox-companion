@@ -59,6 +59,8 @@ class AuthStore {
 	// =========================================================================
 
 	/** Auth token */
+	private _sessionGeneration = 0;
+
 	private _token = $state<string | null>(null);
 
 	/** Token expiration date */
@@ -85,6 +87,11 @@ class AuthStore {
 	// =========================================================================
 	// GETTERS (read-only access to state)
 	// =========================================================================
+
+	/** Session identity stays stable during token refresh. */
+	get sessionGeneration(): number {
+		return this._sessionGeneration;
+	}
 
 	/** Get the auth token */
 	get token(): string | null {
@@ -147,6 +154,7 @@ class AuthStore {
 	}
 
 	beginMode(mode: AuthMode): void {
+		this._sessionGeneration++;
 		this._mode = mode;
 		this._phase = mode === 'api_key' ? 'connecting' : 'initializing';
 		this._connection = null;
@@ -163,6 +171,7 @@ class AuthStore {
 	}
 
 	setSignedOut(): void {
+		this._sessionGeneration++;
 		this._phase = 'signed_out';
 		this._connection = null;
 	}
@@ -273,6 +282,7 @@ class AuthStore {
 	 */
 	setAuthenticatedState(newToken: string, expiresAt: Date, email?: string): void {
 		if (this._mode !== 'legacy') return;
+		if (email !== undefined || !this._token) this._sessionGeneration++;
 		const remainingMs = expiresAt.getTime() - Date.now();
 		log.debug(
 			`[AUTH] setAuthenticatedState: expires=${expiresAt.toISOString()}, ` +
@@ -316,6 +326,7 @@ class AuthStore {
 	 */
 	logout(): void {
 		if (this._mode !== 'legacy') return;
+		this._sessionGeneration++;
 		const expiresAt = this._expiresAt;
 		const remaining = expiresAt ? expiresAt.getTime() - Date.now() : null;
 		log.info(

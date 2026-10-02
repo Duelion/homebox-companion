@@ -436,7 +436,25 @@ uv 0.9.17+ (CI and Docker use 0.12.5), and locked installs:
 uv sync --locked
 cd frontend
 npm ci
+cd ..
+uv run prek install
 ```
+
+The pre-commit hook checks staged Python files with Ruff and checks frontend lint
+and formatting when frontend files change. It does not modify or stage files.
+Use `uv run prek run --all-files` to check the whole repository. Full frontend
+validation is `npm --prefix frontend run verify`. Python checks matching CI are:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check --error-on-warning
+uv run deptry .
+uv run pytest
+```
+
+Python uses Ruff formatting and ty for type checking. Vulture remains an occasional manual dead-code review tool:
+`uv run vulture --sort-by-size`. Dependency audits run weekly and on dependency PRs, outside local hooks.
 
 The PR and `dev` CI workflow runs Python checks, frontend checks, mocked browser
 tests, and disposable Homebox integration tests. See [tests/README.md](tests/README.md)

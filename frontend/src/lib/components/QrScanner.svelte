@@ -414,11 +414,7 @@
 		{:else}
 			<div class="relative">
 				<!-- Video element for QR scanner -->
-				<video
-					bind:this={videoElement}
-					class="rounded-xl bg-neutral-950"
-					style="width: min(90vw, 400px); height: min(90vw, 400px); object-fit: cover;"
-				>
+				<video bind:this={videoElement} class="scanner-video rounded-xl bg-neutral-950">
 					<track kind="captions" label="No captions available" />
 				</video>
 

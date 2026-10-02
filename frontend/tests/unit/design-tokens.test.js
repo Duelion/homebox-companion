@@ -32,7 +32,8 @@ async function messages(source, filePath = 'Component.svelte') {
 test('flags discouraged utilities in Svelte class attributes and class directives', async () => {
 	const found = await messages(
 		`<div class="text-xs hover:!text-white/80 bg-black/60" class:text-sm={enabled} />\n` +
-			`<span class={enabled ? 'bg-red-500' : 'bg-neutral-900'} />`
+			`<span class={enabled ? 'bg-red-500' : 'bg-neutral-900'} />` +
+			`<span class="hover:bg-indigo-500/20" />`
 	);
 	assert.deepEqual(
 		found.map(({ message }) => message),
@@ -42,6 +43,7 @@ test('flags discouraged utilities in Svelte class attributes and class directive
 			"Use 'bg-neutral-950/*' instead of 'bg-black/60'.",
 			"Use 'text-body-sm' instead of 'text-sm'.",
 			"Use 'error-*' instead of 'bg-red-500'.",
+			"Use 'accent or primary-*' instead of 'hover:bg-indigo-500/20'.",
 		]
 	);
 });

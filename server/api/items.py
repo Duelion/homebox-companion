@@ -356,18 +356,15 @@ async def print_item_label(
             )
 
         result = await gateway.print_label(item.asset_id)
-        logger.info(
-            f"Label printed for item {item_id} (asset {item.asset_id}): {result}"
-        )
+        logger.info(f"Label printed for item {item_id} (asset {item.asset_id}): {result}")
         return {"message": result}
-    except (HomeboxCompanionError, HTTPException):
+    except HomeboxCompanionError, HTTPException:
         raise
     except Exception as e:
         raise HomeboxAPIError(
             message=f"Unexpected error while printing label for item {item_id}",
             user_message=(
-                "Failed to print label. Ensure HBOX_LABEL_MAKER_PRINT_COMMAND "
-                "is configured on the Homebox server."
+                "Failed to print label. Ensure HBOX_LABEL_MAKER_PRINT_COMMAND is configured on the Homebox server."
             ),
             context={"item_id": item_id},
         ) from e

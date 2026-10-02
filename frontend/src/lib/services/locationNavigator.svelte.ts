@@ -34,6 +34,23 @@ class LocationNavigator {
 	/** Currently navigated location (the location we're viewing children of) */
 	private _currentLocation = $state<Location | null>(null);
 	private generation = 0;
+	private operation = 0;
+
+	/** Capture the navigation operation and session that own its data. */
+	private guardOperation(start = true): () => boolean {
+		const operation = start ? ++this.operation : this.operation;
+		const generation = this.generation;
+		const session = authStore.sessionGeneration;
+		const connection = authStore.connection;
+		const scope = authStore.verifiedScope;
+		return () =>
+			operation === this.operation &&
+			generation === this.generation &&
+			session === authStore.sessionGeneration &&
+			connection === authStore.connection &&
+			scope?.contextId === authStore.verifiedScope?.contextId &&
+			scope?.groupId === authStore.verifiedScope?.groupId;
+	}
 
 	// =========================================================================
 	// GETTERS
@@ -64,10 +81,12 @@ class LocationNavigator {
 		const selected = locationStore.selected;
 		if (mode === 'edit' && !selected) throw new Error('Please select a location');
 		const generation = this.generation;
+		const session = authStore.sessionGeneration;
 		const connection = authStore.connection;
 		const scope = authStore.verifiedScope;
 		const valid = () =>
 			generation === this.generation &&
+			session === authStore.sessionGeneration &&
 			authStore.connection === connection &&
 			authStore.verifiedScope?.contextId === scope?.contextId &&
 			authStore.verifiedScope?.groupId === scope?.groupId;
@@ -135,11 +154,13 @@ class LocationNavigator {
 	 * Sets the tree and current level to the root locations.
 	 */
 	async loadTree(): Promise<void> {
+		const valid = this.guardOperation();
 		log.debug('Loading location tree');
 		this._isLoading = true;
 		this._currentLocation = null;
 		try {
 			const tree = await locationsApi.tree();
+			if (!valid()) return;
 			log.debug('Loaded location tree, top-level count:', tree.length);
 			locationStore.setTree(tree);
 			locationStore.setCurrentLevel(tree);
@@ -147,10 +168,11 @@ class LocationNavigator {
 			// Build flat list for search from the tree (preserves hierarchy for disambiguation)
 			locationStore.setFlatList(tree);
 		} catch (error) {
+			if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 			log.error('Failed to load locations', error);
 			showToast('Failed to load locations', 'error');
 		} finally {
-			this._isLoading = false;
+			if (valid()) this._isLoading = false;
 		}
 	}
 
@@ -160,12 +182,14 @@ class LocationNavigator {
 	 * If parentId is null, refreshes the root level.
 	 */
 	async refreshCurrentLevel(parentId: string | null): Promise<void> {
+		const valid = this.guardOperation();
 		log.debug('Refreshing current level, parentId:', parentId);
 		this._isLoading = true;
 		try {
 			if (parentId) {
 				// Refresh children of the parent location
 				const details = await locationsApi.get(parentId);
+				if (!valid()) return;
 				locationStore.setCurrentLevel(details.children || []);
 				// Update the current navigated location with fresh data
 				this._currentLocation = {
@@ -178,10 +202,12 @@ class LocationNavigator {
 
 				// Also refresh the global tree cache to keep it in sync
 				const tree = await locationsApi.tree();
+				if (!valid()) return;
 				locationStore.setTree(tree);
 			} else {
 				// Refresh top-level locations (tree fetch covers both tree cache and current level)
 				const tree = await locationsApi.tree();
+				if (!valid()) return;
 				locationStore.setTree(tree);
 				locationStore.setCurrentLevel(tree);
 				this._currentLocation = null;
@@ -190,10 +216,11 @@ class LocationNavigator {
 			// Also refresh flat list for search from the refreshed tree
 			locationStore.setFlatList(locationStore.tree);
 		} catch (error) {
+			if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 			log.error('Failed to refresh current level', error);
 			showToast('Failed to refresh locations', 'error');
 		} finally {
-			this._isLoading = false;
+			if (valid()) this._isLoading = false;
 		}
 	}
 
@@ -202,6 +229,7 @@ class LocationNavigator {
 	 * This is useful after a refresh to pick up any renamed locations.
 	 */
 	async updateBreadcrumbNames(): Promise<void> {
+		const valid = this.guardOperation(false);
 		const path = locationStore.path;
 		if (path.length === 0) return;
 
@@ -214,6 +242,8 @@ class LocationNavigator {
 				})
 			);
 
+			if (!valid()) return;
+
 			// Only update if names changed
 			const hasChanges = updates.some((u, i) => u.name !== path[i].name);
 			if (hasChanges) {
@@ -221,6 +251,7 @@ class LocationNavigator {
 				log.debug('Updated breadcrumb names after refresh');
 			}
 		} catch (error) {
+			if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 			log.warn('Failed to update breadcrumb names', error);
 			// Don't show error toast - this is a non-critical enhancement
 		}
@@ -234,10 +265,12 @@ class LocationNavigator {
 	 * Navigate into a location, showing its children.
 	 */
 	async navigateInto(location: Location): Promise<void> {
+		const valid = this.guardOperation();
 		log.debug('Navigating into location:', location.name, location.id);
 		this._isLoading = true;
 		try {
 			const details = await locationsApi.get(location.id);
+			if (!valid()) return;
 			log.debug('Loaded location details, children:', details.children?.length ?? 0);
 			// Use API-fresh name in case the location was renamed
 			locationStore.pushPath({ id: details.id, name: details.name });
@@ -251,6 +284,7 @@ class LocationNavigator {
 				children: details.children || [],
 			};
 		} catch (error) {
+			if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 			log.error('Failed to load location details', error);
 			showToast('Failed to load location details', 'error');
 			// Fallback to using existing children data
@@ -258,7 +292,7 @@ class LocationNavigator {
 			locationStore.setCurrentLevel(location.children || []);
 			this._currentLocation = location;
 		} finally {
-			this._isLoading = false;
+			if (valid()) this._isLoading = false;
 		}
 	}
 
@@ -267,23 +301,26 @@ class LocationNavigator {
 	 * Index -1 navigates to root.
 	 */
 	async navigateToPath(index: number): Promise<void> {
+		const valid = this.guardOperation();
 		if (index === -1) {
 			// Navigate back to root - refresh tree to ensure it's current
 			this._isLoading = true;
 			this._currentLocation = null;
 			try {
 				const tree = await locationsApi.tree();
+				if (!valid()) return;
 				locationStore.setTree(tree);
 				locationStore.setPath([]);
 				locationStore.setCurrentLevel(tree);
 			} catch (error) {
+				if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 				log.error('Failed to refresh root locations', error);
 				showToast('Failed to load locations', 'error');
 				// Fallback to cached tree
 				locationStore.setPath([]);
 				locationStore.setCurrentLevel(locationStore.tree);
 			} finally {
-				this._isLoading = false;
+				if (valid()) this._isLoading = false;
 			}
 		} else {
 			// Save current state before making changes (for error recovery)
@@ -300,6 +337,7 @@ class LocationNavigator {
 			this._isLoading = true;
 			try {
 				const details = await locationsApi.get(targetId);
+				if (!valid()) return;
 				locationStore.setCurrentLevel(details.children || []);
 				// Store the navigated location
 				this._currentLocation = {
@@ -310,6 +348,7 @@ class LocationNavigator {
 					children: details.children || [],
 				};
 			} catch (error) {
+				if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 				log.error('Failed to load location details', error);
 				showToast('Failed to navigate back', 'error');
 				// Restore previous state on error to avoid inconsistent UI
@@ -317,7 +356,7 @@ class LocationNavigator {
 				locationStore.setCurrentLevel(previousCurrentLevel);
 				this._currentLocation = previousCurrentLocation;
 			} finally {
-				this._isLoading = false;
+				if (valid()) this._isLoading = false;
 			}
 		}
 	}
@@ -341,6 +380,7 @@ class LocationNavigator {
 	 * Optionally accepts the previous path to restore navigation context.
 	 */
 	async clearSelection(): Promise<void> {
+		const valid = this.guardOperation();
 		const previousPath = [...locationStore.path];
 		locationStore.setSelected(null);
 		scanWorkflow.clearLocation();
@@ -355,6 +395,7 @@ class LocationNavigator {
 			this._isLoading = true;
 			try {
 				const details = await locationsApi.get(lastPathItem.id);
+				if (!valid()) return;
 				locationStore.setCurrentLevel(details.children || []);
 				// Restore the current navigated location
 				this._currentLocation = {
@@ -365,10 +406,11 @@ class LocationNavigator {
 					children: details.children || [],
 				};
 			} catch (error) {
+				if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 				log.error('Failed to load location details', error);
 				showToast('Failed to restore navigation', 'error');
 			} finally {
-				this._isLoading = false;
+				if (valid()) this._isLoading = false;
 			}
 		} else {
 			// Was at root level - refresh to show any new locations
@@ -376,16 +418,18 @@ class LocationNavigator {
 			this._currentLocation = null;
 			try {
 				const tree = await locationsApi.tree();
+				if (!valid()) return;
 				locationStore.setTree(tree);
 				locationStore.setPath([]);
 				locationStore.setCurrentLevel(tree);
 			} catch (error) {
+				if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 				log.error('Failed to refresh locations', error);
 				// Fallback to cached tree
 				locationStore.setPath([]);
 				locationStore.setCurrentLevel(locationStore.tree);
 			} finally {
-				this._isLoading = false;
+				if (valid()) this._isLoading = false;
 			}
 		}
 	}
@@ -394,11 +438,13 @@ class LocationNavigator {
 	 * Refresh the currently selected location's details.
 	 */
 	async refreshSelected(): Promise<void> {
+		const valid = this.guardOperation();
 		if (!locationStore.selected) return;
 
 		this._isLoading = true;
 		try {
 			const details = await locationsApi.get(locationStore.selected.id);
+			if (!valid()) return;
 			locationStore.setSelected({
 				id: details.id,
 				name: details.name,
@@ -413,10 +459,11 @@ class LocationNavigator {
 			// Also update breadcrumb names in case parent locations were renamed
 			await this.updateBreadcrumbNames();
 		} catch (error) {
+			if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 			log.error('Failed to refresh selected location', error);
 			showToast('Failed to refresh location', 'error');
 		} finally {
-			this._isLoading = false;
+			if (valid()) this._isLoading = false;
 		}
 	}
 

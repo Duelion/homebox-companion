@@ -44,6 +44,7 @@
 		const changed = collectionStore.selectGroup(groupId);
 		if (changed) {
 			// Clear dependent state and re-fetch for the new collection
+			locationNavigator.reset();
 			locationStore.clear();
 			clearTagsCache();
 			// Reload data for the new collection

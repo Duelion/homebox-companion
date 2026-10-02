@@ -13,9 +13,9 @@
 	--color-primary-700: #4338ca;
 	--color-primary-800: #3730a3;
 	--color-primary-900: #312e81;
-	--color-primary: #6366f1;
-	--color-primary-hover: #818cf8;
-	--color-primary-light: #a5b4fc;
+	--color-primary: var(--color-primary-500);
+	--color-primary-hover: var(--color-primary-400);
+	--color-primary-light: var(--color-primary-300);
 
 	--color-neutral-950: #0a0a0f;
 	--color-neutral-900: #13131f;
@@ -36,8 +36,8 @@
 	--color-success-600: #059669;
 	--color-success-700: #047857;
 	--color-success-900: #064e3b;
-	--color-success: #10b981;
-	--color-success-bg: rgba(16, 185, 129, 0.1);
+	--color-success: var(--color-success-500);
+	--color-success-bg: color-mix(in srgb, var(--color-success-500) 10%, transparent);
 	--color-warning-50: #fffbeb;
 	--color-warning-100: #fef3c7;
 	--color-warning-200: #fde68a;
@@ -47,8 +47,8 @@
 	--color-warning-600: #d97706;
 	--color-warning-700: #b45309;
 	--color-warning-900: #78350f;
-	--color-warning: #f59e0b;
-	--color-warning-bg: rgba(245, 158, 11, 0.1);
+	--color-warning: var(--color-warning-500);
+	--color-warning-bg: color-mix(in srgb, var(--color-warning-500) 10%, transparent);
 	--color-error-50: #fef2f2;
 	--color-error-100: #fee2e2;
 	--color-error-200: #fecaca;
@@ -58,10 +58,13 @@
 	--color-error-600: #dc2626;
 	--color-error-700: #b91c1c;
 	--color-error-900: #7f1d1d;
-	--color-error: #ef4444;
-	--color-error-bg: rgba(239, 68, 68, 0.1);
+	--color-error: var(--color-error-500);
+	--color-error-bg: color-mix(in srgb, var(--color-error-500) 10%, transparent);
 	--color-accent: #22d3ee;
 	--color-accent-hover: #67e8f9;
+	/* Achromatic shadow/highlight primitives preserve existing surface effects. */
+	--color-shadow-ink: #000000;
+	--color-highlight: #ffffff;
 
 	--text-display: 2.5rem;
 	--text-display--line-height: 1.2;
@@ -114,26 +117,31 @@
 	/* Tailwind v3's backdrop-blur-sm was 4px. */
 	--blur-sm: 4px;
 
-	--shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.05);
-	--shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+	--shadow-sm: 0 0 0 1px color-mix(in srgb, var(--color-highlight) 5%, transparent);
+	--shadow:
+		0 1px 2px 0 color-mix(in srgb, var(--color-shadow-ink) 30%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--color-highlight) 5%, transparent);
 	--shadow-md:
-		0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3),
-		0 0 0 1px rgba(255, 255, 255, 0.05);
+		0 4px 6px -1px color-mix(in srgb, var(--color-shadow-ink) 40%, transparent),
+		0 2px 4px -1px color-mix(in srgb, var(--color-shadow-ink) 30%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--color-highlight) 5%, transparent);
 	--shadow-lg:
-		0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3),
-		0 0 0 1px rgba(255, 255, 255, 0.05);
+		0 10px 15px -3px color-mix(in srgb, var(--color-shadow-ink) 50%, transparent),
+		0 4px 6px -2px color-mix(in srgb, var(--color-shadow-ink) 30%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--color-highlight) 5%, transparent);
 	--shadow-xl:
-		0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3),
-		0 0 0 1px rgba(255, 255, 255, 0.08);
-	--shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
-	--shadow-glow-lg: 0 0 40px rgba(99, 102, 241, 0.4);
-	--shadow-primary-glow-sm: 0 2px 8px rgba(99, 102, 241, 0.3);
-	--shadow-primary-glow: 0 3px 10px rgba(99, 102, 241, 0.35);
-	--shadow-primary-ring: 0 0 0 2px rgba(99, 102, 241, 0.15);
-	--shadow-error-glow-sm: 0 2px 6px rgba(239, 68, 68, 0.25);
-	--shadow-error-glow: 0 3px 10px rgba(239, 68, 68, 0.35);
-	--shadow-success-glow: 0 0 12px rgba(34, 197, 94, 0.5);
-	--shadow-warning-glow: 0 0 8px 4px rgba(245, 158, 11, 0.25);
+		0 20px 25px -5px color-mix(in srgb, var(--color-shadow-ink) 50%, transparent),
+		0 10px 10px -5px color-mix(in srgb, var(--color-shadow-ink) 30%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--color-highlight) 8%, transparent);
+	--shadow-glow: 0 0 20px color-mix(in srgb, var(--color-primary-500) 30%, transparent);
+	--shadow-glow-lg: 0 0 40px color-mix(in srgb, var(--color-primary-500) 40%, transparent);
+	--shadow-primary-glow-sm: 0 2px 8px color-mix(in srgb, var(--color-primary-500) 30%, transparent);
+	--shadow-primary-glow: 0 3px 10px color-mix(in srgb, var(--color-primary-500) 35%, transparent);
+	--shadow-primary-ring: 0 0 0 2px color-mix(in srgb, var(--color-primary-500) 15%, transparent);
+	--shadow-error-glow-sm: 0 2px 6px color-mix(in srgb, var(--color-error-500) 25%, transparent);
+	--shadow-error-glow: 0 3px 10px color-mix(in srgb, var(--color-error-500) 35%, transparent);
+	--shadow-success-glow: 0 0 12px color-mix(in srgb, var(--color-success-500) 50%, transparent);
+	--shadow-warning-glow: 0 0 8px 4px color-mix(in srgb, var(--color-warning-500) 25%, transparent);
 
 	--animate-fade-in: fadeIn 0.25s ease-out;
 	--animate-slide-up: slideUp 0.25s ease-out;
@@ -153,7 +161,7 @@
 	--animate-approval-pulse: approvalPulse 1.5s ease-in-out infinite;
 
 	--default-transition-duration: 250ms;
-	--default-ring-color: #3b82f680;
+	--default-ring-color: color-mix(in srgb, var(--color-primary-500) 50%, transparent);
 	--default-ring-width: 3px;
 }
 
@@ -228,10 +236,10 @@
 @keyframes pulse-glow {
 	0%,
 	100% {
-		box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
+		box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary-500) 30%, transparent);
 	}
 	50% {
-		box-shadow: 0 0 12px 2px rgba(99, 102, 241, 0.4);
+		box-shadow: 0 0 12px 2px color-mix(in srgb, var(--color-primary-500) 40%, transparent);
 	}
 }
 @keyframes toastSlideDown {
@@ -285,14 +293,14 @@
 @keyframes approvalPulse {
 	0%,
 	100% {
-		box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning-500) 40%, transparent);
 		transform: scale(1);
-		border-color: rgba(245, 158, 11, 0.4);
+		border-color: color-mix(in srgb, var(--color-warning-500) 40%, transparent);
 	}
 	50% {
-		box-shadow: 0 0 8px 4px rgba(245, 158, 11, 0.25);
+		box-shadow: 0 0 8px 4px color-mix(in srgb, var(--color-warning-500) 25%, transparent);
 		transform: scale(1.02);
-		border-color: rgba(245, 158, 11, 0.8);
+		border-color: color-mix(in srgb, var(--color-warning-500) 80%, transparent);
 	}
 }
 
@@ -320,11 +328,16 @@
 
 /* These are registered utilities because other rules use them with @apply. */
 @utility input {
-	@apply w-full rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:ring-2 focus:ring-primary-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
+	@apply w-full rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-200 transition-all duration-fast placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:ring-2 focus:ring-primary-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
 }
 
+@utility card-surface {
+	@apply border border-neutral-700 bg-neutral-900 shadow-sm;
+}
+
+/* Compact section cards; Card.svelte explicitly selects the larger radius. */
 @utility card {
-	@apply rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-sm;
+	@apply rounded-xl card-surface p-4;
 }
 
 @utility input-error {
@@ -345,6 +358,50 @@
 	bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 	transform: translateZ(0);
 	-webkit-transform: translateZ(0);
+}
+
+@utility glass {
+	@apply bg-neutral-900/80 backdrop-blur-lg;
+}
+
+@utility pb-safe {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility pt-safe {
+	padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility animation-delay-0 {
+	animation-delay: 0ms;
+}
+
+@utility animation-delay-100 {
+	animation-delay: 100ms;
+}
+
+@utility animation-delay-150 {
+	animation-delay: 150ms;
+}
+
+@utility animation-delay-160 {
+	animation-delay: 160ms;
+}
+
+@utility animation-delay-200 {
+	animation-delay: 200ms;
+}
+
+@utility animation-delay-300 {
+	animation-delay: 300ms;
+}
+
+@utility animation-delay-320 {
+	animation-delay: 320ms;
+}
+
+@utility animation-delay-400 {
+	animation-delay: 400ms;
 }
 
 /* Base styles */
@@ -398,12 +455,12 @@
 	}
 
 	::-webkit-scrollbar-thumb {
-		background: rgba(255, 255, 255, 0.2);
+		background: color-mix(in srgb, var(--color-highlight) 20%, transparent);
 		border-radius: 3px;
 	}
 
 	::-webkit-scrollbar-thumb:hover {
-		background: rgba(255, 255, 255, 0.3);
+		background: color-mix(in srgb, var(--color-highlight) 30%, transparent);
 	}
 
 	/* Thin scrollbar variant for compact areas */
@@ -421,12 +478,12 @@
 @layer components {
 	/* Icon button - compact */
 	.btn-icon {
-		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-neutral-200 focus:ring-2 focus:ring-primary-500/50 focus:outline-hidden active:bg-neutral-700;
+		@apply rounded-lg p-2 text-neutral-400 transition-colors duration-fast hover:bg-neutral-800 hover:text-neutral-200 focus:ring-2 focus:ring-primary-500/50 focus:outline-hidden active:bg-neutral-700;
 	}
 
 	/* Compact input variant for modals and dense UIs */
 	.input-sm {
-		@apply w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-body-sm text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:ring-2 focus:ring-primary-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
+		@apply w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-body-sm text-neutral-200 transition-all duration-fast placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:ring-2 focus:ring-primary-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
 	}
 
 	/* Expandable input - base styles for use with expandable action */
@@ -447,7 +504,7 @@
 
 	/* Label chip / badge styles */
 	.label-chip {
-		@apply cursor-pointer rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-body-sm text-neutral-300 transition-all duration-150 hover:border-neutral-600 hover:bg-neutral-800;
+		@apply cursor-pointer rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-body-sm text-neutral-300 transition-all duration-fast hover:border-neutral-600 hover:bg-neutral-800;
 	}
 
 	.label-chip-selected {
@@ -659,20 +716,6 @@
 	 * The previous implementation was blocking button clicks on touch devices.
 	 */
 
-	.glass {
-		@apply bg-neutral-900/80 backdrop-blur-lg;
-	}
-
-	/* iOS safe area padding for bottom navigation */
-	.pb-safe {
-		padding-bottom: env(safe-area-inset-bottom, 0px);
-	}
-
-	/* iOS safe area padding for top status bar */
-	.pt-safe {
-		padding-top: env(safe-area-inset-top, 0px);
-	}
-
 	/* Skeleton loading animation */
 	.skeleton {
 		@apply animate-shimmer rounded bg-neutral-800;
@@ -770,39 +813,6 @@
 
 	.slider-primary:focus::-moz-range-thumb {
 		@apply shadow-primary-ring;
-	}
-
-	/* Animation delay utilities - for staggered entrance animations */
-	.animation-delay-0 {
-		animation-delay: 0ms;
-	}
-
-	.animation-delay-100 {
-		animation-delay: 100ms;
-	}
-
-	.animation-delay-150 {
-		animation-delay: 150ms;
-	}
-
-	.animation-delay-160 {
-		animation-delay: 160ms;
-	}
-
-	.animation-delay-200 {
-		animation-delay: 200ms;
-	}
-
-	.animation-delay-300 {
-		animation-delay: 300ms;
-	}
-
-	.animation-delay-320 {
-		animation-delay: 320ms;
-	}
-
-	.animation-delay-400 {
-		animation-delay: 400ms;
 	}
 
 	/* QR Scanner video - responsive square sizing */

@@ -9,11 +9,11 @@ const config = {
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',
-			fallback: 'index.html',  // SPA mode - all routes handled client-side
+			fallback: 'index.html', // SPA mode - all routes handled client-side
 			precompress: false,
-			strict: true
-		})
-	}
+			strict: true,
+		}),
+	},
 };
 
 export default config;

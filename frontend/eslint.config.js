@@ -34,7 +34,6 @@ export default [
 			sourceType: 'module',
 			globals: {
 				...globals.browser,
-				...globals.node,
 			},
 			parser: tseslint.parser,
 			parserOptions: {
@@ -53,7 +52,6 @@ export default [
 			},
 			globals: {
 				...globals.browser,
-				...globals.node,
 				// DOM types used in TypeScript type annotations
 				HTMLInputElement: 'readonly',
 				HTMLTextAreaElement: 'readonly',
@@ -77,6 +75,22 @@ export default [
 		},
 	},
 
+	// Node globals belong to tooling and tests, not browser application code.
+	{
+		files: ['*.config.js', '*.config.ts', 'eslint/**/*.js', 'tests/**/*.{js,ts}'],
+		languageOptions: { globals: globals.node },
+	},
+	// Start typed linting with promise safety in application TypeScript.
+	{
+		files: ['src/**/*.ts'],
+		languageOptions: {
+			parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+		},
+		rules: {
+			'@typescript-eslint/no-floating-promises': 'error',
+			'@typescript-eslint/no-misused-promises': 'error',
+		},
+	},
 	// Tailwind-specific settings
 	{
 		settings: {
@@ -96,6 +110,8 @@ export default [
 				{
 					// Allow these custom utility classes from app.css
 					whitelist: [
+						'card-surface',
+						'scanner-video',
 						'btn-icon',
 						'btn-icon-touch',
 						'input',
@@ -179,8 +195,8 @@ export default [
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts'],
 		rules: {
-			// Unused svelte-ignore comments are harmless noise
-			'svelte/no-unused-svelte-ignore': 'off',
+			// Keep suppressions tied to diagnostics that still exist.
+			'svelte/no-unused-svelte-ignore': 'error',
 		},
 	},
 

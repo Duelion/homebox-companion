@@ -11,12 +11,11 @@
 	let { variant = 'default', padding = 'md', onclick, children }: Props = $props();
 
 	const variantClasses = {
-		default: 'bg-neutral-900 border-neutral-700 shadow-sm',
+		default: '',
 		elevated: 'bg-neutral-800 border-neutral-600 shadow-md',
 		interactive:
-			'bg-neutral-900 border-neutral-700 shadow-sm cursor-pointer hover:bg-neutral-800 hover:border-neutral-600 hover:shadow-md active:scale-[0.99]',
-		selected:
-			'bg-neutral-900 border-neutral-700 shadow-sm ring-2 ring-primary-500/50 border-primary-600',
+			'cursor-pointer hover:bg-neutral-800 hover:border-neutral-600 hover:shadow-md active:scale-[0.99]',
+		selected: 'ring-2 ring-primary-500/50 border-primary-600',
 	};
 
 	const paddingClasses = {
@@ -38,12 +37,11 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
-	class="rounded-2xl border transition-all duration-200 {variantClasses[variant]} {paddingClasses[
-		padding
-	]}"
+	class="card-surface rounded-2xl transition-all duration-200 {variantClasses[
+		variant
+	]} {paddingClasses[padding]}"
 	{onclick}
 	onkeydown={onclick ? handleKeydown : undefined}
 	role={onclick ? 'button' : undefined}

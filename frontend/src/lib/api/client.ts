@@ -19,12 +19,14 @@ const BASE_URL = '/api';
 // =============================================================================
 
 let _activeGroupId: string | null = null;
+let collectionGeneration = 0;
 
 /**
  * Set the active group ID for X-Group-Id header injection.
  * Called from collectionStore whenever the selection changes.
  */
 export function setActiveGroupId(id: string | null): void {
+	if (_activeGroupId !== id) collectionGeneration++;
 	_activeGroupId = id;
 }
 
@@ -33,7 +35,7 @@ function getActiveGroupId(): string | null {
 }
 
 function requestScope(): string {
-	return `${authStore.mode ?? 'unknown'}:${authStore.contextId ?? 'unverified'}:${_activeGroupId ?? 'none'}`;
+	return `${authStore.sessionGeneration}:${collectionGeneration}:${authStore.mode ?? 'unknown'}:${authStore.contextId ?? 'unverified'}:${_activeGroupId ?? 'none'}`;
 }
 
 function assertCurrentScope(scope: string): void {
@@ -194,7 +196,7 @@ async function attemptRefreshOnce(): Promise<boolean> {
  * @param response - The 401 response
  * @returns true if request should be retried with new token, false otherwise
  */
-async function handleUnauthorized(response: Response): Promise<boolean> {
+async function handleUnauthorized(response: Response, scope: string): Promise<boolean> {
 	if (response.status !== 401) {
 		return false;
 	}
@@ -212,6 +214,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 
 	// Token exists but was rejected - try to refresh
 	const refreshSucceeded = await attemptRefreshOnce();
+	assertCurrentScope(scope);
 	if (!refreshSucceeded) {
 		// Refresh failed - show re-auth modal
 		log.warn('[AUTH 401] Refresh failed after 401, marking session expired');
@@ -399,7 +402,8 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	// Handle 401 with automatic retry after refresh
 	// Skip for refresh endpoint itself to avoid circular retry loops
 	if (!response.ok && response.status === 401 && !options.skipAuthRetry) {
-		const shouldRetry = await handleUnauthorized(response);
+		const shouldRetry = await handleUnauthorized(response, scope);
+		assertCurrentScope(scope);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
@@ -429,6 +433,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		// Read body as text first, then try to parse as JSON.
 		// This prevents "Body has already been consumed" errors when json() fails.
 		const text = await response.text();
+		assertCurrentScope(scope);
 		let errorData: unknown;
 		try {
 			errorData = text ? JSON.parse(text) : undefined;
@@ -450,7 +455,9 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	}
 	assertCurrentScope(scope);
 
-	return parseResponseBody<T>(response);
+	const body = await parseResponseBody<T>(response);
+	assertCurrentScope(scope);
+	return body;
 }
 
 export interface FormDataRequestOptions {
@@ -561,7 +568,8 @@ export async function requestBlobUrl(
 
 	// Handle 401 with automatic retry after refresh
 	if (!response.ok && response.status === 401) {
-		const shouldRetry = await handleUnauthorized(response);
+		const shouldRetry = await handleUnauthorized(response, scope);
+		assertCurrentScope(scope);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
@@ -598,6 +606,7 @@ export async function requestBlobUrl(
 	assertCurrentScope(scope);
 
 	const blob = await response.blob();
+	assertCurrentScope(scope);
 	const url = URL.createObjectURL(blob);
 
 	return {
@@ -657,7 +666,8 @@ export async function requestFormData<T>(
 
 	// Handle 401 with automatic retry after refresh
 	if (!response.ok && response.status === 401) {
-		const shouldRetry = await handleUnauthorized(response);
+		const shouldRetry = await handleUnauthorized(response, scope);
+		assertCurrentScope(scope);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
@@ -689,6 +699,7 @@ export async function requestFormData<T>(
 		// Read body as text first, then try to parse as JSON.
 		// This prevents "Body has already been consumed" errors when json() fails.
 		const text = await response.text();
+		assertCurrentScope(scope);
 		let errorData: unknown;
 		try {
 			errorData = text ? JSON.parse(text) : undefined;
@@ -706,7 +717,9 @@ export async function requestFormData<T>(
 	}
 	assertCurrentScope(scope);
 
-	return parseResponseBody<T>(response);
+	const body = await parseResponseBody<T>(response);
+	assertCurrentScope(scope);
+	return body;
 }
 
 // Refresh uses this same transport (headers, timeout, context checks) without an API import cycle.

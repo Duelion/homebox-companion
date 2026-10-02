@@ -336,8 +336,7 @@ async def test_sse_domain_error_uses_safe_structured_contract() -> None:
             )
 
     events = [
-        event
-        async for event in _event_generator(cast(ChatOrchestrator, FailingOrchestrator()), "hello", "unused")
+        event async for event in _event_generator(cast(ChatOrchestrator, FailingOrchestrator()), "hello", "unused")
     ]
     payload = json.loads(events[0]["data"])
     assert payload == {"message": "Homebox is unavailable. Please retry.", "code": "HOMEBOX_UNAVAILABLE"}

@@ -109,7 +109,7 @@ export function applyRouteGuard(requirements: RouteRequirements): boolean {
 	const result = checkRouteAccess(requirements);
 
 	if (!result.allowed) {
-		if (result.redirectTo) goto(resolveNavHref(result.redirectTo));
+		if (result.redirectTo) void goto(resolveNavHref(result.redirectTo));
 		return false;
 	}
 
@@ -128,7 +128,7 @@ export const routeGuards = {
 	location: (): boolean => {
 		const result = checkRouteAccess({ auth: true });
 		if (!result.allowed) {
-			if (result.redirectTo) goto(resolveNavHref(result.redirectTo));
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
@@ -138,19 +138,19 @@ export const routeGuards = {
 			const status = workflow.state.status;
 			// Block navigation to /location during any active workflow phase
 			if (status === 'capturing' || status === 'analyzing' || status === 'partial_analysis') {
-				goto(resolveNavHref('/capture'));
+				void goto(resolveNavHref('/capture'));
 				return false;
 			}
 			if (status === 'reviewing') {
-				goto(resolveNavHref('/review'));
+				void goto(resolveNavHref('/review'));
 				return false;
 			}
 			if (status === 'confirming' || status === 'submitting') {
-				goto(resolveNavHref('/summary'));
+				void goto(resolveNavHref('/summary'));
 				return false;
 			}
 			if (status === 'complete') {
-				goto(resolveNavHref('/success'));
+				void goto(resolveNavHref('/success'));
 				return false;
 			}
 		}
@@ -171,14 +171,14 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed) {
-			if (result.redirectTo) goto(resolveNavHref(result.redirectTo));
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
 		// If we're in reviewing state (analysis finished while away), redirect to review
 		const workflow = scanWorkflow;
 		if (workflow.state.status === 'reviewing') {
-			goto(resolveNavHref('/review'));
+			void goto(resolveNavHref('/review'));
 			return false;
 		}
 
@@ -199,7 +199,7 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed) {
-			if (result.redirectTo) goto(resolveNavHref(result.redirectTo));
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
@@ -220,7 +220,7 @@ export const routeGuards = {
 		});
 
 		if (!result.allowed) {
-			if (result.redirectTo) goto(resolveNavHref(result.redirectTo));
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 
@@ -235,7 +235,7 @@ export const routeGuards = {
 		const result = checkRouteAccess({ auth: true });
 
 		if (!result.allowed) {
-			if (result.redirectTo) goto(resolveNavHref(result.redirectTo));
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo));
 			return false;
 		}
 

@@ -19,7 +19,9 @@ and confirmed items.
 Ordinary state changes schedule a debounced save; transient phases such as
 analysis and submission are skipped. Critical transitions use explicit
 awaited persistence where needed because the `beforeunload` flush is best
-effort. During recovery, `ScanPersistence` creates runtime image URLs while
+effort. Saves snapshot image metadata and item fields together before asynchronous
+conversion; superseded saves cannot overwrite a newer revision. During recovery,
+`ScanPersistence` creates runtime image URLs while
 deserializing. It transfers them to workflow state only after the full draft
 is valid and the request context is still current; partial or stale recovery
 revokes every URL it created.
@@ -72,6 +74,23 @@ Prefer its semantic color, typography, spacing, touch-target, radius, and
 shadow tokens to raw values. Component style blocks that use Tailwind
 directives include a relative `@reference` to `app.css`; ordinary CSS can
 refer to theme variables such as `var(--color-primary-500)`.
+
+Define literal colors only in the central `@theme` color tokens. Derive alpha
+colors and glows with `color-mix(in srgb, var(--color-…) …%, transparent)` so
+palette changes propagate. `npm run lint:css` checks stylesheet and component
+style declarations; inline runtime values and canvas colors have separate checks.
+
+Use `@utility` for reusable helpers that need Tailwind variants. Keep component
+recipes in `@layer components` and component-specific selectors scoped locally.
+Cards share `card-surface`; `.card` adds compact section spacing and radius,
+while `Card.svelte` explicitly selects its larger radius and padding variant.
+
+Use `duration-fast` for the shared 150ms interaction timing. Other durations may
+remain explicit when an animation or transition has distinct timing. Use semantic
+typography for body copy and headings; standard scale sizes are permitted for
+deliberate display elements such as numeric statistics and the brand wordmark.
+Dynamic dimensions, progress, and per-item animation timing belong in inline
+styles; static reusable styling belongs in a class.
 
 Custom utilities such as `input`, `card`, `min-h-touch`, and `duration-fast`
 are registered with `@utility`. Animation delay utilities such as

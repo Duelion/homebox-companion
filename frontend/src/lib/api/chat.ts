@@ -154,7 +154,7 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 		: controller.signal;
 
 	// Run async operation
-	(async () => {
+	void (async () => {
 		// TRACE: Log request start with timing
 		const startTime = performance.now();
 		log.trace(

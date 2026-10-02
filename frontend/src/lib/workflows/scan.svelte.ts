@@ -183,7 +183,7 @@ class ScanWorkflow {
 		}
 		this._persistTimeout = setTimeout(() => {
 			this._persistTimeout = null;
-			this._doPersist();
+			void this._doPersist();
 		}, AUTO_PERSIST_DEBOUNCE_MS);
 	}
 
@@ -202,7 +202,7 @@ class ScanWorkflow {
 			clearTimeout(this._persistTimeout);
 			this._persistTimeout = null;
 			// Fire-and-forget: browser may not wait for this to complete
-			this._doPersist();
+			void this._doPersist();
 		}
 	}
 

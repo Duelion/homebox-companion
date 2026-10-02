@@ -112,5 +112,8 @@ if __name__ == "__main__":
         """Keep actual image handling and model validation; replace the provider call only."""
         return {"items": [{"name": "Detected lamp", "quantity": 1, "description": "A desk lamp"}]}
 
-    detector.vision_completion = fixed_completion
-    uvicorn.run(create_app(static_directory=sys.argv[2]), host="127.0.0.1", port=int(sys.argv[1]), log_level="warning")
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(detector, "vision_completion", fixed_completion)
+        uvicorn.run(
+            create_app(static_directory=sys.argv[2]), host="127.0.0.1", port=int(sys.argv[1]), log_level="warning"
+        )

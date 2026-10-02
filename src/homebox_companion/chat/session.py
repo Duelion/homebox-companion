@@ -241,7 +241,7 @@ class ChatSession:
                     name = result_data.get("name", "item")
                     return json.dumps({"success": True, "_summary": f"Retrieved: {name}"})
             return content[:200] + "..." if len(content) > 200 else content
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return content[:200] + "..." if len(content) > 200 else content
 
     def add_pending_approval(self, approval: PendingApproval) -> None:

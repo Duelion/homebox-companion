@@ -27,6 +27,9 @@
 	let formStatus = $state<ProfileStatus>('off');
 
 	let saving = $state(false);
+	let disposed = false;
+	let editorGeneration = 0;
+	let loadGeneration = 0;
 	let testTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	onMount(async () => {
@@ -34,25 +37,33 @@
 	});
 
 	onDestroy(() => {
+		disposed = true;
+		editorGeneration++;
+		loadGeneration++;
 		if (testTimeoutId) {
 			clearTimeout(testTimeoutId);
 		}
 	});
 
 	async function loadProfiles() {
+		if (disposed) return;
+		const operation = ++loadGeneration;
+		const isCurrent = () => !disposed && operation === loadGeneration;
 		loading = true;
 		error = null;
 		try {
 			const result = await llmProfiles.list();
-			profiles = result.profiles;
+			if (isCurrent()) profiles = result.profiles;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load profiles';
+			if (isCurrent()) error = e instanceof Error ? e.message : 'Failed to load profiles';
 		} finally {
-			loading = false;
+			if (isCurrent()) loading = false;
 		}
 	}
 
 	function openCreateModal() {
+		editorGeneration++;
+		saving = false;
 		editingProfile = null;
 		formName = '';
 		formModel = '';
@@ -63,6 +74,8 @@
 	}
 
 	function openEditModal(profile: LLMProfile) {
+		editorGeneration++;
+		saving = false;
 		editingProfile = profile;
 		formName = profile.name;
 		formModel = profile.model;
@@ -73,11 +86,16 @@
 	}
 
 	function closeModal() {
+		editorGeneration++;
+		saving = false;
 		showModal = false;
 		editingProfile = null;
 	}
 
 	async function handleSave() {
+		if (saving || !showModal) return;
+		const operation = editorGeneration;
+		const isCurrent = () => !disposed && showModal && operation === editorGeneration;
 		saving = true;
 		error = null;
 		try {
@@ -100,12 +118,13 @@
 					status: formStatus,
 				});
 			}
+			if (!isCurrent()) return;
 			await loadProfiles();
-			closeModal();
+			if (isCurrent()) closeModal();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to save profile';
+			if (isCurrent()) error = e instanceof Error ? e.message : 'Failed to save profile';
 		} finally {
-			saving = false;
+			if (isCurrent()) saving = false;
 		}
 	}
 
@@ -131,10 +150,13 @@
 	}
 
 	async function handleTest(name: string) {
+		if (disposed || testingProfile !== null) return;
+		if (testTimeoutId) clearTimeout(testTimeoutId);
 		testingProfile = name;
 		testResult = null;
 		try {
 			const result = await llmProfiles.test(name);
+			if (disposed) return;
 			testResult = result;
 			// Auto-clear after 5 seconds
 			if (testTimeoutId) clearTimeout(testTimeoutId);
@@ -143,9 +165,10 @@
 				testTimeoutId = null;
 			}, 5000);
 		} catch (e) {
+			if (disposed) return;
 			testResult = { success: false, message: e instanceof Error ? e.message : 'Test failed' };
 		} finally {
-			testingProfile = null;
+			if (!disposed) testingProfile = null;
 		}
 	}
 
@@ -241,7 +264,7 @@
 							class="btn-icon-touch hover:text-primary-400"
 							title="Test connection"
 							aria-label="Test connection"
-							disabled={testingProfile === profile.name}
+							disabled={testingProfile !== null}
 							onclick={() => handleTest(profile.name)}
 						>
 							{#if testingProfile === profile.name}

@@ -23,6 +23,55 @@ async function createConfirmedScan(page: Page, itemName: string, manufacturer?: 
 	await expect(page).toHaveURL(/\/summary$/);
 }
 
+test('reediting a confirmed item preserves its asset ID and edited custom fields through submission', async ({
+	page,
+	api,
+}) => {
+	const creations: unknown[] = [];
+	const updates: unknown[] = [];
+	api.on('POST', '/api/tools/vision/detect', () =>
+		json({
+			...detectedItems(['Desk lamp']),
+			items: [{ name: 'Desk lamp', quantity: 1, custom_fields: { Warranty: 'One year' } }],
+		})
+	);
+	api.on('POST', '/api/items', (request) => {
+		creations.push(request.postDataJSON());
+		return json(createdItem('lamp-1'));
+	});
+	api.on('POST', '/api/items/lamp-1/attachments', () => json({}));
+	api.on('PUT', '/api/items/lamp-1', (request) => {
+		updates.push(request.postDataJSON());
+		return json({});
+	});
+
+	await selectLocation(page);
+	await uploadPhoto(page);
+	await analyzePhotos(page);
+	await page.getByLabel('Asset ID', { exact: true }).fill('000-042');
+	await page.getByLabel('Warranty', { exact: true }).fill('Two years');
+	await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+	await expect(page).toHaveURL(/\/summary$/);
+	await page.getByRole('button', { name: 'Edit item', exact: true }).click();
+	await expect(page.getByLabel('Asset ID', { exact: true })).toHaveValue('000-042');
+	await expect(page.getByLabel('Warranty', { exact: true })).toHaveValue('Two years');
+	await page.getByLabel('Name', { exact: true }).fill('Edited desk lamp');
+	await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+	await page.getByRole('button', { name: /Submit All Items/ }).click();
+	await expect(page).toHaveURL(/\/success$/);
+	expect(creations).toEqual([
+		expect.objectContaining({
+			items: [
+				expect.objectContaining({
+					name: 'Edited desk lamp',
+					custom_fields: { Warranty: 'Two years' },
+				}),
+			],
+		}),
+	]);
+	expect(updates).toEqual([{ assetId: '000-042' }]);
+});
+
 test('submits a corrected item to the selected location with its photo', async ({ page, api }) => {
 	const creations: unknown[] = [];
 	const uploads: Request[] = [];

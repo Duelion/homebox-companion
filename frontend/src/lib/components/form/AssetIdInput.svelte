@@ -7,12 +7,15 @@
 	 * - QR scan button to scan pre-printed QR codes
 	 * - Parses QR URL format: https://homebox.duelion.com/a/{asset_id}
 	 */
+	import { onDestroy } from 'svelte';
 	import { QrCode } from '@lucide/svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
 	import { resolveQrUrl } from '$lib/utils/qrUrl';
 
 	interface Props {
 		value: string | null;
+		/** Stable item identity when this field is reused between drafts. */
+		identity?: unknown;
 		/** Whether the input is disabled */
 		disabled?: boolean;
 		placeholder?: string;
@@ -23,11 +26,31 @@
 
 	let {
 		value,
+		identity,
 		disabled = false,
 		placeholder = 'e.g., 000-001',
 		showLabel = true,
 		onChange,
 	}: Props = $props();
+
+	const fieldId = $props.id();
+	let scanGeneration = 0;
+	let scanController: AbortController | undefined;
+	let disposed = false;
+	function invalidateScan() {
+		scanGeneration++;
+		scanController?.abort();
+	}
+	$effect(() => {
+		void value;
+		void identity;
+		void disabled;
+		invalidateScan();
+	});
+	onDestroy(() => {
+		disposed = true;
+		invalidateScan();
+	});
 
 	let showScanner = $state(false);
 
@@ -48,13 +71,30 @@
 	}
 
 	async function handleScan(scannedText: string) {
-		const resolvedUrl = await resolveQrUrl(scannedText);
+		invalidateScan();
+		const operation = scanGeneration;
+		const initialValue = value;
+		const initialIdentity = identity;
+		const change = onChange;
+		const controller = new AbortController();
+		scanController = controller;
+		const resolvedUrl = await resolveQrUrl(scannedText, controller.signal);
+		if (
+			disposed ||
+			controller.signal.aborted ||
+			operation !== scanGeneration ||
+			disabled ||
+			value !== initialValue ||
+			identity !== initialIdentity
+		)
+			return;
 		const assetId = parseAssetIdFromUrl(resolvedUrl);
-		onChange(assetId || null);
+		change(assetId || null);
 		showScanner = false;
 	}
 
 	function handleInputChange(e: Event) {
+		invalidateScan();
 		const target = e.target as HTMLInputElement;
 		const newValue = target.value;
 		// Don't trim while typing - preserve exactly what user types
@@ -63,6 +103,7 @@
 	}
 
 	function handleScannerClose() {
+		invalidateScan();
 		showScanner = false;
 	}
 </script>
@@ -70,7 +111,7 @@
 <div>
 	{#if showLabel}
 		<div class="mb-1 flex items-baseline gap-2">
-			<label for="asset-id-input" class="text-body-sm font-medium text-neutral-300">Asset ID</label>
+			<label for={fieldId} class="text-body-sm font-medium text-neutral-300">Asset ID</label>
 			<span class="text-caption text-neutral-500">Optional – auto-assigned if blank</span>
 		</div>
 	{/if}
@@ -79,7 +120,8 @@
 		<div class="relative flex-1">
 			<input
 				type="text"
-				id="asset-id-input"
+				id={fieldId}
+				aria-label={showLabel ? undefined : 'Asset ID'}
 				value={value ?? ''}
 				oninput={handleInputChange}
 				{placeholder}

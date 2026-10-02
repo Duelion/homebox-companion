@@ -120,6 +120,7 @@ class HomeboxClient:
     ) -> None:
         self.base_url = (base_url or settings.api_url).rstrip("/")
         self._owns_client = client is None
+
         async def strip_cookie_header(request: httpx.Request) -> None:
             request.headers.pop("Cookie", None)
 
@@ -316,9 +317,7 @@ class HomeboxClient:
             ) from exc
 
         if not isinstance(data, dict):
-            raise HomeboxAPIError(
-                "Token refresh response must be an object.", user_message=invalid_response_message
-            )
+            raise HomeboxAPIError("Token refresh response must be an object.", user_message=invalid_response_message)
 
         # Homebox >= 0.24 uses "raw"; older responses use "token".
         new_token = data.get("token") or data.get("raw")
@@ -387,7 +386,7 @@ class HomeboxClient:
                 },
             )
             return response.status_code == 200
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+        except httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError:
             # If we can't reach Homebox, we can't validate — reject the token
             logger.warning("Token validation failed: cannot reach Homebox server")
             return False
@@ -400,13 +399,9 @@ class HomeboxClient:
                 headers={"Accept": "application/json", "Authorization": f"Bearer {_normalize_token(token)}"},
             )
         except httpx.TimeoutException as exc:
-            raise HomeboxTimeoutError(
-                str(exc), user_message="Homebox connection timed out. Please retry."
-            ) from exc
+            raise HomeboxTimeoutError(str(exc), user_message="Homebox connection timed out. Please retry.") from exc
         except httpx.NetworkError as exc:
-            raise HomeboxConnectionError(
-                str(exc), user_message="Homebox is unavailable. Please retry."
-            ) from exc
+            raise HomeboxConnectionError(str(exc), user_message="Homebox is unavailable. Please retry.") from exc
         self._ensure_success(response, "Get current user")
         try:
             data = response.json()
@@ -436,7 +431,11 @@ class HomeboxClient:
         return data
 
     def _auth_headers(
-        self, token: str, *, group_id: str | None = None, content_type: str | None = None,
+        self,
+        token: str,
+        *,
+        group_id: str | None = None,
+        content_type: str | None = None,
     ) -> dict[str, str]:
         """Build standard auth headers, optionally scoping to a specific group.
 
@@ -468,7 +467,10 @@ class HomeboxClient:
         return headers
 
     def _raw_auth_headers(
-        self, token: str, *, accept: str | None = None,
+        self,
+        token: str,
+        *,
+        accept: str | None = None,
     ) -> dict[str, str]:
         """Build auth headers without the default Accept: application/json.
 
@@ -574,7 +576,10 @@ class HomeboxClient:
         raise ValueError(msg)
 
     async def list_locations(
-        self, token: str, *, filter_children: bool | None = None,
+        self,
+        token: str,
+        *,
+        filter_children: bool | None = None,
     ) -> list[dict[str, Any]]:
         """Return all available locations for the authenticated user.
 
@@ -600,7 +605,10 @@ class HomeboxClient:
         return data.get("items", data) if isinstance(data, dict) else data
 
     async def list_locations_typed(
-        self, token: str, *, filter_children: bool | None = None,
+        self,
+        token: str,
+        *,
+        filter_children: bool | None = None,
     ) -> list[Location]:
         """Return all available locations as typed Location objects.
 
@@ -667,7 +675,10 @@ class HomeboxClient:
         return Location.model_validate(raw)
 
     async def get_location_tree(
-        self, token: str, *, with_items: bool = False,
+        self,
+        token: str,
+        *,
+        with_items: bool = False,
     ) -> list[dict[str, Any]]:
         """Get hierarchical location tree.
 
@@ -912,7 +923,9 @@ class HomeboxClient:
 
     @_rate_limited
     async def create_item(
-        self, token: str, item: ItemCreate,
+        self,
+        token: str,
+        item: ItemCreate,
     ) -> dict[str, Any]:
         """Create a single item in Homebox.
 
@@ -936,7 +949,9 @@ class HomeboxClient:
         return response.json()
 
     async def create_item_typed(
-        self, token: str, item: ItemCreate,
+        self,
+        token: str,
+        item: ItemCreate,
     ) -> Item:
         """Create a single item in Homebox and return as typed Item object.
 
@@ -952,7 +967,10 @@ class HomeboxClient:
 
     @_rate_limited
     async def update_item(
-        self, token: str, item_id: str, item_data: dict[str, Any],
+        self,
+        token: str,
+        item_id: str,
+        item_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Update a single item by ID.
 
@@ -973,7 +991,10 @@ class HomeboxClient:
         return response.json()
 
     async def update_item_typed(
-        self, token: str, item_id: str, item_data: dict[str, Any],
+        self,
+        token: str,
+        item_id: str,
+        item_data: dict[str, Any],
     ) -> Item:
         """Update a single item by ID and return as typed Item object.
 
@@ -1358,7 +1379,7 @@ class HomeboxClient:
         try:
             if hasattr(response, "request") and response.request is not None:
                 request_info = f"{response.request.method} {response.request.url.path} "
-        except (AttributeError, RuntimeError):
+        except AttributeError, RuntimeError:
             pass
 
         if response.is_success:

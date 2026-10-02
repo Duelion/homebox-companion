@@ -44,6 +44,7 @@ async def _client_with_response(
 @asynccontextmanager
 async def _client_returning(payload: Any, status_code: int = 200) -> AsyncIterator[HomeboxClient]:
     """Yield a client returning a JSON payload with the requested status."""
+
     def handler(_: httpx.Request) -> httpx.Response:
         return httpx.Response(status_code, json=payload)
 
@@ -80,9 +81,7 @@ async def test_refresh_token_prefers_valid_raw_when_legacy_token_is_empty() -> N
 @pytest.mark.asyncio
 async def test_refresh_token_keeps_legacy_token_field_and_strips_bearer() -> None:
     """Legacy refresh responses with a ``token`` field keep working."""
-    async with _client_returning(
-        {"token": "Bearer legacy-token", "expiresAt": "2026-08-25T00:00:00Z"}
-    ) as client:
+    async with _client_returning({"token": "Bearer legacy-token", "expiresAt": "2026-08-25T00:00:00Z"}) as client:
         data = await client.refresh_token("old-token")
 
     assert data["token"] == "legacy-token"
@@ -176,9 +175,7 @@ async def test_refresh_route_returns_canonical_token(monkeypatch: pytest.MonkeyP
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=create_app()), base_url="http://testserver"
         ) as api_client:
-            response = await api_client.post(
-                "/api/refresh", headers={"Authorization": "Bearer old-token"}
-            )
+            response = await api_client.post("/api/refresh", headers={"Authorization": "Bearer old-token"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -205,9 +202,7 @@ async def test_refresh_route_returns_safe_502_for_malformed_upstream_success(
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=create_app()), base_url="http://testserver"
         ) as api_client:
-            response = await api_client.post(
-                "/api/refresh", headers={"Authorization": "Bearer old-token"}
-            )
+            response = await api_client.post("/api/refresh", headers={"Authorization": "Bearer old-token"})
 
     assert response.status_code == 502
     assert response.json() == {

@@ -46,6 +46,7 @@ export interface StoredImage {
 
 /** Serializable version of ReviewItem */
 export interface StoredReviewItem extends ItemCore, ItemExtended {
+	custom_fields?: Record<string, string> | null;
 	sourceImageIndex: number;
 	/** Original image filename for reconstruction */
 	originalFilename?: string;
@@ -234,6 +235,7 @@ export function serializeReviewItem(item: ReviewItem): StoredReviewItem {
 		purchase_from: item.purchase_from,
 		notes: item.notes,
 		asset_id: item.asset_id,
+		custom_fields: item.custom_fields,
 		// ReviewItem-specific fields
 		sourceImageIndex: item.sourceImageIndex,
 		originalFilename: item.originalFile?.name,
@@ -341,6 +343,7 @@ export async function deserializeReviewItem(stored: StoredReviewItem): Promise<R
 		purchase_from: stored.purchase_from,
 		notes: stored.notes,
 		asset_id: stored.asset_id,
+		custom_fields: stored.custom_fields,
 		// ReviewItem-specific fields
 		sourceImageIndex: stored.sourceImageIndex,
 		originalFile,

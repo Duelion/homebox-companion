@@ -19,7 +19,7 @@ const discouraged = [
 		'success-*',
 	],
 	[
-		/^(?:bg|text|border|ring|fill|stroke|outline|divide|decoration|placeholder)-(?:cyan|blue)(?:-|\/|$)/,
+		/^(?:bg|text|border|ring|fill|stroke|outline|divide|decoration|placeholder)-(?:cyan|blue|indigo)(?:-|\/|$)/,
 		'accent or primary-*',
 	],
 	[/^min-[hw]-\[44px\]$/, 'min-h-touch or min-w-touch'],

@@ -225,27 +225,8 @@ export class ReviewService {
 		// Remove from confirmed
 		this._confirmedItems = this._confirmedItems.filter((_, i) => i !== index);
 
-		// Create review item from confirmed item (preserve all fields including compressed URLs)
-		const reviewItem: ReviewItem = {
-			name: item.name,
-			quantity: item.quantity,
-			description: item.description,
-			tag_ids: item.tag_ids,
-			manufacturer: item.manufacturer,
-			model_number: item.model_number,
-			serial_number: item.serial_number,
-			purchase_price: item.purchase_price,
-			purchase_from: item.purchase_from,
-			notes: item.notes,
-			sourceImageIndex: item.sourceImageIndex,
-			additionalImages: item.additionalImages,
-			originalFile: item.originalFile,
-			customThumbnail: item.customThumbnail,
-			thumbnailTransform: item.thumbnailTransform,
-			compressedDataUrl: item.compressedDataUrl,
-			compressedAdditionalDataUrls: item.compressedAdditionalDataUrls,
-			duplicate_match: item.duplicate_match,
-		};
+		// Preserve every review field, including asset IDs and custom fields.
+		const reviewItem: ReviewItem = { ...item };
 
 		// Add to detected items for re-review
 		this._detectedItems = [reviewItem];

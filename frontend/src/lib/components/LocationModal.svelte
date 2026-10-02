@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { MapPin, Home, Check } from '@lucide/svelte';
 	import type { Location } from '$lib/types';
 	import Modal from './Modal.svelte';
@@ -28,23 +28,26 @@
 	let saveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 	let error = $state('');
 	let disposed = false;
+	let editorGeneration = 0;
 	let closeTimeout: ReturnType<typeof setTimeout> | undefined;
 	onDestroy(() => {
 		disposed = true;
+		editorGeneration++;
 		clearTimeout(closeTimeout);
 	});
 
-	// These drafts reset on each open, even when the location prop is unchanged.
+	// Only open/identity changes reset a draft; a save may refresh the same location.
+	const draftIdentity = $derived(JSON.stringify([mode, location?.id, parentLocation?.id]));
 	$effect(() => {
-		if (open) {
-			clearTimeout(closeTimeout);
-			if (mode === 'edit' && location) {
-				name = location.name;
-				description = location.description || '';
-			} else {
-				name = '';
-				description = '';
-			}
+		const isOpen = open;
+		void draftIdentity;
+		editorGeneration++;
+		clearTimeout(closeTimeout);
+		if (isOpen) {
+			untrack(() => {
+				name = mode === 'edit' && location ? location.name : '';
+				description = mode === 'edit' && location ? location.description || '' : '';
+			});
 			error = '';
 			saveState = 'idle';
 		}
@@ -58,6 +61,9 @@
 			return;
 		}
 
+		if (saveState === 'saving' || saveState === 'success') return;
+		const operation = editorGeneration;
+		const isCurrent = () => !disposed && open && operation === editorGeneration;
 		saveState = 'saving';
 		error = '';
 
@@ -67,16 +73,17 @@
 				description: description.trim(),
 				parentId: mode === 'create' ? parentLocation?.id || null : null,
 			});
-			if (disposed) return;
+			if (!isCurrent()) return;
 
 			// Show success state
 			saveState = 'success';
 
 			// Close modal after brief delay to show success
 			closeTimeout = setTimeout(() => {
-				open = false;
+				if (isCurrent()) open = false;
 			}, 800);
 		} catch (err) {
+			if (!isCurrent()) return;
 			saveState = 'error';
 			error = err instanceof Error ? err.message : 'Failed to save location';
 		}
@@ -93,7 +100,7 @@
 	const isSaving = $derived(saveState === 'saving' || saveState === 'success');
 </script>
 
-<Modal bind:open {title} onclose={handleClose}>
+<Modal bind:open {title} dismissible={!isSaving} onclose={handleClose}>
 	<form onsubmit={handleSubmit} class="space-y-4">
 		{#if mode === 'create' && parentLocation}
 			<div class="rounded-lg border border-neutral-700 bg-neutral-700 p-3">

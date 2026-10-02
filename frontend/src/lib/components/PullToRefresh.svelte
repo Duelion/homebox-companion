@@ -176,7 +176,7 @@
     -->
 	{#if enabled}
 		<div
-			class="pointer-events-none absolute left-1/2 z-30 flex justify-center transition-opacity duration-150"
+			class="pointer-events-none absolute left-1/2 z-30 flex justify-center transition-opacity duration-fast"
 			style="top: -3rem; transform: translateX(-50%); opacity: {Math.min(pullDistance / 40, 1)}"
 		>
 			<div

@@ -395,7 +395,11 @@
 				/>
 
 				<!-- Asset ID field -->
-				<AssetIdInput value={editedItem.asset_id ?? null} onChange={handleAssetIdChange} />
+				<AssetIdInput
+					identity={currentItem}
+					value={editedItem.asset_id ?? null}
+					onChange={handleAssetIdChange}
+				/>
 
 				<!-- Tags with chip selection -->
 				<TagSelector selectedIds={editedItem.tag_ids ?? []} onToggle={toggleTag} />

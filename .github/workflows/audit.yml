@@ -1,0 +1,39 @@
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - uv.lock
+      - pyproject.toml
+      - frontend/package-lock.json
+      - frontend/package.json
+      - .github/workflows/audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: "0.12.5"
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "26.10.0"
+      - run: uv sync --locked --all-groups
+      - name: Audit Python dependencies
+        run: uv run --no-sync pip-audit --local --skip-editable
+      - name: Audit frontend dependencies
+        if: success() || failure()
+        working-directory: frontend
+        run: npm audit --package-lock-only

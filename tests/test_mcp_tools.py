@@ -480,9 +480,7 @@ class TestMCPToolsLive:
     """Live integration tests for MCP tools against Docker Homebox container."""
 
     @pytest.mark.asyncio
-    async def test_list_locations_live(
-        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-    ) -> None:
+    async def test_list_locations_live(self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
         """List locations should return data from the Docker test server."""
         tool = ListLocationsTool()
         params = tool.Params()
@@ -494,9 +492,7 @@ class TestMCPToolsLive:
         assert len(result.data) > 0
 
     @pytest.mark.asyncio
-    async def test_list_tags_live(
-        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-    ) -> None:
+    async def test_list_tags_live(self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
         """List tags should return data from the Docker test server."""
         tool = ListTagsTool()
         params = tool.Params()
