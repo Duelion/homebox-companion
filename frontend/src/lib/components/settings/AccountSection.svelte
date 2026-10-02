@@ -46,7 +46,7 @@
 				<User size={20} strokeWidth={1.5} />
 			</div>
 			<div class="min-w-0 flex-1">
-				<p class="text-xs text-neutral-500">Signed in as</p>
+				<p class="text-caption text-neutral-500">Signed in as</p>
 				<p class="truncate font-medium text-neutral-100">{authStore.email}</p>
 			</div>
 		</div>

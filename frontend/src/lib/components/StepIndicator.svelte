@@ -25,11 +25,11 @@
 		{/if}
 		<!-- Step circle -->
 		<span
-			class="flex items-center justify-center rounded-full text-sm font-semibold shadow-sm transition-all duration-300 size-10 {step ===
+			class="flex items-center justify-center rounded-full text-body-sm font-semibold shadow-sm transition-all duration-300 size-10 {step ===
 			currentStep
-				? 'bg-primary-600 text-white ring-4 ring-primary-500/20'
+				? 'bg-primary-600 text-neutral-100 ring-4 ring-primary-500/20'
 				: step < currentStep
-					? 'bg-success-600 text-white'
+					? 'bg-success-600 text-neutral-100'
 					: 'border border-neutral-700 bg-neutral-800 text-neutral-400'}"
 		>
 			{#if step < currentStep}

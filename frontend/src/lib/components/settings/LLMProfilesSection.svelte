@@ -174,14 +174,16 @@
 	</div>
 
 	{#if error}
-		<div class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm">
+		<div
+			class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-body-sm"
+		>
 			{error}
 		</div>
 	{/if}
 
 	{#if testResult}
 		<div
-			class="rounded-lg border p-3 text-sm {testResult.success
+			class="rounded-lg border p-3 text-body-sm {testResult.success
 				? 'text-success-400 border-success-500/30 bg-success-500/10'
 				: 'text-error-400 border-error-500/30 bg-error-500/10'}"
 		>
@@ -198,7 +200,7 @@
 	{:else if profiles.length === 0}
 		<div class="rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-6 text-center">
 			<p class="text-neutral-400">No AI models configured</p>
-			<p class="mt-1 text-sm text-neutral-500">Add a model to enable AI features</p>
+			<p class="mt-1 text-body-sm text-neutral-500">Add a model to enable AI features</p>
 		</div>
 	{:else}
 		<div class="space-y-2">
@@ -210,16 +212,16 @@
 						<div class="flex items-center gap-2">
 							<span class="font-medium text-neutral-100">{profile.name}</span>
 							<span
-								class="rounded-full border px-2 py-0.5 text-xs capitalize {getStatusBadgeClass(
+								class="rounded-full border px-2 py-0.5 text-caption capitalize {getStatusBadgeClass(
 									profile.status
 								)}"
 							>
 								{profile.status}
 							</span>
 						</div>
-						<p class="mt-0.5 truncate text-sm text-neutral-400">{profile.model}</p>
+						<p class="mt-0.5 truncate text-body-sm text-neutral-400">{profile.model}</p>
 						{#if profile.api_base}
-							<p class="truncate text-xs text-neutral-500">{profile.api_base}</p>
+							<p class="truncate text-caption text-neutral-500">{profile.api_base}</p>
 						{/if}
 					</div>
 					<div class="flex items-center gap-1">
@@ -289,7 +291,7 @@
 		}}
 	>
 		<div>
-			<label for="profile-name" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-name" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				Name
 			</label>
 			<input
@@ -303,7 +305,7 @@
 		</div>
 
 		<div>
-			<label for="profile-model" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-model" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				Model
 			</label>
 			<input
@@ -314,13 +316,13 @@
 				placeholder="e.g., gpt-4o, ollama/mistral"
 				class="input-sm"
 			/>
-			<p class="mt-1 text-xs text-neutral-500">
+			<p class="mt-1 text-caption text-neutral-500">
 				LiteLLM model format: gpt-4o, claude-3-opus, ollama/mistral
 			</p>
 		</div>
 
 		<div>
-			<label for="profile-api-key" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-api-key" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				API Key
 			</label>
 			<input
@@ -331,12 +333,12 @@
 				class="input-sm"
 			/>
 			{#if editingProfile}
-				<p class="mt-1 text-xs text-neutral-500">Leave blank to keep existing key</p>
+				<p class="mt-1 text-caption text-neutral-500">Leave blank to keep existing key</p>
 			{/if}
 		</div>
 
 		<div>
-			<label for="profile-api-base" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-api-base" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				API Base URL <span class="text-neutral-500">(optional)</span>
 			</label>
 			<input
@@ -349,7 +351,7 @@
 		</div>
 
 		<div>
-			<label for="profile-status" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-status" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				Status
 			</label>
 			<select id="profile-status" bind:value={formStatus} class="input-sm">
@@ -357,7 +359,7 @@
 				<option value="fallback">Fallback</option>
 				<option value="off">Off</option>
 			</select>
-			<p class="mt-1 text-xs text-neutral-500">
+			<p class="mt-1 text-caption text-neutral-500">
 				{#if formStatus === 'primary'}
 					Primary model used for all AI features
 				{:else if formStatus === 'fallback'}

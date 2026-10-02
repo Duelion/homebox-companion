@@ -55,10 +55,10 @@
 				<AlertTriangle class="mt-0.5 shrink-0 text-error-500" size={20} strokeWidth={1.5} />
 				<div>
 					<p class="font-medium text-error-500">Failed to load settings</p>
-					<p class="mt-1 text-sm text-neutral-400">{settingsService.errors.init}</p>
+					<p class="mt-1 text-body-sm text-neutral-400">{settingsService.errors.init}</p>
 					<button
 						type="button"
-						class="mt-2 text-sm text-primary-400 underline hover:text-primary-300"
+						class="mt-2 text-body-sm text-primary-400 underline hover:text-primary-300"
 						onclick={() => settingsService.initialize()}
 					>
 						Try again

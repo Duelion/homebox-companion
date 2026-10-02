@@ -44,6 +44,8 @@
 
 	// Local UI state
 	let isSubmitting = $state(false);
+	let scrollTimeout: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(scrollTimeout));
 
 	// Calculate summary statistics
 	const totalPhotos = $derived(
@@ -123,7 +125,8 @@
 
 		isSubmitting = true;
 		// Scroll to top of app
-		setTimeout(() => {
+		clearTimeout(scrollTimeout);
+		scrollTimeout = setTimeout(() => {
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}, 100);
 		const result = await workflow.submitAll();
@@ -272,12 +275,12 @@
 					{#if item.tag_ids && item.tag_ids.length > 0}
 						<div class="flex flex-wrap gap-1.5">
 							{#each item.tag_ids.slice(0, 3) as tagId (tagId)}
-								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
+								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400">
 									{getTagName(tagId)}
 								</span>
 							{/each}
 							{#if item.tag_ids.length > 3}
-								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-500">
+								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-caption text-neutral-500">
 									+{item.tag_ids.length - 3}
 								</span>
 							{/if}
@@ -286,7 +289,7 @@
 				</div>
 
 				<!-- Action buttons / status -->
-				<div class="flex min-w-11 flex-col items-center justify-start gap-1">
+				<div class="flex min-w-touch flex-col items-center justify-start gap-1">
 					{#if itemStatuses[index] === 'failed'}
 						<StatusIcon status="failed" />
 						<button

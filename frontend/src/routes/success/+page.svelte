@@ -26,17 +26,27 @@
 	let showItemsModal = $state(false);
 
 	// Apply route guard: requires authentication only
-	onMount(async () => {
-		// Wait for auth initialization to complete to avoid race conditions
-		// where we check isAuthenticated before initializeAuth clears expired tokens
-		await getInitPromise();
+	onMount(() => {
+		let disposed = false;
+		let pingTimeout: ReturnType<typeof setTimeout> | undefined;
+		void initialize();
+		return () => {
+			disposed = true;
+			clearTimeout(pingTimeout);
+		};
 
-		if (!routeGuards.success()) return;
+		async function initialize() {
+			// Wait for auth initialization to complete to avoid race conditions
+			// where we check isAuthenticated before initializeAuth clears expired tokens
+			await getInitPromise();
 
-		// Stop the ping animation after 3 seconds
-		setTimeout(() => {
-			showPing = false;
-		}, 3000);
+			if (disposed || !routeGuards.success()) return;
+
+			// Stop the ping animation after 3 seconds
+			pingTimeout = setTimeout(() => {
+				showPing = false;
+			}, 3000);
+		}
 	});
 
 	function scanMore() {
@@ -75,9 +85,13 @@
 		<!-- Outer glow ring - scales in -->
 		<div class="success-scale absolute inset-0 rounded-full bg-success-500/10"></div>
 		<!-- Inner circle - scales in with slight delay -->
-		<div class="success-scale absolute inset-2 rounded-full bg-success-500/20 delay-100"></div>
+		<div
+			class="success-scale absolute inset-2 rounded-full bg-success-500/20 animation-delay-100"
+		></div>
 		<!-- Checkmark icon with draw animation -->
-		<div class="success-scale absolute inset-0 flex items-center justify-center delay-150">
+		<div
+			class="success-scale absolute inset-0 flex items-center justify-center animation-delay-150"
+		>
 			<Check class="checkmark-draw text-success-500 size-14" strokeWidth={2.5} />
 		</div>
 	</div>

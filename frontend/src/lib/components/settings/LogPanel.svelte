@@ -151,7 +151,7 @@
 <div class="space-y-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4">
 	<!-- Header row -->
 	<div class="flex items-center justify-between">
-		<h3 class="flex items-center gap-2 text-sm font-semibold text-neutral-200">
+		<h3 class="flex items-center gap-2 text-body-sm font-semibold text-neutral-200">
 			{@render icon()}
 			{title}
 		</h3>
@@ -175,13 +175,13 @@
 
 	<!-- Description -->
 	{#if description}
-		<p class="text-xs text-neutral-500">{description}</p>
+		<p class="text-caption text-neutral-500">{description}</p>
 	{/if}
 
 	<!-- Toggle button -->
 	<button
 		type="button"
-		class="flex w-full items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-sm text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+		class="flex w-full items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-body-sm text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 		onclick={onToggle}
 		disabled={isLoading}
 	>
@@ -202,19 +202,21 @@
 	<!-- Content area (when expanded) -->
 	{#if isExpanded}
 		{#if error}
-			<div class="rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm text-error-500">
+			<div
+				class="rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-body-sm text-error-500"
+			>
 				{error}
 			</div>
 		{:else if isEmpty}
 			<div
-				class="rounded-lg border border-neutral-700 bg-neutral-800/50 p-3 text-center text-sm text-neutral-400"
+				class="rounded-lg border border-neutral-700 bg-neutral-800/50 p-3 text-center text-body-sm text-neutral-400"
 			>
 				{emptyMessage}
 			</div>
 		{:else}
 			<div class="space-y-2">
 				{#if subtitleLeft || subtitleRight}
-					<div class="flex items-center justify-between text-xs text-neutral-500">
+					<div class="flex items-center justify-between text-caption text-neutral-500">
 						<span>{subtitleLeft ?? ''}</span>
 						<span>{subtitleRight ?? ''}</span>
 					</div>

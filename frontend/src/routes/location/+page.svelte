@@ -512,7 +512,7 @@
 				<!-- BROWSE MODE -->
 
 				{#if locationStore.path.length > 0}
-					<div class="mb-4 flex items-center gap-1 overflow-x-auto pb-2 text-sm">
+					<div class="mb-4 flex items-center gap-1 overflow-x-auto pb-2 text-body-sm">
 						<button
 							type="button"
 							class="flex items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"

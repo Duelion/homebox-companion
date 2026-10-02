@@ -34,7 +34,7 @@
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500 transition-colors hover:bg-warning-500/30"
+					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-caption text-warning-500 transition-colors hover:bg-warning-500/30"
 					title="Click to view release"
 				>
 					<Download size={12} strokeWidth={2} />
@@ -42,7 +42,7 @@
 				</a>
 			{:else if service.updateCheckDone}
 				<span
-					class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-xs text-success-500"
+					class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-caption text-success-500"
 				>
 					<Check size={12} strokeWidth={2} />
 					<span>Up to date</span>
@@ -50,7 +50,7 @@
 			{/if}
 			<button
 				type="button"
-				class="inline-flex items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800/50 px-2 py-0.5 text-xs text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800/50 px-2 py-0.5 text-caption text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
 				onclick={() => service.checkForUpdates()}
 				disabled={service.isLoading.updateCheck}
 				title="Check for updates"
@@ -67,7 +67,7 @@
 		</div>
 	</div>
 	{#if service.errors.updateCheck}
-		<p class="text-xs text-error-500">{service.errors.updateCheck}</p>
+		<p class="text-caption text-error-500">{service.errors.updateCheck}</p>
 	{/if}
 
 	<!-- GitHub Link -->
@@ -88,7 +88,7 @@
 				aria-hidden="true"
 			/>
 		</a>
-		<p class="flex items-start gap-1.5 text-xs text-neutral-500">
+		<p class="flex items-start gap-1.5 text-caption text-neutral-500">
 			<Star class="mt-0.5 shrink-0 text-warning-500" size={14} fill="currentColor" />
 			<span>Enjoying the app? Consider giving us a star on GitHub!</span>
 		</p>
@@ -121,7 +121,7 @@
 							href={service.config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="flex max-w-50 items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
+							class="flex max-w-50 items-center gap-1 truncate font-mono text-body-sm text-neutral-100 transition-colors hover:text-primary-400"
 							title={service.config.homebox_url}
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -130,7 +130,7 @@
 						</a>
 						{#if service.config.is_demo_mode}
 							<span
-								class="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
+								class="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-caption text-warning-500"
 							>
 								Demo
 							</span>
@@ -141,13 +141,13 @@
 				<!-- AI Model -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">AI Model</span>
-					<span class="font-mono text-sm text-neutral-100">{service.config.llm_model}</span>
+					<span class="font-mono text-body-sm text-neutral-100">{service.config.llm_model}</span>
 				</div>
 
 				<!-- Image Quality -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">Image Quality</span>
-					<span class="font-mono text-sm capitalize text-neutral-100"
+					<span class="font-mono text-body-sm capitalize text-neutral-100"
 						>{service.config.image_quality}</span
 					>
 				</div>

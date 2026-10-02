@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Package, ExternalLink, ScanLine, Printer, Check, LoaderCircle } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import Modal from './Modal.svelte';
 	import { tagStore } from '$lib/stores/tags.svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
@@ -36,6 +36,25 @@
 
 	/** Track print status per item: 'idle' | 'printing' | 'success' | 'error' */
 	let printStatus = $state<Record<string, 'idle' | 'printing' | 'success' | 'error'>>({});
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Timer handles are lifecycle bookkeeping, never rendered
+	const printResetTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+		for (const timer of printResetTimers.values()) clearTimeout(timer);
+		printResetTimers.clear();
+	});
+
+	function schedulePrintReset(itemId: string, delay: number) {
+		clearTimeout(printResetTimers.get(itemId));
+		printResetTimers.set(
+			itemId,
+			setTimeout(() => {
+				printResetTimers.delete(itemId);
+				printStatus = { ...printStatus, [itemId]: 'idle' };
+			}, delay)
+		);
+	}
 
 	onMount(async () => {
 		// Use cached config if available, otherwise fetch
@@ -91,19 +110,17 @@
 
 		try {
 			await itemsApi.printLabel(itemId);
+			if (disposed) return;
 			printStatus = { ...printStatus, [itemId]: 'success' };
 
 			// Reset to idle after 2.5 seconds so user can print again
-			setTimeout(() => {
-				printStatus = { ...printStatus, [itemId]: 'idle' };
-			}, 2500);
+			schedulePrintReset(itemId, 2500);
 		} catch {
+			if (disposed) return;
 			printStatus = { ...printStatus, [itemId]: 'error' };
 
 			// Reset to idle after 3 seconds
-			setTimeout(() => {
-				printStatus = { ...printStatus, [itemId]: 'idle' };
-			}, 3000);
+			schedulePrintReset(itemId, 3000);
 		}
 	}
 </script>
@@ -136,7 +153,9 @@
 
 							<!-- Name -->
 							<div class="min-w-0 flex-1">
-								<span class="block truncate text-sm font-medium text-neutral-100">{item.name}</span>
+								<span class="block truncate text-body-sm font-medium text-neutral-100"
+									>{item.name}</span
+								>
 							</div>
 
 							<!-- Actions -->
@@ -196,7 +215,7 @@
 										{@const tagName = getTagName(tagId)}
 										{#if tagName}
 											<span
-												class="rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-0.5 text-xs text-neutral-300"
+												class="rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-0.5 text-caption text-neutral-300"
 											>
 												{tagName}
 											</span>
@@ -206,7 +225,7 @@
 								{#if onScanSubItems}
 									<button
 										type="button"
-										class="ml-auto flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs text-primary-400 transition-colors hover:bg-primary-500/10 hover:text-primary-300"
+										class="ml-auto flex items-center gap-1 rounded-lg px-2 py-0.5 text-caption text-primary-400 transition-colors hover:bg-primary-500/10 hover:text-primary-300"
 										onclick={() => onScanSubItems(item.id, item.name)}
 									>
 										<ScanLine size={12} strokeWidth={2} />

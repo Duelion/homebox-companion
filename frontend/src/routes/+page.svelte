@@ -104,7 +104,7 @@
 			<div
 				class="animate-spin rounded-full border-4 border-primary-500/30 border-t-primary-500 size-12"
 			></div>
-			<p class="text-sm text-neutral-400">Loading...</p>
+			<p class="text-body-sm text-neutral-400">Loading...</p>
 		</div>
 	{:else if authStore.isLegacy && !authStore.isAuthenticated}
 		<!-- Refined logo icon -->

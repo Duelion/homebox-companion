@@ -39,11 +39,12 @@
 	// Auto-scroll to bottom when content changes
 	$effect(() => {
 		if (containerRef && (colorizedContent || source.type === 'json')) {
-			requestAnimationFrame(() => {
+			const frame = requestAnimationFrame(() => {
 				if (containerRef) {
 					containerRef.scrollTop = containerRef.scrollHeight;
 				}
 			});
+			return () => cancelAnimationFrame(frame);
 		}
 	});
 </script>
@@ -52,7 +53,7 @@
 	{#if source.type === 'json'}
 		<pre
 			bind:this={containerRef}
-			class="whitespace-pre-wrap break-all p-3 font-mono text-xs text-neutral-400 overflow-auto {maxHeight}">{JSON.stringify(
+			class="whitespace-pre-wrap break-all p-3 font-mono text-caption text-neutral-400 overflow-auto {maxHeight}">{JSON.stringify(
 				source.data,
 				null,
 				2
@@ -61,7 +62,7 @@
 		<!-- eslint-disable svelte/no-at-html-tags -- Colorized log output with escaped content -->
 		<pre
 			bind:this={containerRef}
-			class="whitespace-pre-wrap break-all p-3 font-mono text-xs text-neutral-400 overflow-auto {maxHeight}">{@html colorizedContent}</pre>
+			class="whitespace-pre-wrap break-all p-3 font-mono text-caption text-neutral-400 overflow-auto {maxHeight}">{@html colorizedContent}</pre>
 		<!-- eslint-enable svelte/no-at-html-tags -->
 	{/if}
 </div>

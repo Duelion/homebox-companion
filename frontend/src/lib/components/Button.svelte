@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
 
 	interface Props {
 		variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning';
@@ -25,6 +25,8 @@
 
 	// Track touch state to prevent double-firing (touchend + synthetic click)
 	let touchFired = $state(false);
+	let touchResetTimeout: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(touchResetTimeout));
 
 	/**
 	 * Handle touch events for iOS Safari keyboard dismissal edge case.
@@ -58,7 +60,8 @@
 		// Reset flag after the synthetic click would have fired
 		// 300ms matches iOS's legacy click delay (though modern iOS with
 		// touch-action:manipulation is faster, we keep this for safety)
-		setTimeout(() => {
+		clearTimeout(touchResetTimeout);
+		touchResetTimeout = setTimeout(() => {
 			touchFired = false;
 		}, 300);
 	}

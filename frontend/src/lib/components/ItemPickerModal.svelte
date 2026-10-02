@@ -22,19 +22,11 @@
 
 	let isLoading = $state(true);
 	let items = $state<ItemSummary[]>([]);
-	// Track user's selection - starts with current parent, user can change independently
-	// We intentionally capture the initial prop value here; the effect below syncs on prop changes
-	// eslint-disable-next-line svelte/prefer-writable-derived -- Local state synced from prop, modifiable by user
-	let selectedItemId = $state<string | null | undefined>(undefined);
+	// Local selection can override the parent until the parent prop changes.
+	let selectedItemId = $derived(currentItemId);
 	let searchQuery = $state('');
 	// Store fetched thumbnail results with their revoke functions (itemId -> BlobUrlResult)
 	let thumbnailResults = new SvelteMap<string, BlobUrlResult>();
-
-	// Sync selectedItemId when currentItemId prop changes (including initial mount)
-	$effect(() => {
-		// This effect ensures we track prop changes while allowing local modification
-		selectedItemId = currentItemId;
-	});
 
 	// Helper to get thumbnail URL for an item
 	function getThumbnailUrl(item: ItemSummary): string | null {

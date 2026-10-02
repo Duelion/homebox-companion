@@ -18,6 +18,9 @@
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
+	let mountFrame: number | undefined;
+	let renderFrame: number | undefined;
+	let pendingImage: HTMLImageElement | null = null;
 
 	// Selected image
 	let selectedImageIndex = $state(0);
@@ -95,12 +98,17 @@
 		}
 
 		// Wait for next tick to ensure canvas dimensions are set
-		requestAnimationFrame(() => {
+		mountFrame = requestAnimationFrame(() => {
 			ctx = canvas.getContext('2d');
 			// Load from initial transform's image index if available, otherwise first image
 			const startIndex = initialTransform?.sourceImageIndex ?? 0;
 			loadImage(startIndex);
 		});
+		return () => {
+			if (mountFrame !== undefined) cancelAnimationFrame(mountFrame);
+			if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
+			if (pendingImage) pendingImage.onload = null;
+		};
 	});
 
 	function loadImage(index: number) {
@@ -110,6 +118,10 @@
 		const isFirstLoad = loadedImage === null;
 
 		const img = new Image();
+		// A newer selection owns the next load; old callbacks must not overwrite it.
+		if (pendingImage) pendingImage.onload = null;
+		if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
+		pendingImage = img;
 		img.onload = () => {
 			loadedImage = img;
 
@@ -131,7 +143,7 @@
 				offsetY = 0;
 			}
 
-			requestAnimationFrame(() => render());
+			renderFrame = requestAnimationFrame(() => render());
 		};
 		img.src = images[index].dataUrl;
 		selectedImageIndex = index;
@@ -191,7 +203,7 @@
 		ctx.restore();
 
 		// Draw dark overlay with transparent crop area
-		ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+		ctx.fillStyle = CANVAS_COLORS.dimOverlay;
 		ctx.fillRect(0, 0, w, centerY - cropSize / 2);
 		ctx.fillRect(0, centerY + cropSize / 2, w, h - (centerY + cropSize / 2));
 		ctx.fillRect(0, centerY - cropSize / 2, centerX - cropSize / 2, cropSize);

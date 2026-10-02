@@ -75,7 +75,8 @@
 	$effect(() => {
 		const messageCount = chatStore.messages.length;
 		if (messagesContainer && messageCount > 0 && !userHasScrolledUp) {
-			requestAnimationFrame(scrollToBottom);
+			const frame = requestAnimationFrame(scrollToBottom);
+			return () => cancelAnimationFrame(frame);
 		}
 	});
 
@@ -87,7 +88,8 @@
 		const isStreaming = chatStore.isStreaming;
 
 		if (messagesContainer && isStreaming && streamingContent && !userHasScrolledUp) {
-			requestAnimationFrame(scrollToBottom);
+			const frame = requestAnimationFrame(scrollToBottom);
+			return () => cancelAnimationFrame(frame);
 		}
 	});
 

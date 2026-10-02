@@ -129,7 +129,8 @@
 	// Track which approval we've initialized for
 	let initializedForApprovalId = $state<string | null>(null);
 
-	// Initialize edited values when expanded, reset when approval changes
+	// Drafts initialize once per approval on expansion, then survive collapse/reopen.
+	// Keep this explicit reset boundary rather than resyncing every parameter change.
 	$effect(() => {
 		const currentApprovalId = approval.id;
 

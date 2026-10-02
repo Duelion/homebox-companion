@@ -50,7 +50,7 @@
 							<span class="flex items-center justify-center size-6">
 								<NavIcon icon={item.icon} />
 							</span>
-							<span class="text-xs font-medium">{item.label}</span>
+							<span class="text-caption font-medium">{item.label}</span>
 						</button>
 					{:else}
 						<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved via resolveNavHref() -->
@@ -66,7 +66,7 @@
 							<span class="flex items-center justify-center size-6">
 								<NavIcon icon={item.icon} />
 							</span>
-							<span class="text-xs font-medium">{item.label}</span>
+							<span class="text-caption font-medium">{item.label}</span>
 						</a>
 					{/if}
 				</li>

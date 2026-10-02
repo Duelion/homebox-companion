@@ -59,14 +59,14 @@
 						<Download class="shrink-0" size={20} />
 					{/if}
 					<div class="flex flex-1 items-center gap-2">
-						<p class="text-sm font-medium">{toast.message}</p>
+						<p class="text-body-sm font-medium">{toast.message}</p>
 						{#if toast.action}
 							<!-- eslint-disable svelte/no-navigation-without-resolve -->
 							<a
 								href={toast.action.href}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="shrink-0 text-sm underline transition-colors {toast.type === 'update'
+								class="shrink-0 text-body-sm underline transition-colors {toast.type === 'update'
 									? 'text-primary-400 hover:text-primary-300'
 									: 'hover:opacity-80'}"
 							>
@@ -77,7 +77,7 @@
 					</div>
 					<button
 						type="button"
-						class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-white/10 focus:outline-hidden focus:ring-2 focus:ring-white/30"
+						class="flex min-h-touch min-w-touch items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-neutral-100/10 focus:outline-hidden focus:ring-2 focus:ring-neutral-100/30"
 						aria-label="Dismiss notification"
 						onclick={() => dismissToast(toast.id)}
 					>
@@ -87,7 +87,7 @@
 
 				<!-- Auto-dismiss progress bar (only for non-persistent toasts) -->
 				{#if !toast.exiting && !toast.persistent}
-					<div class="h-0.5 w-full bg-black/20">
+					<div class="h-0.5 w-full bg-neutral-950/20">
 						<div
 							class="h-full {progressColors[toast.type]} toast-progress"
 							style="--duration: {TOAST_DURATION_MS}ms;"

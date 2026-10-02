@@ -33,7 +33,7 @@
 {#if tagStore.loading}
 	<div>
 		<span class={labelClass}>Tags</span>
-		<p class="text-sm text-neutral-500">Loading tags...</p>
+		<p class="text-body-sm text-neutral-500">Loading tags...</p>
 	</div>
 {:else if tagStore.tags.length > 0}
 	<div>

@@ -1,7 +1,7 @@
 @import 'tailwindcss' source(none);
 @source './';
 
-/* Keep these values aligned with CANVAS_COLORS where canvas drawing needs them. */
+/* Keep these values aligned with CANVAS_COLORS; tests/browser/design-tokens.spec.ts checks the sync. */
 @theme {
 	--color-primary-50: #eef2ff;
 	--color-primary-100: #e0e7ff;
@@ -314,9 +314,6 @@
 @utility duration-slow {
 	transition-duration: 400ms;
 }
-@utility rounded-sm {
-	border-radius: var(--radius-xs);
-}
 @utility shadow {
 	box-shadow: var(--shadow);
 }
@@ -357,12 +354,12 @@
 	::after,
 	::backdrop,
 	::file-selector-button {
-		border-color: #e5e7eb;
+		border-color: var(--color-neutral-700);
 	}
 
 	input::placeholder,
 	textarea::placeholder {
-		color: #9ca3af;
+		color: var(--color-neutral-500);
 	}
 
 	button:not(:disabled),
@@ -371,7 +368,7 @@
 	}
 
 	html {
-		font-family: 'Inter', 'Outfit', system-ui, sans-serif;
+		font-family: var(--font-sans);
 	}
 
 	body {
@@ -429,7 +426,7 @@
 
 	/* Compact input variant for modals and dense UIs */
 	.input-sm {
-		@apply w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:ring-2 focus:ring-primary-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
+		@apply w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-body-sm text-neutral-200 transition-all duration-150 placeholder:text-neutral-500 focus:border-primary-500 focus:bg-neutral-800 focus:ring-2 focus:ring-primary-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-950 disabled:text-neutral-600;
 	}
 
 	/* Expandable input - base styles for use with expandable action */
@@ -445,16 +442,16 @@
 
 	/* Compact label for modals and dense UIs */
 	.label-sm {
-		@apply mb-1 block text-xs font-medium text-neutral-400;
+		@apply mb-1 block text-caption font-medium text-neutral-400;
 	}
 
 	/* Label chip / badge styles */
 	.label-chip {
-		@apply cursor-pointer rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-300 transition-all duration-150 hover:border-neutral-600 hover:bg-neutral-800;
+		@apply cursor-pointer rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-body-sm text-neutral-300 transition-all duration-150 hover:border-neutral-600 hover:bg-neutral-800;
 	}
 
 	.label-chip-selected {
-		@apply rounded-lg border-2 border-primary-500 bg-primary-500/20 px-3 py-1.5 text-sm font-medium text-primary-300 shadow-sm ring-2 ring-primary-500/20;
+		@apply rounded-lg border-2 border-primary-500 bg-primary-500/20 px-3 py-1.5 text-body-sm font-medium text-primary-300 shadow-sm ring-2 ring-primary-500/20;
 	}
 
 	/* Touch-target icon button */
@@ -492,16 +489,16 @@
 
 	/* Metadata row (timestamp, tokens) */
 	.chat-meta {
-		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-xs text-neutral-500;
+		@apply mt-0.5 flex items-center gap-1.5 px-1.5 text-caption text-neutral-500;
 	}
 
 	/* Tool accordion section */
 	.chat-tools-section {
-		@apply mt-1.5 border-t border-white/10 pt-1.5;
+		@apply mt-1.5 border-t border-neutral-100/10 pt-1.5;
 	}
 
 	.chat-tools-summary {
-		@apply flex cursor-pointer items-center gap-1 text-xs text-neutral-400 select-none hover:text-neutral-300;
+		@apply flex cursor-pointer items-center gap-1 text-caption text-neutral-400 select-none hover:text-neutral-300;
 	}
 
 	.chat-tools-grid {
@@ -510,12 +507,12 @@
 
 	/* Tool/action badge */
 	.chat-tool-badge {
-		@apply inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xs font-medium;
+		@apply inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-caption font-medium;
 	}
 
 	/* Approval badge button */
 	.chat-approval-badge {
-		@apply mt-1.5 flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-xs font-medium transition-all active:scale-[0.98];
+		@apply mt-1.5 flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-caption font-medium transition-all active:scale-[0.98];
 	}
 
 	/* ==========================================================================
@@ -574,7 +571,7 @@
 	}
 
 	.markdown-content pre {
-		@apply my-1.5 overflow-x-auto rounded-lg bg-black/30 p-2;
+		@apply my-1.5 overflow-x-auto rounded-lg bg-neutral-950/30 p-2;
 	}
 
 	.markdown-content pre code {
@@ -776,35 +773,35 @@
 	}
 
 	/* Animation delay utilities - for staggered entrance animations */
-	.delay-0 {
+	.animation-delay-0 {
 		animation-delay: 0ms;
 	}
 
-	.delay-100 {
+	.animation-delay-100 {
 		animation-delay: 100ms;
 	}
 
-	.delay-150 {
+	.animation-delay-150 {
 		animation-delay: 150ms;
 	}
 
-	.delay-160 {
+	.animation-delay-160 {
 		animation-delay: 160ms;
 	}
 
-	.delay-200 {
+	.animation-delay-200 {
 		animation-delay: 200ms;
 	}
 
-	.delay-300 {
+	.animation-delay-300 {
 		animation-delay: 300ms;
 	}
 
-	.delay-320 {
+	.animation-delay-320 {
 		animation-delay: 320ms;
 	}
 
-	.delay-400 {
+	.animation-delay-400 {
 		animation-delay: 400ms;
 	}
 

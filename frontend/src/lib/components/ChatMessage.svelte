@@ -192,7 +192,7 @@
 	<div class="relative">
 		<div
 			class="chat-bubble {isUser
-				? 'chat-bubble-user rounded-br bg-linear-to-br/srgb from-primary-600 to-primary-500 text-white shadow-primary-glow-sm'
+				? 'chat-bubble-user rounded-br bg-linear-to-br/srgb from-primary-600 to-primary-500 text-neutral-100 shadow-primary-glow-sm'
 				: 'rounded-bl border border-neutral-700/50 bg-neutral-800/80 text-neutral-200 backdrop-blur-sm'} {message.isStreaming
 				? 'streaming-glow'
 				: ''}"
@@ -246,8 +246,8 @@
 			{#if message.isStreaming}
 				<div class="flex justify-center gap-1 px-2 py-1">
 					<span class="typing-dot"></span>
-					<span class="typing-dot delay-160"></span>
-					<span class="typing-dot delay-320"></span>
+					<span class="typing-dot animation-delay-160"></span>
+					<span class="typing-dot animation-delay-320"></span>
 				</div>
 			{/if}
 
@@ -320,7 +320,7 @@
 		{#if message.content && !message.isStreaming}
 			<button
 				class="absolute -top-1 rounded-md p-1.5 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 backdrop-blur-sm transition-all group-hover:opacity-100 {isUser
-					? '-right-1 bg-primary-700/80 text-primary-200 hover:bg-primary-600 hover:text-white'
+					? '-right-1 bg-primary-700/80 text-primary-200 hover:bg-primary-600 hover:text-neutral-100'
 					: '-left-1 bg-neutral-700/80 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-200'}"
 				onclick={handleCopy}
 				aria-label="Copy message"
@@ -360,7 +360,7 @@
 		@apply h-1.5 w-1.5 animate-typing-dot rounded-full bg-primary-500;
 	}
 
-	/* Note: animation delay classes now use global utilities: delay-160, delay-320 */
+	/* Note: animation delay classes now use global utilities: animation-delay-160, animation-delay-320 */
 
 	/* Tool execution spinner */
 	.tool-spinner {

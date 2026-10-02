@@ -47,7 +47,7 @@
 	{:else}
 		<!-- Fallback when locations haven't loaded -->
 		<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
-			<span class="text-sm text-neutral-300">{fallbackDisplay}</span>
+			<span class="text-body-sm text-neutral-300">{fallbackDisplay}</span>
 		</div>
 	{/if}
 </div>

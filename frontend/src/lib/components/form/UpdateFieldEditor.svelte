@@ -99,12 +99,12 @@
 <div class="space-y-2.5">
 	{#if displayInfo?.target_name || displayInfo?.item_name}
 		<div class="rounded-lg bg-neutral-800/50 px-2.5 py-1.5">
-			<span class="text-xs text-neutral-500">Updating:</span>
-			<span class="ml-1 text-sm text-neutral-300"
+			<span class="text-caption text-neutral-500">Updating:</span>
+			<span class="ml-1 text-body-sm text-neutral-300"
 				>{displayInfo.target_name ?? displayInfo.item_name}</span
 			>
 			{#if displayInfo.asset_id}
-				<span class="text-xs text-neutral-500">({displayInfo.asset_id})</span>
+				<span class="text-caption text-neutral-500">({displayInfo.asset_id})</span>
 			{/if}
 		</div>
 	{/if}
@@ -294,6 +294,6 @@
 	{/if}
 
 	{#if fieldsBeingChanged.length === 0}
-		<p class="text-sm text-neutral-500">No specific fields to edit.</p>
+		<p class="text-body-sm text-neutral-500">No specific fields to edit.</p>
 	{/if}
 </div>

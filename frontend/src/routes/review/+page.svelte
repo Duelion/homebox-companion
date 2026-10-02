@@ -342,7 +342,7 @@
 					<!-- Edit overlay - always visible on mobile, hover on desktop -->
 					<button
 						type="button"
-						class="absolute bottom-3 right-3 flex min-h-11 items-center gap-2 rounded-lg bg-black/70 px-3 py-2.5 text-sm text-white transition-all hover:bg-black/90 focus:outline-hidden focus:ring-2 focus:ring-white/50 md:[@media(hover:hover)]:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
+						class="absolute bottom-3 right-3 flex min-h-touch items-center gap-2 rounded-lg bg-neutral-950/70 px-3 py-2.5 text-body-sm text-neutral-100 transition-all hover:bg-neutral-950/90 focus:outline-hidden focus:ring-2 focus:ring-neutral-100/50 md:[@media(hover:hover)]:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
 						onclick={openThumbnailEditor}
 						aria-label="Edit thumbnail image"
 					>
@@ -351,7 +351,7 @@
 					</button>
 					{#if editedItem.customThumbnail}
 						<span
-							class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-xs font-medium text-white"
+							class="absolute left-3 top-3 rounded bg-primary-600/90 px-2 py-1 text-caption font-medium text-neutral-100"
 						>
 							Custom
 						</span>
@@ -377,7 +377,7 @@
 					<div class="text-body-sm">
 						<p class="font-medium text-warning-300">Possible Duplicate</p>
 						<p class="text-warning-200/80">This item may already exist in your inventory</p>
-						<p class="mt-0.5 text-xs text-warning-200/60">
+						<p class="mt-0.5 text-caption text-warning-200/60">
 							Serial number "{editedItem.duplicate_match.serial_number}" found in "{editedItem
 								.duplicate_match.item_name}"
 						</p>

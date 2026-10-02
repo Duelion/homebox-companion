@@ -211,7 +211,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="fixed z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning-500 inset-x-0 {isAuthenticated
+			class="fixed z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-body-sm text-warning-500 inset-x-0 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
@@ -223,7 +223,7 @@
 	<!-- Footer with version - only shown on login page (not authenticated) -->
 	{#if !isAuthenticated}
 		<footer
-			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-neutral-950 py-3 text-center text-xs text-neutral-500"
+			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-neutral-950 py-3 text-center text-caption text-neutral-500"
 		>
 			{#if appVersion}
 				<span>v{appVersion}</span>
@@ -233,7 +233,7 @@
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300 transition-colors hover:bg-amber-500/30"
+					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-caption text-warning-300 transition-colors hover:bg-warning-500/30"
 					title="Click to view release"
 				>
 					<Download size={12} strokeWidth={2} />

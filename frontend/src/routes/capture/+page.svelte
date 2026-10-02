@@ -640,7 +640,7 @@
 						<div class="relative shrink-0 overflow-hidden rounded-lg bg-neutral-800 size-16">
 							<img src={image.dataUrl} alt="Captured {index + 1}" class="object-cover size-full" />
 							<div
-								class="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white"
+								class="absolute bottom-0.5 right-0.5 rounded bg-neutral-950/70 px-1.5 py-0.5 text-caption font-medium text-neutral-100"
 							>
 								{index + 1}
 							</div>
@@ -721,7 +721,7 @@
 										class="h-6 w-10 rounded-full bg-neutral-700 transition-colors peer-checked:bg-primary-600"
 									></div>
 									<div
-										class="absolute left-1 top-1 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-white size-4"
+										class="absolute left-1 top-1 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-neutral-100 size-4"
 									></div>
 								</div>
 								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
@@ -843,15 +843,15 @@
 												/>
 												<button
 													type="button"
-													class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-black/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-600 group-hover:opacity-100 size-6"
+													class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-neutral-950/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-600 group-hover:opacity-100 size-6"
 													aria-label="Remove additional image"
 													onclick={() => removeAdditionalImage(index, additionalIndex)}
 													disabled={isAnalyzing}
 												>
-													<X class="text-white" size={14} strokeWidth={2.5} />
+													<X class="text-neutral-100" size={14} strokeWidth={2.5} />
 												</button>
 												<div
-													class="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-xxs font-medium text-white"
+													class="absolute bottom-1 left-1 rounded bg-neutral-950/70 px-1.5 py-0.5 text-xxs font-medium text-neutral-100"
 												>
 													{additionalIndex + 1}
 												</div>

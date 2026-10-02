@@ -71,7 +71,7 @@
 	{#if showLabel}
 		<div class="mb-1 flex items-baseline gap-2">
 			<label for="asset-id-input" class="text-body-sm font-medium text-neutral-300">Asset ID</label>
-			<span class="text-xs text-neutral-500">Optional – auto-assigned if blank</span>
+			<span class="text-caption text-neutral-500">Optional – auto-assigned if blank</span>
 		</div>
 	{/if}
 

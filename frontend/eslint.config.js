@@ -4,6 +4,7 @@ import svelte from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
 import tailwindcss from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
+import homeboxRules from './eslint/design-tokens.js';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -15,6 +16,12 @@ export default [
 
 	// Svelte recommended rules
 	...svelte.configs['flat/recommended'],
+
+	// Require shared app tokens in markup and class-oriented script values.
+	{
+		plugins: { homebox: homeboxRules },
+		rules: { 'homebox/design-tokens': 'error' },
+	},
 
 	// Tailwind CSS plugin - flat config presets
 	tailwindcss.configs.recommended,
@@ -124,6 +131,14 @@ export default [
 						'empty-state',
 						'slider-primary',
 						'complete-pop',
+						'animation-delay-0',
+						'animation-delay-100',
+						'animation-delay-150',
+						'animation-delay-160',
+						'animation-delay-200',
+						'animation-delay-300',
+						'animation-delay-320',
+						'animation-delay-400',
 						'loading-spinner',
 						'typing-ellipsis',
 						'typing-dot',

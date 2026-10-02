@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { MapPin, Home, Check } from '@lucide/svelte';
 	import type { Location } from '$lib/types';
 	import Modal from './Modal.svelte';
@@ -26,10 +27,17 @@
 	let description = $state('');
 	let saveState = $state<'idle' | 'saving' | 'success' | 'error'>('idle');
 	let error = $state('');
+	let disposed = false;
+	let closeTimeout: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => {
+		disposed = true;
+		clearTimeout(closeTimeout);
+	});
 
-	// Reset form when modal opens
+	// These drafts reset on each open, even when the location prop is unchanged.
 	$effect(() => {
 		if (open) {
+			clearTimeout(closeTimeout);
 			if (mode === 'edit' && location) {
 				name = location.name;
 				description = location.description || '';
@@ -59,12 +67,13 @@
 				description: description.trim(),
 				parentId: mode === 'create' ? parentLocation?.id || null : null,
 			});
+			if (disposed) return;
 
 			// Show success state
 			saveState = 'success';
 
 			// Close modal after brief delay to show success
-			setTimeout(() => {
+			closeTimeout = setTimeout(() => {
 				open = false;
 			}, 800);
 		} catch (err) {
@@ -88,7 +97,7 @@
 	<form onsubmit={handleSubmit} class="space-y-4">
 		{#if mode === 'create' && parentLocation}
 			<div class="rounded-lg border border-neutral-700 bg-neutral-700 p-3">
-				<p class="text-sm text-neutral-400">Creating inside:</p>
+				<p class="text-body-sm text-neutral-400">Creating inside:</p>
 				<p class="flex items-center gap-2 font-medium text-neutral-200">
 					<MapPin class="text-primary" size={16} />
 					{parentLocation.name}
@@ -96,7 +105,7 @@
 			</div>
 		{:else if mode === 'create'}
 			<div class="rounded-lg border border-neutral-700 bg-neutral-700 p-3">
-				<p class="text-sm text-neutral-400">Creating at:</p>
+				<p class="text-body-sm text-neutral-400">Creating at:</p>
 				<p class="flex items-center gap-2 font-medium text-neutral-200">
 					<Home class="text-primary" size={16} />
 					Root level
@@ -105,7 +114,7 @@
 		{/if}
 
 		<div>
-			<label for="location-name" class="mb-1 block text-sm font-medium text-neutral-200">
+			<label for="location-name" class="mb-1 block text-body-sm font-medium text-neutral-200">
 				Name <span class="text-error">*</span>
 			</label>
 			<input
@@ -119,7 +128,10 @@
 		</div>
 
 		<div>
-			<label for="location-description" class="mb-1 block text-sm font-medium text-neutral-200">
+			<label
+				for="location-description"
+				class="mb-1 block text-body-sm font-medium text-neutral-200"
+			>
 				Description
 			</label>
 			<textarea
@@ -133,7 +145,7 @@
 
 		{#if error}
 			<div class="rounded-lg border border-error/30 bg-error/10 p-3">
-				<p class="text-sm text-error">{error}</p>
+				<p class="text-body-sm text-error">{error}</p>
 			</div>
 		{/if}
 
@@ -142,7 +154,7 @@
 			<Button variant="primary" full type="submit" disabled={isSaving || !name.trim()}>
 				{#if saveState === 'saving'}
 					<div
-						class="animate-spin rounded-full border-2 border-white/30 border-t-white size-5"
+						class="animate-spin rounded-full border-2 border-neutral-100/30 border-t-neutral-100 size-5"
 					></div>
 					<span>Saving...</span>
 				{:else if saveState === 'success'}
