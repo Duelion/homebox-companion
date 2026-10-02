@@ -27,6 +27,7 @@ import type {
 	ConfirmedItem,
 	Progress,
 	SubmissionResult,
+	ImageAnalysisStatus,
 } from '$lib/types';
 import {
 	type StoredSession,
@@ -97,6 +98,9 @@ class ScanWorkflow {
 	/** Flag to skip the initial effect run (avoids persist on construction) */
 	private _isFirstEffectRun = true;
 	private contextGeneration = 0;
+	/** Changes synchronously whenever an analysis is started or invalidated. */
+	private _analysisAttemptId = 0;
+	private retryStartStatuses: Record<number, ImageAnalysisStatus> | null = null;
 
 	/** Confirmed-item index currently being edited after a failed submission. */
 	private failedItemEditIndex = $state<number | null>(null);
@@ -513,6 +517,9 @@ class ScanWorkflow {
 		}
 
 		log.info(`Starting analysis for ${this.captureService.count} image(s)`);
+		const attemptId = ++this._analysisAttemptId;
+		const generation = this.contextGeneration;
+		this.retryStartStatuses = null;
 
 		// Set status BEFORE any async operations to prevent duplicate triggers
 		this._status = 'analyzing';
@@ -522,7 +529,12 @@ class ScanWorkflow {
 		const result = await this.analysisService.analyze(this.captureService.images);
 
 		// Check if cancelled (status may have changed)
-		if (this._status !== 'analyzing') {
+		if (
+			attemptId !== this._analysisAttemptId ||
+			generation !== this.contextGeneration ||
+			this._status !== 'analyzing' ||
+			result.cancelled
+		) {
 			log.debug('Analysis was cancelled or status changed during processing');
 			return;
 		}
@@ -571,6 +583,9 @@ class ScanWorkflow {
 		}
 
 		log.info(`Retrying ${this.analysisService.failedCount} failed image(s)`);
+		const attemptId = ++this._analysisAttemptId;
+		const generation = this.contextGeneration;
+		this.retryStartStatuses = { ...this.analysisService.imageStatuses };
 
 		// Set status to analyzing
 		this._status = 'analyzing';
@@ -586,7 +601,12 @@ class ScanWorkflow {
 		);
 
 		// Check if cancelled (status may have changed)
-		if (this._status !== 'analyzing') {
+		if (
+			attemptId !== this._analysisAttemptId ||
+			generation !== this.contextGeneration ||
+			this._status !== 'analyzing' ||
+			result.cancelled
+		) {
 			log.debug('Retry was cancelled or status changed during processing');
 			return;
 		}
@@ -613,6 +633,7 @@ class ScanWorkflow {
 			log.error(`Retry failed: ${this._error}`);
 		}
 
+		this.retryStartStatuses = null;
 		// Persist after retry completes
 		// IMPORTANT: Await persist to ensure data is saved before user can close tab
 		await this.persistAsync();
@@ -700,8 +721,14 @@ class ScanWorkflow {
 
 	/** Cancel ongoing analysis */
 	async cancelAnalysis(): Promise<void> {
+		this._analysisAttemptId++;
 		this.analysisService.cancel();
 		if (this._status === 'analyzing') {
+			const wasRetry = this.retryStartStatuses !== null;
+			if (this.retryStartStatuses) {
+				this.analysisService.imageStatuses = this.retryStartStatuses;
+			}
+			this.retryStartStatuses = null;
 			// If we had some successful items before cancellation, go to partial_analysis
 			// Otherwise go back to capturing
 			if (this.reviewService.detectedItems.length > 0) {
@@ -709,7 +736,7 @@ class ScanWorkflow {
 			} else {
 				this._status = 'capturing';
 			}
-			this.analysisService.clearProgress();
+			this.analysisService.clearProgress(wasRetry);
 
 			// Persist after cancellation to save the current state
 			await this.persistAsync();
@@ -717,8 +744,13 @@ class ScanWorkflow {
 	}
 
 	/** Clear analysis progress (called when animation completes) */
-	clearAnalysisProgress(): void {
+	clearAnalysisProgress(expectedAttemptId?: number): void {
+		if (expectedAttemptId !== undefined && expectedAttemptId !== this._analysisAttemptId) return;
 		this.analysisService.clearProgress();
+	}
+
+	get analysisAttemptId(): number {
+		return this._analysisAttemptId;
 	}
 
 	/** Check if analysis is in progress */
@@ -1229,7 +1261,10 @@ class ScanWorkflow {
 			clearTimeout(this._persistTimeout);
 			this._persistTimeout = null;
 		}
-		this.cancelAnalysis();
+		this._analysisAttemptId++;
+		this.analysisService.invalidateContext();
+		this.retryStartStatuses = null;
+		this.analysisService.clearProgress();
 		this.captureService.clear();
 		this.reviewService.reset();
 		this.submissionService.reset();

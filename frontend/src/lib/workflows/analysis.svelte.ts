@@ -70,9 +70,22 @@ export interface AnalysisResult {
 	success: boolean;
 	items: ReviewItem[];
 	error?: string;
+	cancelled?: boolean;
 	/** Number of images that failed to process */
 	failedCount: number;
 }
+
+interface AnalysisOperation {
+	controller: AbortController;
+}
+
+const cancelledResult = (): AnalysisResult => ({
+	success: false,
+	items: [],
+	error: 'Analysis cancelled',
+	cancelled: true,
+	failedCount: 0,
+});
 
 // =============================================================================
 // ANALYSIS SERVICE CLASS
@@ -86,7 +99,7 @@ export class AnalysisService {
 	imageStatuses = $state<Record<number, ImageAnalysisStatus>>({});
 
 	/** Abort controller for cancellable operations */
-	private abortController: AbortController | null = null;
+	private activeOperation: AnalysisOperation | null = null;
 
 	/** Cache for default tag (loaded once per session) */
 	private defaultTagId: string | null = null;
@@ -97,13 +110,24 @@ export class AnalysisService {
 	// =========================================================================
 
 	/** Load default tag ID if not already loaded */
-	async loadDefaultTag(): Promise<void> {
+	private isCurrent(operation: AnalysisOperation): boolean {
+		return this.activeOperation === operation && !operation.controller.signal.aborted;
+	}
+
+	private assertCurrent(operation: AnalysisOperation): void {
+		if (!this.isCurrent(operation)) throw new DOMException('Analysis cancelled', 'AbortError');
+	}
+
+	private async loadDefaultTag(operation: AnalysisOperation): Promise<void> {
 		if (this.defaultTagLoaded) return;
 		try {
-			const prefs = await fieldPreferences.get();
+			const prefs = await fieldPreferences.get(operation.controller.signal);
+			this.assertCurrent(operation);
 			this.defaultTagId = prefs.default_tag_id;
 			this.defaultTagLoaded = true; // Only mark as loaded on success
-		} catch {
+		} catch (error) {
+			this.assertCurrent(operation);
+			if (error instanceof Error && error.name === 'AbortError') throw error;
 			// Silently ignore - will retry on next analysis
 		}
 	}
@@ -118,11 +142,12 @@ export class AnalysisService {
 	 */
 	private async processImages(
 		images: CapturedImage[],
+		operation: AnalysisOperation,
 		indexMapper: (subsetIndex: number) => number = (i) => i
 	): Promise<AnalysisResult> {
 		const allDetectedItems: ReviewItem[] = [];
 		let completedCount = 0;
-		const signal = this.abortController?.signal;
+		const signal = operation.controller.signal;
 
 		// Process images with limited concurrency to prevent overwhelming browser/server
 		log.debug(
@@ -135,9 +160,7 @@ export class AnalysisService {
 				const originalIndex = indexMapper(subsetIndex);
 
 				// Check if cancelled before starting
-				if (signal?.aborted) {
-					throw new DOMException('Aborted', 'AbortError');
-				}
+				this.assertCurrent(operation);
 
 				// Mark this image as analyzing
 				this.imageStatuses = { ...this.imageStatuses, [originalIndex]: 'analyzing' };
@@ -157,6 +180,7 @@ export class AnalysisService {
 						additionalImages: image.additionalFiles,
 						signal,
 					});
+					this.assertCurrent(operation);
 
 					log.debug(
 						`Detection complete for image ${originalIndex + 1}, found ${response.items.length} item(s)`
@@ -181,6 +205,7 @@ export class AnalysisService {
 					};
 				} catch (error) {
 					// Re-throw abort errors to be handled at the top level
+					this.assertCurrent(operation);
 					if (error instanceof Error && error.name === 'AbortError') {
 						log.debug(`Analysis aborted for image ${originalIndex + 1}`);
 						throw error;
@@ -209,20 +234,17 @@ export class AnalysisService {
 		);
 
 		log.debug(`All detections complete. Processing ${results.length} result(s)...`);
-
-		// Check if cancelled
-		if (this.abortController?.signal.aborted) {
-			log.debug('Analysis was cancelled, exiting');
-			return { success: false, items: [], error: 'Analysis cancelled', failedCount: 0 };
-		}
+		this.assertCurrent(operation);
 
 		// Ensure tags are loaded before validation (best effort - not critical for analysis success)
 		try {
 			await tagStore.fetchTags();
 		} catch (error) {
+			this.assertCurrent(operation);
 			log.warn('Failed to fetch tags for default tag validation:', error);
 			// Continue without default tag validation - analysis results are still valid
 		}
+		this.assertCurrent(operation);
 
 		// Validate default tag exists in current Homebox instance
 		const currentTags = tagStore.tags;
@@ -317,7 +339,7 @@ export class AnalysisService {
 		}
 
 		// Prevent starting a new analysis if one is in progress
-		if (this.abortController) {
+		if (this.activeOperation) {
 			log.warn('Analysis already in progress, ignoring duplicate request');
 			return { success: false, items: [], error: 'Analysis already in progress', failedCount: 0 };
 		}
@@ -325,7 +347,8 @@ export class AnalysisService {
 		log.debug(`Starting analysis for ${images.length} image(s)`);
 
 		// Initialize analysis state
-		this.abortController = new AbortController();
+		const operation: AnalysisOperation = { controller: new AbortController() };
+		this.activeOperation = operation;
 		this.progress = {
 			current: 0,
 			total: images.length,
@@ -341,7 +364,8 @@ export class AnalysisService {
 
 		try {
 			// Load default tag first
-			await this.loadDefaultTag();
+			await this.loadDefaultTag(operation);
+			this.assertCurrent(operation);
 
 			// Update progress message
 			this.progress = {
@@ -351,15 +375,12 @@ export class AnalysisService {
 			};
 
 			// Process all images (identity mapping: index -> index)
-			return await this.processImages(images);
+			return await this.processImages(images, operation);
 		} catch (error) {
 			// Don't set error if cancelled
-			if (
-				this.abortController?.signal.aborted ||
-				(error instanceof Error && error.name === 'AbortError')
-			) {
+			if (!this.isCurrent(operation) || (error instanceof Error && error.name === 'AbortError')) {
 				log.debug('Analysis cancelled by user');
-				return { success: false, items: [], error: 'Analysis cancelled', failedCount: 0 };
+				return cancelledResult();
 			}
 
 			log.error('Analysis failed', error);
@@ -370,22 +391,30 @@ export class AnalysisService {
 				failedCount: 0,
 			};
 		} finally {
-			this.abortController = null;
+			if (this.activeOperation === operation) this.activeOperation = null;
 		}
 	}
 
 	/** Cancel ongoing analysis */
 	cancel(): void {
-		if (this.abortController) {
-			this.abortController.abort();
-			this.abortController = null;
+		if (this.activeOperation) {
+			const operation = this.activeOperation;
+			this.activeOperation = null;
+			operation.controller.abort();
 		}
 	}
 
+	/** Forget preferences when the Homebox context changes. */
+	invalidateContext(): void {
+		this.cancel();
+		this.defaultTagId = null;
+		this.defaultTagLoaded = false;
+	}
+
 	/** Clear progress state */
-	clearProgress(): void {
+	clearProgress(preserveStatuses = false): void {
 		this.progress = null;
-		this.imageStatuses = {};
+		if (!preserveStatuses) this.imageStatuses = {};
 	}
 
 	/**
@@ -413,6 +442,7 @@ export class AnalysisService {
 		const result = await this.analyzeSubset(failedImages, failedIndices);
 
 		// Merge with existing items
+		if (result.cancelled) return result;
 		const allItems = [...existingItems, ...result.items];
 
 		return {
@@ -438,7 +468,7 @@ export class AnalysisService {
 		}
 
 		// Prevent starting a new analysis if one is in progress
-		if (this.abortController) {
+		if (this.activeOperation) {
 			log.warn('Analysis already in progress, ignoring duplicate request');
 			return { success: false, items: [], error: 'Analysis already in progress', failedCount: 0 };
 		}
@@ -446,7 +476,8 @@ export class AnalysisService {
 		log.debug(`Starting subset analysis for ${images.length} image(s)`);
 
 		// Initialize analysis state
-		this.abortController = new AbortController();
+		const operation: AnalysisOperation = { controller: new AbortController() };
+		this.activeOperation = operation;
 		this.progress = {
 			current: 0,
 			total: images.length,
@@ -462,7 +493,8 @@ export class AnalysisService {
 
 		try {
 			// Load default tag first
-			await this.loadDefaultTag();
+			await this.loadDefaultTag(operation);
+			this.assertCurrent(operation);
 
 			// Update progress message
 			this.progress = {
@@ -472,15 +504,16 @@ export class AnalysisService {
 			};
 
 			// Process subset with index mapping (subsetIndex -> originalIndex)
-			return await this.processImages(images, (subsetIndex) => originalIndices[subsetIndex]);
+			return await this.processImages(
+				images,
+				operation,
+				(subsetIndex) => originalIndices[subsetIndex]
+			);
 		} catch (error) {
 			// Don't set error if cancelled
-			if (
-				this.abortController?.signal.aborted ||
-				(error instanceof Error && error.name === 'AbortError')
-			) {
+			if (!this.isCurrent(operation) || (error instanceof Error && error.name === 'AbortError')) {
 				log.debug('Analysis cancelled by user');
-				return { success: false, items: [], error: 'Analysis cancelled', failedCount: 0 };
+				return cancelledResult();
 			}
 
 			log.error('Analysis failed', error);
@@ -491,7 +524,7 @@ export class AnalysisService {
 				failedCount: 0,
 			};
 		} finally {
-			this.abortController = null;
+			if (this.activeOperation === operation) this.activeOperation = null;
 		}
 	}
 
@@ -501,7 +534,7 @@ export class AnalysisService {
 
 	/** Check if analysis is in progress */
 	get isAnalyzing(): boolean {
-		return this.abortController !== null;
+		return this.activeOperation !== null;
 	}
 
 	/** Get indices of images that failed analysis */

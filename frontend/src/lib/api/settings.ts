@@ -214,12 +214,13 @@ export interface EffectiveDefaults {
 }
 
 export const fieldPreferences = {
-	get: async (): Promise<FieldPreferences> => {
+	get: async (signal?: AbortSignal): Promise<FieldPreferences> => {
+		signal?.throwIfAborted();
 		// In demo mode, use sessionStorage instead of server
 		if (isDemoMode) {
 			return loadDemoPreferences();
 		}
-		return request<FieldPreferences>('/settings/field-preferences');
+		return request<FieldPreferences>('/settings/field-preferences', { signal });
 	},
 
 	/** Get effective defaults (env var if set, otherwise hardcoded fallback) */

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
@@ -50,6 +50,14 @@
 	let additionalCameraInputs: { [key: number]: HTMLInputElement } = {};
 	let analysisAnimationComplete = $state(false);
 	let isStartingAnalysis = $state(false);
+	let scrollTimeout: number | null = null;
+
+	function clearScrollTimeout(): void {
+		if (scrollTimeout !== null) {
+			window.clearTimeout(scrollTimeout);
+			scrollTimeout = null;
+		}
+	}
 
 	// Track object URLs for cleanup (prevents memory leaks)
 	// Note: We only revoke URLs when images are explicitly removed, NOT on component
@@ -167,14 +175,18 @@
 		}
 	});
 
+	onDestroy(clearScrollTimeout);
+
 	// Handle analysis animation completion - navigate directly to avoid CaptureButtons appearing
-	function handleAnalysisComplete() {
+	function handleAnalysisComplete(attemptId: number) {
+		if (workflow.analysisAttemptId !== attemptId || workflow.state.status !== 'reviewing') return;
+
 		analysisAnimationComplete = true;
 		// Clear progress after animation finishes
-		workflow.clearAnalysisProgress();
+		workflow.clearAnalysisProgress(attemptId);
 
 		// Navigate immediately to prevent UI shift from buttons reappearing
-		if (workflow.state.status === 'reviewing') {
+		if (workflow.analysisAttemptId === attemptId && workflow.state.status === 'reviewing') {
 			goto(resolve('/review'));
 		}
 	}
@@ -390,6 +402,7 @@
 
 		isStartingAnalysis = true;
 		log.debug('Starting analysis flow...');
+		let startingAttemptId = workflow.analysisAttemptId;
 
 		try {
 			// Check token validity before starting analysis
@@ -408,21 +421,28 @@
 			// Collapse all expanded cards when analysis starts
 			expandedImages.clear();
 			// Scroll to top of app after analysis starts
-			setTimeout(() => {
+			clearScrollTimeout();
+			scrollTimeout = window.setTimeout(() => {
+				scrollTimeout = null;
 				window.scrollTo({ top: 0, behavior: 'smooth' });
 			}, 100);
-			await workflow.startAnalysis();
+			const analysisPromise = workflow.startAnalysis();
+			startingAttemptId = workflow.analysisAttemptId;
+			await analysisPromise;
 			log.debug('Workflow.startAnalysis() completed');
 		} catch (error) {
 			// Error logging
 			log.error('Analysis failed with exception', error);
 			throw error;
 		} finally {
-			isStartingAnalysis = false;
+			if (workflow.analysisAttemptId === startingAttemptId) {
+				isStartingAnalysis = false;
+			}
 		}
 	}
 
 	function cancelAnalysis() {
+		clearScrollTimeout();
 		workflow.cancelAnalysis();
 		// Reset the starting flag in case cancel happened during startup
 		isStartingAnalysis = false;
@@ -473,12 +493,19 @@
 	<!-- Analysis progress bar (above images for context) -->
 	{#if progress && showAnalyzingUI}
 		<div class="mb-4">
-			<AnalysisProgressBar
-				current={progress.current}
-				total={progress.total}
-				message={status === 'reviewing' ? 'Analysis complete!' : progress.message || 'Analyzing...'}
-				onComplete={handleAnalysisComplete}
-			/>
+			{#key workflow.analysisAttemptId}
+				{@const analysisAttemptId = workflow.analysisAttemptId}
+				<AnalysisProgressBar
+					current={progress.current}
+					total={progress.total}
+					runId={analysisAttemptId}
+					ready={status === 'reviewing'}
+					message={status === 'reviewing'
+						? 'Analysis complete!'
+						: progress.message || 'Analyzing...'}
+					onComplete={() => handleAnalysisComplete(analysisAttemptId)}
+				/>
+			{/key}
 		</div>
 	{/if}
 

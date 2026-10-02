@@ -37,6 +37,7 @@ class TagsStore {
 	 * not exposed to consumers and does not need to trigger reactivity.
 	 */
 	private _pendingFetch: Promise<Tag[]> | null = null;
+	private _fetchGeneration = 0;
 
 	/** Cached tags indexed by ID - recomputed only when _tags changes */
 	private _tagsById = $derived.by(() => {
@@ -99,24 +100,30 @@ class TagsStore {
 		this._loading = true;
 		this._error = null;
 
-		this._pendingFetch = this.doFetch();
+		this._pendingFetch = this.doFetch(++this._fetchGeneration);
 		return this._pendingFetch;
 	}
 
 	/** Internal fetch implementation */
-	private async doFetch(): Promise<Tag[]> {
+	private async doFetch(generation: number): Promise<Tag[]> {
 		try {
 			const data = await tagsApi.list();
-			this._tags = data;
-			this._fetched = true;
+			if (generation === this._fetchGeneration) {
+				this._tags = data;
+				this._fetched = true;
+			}
 			return data;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to fetch tags';
-			this._error = message;
+			if (generation === this._fetchGeneration) {
+				const message = error instanceof Error ? error.message : 'Failed to fetch tags';
+				this._error = message;
+			}
 			throw error;
 		} finally {
-			this._loading = false;
-			this._pendingFetch = null;
+			if (generation === this._fetchGeneration) {
+				this._loading = false;
+				this._pendingFetch = null;
+			}
 		}
 	}
 
@@ -125,8 +132,10 @@ class TagsStore {
 	 * Called on logout or when tags might have changed.
 	 */
 	clear(): void {
+		this._fetchGeneration++;
 		this._tags = [];
 		this._fetched = false;
+		this._loading = false;
 		this._error = null;
 		this._pendingFetch = null;
 	}
