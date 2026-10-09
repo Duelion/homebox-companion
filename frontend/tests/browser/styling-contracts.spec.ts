@@ -37,16 +37,8 @@ for (const mobile of [false, true]) {
 		expect(utilities.animation.animationDelay).toBe('0.1s');
 		// Animation delays must not change Tailwind transition timing.
 		expect(utilities.animation.transitionDelay).toBe('0s');
-		// Finish navigation snapshots before changing motion preferences mid-transition.
-		await page.evaluate(async () => {
-			await Promise.all(
-				document
-					.getAnimations()
-					.filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
-					.map((animation) => animation.finished.catch(() => {}))
-			);
-		});
-		await page.emulateMedia({ reducedMotion: 'reduce' });
+		// Let Playwright settle finite animations for capture without awaiting every
+		// browser Animation.finished promise or changing motion preferences mid-navigation.
 		await page.evaluate(async () => {
 			await document.fonts.ready;
 			await Promise.all(Array.from(document.images, (image) => image.decode().catch(() => {})));
@@ -54,6 +46,7 @@ for (const mobile of [false, true]) {
 		await page.screenshot({
 			path: testInfo.outputPath(`review-${mobile ? 'mobile' : 'desktop'}.png`),
 			fullPage: true,
+			animations: 'disabled',
 		});
 	});
 }
