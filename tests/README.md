@@ -11,7 +11,7 @@ uv run --no-sync pytest
 The development dependencies include HTTPX2, which Starlette automatically uses
 as its `TestClient` backend. Install them with `uv sync --locked` before testing.
 
-## Optional full-stack smoke test
+## Full-stack smoke test
 
 Before a release or after a substantial integration change, run one real
 browser → Companion → disposable Homebox journey. It uploads a photo, edits the
@@ -39,8 +39,7 @@ Homebox container, and volume. Diagnostics are in `frontend/test-results/`,
 including a server log and browser traces/screenshots on failure. Docker
 unavailability skips locally and fails in CI, matching the other live tests.
 
-This test is excluded from default pytest and the mocked browser suite, and is
-not a required CI job. It checks the successful save path; recovery and failure
+This test is excluded from default pytest and the mocked browser suite, and runs in its own required CI job. It checks the successful save path; recovery and failure
 handling remain covered by the existing focused tests.
 
 ## Live Homebox tests
@@ -191,7 +190,10 @@ LLM/provider, nor do mobile emulation and screenshot comparisons replace
 real-device checks. Backend contract and live behavior remain covered by the
 appropriate Python suites.
 
-The validation workflow runs on pull requests and `dev` pushes. Python checks use
+The validation workflow runs on pull requests and pushes to `dev` and `main`.
+It also checks the full-stack scan and builds both supported container architectures.
+The publishing workflow calls the same validation suite on its selected tag/ref
+and cannot push an image until every validation job succeeds. Python checks use
 the committed `uv.lock`; frontend checks use `npm ci`. Docker-backed Homebox tests
 run in a separate bounded job with a sentinel LLM key and the explicit six-file
 allowlist above. Do not broaden that job to all live tests: other live tests may

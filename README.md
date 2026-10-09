@@ -456,8 +456,9 @@ uv run pytest
 Python uses Ruff formatting and ty for type checking. Vulture remains an occasional manual dead-code review tool:
 `uv run vulture --sort-by-size`. Dependency audits run weekly and on dependency PRs, outside local hooks.
 
-The PR and `dev` CI workflow runs Python checks, frontend checks, mocked browser
-tests, and disposable Homebox integration tests. See [tests/README.md](tests/README.md)
+The PR, `dev`, and `main` CI workflow runs Python checks, frontend checks, mocked
+browser tests, disposable Homebox integration tests, a full-stack scan smoke test,
+and container builds for AMD64 and ARM64. See [tests/README.md](tests/README.md)
 for local commands and Docker/browser prerequisites. These suites require no paid
 LLM calls.
 
