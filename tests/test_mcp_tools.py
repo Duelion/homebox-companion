@@ -433,7 +433,7 @@ class TestGetItem:
             "id": "item1",
             "name": "Smart TV",
             "description": "65 inch OLED",
-            "parent": {"id": "loc1", "name": "Living Room"},
+            "parent": {"id": "loc1", "name": "Living Room", "entityType": {"isLocation": True}},
             "tags": [{"id": "tag1", "name": "Electronics"}],
         }
         mock_client.get_item.return_value = mock_item

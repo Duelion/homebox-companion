@@ -267,8 +267,12 @@ class ToolExecutor:
                 target_name = item_name
                 if item.get("assetId"):
                     asset_id = item.get("assetId")
-                if tool_name == "delete_item" and item.get("parent"):
-                    location = item["parent"].get("name")
+                if tool_name == "delete_item":
+                    from ..homebox.views import resolve_item_relationship_views
+
+                    location_view, _ = resolve_item_relationship_views(item)
+                    if location_view is not None:
+                        location = location_view.name
 
             elif tool_name == "create_item":
                 if "name" in tool_args:

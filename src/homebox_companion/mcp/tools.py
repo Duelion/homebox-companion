@@ -199,7 +199,8 @@ class ListItemsTool:
     description: str = (
         "List items in the inventory with optional filtering. "
         "Set page_size to the user's requested count (e.g., 'list 100 items' -> page_size=100). "
-        "For text-based searches, prefer using search_items instead."
+        "For text-based searches, prefer using search_items instead. Summary results may show a "
+        "parent item with an unknown physical location; use get_item when physical whereabouts matter."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -317,7 +318,8 @@ class SearchItemsTool:
     name: str = "search_items"
     description: str = (
         "Search items by text query. Use for semantic searches like 'find rope'. "
-        "Set page_size to the user's requested count if specified."
+        "Set page_size to the user's requested count if specified. Summary results may show a parent "
+        "item with an unknown physical location; use get_item when physical whereabouts matter."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -386,7 +388,9 @@ class GetItemTool:
     """Get full item details by ID."""
 
     name: str = "get_item"
-    description: str = "Get full item details by ID"
+    description: str = (
+        "Get full item details by ID, including its immediate parent item and resolved physical location."
+    )
     permission: ToolPermission = ToolPermission.READ
 
     class Params(ToolParams):
@@ -548,8 +552,8 @@ class GetItemPathTool:
 
     name: str = "get_item_path"
     description: str = (
-        "Get the full hierarchical path of an item. Returns the location chain "
-        "from root to the item's location. Useful for telling users exactly where to find an item."
+        "Get the full containment path of an item from the root. Path elements may be locations "
+        "or containing items; use get_item for the item's resolved physical location."
     )
     permission: ToolPermission = ToolPermission.READ
 

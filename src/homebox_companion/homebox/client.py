@@ -1101,7 +1101,9 @@ class HomeboxClient:
     async def get_item_path(self, token: str, item_id: str) -> list[dict[str, Any]]:
         """Get the full hierarchical path of an item.
 
-        Returns the location chain from root to the item's location.
+        Returns the containment chain from the root to the item. Path elements
+        may be locations or containing items; this is not a resolved physical
+        location lookup.
 
         Args:
             token: The bearer token from login.
