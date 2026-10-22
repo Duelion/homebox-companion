@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 from pydantic import Field
 
+from ..homebox.relationships import item_relationship_payload
 from ..homebox.views import CompactItemView, ItemView, LocationView, add_tree_urls
 from .types import Tool, ToolParams, ToolPermission, ToolResult
 
@@ -670,7 +671,13 @@ class UpdateItemTool:
         item_id: str = Field(description="ID of the item to update")
         name: str | None = Field(default=None, description="Optional new name")
         description: str | None = Field(default=None, description="Optional new description")
-        location_id: str | None = Field(default=None, description="Optional new location ID")
+        location_id: str | None = Field(
+            default=None,
+            description=(
+                "Move directly into this location, replacing the parent and clearing any physical-location override. "
+                "Ignored when parent_id is supplied or clear_parent is true."
+            ),
+        )
         quantity: int | None = Field(default=None, ge=1, description="Optional new quantity")
         purchase_price: float | None = Field(
             default=None, ge=0, alias="purchasePrice", description="Optional new purchase price"
@@ -694,11 +701,17 @@ class UpdateItemTool:
         )
         parent_id: str | None = Field(
             default=None,
-            description="New parent item ID to nest this item under (use with clear_parent=False)",
+            description=(
+                "Parent item to nest under. Changing it clears any physical-location override and inherits the "
+                "new parent's location; supplying the current parent preserves the override. "
+                "Takes precedence over location_id unless clear_parent is true."
+            ),
         )
         clear_parent: bool = Field(
             default=False,
-            description="If true, remove parent to make this a top-level item",
+            description=(
+                "Remove both parent and physical-location override; takes precedence over parent_id and location_id"
+            ),
         )
 
     async def execute(
@@ -736,17 +749,14 @@ class UpdateItemTool:
         elif current.get("purchasePrice") is not None:
             update_data["purchasePrice"] = current.get("purchasePrice")
 
-        # Resolve parent once. Explicitly clearing a parent takes precedence over
-        # parent_id, which takes precedence over location_id for compatibility.
-        # When no parent change was requested, retain the current parent.
-        if params.clear_parent:
-            update_data["parentId"] = None
-        elif params.parent_id is not None:
-            update_data["parentId"] = params.parent_id
-        elif params.location_id is not None:
-            update_data["parentId"] = params.location_id
-        else:
-            update_data["parentId"] = (current.get("parent") or {}).get("id")
+        update_data.update(
+            item_relationship_payload(
+                current,
+                parent_id=params.parent_id,
+                location_id=params.location_id,
+                clear_parent=params.clear_parent,
+            )
+        )
 
         # Handle tags - use correct API field name "tagIds" with flat string array
         if params.tag_ids is not None:

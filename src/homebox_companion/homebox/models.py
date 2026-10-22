@@ -124,6 +124,7 @@ class Item(BaseModel):
     quantity: int = Field(default=1, ge=0)
     description: Annotated[str, Field(max_length=1000)] = ""
     parent_id: str | None = Field(default=None, alias="parentId")
+    location_id: str | None = Field(default=None, alias="locationId")
     tag_ids: list[str] = Field(default_factory=list, alias="tagIds")
     # Extended fields
     manufacturer: str | None = None
@@ -169,6 +170,7 @@ class ItemUpdate(BaseModel):
     quantity: int | None = Field(default=None, ge=1)
     description: Annotated[str, Field(max_length=1000)] | None = None
     parent_id: str | None = Field(default=None, alias="parentId")
+    location_id: str | None = Field(default=None, alias="locationId")
     tag_ids: list[str] | None = Field(default=None, alias="tagIds")
     manufacturer: Annotated[str, Field(max_length=255)] | None = None
     model_number: Annotated[str, Field(max_length=255)] | None = Field(default=None, alias="modelNumber")

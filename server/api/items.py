@@ -15,6 +15,7 @@ from homebox_companion import (
 from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.core import HomeboxAPIError
 from homebox_companion.homebox import ItemCreate
+from homebox_companion.homebox.relationships import item_relationship_payload
 
 from ..dependencies import get_gateway, get_valid_tag_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
@@ -131,7 +132,7 @@ async def create_items(
                             "name": full_item.get("name"),
                             "description": full_item.get("description"),
                             "quantity": full_item.get("quantity"),
-                            "parentId": full_item.get("parent", {}).get("id"),
+                            **item_relationship_payload(full_item, parent_id=parent_id),
                             "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
                             **extended_payload,
                         }
@@ -144,9 +145,6 @@ async def create_items(
                                 for name, value in item_input.custom_fields.items()
                                 if value  # skip empty/null values
                             ]
-                        # Preserve parentId if it was set
-                        if parent_id:
-                            update_data["parentId"] = parent_id
                         result = await gateway.update_item(item_id, update_data)
                         logger.info("  Updated item with extended fields")
                     except HomeboxAuthError:
@@ -298,7 +296,7 @@ async def update_item(
         "name": full_item.get("name"),
         "description": full_item.get("description", ""),
         "quantity": full_item.get("quantity", 1),
-        "parentId": full_item.get("parent", {}).get("id"),
+        **item_relationship_payload(full_item),
         "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
     }
 
