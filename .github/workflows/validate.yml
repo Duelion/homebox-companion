@@ -76,12 +76,17 @@ jobs:
           retention-days: 7
 
   homebox-live:
-    name: Homebox live checks
+    name: Homebox ${{ matrix.homebox-version }} live checks
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        homebox-version: ["0.27.0", "0.26.2"]
     env:
       HBC_LLM_API_KEY: ci-sentinel-no-network
       HBC_LLM_MODEL: gpt-5-mini
+      TEST_HOMEBOX_VERSION: ${{ matrix.homebox-version }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
@@ -102,3 +107,4 @@ jobs:
           tests/test_companion_auth_live.py
           tests/test_label_print_live.py
           tests/test_mcp_tools.py
+          tests/test_item_relationships_live.py

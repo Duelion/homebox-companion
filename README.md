@@ -66,7 +66,7 @@ Before you start, you'll need:
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
 - **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server
 
-> **Compatibility:** Integration tests use Homebox v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
+> **Compatibility:** Integration tests default to Homebox v0.27.0 and also run against v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
 
 ## 🚀 Quick Start
 
@@ -117,7 +117,16 @@ A configured key is used only by the server. The browser receives no Homebox key
 
 All people who can reach a key-mode deployment act as the key's Homebox owner. Use a dedicated Homebox user with the intended collection permissions and control access through your network or reverse proxy. Browser chat contexts separate conversation history and pending approvals; they are not accounts or access credentials. Existing contextless chats and scan drafts remain stored, but are not loaded automatically into a newly verified context. Clearing browser data creates a new chat context. Server chat state remains in memory with its existing TTL and requires a single worker for consistent conversations.
 
-To rotate a key, create a replacement in Homebox, update the server environment, restart Companion and verify its connection, then revoke the old key in Homebox. Companion does not refresh or revoke API keys. Homebox v0.26.x requires its own stable `HBOX_AUTH_API_KEY_PEPPER` of at least 32 bytes; configure that on **Homebox**, never on Companion. See [Homebox configuration](https://github.com/sysadminsmedia/homebox/blob/e01dd737238a3fa7e1a6454b37de6c6fc88c86e4/docs/src/content/docs/en/quick-start/configure/index.mdx).
+New API keys created by Homebox v0.27 expire after 30 days when no expiry is
+chosen. An upgrade does not retroactively expire existing non-expiring keys.
+Check the chosen expiry when creating a key and rotate it before that date.
+Companion does not renew keys automatically, so keep the rotation procedure:
+create a replacement, update the server environment, restart Companion and
+verify its connection, then revoke the old key in Homebox.
+
+Homebox requires its own stable `HBOX_AUTH_API_KEY_PEPPER` of at least 32 bytes;
+changing it invalidates issued keys. Configure it on **Homebox**, never on
+Companion. See the [Homebox v0.27 configuration documentation](https://github.com/sysadminsmedia/homebox/blob/v0.27.0/docs/src/content/docs/en/quick-start/configure/index.mdx).
 
 ### Shared settings
 

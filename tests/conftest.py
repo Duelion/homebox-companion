@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import http.server
+import math
 import os
 import shutil
 import socket
@@ -16,7 +17,7 @@ from collections.abc import AsyncGenerator, Generator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Protocol
 
 import httpx
 import pytest
@@ -45,7 +46,10 @@ def _configure_loguru_for_tests():
 # Test Infrastructure Constants
 # ---------------------------------------------------------------------------
 
-HOMEBOX_IMAGE = "ghcr.io/sysadminsmedia/homebox@sha256:b1ad7e3c63f732a5f6daa466e8116be4f545b3b120383a64dcb62beb00a660cc"
+HOMEBOX_IMAGES = {
+    "0.27.0": "ghcr.io/sysadminsmedia/homebox@sha256:d49f12caf25ce3fa7f44102bb74953f3dff2dfdad38d87bd9057f3f611e797bb",
+    "0.26.2": "ghcr.io/sysadminsmedia/homebox@sha256:b1ad7e3c63f732a5f6daa466e8116be4f545b3b120383a64dcb62beb00a660cc",
+}
 HOMEBOX_CONTAINER_PORT = 7745
 
 # Demo user credentials (created automatically by HBOX_DEMO=true)
@@ -61,6 +65,54 @@ def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         return s.getsockname()[1]
+
+
+def _wait_for_demo_seed(
+    container_name: str,
+    timeout: float = 60.0,
+    interval: float = 0.5,
+    *,
+    monotonic=time.monotonic,
+    sleep=time.sleep,
+) -> None:
+    """Wait for Homebox's asynchronous demo import before authenticating."""
+    deadline = monotonic() + timeout
+    last_logs = ""
+    while monotonic() < deadline:
+        logs = subprocess.run(
+            ["docker", "logs", container_name],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        last_logs = f"{logs.stdout}\n{logs.stderr}"[-6000:]
+        if "Demo setup complete" in last_logs:
+            return
+        state = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{.State.Running}} {{.State.Status}} {{.State.ExitCode}}",
+                container_name,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if state.returncode == 0 and not state.stdout.strip().lower().startswith("true "):
+            pytest.fail(
+                f"Homebox exited before demo setup completed ({state.stdout.strip() or 'unknown state'}). "
+                f"Container diagnostics:\n{last_logs}",
+                pytrace=False,
+            )
+        sleep(min(interval, max(0.0, deadline - monotonic())))
+    pytest.fail(
+        f"Homebox demo setup did not complete within {timeout}s. Container diagnostics:\n{last_logs}",
+        pytrace=False,
+    )
 
 
 def _wait_for_homebox(base_url: str, timeout: float = 60.0, interval: float = 1.0) -> None:
@@ -148,6 +200,7 @@ class HomeboxDockerServer:
 
     name: str
     environment: dict[str, str]
+    image: str
     volume: str | None = None
     docker_args: tuple[str, ...] = ()
     base_url: str = field(init=False, repr=False)
@@ -167,7 +220,7 @@ class HomeboxDockerServer:
             command.extend(["-v", f"{self.volume}:/data"])
         for key, value in self.environment.items():
             command.extend(["-e", f"{key}={value}"])
-        command.append(HOMEBOX_IMAGE)
+        command.append(self.image)
         result = subprocess.run(command, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             pytest.fail(f"Docker container failed to start: {result.stderr}", pytrace=False)
@@ -290,12 +343,31 @@ def mock_label_printer() -> Generator[MockLabelPrinter]:
 
 
 @pytest.fixture(scope="session")
+def homebox_version() -> str:
+    """Return the explicitly supported Homebox version selected for this run."""
+    version = os.environ.get("TEST_HOMEBOX_VERSION", "0.27.0").strip()
+    if version not in HOMEBOX_IMAGES:
+        pytest.fail(
+            f"Unsupported TEST_HOMEBOX_VERSION={version!r}; choose one of {', '.join(HOMEBOX_IMAGES)}",
+            pytrace=False,
+        )
+    return version
+
+
+@pytest.fixture(scope="session")
+def homebox_image(homebox_version: str) -> str:
+    """Resolve a version only through the reviewed digest allowlist."""
+    return HOMEBOX_IMAGES[homebox_version]
+
+
+@pytest.fixture(scope="session")
 def homebox_container(
     mock_label_printer: MockLabelPrinter,
+    homebox_image: str,
 ) -> Generator[tuple[str, str]]:
     """Start a disposable Homebox Docker container for the test session.
 
-    The container runs ``ghcr.io/sysadminsmedia/homebox:0.26.2`` with
+    The container runs the selected digest-pinned supported Homebox version with
     ``HBOX_DEMO=true`` which auto-populates sample data and creates the
     ``demo@example.com`` / ``demodemo`` user.  The label maker print command
     is configured to POST the label PNG to the ``mock_label_printer``
@@ -314,6 +386,7 @@ def homebox_container(
     try:
         server = HomeboxDockerServer(
             name=container_name,
+            image=homebox_image,
             environment={
                 "HBOX_DEMO": "true",
                 "HBOX_DEMO_PASSWORD": DEMO_PASSWORD,
@@ -325,6 +398,7 @@ def homebox_container(
             docker_args=("--add-host=host.docker.internal:host-gateway",),
         )
         server.start()
+        _wait_for_demo_seed(server.name)
         _wait_for_homebox(server.base_url)
         yield server.base_url, container_name
     finally:
@@ -462,15 +536,17 @@ class HomeboxKey:
 
     id: str
     token: str = field(repr=False)
+    expires_at: str | None = None
 
 
 @pytest.fixture(scope="session")
-def isolated_homebox_server() -> Generator[HomeboxDockerServer]:
+def isolated_homebox_server(homebox_image: str) -> Generator[HomeboxDockerServer]:
     """Run production Homebox with persistent test-only storage for upstream contracts."""
     _require_docker()
     suffix = uuid.uuid4().hex[:10]
     server = HomeboxDockerServer(
         name=f"homebox-isolated-{suffix}",
+        image=homebox_image,
         volume=f"homebox-isolated-data-{suffix}",
         environment={
             "HBOX_DEMO": "false",
@@ -489,6 +565,40 @@ def isolated_homebox_server() -> Generator[HomeboxDockerServer]:
         server.remove()
 
 
+class _RegistrationClient(Protocol):
+    def post(self, url: str, *, json: dict[str, str]) -> httpx.Response: ...
+
+
+def _register_with_retry(
+    client: _RegistrationClient,
+    url: str,
+    payload: dict[str, str],
+    *,
+    sleep=time.sleep,
+    monotonic=time.monotonic,
+    max_attempts: int = 4,
+    max_wait: float = 180.0,
+) -> httpx.Response:
+    """Retry only Homebox's registration throttle, reusing the exact payload."""
+    response: httpx.Response | None = None
+    deadline = monotonic() + max_wait
+    for attempt in range(max_attempts):
+        response = client.post(url, json=payload)
+        if response.status_code != 429 or attempt == max_attempts - 1:
+            return response
+        try:
+            delay = float(response.headers.get("Retry-After", "60"))
+        except ValueError:
+            delay = 60.0
+        if not math.isfinite(delay) or delay < 0:
+            delay = 60.0
+        if delay > deadline - monotonic():
+            return response
+        sleep(delay)
+    assert response is not None
+    return response
+
+
 def _register_test_account(server: HomeboxDockerServer) -> HomeboxTestAccount:
     """Use raw bootstrap HTTP so application authentication cannot validate itself."""
     unique = uuid.uuid4().hex
@@ -496,9 +606,11 @@ def _register_test_account(server: HomeboxDockerServer) -> HomeboxTestAccount:
     password = f"pytest-{unique}-Password!"
     api_url = f"{server.base_url}/api/v1"
     with httpx.Client(timeout=15, trust_env=False, follow_redirects=False) as setup:
-        registered = setup.post(
+        registration_payload = {"name": f"Pytest {unique[:8]}", "email": email, "password": password}
+        registered = _register_with_retry(
+            setup,
             f"{api_url}/users/register",
-            json={"name": f"Pytest {unique[:8]}", "email": email, "password": password},
+            registration_payload,
         )
         if registered.status_code != 204:
             logs = subprocess.run(
@@ -556,18 +668,21 @@ def homebox_key_factory(homebox_test_account: HomeboxTestAccount):
     """Issue tracked keys and revoke them with independent account control credentials."""
     created: list[HomeboxKey] = []
 
-    def create(*, expires_at: datetime | None = None) -> HomeboxKey:
+    def create(*, expires_at: datetime | None = None, use_homebox_default: bool = False) -> HomeboxKey:
+        if expires_at is not None and use_homebox_default:
+            raise ValueError("expires_at and use_homebox_default are mutually exclusive")
+        payload = {"name": f"pytest-{uuid.uuid4().hex}"}
+        if not use_homebox_default:
+            payload["expiresAt"] = (expires_at or datetime.now(UTC) + timedelta(hours=2)).isoformat()
         with httpx.Client(timeout=15, trust_env=False) as control:
             response = control.post(
                 f"{homebox_test_account.api_url}/users/self/api-keys",
                 headers={"Authorization": f"Bearer {homebox_test_account.control_token}"},
-                json={
-                    "name": f"pytest-{uuid.uuid4().hex}",
-                    "expiresAt": (expires_at or datetime.now(UTC) + timedelta(hours=2)).isoformat(),
-                },
+                json=payload,
             )
         _expect_status(response, 201, "Tracked API-key creation")
-        key = HomeboxKey(id=response.json()["id"], token=_response_token(response))
+        body = response.json()
+        key = HomeboxKey(id=body["id"], token=_response_token(response), expires_at=body.get("expiresAt"))
         if not key.token.startswith("hb_"):
             pytest.fail("Homebox returned an unexpected API-key format", pytrace=False)
         created.append(key)

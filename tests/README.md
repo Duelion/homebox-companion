@@ -56,8 +56,17 @@ uv run pytest -m live `
   tests/test_homebox_upstream_live.py `
   tests/test_companion_auth_live.py `
   tests/test_label_print_live.py `
-  tests/test_mcp_tools.py
+  tests/test_mcp_tools.py `
+  tests/test_item_relationships_live.py
 ```
+
+The default is digest-pinned Homebox 0.27.0. CI runs this same allowlist against
+both 0.27.0 and 0.26.2. To reproduce the compatibility job locally, set
+`TEST_HOMEBOX_VERSION=0.26.2`; unsupported versions fail before Docker starts.
+Homebox may throttle rapid account registration, so the fixture retries only
+HTTP 429 responses, honors `Retry-After`, and stops after four attempts or
+a three-minute retry budget. Demo-backed tests wait for the sample-data import
+to finish before authenticating.
 
 The Companion live tests use a sentinel LLM key and exercise the Homebox boundary
 without making an LLM request. Docker must be available on `PATH` with its daemon

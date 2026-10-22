@@ -121,6 +121,21 @@ def test_key_expiry_revocation_and_rotation(
         )
 
 
+def test_new_key_uses_homebox_027_default_expiry(
+    homebox_version: str,
+    homebox_key_factory,
+) -> None:
+    if homebox_version != "0.27.0":
+        pytest.skip("Homebox added the default API-key expiry in 0.27.0")
+    before = datetime.now(UTC)
+    key = homebox_key_factory(use_homebox_default=True)
+    after = datetime.now(UTC)
+
+    assert key.expires_at is not None
+    expires_at = datetime.fromisoformat(key.expires_at.replace("Z", "+00:00"))
+    assert before + timedelta(days=29, hours=23) <= expires_at <= after + timedelta(days=30, hours=1)
+
+
 def test_key_survives_container_recreation_and_port_rediscovery(
     homebox_test_account: HomeboxTestAccount,
     homebox_key_factory,
