@@ -112,8 +112,8 @@ container itself.
 
 Mount `/app/data` to retain settings across container replacement. Fresh named
 volumes inherit the image directory's ownership and work with the non-root
-`appuser`. Startup checks creation, atomic replacement and removal in the settings
-directory before serving requests. Existing volumes and host bind mounts retain
+`appuser`. Startup checks creation, atomic replacement and removal in both settings
+directories before serving requests. Existing volumes and host bind mounts retain
 their existing permissions; the image cannot override host filesystem permissions.
 
 If startup reports unwritable storage, stop Companion and back up the selected
@@ -145,35 +145,19 @@ Read-only mounts must be made writable. Do not delete settings, recursively chan
 ownership of unrelated directories, or grant world-write permissions as a repair.
 Restart Companion after correcting the selected mount.
 
-### Upgrading persistent field preferences
+### Saved field preferences
 
-Profiles, custom fields, default tags, output language and AI field instructions
-now share `/app/data/settings.yaml`. Field preferences are saved as sparse
-overrides: hardcoded defaults → current `HBC_AI_*` environment → saved values.
-Reset clears only these overrides, retaining profiles and custom fields.
+Field preferences keep their existing JSON format and
+`/app/config/field_preferences.json` path. In the Docker image, this file points
+to `/app/data/config/field_preferences.json`, so the existing `/app/data` mount
+also persists default tags, output language and AI field instructions. Existing
+`/app/config` directory mounts continue to use their own JSON file. No format
+conversion or additional mount is required.
 
-Older versions wrote live field preferences to
-`/app/config/field_preferences.json`, outside the data mount. Before replacing an
-old container, stop it and back up that file while the container still exists:
-
-```bash
-docker cp YOUR_OLD_CONTAINER:/app/config/field_preferences.json ./field_preferences.json
-```
-
-For the first upgraded start, make that recovered JSON available at the same
-legacy path (for example, a read-only bind mount of the backed-up file to
-`/app/config/field_preferences.json`) alongside your existing `/app/data` mount.
-The internal settings schema migrates to v3 once, using the legacy JSON as the
-authoritative preference source, and preserves both profiles and custom fields.
-An absent JSON file means no saved preference overrides; the old YAML preference
-snapshot was inactive and is deliberately ignored. Invalid YAML or legacy JSON
-stops settings loading without replacing either file with defaults.
-
-The legacy JSON is left untouched for recovery. After v3 is saved, it is never
-imported again, including after Reset. Preserve backups until you have verified
-Settings and replaced the container successfully. If the old container has
-already been removed and its JSON was never mounted or backed up, those values
-cannot be recovered from the data volume; enter them again in Settings.
+Profiles and custom fields remain in `/app/data/settings.yaml`. Field preferences
+are sparse overrides: hardcoded defaults → current `HBC_AI_*` environment → saved
+JSON values. Reset clears only the JSON overrides, retaining profiles and custom
+fields. Invalid settings files are preserved rather than replaced with defaults.
 
 ### Homebox API key or legacy login
 

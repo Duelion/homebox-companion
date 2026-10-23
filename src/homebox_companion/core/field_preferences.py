@@ -5,30 +5,40 @@ that modify how the AI generates item data.
 
 Two-tier preference model:
 1. Defaults = hardcoded values + environment variables (immutable after init)
-2. User overrides = settings page config (stored in data/settings.yaml, can be reset)
+2. User overrides = settings page config (stored in config/field_preferences.json, can be reset)
 
 The defaults are resolved once at import time and cached. User overrides from
-the settings UI are stored as a sparse mapping in data/settings.yaml and overlaid on top.
+the settings UI are stored as a sparse mapping in config/field_preferences.json and overlaid on top.
 """
 
 from __future__ import annotations
 
+import json
+import os
+import tempfile
+import threading
+from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Legacy import location; schema v3 reads this only during initial migration
+# Logical location; the Docker image links this file into its data volume.
 CONFIG_DIR = Path("config")
 PREFERENCES_FILE = CONFIG_DIR / "field_preferences.json"
+_preferences_lock = threading.RLock()
+
+
+class FieldPreferencesLoadError(RuntimeError):
+    """Saved preferences cannot be read safely; the original file is preserved."""
 
 
 class FieldPreferences(BaseSettings):
     """Field preferences with built-in defaults and env var support.
 
     Defaults are resolved once at import time (hardcoded → env vars).
-    User overrides from settings UI are stored in data/settings.yaml and overlaid on top.
+    User overrides from settings UI are stored in config/field_preferences.json and overlaid on top.
 
     All fields have hardcoded defaults. Environment variables (HBC_AI_*)
     automatically override these via pydantic-settings.
@@ -144,43 +154,63 @@ def normalize_field_overrides(value: object) -> dict[str, str]:
     return result
 
 
-def load_field_preferences() -> FieldPreferences:
-    """Resolve hardcoded defaults, current process environment and saved overrides."""
-    from .persistent_settings import get_settings
+def _load_overrides() -> dict[str, str]:
+    """Read JSON without rewriting it or exposing parser diagnostics."""
+    with _preferences_lock:
+        try:
+            return normalize_field_overrides(json.loads(PREFERENCES_FILE.read_text(encoding="utf-8")))
+        except FileNotFoundError:
+            return {}
+        except OSError, ValueError:
+            pass
+        raise FieldPreferencesLoadError("Failed to load field preferences; original file was preserved")
 
-    return FieldPreferences.model_validate(get_defaults().model_dump() | get_settings().field_preferences)
+
+def load_field_preferences() -> FieldPreferences:
+    """Resolve hardcoded defaults, process environment and saved JSON overrides."""
+    return FieldPreferences.model_validate(get_defaults().model_dump() | _load_overrides())
 
 
 def save_field_preferences(preferences: FieldPreferences) -> None:
     """Atomically save only non-null differences from current defaults."""
-    from .persistent_settings import PersistentSettings, mutate_settings
-
     defaults = get_defaults()
-    overrides = {
-        field: value
-        for field in FieldPreferences.model_fields
-        if (value := getattr(preferences, field)) is not None and value != getattr(defaults, field)
-    }
-
-    def update(settings: PersistentSettings) -> None:
-        settings.field_preferences = overrides
-
-    mutate_settings(update)
+    overrides = normalize_field_overrides(
+        {
+            field: value
+            for field in FieldPreferences.model_fields
+            if (value := getattr(preferences, field)) is not None and value != getattr(defaults, field)
+        }
+    )
+    with _preferences_lock:
+        destination = PREFERENCES_FILE.resolve(strict=False)
+        directory = destination.parent
+        directory.mkdir(parents=True, exist_ok=True)
+        descriptor, name = tempfile.mkstemp(dir=directory, prefix=f".{PREFERENCES_FILE.name}.", suffix=".tmp")
+        temporary_path = Path(name)
+        try:
+            temporary_file = os.fdopen(descriptor, "w", encoding="utf-8")
+            descriptor = -1
+            with temporary_file:
+                json.dump(overrides, temporary_file, ensure_ascii=False, indent=2)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            os.replace(temporary_path, destination)
+        except BaseException:
+            if descriptor != -1:
+                with suppress(OSError):
+                    os.close(descriptor)
+            with suppress(OSError):
+                temporary_path.unlink(missing_ok=True)
+            raise
 
 
 def load_user_overrides() -> dict[str, str | None]:
     """Return all UI fields, with None wherever no override was saved."""
-    from .persistent_settings import get_settings
-
-    return dict.fromkeys(FieldPreferences.model_fields) | get_settings().field_preferences
+    return dict.fromkeys(FieldPreferences.model_fields) | _load_overrides()
 
 
 def reset_field_preferences() -> FieldPreferences:
-    """Atomically clear only the override section, preserving other settings."""
-    from .persistent_settings import PersistentSettings, mutate_settings
-
-    def reset(settings: PersistentSettings) -> None:
-        settings.field_preferences = {}
-
-    mutate_settings(reset)
+    """Remove JSON overrides and return the current environment defaults."""
+    with _preferences_lock:
+        PREFERENCES_FILE.resolve(strict=False).unlink(missing_ok=True)
     return get_defaults()

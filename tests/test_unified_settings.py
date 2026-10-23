@@ -1,4 +1,4 @@
-"""Unified preference storage migrations, effective values and transactions."""
+"""Independent JSON preferences and YAML settings durability."""
 
 from __future__ import annotations
 
@@ -52,39 +52,25 @@ def existing_yaml(version: int = 2) -> bytes:
     return content
 
 
-@pytest.mark.parametrize("version", [None, 1, 2])
-def test_legacy_json_is_authoritative_and_migrated_once(version: int | None) -> None:
-    if version is not None:
-        existing_yaml(version)
-    legacy = {"default_label_id": "retained-tag", "name": "Unicode — 鋼", "notes": None}
-    original = json.dumps(legacy).encode()
-    preferences.PREFERENCES_FILE.write_bytes(original)
-
+@pytest.mark.parametrize("version", [1, 2, 3])
+def test_json_is_authoritative_and_yaml_snapshot_stays_inactive(version: int) -> None:
+    original_yaml = existing_yaml(version)
+    original_json = '{"default_label_id":"retained-tag","name":"Unicode — 鋼","notes":null}'.encode()
+    preferences.PREFERENCES_FILE.write_bytes(original_json)
+    assert preferences.load_field_preferences().name == "Unicode — 鋼"
+    assert preferences.load_field_preferences().default_tag_id == "retained-tag"
+    assert storage.SETTINGS_FILE.read_bytes() == original_yaml
+    assert preferences.PREFERENCES_FILE.read_bytes() == original_json
     loaded = storage.load_settings()
-
-    assert loaded.version == 3
-    assert loaded.field_preferences == {"default_tag_id": "retained-tag", "name": "Unicode — 鋼"}
-    if version is not None:
-        assert loaded.llm_profiles[0].api_key == SecretStr("saved-secret")
-        assert loaded.custom_fields[0].name == "Material"
-    assert preferences.PREFERENCES_FILE.read_bytes() == original
-    # Reset never deletes other settings or reimports the preserved legacy copy.
-    before = loaded.model_dump(exclude={"field_preferences"})
-    preferences.reset_field_preferences()
-    storage.clear_settings_cache()
-    assert storage.load_settings().field_preferences == {}
-    assert storage.load_settings().model_dump(exclude={"field_preferences"}) == before
-    assert preferences.PREFERENCES_FILE.read_bytes() == original
-
-
-@pytest.mark.parametrize("version", [1, 2])
-def test_absent_legacy_json_does_not_activate_stale_yaml(version: int) -> None:
-    existing_yaml(version)
-    loaded = storage.load_settings()
-    assert loaded.version == 3
-    assert loaded.field_preferences == {}
-    assert loaded.llm_profiles[0].name == "saved"
+    assert loaded.field_preferences == {"name": "stale bootstrap", "default_tag_id": "stale-tag"}
+    assert loaded.llm_profiles[0].api_key == SecretStr("saved-secret")
     assert loaded.custom_fields[0].name == "Material"
+    yaml_after_load = storage.SETTINGS_FILE.read_bytes()
+    preferences.save_field_preferences(preferences.FieldPreferences(name="updated"))
+    preferences.reset_field_preferences()
+    assert not preferences.PREFERENCES_FILE.exists()
+    assert storage.SETTINGS_FILE.read_bytes() == yaml_after_load
+    assert preferences.load_field_preferences().name == preferences.get_defaults().name
 
 
 def test_fresh_store_is_sparse_and_env_changes_survive_subsequent_startups(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -93,7 +79,7 @@ def test_fresh_store_is_sparse_and_env_changes_survive_subsequent_startups(monke
     assert storage.load_settings().field_preferences == {}
     assert preferences.load_field_preferences().default_tag_id == "env-tag-one"
     preferences.save_field_preferences(preferences.FieldPreferences(name="saved naming"))
-    assert storage.load_settings().field_preferences == {"name": "saved naming"}
+    assert json.loads(preferences.PREFERENCES_FILE.read_text()) == {"name": "saved naming"}
 
     monkeypatch.setenv("HBC_AI_OUTPUT_LANGUAGE", "German")
     monkeypatch.setenv("HBC_AI_DEFAULT_TAG_ID", "env-tag-two")
@@ -149,77 +135,47 @@ async def test_sparse_api_values_drive_effective_prompt_and_reset() -> None:
     assert storage.load_settings().field_preferences == {}
 
 
-@pytest.mark.parametrize("legacy", ["{secret: malformed", "[]", '{"name":42}'])
-@pytest.mark.parametrize("version", [None, 2])
-def test_invalid_legacy_fails_closed_preserving_both_files(legacy: str, version: int | None) -> None:
-    original_yaml = existing_yaml(version) if version is not None else None
-    original_legacy = legacy.encode()
-    preferences.PREFERENCES_FILE.write_bytes(original_legacy)
-    with pytest.raises(storage.SettingsLoadError, match="legacy field preferences") as caught:
+@pytest.mark.parametrize("invalid", ["{secret: malformed", "[]", '{"name":42}'])
+def test_invalid_json_preserves_both_files(invalid: str) -> None:
+    original_yaml = existing_yaml()
+    preferences.PREFERENCES_FILE.write_text(invalid)
+    with pytest.raises(preferences.FieldPreferencesLoadError) as caught:
         preferences.load_field_preferences()
     assert "secret" not in str(caught.value)
     assert caught.value.__context__ is None
-    assert preferences.PREFERENCES_FILE.read_bytes() == original_legacy
-    if original_yaml is None:
-        assert not storage.SETTINGS_FILE.exists()
-    else:
-        assert storage.SETTINGS_FILE.read_bytes() == original_yaml
+    assert preferences.PREFERENCES_FILE.read_text() == invalid
+    assert storage.SETTINGS_FILE.read_bytes() == original_yaml
+    assert storage.load_settings().llm_profiles[0].name == "saved"
 
 
-@pytest.mark.parametrize("version", [2, 3])
-def test_corrupt_yaml_is_never_overwritten_by_preferences(version: int) -> None:
+def test_corrupt_yaml_does_not_block_json_preferences() -> None:
     storage.SETTINGS_FILE.parent.mkdir()
-    original = f"version: {version}\nllm_profiles: [secret malformed".encode()
+    original = b"llm_profiles: [secret malformed"
     storage.SETTINGS_FILE.write_bytes(original)
-    preferences.PREFERENCES_FILE.write_text('{"name":"legacy"}')
-    for operation in (preferences.load_field_preferences, preferences.reset_field_preferences):
-        with pytest.raises(storage.SettingsLoadError):
-            operation()
-        assert storage.SETTINGS_FILE.read_bytes() == original
+    preferences.save_field_preferences(preferences.FieldPreferences(name="independent"))
+    assert preferences.load_field_preferences().name == "independent"
+    preferences.reset_field_preferences()
+    assert storage.SETTINGS_FILE.read_bytes() == original
 
 
-@pytest.mark.parametrize("version", [None, 2])
-def test_failed_migration_replace_preserves_sources_and_does_not_cache_success(
-    version: int | None,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    original = existing_yaml(version) if version is not None else None
-    preferences.PREFERENCES_FILE.write_text('{"name":"legacy naming"}')
-    replace = storage.os.replace
-
-    def fail(*args: object) -> None:
-        raise OSError("replace failed")
-
-    monkeypatch.setattr(storage.os, "replace", fail)
-    with pytest.raises((storage.SettingsLoadError, OSError)):
-        preferences.load_field_preferences()
-    if original is None:
-        assert not storage.SETTINGS_FILE.exists()
-    else:
-        assert storage.SETTINGS_FILE.read_bytes() == original
-    assert preferences.PREFERENCES_FILE.read_text() == '{"name":"legacy naming"}'
-    assert list(storage.SETTINGS_FILE.parent.glob("*.tmp")) == []
-    monkeypatch.setattr(storage.os, "replace", replace)
-    assert preferences.load_field_preferences().name == "legacy naming"
-    assert storage.load_settings().version == 3
-
-
-def test_failed_preference_save_preserves_all_settings_and_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_failed_json_replace_preserves_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_yaml = existing_yaml()
     preferences.save_field_preferences(preferences.FieldPreferences(name="saved naming"))
-    original = storage.SETTINGS_FILE.read_bytes()
-    assert preferences.load_field_preferences().name == "saved naming"
+    original_json = preferences.PREFERENCES_FILE.read_bytes()
 
     def fail(*args: object) -> None:
         raise OSError("replace failed")
 
-    monkeypatch.setattr(storage.os, "replace", fail)
+    monkeypatch.setattr(preferences.os, "replace", fail)
     with pytest.raises(OSError, match="replace failed"):
         preferences.save_field_preferences(preferences.FieldPreferences(name="unsaved naming"))
-    assert storage.SETTINGS_FILE.read_bytes() == original
+    assert preferences.PREFERENCES_FILE.read_bytes() == original_json
+    assert storage.SETTINGS_FILE.read_bytes() == original_yaml
     assert preferences.load_field_preferences().name == "saved naming"
+    assert list(preferences.PREFERENCES_FILE.parent.glob("*.tmp")) == []
 
 
-def test_all_runtime_writers_serialize_fresh_read_through_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_yaml_writers_serialize_while_json_remains_independent(monkeypatch: pytest.MonkeyPatch) -> None:
     storage.save_settings(
         storage.PersistentSettings(
             llm_profiles=[
@@ -262,11 +218,13 @@ def test_all_runtime_writers_serialize_fresh_read_through_commit(monkeypatch: py
         asyncio.run(llm_profiles.update_profile("primary", llm_profiles.ProfileUpdateRequest(new_name="renamed")))
 
     with ThreadPoolExecutor(max_workers=3, thread_name_prefix="settings") as pool:
-        first = pool.submit(preferences.save_field_preferences, preferences.FieldPreferences(name="durable naming"))
+        first = pool.submit(update_custom)
         assert first_mutation.wait(5)
-        others = [pool.submit(update_custom), pool.submit(update_profile)]
+        preferences.save_field_preferences(preferences.FieldPreferences(name="durable naming"))
+        assert preferences.load_field_preferences().name == "durable naming"
+        others = [pool.submit(update_profile)]
         try:
-            assert all(event.wait(5) for event in attempted)
+            assert attempted[1].wait(5)
             for future in others:
                 with pytest.raises(TimeoutError):
                     future.result(timeout=0.05)
@@ -275,7 +233,113 @@ def test_all_runtime_writers_serialize_fresh_read_through_commit(monkeypatch: py
         for future in [first, *others]:
             future.result(timeout=5)
     final = storage.load_settings()
-    assert observed == [{}, {"name": "durable naming"}, {"name": "durable naming"}]
-    assert final.field_preferences == {"name": "durable naming"}
+    assert observed == [{}, {}]
+    assert final.field_preferences == {}
+    assert preferences.load_field_preferences().name == "durable naming"
     assert final.llm_profiles[0].name == "renamed"
     assert final.custom_fields[0].name == "Material"
+
+
+def test_json_save_and_reset_serialize(monkeypatch: pytest.MonkeyPatch) -> None:
+    replacing = threading.Event()
+    release = threading.Event()
+    resetting = threading.Event()
+    real_replace = preferences.os.replace
+
+    def blocked_replace(source: Path, destination: Path) -> None:
+        replacing.set()
+        assert release.wait(5)
+        real_replace(source, destination)
+
+    def reset() -> None:
+        resetting.set()
+        preferences.reset_field_preferences()
+
+    monkeypatch.setattr(preferences.os, "replace", blocked_replace)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        saving = pool.submit(preferences.save_field_preferences, preferences.FieldPreferences(name="saved"))
+        assert replacing.wait(5)
+        reset_future = pool.submit(reset)
+        try:
+            assert resetting.wait(5)
+            with pytest.raises(TimeoutError):
+                reset_future.result(timeout=0.05)
+        finally:
+            release.set()
+        saving.result(timeout=5)
+        reset_future.result(timeout=5)
+    assert not preferences.PREFERENCES_FILE.exists()
+    assert not storage.SETTINGS_FILE.exists()
+
+
+@pytest.fixture
+def linked_preferences(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    link = tmp_path / "config" / "field_preferences.json"
+    target = tmp_path / "data" / "config" / "field_preferences.json"
+    link.parent.mkdir()
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("File symlinks are unavailable for this runtime user")
+    monkeypatch.setattr(preferences, "PREFERENCES_FILE", link)
+    return link, target
+
+
+def test_json_file_symlink_survives_save_reset_and_resave(linked_preferences: tuple[Path, Path]) -> None:
+    link, target = linked_preferences
+    assert not target.parent.exists()
+    preferences.save_field_preferences(preferences.FieldPreferences(name="first"))
+    assert link.is_symlink()
+    assert json.loads(target.read_text()) == {"name": "first"}
+    assert preferences.load_field_preferences().name == "first"
+    preferences.reset_field_preferences()
+    assert link.is_symlink()
+    assert not target.exists()
+    assert preferences.load_field_preferences().name == preferences.get_defaults().name
+    preferences.save_field_preferences(preferences.FieldPreferences(name="second"))
+    assert link.is_symlink()
+    assert json.loads(target.read_text()) == {"name": "second"}
+    assert preferences.load_field_preferences().name == "second"
+
+
+def test_failed_replace_preserves_json_file_symlink_and_target(
+    linked_preferences: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    link, target = linked_preferences
+    preferences.save_field_preferences(preferences.FieldPreferences(name="saved"))
+    original = target.read_bytes()
+
+    def fail(source: Path, destination: Path) -> None:
+        assert destination == target
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(preferences.os, "replace", fail)
+    with pytest.raises(OSError, match="replace failed"):
+        preferences.save_field_preferences(preferences.FieldPreferences(name="unsaved"))
+    assert link.is_symlink()
+    assert target.read_bytes() == original
+    assert preferences.load_field_preferences().name == "saved"
+    assert list(target.parent.glob("*.tmp")) == []
+
+
+def test_old_full_yaml_snapshot_preserves_null_without_affecting_json() -> None:
+    existing_yaml(version=2)
+    raw = yaml.safe_load(storage.SETTINGS_FILE.read_text())
+    snapshot = preferences.FieldPreferences().model_dump()
+    assert snapshot["default_tag_id"] is None
+    raw["field_preferences"] = snapshot
+    storage.SETTINGS_FILE.write_text(yaml.safe_dump(raw))
+    preferences.PREFERENCES_FILE.write_text('{"name":"live JSON","default_tag_id":"live-tag"}')
+
+    loaded = storage.load_settings()
+    assert loaded.version == storage.CURRENT_VERSION
+    assert loaded.field_preferences == snapshot
+    assert loaded.llm_profiles[0].api_key == SecretStr("saved-secret")
+    assert loaded.custom_fields[0].name == "Material"
+    assert yaml.safe_load(storage.SETTINGS_FILE.read_text())["field_preferences"] == snapshot
+    assert preferences.load_field_preferences().name == "live JSON"
+    assert preferences.load_field_preferences().default_tag_id == "live-tag"
+    before = storage.SETTINGS_FILE.read_bytes()
+    preferences.reset_field_preferences()
+    assert storage.SETTINGS_FILE.read_bytes() == before
+    assert preferences.load_field_preferences().default_tag_id is None

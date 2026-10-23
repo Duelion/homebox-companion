@@ -131,8 +131,8 @@ class TestGetEffectiveCustomizations:
 class TestResetPreferences:
     """Test resetting preferences to defaults."""
 
-    def test_reset_preserves_legacy_file_and_returns_defaults(self, monkeypatch) -> None:
-        """Reset should clear unified overrides and retain the legacy recovery copy."""
+    def test_reset_removes_json_and_returns_defaults(self, monkeypatch) -> None:
+        """Reset should remove JSON overrides."""
         monkeypatch.setenv("HBC_AI_OUTPUT_LANGUAGE", "Italian")
         monkeypatch.setenv("HBC_AI_NAME", "Env name")
 
@@ -145,8 +145,8 @@ class TestResetPreferences:
 
         prefs = field_preferences.reset_field_preferences()
 
-        # The old recovery copy remains, but v3 never imports it again.
-        assert prefs_file.exists()
+        # Reset removes the authoritative override file.
+        assert not prefs_file.exists()
         persistent_settings.clear_settings_cache()
         assert field_preferences.load_field_preferences().output_language == "Italian"
 
@@ -184,7 +184,7 @@ class TestSaveAndLoad:
         )
         field_preferences.save_field_preferences(prefs)
 
-        assert persistent_settings.SETTINGS_FILE.exists()
+        assert field_preferences.PREFERENCES_FILE.exists()
 
         # Load them back
         loaded = field_preferences.load_field_preferences()
@@ -194,11 +194,12 @@ class TestSaveAndLoad:
         assert loaded.description == "Custom description"
 
     def test_save_creates_settings_dir(self) -> None:
-        """Save creates the actual unified settings directory."""
-        assert not persistent_settings.SETTINGS_FILE.parent.exists()
+        """Save creates the JSON configuration directory."""
+        field_preferences.PREFERENCES_FILE.parent.rmdir()
+        assert not field_preferences.PREFERENCES_FILE.parent.exists()
         field_preferences.save_field_preferences(field_preferences.FieldPreferences(name="Test"))
-        assert persistent_settings.SETTINGS_FILE.exists()
-        assert not field_preferences.PREFERENCES_FILE.exists()
+        assert field_preferences.PREFERENCES_FILE.exists()
+        assert not persistent_settings.SETTINGS_FILE.exists()
 
     def test_save_sparse_format(self) -> None:
         """Save should only write fields that differ from defaults (sparse)."""
@@ -213,8 +214,8 @@ class TestSaveAndLoad:
         )
         field_preferences.save_field_preferences(prefs)
 
-        # Unified YAML retains only sparse overrides.
-        saved_data = persistent_settings.load_settings().field_preferences
+        # JSON retains only sparse overrides.
+        saved_data = json.loads(field_preferences.PREFERENCES_FILE.read_text())
         assert "name" in saved_data
         assert saved_data["name"] == "Custom name"
         # Fields matching defaults should NOT be in the file

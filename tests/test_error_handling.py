@@ -54,7 +54,7 @@ class TestFieldPreferencesFileCorruption:
     """Test field preferences handling of corrupted/invalid files."""
 
     def test_corrupted_json_fails_closed(self, monkeypatch, tmp_path) -> None:
-        """Corrupt legacy JSON must not be replaced with defaults."""
+        """Corrupt JSON must not be replaced with defaults."""
         from homebox_companion.core import field_preferences, persistent_settings
 
         config_dir = tmp_path / "config"
@@ -70,13 +70,13 @@ class TestFieldPreferencesFileCorruption:
         persistent_settings.clear_settings_cache()
         field_preferences.get_defaults.cache_clear()
 
-        with pytest.raises(persistent_settings.SettingsLoadError, match="legacy field preferences"):
+        with pytest.raises(field_preferences.FieldPreferencesLoadError, match="Failed to load field preferences"):
             field_preferences.load_field_preferences()
         assert prefs_file.read_text() == "{ invalid json }"
         assert not persistent_settings.SETTINGS_FILE.exists()
 
     def test_invalid_data_types_fail_closed(self, monkeypatch, tmp_path) -> None:
-        """Invalid legacy values must not be replaced with defaults."""
+        """Invalid JSON values must not be replaced with defaults."""
         from homebox_companion.core import field_preferences, persistent_settings
 
         config_dir = tmp_path / "config"
@@ -97,7 +97,7 @@ class TestFieldPreferencesFileCorruption:
         persistent_settings.clear_settings_cache()
         field_preferences.get_defaults.cache_clear()
 
-        with pytest.raises(persistent_settings.SettingsLoadError, match="legacy field preferences"):
+        with pytest.raises(field_preferences.FieldPreferencesLoadError, match="Failed to load field preferences"):
             field_preferences.load_field_preferences()
         assert json.loads(prefs_file.read_text()) == invalid_prefs
         assert not persistent_settings.SETTINGS_FILE.exists()

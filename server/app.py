@@ -264,7 +264,7 @@ async def lifespan(app: FastAPI):
         )
 
     # Check for legacy label env var (renamed to tag in Homebox v0.23)
-    from homebox_companion.core.field_preferences import get_defaults
+    from homebox_companion.core.field_preferences import PREFERENCES_FILE, get_defaults
 
     field_prefs = get_defaults()
     if field_prefs.using_legacy_label_env:
@@ -281,6 +281,7 @@ async def lifespan(app: FastAPI):
     from homebox_companion.core.persistent_settings import check_settings_storage
 
     check_settings_storage()
+    check_settings_storage(PREFERENCES_FILE.resolve().parent)
 
     # Validate settings on startup
     for issue in app_settings.validate_config():

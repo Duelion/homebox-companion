@@ -40,7 +40,7 @@ async def update_field_preferences(
 ) -> dict[str, str | None]:
     """Update field preferences.
 
-    Saves sparse user-defined overrides in data/settings.yaml.
+    Saves sparse user-defined overrides in config/field_preferences.json.
     Returns only the user overrides (sparse data).
     Authentication is enforced at router level.
     """
@@ -64,7 +64,7 @@ async def update_field_preferences(
 async def delete_field_preferences() -> dict[str, str | None]:
     """Reset field preferences to defaults.
 
-    Clears only field preference overrides in data/settings.yaml and restores defaults.
+    Removes JSON field preference overrides and restores defaults.
     Returns empty overrides (all None values).
     Authentication is enforced at router level.
     """

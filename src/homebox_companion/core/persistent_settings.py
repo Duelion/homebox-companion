@@ -1,6 +1,6 @@
 """Unified settings management with YAML persistence.
 
-Consolidates LLM profiles and field preferences into a single settings.yaml file.
+Persists LLM profiles and custom fields in settings.yaml. Field preferences use JSON.
 Bootstraps from environment variables on first run, then uses the file exclusively.
 
 Settings flow:
@@ -11,7 +11,6 @@ Settings flow:
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import tempfile
@@ -25,9 +24,7 @@ from typing import Self
 
 import yaml
 from loguru import logger
-from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
-
-from .field_preferences import normalize_field_overrides
+from pydantic import BaseModel, Field, SecretStr, model_validator
 
 # Data directory for persistent storage (mounted volume in Docker).
 # This is relative to the working directory, which should be the project root
@@ -51,9 +48,9 @@ class SettingsStorageError(RuntimeError):
     """Raised when the settings directory cannot support durable writes."""
 
 
-def check_settings_storage() -> None:
+def check_settings_storage(directory: Path | None = None) -> None:
     """Probe the actual destination directory without touching saved settings."""
-    directory = SETTINGS_FILE.parent.resolve()
+    directory = (directory if directory is not None else SETTINGS_FILE.parent).resolve()
     probes: list[Path] = []
     failure = False
     try:
@@ -169,25 +166,20 @@ class PersistentSettings(BaseModel):
 
     Contains all persistent configuration:
     - LLM profiles (multi-provider support)
-    - Field preferences (AI output customization)
+    - Inactive field preference snapshots (preserved for compatibility)
     - Custom fields (user-defined Homebox fields with AI instructions)
 
     Attributes:
         version: Schema version for migrations
         llm_profiles: List of configured LLM providers
-        field_preferences: AI output field customizations
+        field_preferences: Inactive historical snapshot, never used at runtime
         custom_fields: User-defined Homebox custom fields
     """
 
     version: int = CURRENT_VERSION
     llm_profiles: list[ModelProfile] = Field(default_factory=list)
-    field_preferences: dict[str, str] = Field(default_factory=dict)
+    field_preferences: dict[str, str | None] = Field(default_factory=dict)
     custom_fields: list[CustomFieldDefinition] = Field(default_factory=list)
-
-    @field_validator("field_preferences", mode="before")
-    @classmethod
-    def validate_field_overrides(cls, value: object) -> dict[str, str]:
-        return normalize_field_overrides(value)
 
     @model_validator(mode="after")
     def validate_profile_constraints(self) -> Self:
@@ -292,22 +284,7 @@ def bootstrap_from_env() -> PersistentSettings:
     return PersistentSettings(
         version=CURRENT_VERSION,
         llm_profiles=profiles,
-        field_preferences=_load_legacy_field_overrides(),
     )
-
-
-def _load_legacy_field_overrides() -> dict[str, str]:
-    """Import legacy JSON independently; never recurse through the runtime loader."""
-    from .field_preferences import PREFERENCES_FILE
-
-    try:
-        if not PREFERENCES_FILE.exists():
-            return {}
-        return normalize_field_overrides(json.loads(PREFERENCES_FILE.read_text(encoding="utf-8")))
-    except OSError, ValueError:
-        pass
-    # Parser errors can contain user instructions or secrets; do not retain them.
-    raise SettingsLoadError("Failed to load legacy field preferences; original file was preserved")
 
 
 def migrate_settings(data: dict) -> dict:
@@ -328,11 +305,6 @@ def migrate_settings(data: dict) -> dict:
     if version < 2:
         data.setdefault("custom_fields", [])
         version = 2
-
-    if version < 3:
-        # Old YAML contained an inactive bootstrap snapshot, not live overrides.
-        # Only the legacy JSON was authoritative. Absence means defaults/reset.
-        data["field_preferences"] = _load_legacy_field_overrides()
 
     data["version"] = CURRENT_VERSION
     return data

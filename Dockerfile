@@ -20,8 +20,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48a
 # Create the runtime user before copying application files so dependency and
 # application layers are owned without a recursive ownership pass.
 RUN useradd --create-home --shell /bin/bash appuser \
-    && mkdir -p /app/data \
-    && chown appuser:appuser /app /app/data
+    && mkdir -p /app/data/config /app/config \
+    && ln -s /app/data/config/field_preferences.json /app/config/field_preferences.json \
+    && chown appuser:appuser /app /app/data /app/data/config /app/config
 ENV HOME=/home/appuser
 ENV UV_CACHE_DIR=/home/appuser/.cache/uv
 USER appuser

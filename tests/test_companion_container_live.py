@@ -11,6 +11,7 @@ import subprocess
 import time
 import uuid
 from collections.abc import Generator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -167,19 +168,160 @@ def test_fresh_volume_settings_survive_restart_and_replacement(
         docker("rm", "--force", name)
 
 
-def test_unwritable_storage_fails_before_healthy_startup(companion_image: str, storage_volume: str) -> None:
+@pytest.mark.parametrize("layout", ["fresh-data", "existing-data", "bind-data", "explicit-config"])
+def test_json_layout_survives_save_reset_and_replacement(
+    companion_image: str, storage_volume: str, tmp_path: Path, layout: str
+) -> None:
+    """Exercise real Linux links and mounts without starting an HTTP server."""
+    config_volume = f"companion-config-{uuid.uuid4().hex}"
+    mounts = ["-v", f"{storage_volume}:/app/data"]
+    bind_owner = (tmp_path.stat().st_uid, tmp_path.stat().st_gid)
+    if layout == "bind-data":
+        mounts = ["-v", f"{tmp_path.resolve()}:/app/data"]
+    if layout == "explicit-config":
+        docker("volume", "create", config_volume)
+        mounts.extend(["-v", f"{config_volume}:/app/config"])
+    try:
+        if layout == "bind-data":
+            # This disposable host directory must be writable by the image user
+            # on Linux too; restore its host ownership during cleanup.
+            docker(
+                "run",
+                "--rm",
+                "--user",
+                "0",
+                *mounts,
+                companion_image,
+                "python",
+                "-c",
+                "import os; os.chown('/app/data',1000,1000)",
+            )
+        if layout == "existing-data":
+            # Populate an older data volume before Docker can copy image contents.
+            previous_settings = (
+                "version: 2\nfield_preferences: {name: inactive, default_tag_id: null}\n"
+                "llm_profiles:\n- name: Existing profile\n  model: gpt-5.6-luna\n"
+                "  status: primary\n  api_key: storage-sentinel-no-provider-call\n"
+                "custom_fields:\n- name: Existing material\n  ai_instruction: Preserve steel\n"
+            )
+            docker(
+                "run",
+                "--rm",
+                "--user",
+                "0",
+                "-v",
+                f"{storage_volume}:/seed",
+                companion_image,
+                "python",
+                "-c",
+                "import os; from pathlib import Path; os.chown('/seed',1000,1000); "
+                f"Path('/seed/settings.yaml').write_text({previous_settings!r})",
+            )
+        if layout == "explicit-config":
+            docker(
+                "run",
+                "--rm",
+                "--user",
+                "0",
+                "-v",
+                f"{config_volume}:/seed",
+                companion_image,
+                "python",
+                "-c",
+                "import os; from pathlib import Path; os.chown('/seed',1000,1000); "
+                "p=Path('/seed/field_preferences.json'); p.write_text('{\"name\":\"mounted JSON\"}'); "
+                "os.chown(p,1000,1000)",
+            )
+        exercise = """
+from pathlib import Path
+from homebox_companion.core.field_preferences import (
+    PREFERENCES_FILE as p, get_defaults, load_field_preferences,
+    reset_field_preferences, save_field_preferences,
+)
+from homebox_companion.core.persistent_settings import check_settings_storage, get_settings
+check_settings_storage()
+check_settings_storage(p.resolve().parent)
+settings = Path('/app/data/settings.yaml')
+if settings.exists():
+    loaded = get_settings()
+    assert loaded.llm_profiles[0].name == 'Existing profile'
+    assert loaded.custom_fields[0].name == 'Existing material'
+    assert loaded.field_preferences == {'name': 'inactive', 'default_tag_id': None}
+    assert load_field_preferences().name == get_defaults().name
+original = settings.read_bytes() if settings.exists() else None
+linked = p.is_symlink()
+if not linked:
+    assert load_field_preferences().name == 'mounted JSON'
+    # A separate data-file sentinel must never override an explicit config mount.
+    Path('/app/data/config').mkdir(exist_ok=True)
+    Path('/app/data/config/field_preferences.json').write_text('{"name":"data sentinel"}')
+save_field_preferences(get_defaults().model_copy(update={'name': 'saved JSON — 鋼'}))
+assert load_field_preferences().name == 'saved JSON — 鋼'
+assert p.is_symlink() == linked
+reset_field_preferences()
+assert load_field_preferences().name == get_defaults().name
+assert not p.exists()
+assert p.is_symlink() == linked
+save_field_preferences(get_defaults().model_copy(update={'name': 'replacement JSON'}))
+assert p.is_symlink() == linked
+assert (settings.read_bytes() if settings.exists() else None) == original
+if not linked:
+    assert Path('/app/data/config/field_preferences.json').read_text() == '{"name":"data sentinel"}'
+"""
+        docker("run", "--rm", *mounts, companion_image, "uv", "run", "--no-sync", "python", "-c", exercise)
+        restored = docker(
+            "run",
+            "--rm",
+            *mounts,
+            companion_image,
+            "uv",
+            "run",
+            "--no-sync",
+            "python",
+            "-c",
+            "from homebox_companion.core.field_preferences import load_field_preferences; "
+            "print(load_field_preferences().name)",
+        )
+        assert restored == "replacement JSON"
+    finally:
+        if layout == "bind-data":
+            docker(
+                "run",
+                "--rm",
+                "--user",
+                "0",
+                *mounts,
+                companion_image,
+                "python",
+                "-c",
+                "import os; from pathlib import Path; root=Path('/app/data'); "
+                f"[os.chown(p,{bind_owner[0]},{bind_owner[1]}) for p in [root,*root.rglob('*')]]",
+            )
+        if layout == "explicit-config":
+            docker("volume", "rm", config_volume)
+
+
+@pytest.mark.parametrize("directory", ["/app/data", "/app/config"])
+def test_unwritable_storage_fails_before_healthy_startup(
+    companion_image: str, storage_volume: str, directory: str
+) -> None:
     name = f"companion-unwritable-{uuid.uuid4().hex}"
-    # Seed real persisted data as the image user, then mount read-only to test
-    # Linux permission behavior without relying on Windows chmod semantics.
+    # Seed an existing mount before image contents can populate it. Config mounts
+    # from older deployments contain a regular JSON file rather than a link.
+    filename = "settings.yaml" if directory == "/app/data" else "field_preferences.json"
+    sentinel = "retained sentinel" if directory == "/app/data" else '{"name":"retained sentinel"}'
     docker(
         "run",
         "--rm",
+        "--user",
+        "0",
         "-v",
-        f"{storage_volume}:/app/data",
+        f"{storage_volume}:/seed",
         companion_image,
-        "sh",
+        "python",
         "-c",
-        "printf 'retained sentinel' > /app/data/settings.yaml",
+        "import os; from pathlib import Path; os.chown('/seed',1000,1000); "
+        f"p=Path('/seed/{filename}'); p.write_text({sentinel!r}); os.chown(p,1000,1000)",
     )
     docker(
         "run",
@@ -187,7 +329,7 @@ def test_unwritable_storage_fails_before_healthy_startup(companion_image: str, s
         "--name",
         name,
         "-v",
-        f"{storage_volume}:/app/data:ro",
+        f"{storage_volume}:{directory}:ro",
         "-e",
         "HBC_LLM_API_KEY=storage-sentinel-no-provider-call",
         companion_image,
@@ -195,13 +337,19 @@ def test_unwritable_storage_fails_before_healthy_startup(companion_image: str, s
     try:
         assert docker("wait", name) != "0"
         diagnostic = docker("logs", name)
-        assert "Settings storage is not writable at '/app/data'" in diagnostic
+        assert f"Settings storage is not writable at '{directory}'" in diagnostic
         assert "UID " in diagnostic and "GID " in diagnostic
         assert "ownership" in diagnostic
         assert docker("inspect", "--format", "{{.State.Status}}", name) == "exited"
         retained = docker(
-            "run", "--rm", "-v", f"{storage_volume}:/app/data:ro", companion_image, "cat", "/app/data/settings.yaml"
+            "run",
+            "--rm",
+            "-v",
+            f"{storage_volume}:{directory}:ro",
+            companion_image,
+            "cat",
+            f"{directory}/{filename}",
         )
-        assert retained == "retained sentinel"
+        assert retained == sentinel
     finally:
         docker("rm", "--force", name)
