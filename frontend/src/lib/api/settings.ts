@@ -121,6 +121,7 @@ export interface ConfigResponse {
 	update_check_enabled: boolean;
 	image_quality: string;
 	log_level: string;
+	web_logs_enabled: boolean;
 	capture_max_images: number;
 	capture_max_file_size_mb: number;
 	print_enabled: boolean;
@@ -139,10 +140,25 @@ export interface LogsResponse {
 	truncated: boolean;
 }
 
-export const getLogs = (lines: number = 200) => request<LogsResponse>(`/logs?lines=${lines}`);
+const logHeaders = (operatorToken?: string): Record<string, string> =>
+	operatorToken ? { 'X-Companion-Log-Token': operatorToken } : {};
 
-export const downloadLogs = async (filename: string) => {
-	const result = await requestBlobUrl('/logs/download');
+export const getLogs = (lines: number = 200, operatorToken?: string, signal?: AbortSignal) =>
+	request<LogsResponse>(`/logs?lines=${lines}`, { headers: logHeaders(operatorToken), signal });
+
+export const downloadLogs = async (
+	filename: string,
+	operatorToken?: string,
+	signal?: AbortSignal
+) => {
+	const result = await requestBlobUrl('/logs/download', {
+		headers: logHeaders(operatorToken),
+		signal,
+	});
+	if (signal?.aborted) {
+		result.revoke();
+		signal.throwIfAborted();
+	}
 
 	// Create a temporary link and trigger download
 	const a = document.createElement('a');
@@ -156,11 +172,29 @@ export const downloadLogs = async (filename: string) => {
 	document.body.removeChild(a);
 };
 
-export const getLLMDebugLogs = (lines: number = 200) =>
-	request<LogsResponse>(`/logs/llm-debug?lines=${lines}`);
+export const getLLMDebugLogs = (
+	lines: number = 200,
+	operatorToken?: string,
+	signal?: AbortSignal
+) =>
+	request<LogsResponse>(`/logs/llm-debug?lines=${lines}`, {
+		headers: logHeaders(operatorToken),
+		signal,
+	});
 
-export const downloadLLMDebugLogs = async (filename: string) => {
-	const result = await requestBlobUrl('/logs/llm-debug/download');
+export const downloadLLMDebugLogs = async (
+	filename: string,
+	operatorToken?: string,
+	signal?: AbortSignal
+) => {
+	const result = await requestBlobUrl('/logs/llm-debug/download', {
+		headers: logHeaders(operatorToken),
+		signal,
+	});
+	if (signal?.aborted) {
+		result.revoke();
+		signal.throwIfAborted();
+	}
 
 	// Create a temporary link and trigger download
 	const a = document.createElement('a');

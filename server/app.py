@@ -330,6 +330,14 @@ def create_app(app_settings: Settings | None = None, *, static_directory: str | 
     app.state.settings = app_settings or settings
     app.state.homebox_identities = {}
     resolved_settings = app.state.settings
+    from homebox_companion.core.redaction import register_secrets
+
+    register_secrets(
+        resolved_settings.llm_api_key,
+        resolved_settings.openai_api_key,
+        resolved_settings.homebox_api_key,
+        resolved_settings.log_access_token,
+    )
 
     app.add_middleware(RequestBodyLimitMiddleware, settings=resolved_settings)  # type: ignore[arg-type]
 

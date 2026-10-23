@@ -16,6 +16,7 @@ export const config = (auth_mode: AuthMode = 'api_key'): ConfigResponse => ({
 	update_check_enabled: false,
 	image_quality: 'high',
 	log_level: 'INFO',
+	web_logs_enabled: true,
 	capture_max_images: 10,
 	capture_max_file_size_mb: 20,
 	print_enabled: false,

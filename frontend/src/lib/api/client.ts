@@ -488,6 +488,8 @@ export interface BlobUrlResult {
 
 export interface BlobUrlRequestOptions {
 	signal?: AbortSignal;
+	/** Request-scoped headers; never persisted or reused for other requests. */
+	headers?: Record<string, string>;
 	/**
 	 * Request timeout in milliseconds.
 	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (60 seconds).
@@ -543,8 +545,7 @@ export async function requestBlobUrl(
 		options instanceof AbortSignal ? { signal: options } : (options ?? {});
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
-	// Build headers using shared builder (no extra headers for blob requests)
-	const getHeaders = (): HeadersInit => buildApiHeaders();
+	const getHeaders = (): HeadersInit => buildApiHeaders(opts.headers);
 
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal =

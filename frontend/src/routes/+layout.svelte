@@ -12,6 +12,7 @@
 	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
 	import { getVersion } from '$lib/api';
+	import { startNavigationTransition } from '$lib/utils/viewTransition';
 
 	import { initializeApp, retryConnection } from '$lib/services/bootstrap';
 	import Button from '$lib/components/Button.svelte';
@@ -78,22 +79,14 @@
 	// Uses the native View Transitions API when available.
 	onNavigate((navigation) => {
 		if (!browser) return;
-		const doc = document as Document & {
-			startViewTransition?: (cb: () => void | Promise<void>) => unknown;
-		};
 		// IMPORTANT: bind to `document` — some browsers throw if the method is called unbound
 		// (e.g. "called on an object that does not implement interface Document").
-		const startViewTransition = doc.startViewTransition?.bind(doc);
+		const startViewTransition = document.startViewTransition?.bind(document);
 		if (!startViewTransition) return;
 
 		// Wrap the navigation in a view transition.
 		// SvelteKit will wait for the returned promise before completing the navigation.
-		return new Promise<void>((resolve) => {
-			startViewTransition(async () => {
-				resolve();
-				await navigation.complete;
-			});
-		});
+		return startNavigationTransition(startViewTransition, navigation.complete);
 	});
 
 	// Fetch version on mount and register event listeners

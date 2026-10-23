@@ -72,38 +72,66 @@
 	</button>
 
 	{#if showLogsSection}
-		<!-- Application Logs -->
-		<LogPanel
-			title="Application Logs"
-			toggleLabel="Show Server Logs"
-			isExpanded={service.showServerLogs}
-			onToggle={() => service.toggleServerLogs()}
-			isLoading={service.isLoading.serverLogs}
-			error={service.errors.serverLogs}
-			isEmpty={!service.serverLogs}
-			emptyMessage="No server logs available."
-			subtitleLeft={service.serverLogs?.filename ?? undefined}
-			subtitleRight={serverLogsSubtitleRight}
-			fullscreenSubtitle={serverLogsFullscreenSubtitle}
-			onRefresh={() => service.refreshServerLogs()}
-			refreshDisabled={service.isLoading.serverLogs}
-			refreshLoading={service.isLoading.serverLogs}
-			onDownload={() => service.downloadServerLogs()}
-			downloadDisabled={!service.serverLogs?.filename}
-			hasFullscreen={true}
-		>
-			{#snippet icon()}
-				{@render logsIcon('h-4 w-4 text-neutral-400')}
-			{/snippet}
-			{#if service.serverLogs}
-				<LogViewer source={{ type: 'backend', logs: service.serverLogs.logs }} />
-			{/if}
-			{#snippet fullscreenContent()}
+		{#if service.config?.web_logs_enabled}
+			<div class="space-y-2">
+				<label for="server-log-access-key" class="text-body-sm text-neutral-200">
+					Server log access key
+				</label>
+				<input
+					id="server-log-access-key"
+					type="password"
+					autocomplete="off"
+					class="input"
+					value={service.logAccessKey}
+					oninput={(event) => service.setLogAccessKey(event.currentTarget.value)}
+					aria-describedby="server-log-access-help"
+				/>
+				<p id="server-log-access-help" class="text-caption text-neutral-400">
+					Enter the access key provided by your server administrator to view application and LLM
+					logs. It is kept only while this settings page is open and cleared when you switch
+					collections.
+				</p>
+			</div>
+		{:else}
+			<p class="text-body-sm text-neutral-400">
+				Server log viewing is disabled. Ask your server administrator to enable protected log access
+				and provide an access key. Frontend logs and chat transcripts are available below.
+			</p>
+		{/if}
+		{#if service.config?.web_logs_enabled}
+			<!-- Application Logs -->
+			<LogPanel
+				title="Application Logs"
+				toggleLabel="Show Server Logs"
+				isExpanded={service.showServerLogs}
+				onToggle={() => service.toggleServerLogs()}
+				isLoading={service.isLoading.serverLogs}
+				error={service.errors.serverLogs}
+				isEmpty={!service.serverLogs?.logs}
+				emptyMessage="No server logs available."
+				subtitleLeft={service.serverLogs?.filename ?? undefined}
+				subtitleRight={serverLogsSubtitleRight}
+				fullscreenSubtitle={serverLogsFullscreenSubtitle}
+				onRefresh={() => service.refreshServerLogs()}
+				refreshDisabled={service.isLoading.serverLogs}
+				refreshLoading={service.isLoading.serverLogs}
+				onDownload={() => service.downloadServerLogs()}
+				downloadDisabled={!service.serverLogs?.filename}
+				hasFullscreen={true}
+			>
+				{#snippet icon()}
+					{@render logsIcon('h-4 w-4 text-neutral-400')}
+				{/snippet}
 				{#if service.serverLogs}
-					<LogViewer source={{ type: 'backend', logs: service.serverLogs.logs }} maxHeight="" />
+					<LogViewer source={{ type: 'backend', logs: service.serverLogs.logs }} />
 				{/if}
-			{/snippet}
-		</LogPanel>
+				{#snippet fullscreenContent()}
+					{#if service.serverLogs}
+						<LogViewer source={{ type: 'backend', logs: service.serverLogs.logs }} maxHeight="" />
+					{/if}
+				{/snippet}
+			</LogPanel>
+		{/if}
 
 		<!-- Frontend Logs -->
 		<LogPanel
@@ -157,37 +185,39 @@
 		</LogPanel>
 
 		<!-- LLM Debug Log -->
-		<LogPanel
-			title="LLM Debug Log"
-			toggleLabel="Show LLM Debug Log"
-			description="Raw LLM request/response pairs. Technical debugging data for developers."
-			isExpanded={service.showLLMDebugLog}
-			onToggle={() => service.toggleLLMDebugLog()}
-			isLoading={service.isLoading.llmDebugLog}
-			error={service.errors.llmDebugLog}
-			isEmpty={!service.llmDebugLog}
-			emptyMessage="No LLM debug log files found."
-			subtitleLeft={service.llmDebugLog?.filename ?? undefined}
-			subtitleRight={llmDebugLogsSubtitleRight}
-			fullscreenSubtitle={llmDebugLogsFullscreenSubtitle}
-			onRefresh={() => service.refreshLLMDebugLog()}
-			refreshDisabled={service.isLoading.llmDebugLog}
-			refreshLoading={service.isLoading.llmDebugLog}
-			onDownload={() => service.downloadLLMDebugLogs()}
-			downloadDisabled={!service.llmDebugLog?.filename}
-			hasFullscreen={true}
-		>
-			{#snippet icon()}
-				<Code class="text-neutral-400 size-4" size={16} strokeWidth={1.5} />
-			{/snippet}
-			{#if service.llmDebugLog}
-				<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} />
-			{/if}
-			{#snippet fullscreenContent()}
+		{#if service.config?.web_logs_enabled}
+			<LogPanel
+				title="LLM Debug Log"
+				toggleLabel="Show LLM Debug Log"
+				description="Raw LLM request/response pairs. Technical debugging data for developers."
+				isExpanded={service.showLLMDebugLog}
+				onToggle={() => service.toggleLLMDebugLog()}
+				isLoading={service.isLoading.llmDebugLog}
+				error={service.errors.llmDebugLog}
+				isEmpty={!service.llmDebugLog?.logs}
+				emptyMessage="No LLM debug log files found."
+				subtitleLeft={service.llmDebugLog?.filename ?? undefined}
+				subtitleRight={llmDebugLogsSubtitleRight}
+				fullscreenSubtitle={llmDebugLogsFullscreenSubtitle}
+				onRefresh={() => service.refreshLLMDebugLog()}
+				refreshDisabled={service.isLoading.llmDebugLog}
+				refreshLoading={service.isLoading.llmDebugLog}
+				onDownload={() => service.downloadLLMDebugLogs()}
+				downloadDisabled={!service.llmDebugLog?.filename}
+				hasFullscreen={true}
+			>
+				{#snippet icon()}
+					<Code class="text-neutral-400 size-4" size={16} strokeWidth={1.5} />
+				{/snippet}
 				{#if service.llmDebugLog}
-					<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} maxHeight="" />
+					<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} />
 				{/if}
-			{/snippet}
-		</LogPanel>
+				{#snippet fullscreenContent()}
+					{#if service.llmDebugLog}
+						<LogViewer source={{ type: 'backend', logs: service.llmDebugLog.logs }} maxHeight="" />
+					{/if}
+				{/snippet}
+			</LogPanel>
+		{/if}
 	{/if}
 </section>

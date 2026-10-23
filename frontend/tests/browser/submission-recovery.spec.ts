@@ -179,8 +179,7 @@ test('failed primary-photo cleanup is an incomplete item, not a retryable create
 	expect(submissions).toEqual([{ name: 'Created lamp' }]);
 });
 
-test('back cancels a failed-item edit without losing the original row', async ({ page, api }) => {
-	api.allowPageError(/^(navigation aborted|Transition was skipped\. New ViewTransition started)$/);
+test('back cancels a failed-item edit without losing the original row', async ({ page }) => {
 	const submissions: Submission[] = [];
 	await openSummary(page, ['Bad camera'], submissions, { rejectedItems: ['Bad camera'] });
 
@@ -194,8 +193,7 @@ test('back cancels a failed-item edit without losing the original row', async ({
 	expect(submissions.map(({ name }) => name)).toEqual(['Bad camera']);
 });
 
-test('reload during a failed-item edit recovers the unchanged summary', async ({ page, api }) => {
-	api.allowPageError(/^navigation aborted$/);
+test('reload during a failed-item edit recovers the unchanged summary', async ({ page }) => {
 	const submissions: Submission[] = [];
 	await openSummary(page, ['Bad monitor'], submissions, { rejectedItems: ['Bad monitor'] });
 

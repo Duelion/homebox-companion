@@ -18,6 +18,7 @@ from homebox_companion import (
 from homebox_companion import (
     correct_item as llm_correct_item,
 )
+from homebox_companion.ai.images import INVALID_IMAGE_MESSAGE, validate_image_bytes
 from homebox_companion.tools.vision.models import get_custom_fields_dict
 
 from ...dependencies import (
@@ -25,7 +26,6 @@ from ...dependencies import (
     get_vision_context,
     require_llm_configured,
     validate_file_size,
-    validate_files_size,
 )
 from ...schemas.vision import (
     AdvancedItemDetails,
@@ -40,6 +40,15 @@ from ...services.duplicate_checker import DuplicateChecker
 from ...services.image_processing import run_image_processing
 
 router = APIRouter()
+
+
+async def _validated_image(file: UploadFile, request: Request) -> tuple[bytes, str]:
+    contents = await validate_file_size(file, request.app.state.settings)
+    try:
+        mime = await run_image_processing(validate_image_bytes, contents)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=INVALID_IMAGE_MESSAGE) from exc
+    return contents, mime
 
 
 def filter_default_tag(tag_ids: list[str] | None, default_tag_id: str | None) -> list[str]:
@@ -92,16 +101,14 @@ async def detect_items(
     logger.info(f"Extract extended fields: {extract_extended_fields}")
 
     # Read and validate primary image
-    image_bytes = await validate_file_size(image, request.app.state.settings)
+    image_bytes, content_type = await _validated_image(image, request)
     logger.debug(f"Primary image size: {len(image_bytes)} bytes")
-    content_type = image.content_type or "image/jpeg"
 
     # Read additional images if provided (with size validation)
     additional_image_data: list[tuple[bytes, str]] = []
     if additional_images:
         for add_img in additional_images:
-            add_bytes = await validate_file_size(add_img, request.app.state.settings)
-            add_mime = add_img.content_type or "image/jpeg"
+            add_bytes, add_mime = await _validated_image(add_img, request)
             additional_image_data.append((add_bytes, add_mime))
             logger.debug(f"Additional image: {add_img.filename}, size: {len(add_bytes)} bytes")
 
@@ -219,7 +226,7 @@ async def analyze_item_advanced(
         raise HTTPException(status_code=400, detail="At least one image is required")
 
     # Validate and convert images to data URIs
-    validated_images = await validate_files_size(images, request.app.state.settings)
+    validated_images = [await _validated_image(image, request) for image in images]
     image_data_uris = [
         encode_image_bytes_to_data_uri(img_bytes, mime_type) for img_bytes, mime_type in validated_images
     ]
@@ -298,8 +305,7 @@ async def correct_item(
     logger.debug(f"Current item: {current_item_dict}")
 
     # Read and validate image size
-    image_bytes = await validate_file_size(image, request.app.state.settings)
-    content_type = image.content_type or "image/jpeg"
+    image_bytes, content_type = await _validated_image(image, request)
     image_data_uri = encode_image_bytes_to_data_uri(image_bytes, content_type)
 
     logger.debug(f"Loaded {len(ctx.tags)} tags for context")

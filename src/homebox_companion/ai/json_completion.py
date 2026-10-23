@@ -254,8 +254,9 @@ async def json_completion(
     try:
         completion = await router.acompletion(**kwargs)
     except Exception as e:
-        logger.exception(f"Router call failed: {e}")
-        raise LLMServiceError(f"LLM request failed: {e}") from e
+        logger.error("LLM provider request failed ({})", type(e).__name__)
+        message = "The LLM provider request failed. Check the server configuration and try again."
+        raise LLMServiceError(message, user_message=message) from e
 
     if not completion.choices:
         raise LLMServiceError("LLM returned empty response (no choices)")
@@ -305,8 +306,9 @@ async def json_completion(
         repair_kwargs = _build_completion_kwargs(repair_messages, model_name, effective_timeout, response_format)
         repair_completion = await router.acompletion(**repair_kwargs)
     except Exception as e:
-        logger.error(f"Repair request failed: {e}")
-        raise JSONRepairError(f"Failed to repair JSON response. Original error: {error}. Repair error: {e}") from e
+        logger.error("LLM repair request failed ({})", type(e).__name__)
+        message = "The LLM provider could not repair its response. Please try again."
+        raise JSONRepairError(message, user_message=message) from e
 
     if not repair_completion.choices:
         raise JSONRepairError("LLM returned empty response during repair attempt")

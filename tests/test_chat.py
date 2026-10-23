@@ -577,7 +577,8 @@ class TestChatOrchestrator:
         """process_message should yield error event on LLM failure."""
         # Mock the Router to raise an error
         mock_router = MagicMock()
-        mock_router.acompletion = AsyncMock(side_effect=Exception("API Error"))
+        private_error = "provider-private-error-sentinel"
+        mock_router.acompletion = AsyncMock(side_effect=Exception(private_error))
 
         with patch(
             "homebox_companion.chat.llm_client.get_router",
@@ -589,7 +590,8 @@ class TestChatOrchestrator:
 
         error_events = [e for e in events if e.type == ChatEventType.ERROR]
         assert len(error_events) == 1
-        assert "API Error" in error_events[0].data["message"]
+        assert private_error not in error_events[0].data["message"]
+        assert "provider stream failed" in error_events[0].data["message"]
 
     @pytest.mark.asyncio
     async def test_process_message_handles_chained_tool_calls(self, mock_client: MagicMock, session: ChatSession):

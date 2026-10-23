@@ -11,11 +11,13 @@ import { chatStore } from '$lib/stores/chat.svelte';
 import { tagStore } from '$lib/stores/tags.svelte';
 import { locationStore } from '$lib/stores/locations.svelte';
 import { locationNavigator } from './locationNavigator.svelte';
+import { settingsService } from '$lib/workflows/settings.svelte';
 
 registerAuthLifecycle({
 	async cleanupRelatedStores() {
 		// Run each cleanup even when another store fails.
 		const results = await Promise.allSettled([
+			Promise.resolve().then(() => settingsService.clearRemoteLogs()),
 			Promise.resolve().then(() => locationStore.clear()),
 			Promise.resolve().then(() => tagStore.clear()),
 			Promise.resolve().then(() => scanWorkflow.reset()),
@@ -30,6 +32,7 @@ registerAuthLifecycle({
 let bootstrapPromise: Promise<void> | null = null;
 
 async function clearScopedState(): Promise<void> {
+	settingsService.clearRemoteLogs();
 	scanWorkflow.switchContext();
 	chatStore.invalidateContext();
 	tagStore.clear();

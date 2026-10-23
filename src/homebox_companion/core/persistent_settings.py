@@ -250,6 +250,10 @@ def _yaml_dict_to_settings(data: dict) -> PersistentSettings:
         for cf in data.get("custom_fields", [])
     ]
 
+    from .redaction import register_secrets
+
+    register_secrets(*(profile.api_key for profile in profiles))
+
     return PersistentSettings(
         version=data.get("version", CURRENT_VERSION),
         llm_profiles=profiles,
@@ -425,6 +429,9 @@ def save_settings(settings: PersistentSettings) -> None:
         SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
         validated = PersistentSettings.model_validate(settings.model_dump())
+        from .redaction import register_secrets
+
+        register_secrets(*(profile.api_key for profile in validated.llm_profiles))
         yaml_dict = _settings_to_yaml_dict(validated)
 
         # Use default_flow_style=False for readable multi-line output
@@ -455,7 +462,11 @@ def get_settings() -> PersistentSettings:
     Use clear_settings_cache() after modifications to refresh.
     """
     with _settings_lock:
-        return _get_settings_cached().model_copy(deep=True)
+        result = _get_settings_cached().model_copy(deep=True)
+    from .redaction import register_secrets
+
+    register_secrets(*(profile.api_key for profile in result.llm_profiles))
+    return result
 
 
 def clear_settings_cache() -> None:

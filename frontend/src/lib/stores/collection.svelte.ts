@@ -161,6 +161,9 @@ class CollectionStore {
 		if (changed) {
 			log.info(`Switched from ${previousId} to ${id}`);
 			void import('./chat.svelte').then(({ chatStore }) => chatStore.invalidateContext());
+			void import('$lib/workflows/settings.svelte').then(({ settingsService }) =>
+				settingsService.clearRemoteLogs()
+			);
 		}
 		return changed;
 	}

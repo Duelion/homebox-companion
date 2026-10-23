@@ -14,6 +14,8 @@
 	import { getInitPromise } from '$lib/services/bootstrap';
 	import { createLogger } from '$lib/utils/logger';
 	import { getConfig } from '$lib/api/settings';
+	import { validateCaptureImage } from '$lib/utils/validateCaptureImage';
+	import { captureSessionScope } from '$lib/services/scanPersistence';
 	import Button from '$lib/components/Button.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -52,6 +54,7 @@
 	let analysisAnimationComplete = $state(false);
 	let isStartingAnalysis = $state(false);
 	let scrollTimeout: number | null = null;
+	let disposed = false;
 
 	function clearScrollTimeout(): void {
 		if (scrollTimeout !== null) {
@@ -150,16 +153,19 @@
 		// where we check isAuthenticated before initializeAuth clears expired tokens
 		await getInitPromise();
 
-		if (!routeGuards.capture()) return;
+		if (disposed || !routeGuards.capture()) return;
 
 		// Load capture limits from config
 		try {
 			const config = await getConfig();
+			if (disposed) return;
 			maxImages = config.capture_max_images;
 			maxFileSizeMb = config.capture_max_file_size_mb;
 		} catch (error) {
 			log.warn('Failed to load capture config, using defaults', error);
 		}
+
+		if (disposed) return;
 
 		// If workflow is complete (just finished submission), reset for a new scan session
 		if (workflow.state.status === 'complete') {
@@ -176,7 +182,10 @@
 		}
 	});
 
-	onDestroy(clearScrollTimeout);
+	onDestroy(() => {
+		disposed = true;
+		clearScrollTimeout();
+	});
 
 	// Handle analysis animation completion - navigate directly to avoid CaptureButtons appearing
 	function handleAnalysisComplete(attemptId: number) {
@@ -196,124 +205,83 @@
 	// FILE HANDLING
 	// ==========================================================================
 
-	/** Check if file exceeds size limit and show toast if so */
-	function isFileTooLarge(file: File): boolean {
-		if (file.size > maxFileSizeMb * 1024 * 1024) {
-			showToast(`File ${file.name} is too large (max ${maxFileSizeMb}MB)`, 'warning');
-			return true;
+	/** Validate before mutating workflow state; recheck scope, identity and limits after every await. */
+	async function acceptFiles(files: File[], imageIndex?: number) {
+		const scope = JSON.stringify(captureSessionScope());
+		const locationId = workflow.state.locationId;
+		const attemptId = workflow.analysisAttemptId;
+		const targetFile =
+			imageIndex === undefined ? undefined : workflow.state.images[imageIndex]?.file;
+		if (imageIndex !== undefined && !targetFile) return;
+		const isCurrent = () =>
+			!disposed &&
+			scope !== 'null' &&
+			JSON.stringify(captureSessionScope()) === scope &&
+			workflow.state.locationId === locationId &&
+			workflow.analysisAttemptId === attemptId &&
+			['idle', 'capturing'].includes(workflow.state.status) &&
+			(targetFile ? workflow.state.images.some((image) => image.file === targetFile) : true);
+		for (const file of files) {
+			let validated: File;
+			try {
+				validated = await validateCaptureImage(file, maxFileSizeMb);
+			} catch (error) {
+				if (isCurrent())
+					showToast(
+						error instanceof Error ? error.message : 'Unable to read this image.',
+						'warning'
+					);
+				continue;
+			}
+			if (!isCurrent()) return;
+			const current = workflow.state.images;
+			const count = current.reduce(
+				(total, image) => total + 1 + (image.additionalFiles?.length ?? 0),
+				0
+			);
+			if (count >= maxImages) {
+				showToast(`Maximum ${maxImages} images allowed`, 'warning');
+				return;
+			}
+			const previewUrl = createTrackedObjectUrl(validated);
+			if (targetFile) {
+				const currentIndex = current.findIndex((image) => image.file === targetFile);
+				workflow.addAdditionalImages(currentIndex, [validated], [previewUrl]);
+			} else {
+				workflow.addImage({
+					file: validated,
+					dataUrl: previewUrl,
+					separateItems: false,
+					extraInstructions: '',
+				});
+				expandedImages.clear();
+			}
 		}
-		return false;
 	}
 
 	function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
-		if (!input.files) return;
-
-		// Track count locally for limit enforcement
-		let currentCount = totalImageCount;
-
-		for (const file of Array.from(input.files)) {
-			if (currentCount >= maxImages) {
-				showToast(`Maximum ${maxImages} images allowed`, 'warning');
-				break;
-			}
-
-			if (isFileTooLarge(file)) continue;
-
-			currentCount++;
-
-			// Use Object URL instead of base64 data URL - much more memory efficient
-			// Object URLs are tiny strings that reference the File blob in memory
-			// instead of duplicating the entire file as a base64 string
-			const previewUrl = createTrackedObjectUrl(file);
-
-			workflow.addImage({
-				file,
-				dataUrl: previewUrl,
-				separateItems: false,
-				extraInstructions: '',
-			});
-			// Collapse all expanded accordions when a new image is added
-			expandedImages.clear();
-		}
-
+		const files = Array.from(input.files ?? []);
 		input.value = '';
+		void acceptFiles(files);
 	}
 
 	function handleAdditionalImageSelect(imageIndex: number, e: Event) {
 		const input = e.target as HTMLInputElement;
-		if (!input.files) return;
-
-		const newFiles: File[] = [];
-		const newPreviewUrls: string[] = [];
-
-		// Track how many more we can accept
-		const remainingSlots = maxImages - totalImageCount;
-
-		for (const file of Array.from(input.files)) {
-			// Check total image limit (including additional images)
-			if (newFiles.length >= remainingSlots) {
-				showToast(`Maximum ${maxImages} images allowed`, 'warning');
-				break;
-			}
-
-			if (isFileTooLarge(file)) continue;
-
-			// Use Object URL instead of base64 - much more memory efficient
-			const previewUrl = createTrackedObjectUrl(file);
-			newFiles.push(file);
-			newPreviewUrls.push(previewUrl);
-		}
-
-		// Add all valid files at once (synchronous, no FileReader needed)
-		if (newFiles.length > 0) {
-			workflow.addAdditionalImages(imageIndex, newFiles, newPreviewUrls);
-		}
-
+		const files = Array.from(input.files ?? []);
 		input.value = '';
+		void acceptFiles(files, imageIndex);
 	}
 
-	/** Handle paste event on the description input to add images from clipboard */
+	/** Keep ordinary text paste intact; validate clipboard photos through the same path. */
 	function handlePaste(imageIndex: number, e: ClipboardEvent) {
-		const clipboardData = e.clipboardData;
-		if (!clipboardData) return;
-
-		// Check for image files in clipboard
-		const imageFiles: File[] = [];
-		for (const item of Array.from(clipboardData.items)) {
-			if (item.type.startsWith('image/')) {
-				const file = item.getAsFile();
-				if (file) imageFiles.push(file);
-			}
-		}
-
-		// If no images found, let the paste proceed normally (for text)
-		if (imageFiles.length === 0) return;
-
-		// Prevent default paste behavior since we're handling an image
+		const files = Array.from(e.clipboardData?.items ?? [])
+			.filter((item) => item.type.startsWith('image/'))
+			.map((item) => item.getAsFile())
+			.filter((file): file is File => file !== null);
+		if (!files.length) return;
 		e.preventDefault();
-
-		const newFiles: File[] = [];
-		const newPreviewUrls: string[] = [];
-		const remainingSlots = maxImages - totalImageCount;
-
-		for (const file of imageFiles) {
-			if (newFiles.length >= remainingSlots) {
-				showToast(`Maximum ${maxImages} images allowed`, 'warning');
-				break;
-			}
-
-			if (isFileTooLarge(file)) continue;
-
-			const previewUrl = createTrackedObjectUrl(file);
-			newFiles.push(file);
-			newPreviewUrls.push(previewUrl);
-		}
-
-		if (newFiles.length > 0) {
-			workflow.addAdditionalImages(imageIndex, newFiles, newPreviewUrls);
-			log.info(`Pasted ${newFiles.length} image(s) as additional photos for image ${imageIndex}`);
-		}
+		void acceptFiles(files, imageIndex);
 	}
 
 	// ==========================================================================
@@ -773,7 +741,7 @@
 							<!-- Additional images for this item -->
 							<input
 								type="file"
-								accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
+								accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
 								multiple
 								bind:this={additionalImageInputs[index]}
 								onchange={(e) => handleAdditionalImageSelect(index, e)}
@@ -781,7 +749,7 @@
 							/>
 							<input
 								type="file"
-								accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
+								accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
 								capture="environment"
 								multiple
 								bind:this={additionalCameraInputs[index]}
@@ -921,7 +889,7 @@
 	<!-- Hidden file inputs -->
 	<input
 		type="file"
-		accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
+		accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
 		multiple
 		bind:this={fileInput}
 		onchange={handleFileSelect}
@@ -929,7 +897,7 @@
 	/>
 	<input
 		type="file"
-		accept="image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif"
+		accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
 		capture="environment"
 		bind:this={cameraInput}
 		onchange={handleFileSelect}

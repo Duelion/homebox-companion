@@ -415,8 +415,8 @@ class ChatOrchestrator:
             async for event in self._handle_stream(stream, token, tools, messages):
                 yield event
         except Exception as e:
-            logger.exception("LLM call failed")
-            yield self._emitter.error(f"LLM error: {str(e)}")
+            logger.error("LLM call failed ({})", type(e).__name__)
+            yield self._emitter.error("The LLM provider request failed. Please try again.")
             yield self._emitter.done()
             return
 
@@ -507,8 +507,8 @@ class ChatOrchestrator:
                     )
 
         except Exception as e:
-            logger.exception("[CHAT] Error during streaming")
-            yield self._emitter.error(f"Streaming error: {str(e)}")
+            logger.error("[CHAT] LLM streaming failed ({})", type(e).__name__)
+            yield self._emitter.error("The LLM provider stream failed. Please try again.")
             return
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
@@ -857,5 +857,5 @@ class ChatOrchestrator:
             async for event in self._handle_stream(stream, token, tools, messages, depth):
                 yield event
         except Exception as e:
-            logger.exception("LLM continuation failed")
-            yield self._emitter.error(f"LLM error: {str(e)}")
+            logger.error("LLM continuation failed ({})", type(e).__name__)
+            yield self._emitter.error("The LLM provider request failed. Please try again.")

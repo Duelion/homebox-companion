@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import io
+import warnings
 from pathlib import Path
 
 from loguru import logger
@@ -22,6 +23,31 @@ _FORMAT_TO_MIME = {
     "BMP": "image/bmp",
     "TIFF": "image/tiff",
 }
+
+
+SUPPORTED_VISION_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
+INVALID_IMAGE_MESSAGE = "Invalid or unsupported image. Choose a valid JPEG, PNG, WebP or GIF photo."
+
+
+def validate_image_bytes(image_bytes: bytes) -> str:
+    """Verify the signature and fully decode an image before sending it to a provider.
+
+    Pillow's decompression-bomb warning is an input error here, not a reason to
+    continue with the original bytes. Declared upload MIME types are untrusted.
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                fmt = image.format
+                if fmt not in SUPPORTED_VISION_FORMATS:
+                    raise ValueError(INVALID_IMAGE_MESSAGE)
+                image.verify()
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                image.load()
+        return _FORMAT_TO_MIME[fmt]
+    except (OSError, SyntaxError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        raise ValueError(INVALID_IMAGE_MESSAGE) from exc
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
@@ -112,6 +138,7 @@ def optimize_image_for_vision(
     Returns:
         Tuple of (optimized_bytes, mime_type).
     """
+    validate_image_bytes(image_bytes)
     original_size = len(image_bytes)
 
     try:
@@ -162,7 +189,7 @@ def encode_image_to_data_uri(image_path: Path | str, optimize: bool = True) -> s
     if optimize:
         image_bytes, mime_type = optimize_image_for_vision(image_bytes)
     else:
-        mime_type = _detect_mime_type(image_bytes)
+        mime_type = validate_image_bytes(image_bytes)
 
     # Extract suffix from mime_type (e.g., "image/jpeg" -> "jpeg")
     suffix = mime_type.split("/")[-1] if "/" in mime_type else "jpeg"
@@ -185,6 +212,7 @@ def encode_image_bytes_to_data_uri(
     Returns:
         A data URI string.
     """
+    mime_type = validate_image_bytes(image_bytes)
     if optimize:
         image_bytes, mime_type = optimize_image_for_vision(image_bytes)
 
