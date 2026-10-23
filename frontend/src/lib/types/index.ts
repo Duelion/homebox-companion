@@ -115,6 +115,8 @@ export interface ThumbnailTransform {
 
 /** Item detected by AI, ready for review */
 export interface ReviewItem extends ItemCore, ItemExtended {
+	/** Internal stable identity; never included in inventory API payloads. */
+	reviewId?: string;
 	/** Index of the source image in capturedImages array */
 	sourceImageIndex: number;
 	/** Additional images for this specific item */

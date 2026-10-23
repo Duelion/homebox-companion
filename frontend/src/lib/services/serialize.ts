@@ -46,6 +46,9 @@ export interface StoredImage {
 
 /** Serializable version of ReviewItem */
 export interface StoredReviewItem extends ItemCore, ItemExtended {
+	reviewId?: string;
+	/** Ordered selected photos; absent on older sessions. Empty means explicitly removed. */
+	photos?: StoredPhoto[];
 	custom_fields?: Record<string, string> | null;
 	sourceImageIndex: number;
 	/** Original image filename for reconstruction */
@@ -58,6 +61,12 @@ export interface StoredReviewItem extends ItemCore, ItemExtended {
 	compressedAdditionalDataUrls?: string[];
 	/** Duplicate match info if serial matches an existing item */
 	duplicate_match?: DuplicateMatch | null;
+}
+
+export interface StoredPhoto {
+	dataUrl: string;
+	filename: string;
+	mimeType: string;
 }
 
 /** Serializable version of ConfirmedItem */
@@ -87,6 +96,8 @@ export interface StoredSession {
 	detectedItems: StoredReviewItem[];
 	confirmedItems: StoredConfirmedItem[];
 	currentReviewIndex: number;
+	/** Unconfirmed edits, separate from canonical detections and confirmed rows. */
+	activeReviewDraft?: StoredReviewItem;
 
 	// Analysis state (for partial_analysis recovery)
 	imageStatuses?: Record<number, ImageAnalysisStatus>;
@@ -106,8 +117,12 @@ export interface StoredSession {
  * Convert a File to a base64 data URL.
  * This is the key operation for making Files serializable.
  */
+const fileDataCache = new WeakMap<File, Promise<string>>();
+
 export function fileToDataUrl(file: File): Promise<string> {
-	return new Promise((resolve, reject) => {
+	const cached = fileDataCache.get(file);
+	if (cached) return cached;
+	const reading = new Promise<string>((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => {
 			if (typeof reader.result === 'string') {
@@ -119,6 +134,24 @@ export function fileToDataUrl(file: File): Promise<string> {
 		reader.onerror = () => reject(reader.error);
 		reader.readAsDataURL(file);
 	});
+	fileDataCache.set(file, reading);
+	void reading.catch(() => fileDataCache.delete(file));
+	return reading;
+}
+
+/** Files are immutable; serialize bytes once even across metadata autosaves. */
+export async function serializeReviewPhotos(item: ReviewItem): Promise<StoredPhoto[]> {
+	const files = [
+		...(item.originalFile ? [item.originalFile] : []),
+		...(item.additionalImages ?? []),
+	];
+	return Promise.all(
+		files.map(async (file) => ({
+			dataUrl: await fileToDataUrl(file),
+			filename: file.name,
+			mimeType: file.type,
+		}))
+	);
 }
 
 /**
@@ -222,6 +255,7 @@ export async function serializeImage(img: CapturedImage): Promise<StoredImage> {
  */
 export function serializeReviewItem(item: ReviewItem): StoredReviewItem {
 	return {
+		reviewId: item.reviewId,
 		// ItemCore fields
 		name: item.name,
 		quantity: item.quantity,
@@ -328,8 +362,16 @@ export async function deserializeReviewItem(stored: StoredReviewItem): Promise<R
 			)
 		);
 	}
+	if (stored.photos) {
+		const files = await Promise.all(
+			stored.photos.map((photo) => dataUrlToFile(photo.dataUrl, photo.filename, photo.mimeType))
+		);
+		originalFile = files[0];
+		additionalImages = files.slice(1);
+	}
 
 	return {
+		reviewId: stored.reviewId,
 		// ItemCore fields
 		name: stored.name,
 		quantity: stored.quantity,

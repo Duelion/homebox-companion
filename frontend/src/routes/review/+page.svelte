@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { onNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { ReviewEditor, copyReviewItem } from '$lib/services/reviewEditor.svelte';
 	import { getConfig } from '$lib/api/settings';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
@@ -38,12 +38,9 @@
 	// Get workflow reference
 	const workflow = scanWorkflow;
 
-	// Native browser history and app navigation must not leave the workflow in
-	// the ephemeral failed-item editor state.
-	beforeNavigate(({ to }) => {
-		if (workflow.isEditingFailedItem && to?.url.pathname !== resolve('/review')) {
-			void workflow.cancelFailedItemEdit();
-		}
+	onNavigate(({ to }) => {
+		if (!to || to.url.pathname === resolve('/review')) return;
+		return workflow.isEditingFailedItem ? workflow.cancelFailedItemEdit() : workflow.persistAsync();
 	});
 
 	// Object URL manager for cleanup
@@ -56,15 +53,19 @@
 	const images = $derived(workflow.state.images);
 
 	// Local UI state
-	let editedItem = $state<ReviewItem | null>(null);
+	const editedItem = $derived(workflow.activeReviewDraft);
 	let showExtendedFields = $state(false);
 	let showCustomFields = $state(false);
 	let showImagesPanel = $state(false);
 	let showAiCorrection = $state(false);
 	let showThumbnailEditor = $state(false);
 	const editor = new ReviewEditor();
-	const isProcessing = $derived(editor.isProcessing);
-	let allImages = $state<File[]>([]);
+	let isAdvancing = $state(false);
+	const isProcessing = $derived(editor.isProcessing || isAdvancing);
+	const allImages = $derived([
+		...(editedItem?.originalFile ? [editedItem.originalFile] : []),
+		...(editedItem?.additionalImages ?? []),
+	]);
 	let showConfirmAllDialog = $state(false);
 
 	// Track original images to detect modifications (for invalidating compressed URLs)
@@ -89,23 +90,26 @@
 		return Object.keys(item.custom_fields).length > 0;
 	}
 
-	// Sync editedItem when currentItem changes
+	// Identity defines the editor reset boundary, never each autosaved field update.
 	$effect(() => {
-		editor.invalidate();
-		if (currentItem) {
-			editedItem = copyReviewItem(currentItem);
-			// Build unified images array: original first, then additional
-			const imageArray = [
-				...(currentItem.originalFile ? [currentItem.originalFile] : []),
-				...(currentItem.additionalImages || []),
-			];
-			originalImages = [...imageArray];
-			allImages = imageArray;
-			showExtendedFields = hasExtendedFieldData(currentItem);
-			showCustomFields = hasCustomFieldData(currentItem);
-			showImagesPanel = false;
-			showAiCorrection = false;
-		}
+		const identity = currentItem?.reviewId;
+		void identity;
+		untrack(() => {
+			editor.invalidate();
+			if (currentItem) {
+				workflow.beginReviewDraft();
+				// Build unified images array: original first, then additional
+				const imageArray = [
+					...(editedItem?.originalFile ? [editedItem.originalFile] : []),
+					...(editedItem?.additionalImages || []),
+				];
+				originalImages = [...imageArray];
+				showExtendedFields = hasExtendedFieldData(editedItem);
+				showCustomFields = hasCustomFieldData(editedItem);
+				showImagesPanel = false;
+				showAiCorrection = false;
+			}
+		});
 	});
 
 	// Accordion behavior: when one panel opens, close the others
@@ -169,13 +173,6 @@
 		urlManager.cleanup();
 	});
 
-	// Watch for status changes
-	$effect(() => {
-		if (workflow.state.status === 'confirming') {
-			goto(resolve('/summary'));
-		}
-	});
-
 	async function goBack() {
 		if (workflow.isEditingFailedItem) {
 			await workflow.cancelFailedItemEdit();
@@ -186,21 +183,35 @@
 		goto(resolve('/capture'));
 	}
 
-	function skipItem() {
-		workflow.skipItem();
+	async function skipItem() {
+		if (isAdvancing) return;
+		isAdvancing = true;
+		try {
+			await workflow.skipItem();
+			if (workflow.state.status === 'confirming') await goto(resolve('/summary'));
+			else if (workflow.state.status === 'capturing') await goto(resolve('/capture'));
 
-		// Scroll to top for next item
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+			// Scroll to top for next item
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+		} finally {
+			isAdvancing = false;
+		}
 	}
 
-	function confirmItem() {
-		if (!editedItem) return;
-		const item = prepareReviewItem(editedItem, allImages, originalImages);
+	async function confirmItem() {
+		if (!editedItem || isAdvancing) return;
+		isAdvancing = true;
+		try {
+			const item = copyReviewItem(editedItem);
 
-		workflow.confirmItem(item);
+			await workflow.confirmItem(item);
+			if (workflow.state.status === 'confirming') await goto(resolve('/summary'));
 
-		// Scroll to top for next item
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+			// Scroll to top for next item
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+		} finally {
+			isAdvancing = false;
+		}
 	}
 
 	function handleLongPressConfirm() {
@@ -208,14 +219,12 @@
 		showConfirmAllDialog = true;
 	}
 
-	function handleConfirmAll() {
+	async function handleConfirmAll() {
 		// Prepare the current item with any user edits
-		const preparedItem = editedItem
-			? prepareReviewItem(editedItem, allImages, originalImages)
-			: undefined;
+		const preparedItem = editedItem ? copyReviewItem(editedItem) : undefined;
 
 		// Use the workflow method that handles confirming all items including the current one
-		workflow.confirmAllRemainingItems(preparedItem);
+		await workflow.confirmAllRemainingItems(preparedItem);
 		showConfirmAllDialog = false;
 
 		// Navigate to summary
@@ -230,32 +239,39 @@
 
 		const currentTags = editedItem.tag_ids || [];
 		if (currentTags.includes(tagId)) {
-			editedItem.tag_ids = currentTags.filter((id) => id !== tagId);
+			workflow.updateReviewDraft({ tag_ids: currentTags.filter((id) => id !== tagId) });
 		} else {
-			editedItem.tag_ids = [...currentTags, tagId];
+			workflow.updateReviewDraft({ tag_ids: [...currentTags, tagId] });
 		}
 	}
 
 	/** Handle asset ID changes */
 	function handleAssetIdChange(value: string | null) {
 		if (!editedItem) return;
-		editedItem.asset_id = value;
+		workflow.updateReviewDraft({ asset_id: value });
 	}
 
 	async function handleAiCorrection(correctionPrompt: string) {
 		if (!editedItem) return;
-		const reviewedItem = currentItem;
+		const reviewedItemId = currentItem?.reviewId;
 		const corrected = await editor.correct(
 			editedItem,
 			images[editedItem.sourceImageIndex]?.file,
 			correctionPrompt,
-			() => workflow.currentItem === reviewedItem,
+			() => workflow.currentItem?.reviewId === reviewedItemId,
 			(updates) => {
-				if (editedItem) editedItem = { ...editedItem, ...updates };
+				workflow.updateReviewDraft(updates, reviewedItemId);
 			},
 			() => editedItem?.tag_ids
 		);
 		if (corrected) showAiCorrection = false;
+	}
+
+	function setReviewImages(images: File[]) {
+		if (editedItem)
+			workflow.updateReviewDraft(
+				prepareReviewItem(copyReviewItem(editedItem), images, originalImages)
+			);
 	}
 
 	// Derived images with data URLs for thumbnail editor
@@ -280,8 +296,7 @@
 	) {
 		if (!editedItem) return;
 
-		editedItem.customThumbnail = dataUrl;
-		editedItem.thumbnailTransform = transform;
+		workflow.updateReviewDraft({ customThumbnail: dataUrl, thumbnailTransform: transform });
 
 		// If thumbnail was created from a non-primary image, reorder so it becomes primary
 		if (sourceImageIndex > 0 && sourceImageIndex < allImages.length) {
@@ -291,9 +306,9 @@
 				...allImages.slice(0, sourceImageIndex),
 				...allImages.slice(sourceImageIndex + 1),
 			];
-			allImages = reorderedImages;
+			setReviewImages(reorderedImages);
 			// Update transform's sourceImageIndex since we reordered
-			editedItem.thumbnailTransform.sourceImageIndex = 0;
+			workflow.updateReviewDraft({ thumbnailTransform: { ...transform, sourceImageIndex: 0 } });
 		}
 
 		showThumbnailEditor = false;
@@ -322,6 +337,18 @@
 
 	<h2 class="mb-1 text-h2 text-neutral-100">Review Items</h2>
 	<p class="mb-6 text-body-sm text-neutral-400">Edit or skip detected items</p>
+	{#if !workflow.isEditingFailedItem}
+		<p class="mb-4 text-caption text-neutral-400" role="status" aria-live="polite">
+			{workflow.saveState === 'saving'
+				? 'Saving…'
+				: workflow.saveState === 'saved'
+					? 'Saved'
+					: 'Unable to save. Keep this page open and retry.'}
+		</p>
+		{#if workflow.saveState === 'error'}
+			<Button variant="secondary" onclick={() => workflow.persistAsync()}>Retry save</Button>
+		{/if}
+	{/if}
 
 	<BackLink
 		href={workflow.isEditingFailedItem ? '/summary' : '/capture'}
@@ -389,9 +416,14 @@
 			<div class="space-y-5 p-4">
 				<!-- Core fields: name, quantity, description -->
 				<ItemCoreFields
-					bind:name={editedItem.name}
-					bind:quantity={editedItem.quantity}
-					bind:description={editedItem.description}
+					bind:name={() => editedItem!.name, (name) => workflow.updateReviewDraft({ name })}
+					bind:quantity={
+						() => editedItem!.quantity, (quantity) => workflow.updateReviewDraft({ quantity })
+					}
+					bind:description={
+						() => editedItem!.description,
+						(description) => workflow.updateReviewDraft({ description })
+					}
 					idPrefix="review"
 				/>
 
@@ -403,16 +435,31 @@
 				/>
 
 				<!-- Tags with chip selection -->
-				<TagSelector selectedIds={editedItem.tag_ids ?? []} onToggle={toggleTag} />
+				<TagSelector selectedIds={[...(editedItem.tag_ids ?? [])]} onToggle={toggleTag} />
 
 				<!-- Extended fields panel -->
 				<ItemExtendedFields
-					bind:manufacturer={editedItem.manufacturer}
-					bind:modelNumber={editedItem.model_number}
-					bind:serialNumber={editedItem.serial_number}
-					bind:purchasePrice={editedItem.purchase_price}
-					bind:purchaseFrom={editedItem.purchase_from}
-					bind:notes={editedItem.notes}
+					bind:manufacturer={
+						() => editedItem!.manufacturer,
+						(manufacturer) => workflow.updateReviewDraft({ manufacturer })
+					}
+					bind:modelNumber={
+						() => editedItem!.model_number,
+						(model_number) => workflow.updateReviewDraft({ model_number })
+					}
+					bind:serialNumber={
+						() => editedItem!.serial_number,
+						(serial_number) => workflow.updateReviewDraft({ serial_number })
+					}
+					bind:purchasePrice={
+						() => editedItem!.purchase_price,
+						(purchase_price) => workflow.updateReviewDraft({ purchase_price })
+					}
+					bind:purchaseFrom={
+						() => editedItem!.purchase_from,
+						(purchase_from) => workflow.updateReviewDraft({ purchase_from })
+					}
+					bind:notes={() => editedItem!.notes, (notes) => workflow.updateReviewDraft({ notes })}
 					expanded={showExtendedFields}
 					onToggle={toggleExtendedFields}
 					idPrefix="review"
@@ -421,7 +468,10 @@
 				<!-- Custom fields panel (only when custom fields are configured) -->
 				{#if editedItem.custom_fields && Object.keys(editedItem.custom_fields).length > 0}
 					<ItemCustomFields
-						bind:customFields={editedItem.custom_fields}
+						bind:customFields={
+							() => editedItem!.custom_fields!,
+							(custom_fields) => workflow.updateReviewDraft({ custom_fields })
+						}
 						expanded={showCustomFields}
 						onToggle={toggleCustomFields}
 						idPrefix="review"
@@ -430,11 +480,11 @@
 
 				<!-- Images panel -->
 				<ImagesPanel
-					bind:images={allImages}
+					bind:images={() => allImages, setReviewImages}
 					customThumbnail={editedItem.customThumbnail}
 					onCustomThumbnailClear={() => {
 						if (editedItem) {
-							editedItem.customThumbnail = undefined;
+							workflow.updateReviewDraft({ customThumbnail: undefined });
 						}
 					}}
 					expanded={showImagesPanel}

@@ -55,8 +55,9 @@ for (const [label, tags] of [
 		const submission = api.requests.find(
 			(request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/items'
 		);
-		expect(submission?.postData()).toContain('default');
-		expect(submission?.postData()).not.toContain('invalid');
+		expect(submission?.postDataJSON().items[0].tag_ids).toEqual(
+			label === 'duplicates and invalid' ? ['default', 'general'] : ['default']
+		);
 	});
 }
 
@@ -103,10 +104,10 @@ test('correction respects manually removed default and discards late responses a
 	gate.release();
 	await page.getByRole('link', { name: 'Scan', exact: true }).click();
 	await expect(page).toHaveURL(/\/review$/);
-	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Lamp');
+	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Corrected lamp');
 	await expect(page.getByRole('button', { name: 'Verified', exact: true })).toHaveAttribute(
 		'aria-pressed',
-		'true'
+		'false'
 	);
 });
 

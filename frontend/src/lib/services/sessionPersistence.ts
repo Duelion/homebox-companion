@@ -257,13 +257,16 @@ export async function load(scope = captureSessionScope()): Promise<StoredSession
  * Save the current session state.
  * Overwrites the existing session for the supplied identity and collection.
  */
-export async function save(session: StoredSession, scope = captureSessionScope()): Promise<void> {
+export async function save(
+	session: StoredSession,
+	scope = captureSessionScope()
+): Promise<boolean> {
 	if (!browser) {
-		return;
+		return false;
 	}
 	if (!scope) {
 		log.warn('Refusing to persist a scan without a verified context and collection');
-		return;
+		return false;
 	}
 
 	try {
@@ -275,12 +278,14 @@ export async function save(session: StoredSession, scope = captureSessionScope()
 
 		await db.put(STORE_NAME, session, key);
 		log.debug(`Saved session: status=${session.status}, images=${session.images?.length ?? 0}`);
+		return true;
 	} catch (error) {
 		// Extract meaningful error info for logging (avoids minified stack traces)
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		const errorName = error instanceof Error ? error.name : 'Unknown';
 		log.error(`Error saving session: [${errorName}] ${errorMessage}`);
 		// Don't throw - persistence failures shouldn't break the workflow
+		return false;
 	}
 }
 

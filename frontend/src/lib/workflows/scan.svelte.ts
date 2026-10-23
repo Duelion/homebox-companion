@@ -93,6 +93,13 @@ class ScanWorkflow {
 
 	/** Confirmed-item index currently being edited after a failed submission. */
 	private failedItemEditIndex = $state<number | null>(null);
+	private _saveState = $state<'saving' | 'saved' | 'error'>('saved');
+	private saveRevision = 0;
+	private persistAttempt = 0;
+
+	get saveState(): 'saving' | 'saved' | 'error' {
+		return this._saveState;
+	}
 
 	// =========================================================================
 	// CONSTRUCTOR (auto-persist setup)
@@ -167,17 +174,26 @@ class ScanWorkflow {
 				// Schedule debounced persist
 				this.schedulePersist();
 			});
+			const flush = () => this.flushPendingPersist();
+			window.addEventListener('beforeunload', flush);
+			window.addEventListener('pagehide', flush);
+			return () => {
+				window.removeEventListener('beforeunload', flush);
+				window.removeEventListener('pagehide', flush);
+				if (this._persistTimeout) clearTimeout(this._persistTimeout);
+			};
 		});
 
 		// Flush pending persist on tab close.
 		// NOTE: beforeunload has very limited time for async operations.
 		// Modern browsers may not wait for IndexedDB writes to complete.
 		// This is a best-effort attempt - critical persists should use persistAsync().
-		window.addEventListener('beforeunload', () => this.flushPendingPersist());
 	}
 
 	/** Schedule a debounced persist (1 second delay) */
 	private schedulePersist(): void {
+		this._saveState = 'saving';
+		this.saveRevision++;
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);
 		}
@@ -619,6 +635,25 @@ class ScanWorkflow {
 		return this.reviewService.currentItem;
 	}
 
+	get activeReviewDraft(): DeepReadonly<ReviewItem> | null {
+		return this.reviewService.activeDraft;
+	}
+
+	beginReviewDraft(): void {
+		this.reviewService.beginDraft();
+		if (!this.isEditingFailedItem) this.schedulePersist();
+	}
+
+	updateReviewDraft(updates: Partial<ReviewItem>, identity = this.currentItem?.reviewId): void {
+		if (this.reviewService.updateDraft(updates, identity) && !this.isEditingFailedItem)
+			this.schedulePersist();
+	}
+
+	discardReviewDraft(): void {
+		this.reviewService.discardDraft();
+		if (!this.isEditingFailedItem) this.schedulePersist();
+	}
+
 	/** Update the current item being reviewed */
 	updateCurrentItem(updates: Partial<ReviewItem>): void {
 		this.reviewService.updateCurrentItem(updates);
@@ -641,14 +676,16 @@ class ScanWorkflow {
 			await this.backToCapture();
 		} else if (result === 'complete') {
 			await this.finishReview();
-		}
+		} else await this.persistAsync();
 	}
 
 	/** Confirm current item and move to next */
 	async confirmItem(item: ReviewItem): Promise<void> {
+		if (this._status !== 'reviewing' || item.reviewId !== this.currentItem?.reviewId) return;
 		if (this.failedItemEditIndex !== null) {
 			const editIndex = this.failedItemEditIndex;
 			if (this.reviewService.replaceConfirmedItem(editIndex, item)) {
+				this.reviewService.discardDraft();
 				this.failedItemEditIndex = null;
 				this._status = 'confirming';
 				await this.persistAsync();
@@ -659,7 +696,7 @@ class ScanWorkflow {
 		const hasMore = this.reviewService.confirmCurrentItem(item);
 		if (!hasMore) {
 			await this.finishReview();
-		}
+		} else await this.persistAsync();
 	}
 
 	/** Confirm all remaining items from current index onwards */
@@ -740,6 +777,7 @@ class ScanWorkflow {
 		if (this.failedItemEditIndex === null) return;
 
 		this.failedItemEditIndex = null;
+		this.reviewService.discardDraft();
 		this._status = 'confirming';
 		await this.persistAsync();
 	}
@@ -895,6 +933,11 @@ class ScanWorkflow {
 	 * (e.g., after analysis completes before navigation can occur).
 	 */
 	async persistAsync(): Promise<void> {
+		if (this.isEditingFailedItem) return;
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+		}
 		// Don't persist terminal states
 		if (this._status === 'idle' || this._status === 'complete') {
 			return;
@@ -907,8 +950,12 @@ class ScanWorkflow {
 	 * Internal persist implementation - serializes and saves to IndexedDB.
 	 */
 	private async _doPersist(): Promise<void> {
+		if (this.isEditingFailedItem) return;
+		const attempt = ++this.persistAttempt;
 		const generation = this.contextGeneration;
-		await this.persistence.save(
+		const revision = this.saveRevision;
+		this._saveState = 'saving';
+		const saved = await this.persistence.save(
 			() => ({
 				status: this._status,
 				locationId: this._locationId,
@@ -919,12 +966,19 @@ class ScanWorkflow {
 				images: this.captureService.images,
 				detectedItems: this.reviewService.detectedItems,
 				confirmedItems: this.reviewService.confirmedItems,
+				activeReviewDraft: this.reviewService.activeDraft ?? undefined,
 				currentReviewIndex: this.reviewService.currentReviewIndex,
 				imageStatuses: this.analysisService.imageStatuses,
 				submission: this.submissionService.snapshot(),
 			}),
 			() => generation === this.contextGeneration
 		);
+		if (
+			generation === this.contextGeneration &&
+			revision === this.saveRevision &&
+			attempt === this.persistAttempt
+		)
+			this._saveState = saved ? 'saved' : 'error';
 	}
 
 	/**
@@ -968,6 +1022,8 @@ class ScanWorkflow {
 			if (session.currentReviewIndex > 0) {
 				this.reviewService.setCurrentReviewIndex(session.currentReviewIndex);
 			}
+			this.reviewService.restoreDraft(session.activeReviewDraft);
+			this._saveState = 'saved';
 
 			// Restore image statuses (for partial_analysis recovery)
 			if (session.imageStatuses) {
@@ -1032,6 +1088,8 @@ class ScanWorkflow {
 	reset(clearPersisted = true): void {
 		const scope = captureSessionScope();
 		this.contextGeneration++;
+		this.saveRevision++;
+		this._saveState = 'saved';
 		// Cancel any pending debounced persist to prevent stale writes after reset
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);

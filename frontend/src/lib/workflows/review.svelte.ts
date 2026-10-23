@@ -9,6 +9,7 @@
  */
 
 import type { ReviewItem, ConfirmedItem } from '$lib/types';
+import { copyReviewItem } from '$lib/services/reviewEditor.svelte';
 
 // =============================================================================
 // REVIEW SERVICE CLASS
@@ -27,6 +28,30 @@ export class ReviewService {
 
 	/** Items confirmed by user, ready for submission */
 	private _confirmedItems = $state<ConfirmedItem[]>([]);
+	private _activeDraft = $state<ReviewItem | null>(null);
+
+	get activeDraft(): ReviewItem | null {
+		return this._activeDraft?.reviewId === this.currentItem?.reviewId ? this._activeDraft : null;
+	}
+
+	beginDraft(): void {
+		if (this.currentItem && !this.activeDraft) this._activeDraft = copyReviewItem(this.currentItem);
+	}
+
+	updateDraft(updates: Partial<ReviewItem>, identity: string | undefined): boolean {
+		if (!identity || this.activeDraft?.reviewId !== identity) return false;
+		this._activeDraft = copyReviewItem({ ...this.activeDraft, ...updates, reviewId: identity });
+		return true;
+	}
+
+	restoreDraft(draft: ReviewItem | undefined): void {
+		this._activeDraft =
+			draft?.reviewId && draft.reviewId === this.currentItem?.reviewId ? draft : null;
+	}
+
+	discardDraft(): void {
+		this._activeDraft = null;
+	}
 
 	// =========================================================================
 	// GETTERS (read-only access to state)
@@ -53,13 +78,20 @@ export class ReviewService {
 
 	/** Set detected items from analysis results */
 	setDetectedItems(items: ReviewItem[]): void {
-		this._detectedItems = items;
+		this._activeDraft = null;
+		this._detectedItems = items.map((item) => ({
+			...item,
+			reviewId: item.reviewId ?? crypto.randomUUID(),
+		}));
 		this._currentReviewIndex = 0;
 	}
 
 	/** Set confirmed items directly (used for session recovery) */
 	setConfirmedItems(items: ConfirmedItem[]): void {
-		this._confirmedItems = items;
+		this._confirmedItems = items.map((item) => ({
+			...item,
+			reviewId: item.reviewId ?? crypto.randomUUID(),
+		}));
 	}
 
 	/** Set current review index (used for session recovery) */
@@ -90,6 +122,7 @@ export class ReviewService {
 
 	/** Clear detected items */
 	clearDetectedItems(): void {
+		this.discardDraft();
 		this._detectedItems = [];
 		this._currentReviewIndex = 0;
 	}
@@ -110,6 +143,7 @@ export class ReviewService {
 
 	/** Navigate to previous item */
 	previousItem(): void {
+		this.discardDraft();
 		if (this._currentReviewIndex > 0) {
 			this._currentReviewIndex--;
 		}
@@ -117,6 +151,7 @@ export class ReviewService {
 
 	/** Navigate to next item */
 	nextItem(): void {
+		this.discardDraft();
 		if (this._currentReviewIndex < this._detectedItems.length - 1) {
 			this._currentReviewIndex++;
 		}
@@ -146,6 +181,13 @@ export class ReviewService {
 	 * @returns true if there are more items to review, false if review is complete
 	 */
 	confirmCurrentItem(item: ReviewItem): boolean {
+		if (
+			!item.reviewId ||
+			item.reviewId !== this.currentItem?.reviewId ||
+			this._confirmedItems.some((existing) => existing.reviewId === item.reviewId)
+		)
+			return this.hasNext;
+		this.discardDraft();
 		const confirmed: ConfirmedItem = { ...item, confirmed: true };
 		this._confirmedItems = [...this._confirmedItems, confirmed];
 
@@ -162,6 +204,9 @@ export class ReviewService {
 	 * @returns The number of items confirmed
 	 */
 	confirmAllRemainingItems(currentItemOverride?: ReviewItem): number {
+		if (currentItemOverride && currentItemOverride.reviewId !== this.currentItem?.reviewId)
+			return 0;
+		this.discardDraft();
 		const newItems: ConfirmedItem[] = [];
 		for (let i = this._currentReviewIndex; i < this._detectedItems.length; i++) {
 			// Use the override for the current item (index matches currentReviewIndex),
@@ -170,6 +215,7 @@ export class ReviewService {
 				i === this._currentReviewIndex && currentItemOverride
 					? currentItemOverride
 					: this._detectedItems[i];
+			if (this._confirmedItems.some((existing) => existing.reviewId === item.reviewId)) continue;
 			const confirmed: ConfirmedItem = { ...item, confirmed: true };
 			newItems.push(confirmed);
 		}
@@ -183,6 +229,7 @@ export class ReviewService {
 	 * @returns 'next' if moved to next item, 'complete' if no more items, 'empty' if nothing confirmed
 	 */
 	skipCurrentItem(): 'next' | 'complete' | 'empty' {
+		this.discardDraft();
 		if (this.hasNext) {
 			this.nextItem();
 			return 'next';
@@ -219,6 +266,7 @@ export class ReviewService {
 	 * @returns The item converted to a ReviewItem for editing, or null if index is invalid
 	 */
 	editConfirmedItem(index: number): ReviewItem | null {
+		this.discardDraft();
 		const item = this._confirmedItems[index];
 		if (!item) return null;
 
@@ -241,6 +289,7 @@ export class ReviewService {
 	 * to refer to the same items while the user edits a failed row.
 	 */
 	stageConfirmedItemForEdit(index: number): ReviewItem | null {
+		this.discardDraft();
 		const item = this._confirmedItems[index];
 		if (!item) return null;
 
@@ -271,6 +320,7 @@ export class ReviewService {
 
 	/** Reset all review state */
 	reset(): void {
+		this.discardDraft();
 		this._detectedItems = [];
 		this._currentReviewIndex = 0;
 		this._confirmedItems = [];
