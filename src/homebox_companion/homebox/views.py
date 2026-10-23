@@ -254,6 +254,18 @@ def resolve_item_relationship_views(
     return location_view, parent_view
 
 
+class ItemFieldView(BaseModel):
+    """Bounded projection of an upstream custom field, preserving typed values."""
+
+    model_config = ConfigDict(strict=True)
+
+    name: str
+    type: str
+    textValue: str | None = None
+    numberValue: int | float | None = None
+    booleanValue: bool | None = None
+
+
 class ItemView(BaseModel):
     """Full item view for detailed responses with computed URL.
 
@@ -270,6 +282,7 @@ class ItemView(BaseModel):
     location: LocationView | None = None
     parent: ParentItemView | None = None
     tags: list[dict[str, Any]] = Field(default_factory=list)
+    fields: list[ItemFieldView] = Field(default_factory=list)
     manufacturer: str | None = None
     model_number: str | None = Field(default=None, serialization_alias="modelNumber")
     serial_number: str | None = Field(default=None, serialization_alias="serialNumber")
@@ -323,6 +336,7 @@ class ItemView(BaseModel):
             location=location_view,
             parent=parent_view,
             tags=data.get("tags", []),
+            fields=[ItemFieldView.model_validate(field) for field in data.get("fields") or []],
             manufacturer=data.get("manufacturer"),
             model_number=data.get("modelNumber"),
             serial_number=data.get("serialNumber"),

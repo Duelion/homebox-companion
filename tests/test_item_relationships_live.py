@@ -548,3 +548,52 @@ async def test_location_rename_keeps_existing_fields(
     assert renamed["notes"] == "Key under the mat"
     assert [(field["name"], field["textValue"]) for field in renamed["fields"]] == [("Code", "1234")]
     assert renamed["parent"]["id"] == house["id"]
+
+
+@pytest.mark.asyncio
+async def test_detail_custom_fields_survive_unrelated_edit(
+    homebox_test_account: HomeboxTestAccount,
+    homebox_client: HomeboxClient,
+    homebox_auth: HomeboxAuth,
+    cleanup_items: list[str],
+    cleanup_locations: list[str],
+) -> None:
+    """Both detail tools expose official fields in the version/auth fixture matrix."""
+    token = homebox_auth.token
+    location = await homebox_client.create_location(token, "Custom field detail location")
+    cleanup_locations.append(location["id"])
+    item = await _create_item(homebox_client, homebox_auth, cleanup_items, "Custom field detail", location["id"])
+    fields = [
+        {"type": "text", "name": "QA Material 材料", "textValue": "木材"},
+        {"type": "text", "name": "Duplicate", "textValue": ""},
+        {"type": "number", "name": "Duplicate", "numberValue": 0},
+        {"type": "boolean", "name": "Enabled", "booleanValue": False},
+    ]
+    await homebox_client.update_item(
+        token, item["id"], {"name": item["name"], "quantity": 1, "parentId": location["id"], "fields": fields}
+    )
+    await homebox_client.ensure_asset_ids(token)
+    official = await _fresh_item(homebox_test_account, homebox_auth, item["id"])
+
+    def values(entries):
+        return [
+            {key: entry.get(key) for key in ("name", "type", "textValue", "numberValue", "booleanValue")}
+            for entry in entries
+        ]
+
+    results = [
+        await GetItemTool().execute(homebox_client, token, GetItemTool.Params(item_id=item["id"])),
+        await GetItemByAssetIdTool().execute(
+            homebox_client, token, GetItemByAssetIdTool.Params(asset_id=official["assetId"])
+        ),
+    ]
+    for result in results:
+        assert result.success
+        assert values(result.data["fields"]) == values(official["fields"])
+        for expected in fields:
+            assert any(all(entry[key] == value for key, value in expected.items()) for entry in result.data["fields"])
+    update = UpdateItemTool()
+    await update.execute(homebox_client, token, update.Params(item_id=item["id"], notes="Unrelated custom-field edit"))
+    await _http_edit(homebox_client, homebox_auth, item["id"])
+    fresh = await _fresh_item(homebox_test_account, homebox_auth, item["id"])
+    assert fresh["fields"] == official["fields"]

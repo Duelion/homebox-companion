@@ -539,3 +539,24 @@ class TestMCPToolsLive:
         assert result.success is True
         fresh = await homebox_client.get_item(token, item["id"])
         assert fresh["parent"]["id"] == target_location["id"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_name,params", [("get_item", {"item_id": "drill"}), ("get_item_by_asset_id", {"asset_id": "000-001"})]
+)
+async def test_chat_executor_keeps_custom_fields_in_model_result(mock_client, tool_name, params):
+    from homebox_companion.mcp.executor import ToolExecutor
+
+    mock_client.get_item_by_asset_id = AsyncMock(return_value={"id": "drill"})
+    mock_client.get_item.return_value = {
+        "id": "drill",
+        "name": "Drill",
+        "fields": [{"name": "QA Material", "type": "text", "textValue": "Steel"}],
+    }
+    executor = ToolExecutor(mock_client)
+    result = await executor.execute(tool_name, params, token="session-token")
+    assert result.success
+    assert result.model_dump()["data"]["fields"][0]["textValue"] == "Steel"
+    schema = next(schema for schema in executor.get_tool_schemas() if schema["function"]["name"] == "search_items")
+    assert "fetch get_item" in schema["function"]["parameters"]["properties"]["compact"]["description"]

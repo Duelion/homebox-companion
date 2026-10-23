@@ -320,3 +320,63 @@ async def test_delete_confirmation_uses_location_parent_on_026() -> None:
     info = await ToolExecutor(client).get_display_info("delete_item", {"item_id": "saw"}, "token")
 
     assert info.location == "Workshop"
+
+
+CUSTOM_FIELDS = [
+    {"name": "QA Material 材料", "type": "text", "textValue": "木材"},
+    {"name": "Duplicate", "type": "text", "textValue": ""},
+    {"name": "Duplicate", "type": "number", "numberValue": 0},
+    {"name": "Fraction", "type": "number", "numberValue": 1.25},
+    {"name": "Enabled", "type": "boolean", "booleanValue": False},
+]
+
+
+def test_detailed_custom_fields_preserve_types_and_bound_metadata() -> None:
+    upstream = [{**field, "id": "upstream-id", "secretMetadata": "excluded"} for field in CUSTOM_FIELDS]
+    result = ItemView.from_dict({**NESTED_ITEM, "fields": upstream}).model_dump(by_alias=True)
+    assert [
+        {key: field[key] for key in original} for field, original in zip(result["fields"], CUSTOM_FIELDS, strict=True)
+    ] == CUSTOM_FIELDS
+    assert all(set(field) == {"name", "type", "textValue", "numberValue", "booleanValue"} for field in result["fields"])
+    assert type(result["fields"][2]["numberValue"]) is int
+    assert result["fields"][4]["booleanValue"] is False
+    assert result["parent"]["url"].endswith("/item/toolchest")
+    assert result["location"]["url"].endswith("/location/workshop")
+    assert upstream[0]["secretMetadata"] == "excluded"
+    assert "fields" not in CompactItemView.from_dict({**NESTED_ITEM, "fields": upstream}).model_dump()
+
+
+@pytest.mark.parametrize("data", [{"id": "item"}, {"id": "item", "fields": None}])
+def test_missing_custom_fields_are_empty(data: dict) -> None:
+    assert ItemView.from_dict(data).model_dump()["fields"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_type,params", [(GetItemTool, {"item_id": "drill"}), (GetItemByAssetIdTool, {"asset_id": "000-001"})]
+)
+async def test_detail_tools_expose_custom_values(tool_type: type, params: dict) -> None:
+    client = MagicMock()
+    client.get_item = AsyncMock(return_value={**NESTED_ITEM, "fields": CUSTOM_FIELDS})
+    client.get_item_by_asset_id = AsyncMock(return_value=NESTED_SUMMARY)
+    tool = tool_type()
+    result = await tool.execute(client, "token", tool.Params(**params))
+    assert [
+        {key: field[key] for key in original}
+        for field, original in zip(result.data["fields"], CUSTOM_FIELDS, strict=True)
+    ] == CUSTOM_FIELDS
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_type,params", [(ListItemsTool, {}), (SearchItemsTool, {"query": "drill"})])
+@pytest.mark.parametrize("compact", [True, False])
+async def test_summary_custom_field_projection(tool_type: type, params: dict, compact: bool) -> None:
+    client = _summary_client({**NESTED_SUMMARY, "fields": CUSTOM_FIELDS})
+    tool = tool_type()
+    result = await tool.execute(client, "token", tool.Params(**params, compact=compact))
+    [item] = result.data["items"]
+    if compact:
+        assert "fields" not in item
+    else:
+        assert item["fields"][0]["textValue"] == "木材"
+    assert "fetch get_item" in tool.Params.model_fields["compact"].description

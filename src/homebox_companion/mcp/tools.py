@@ -282,7 +282,9 @@ class ListItemsTool:
             default=True,
             description=(
                 "If true, return only essential fields (id, name, location, quantity, tags) "
-                "to reduce payload size. Set to false for full item details."
+                "to reduce payload size. Set to false for expanded summaries. "
+                "Custom fields may be absent from summaries; "
+                "fetch get_item or get_item_by_asset_id for authoritative custom field values."
             ),
         )
 
@@ -395,7 +397,8 @@ class SearchItemsTool:
             default=True,
             description=(
                 "If true, return only essential fields (id, name, location, quantity, tags). "
-                "Set to false for full item details."
+                "Set to false for expanded summaries. Custom fields may be absent from summaries; "
+                "fetch get_item or get_item_by_asset_id for authoritative custom field values."
             ),
         )
 
@@ -448,7 +451,8 @@ class GetItemTool:
 
     name: str = "get_item"
     description: str = (
-        "Get full item details by ID, including its immediate parent item and resolved physical location."
+        "Get full item details by ID, including typed custom fields, its immediate parent item "
+        "and resolved physical location."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -502,7 +506,8 @@ class GetItemByAssetIdTool:
     name: str = "get_item_by_asset_id"
     description: str = (
         "Get item by its asset ID. Look up an item using its printed asset ID "
-        "(e.g., '000-085'). Useful for barcode scanning or when user provides an asset ID."
+        "(e.g., '000-085'). Returns full details including typed custom fields. "
+        "Useful for barcode scanning or when user provides an asset ID."
     )
     permission: ToolPermission = ToolPermission.READ
 
