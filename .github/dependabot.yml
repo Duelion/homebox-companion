@@ -1,27 +1,54 @@
-# Dependabot: auto-update pinned GitHub Actions and Docker base images
-# Opens PRs when new versions are available, keeping SHAs/digests current
+# Batch routine updates monthly; group security fixes separately as they arise.
 version: 2
 updates:
   # Keep GitHub Actions pinned to latest commit SHAs
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    groups:
+      dependencies:
+        patterns: ["*"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   # Keep Docker base image digests up to date
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    groups:
+      dependencies:
+        patterns: ["*"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   # Keep Python dependencies up to date
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    groups:
+      dependencies:
+        patterns: ["*"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   # Keep frontend npm dependencies up to date
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    groups:
+      dependencies:
+        patterns: ["*"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
