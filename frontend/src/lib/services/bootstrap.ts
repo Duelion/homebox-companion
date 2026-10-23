@@ -3,6 +3,7 @@ import { authStore, registerAuthLifecycle, type HomeboxConnection } from '$lib/s
 import { collectionStore } from '$lib/stores/collection.svelte';
 import { setDemoMode, type ConfigResponse } from '$lib/api/settings';
 import { request } from '$lib/api/client';
+import { setAiRequestTimeoutSeconds } from '$lib/api/aiTimeout';
 import { initializeAuth } from './tokenRefresh';
 import { setLogLevel, authLogger as log } from '$lib/utils/logger';
 
@@ -81,6 +82,7 @@ async function runBootstrap(): Promise<void> {
 	if (!browser) return;
 	try {
 		const config = await discoverConfig();
+		setAiRequestTimeoutSeconds(config.ai_request_timeout_seconds);
 		setLogLevel(config.log_level);
 		setDemoMode(config.is_demo_mode, config.demo_mode_explicit);
 		authStore.beginMode(config.auth_mode);

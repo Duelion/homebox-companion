@@ -22,6 +22,7 @@ class ConfigResponse(BaseModel):
     capture_max_file_size_mb: int
     print_enabled: bool
     auth_mode: str
+    ai_request_timeout_seconds: int
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -44,4 +45,5 @@ async def get_config(request: Request) -> ConfigResponse:
         capture_max_file_size_mb=app_settings.capture_max_file_size_mb,
         print_enabled=app_settings.print_enabled,
         auth_mode=app_settings.auth_mode,
+        ai_request_timeout_seconds=app_settings.ai_request_timeout_seconds,
     )

@@ -348,6 +348,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 | `HBC_LLM_API_BASE` | – | Custom API base URL (for proxies or experimental providers) |
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
 | `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
+| `HBC_AI_REQUEST_TIMEOUT` | Automatic | Browser deadline for detection, analysis, merge and correction, in seconds (1–86400). Unset/blank uses `HBC_LLM_TIMEOUT + 60`, bounded to 60–86400 seconds. |
 | `HBC_LLM_STREAM_TIMEOUT` | `300` | Streaming timeout for large responses (e.g., hierarchical views) |
 | `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum bytes per file, expressed in MiB; must be positive. |
 | `HBC_MAX_REQUEST_SIZE_MB` | `100` | Maximum aggregate API request body in MiB, including all files and multipart overhead; enforced while streaming, before parsing can exceed the limit. Must be positive. |
@@ -356,6 +357,15 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 </details>
 
 ### Advanced Settings
+
+AI requests use the server's configured browser deadline instead of the ordinary
+60-second API timeout. For example, `HBC_LLM_TIMEOUT=1800` automatically gives AI
+requests 1860 seconds. Set `HBC_AI_REQUEST_TIMEOUT` explicitly when queues,
+retries or fallback models need a larger total request budget. The backend LLM
+timeout applies to individual model calls; this browser setting covers the whole
+HTTP operation. Cancellation still works, and streaming chat keeps its existing
+timeout behavior. Restart Companion and reload the browser after changing these
+values. The supplied Compose file passes both variables from its `.env` file.
 
 Requests exceeding the body limit return HTTP 413, including chunked uploads. Missing or malformed legacy bearer credentials are rejected before multipart files are read. Configure matching body and concurrency limits on your reverse proxy to bound simultaneous uploads as well. If legitimate multi-image requests exceed 100 MiB, raise `HBC_MAX_REQUEST_SIZE_MB` deliberately; the per-file limit still applies.
 

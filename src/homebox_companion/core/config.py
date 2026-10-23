@@ -117,6 +117,8 @@ class Settings(BaseSettings):
 
     # LLM request timeout (in seconds)
     llm_timeout: int = 120
+    # Browser deadline for each AI HTTP operation, including queues and retries.
+    ai_request_timeout: int | None = Field(default=None, gt=0, le=86400)
     # LLM streaming timeout (in seconds) - longer for large responses
     llm_stream_timeout: int = 300
 
@@ -149,6 +151,14 @@ class Settings(BaseSettings):
     # Label printing configuration
     print_enabled: bool = False  # Enable server-side label printing via Homebox labelmaker
 
+    @field_validator("ai_request_timeout", mode="before")
+    @classmethod
+    def normalize_ai_request_timeout(cls, value: object) -> object:
+        """Treat empty optional environment values as an unset override."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator("homebox_api_key", mode="before")
     @classmethod
     def normalize_homebox_api_key(cls, value: object) -> object:
@@ -166,6 +176,14 @@ class Settings(BaseSettings):
     def auth_mode(self) -> str:
         """Authentication mode selected once from resolved settings."""
         return "api_key" if self.homebox_api_key is not None else "legacy"
+
+    @computed_field
+    @property
+    def ai_request_timeout_seconds(self) -> int:
+        """Resolved browser AI deadline, separate from provider per-call timeouts."""
+        if self.ai_request_timeout is not None:
+            return self.ai_request_timeout
+        return min(86400, max(60, self.llm_timeout + 60))
 
     @computed_field
     @property

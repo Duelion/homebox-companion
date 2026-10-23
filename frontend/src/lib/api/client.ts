@@ -69,16 +69,16 @@ function isUnsafeMethod(method?: string): boolean {
 
 /**
  * Default request timeout in milliseconds.
- * Applies when no AbortSignal is provided by the caller.
+ * Combines with caller cancellation unless a request overrides the timeout.
  */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 /**
- * WeakSet to track AbortSignals created for timeout purposes.
+ * Map request signals to their timeout source.
  * This allows us to reliably distinguish timeout aborts from user-initiated cancellations
  * without relying on browser-specific error messages.
  */
-const timeoutSignals = new WeakSet<AbortSignal>();
+const timeoutSignals = new WeakMap<AbortSignal, AbortSignal>();
 
 /**
  * Create a combined AbortSignal that aborts when either:
@@ -95,7 +95,7 @@ function createTimeoutSignal(
 ): AbortSignal {
 	const timeoutSignal = abortSignalTimeout(timeoutMs);
 	// Track this signal as a timeout signal for reliable detection later
-	timeoutSignals.add(timeoutSignal);
+	timeoutSignals.set(timeoutSignal, timeoutSignal);
 
 	if (!callerSignal) {
 		return timeoutSignal;
@@ -105,7 +105,7 @@ function createTimeoutSignal(
 	// Uses abortSignalAny for browser compatibility (AbortSignal.any not in older Safari/Chrome)
 	const combinedSignal = abortSignalAny([callerSignal, timeoutSignal]);
 	// Mark the combined signal as timeout-capable
-	timeoutSignals.add(combinedSignal);
+	timeoutSignals.set(combinedSignal, timeoutSignal);
 	return combinedSignal;
 }
 
@@ -245,9 +245,9 @@ function wrapFetchError(error: unknown, endpoint: string, signal?: AbortSignal):
 	if (error instanceof Error) {
 		// Check for abort errors (user cancellation or timeout)
 		if (error.name === 'AbortError') {
-			// Check if this was a timeout abort by seeing if the signal is tracked
-			// in our timeoutSignals WeakSet (more reliable than checking error message)
-			const isTimeout = signal ? timeoutSignals.has(signal) : false;
+			// Check which source won the race so caller cancellation stays an AbortError.
+			const timeoutSignal = signal ? timeoutSignals.get(signal) : undefined;
+			const isTimeout = timeoutSignal?.aborted && signal?.reason === timeoutSignal.reason;
 			if (isTimeout) {
 				return new NetworkError(`Request to ${endpoint} timed out`, error, { isTimeout: true });
 			}

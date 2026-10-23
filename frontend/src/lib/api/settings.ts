@@ -118,6 +118,7 @@ export interface ConfigResponse {
 	demo_mode_explicit: boolean;
 	homebox_url: string;
 	llm_model: string;
+	ai_request_timeout_seconds: number;
 	update_check_enabled: boolean;
 	image_quality: string;
 	log_level: string;

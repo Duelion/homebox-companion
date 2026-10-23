@@ -12,6 +12,7 @@ export const config = (auth_mode: AuthMode = 'api_key'): ConfigResponse => ({
 	is_demo_mode: false,
 	demo_mode_explicit: false,
 	homebox_url: 'http://homebox.test',
+	ai_request_timeout_seconds: 180,
 	llm_model: 'gpt-5.6-luna',
 	update_check_enabled: false,
 	image_quality: 'high',

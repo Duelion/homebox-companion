@@ -3,6 +3,7 @@
  */
 
 import { request, requestFormData } from './client';
+import { getAiRequestTimeoutMs } from './aiTimeout';
 import { getIsDemoMode, fieldPreferences } from './settings';
 import { apiLogger as log } from '../utils/logger';
 import type {
@@ -91,6 +92,7 @@ export const vision = {
 		return requestFormData<DetectionResponse>('/tools/vision/detect', formData, {
 			errorMessage: 'Detection failed',
 			signal: options.signal,
+			timeout: getAiRequestTimeoutMs(),
 			headers,
 		});
 	},
@@ -120,6 +122,7 @@ export const vision = {
 		return requestFormData<AdvancedItemDetails>('/tools/vision/analyze', formData, {
 			errorMessage: 'Analysis failed',
 			signal: options.signal,
+			timeout: getAiRequestTimeoutMs(),
 			headers,
 		});
 	},
@@ -139,6 +142,7 @@ export const vision = {
 			method: 'POST',
 			body: JSON.stringify({ items: itemsToMerge }),
 			signal: options.signal,
+			timeout: getAiRequestTimeoutMs(),
 			headers,
 		});
 	},
@@ -167,6 +171,7 @@ export const vision = {
 		return requestFormData<CorrectionResponse>('/tools/vision/correct', formData, {
 			errorMessage: 'Correction failed',
 			signal: options.signal,
+			timeout: getAiRequestTimeoutMs(),
 			headers,
 		});
 	},
