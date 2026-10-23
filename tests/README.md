@@ -248,7 +248,9 @@ uv run pytest -m live tests/test_companion_container_live.py
 read/save/restart and container replacement persistence (profiles, custom fields,
 default tag, language and instructions), compatibility with existing config-directory
 mounts, and failure before readiness on an unwritable mount,
-without changing existing user volumes. `TEST_HOMEBOX_VERSION` selects the supported
+without changing existing user volumes. Log checks cover viewing and downloading
+unchanged historical files through both Homebox authentication modes, including
+denial after credentials are invalidated. `TEST_HOMEBOX_VERSION` selects the supported
 upstream version through the existing isolated-server fixture. CI builds the image
 once in the production-container job and runs these tests against Homebox 0.27.0.
 

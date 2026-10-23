@@ -102,7 +102,6 @@ class Settings(BaseSettings):
 
     # Logging configuration
     log_level: str = "INFO"
-    log_access_token: SecretStr | None = None
 
     # Update check configuration
     disable_update_check: bool = False
@@ -150,7 +149,7 @@ class Settings(BaseSettings):
     # Label printing configuration
     print_enabled: bool = False  # Enable server-side label printing via Homebox labelmaker
 
-    @field_validator("homebox_api_key", "log_access_token", mode="before")
+    @field_validator("homebox_api_key", mode="before")
     @classmethod
     def normalize_homebox_api_key(cls, value: object) -> object:
         """Trim configured keys and treat blank legacy values as absent."""

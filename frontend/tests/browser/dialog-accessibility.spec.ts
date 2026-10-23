@@ -64,7 +64,7 @@ test('fullscreen log dialog contains focus and Escape closes only that dialog', 
 	api,
 }) => {
 	api.on('GET', '/api/logs', (request) => {
-		expect(request.headers()['x-companion-log-token']).toBe('operator-test-key');
+		expect(request.headers()['x-companion-log-token']).toBeUndefined();
 		return json({
 			logs: 'Started successfully',
 			filename: 'server.log',
@@ -74,7 +74,6 @@ test('fullscreen log dialog contains focus and Escape closes only that dialog', 
 	});
 	await page.goto('/settings');
 	await page.getByRole('button', { name: 'View Logs' }).click();
-	await page.getByLabel('Server log access key', { exact: true }).fill('operator-test-key');
 	await page.getByRole('button', { name: 'Show Server Logs' }).click();
 	const trigger = page.getByRole('button', { name: 'View fullscreen' }).first();
 	await trigger.click();

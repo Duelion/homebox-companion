@@ -104,8 +104,6 @@ class SettingsService {
 
 	serverLogs = $state<LogsResponse | null>(null);
 	showServerLogs = $state(false);
-	/** Operator credential is held only while this settings view is open. */
-	logAccessKey = $state('');
 
 	// =========================================================================
 	// FRONTEND LOGS STATE
@@ -236,20 +234,12 @@ class SettingsService {
 
 	async refreshServerLogs(): Promise<void> {
 		if (this.isLoading.serverLogs) return;
-		if (!this.logAccessKey) {
-			this.errors.serverLogs = 'Enter the server log access key to view logs.';
-			return;
-		}
 		const request = ++this._serverLogsRequest;
 		this.isLoading.serverLogs = true;
 		this.errors.serverLogs = null;
 
 		try {
-			const result = await getLogs(
-				DEFAULT_LOG_LINES,
-				this.logAccessKey,
-				this._remoteLogsController.signal
-			);
+			const result = await getLogs(DEFAULT_LOG_LINES, this._remoteLogsController.signal);
 			if (request !== this._serverLogsRequest) return;
 			this.serverLogs = result;
 		} catch (error) {
@@ -266,11 +256,7 @@ class SettingsService {
 		const request = this._serverLogsRequest;
 
 		try {
-			await downloadLogs(
-				this.serverLogs.filename,
-				this.logAccessKey,
-				this._remoteLogsController.signal
-			);
+			await downloadLogs(this.serverLogs.filename, this._remoteLogsController.signal);
 		} catch (error) {
 			if (request !== this._serverLogsRequest) return;
 			log.error('Failed to download logs:', error);
@@ -320,20 +306,12 @@ class SettingsService {
 
 	async refreshLLMDebugLog(): Promise<void> {
 		if (this.isLoading.llmDebugLog) return;
-		if (!this.logAccessKey) {
-			this.errors.llmDebugLog = 'Enter the server log access key to view logs.';
-			return;
-		}
 		const request = ++this._llmDebugLogRequest;
 		this.isLoading.llmDebugLog = true;
 		this.errors.llmDebugLog = null;
 
 		try {
-			const result = await getLLMDebugLogs(
-				DEFAULT_LOG_LINES,
-				this.logAccessKey,
-				this._remoteLogsController.signal
-			);
+			const result = await getLLMDebugLogs(DEFAULT_LOG_LINES, this._remoteLogsController.signal);
 			if (request !== this._llmDebugLogRequest) return;
 			this.llmDebugLog = result;
 		} catch (error) {
@@ -350,11 +328,7 @@ class SettingsService {
 		const request = this._llmDebugLogRequest;
 
 		try {
-			await downloadLLMDebugLogs(
-				this.llmDebugLog.filename,
-				this.logAccessKey,
-				this._remoteLogsController.signal
-			);
+			await downloadLLMDebugLogs(this.llmDebugLog.filename, this._remoteLogsController.signal);
 		} catch (error) {
 			if (request !== this._llmDebugLogRequest) return;
 			log.error('Failed to download LLM debug logs:', error);
@@ -613,18 +587,11 @@ class SettingsService {
 	// CLEANUP
 	// =========================================================================
 
-	setLogAccessKey(value: string): void {
-		if (value === this.logAccessKey) return;
-		this.clearRemoteLogs();
-		this.logAccessKey = value;
-	}
-
 	clearRemoteLogs(): void {
 		this._remoteLogsController.abort();
 		this._remoteLogsController = new AbortController();
 		this._serverLogsRequest++;
 		this._llmDebugLogRequest++;
-		this.logAccessKey = '';
 		this.serverLogs = null;
 		this.llmDebugLog = null;
 		this.showServerLogs = false;

@@ -106,10 +106,10 @@ async def test_invalid_token_cannot_access_local_resources(path, profile_store):
     [
         ("GET", "/api/llm/profiles", None, 200),
         ("POST", "/api/llm/profiles", {"name": "new", "model": "gpt-5.6-luna"}, 201),
-        ("GET", "/api/logs", None, 403),
-        ("GET", "/api/logs/download", None, 403),
-        ("GET", "/api/logs/llm-debug", None, 403),
-        ("GET", "/api/logs/llm-debug/download", None, 403),
+        ("GET", "/api/logs", None, 200),
+        ("GET", "/api/logs/download", None, 200),
+        ("GET", "/api/logs/llm-debug", None, 200),
+        ("GET", "/api/logs/llm-debug/download", None, 200),
         ("POST", "/api/llm/profiles/primary/test", {}, 200),
         ("POST", "/api/llm/profiles/primary/activate", None, 200),
         ("PUT", "/api/llm/profiles/primary", {"model": "gpt-5-nano"}, 200),
@@ -129,12 +129,27 @@ async def test_authenticated_user_can_manage_shared_resources(
     monkeypatch.setattr(field_preferences, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", tmp_path / "field_preferences.json")
     monkeypatch.setattr(logs, "_LOGS_DIR", str(tmp_path))
-    (tmp_path / "homebox_companion_2026-09-20.log").write_text("Test log\n")
-    (tmp_path / "llm_debug_2026-09-20.log").write_text("Test LLM log\n")
+    (tmp_path / "homebox_companion_2026-09-20.log").write_bytes(b"Test log\n")
+    (tmp_path / "llm_debug_2026-09-20.log").write_bytes(b"Test LLM log\n")
     async with security_client(api_key=api_key) as (client, _, requests):
         response = await client.request(method, path, json=body)
     assert response.status_code == status, response.text
     assert len(requests) == 1
+    if path.startswith("/api/logs"):
+        expected = b"Test LLM log\n" if "/llm-debug" in path else b"Test log\n"
+        prefix = "llm_debug" if "/llm-debug" in path else "homebox_companion"
+        filename = f"{prefix}_2026-09-20.log"
+        if path.endswith("/download"):
+            assert response.content == expected
+            assert filename in response.headers["content-disposition"]
+        else:
+            assert response.json() == {
+                "logs": expected.decode(),
+                "filename": filename,
+                "total_lines": 1,
+                "truncated": False,
+            }
+        assert (tmp_path / filename).read_bytes() == expected
 
 
 @pytest.mark.asyncio

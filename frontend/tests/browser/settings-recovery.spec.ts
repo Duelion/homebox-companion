@@ -1,6 +1,5 @@
 import { expect, test } from './fixtures/test';
 import { json } from './fixtures/api';
-import { config } from './fixtures/data';
 
 for (const logs of [
 	{ title: 'Application Logs', toggle: 'Show Server Logs', path: '/api/logs' },
@@ -13,14 +12,13 @@ for (const logs of [
 		let fail = true;
 		let content = 'Initial diagnostic';
 		api.on('GET', logs.path, (request) => {
-			expect(request.headers()['x-companion-log-token']).toBe('operator-test-key');
+			expect(request.headers()['x-companion-log-token']).toBeUndefined();
 			return fail
 				? json({ detail: 'Log service unavailable' }, 503)
 				: json({ logs: content, filename: 'test.log', total_lines: 1, truncated: false });
 		});
 		await page.goto('/settings');
 		await page.getByRole('button', { name: 'View Logs', exact: true }).click();
-		await page.getByLabel('Server log access key', { exact: true }).fill('operator-test-key');
 		const panel = page.getByRole('heading', { name: logs.title, exact: true }).locator('../..');
 		await panel.getByRole('button', { name: logs.toggle, exact: true }).click();
 		await expect(panel.getByRole('alert')).toContainText('Log service unavailable');
@@ -37,6 +35,13 @@ for (const logs of [
 		await panel.getByRole('button', { name: 'Retry', exact: true }).click();
 		await expect(panel.getByText('Recovered diagnostic', { exact: true })).toBeVisible();
 		await expect(panel.getByRole('alert')).toHaveCount(0);
+		api.on('GET', `${logs.path}/download`, (request) => {
+			expect(request.headers()['x-companion-log-token']).toBeUndefined();
+			return { status: 200, contentType: 'text/plain', body: content };
+		});
+		const download = page.waitForEvent('download');
+		await panel.getByRole('button', { name: 'Download', exact: true }).click();
+		expect((await download).suggestedFilename()).toBe('test.log');
 	});
 
 	test(`${logs.title} can refresh an empty result`, async ({ page, api }) => {
@@ -46,7 +51,6 @@ for (const logs of [
 		);
 		await page.goto('/settings');
 		await page.getByRole('button', { name: 'View Logs', exact: true }).click();
-		await page.getByLabel('Server log access key', { exact: true }).fill('operator-test-key');
 		const panel = page.getByRole('heading', { name: logs.title, exact: true }).locator('../..');
 		await panel.getByRole('button', { name: logs.toggle, exact: true }).click();
 		await expect(
@@ -110,67 +114,23 @@ test('an unavailable latest release is visible and can be checked again', async 
 	await expect(page.getByText('Up to date', { exact: true })).toBeVisible();
 });
 
-test('disabled server logs leave frontend logs and chat transcripts available', async ({
-	page,
-	api,
-}) => {
-	api.on('GET', '/api/config', () => json({ ...config(), web_logs_enabled: false }));
+test('remote diagnostics are cleared on collection changes and teardown', async ({ page, api }) => {
+	api.on('GET', '/api/logs', () =>
+		json({ logs: 'Session diagnostic', filename: 'test.log', total_lines: 1, truncated: false })
+	);
 	await page.goto('/settings');
 	await page.getByRole('button', { name: 'View Logs', exact: true }).click();
-	await expect(page.getByText(/Server log viewing is disabled/)).toBeVisible();
 	await expect(page.getByLabel('Server log access key', { exact: true })).toHaveCount(0);
-	await expect(page.getByRole('button', { name: 'Show Server Logs', exact: true })).toHaveCount(0);
-	await expect(page.getByRole('button', { name: 'Show LLM Debug Log', exact: true })).toHaveCount(
-		0
-	);
-	await page.getByRole('button', { name: 'Show Frontend Logs', exact: true }).click();
-	await page.getByRole('button', { name: 'Show Chat Transcript', exact: true }).click();
-	await expect(
-		page.getByText('No chat messages. Start a conversation in the chat window.')
-	).toBeVisible();
-});
-
-test('operator key can be corrected and is cleared with diagnostics on scope changes and teardown', async ({
-	page,
-	api,
-}) => {
-	api.on('GET', '/api/logs', (request) =>
-		request.headers()['x-companion-log-token'] === 'operator-test-key'
-			? json({
-					logs: 'Protected diagnostic',
-					filename: 'test.log',
-					total_lines: 1,
-					truncated: false,
-				})
-			: json({ detail: 'Invalid server log access key' }, 403)
-	);
-	await page.goto('/settings');
-	await page.getByRole('button', { name: 'View Logs', exact: true }).click();
-	const key = page.getByLabel('Server log access key', { exact: true });
-	await key.fill('incorrect-test-key');
 	await page.getByRole('button', { name: 'Show Server Logs', exact: true }).click();
-	await expect(page.getByRole('alert')).toContainText('Invalid server log access key');
-	await key.fill('operator-test-key');
-	await page.getByRole('button', { name: 'Show Server Logs', exact: true }).click();
-	await expect(page.getByText('Protected diagnostic', { exact: true })).toBeVisible();
-	expect(
-		await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))
-	).not.toContain('operator-test-key');
+	await expect(page.getByText('Session diagnostic', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: /Personal/ }).click();
 	await page.getByRole('option', { name: /Shared/ }).click();
-	await expect(key).toHaveValue('');
-	await expect(page.getByText('Protected diagnostic', { exact: true })).toHaveCount(0);
-	await key.fill('operator-test-key');
+	await expect(page.getByText('Session diagnostic', { exact: true })).toHaveCount(0);
 	await page.getByRole('button', { name: 'Show Server Logs', exact: true }).click();
-	await expect(page.getByText('Protected diagnostic', { exact: true })).toBeVisible();
+	await expect(page.getByText('Session diagnostic', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Scan', exact: true }).click();
 	await page.locator('a[href="/settings"]:visible').click();
 	await page.getByRole('button', { name: 'View Logs', exact: true }).click();
-	await expect(key).toHaveValue('');
-	await expect(page.getByText('Protected diagnostic', { exact: true })).toHaveCount(0);
-	expect(
-		api.requests
-			.filter((request) => !new URL(request.url()).pathname.startsWith('/api/logs'))
-			.some((request) => request.headers()['x-companion-log-token'])
-	).toBe(false);
+	await expect(page.getByText('Session diagnostic', { exact: true })).toHaveCount(0);
+	expect(api.requests.some((request) => request.headers()['x-companion-log-token'])).toBe(false);
 });

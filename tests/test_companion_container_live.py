@@ -11,6 +11,7 @@ import subprocess
 import time
 import uuid
 from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -61,6 +62,109 @@ def wait_ready(name: str) -> str:
                 break
             time.sleep(0.5)
     pytest.fail(f"Production container did not become ready:\n{docker('logs', name)}", pytrace=False)
+
+
+@pytest.mark.parametrize("mode", ["legacy", "api_key"])
+def test_log_access_uses_existing_homebox_auth(
+    companion_image: str, storage_volume: str, homebox_test_account: HomeboxTestAccount, homebox_key_factory, mode: str
+) -> None:
+    """View/download original log bytes through production and real Homebox auth."""
+    name = f"companion-logs-{uuid.uuid4().hex}"
+    upstream_ip = docker(
+        "inspect",
+        "--format",
+        "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+        homebox_test_account.server.name,
+    )
+    key = homebox_key_factory() if mode == "api_key" else None
+    key_args = ["-e", f"HBC_HOMEBOX_API_KEY={key.token}"] if key else []
+    docker(
+        "run",
+        "-d",
+        "--name",
+        name,
+        "-p",
+        "127.0.0.1::8000",
+        "-v",
+        f"{storage_volume}:/app/data",
+        "-e",
+        f"HBC_HOMEBOX_URL=http://{upstream_ip}:7745",
+        "-e",
+        "HBC_LLM_API_KEY=logs-sentinel-no-provider-call",
+        "-e",
+        "HBC_DISABLE_UPDATE_CHECK=true",
+        *key_args,
+        companion_image,
+    )
+    date = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+    original = b'{"historical":"retained exactly","api_key":"synthetic-old-value"}\n'
+    try:
+        url = wait_ready(name)
+        seed = (
+            "from pathlib import Path; root=Path('/app/logs'); root.mkdir(exist_ok=True); "
+            f"[(root/(prefix+{date!r}+'.log')).write_bytes({original!r}) "
+            "for prefix in ('homebox_companion_','llm_debug_')]"
+        )
+        docker("exec", name, "python", "-c", seed)
+        paths = ("/api/logs", "/api/logs/download", "/api/logs/llm-debug", "/api/logs/llm-debug/download")
+        with httpx.Client(base_url=url, timeout=15, trust_env=False) as client:
+            assert client.get(paths[0]).status_code == (200 if key else 401)
+            if key:
+                client.headers["X-Companion-Request"] = "1"
+            else:
+                login = client.post(
+                    "/api/login",
+                    json={"username": homebox_test_account.email, "password": homebox_test_account.password},
+                )
+                assert login.status_code == 200
+                client.headers["Authorization"] = f"Bearer {login.json()['token']}"
+                # Homebox sets cookies during login. An unrelated bad bearer
+                # must not inherit that authenticated upstream session.
+                with httpx.Client(base_url=url, timeout=15, trust_env=False) as unrelated:
+                    rejected = unrelated.get(paths[0], headers={"Authorization": "Bearer invalid-session"})
+                    assert rejected.status_code == 401
+                refreshed = client.post("/api/refresh")
+                assert refreshed.status_code == 200
+                refreshed_token = refreshed.json()["token"]
+                assert refreshed_token
+                client.headers["Authorization"] = f"Bearer {refreshed_token}"
+                with httpx.Client(timeout=15, trust_env=False) as control:
+                    verified = control.get(
+                        f"{homebox_test_account.api_url}/users/self",
+                        headers={"Authorization": f"Bearer {refreshed_token}"},
+                    )
+                assert verified.status_code == 200
+            for path in paths:
+                response = client.get(path, params={"date": date})
+                assert response.status_code == 200
+                assert (response.content if path.endswith("download") else response.json()["logs"].encode()) == original
+            if key:
+                with httpx.Client(timeout=15, trust_env=False) as control:
+                    revoked = control.delete(
+                        f"{homebox_test_account.api_url}/users/self/api-keys/{key.id}",
+                        headers={"Authorization": f"Bearer {homebox_test_account.control_token}"},
+                    )
+                assert revoked.status_code == 204
+            else:
+                client.headers["Authorization"] = "Bearer invalid-session"
+            for path in paths:
+                assert client.get(path, params={"date": date}).status_code == (502 if key else 401)
+            if not key:
+                client.headers["Authorization"] = f"Bearer {refreshed_token}"
+                assert client.post("/api/logout").status_code == 204
+                for path in paths:
+                    assert client.get(path, params={"date": date}).status_code == 401
+        docker(
+            "exec",
+            name,
+            "python",
+            "-c",
+            "from pathlib import Path; "
+            f"assert all((Path('/app/logs')/(prefix+{date!r}+'.log')).read_bytes()=={original!r} "
+            "for prefix in ('homebox_companion_','llm_debug_'))",
+        )
+    finally:
+        docker("rm", "--force", name)
 
 
 def test_fresh_volume_settings_survive_restart_and_replacement(

@@ -294,7 +294,7 @@ async def lifespan(app: FastAPI):
     # group-bound gateways without mutable global tenant state.
     client = HomeboxClient(
         base_url=app_settings.api_url,
-        allow_cookies=app_settings.auth_mode == "legacy",
+        allow_cookies=False,
     )
     app.state.homebox_client = client
     client_holder.set(client)
@@ -337,7 +337,6 @@ def create_app(app_settings: Settings | None = None, *, static_directory: str | 
         resolved_settings.llm_api_key,
         resolved_settings.openai_api_key,
         resolved_settings.homebox_api_key,
-        resolved_settings.log_access_token,
     )
 
     app.add_middleware(RequestBodyLimitMiddleware, settings=resolved_settings)  # type: ignore[arg-type]

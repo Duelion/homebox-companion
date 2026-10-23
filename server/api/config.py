@@ -22,7 +22,6 @@ class ConfigResponse(BaseModel):
     capture_max_file_size_mb: int
     print_enabled: bool
     auth_mode: str
-    web_logs_enabled: bool
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -45,5 +44,4 @@ async def get_config(request: Request) -> ConfigResponse:
         capture_max_file_size_mb=app_settings.capture_max_file_size_mb,
         print_enabled=app_settings.print_enabled,
         auth_mode=app_settings.auth_mode,
-        web_logs_enabled=app_settings.log_access_token is not None,
     )

@@ -187,11 +187,9 @@ Companion. See the [Homebox v0.27 configuration documentation](https://github.co
 
 ### Shared settings
 
-Authenticated Homebox users can manage shared settings, AI model profiles and custom fields. In API-key mode, access uses the configured key's Homebox identity. Homebox credentials are revalidated when accessing Companion's local settings and logs.
+Authenticated Homebox users can manage shared settings, AI model profiles, custom fields and server logs without additional account configuration. In API-key mode, access uses the configured key's Homebox identity. Homebox credentials are revalidated when accessing Companion's local settings and logs.
 
-Web logs require an additional operator credential in both authentication modes. Set `HBC_LOG_ACCESS_TOKEN` to a long random value distinct from your Homebox and LLM keys, then restart Companion. Without it, log viewing and downloads are disabled. Enter the token in Settings to unlock logs; the browser keeps it only in page memory and sends it in the `X-Companion-Log-Token` header for log requests. Logout, leaving Settings, or reloading the page clears it. A valid operator token still requires valid Homebox authorization.
-
-New log entries disable diagnostic locals and redact configured credentials and common credential fields before emission. Existing historical log files remain unchanged and are available to authenticated operators. LLM debug logs can contain inventory prompts and responses, so share exports carefully.
+New log entries disable diagnostic locals and redact configured credentials and common credential fields before emission. Existing historical log files remain unchanged and are available to authenticated users. LLM debug logs can contain inventory prompts and responses, so share exports carefully.
 
 When editing an AI profile, leave the API key blank to keep its saved key, including when changing the model or API base URL. A primary profile without a key uses the configured environment default; a fallback without a key inherits the primary key. Set a profile's own key when it needs different credentials.
 
@@ -420,7 +418,6 @@ HBC_IMAGE_QUALITY=high
 | `HBC_SERVER_HOST` | `0.0.0.0` | Server bind address |
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
-| `HBC_LOG_ACCESS_TOKEN` | Unset | Separate operator token for web logs; unset disables viewing/downloads. Requires valid Homebox authorization too. Restart after changing. |
 | `HBC_DISABLE_UPDATE_CHECK` | `false` | Disable update notifications |
 | `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MB |
 | `HBC_CORS_ORIGINS` | `*` | Explicit allowed origins, comma-separated. Wildcard applies only in legacy mode; key mode defaults to same-origin. |

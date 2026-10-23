@@ -37,7 +37,7 @@ def register_secrets(*values: str | SecretStr | None) -> None:
 def _redact_text(text: str) -> str:
     from .config import settings
 
-    register_secrets(settings.llm_api_key, settings.openai_api_key, settings.homebox_api_key, settings.log_access_token)
+    register_secrets(settings.llm_api_key, settings.openai_api_key, settings.homebox_api_key)
     with _lock:
         secrets = tuple(_secrets)
 

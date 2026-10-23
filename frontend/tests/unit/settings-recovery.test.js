@@ -32,7 +32,6 @@ async function service(overrides = {}) {
 		`data:text/javascript,${encodeURIComponent(`const { ${Object.keys(bindings).join(', ')} } = globalThis.${id};\n${compiled}`)}`
 	);
 	delete globalThis[id];
-	module.settingsService.setLogAccessKey('operator-test-key');
 	return module.settingsService;
 }
 
@@ -89,7 +88,6 @@ for (const panel of [
 		});
 		const pending = settings[panel.toggle]();
 		settings.reset();
-		settings.setLogAccessKey('new-test-key');
 		await settings[panel.toggle]();
 		old.resolve({ logs: 'stale', filename: 'old.log' });
 		await pending;
@@ -97,12 +95,11 @@ for (const panel of [
 		assert.equal(settings.isLoading[panel.data], false);
 	});
 
-	test(`${panel.data} clears its credential and ignores pending responses on teardown`, async () => {
+	test(`${panel.data} clears diagnostics and ignores pending responses on teardown`, async () => {
 		const old = deferred();
 		let signal;
 		const settings = await service({
-			[panel.api]: (_lines, token, requestSignal) => {
-				assert.equal(token, 'operator-test-key');
+			[panel.api]: (_lines, requestSignal) => {
 				signal = requestSignal;
 				return old.promise;
 			},
@@ -112,22 +109,20 @@ for (const panel of [
 		assert.equal(signal.aborted, true);
 		old.resolve({ logs: 'stale', filename: 'old.log' });
 		await pending;
-		assert.equal(settings.logAccessKey, '');
 		assert.equal(settings[panel.data], null);
 		assert.equal(settings[panel.visible], false);
 		assert.equal(settings.errors[panel.data], null);
 	});
 }
 
-test('changing the operator key clears remote diagnostics and errors while preserving settings drafts', async () => {
+test('clearing remote logs clears diagnostics and errors while preserving settings drafts', async () => {
 	const settings = await service();
 	settings.updateFieldPref('name', 'Keep draft');
 	settings.serverLogs = { logs: 'private server diagnostic' };
 	settings.llmDebugLog = { logs: 'private LLM diagnostic' };
 	settings.errors.serverLogs = 'Denied';
 	settings.errors.llmDebugLog = 'Denied';
-	settings.setLogAccessKey('replacement-key');
-	assert.equal(settings.logAccessKey, 'replacement-key');
+	settings.clearRemoteLogs();
 	assert.equal(settings.serverLogs, null);
 	assert.equal(settings.llmDebugLog, null);
 	assert.equal(settings.errors.serverLogs, null);

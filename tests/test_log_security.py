@@ -1,4 +1,4 @@
-"""Operator log authorization and forward-only credential redaction."""
+"""Homebox log authorization and forward-only credential redaction."""
 
 from __future__ import annotations
 
@@ -21,12 +21,11 @@ from server.api import logs
 from server.app import create_app
 
 _PATHS = ("/api/logs", "/api/logs/download", "/api/logs/llm-debug", "/api/logs/llm-debug/download")
-_OPERATOR = "synthetic-operator-log-token"
 
 
 @asynccontextmanager
-async def client_for(*, token=_OPERATOR, upstream_status=200, api_key=None):
-    settings = Settings(_env_file=None, log_access_token=token, homebox_api_key=api_key)
+async def client_for(*, upstream_status=200, api_key=None):
+    settings = Settings(_env_file=None, homebox_api_key=api_key)
     app = create_app(settings)
     async with HomeboxClient(
         base_url="http://homebox.test/api/v1",
@@ -44,38 +43,25 @@ async def client_for(*, token=_OPERATOR, upstream_status=200, api_key=None):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", _PATHS)
-@pytest.mark.parametrize(
-    "configured,provided", [(None, None), (None, _OPERATOR), (_OPERATOR, None), (_OPERATOR, "wrong")]
-)
-async def test_log_routes_require_operator_token(path, configured, provided):
-    async with client_for(token=configured) as client:
-        response = await client.get(path, headers={"X-Companion-Log-Token": provided} if provided else {})
-    assert response.status_code == 403
-    assert "disabled" in response.text if configured is None else "valid operator" in response.text
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("path", _PATHS)
 @pytest.mark.parametrize("api_key,expected", [(None, 401), ("hb_synthetic-key", 502)])
-async def test_operator_token_does_not_bypass_revoked_homebox(path, api_key, expected):
+async def test_log_routes_revalidate_revoked_homebox(path, api_key, expected):
     async with client_for(upstream_status=401, api_key=api_key) as client:
-        response = await client.get(path, headers={"X-Companion-Log-Token": _OPERATOR})
+        response = await client.get(path)
     assert response.status_code == expected
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", _PATHS)
 @pytest.mark.parametrize("date", [None, "2026-10-23"])
-async def test_historical_logs_remain_unchanged_and_operator_readable(path, date, monkeypatch, tmp_path):
+@pytest.mark.parametrize("api_key", [None, "hb_synthetic-key"])
+async def test_historical_logs_remain_unchanged_and_homebox_readable(path, date, api_key, monkeypatch, tmp_path):
     monkeypatch.setattr(logs, "_LOGS_DIR", str(tmp_path))
     original = b'{"historical": "synthetic-old-key", "api_key": "kept-exactly"}\n'
     paths = [tmp_path / f"{prefix}2026-10-23.log" for prefix in ("homebox_companion_", "llm_debug_")]
     for log_path in paths:
         log_path.write_bytes(original)
-    async with client_for() as client:
-        response = await client.get(
-            path, params={"date": date} if date else {}, headers={"X-Companion-Log-Token": _OPERATOR}
-        )
+    async with client_for(api_key=api_key) as client:
+        response = await client.get(path, params={"date": date} if date else {})
     assert response.status_code == 200
     if path.endswith("download"):
         assert response.content == original
@@ -183,12 +169,3 @@ async def test_provider_failure_has_safe_domain_error(monkeypatch, tmp_path):
     assert response.headers["X-Request-ID"] == "safe-correlation-123"
     assert "provider request failed" in response.json()["detail"]
     assert secret not in response.text
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("token,enabled", [(None, False), (_OPERATOR, True)])
-async def test_public_config_exposes_only_enabled_flag(token, enabled):
-    async with client_for(token=token) as client:
-        response = await client.get("/api/config")
-    assert response.json()["web_logs_enabled"] is enabled
-    assert _OPERATOR not in response.text
