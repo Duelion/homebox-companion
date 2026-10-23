@@ -18,7 +18,7 @@ export function setDemoMode(demoMode: boolean, explicitDemoMode: boolean = false
 	isDemoModeExplicit = explicitDemoMode;
 }
 
-/** Get current demo mode status (includes URL-based detection) */
+/** Get demo mode status configured by HBC_DEMO_MODE. */
 export function getIsDemoMode(): boolean {
 	return isDemoMode;
 }
