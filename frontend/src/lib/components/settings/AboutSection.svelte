@@ -16,6 +16,7 @@
 	} from '@lucide/svelte';
 
 	const service = settingsService;
+	const detailsId = $props.id();
 </script>
 
 <section class="card space-y-4">
@@ -99,17 +100,19 @@
 		type="button"
 		class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 		onclick={() => (service.showAboutDetails = !service.showAboutDetails)}
+		aria-expanded={service.showAboutDetails}
+		aria-controls={detailsId}
 	>
 		<Info class="text-primary-400" size={20} strokeWidth={1.5} />
-		<span>Show Details</span>
+		<span>{service.showAboutDetails ? 'Hide Details' : 'Show Details'}</span>
 		<ChevronDown
 			class="ml-auto transition-transform {service.showAboutDetails ? 'rotate-180' : ''}"
 			size={16}
 		/>
 	</button>
 
-	{#if service.showAboutDetails}
-		<div class="space-y-3">
+	<div id={detailsId} hidden={!service.showAboutDetails} class="space-y-3">
+		{#if service.showAboutDetails}
 			<!-- Configuration Info -->
 			{#if service.config}
 				<!-- Homebox URL -->
@@ -158,6 +161,6 @@
 					></div>
 				</div>
 			{/if}
-		</div>
-	{/if}
+		{/if}
+	</div>
 </section>

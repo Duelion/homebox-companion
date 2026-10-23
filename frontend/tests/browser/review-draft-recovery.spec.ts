@@ -151,6 +151,7 @@ test('multiple detections from one photo keep distinct drafts and correction sur
 	await page.getByRole('button', { name: 'Correct with AI', exact: true }).click();
 	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Corrected second');
 	await page.getByRole('link', { name: 'Settings', exact: true }).click();
+	await expect(page).toHaveURL(/\/settings$/);
 	await page.goBack();
 	await expect(page).toHaveURL(/\/review$/);
 	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Corrected second');

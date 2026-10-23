@@ -9,6 +9,7 @@
  * - Submission result tracking
  */
 
+import { assetIdError, normalizeAssetId } from '$lib/utils/assetId';
 import { items as itemsApi } from '$lib/api/index';
 import { ApiError } from '$lib/api/client';
 import { withRetry } from '$lib/utils/retry';
@@ -400,6 +401,13 @@ export class SubmissionService {
 		if (items.length === 0) {
 			return result;
 		}
+
+		if (items.some((item) => assetIdError(item.asset_id))) {
+			result.failCount = items.length;
+			result.errors = ['Fix the invalid asset ID before submitting.'];
+			return result;
+		}
+		items = items.map((item) => ({ ...item, asset_id: normalizeAssetId(item.asset_id) }));
 
 		// Validate auth token if requested (default: true)
 		if (options?.validateAuth !== false) {

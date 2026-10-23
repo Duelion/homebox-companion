@@ -2,6 +2,7 @@
  * Items API endpoints
  */
 
+import { normalizeAssetId } from '$lib/utils/assetId';
 import { request, requestFormData, requestBlobUrl, type BlobUrlResult } from './client';
 import { apiLogger as log } from '../utils/logger';
 import type { BatchCreateRequest, BatchCreateResponse, ItemSummary } from '../types';
@@ -39,6 +40,7 @@ export const items = {
 	 * Used to set asset ID after creation (since asset ID cannot be set during creation).
 	 */
 	update: (itemId: string, data: ItemUpdateData, signal?: AbortSignal) => {
+		if (data.assetId !== undefined) data = { ...data, assetId: normalizeAssetId(data.assetId) };
 		log.debug(`Updating item ${itemId}:`, data);
 		return request<unknown>(`/items/${itemId}`, {
 			method: 'PUT',

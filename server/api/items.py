@@ -15,6 +15,7 @@ from homebox_companion import (
 from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.core import HomeboxAPIError
 from homebox_companion.homebox import ItemCreate
+from homebox_companion.homebox.asset_id import normalize_asset_id
 from homebox_companion.homebox.relationships import item_update_payload, location_override_for_parent
 
 from ..dependencies import get_gateway, get_valid_tag_ids, validate_file_size
@@ -311,6 +312,12 @@ async def update_item(
     """
     logger.info(f"Updating item: {item_id}")
     logger.debug(f"Update data: {request}")
+
+    if "assetId" in request:
+        try:
+            request["assetId"] = normalize_asset_id(request["assetId"])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # Fetch current item to get required fields
     full_item = await gateway.get_item(item_id)

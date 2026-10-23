@@ -505,6 +505,7 @@ Customize how AI formats detected item fields. Set via environment variables or 
 - **Batch more items for faster uploads** – Images are analyzed by AI in parallel (up to 30 simultaneously), so adding more items actually feels faster than one at a time.
 - **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
 - **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
+- **Asset IDs** – Enter or scan a numeric Homebox ID, such as `032-303`; leave it blank for automatic assignment. Hyphens and leading zeros are accepted. IDs must fit Homebox’s signed 64-bit integer range. Zero is accepted by Homebox but represents an unassigned ID. Invalid IDs must be corrected before analysis, confirmation, or submission.
 - **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
 - **Use the Settings page** – Customize AI behavior, define custom fields, and manage LLM profiles without restarting.
 - **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.

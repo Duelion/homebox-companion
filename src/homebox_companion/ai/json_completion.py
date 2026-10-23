@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import json
+import time
 from typing import Any
 
 from loguru import logger
@@ -21,6 +22,7 @@ from pydantic import BaseModel
 
 from ..core import config
 from ..core.exceptions import JSONRepairError, LLMServiceError
+from ..core.llm_logging import log_interaction
 from ..core.llm_router import get_primary_model_name, get_router
 from ..core.rate_limiter import acquire_rate_limit, estimate_tokens, is_rate_limiting_enabled
 
@@ -210,6 +212,49 @@ def _build_completion_kwargs(
     return kwargs
 
 
+def _response_model(response: Any, requested_model: str) -> str:
+    """Prefer the provider response model over the Router deployment alias."""
+    response_model = getattr(response, "model", None)
+    if isinstance(response_model, str) and response_model.strip():
+        return response_model
+    hidden_model = (getattr(response, "_hidden_params", None) or {}).get("model")
+    if isinstance(hidden_model, str) and hidden_model.strip():
+        return hidden_model
+    return requested_model
+
+
+async def _logged_completion(router: Any, kwargs: dict[str, Any], interaction: str) -> Any:
+    """Record completion and repair requests through the shared safe log sink."""
+    started = time.perf_counter()
+    response = None
+    error_type = None
+    try:
+        response = await router.acompletion(**kwargs)
+        return response
+    except Exception as exc:
+        error_type = type(exc).__name__
+        raise
+    finally:
+        content = ""
+        model = kwargs["model"]
+        if response is not None:
+            model = _response_model(response, model)
+            if response.choices:
+                content = response.choices[0].message.content or ""
+            else:
+                error_type = "EmptyResponse"
+        log_interaction(
+            kwargs["messages"],
+            None,
+            content,
+            None,
+            int((time.perf_counter() - started) * 1000),
+            model,
+            interaction=interaction,
+            error_type=error_type,
+        )
+
+
 async def json_completion(
     messages: list[dict[str, Any]],
     *,
@@ -252,7 +297,7 @@ async def json_completion(
 
     # First attempt via Router
     try:
-        completion = await router.acompletion(**kwargs)
+        completion = await _logged_completion(router, kwargs, "vision_completion")
     except Exception as e:
         logger.error("LLM provider request failed ({})", type(e).__name__)
         message = "The LLM provider request failed. Check the server configuration and try again."
@@ -267,7 +312,7 @@ async def json_completion(
         raw_content = "{}"
 
     # Get actual model used (for logging)
-    actual_model = getattr(completion, "_hidden_params", {}).get("model", model_name)
+    actual_model = _response_model(completion, model_name)
     logger.trace(f"<<< RESPONSE FROM LLM ({actual_model}) <<<\n{'=' * 60}\n{raw_content}\n{'=' * 60}")
 
     # Log token usage
@@ -304,7 +349,7 @@ async def json_completion(
 
     try:
         repair_kwargs = _build_completion_kwargs(repair_messages, model_name, effective_timeout, response_format)
-        repair_completion = await router.acompletion(**repair_kwargs)
+        repair_completion = await _logged_completion(router, repair_kwargs, "vision_repair")
     except Exception as e:
         logger.error("LLM repair request failed ({})", type(e).__name__)
         message = "The LLM provider could not repair its response. Please try again."

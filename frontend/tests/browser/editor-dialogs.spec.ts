@@ -15,6 +15,7 @@ test('thumbnail editor contains focus and Escape restores the edit trigger', asy
 	await trigger.click();
 	const dialog = page.getByRole('dialog', { name: 'Edit Thumbnail', exact: true });
 	await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+	await expect(dialog.getByRole('button', { name: 'Save Thumbnail' })).toBeEnabled();
 	await page.keyboard.press('Shift+Tab');
 	await expect(dialog.getByRole('button', { name: 'Save Thumbnail' })).toBeFocused();
 	await page.keyboard.press('Escape');

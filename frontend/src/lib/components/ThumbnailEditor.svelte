@@ -21,10 +21,15 @@
 	let mountFrame: number | undefined;
 	let renderFrame: number | undefined;
 	let pendingImage: HTMLImageElement | null = null;
+	let disposed = false;
+	let hasRequestedImage = false;
+	let hasLoadedImage = false;
 
 	// Selected image
 	let selectedImageIndex = $state(0);
 	let loadedImage = $state<HTMLImageElement | null>(null);
+	let isImageLoading = $state(true);
+	let imageError = $state<string | null>(null);
 
 	// Transform state
 	// Offset is in the ROTATED coordinate space (relative to crop center after rotation)
@@ -99,31 +104,49 @@
 
 		// Wait for next tick to ensure canvas dimensions are set
 		mountFrame = requestAnimationFrame(() => {
+			if (disposed) return;
 			ctx = canvas.getContext('2d');
 			// Load from initial transform's image index if available, otherwise first image
 			const startIndex = initialTransform?.sourceImageIndex ?? 0;
-			loadImage(startIndex);
+			if (!hasRequestedImage) loadImage(startIndex);
+			else render();
 		});
 		return () => {
+			disposed = true;
 			if (mountFrame !== undefined) cancelAnimationFrame(mountFrame);
 			if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
-			if (pendingImage) pendingImage.onload = null;
+			if (pendingImage) {
+				pendingImage.onload = null;
+				pendingImage.onerror = null;
+			}
 		};
 	});
 
 	function loadImage(index: number) {
-		if (index < 0 || index >= images.length) return;
+		if (disposed || index < 0 || index >= images.length) return;
 
-		// Track if this is the first load (before loadedImage is set)
-		const isFirstLoad = loadedImage === null;
+		const isFirstLoad = !hasLoadedImage;
+		hasRequestedImage = true;
+		selectedImageIndex = index;
+		loadedImage = null;
+		isImageLoading = true;
+		imageError = null;
+		isDragging = false;
+		ctx?.clearRect(0, 0, canvasSize, canvasSize);
 
 		const img = new Image();
 		// A newer selection owns the next load; old callbacks must not overwrite it.
-		if (pendingImage) pendingImage.onload = null;
+		if (pendingImage) {
+			pendingImage.onload = null;
+			pendingImage.onerror = null;
+		}
 		if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
 		pendingImage = img;
 		img.onload = () => {
+			if (disposed || pendingImage !== img) return;
 			loadedImage = img;
+			hasLoadedImage = true;
+			isImageLoading = false;
 
 			// Calculate minScale first (needed for both paths)
 			const cropSize = CROP_SIZE;
@@ -145,8 +168,12 @@
 
 			renderFrame = requestAnimationFrame(() => render());
 		};
+		img.onerror = () => {
+			if (disposed || pendingImage !== img) return;
+			isImageLoading = false;
+			imageError = 'Unable to load this image. Try again or choose another image.';
+		};
 		img.src = images[index].dataUrl;
-		selectedImageIndex = index;
 	}
 
 	function resetTransform() {
@@ -167,7 +194,7 @@
 	}
 
 	function render() {
-		if (!ctx || !loadedImage) return;
+		if (disposed || !ctx || !loadedImage) return;
 
 		const w = canvasSize;
 		const h = canvasSize;
@@ -383,7 +410,7 @@
 
 	// Save cropped image
 	function saveCrop() {
-		if (!loadedImage) return;
+		if (disposed || isImageLoading || !loadedImage) return;
 
 		const outputSize = 400;
 		const outputCanvas = document.createElement('canvas');
@@ -500,6 +527,18 @@
 		{/if}
 
 		<!-- Canvas area with cursor states -->
+		{#if isImageLoading}
+			<p class="px-4 pt-4 text-center text-body-sm text-neutral-400" role="status">
+				Loading image...
+			</p>
+		{:else if imageError}
+			<div class="space-y-2 px-4 pt-4 text-center">
+				<p class="text-body-sm text-error-400" role="alert">{imageError}</p>
+				<Button variant="secondary" onclick={() => loadImage(selectedImageIndex)}
+					>Retry image</Button
+				>
+			</div>
+		{/if}
 		<div class="flex touch-none items-center justify-center p-4">
 			<canvas
 				bind:this={canvas}
@@ -546,6 +585,7 @@
 					step="0.005"
 					value={zoomSliderValue}
 					oninput={handleZoomSlider}
+					disabled={!loadedImage}
 					class="slider-primary h-2 w-full cursor-pointer rounded-lg bg-neutral-800"
 				/>
 			</div>
@@ -576,6 +616,7 @@
 						type="button"
 						class="relative z-10 flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateLeft90}
+						disabled={!loadedImage}
 						aria-label="Rotate 90° left"
 						title="-90°"
 					>
@@ -589,12 +630,14 @@
 						step="1"
 						value={rotation}
 						oninput={handleRotationSlider}
+						disabled={!loadedImage}
 						class="slider-primary relative z-0 h-2 flex-1 cursor-pointer rounded-lg bg-neutral-800"
 					/>
 					<button
 						type="button"
 						class="relative z-10 flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 						onclick={rotateRight90}
+						disabled={!loadedImage}
 						aria-label="Rotate 90° right"
 						title="+90°"
 					>
@@ -609,6 +652,7 @@
 					type="button"
 					class="min-h-touch rounded-lg bg-neutral-800 px-4 py-2 text-body-sm text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
 					onclick={resetTransform}
+					disabled={!loadedImage}
 				>
 					Reset to Default
 				</button>
@@ -618,7 +662,7 @@
 		<!-- Actions -->
 		<div class="flex gap-3 border-t border-neutral-700 p-4">
 			<Button variant="secondary" onclick={onClose}>Cancel</Button>
-			<Button variant="primary" onclick={saveCrop}>
+			<Button variant="primary" onclick={saveCrop} disabled={isImageLoading || !loadedImage}>
 				<Check size={16} strokeWidth={1.5} />
 				<span>Save Thumbnail</span>
 			</Button>

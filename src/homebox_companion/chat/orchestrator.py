@@ -22,9 +22,11 @@ from typing import Any
 from loguru import logger
 from pydantic import ValidationError
 
+from homebox_companion.core.llm_logging import log_interaction
+
 from ..core.config import Settings, settings
 from ..mcp.executor import ToolExecutor
-from .llm_client import LLMClient, TokenUsage, log_streaming_interaction
+from .llm_client import LLMClient, TokenUsage
 from .session import ApprovalOutcome, ChatSession, PendingApproval, create_approval_id
 from .stream import ChatEvent, StreamEmitter
 from .types import ChatMessage, ToolCall
@@ -529,7 +531,7 @@ class ChatOrchestrator:
         response_tool_calls = None
         if tool_calls:
             response_tool_calls = [{"name": tc.name, "arguments": tc.arguments} for tc in tool_calls]
-        log_streaming_interaction(
+        log_interaction(
             messages=messages,
             tools=tools,
             response_content=full_content,

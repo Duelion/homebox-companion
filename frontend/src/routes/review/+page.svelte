@@ -4,6 +4,7 @@
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import { ReviewEditor, copyReviewItem } from '$lib/services/reviewEditor.svelte';
 	import { getConfig } from '$lib/api/settings';
+	import { showToast } from '$lib/stores/ui.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { prepareReviewItem } from '$lib/workflows/prepare-review-item';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
@@ -41,6 +42,14 @@
 	onNavigate(({ to }) => {
 		if (!to || to.url.pathname === resolve('/review')) return;
 		return workflow.isEditingFailedItem ? workflow.cancelFailedItemEdit() : workflow.persistAsync();
+	});
+
+	// Consume errors where they occur so navigation cannot surface a stale validation failure.
+	$effect(() => {
+		if (workflow.state.error) {
+			showToast(workflow.state.error, 'error');
+			workflow.clearError();
+		}
 	});
 
 	// Object URL manager for cleanup
@@ -227,8 +236,8 @@
 		await workflow.confirmAllRemainingItems(preparedItem);
 		showConfirmAllDialog = false;
 
-		// Navigate to summary
-		goto(resolve('/summary'));
+		// Validation can leave the workflow in review.
+		if (workflow.state.status === 'confirming') goto(resolve('/summary'));
 	}
 
 	// Calculate remaining items count for dialog

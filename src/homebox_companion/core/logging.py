@@ -107,7 +107,7 @@ def setup_logging() -> None:
 
     # LLM debug log handler - separate file for raw LLM interactions
     # Uses JSON lines format for easy parsing by the API
-    # Detail level varies based on configured log level (see llm_client.py)
+    # Detail level varies based on configured log level (see llm_logging.py)
     logger.add(
         f"{LLM_DEBUG_LOG_DIR}/llm_debug_{{time:YYYY-MM-DD}}.log",
         rotation="10 MB",  # Smaller rotation for debug data

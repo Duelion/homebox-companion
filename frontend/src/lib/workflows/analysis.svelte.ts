@@ -8,6 +8,7 @@
  * - Default tag loading
  */
 
+import { assetIdError } from '$lib/utils/assetId';
 import { vision, fieldPreferences } from '$lib/api/index';
 import { tagStore } from '$lib/stores/tags.svelte';
 import { workflowLogger as log } from '$lib/utils/logger';
@@ -338,6 +339,15 @@ export class AnalysisService {
 			return { success: false, items: [], error: 'No images to analyze', failedCount: 0 };
 		}
 
+		if (images.some((image) => assetIdError(image.assetId))) {
+			return {
+				success: false,
+				items: [],
+				error: 'Fix the invalid asset ID before analyzing.',
+				failedCount: 0,
+			};
+		}
+
 		// Prevent starting a new analysis if one is in progress
 		if (this.activeOperation) {
 			log.warn('Analysis already in progress, ignoring duplicate request');
@@ -465,6 +475,15 @@ export class AnalysisService {
 	): Promise<AnalysisResult> {
 		if (images.length === 0) {
 			return { success: false, items: [], error: 'No images to analyze', failedCount: 0 };
+		}
+
+		if (images.some((image) => assetIdError(image.assetId))) {
+			return {
+				success: false,
+				items: [],
+				error: 'Fix the invalid asset ID before analyzing.',
+				failedCount: images.length,
+			};
 		}
 
 		// Prevent starting a new analysis if one is in progress

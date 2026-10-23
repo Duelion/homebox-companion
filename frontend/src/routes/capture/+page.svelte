@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
@@ -44,8 +44,8 @@
 	let maxImages = $state(30);
 	let maxFileSizeMb = $state(10);
 
-	let fileInput: HTMLInputElement;
-	let cameraInput: HTMLInputElement;
+	let fileInput = $state<HTMLInputElement>();
+	let cameraInput = $state<HTMLInputElement>();
 
 	// Local UI state (not workflow state)
 	let expandedImages = new SvelteSet<number>();
@@ -100,6 +100,8 @@
 
 	// Get workflow state for reading
 	const workflow = scanWorkflow;
+	// A history visit keeps the review checkpoint; restarting capture is an explicit review action.
+	let reviewPreview = $state(untrack(() => workflow.state.status === 'reviewing'));
 
 	// Derived values from workflow state
 	// Using getter pattern to ensure reactivity with class-based $state
@@ -128,7 +130,7 @@
 	// True while analyzing OR while the completion animation is playing
 	// This prevents UI elements from appearing/disappearing during animation
 	let showAnalyzingUI = $derived(
-		isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete)
+		!reviewPreview && (isAnalyzing || (status === 'reviewing' && !analysisAnimationComplete))
 	);
 
 	// Cleanup orphaned Object URLs when workflow is reset (images array becomes empty)
@@ -147,13 +149,14 @@
 		previousImageCount = currentCount;
 	});
 
-	// Apply route guard: requires auth, location, and not in reviewing state
+	// Apply route guard; an existing review is shown as a read-only source-photo preview.
 	onMount(async () => {
 		// Wait for auth initialization to complete to avoid race conditions
 		// where we check isAuthenticated before initializeAuth clears expired tokens
 		await getInitPromise();
 
 		if (disposed || !routeGuards.capture()) return;
+		reviewPreview = workflow.state.status === 'reviewing';
 
 		// Load capture limits from config
 		try {
@@ -189,6 +192,7 @@
 
 	// Handle analysis animation completion - navigate directly to avoid CaptureButtons appearing
 	function handleAnalysisComplete(attemptId: number) {
+		if (reviewPreview) return;
 		if (workflow.analysisAttemptId !== attemptId || workflow.state.status !== 'reviewing') return;
 
 		analysisAnimationComplete = true;
@@ -426,145 +430,458 @@
 	<StepIndicator currentStep={2} />
 
 	<h2 class="mb-1 text-h2 text-neutral-100">Capture Items</h2>
-	<p class="mb-6 text-body-sm text-neutral-400">Add photos and configure detection options</p>
-
-	<!-- Current location display -->
-	{#if locationPath}
-		<div class="mb-3 mt-2 flex items-center gap-2 text-body-sm text-neutral-400">
-			<!-- Back arrow button, vertically centered between the two lines -->
-			<button
-				type="button"
-				class="flex shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-neutral-400 transition-colors hover:bg-primary-500/20 hover:text-neutral-200 size-10"
-				aria-label="Change location"
-				onclick={goBack}
-				disabled={isAnalyzing}
-			>
-				<ChevronLeft size={24} strokeWidth={2} />
-			</button>
-
-			<!-- Location info -->
-			<div class="flex flex-col gap-0.5">
-				<div class="flex items-center gap-2">
-					<MapPin class="shrink-0" size={16} strokeWidth={1.5} />
-					<span>Items will be added to:</span>
+	{#if reviewPreview}
+		<p class="mb-6 text-body-sm text-neutral-400">
+			Your analyzed photos are shown below. Return to Review to continue with your saved edits.
+		</p>
+		{#if locationPath}
+			<p class="mb-4 text-body-sm text-neutral-300">Location: {locationPath}</p>
+		{/if}
+		<div class="space-y-4">
+			{#each images as image, index (image.dataUrl)}
+				<div class="card space-y-3">
+					<h3 class="text-body-sm font-semibold text-neutral-200">Item photo {index + 1}</h3>
+					<img
+						src={image.dataUrl}
+						alt="Captured {index + 1}"
+						class="max-h-64 w-full rounded-lg object-contain"
+					/>
+					{#if image.additionalDataUrls?.length}
+						<div class="flex flex-wrap gap-3">
+							{#each image.additionalDataUrls as additionalUrl, additionalIndex (additionalUrl)}
+								<img
+									src={additionalUrl}
+									alt="Item {index + 1}, additional photo {additionalIndex + 1}"
+									class="rounded-lg object-contain size-20"
+								/>
+							{/each}
+						</div>
+					{/if}
 				</div>
-				<span class="pl-6 font-semibold text-neutral-200">{locationPath}</span>
-				{#if parentItemName}
-					<div class="flex items-center gap-2 pl-6">
-						<span class="text-neutral-500">Inside:</span>
-						<span class="font-semibold text-primary-400">{parentItemName}</span>
+			{/each}
+		</div>
+	{:else}
+		<p class="mb-6 text-body-sm text-neutral-400">Add photos and configure detection options</p>
+
+		<!-- Current location display -->
+		{#if locationPath}
+			<div class="mb-3 mt-2 flex items-center gap-2 text-body-sm text-neutral-400">
+				<!-- Back arrow button, vertically centered between the two lines -->
+				<button
+					type="button"
+					class="flex shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-neutral-400 transition-colors hover:bg-primary-500/20 hover:text-neutral-200 size-10"
+					aria-label="Change location"
+					onclick={goBack}
+					disabled={isAnalyzing}
+				>
+					<ChevronLeft size={24} strokeWidth={2} />
+				</button>
+
+				<!-- Location info -->
+				<div class="flex flex-col gap-0.5">
+					<div class="flex items-center gap-2">
+						<MapPin class="shrink-0" size={16} strokeWidth={1.5} />
+						<span>Items will be added to:</span>
+					</div>
+					<span class="pl-6 font-semibold text-neutral-200">{locationPath}</span>
+					{#if parentItemName}
+						<div class="flex items-center gap-2 pl-6">
+							<span class="text-neutral-500">Inside:</span>
+							<span class="font-semibold text-primary-400">{parentItemName}</span>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		<!-- Analysis progress bar (above images for context) -->
+		{#if progress && showAnalyzingUI}
+			<div class="mb-4">
+				{#key workflow.analysisAttemptId}
+					{@const analysisAttemptId = workflow.analysisAttemptId}
+					<AnalysisProgressBar
+						current={progress.current}
+						total={progress.total}
+						runId={analysisAttemptId}
+						ready={status === 'reviewing'}
+						message={status === 'reviewing'
+							? 'Analysis complete!'
+							: progress.message || 'Analyzing...'}
+						onComplete={() => handleAnalysisComplete(analysisAttemptId)}
+					/>
+				{/key}
+			</div>
+		{/if}
+
+		<!-- Partial failure panel (when some images failed analysis) -->
+		{#if status === 'partial_analysis'}
+			<div
+				class="mb-4 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4"
+				transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+			>
+				<div class="mb-4 flex items-start gap-3">
+					<!-- Warning icon -->
+					<TriangleAlert class="mt-0.5 shrink-0 text-warning-400" size={24} strokeWidth={1.5} />
+
+					<div class="flex-1">
+						<h3 class="mb-1 text-body font-semibold text-warning-100">
+							Some Images Failed to Analyze
+						</h3>
+						<p class="mb-3 text-body-sm text-warning-200/80">
+							{failedImageCount} of {images.length} image(s) could not be processed. You can retry the
+							failed images, continue with the successful ones, or remove the failed images.
+						</p>
+
+						<!-- Stats -->
+						<div class="mb-4 flex gap-4 text-caption">
+							<div class="flex items-center gap-1.5">
+								<div class="bg-success-400 rounded-full size-2"></div>
+								<span class="text-neutral-300">{succeededImageCount} succeeded</span>
+							</div>
+							<div class="flex items-center gap-1.5">
+								<div class="bg-error-400 rounded-full size-2"></div>
+								<span class="text-neutral-300">{failedImageCount} failed</span>
+							</div>
+							<div class="flex items-center gap-1.5">
+								<div class="rounded-full bg-primary-400 size-2"></div>
+								<span class="text-neutral-300">{detectedItemCount} items detected</span>
+							</div>
+						</div>
+
+						<!-- Action buttons -->
+						<div class="flex flex-col gap-2 sm:flex-row">
+							<Button
+								variant="warning"
+								onclick={async () => {
+									// Reset animation flag so progress bar works correctly
+									analysisAnimationComplete = false;
+									await workflow.retryFailedAnalysis();
+								}}
+								disabled={isStartingAnalysis}
+							>
+								<RefreshCw size={16} strokeWidth={1.5} />
+								<span>Retry Failed Images</span>
+							</Button>
+							<Button
+								variant="primary"
+								onclick={() => {
+									workflow.continueWithSuccessful();
+									goto(resolve('/review'));
+								}}
+								disabled={isStartingAnalysis}
+							>
+								<span>Continue with Successful</span>
+								<ChevronRight size={16} strokeWidth={1.5} />
+							</Button>
+							<Button
+								variant="secondary"
+								onclick={() => {
+									workflow.removeFailedImages();
+									goto(resolve('/review'));
+								}}
+								disabled={isStartingAnalysis}
+							>
+								<Trash2 size={16} strokeWidth={1.5} />
+								<span>Remove Failed</span>
+							</Button>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Image list with collapsible cards -->
+		{#if images.length > 0}
+			<div class="mb-4 space-y-3">
+				<!-- Add more images buttons (above image cards) -->
+				{#if totalImageCount < maxImages && !showAnalyzingUI}
+					<div class="flex gap-3">
+						<button
+							type="button"
+							class="group flex flex-1 items-center justify-center rounded-2xl bg-primary-500/10 py-6 transition-all hover:bg-primary-500/20"
+							onclick={() => cameraInput?.click()}
+						>
+							<div class="flex flex-col items-center gap-2">
+								<Camera
+									class="text-primary-400 transition-colors group-hover:text-primary-300"
+									size={40}
+									strokeWidth={1.5}
+								/>
+								<span
+									class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
+									>Camera</span
+								>
+							</div>
+						</button>
+						<button
+							type="button"
+							class="group flex flex-1 items-center justify-center rounded-2xl bg-primary-500/10 py-6 transition-all hover:bg-primary-500/20"
+							onclick={() => fileInput?.click()}
+						>
+							<div class="flex flex-col items-center gap-2">
+								<Upload
+									class="text-primary-400 transition-colors group-hover:text-primary-300"
+									size={40}
+									strokeWidth={1.5}
+								/>
+								<span
+									class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
+									>Upload</span
+								>
+							</div>
+						</button>
 					</div>
 				{/if}
-			</div>
-		</div>
-	{/if}
 
-	<!-- Analysis progress bar (above images for context) -->
-	{#if progress && showAnalyzingUI}
-		<div class="mb-4">
-			{#key workflow.analysisAttemptId}
-				{@const analysisAttemptId = workflow.analysisAttemptId}
-				<AnalysisProgressBar
-					current={progress.current}
-					total={progress.total}
-					runId={analysisAttemptId}
-					ready={status === 'reviewing'}
-					message={status === 'reviewing'
-						? 'Analysis complete!'
-						: progress.message || 'Analyzing...'}
-					onComplete={() => handleAnalysisComplete(analysisAttemptId)}
-				/>
-			{/key}
-		</div>
-	{/if}
+				{#each images as image, index (image.dataUrl)}
+					<div
+						class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-sm transition-all hover:border-neutral-600"
+					>
+						<!-- Header (always visible) -->
+						<div class="flex items-center gap-3 p-3">
+							<!-- Thumbnail -->
+							<div class="relative shrink-0 overflow-hidden rounded-lg bg-neutral-800 size-16">
+								<img
+									src={image.dataUrl}
+									alt="Captured {index + 1}"
+									class="object-cover size-full"
+								/>
+								<div
+									class="absolute bottom-0.5 right-0.5 rounded bg-neutral-950/70 px-1.5 py-0.5 text-caption font-medium text-neutral-100"
+								>
+									{index + 1}
+								</div>
+							</div>
 
-	<!-- Partial failure panel (when some images failed analysis) -->
-	{#if status === 'partial_analysis'}
-		<div
-			class="mb-4 rounded-xl border border-warning-500/30 bg-warning-500/10 p-4"
-			transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-		>
-			<div class="mb-4 flex items-start gap-3">
-				<!-- Warning icon -->
-				<TriangleAlert class="mt-0.5 shrink-0 text-warning-400" size={24} strokeWidth={1.5} />
+							<!-- Title, Image count and total size -->
+							<div class="min-w-0 flex-1">
+								<p class="text-body-sm font-semibold text-neutral-100">
+									Item # {String(images.length - index).padStart(3, '0')}
+								</p>
+								<p class="text-caption text-neutral-400">
+									Image Count: {1 + (image.additionalFiles?.length || 0)}
+								</p>
+								<p class="text-caption text-neutral-400">
+									Total Size: {formatFileSize(
+										image.file.size +
+											(image.additionalFiles?.reduce((sum, f) => sum + f.size, 0) || 0)
+									)}
+								</p>
+							</div>
 
-				<div class="flex-1">
-					<h3 class="mb-1 text-body font-semibold text-warning-100">
-						Some Images Failed to Analyze
-					</h3>
-					<p class="mb-3 text-body-sm text-warning-200/80">
-						{failedImageCount} of {images.length} image(s) could not be processed. You can retry the failed
-						images, continue with the successful ones, or remove the failed images.
-					</p>
-
-					<!-- Stats -->
-					<div class="mb-4 flex gap-4 text-caption">
-						<div class="flex items-center gap-1.5">
-							<div class="bg-success-400 rounded-full size-2"></div>
-							<span class="text-neutral-300">{succeededImageCount} succeeded</span>
+							<!-- Action buttons / status -->
+							<div class="flex items-center gap-1">
+								{#if showAnalyzingUI && imageStatuses[index]}
+									<!-- Show status icon during analysis -->
+									<StatusIcon status={imageStatuses[index]} size="sm" />
+								{:else}
+									<button
+										type="button"
+										class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
+										aria-label={expandedImages.has(index) ? 'Collapse options' : 'Expand options'}
+										onclick={() => toggleImageExpanded(index)}
+										disabled={isAnalyzing}
+									>
+										<ChevronDown
+											class="transition-transform duration-200 {expandedImages.has(index)
+												? 'rotate-180'
+												: ''}"
+											size={20}
+											strokeWidth={1.5}
+										/>
+									</button>
+									<button
+										type="button"
+										class="hover:text-error-400 rounded-lg p-2 text-neutral-400 transition-colors hover:bg-error-500/10"
+										aria-label="Remove image"
+										onclick={() => removeImage(index)}
+										disabled={isAnalyzing}
+									>
+										<X size={20} strokeWidth={1.5} />
+									</button>
+								{/if}
+							</div>
 						</div>
-						<div class="flex items-center gap-1.5">
-							<div class="bg-error-400 rounded-full size-2"></div>
-							<span class="text-neutral-300">{failedImageCount} failed</span>
-						</div>
-						<div class="flex items-center gap-1.5">
-							<div class="rounded-full bg-primary-400 size-2"></div>
-							<span class="text-neutral-300">{detectedItemCount} items detected</span>
-						</div>
+
+						<!-- Expandable options -->
+						{#if expandedImages.has(index)}
+							<div
+								class="mt-0 space-y-3 border-t border-neutral-800 px-3 pb-3 pt-0"
+								transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+							>
+								<!-- Separate into multiple items toggle -->
+								<label class="flex cursor-pointer items-center gap-3 pt-3">
+									<div class="relative">
+										<input
+											type="checkbox"
+											checked={image.separateItems}
+											onchange={(e) =>
+												updateImageOption(
+													index,
+													'separateItems',
+													(e.target as HTMLInputElement).checked
+												)}
+											class="peer sr-only"
+											disabled={isAnalyzing}
+										/>
+										<div
+											class="h-6 w-10 rounded-full bg-neutral-700 transition-colors peer-checked:bg-primary-600"
+										></div>
+										<div
+											class="absolute left-1 top-1 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-neutral-100 size-4"
+										></div>
+									</div>
+									<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
+								</label>
+
+								<!-- Asset ID section -->
+								{#if !image.separateItems}
+									<div>
+										<div class="mb-2 flex items-center gap-0.5">
+											<span class="text-body-sm font-medium text-neutral-200">Asset ID</span>
+											<InfoTooltip
+												text="Enter an asset ID manually or scan a pre-printed QR code. Leave blank for auto-assignment."
+											/>
+										</div>
+										<AssetIdInput
+											identity={image.dataUrl}
+											value={image.assetId ?? null}
+											disabled={isAnalyzing}
+											onChange={(value) => updateImageOption(index, 'assetId', value)}
+											showLabel={false}
+										/>
+									</div>
+								{/if}
+
+								<!-- Description section -->
+								<div>
+									<div class="mb-2 flex items-center gap-0.5">
+										<span class="text-body-sm font-medium text-neutral-200">Description</span>
+										<InfoTooltip
+											text="Describe the item(s) to help with identification. You can also paste images from your clipboard here."
+										/>
+									</div>
+									<input
+										type="text"
+										placeholder="Optional: describe what's in this photo..."
+										value={image.extraInstructions}
+										oninput={(e) =>
+											updateImageOption(
+												index,
+												'extraInstructions',
+												(e.target as HTMLInputElement).value
+											)}
+										onpaste={(e) => handlePaste(index, e)}
+										class="input flex-1 text-body-sm"
+										disabled={isAnalyzing}
+									/>
+								</div>
+
+								<!-- Additional images for this item -->
+								<input
+									type="file"
+									accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
+									multiple
+									bind:this={additionalImageInputs[index]}
+									onchange={(e) => handleAdditionalImageSelect(index, e)}
+									class="hidden"
+								/>
+								<input
+									type="file"
+									accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
+									capture="environment"
+									multiple
+									bind:this={additionalCameraInputs[index]}
+									onchange={(e) => handleAdditionalImageSelect(index, e)}
+									class="hidden"
+								/>
+
+								<!-- Additional photos section -->
+								<div class="border-t border-neutral-800/50 pt-3">
+									<div class="mb-2 flex items-center gap-0.5">
+										<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
+										<InfoTooltip
+											text="Add close-ups, labels, serial numbers, different angles, invoices, receipts, etc."
+										/>
+									</div>
+
+									<!-- Buttons first -->
+									<div class="mb-3 flex gap-2">
+										<button
+											type="button"
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+											onclick={() => additionalCameraInputs[index]?.click()}
+											disabled={isAnalyzing}
+										>
+											<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
+											<span class="text-caption font-medium text-neutral-400">Camera</span>
+										</button>
+										<button
+											type="button"
+											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
+											onclick={() => additionalImageInputs[index]?.click()}
+											disabled={isAnalyzing}
+										>
+											<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
+											<span class="text-caption font-medium text-neutral-400">Upload</span>
+										</button>
+									</div>
+
+									{#if image.additionalDataUrls && image.additionalDataUrls.length > 0}
+										<!-- Gallery below buttons -->
+										<div class="mb-2 flex items-center gap-2">
+											<Image class="text-primary-400" size={16} strokeWidth={1.5} />
+											<span class="text-body-sm font-medium text-neutral-200">
+												{image.additionalDataUrls.length} additional photo{image.additionalDataUrls
+													.length !== 1
+													? 's'
+													: ''}
+											</span>
+										</div>
+										<div class="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+											{#each image.additionalDataUrls as additionalUrl (additionalUrl)}
+												{@const additionalIndex = image.additionalDataUrls.indexOf(additionalUrl)}
+												<div
+													class="group relative shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700 size-20"
+												>
+													<img
+														src={additionalUrl}
+														alt="Additional {additionalIndex + 1}"
+														class="object-cover size-full"
+													/>
+													<button
+														type="button"
+														class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-neutral-950/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-600 group-hover:opacity-100 size-6"
+														aria-label="Remove additional image"
+														onclick={() => removeAdditionalImage(index, additionalIndex)}
+														disabled={isAnalyzing}
+													>
+														<X class="text-neutral-100" size={14} strokeWidth={2.5} />
+													</button>
+													<div
+														class="absolute bottom-1 left-1 rounded bg-neutral-950/70 px-1.5 py-0.5 text-xxs font-medium text-neutral-100"
+													>
+														{additionalIndex + 1}
+													</div>
+												</div>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/if}
 					</div>
-
-					<!-- Action buttons -->
-					<div class="flex flex-col gap-2 sm:flex-row">
-						<Button
-							variant="warning"
-							onclick={async () => {
-								// Reset animation flag so progress bar works correctly
-								analysisAnimationComplete = false;
-								await workflow.retryFailedAnalysis();
-							}}
-							disabled={isStartingAnalysis}
-						>
-							<RefreshCw size={16} strokeWidth={1.5} />
-							<span>Retry Failed Images</span>
-						</Button>
-						<Button
-							variant="primary"
-							onclick={() => {
-								workflow.continueWithSuccessful();
-								goto(resolve('/review'));
-							}}
-							disabled={isStartingAnalysis}
-						>
-							<span>Continue with Successful</span>
-							<ChevronRight size={16} strokeWidth={1.5} />
-						</Button>
-						<Button
-							variant="secondary"
-							onclick={() => {
-								workflow.removeFailedImages();
-								goto(resolve('/review'));
-							}}
-							disabled={isStartingAnalysis}
-						>
-							<Trash2 size={16} strokeWidth={1.5} />
-							<span>Remove Failed</span>
-						</Button>
-					</div>
-				</div>
+				{/each}
 			</div>
-		</div>
-	{/if}
-
-	<!-- Image list with collapsible cards -->
-	{#if images.length > 0}
-		<div class="mb-4 space-y-3">
-			<!-- Add more images buttons (above image cards) -->
-			{#if totalImageCount < maxImages && !showAnalyzingUI}
-				<div class="flex gap-3">
+		{:else}
+			<!-- Enhanced empty state -->
+			<div class="mb-6 flex flex-col items-center px-4 py-12">
+				<!-- Capture buttons -->
+				<div class="mb-6 flex gap-4">
 					<button
 						type="button"
-						class="group flex flex-1 items-center justify-center rounded-2xl bg-primary-500/10 py-6 transition-all hover:bg-primary-500/20"
-						onclick={() => cameraInput.click()}
+						class="group flex aspect-square w-28 items-center justify-center rounded-2xl bg-primary-500/10 transition-all hover:bg-primary-500/20"
+						onclick={() => cameraInput?.click()}
 					>
 						<div class="flex flex-col items-center gap-2">
 							<Camera
@@ -580,8 +897,8 @@
 					</button>
 					<button
 						type="button"
-						class="group flex flex-1 items-center justify-center rounded-2xl bg-primary-500/10 py-6 transition-all hover:bg-primary-500/20"
-						onclick={() => fileInput.click()}
+						class="group flex aspect-square w-28 items-center justify-center rounded-2xl bg-primary-500/10 transition-all hover:bg-primary-500/20"
+						onclick={() => fileInput?.click()}
 					>
 						<div class="flex flex-col items-center gap-2">
 							<Upload
@@ -596,313 +913,36 @@
 						</div>
 					</button>
 				</div>
-			{/if}
 
-			{#each images as image, index (image.dataUrl)}
-				<div
-					class="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-sm transition-all hover:border-neutral-600"
-				>
-					<!-- Header (always visible) -->
-					<div class="flex items-center gap-3 p-3">
-						<!-- Thumbnail -->
-						<div class="relative shrink-0 overflow-hidden rounded-lg bg-neutral-800 size-16">
-							<img src={image.dataUrl} alt="Captured {index + 1}" class="object-cover size-full" />
-							<div
-								class="absolute bottom-0.5 right-0.5 rounded bg-neutral-950/70 px-1.5 py-0.5 text-caption font-medium text-neutral-100"
-							>
-								{index + 1}
-							</div>
-						</div>
+				<h3 class="mb-2 text-center text-h3 text-neutral-100">Capture your items</h3>
+				<p class="mb-4 max-w-xs text-center text-body-sm text-neutral-400">
+					Take photos or upload images of items you want to add to your inventory
+				</p>
 
-						<!-- Title, Image count and total size -->
-						<div class="min-w-0 flex-1">
-							<p class="text-body-sm font-semibold text-neutral-100">
-								Item # {String(images.length - index).padStart(3, '0')}
-							</p>
-							<p class="text-caption text-neutral-400">
-								Image Count: {1 + (image.additionalFiles?.length || 0)}
-							</p>
-							<p class="text-caption text-neutral-400">
-								Total Size: {formatFileSize(
-									image.file.size +
-										(image.additionalFiles?.reduce((sum, f) => sum + f.size, 0) || 0)
-								)}
-							</p>
-						</div>
-
-						<!-- Action buttons / status -->
-						<div class="flex items-center gap-1">
-							{#if showAnalyzingUI && imageStatuses[index]}
-								<!-- Show status icon during analysis -->
-								<StatusIcon status={imageStatuses[index]} size="sm" />
-							{:else}
-								<button
-									type="button"
-									class="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
-									aria-label={expandedImages.has(index) ? 'Collapse options' : 'Expand options'}
-									onclick={() => toggleImageExpanded(index)}
-									disabled={isAnalyzing}
-								>
-									<ChevronDown
-										class="transition-transform duration-200 {expandedImages.has(index)
-											? 'rotate-180'
-											: ''}"
-										size={20}
-										strokeWidth={1.5}
-									/>
-								</button>
-								<button
-									type="button"
-									class="hover:text-error-400 rounded-lg p-2 text-neutral-400 transition-colors hover:bg-error-500/10"
-									aria-label="Remove image"
-									onclick={() => removeImage(index)}
-									disabled={isAnalyzing}
-								>
-									<X size={20} strokeWidth={1.5} />
-								</button>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Expandable options -->
-					{#if expandedImages.has(index)}
-						<div
-							class="mt-0 space-y-3 border-t border-neutral-800 px-3 pb-3 pt-0"
-							transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-						>
-							<!-- Separate into multiple items toggle -->
-							<label class="flex cursor-pointer items-center gap-3 pt-3">
-								<div class="relative">
-									<input
-										type="checkbox"
-										checked={image.separateItems}
-										onchange={(e) =>
-											updateImageOption(
-												index,
-												'separateItems',
-												(e.target as HTMLInputElement).checked
-											)}
-										class="peer sr-only"
-										disabled={isAnalyzing}
-									/>
-									<div
-										class="h-6 w-10 rounded-full bg-neutral-700 transition-colors peer-checked:bg-primary-600"
-									></div>
-									<div
-										class="absolute left-1 top-1 rounded-full bg-neutral-400 transition-all peer-checked:translate-x-4 peer-checked:bg-neutral-100 size-4"
-									></div>
-								</div>
-								<span class="text-body-sm text-neutral-200">Separate into multiple items</span>
-							</label>
-
-							<!-- Asset ID section -->
-							{#if !image.separateItems}
-								<div>
-									<div class="mb-2 flex items-center gap-0.5">
-										<span class="text-body-sm font-medium text-neutral-200">Asset ID</span>
-										<InfoTooltip
-											text="Enter an asset ID manually or scan a pre-printed QR code. Leave blank for auto-assignment."
-										/>
-									</div>
-									<AssetIdInput
-										identity={image.dataUrl}
-										value={image.assetId ?? null}
-										disabled={isAnalyzing}
-										onChange={(value) => updateImageOption(index, 'assetId', value)}
-										showLabel={false}
-									/>
-								</div>
-							{/if}
-
-							<!-- Description section -->
-							<div>
-								<div class="mb-2 flex items-center gap-0.5">
-									<span class="text-body-sm font-medium text-neutral-200">Description</span>
-									<InfoTooltip
-										text="Describe the item(s) to help with identification. You can also paste images from your clipboard here."
-									/>
-								</div>
-								<input
-									type="text"
-									placeholder="Optional: describe what's in this photo..."
-									value={image.extraInstructions}
-									oninput={(e) =>
-										updateImageOption(
-											index,
-											'extraInstructions',
-											(e.target as HTMLInputElement).value
-										)}
-									onpaste={(e) => handlePaste(index, e)}
-									class="input flex-1 text-body-sm"
-									disabled={isAnalyzing}
-								/>
-							</div>
-
-							<!-- Additional images for this item -->
-							<input
-								type="file"
-								accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
-								multiple
-								bind:this={additionalImageInputs[index]}
-								onchange={(e) => handleAdditionalImageSelect(index, e)}
-								class="hidden"
-							/>
-							<input
-								type="file"
-								accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
-								capture="environment"
-								multiple
-								bind:this={additionalCameraInputs[index]}
-								onchange={(e) => handleAdditionalImageSelect(index, e)}
-								class="hidden"
-							/>
-
-							<!-- Additional photos section -->
-							<div class="border-t border-neutral-800/50 pt-3">
-								<div class="mb-2 flex items-center gap-0.5">
-									<span class="text-body-sm font-medium text-neutral-200">Additional photos</span>
-									<InfoTooltip
-										text="Add close-ups, labels, serial numbers, different angles, invoices, receipts, etc."
-									/>
-								</div>
-
-								<!-- Buttons first -->
-								<div class="mb-3 flex gap-2">
-									<button
-										type="button"
-										class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-										onclick={() => additionalCameraInputs[index]?.click()}
-										disabled={isAnalyzing}
-									>
-										<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
-										<span class="text-caption font-medium text-neutral-400">Camera</span>
-									</button>
-									<button
-										type="button"
-										class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-										onclick={() => additionalImageInputs[index]?.click()}
-										disabled={isAnalyzing}
-									>
-										<Upload class="text-neutral-400" size={16} strokeWidth={1.5} />
-										<span class="text-caption font-medium text-neutral-400">Upload</span>
-									</button>
-								</div>
-
-								{#if image.additionalDataUrls && image.additionalDataUrls.length > 0}
-									<!-- Gallery below buttons -->
-									<div class="mb-2 flex items-center gap-2">
-										<Image class="text-primary-400" size={16} strokeWidth={1.5} />
-										<span class="text-body-sm font-medium text-neutral-200">
-											{image.additionalDataUrls.length} additional photo{image.additionalDataUrls
-												.length !== 1
-												? 's'
-												: ''}
-										</span>
-									</div>
-									<div class="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
-										{#each image.additionalDataUrls as additionalUrl (additionalUrl)}
-											{@const additionalIndex = image.additionalDataUrls.indexOf(additionalUrl)}
-											<div
-												class="group relative shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700 size-20"
-											>
-												<img
-													src={additionalUrl}
-													alt="Additional {additionalIndex + 1}"
-													class="object-cover size-full"
-												/>
-												<button
-													type="button"
-													class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-neutral-950/70 [@media(hover:hover)]:opacity-0 focus-visible:opacity-100 transition-all hover:bg-error-600 group-hover:opacity-100 size-6"
-													aria-label="Remove additional image"
-													onclick={() => removeAdditionalImage(index, additionalIndex)}
-													disabled={isAnalyzing}
-												>
-													<X class="text-neutral-100" size={14} strokeWidth={2.5} />
-												</button>
-												<div
-													class="absolute bottom-1 left-1 rounded bg-neutral-950/70 px-1.5 py-0.5 text-xxs font-medium text-neutral-100"
-												>
-													{additionalIndex + 1}
-												</div>
-											</div>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{:else}
-		<!-- Enhanced empty state -->
-		<div class="mb-6 flex flex-col items-center px-4 py-12">
-			<!-- Capture buttons -->
-			<div class="mb-6 flex gap-4">
-				<button
-					type="button"
-					class="group flex aspect-square w-28 items-center justify-center rounded-2xl bg-primary-500/10 transition-all hover:bg-primary-500/20"
-					onclick={() => cameraInput.click()}
-				>
-					<div class="flex flex-col items-center gap-2">
-						<Camera
-							class="text-primary-400 transition-colors group-hover:text-primary-300"
-							size={40}
-							strokeWidth={1.5}
-						/>
-						<span
-							class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
-							>Camera</span
-						>
-					</div>
-				</button>
-				<button
-					type="button"
-					class="group flex aspect-square w-28 items-center justify-center rounded-2xl bg-primary-500/10 transition-all hover:bg-primary-500/20"
-					onclick={() => fileInput.click()}
-				>
-					<div class="flex flex-col items-center gap-2">
-						<Upload
-							class="text-primary-400 transition-colors group-hover:text-primary-300"
-							size={40}
-							strokeWidth={1.5}
-						/>
-						<span
-							class="text-caption font-medium text-primary-400 transition-colors group-hover:text-primary-300"
-							>Upload</span
-						>
-					</div>
-				</button>
+				<p class="text-caption text-neutral-500">
+					{totalImageCount} / {maxImages} images &middot; {maxFileSizeMb}MB per file
+				</p>
 			</div>
+		{/if}
 
-			<h3 class="mb-2 text-center text-h3 text-neutral-100">Capture your items</h3>
-			<p class="mb-4 max-w-xs text-center text-body-sm text-neutral-400">
-				Take photos or upload images of items you want to add to your inventory
-			</p>
-
-			<p class="text-caption text-neutral-500">
-				{totalImageCount} / {maxImages} images &middot; {maxFileSizeMb}MB per file
-			</p>
-		</div>
+		<!-- Hidden file inputs -->
+		<input
+			type="file"
+			accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
+			multiple
+			bind:this={fileInput}
+			onchange={handleFileSelect}
+			class="hidden"
+		/>
+		<input
+			type="file"
+			accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
+			capture="environment"
+			bind:this={cameraInput}
+			onchange={handleFileSelect}
+			class="hidden"
+		/>
 	{/if}
-
-	<!-- Hidden file inputs -->
-	<input
-		type="file"
-		accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
-		multiple
-		bind:this={fileInput}
-		onchange={handleFileSelect}
-		class="hidden"
-	/>
-	<input
-		type="file"
-		accept="image/jpeg,image/png,image/jpg,image/webp,image/gif,image/heic,image/heif"
-		capture="environment"
-		bind:this={cameraInput}
-		onchange={handleFileSelect}
-		class="hidden"
-	/>
 </div>
 
 <!-- Sticky Analyze button at bottom - above navigation bar -->
@@ -910,7 +950,12 @@
 	class="bottom-nav-offset fixed z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg inset-x-0"
 >
 	<AppContainer>
-		{#if showAnalyzingUI && isAnalyzing}
+		{#if reviewPreview}
+			<Button variant="primary" full onclick={() => goto(resolve('/review'))}>
+				<span>Return to Review</span>
+				<ChevronRight size={20} strokeWidth={1.5} />
+			</Button>
+		{:else if showAnalyzingUI && isAnalyzing}
 			<Button variant="secondary" full onclick={cancelAnalysis}>
 				<X size={20} strokeWidth={1.5} />
 				<span>Cancel Analysis</span>

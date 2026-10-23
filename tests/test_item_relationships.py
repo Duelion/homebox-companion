@@ -102,7 +102,7 @@ async def test_http_update_preserves_override_without_a_move_request():
     app = create_app(Settings(disable_update_check=True))
     app.dependency_overrides[get_gateway] = lambda: gateway
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
-        response = await client.put("/api/items/item", json={"assetId": "ABC"})
+        response = await client.put("/api/items/item", json={"assetId": "000-123"})
         assert response.status_code == 200
         assert gateway.update_item.await_args.args[1]["locationId"] == "other-location"
         assert gateway.update_item.await_args.args[1]["parentId"] == "container"

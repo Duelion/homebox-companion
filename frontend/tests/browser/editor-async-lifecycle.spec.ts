@@ -133,8 +133,8 @@ test('cancelled asset QR resolution cannot overwrite a later manual value', asyn
 	);
 	await page.getByRole('button', { name: 'Close scanner' }).click();
 	await cancelled;
-	await page.getByLabel('Asset ID', { exact: true }).fill('manual');
+	await page.getByLabel('Asset ID', { exact: true }).fill('000-123');
 	gate.release();
-	await expect(page.getByLabel('Asset ID', { exact: true })).toHaveValue('manual');
+	await expect(page.getByLabel('Asset ID', { exact: true })).toHaveValue('000-123');
 	await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
 });

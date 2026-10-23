@@ -86,7 +86,7 @@ test('fullscreen log dialog contains focus and Escape closes only that dialog', 
 	await page.keyboard.press('Escape');
 	await expect(dialog).not.toBeVisible();
 	await expect(trigger).toBeFocused();
-	await expect(page.getByRole('button', { name: 'View Logs' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Hide Logs' })).toBeVisible();
 });
 
 test('approval actions reflow within a narrow phone viewport @mobile', async ({ page, api }) => {

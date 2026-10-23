@@ -14,6 +14,7 @@
  * - SubmissionService: Homebox submission
  */
 
+import { assetIdError } from '$lib/utils/assetId';
 import { workflowLogger as log } from '$lib/utils/logger';
 import { CaptureService } from './capture.svelte';
 import { AnalysisService } from './analysis.svelte';
@@ -682,6 +683,10 @@ class ScanWorkflow {
 	/** Confirm current item and move to next */
 	async confirmItem(item: ReviewItem): Promise<void> {
 		if (this._status !== 'reviewing' || item.reviewId !== this.currentItem?.reviewId) return;
+		if (assetIdError(item.asset_id)) {
+			this._error = 'Fix the invalid asset ID before confirming.';
+			return;
+		}
 		if (this.failedItemEditIndex !== null) {
 			const editIndex = this.failedItemEditIndex;
 			if (this.reviewService.replaceConfirmedItem(editIndex, item)) {
@@ -701,6 +706,17 @@ class ScanWorkflow {
 
 	/** Confirm all remaining items from current index onwards */
 	async confirmAllRemainingItems(currentItemOverride?: ReviewItem): Promise<number> {
+		const remaining = this.reviewService.detectedItems.slice(this.reviewService.currentReviewIndex);
+		if (
+			remaining.some((item, index) =>
+				assetIdError(
+					index === 0 && currentItemOverride ? currentItemOverride.asset_id : item.asset_id
+				)
+			)
+		) {
+			this._error = 'Fix the invalid asset ID before confirming.';
+			return 0;
+		}
 		const count = this.reviewService.confirmAllRemainingItems(currentItemOverride);
 		await this.finishReview();
 		return count;
@@ -816,6 +832,17 @@ class ScanWorkflow {
 				successCount: 0,
 				partialSuccessCount: 0,
 				failCount: 0,
+				sessionExpired: false,
+			};
+		}
+
+		if (items.some((item) => assetIdError(item.asset_id))) {
+			this._error = 'Fix the invalid asset ID before submitting.';
+			return {
+				success: false,
+				successCount: 0,
+				partialSuccessCount: 0,
+				failCount: items.length,
 				sessionExpired: false,
 			};
 		}

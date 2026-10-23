@@ -16,6 +16,8 @@ import httpx
 from loguru import logger
 from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, store
 
+from homebox_companion.homebox.asset_id import normalize_asset_id
+
 from ..core.config import settings
 from ..core.exceptions import (
     HomeboxAPIError,
@@ -996,6 +998,8 @@ class HomeboxClient:
         Returns:
             The updated item dictionary (raw API response).
         """
+        if "assetId" in item_data:
+            item_data = {**item_data, "assetId": normalize_asset_id(item_data["assetId"])}
         response = await self.client.put(
             f"{self.base_url}/entities/{item_id}",
             headers=self._auth_headers(token, content_type="application/json"),
