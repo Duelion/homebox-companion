@@ -18,6 +18,8 @@ from homebox_companion.chat.llm_client import LLMClient
 from homebox_companion.chat.store import MemorySessionStore
 from homebox_companion.core.config import Settings
 from homebox_companion.homebox.client import HomeboxClient
+from homebox_companion.mcp.executor import ToolExecutor
+from homebox_companion.mcp.types import ToolPermission
 from server.api.auth import RateLimiter
 from server.app import create_app
 from server.dependencies import get_client
@@ -218,6 +220,25 @@ async def test_legacy_mcp_executes_with_body_token_and_selected_collection(heade
     assert response.status_code == 200
     assert response.json()["success"]
     assert seen == [("Bearer body-token", "selected-group")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_name",
+    sorted(tool.name for tool in ToolExecutor().list_tools() if tool.permission != ToolPermission.READ),
+)
+async def test_mcp_http_refuses_every_write_tool_without_calling_homebox(tool_name):
+    seen = []
+
+    def upstream(request):
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    settings = _settings(_env_file=None, homebox_api_key=None, chat_enabled=True)
+    async with _contract_client(settings, upstream) as client:
+        response = await client.post(f"/api/mcp/v1/tools/{tool_name}", json={"token": "body-token"})
+    assert response.status_code == 403
+    assert not seen
 
 
 @pytest.mark.asyncio

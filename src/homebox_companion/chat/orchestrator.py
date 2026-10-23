@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
+from pydantic import ValidationError
 
 from ..core.config import Settings, settings
 from ..mcp.executor import ToolExecutor
@@ -593,6 +594,13 @@ class ChatOrchestrator:
         Yields:
             ChatEvent objects.
         """
+        # The recovery response below must not call tools; stop rather than recover again
+        if depth > MAX_TOOL_RECURSION_DEPTH:
+            logger.warning("[CHAT] Ignoring tool calls in the recursion-limit recovery response")
+            self._session.add_message(ChatMessage(role="assistant", content=content, tool_calls=None))
+            yield self._emitter.error("Tool limit reached. Please try a simpler request.")
+            return
+
         # Safety check: prevent infinite recursion
         if depth >= MAX_TOOL_RECURSION_DEPTH:
             logger.warning(f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached")
@@ -646,6 +654,8 @@ class ChatOrchestrator:
         write_calls: list[ToolCall] = []
         unknown_calls: list[ToolCall] = []
 
+        invalid_writes: list[tuple[ToolCall, ValidationError]] = []
+
         for tc in tool_calls:
             tool = self._executor.get_tool(tc.name)
             if not tool:
@@ -653,13 +663,25 @@ class ChatOrchestrator:
             elif not self._executor.requires_approval(tc.name):
                 read_calls.append(tc)
             else:
-                write_calls.append(tc)
+                # Reject invalid writes before showing an approval card the
+                # user could approve only for execution to fail.
+                try:
+                    tool.Params(**tc.arguments)
+                except ValidationError as e:
+                    invalid_writes.append((tc, e))
+                else:
+                    write_calls.append(tc)
 
         # Handle unknown tools first (add error messages to history)
         for tc in unknown_calls:
             error_dict = {"success": False, "error": f"Unknown tool: {tc.name}"}
             self._record_tool_result(tc.id, json.dumps(error_dict))
             yield self._emitter.error(f"Unknown tool: {tc.name}")
+
+        # Invalid writes go back to the model so it can correct the call
+        for tc, error in invalid_writes:
+            logger.warning(f"Rejected {tc.name} before approval: {error}")
+            self._record_tool_result(tc.id, json.dumps({"success": False, "error": f"Invalid parameters: {error}"}))
 
         # Execute READ tools in parallel, preserving message order
         if read_calls:

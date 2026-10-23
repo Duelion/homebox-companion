@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Container
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -127,7 +128,12 @@ class CompactItemView(BaseModel):
         return f"{settings.effective_link_base_url}/item/{self.id}"
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> CompactItemView:
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        *,
+        location_ids: Container[str] | None = None,
+    ) -> CompactItemView:
         """Create a CompactItemView from an API response dictionary.
 
         Uses custom parsing instead of model_validate() to:
@@ -135,8 +141,11 @@ class CompactItemView(BaseModel):
         - Build nested LocationView for URL generation
         - Build compact tag views (id + name only)
         - Filter out unnecessary fields from the compact representation
+
+        ``location_ids`` classifies untyped summary parents; see
+        :func:`resolve_item_relationship_views`.
         """
-        location_view, parent_view = resolve_item_relationship_views(data)
+        location_view, parent_view = resolve_item_relationship_views(data, location_ids=location_ids)
         if location_view is not None:
             location_view = LocationView(id=location_view.id, name=location_view.name)
 
@@ -196,31 +205,48 @@ class ParentItemView(BaseModel):
 
 def resolve_item_relationship_views(
     data: dict[str, Any],
+    *,
+    location_ids: Container[str] | None = None,
+    untyped_parent_is_item: bool = False,
 ) -> tuple[LocationView | None, ParentItemView | None]:
     """Resolve an item's physical location and immediate containing item.
 
-    Homebox 0.27 returns these as independent ``location`` and ``parent``
-    relationships. The presence of ``location`` is authoritative, including an
-    explicit null. Older 0.26 responses used ``parent`` for either relationship;
-    their entity type metadata identifies locations. Metadata-free parents are
-    left unclassified rather than guessing whether they are items or locations.
+    Homebox 0.27 detail responses include a resolved ``location`` whenever one
+    exists and omit the key otherwise; a resolved location wins. Without one
+    (0.26 details, or 0.27 items with no location ancestor), ``parent`` is
+    classified by its entity type metadata.
+
+    List and search summaries carry neither ``location`` nor the parent's entity
+    type in any supported version. Pass the IDs of all known locations as
+    ``location_ids`` to classify those parents; without it they are left
+    unclassified rather than guessing whether they are items or locations.
+
+    Detail responses always load the parent's entity type, so an untyped parent
+    there has none at all, which Homebox treats as an item. Detail callers pass
+    ``untyped_parent_is_item=True`` so such a parent is still reported.
     """
     location_view: LocationView | None = None
     parent_view: ParentItemView | None = None
 
-    has_resolved_location = "location" in data
-    location_data = data.get("location") if has_resolved_location else None
+    location_data = data.get("location")
     if isinstance(location_data, dict) and location_data.get("id"):
         location_view = LocationView.from_dict(location_data)
 
     parent_data = data.get("parent")
     if isinstance(parent_data, dict) and parent_data.get("id"):
         entity_type = parent_data.get("entityType")
-        is_known_location = isinstance(entity_type, dict) and entity_type.get("isLocation") is True
-        is_known_item = isinstance(entity_type, dict) and entity_type.get("isLocation") is False
+        if isinstance(entity_type, dict) and isinstance(entity_type.get("isLocation"), bool):
+            is_known_location = entity_type["isLocation"]
+            is_known_item = not is_known_location
+        elif location_ids is not None:
+            is_known_location = parent_data["id"] in location_ids
+            is_known_item = not is_known_location
+        else:
+            is_known_location = False
+            is_known_item = untyped_parent_is_item
 
         if is_known_location:
-            if not has_resolved_location:
+            if location_view is None:
                 location_view = LocationView.from_dict(parent_data)
         elif is_known_item:
             parent_view = ParentItemView.from_dict(parent_data)
@@ -259,15 +285,27 @@ class ItemView(BaseModel):
         return f"{settings.effective_link_base_url}/item/{self.id}"
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ItemView:
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        *,
+        location_ids: Container[str] | None = None,
+        untyped_parent_is_item: bool = False,
+    ) -> ItemView:
         """Create an ItemView from an API response dictionary.
 
         Uses custom parsing instead of model_validate() to:
         - Build nested LocationView for URL generation
         - Build nested ParentItemView for parent item relationships
         - Ensure all optional fields have safe defaults
+
+        ``location_ids`` classifies untyped summary parents and
+        ``untyped_parent_is_item`` untyped detail parents; see
+        :func:`resolve_item_relationship_views`.
         """
-        location_view, parent_view = resolve_item_relationship_views(data)
+        location_view, parent_view = resolve_item_relationship_views(
+            data, location_ids=location_ids, untyped_parent_is_item=untyped_parent_is_item
+        )
 
         # Validate required fields - log warnings but don't fail
         item_id = data.get("id") or ""

@@ -270,7 +270,7 @@ class ToolExecutor:
                 if tool_name == "delete_item":
                     from ..homebox.views import resolve_item_relationship_views
 
-                    location_view, _ = resolve_item_relationship_views(item)
+                    location_view, _ = resolve_item_relationship_views(item, untyped_parent_is_item=True)
                     if location_view is not None:
                         location = location_view.name
 

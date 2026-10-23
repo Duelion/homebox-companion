@@ -25,6 +25,7 @@ from ..core.exceptions import (
 )
 from .auth import HomeboxAccess
 from .models import Attachment, Group, Item, ItemCreate, Location, Tag
+from .relationships import item_update_payload
 
 
 @lru_cache
@@ -580,12 +581,15 @@ class HomeboxClient:
         token: str,
         *,
         filter_children: bool | None = None,
+        include_archived: bool = False,
     ) -> list[dict[str, Any]]:
         """Return all available locations for the authenticated user.
 
         Args:
             token: The bearer token from login.
             filter_children: If True, returns only top-level locations.
+            include_archived: If True, also return archived locations, which
+                Homebox omits by default.
 
         Returns:
             List of location dictionaries (raw API response).
@@ -593,6 +597,8 @@ class HomeboxClient:
         params: dict[str, str] = {"isLocation": "true"}
         if filter_children is not None:
             params["filterChildren"] = str(filter_children).lower()
+        if include_archived:
+            params["includeArchived"] = "true"
 
         response = await self.client.get(
             f"{self.base_url}/entities",
@@ -758,13 +764,16 @@ class HomeboxClient:
         Returns:
             The updated location dictionary.
         """
-        payload: dict[str, Any] = {
+        # Locations are entities, and Homebox replaces the whole entity on PUT,
+        # so send back everything it already has before applying the changes.
+        current = await self.get_item(token, location_id)
+        payload = {
+            **item_update_payload(current),
             "id": location_id,
             "name": name,
             "description": description,
+            "parentId": parent_id or None,
         }
-        if parent_id:
-            payload["parentId"] = parent_id
 
         response = await self.client.put(
             f"{self.base_url}/entities/{location_id}",

@@ -34,9 +34,10 @@ async def test_cancelled_request_holds_slot_until_worker_finishes(monkeypatch):
         with pytest.raises(asyncio.CancelledError):
             await worker
         other = asyncio.create_task(image_processing.run_image_processing(second))
-        # Advance the loop while the worker thread remains blocked.
-        await asyncio.sleep(0)
-        assert not second_entered.is_set()
+        # While the cancelled worker's thread is still blocked, its slot must stay
+        # held. Give the second job long enough to start if the slot were released.
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(second_entered.wait(), timeout=0.2)
         release.set()
         assert await asyncio.wait_for(other, timeout=2) == 2
     finally:

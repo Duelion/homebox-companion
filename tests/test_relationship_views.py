@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from homebox_companion.core.exceptions import HomeboxTimeoutError
 from homebox_companion.homebox.views import CompactItemView, ItemView
 from homebox_companion.mcp.executor import ToolExecutor
 from homebox_companion.mcp.tools import (
@@ -19,6 +20,20 @@ NESTED_ITEM = {
     "parent": {"id": "toolchest", "name": "Toolchest", "entityType": {"isLocation": False}},
     "location": {"id": "workshop", "name": "Workshop"},
 }
+
+# GET /v1/entities summaries (0.26.2 and 0.27.0) load the parent without its
+# entity type and carry no resolved location.
+LOCATIONS = [{"id": "workshop", "name": "Workshop"}, {"id": "garage", "name": "Garage"}]
+DIRECT_SUMMARY = {"id": "saw", "name": "Saw", "parent": {"id": "workshop", "name": "Workshop", "tags": []}}
+NESTED_SUMMARY = {"id": "drill", "name": "Drill", "parent": {"id": "toolchest", "name": "Toolchest", "tags": []}}
+
+
+def _summary_client(*items: dict) -> MagicMock:
+    client = MagicMock()
+    client.list_items = AsyncMock(return_value={"items": list(items), "total": len(items)})
+    client.list_locations = AsyncMock(return_value=LOCATIONS)
+    client.get_item = AsyncMock()
+    return client
 
 
 def test_detailed_view_keeps_container_and_physical_location_separate() -> None:
@@ -47,14 +62,10 @@ def test_direct_location_has_no_parent_item() -> None:
     assert result.parent is None
 
 
-@pytest.mark.parametrize("location_value", [None, {}])
-def test_explicit_location_value_is_authoritative(location_value: object) -> None:
+def test_omitted_location_with_item_parent_has_no_location() -> None:
+    """0.27 omits ``location`` when no location ancestor exists."""
     result = ItemView.from_dict(
-        {
-            "id": "drill",
-            "parent": {"id": "toolchest", "name": "Toolchest", "entityType": {"isLocation": False}},
-            "location": location_value,
-        }
+        {"id": "drill", "parent": {"id": "toolchest", "name": "Toolchest", "entityType": {"isLocation": False}}}
     )
 
     assert result.location is None
@@ -80,6 +91,42 @@ def test_missing_relationship_metadata_is_left_unknown() -> None:
     assert result.parent is None
 
 
+def test_untyped_detail_parent_is_reported_as_item() -> None:
+    """Detail queries load the parent's type, so an untyped parent has none; Homebox treats it as an item."""
+    result = ItemView.from_dict(
+        {"id": "drill", "parent": {"id": "crate", "name": "Crate"}, "location": {"id": "garage", "name": "Garage"}},
+        untyped_parent_is_item=True,
+    )
+
+    assert result.parent is not None and result.parent.name == "Crate"
+    assert result.location is not None and result.location.name == "Garage"
+
+
+@pytest.mark.parametrize("view_type", [CompactItemView, ItemView])
+def test_untyped_summary_parent_is_classified_by_known_locations(
+    view_type: type[CompactItemView] | type[ItemView],
+) -> None:
+    location_ids = {loc["id"] for loc in LOCATIONS}
+
+    direct = view_type.from_dict(DIRECT_SUMMARY, location_ids=location_ids)
+    nested = view_type.from_dict(NESTED_SUMMARY, location_ids=location_ids)
+
+    assert direct.location is not None and direct.location.name == "Workshop"
+    assert direct.parent is None
+    assert nested.location is None
+    assert nested.parent is not None and nested.parent.name == "Toolchest"
+
+
+def test_entity_type_metadata_wins_over_known_locations() -> None:
+    result = ItemView.from_dict(
+        {"id": "x", "parent": {"id": "workshop", "name": "Workshop", "entityType": {"isLocation": False}}},
+        location_ids={"workshop"},
+    )
+
+    assert result.location is None
+    assert result.parent is not None
+
+
 def test_compact_summary_exposes_parent_and_unknown_location() -> None:
     result = CompactItemView.from_dict(
         {
@@ -96,46 +143,140 @@ def test_compact_summary_exposes_parent_and_unknown_location() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "tool_type,param_name,param_value,client_method",
-    [
-        (GetItemTool, "item_id", "drill", "get_item"),
-        (GetItemByAssetIdTool, "asset_id", "000-001", "get_item_by_asset_id"),
-    ],
-)
-async def test_detailed_read_tools_return_both_relationships(
-    tool_type: type, param_name: str, param_value: str, client_method: str
-) -> None:
+async def test_get_item_returns_both_relationships() -> None:
     client = MagicMock()
-    setattr(client, client_method, AsyncMock(return_value=NESTED_ITEM))
-    tool = tool_type()
+    client.get_item = AsyncMock(return_value=NESTED_ITEM)
+    tool = GetItemTool()
 
-    result = await tool.execute(client, "token", tool.Params(**{param_name: param_value}))
+    result = await tool.execute(client, "token", tool.Params(item_id="drill"))
 
     assert result.data["parent"]["name"] == "Toolchest"
     assert result.data["location"]["name"] == "Workshop"
 
 
 @pytest.mark.asyncio
+async def test_asset_lookup_reads_details_because_asset_summaries_are_untyped() -> None:
+    client = MagicMock()
+    # GET /v1/assets/{id} returns summaries: untyped parent, no resolved location.
+    client.get_item_by_asset_id = AsyncMock(return_value=NESTED_SUMMARY)
+    client.get_item = AsyncMock(return_value=NESTED_ITEM)
+    tool = GetItemByAssetIdTool()
+
+    result = await tool.execute(client, "token", tool.Params(asset_id="000-001"))
+
+    client.get_item.assert_awaited_once_with("token", "drill")
+    assert result.data["parent"]["name"] == "Toolchest"
+    assert result.data["location"]["name"] == "Workshop"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("compact", [True, False])
 @pytest.mark.parametrize(
     "tool_type,params",
     [
         (ListItemsTool, {}),
-        (SearchItemsTool, {"query": "drill"}),
+        (SearchItemsTool, {"query": "tool"}),
     ],
 )
-async def test_summary_tools_do_not_fetch_details(tool_type: type, params: dict[str, str]) -> None:
-    client = MagicMock()
-    client.list_items = AsyncMock(return_value={"items": [NESTED_ITEM], "total": 1})
-    client.get_item = AsyncMock()
+async def test_summary_tools_classify_real_summaries_without_fetching_details(
+    tool_type: type, params: dict[str, str], compact: bool
+) -> None:
+    client = _summary_client(NESTED_SUMMARY, DIRECT_SUMMARY)
     tool = tool_type()
+
+    result = await tool.execute(client, "token", tool.Params(**params, compact=compact))
+
+    by_id = {item["id"]: item for item in result.data["items"]}
+    assert by_id["saw"]["location"]["name"] == "Workshop"
+    assert by_id["saw"]["parent"] is None
+    assert by_id["drill"]["parent"]["name"] == "Toolchest"
+    assert by_id["drill"]["location"] is None
+    client.list_locations.assert_awaited_once_with("token", include_archived=True)
+    client.get_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("params", [{"location_id": "garage"}, {"location_name": "garage"}])
+async def test_location_filtered_list_reports_filtered_location_for_nested_items(params: dict[str, str]) -> None:
+    """A nested result of a 0.27 location filter is an override match, so it lives there."""
+    client = _summary_client(NESTED_SUMMARY)
+    tool = ListItemsTool()
 
     result = await tool.execute(client, "token", tool.Params(**params))
 
     summary = result.data["items"][0]
     assert summary["parent"]["name"] == "Toolchest"
-    assert summary["location"]["name"] == "Workshop"
-    client.get_item.assert_not_awaited()
+    assert summary["location"]["id"] == "garage"
+    assert summary["location"]["name"] == "Garage"
+    # One location fetch serves both name resolution and classification.
+    client.list_locations.assert_awaited_once_with("token", include_archived=True)
+
+
+@pytest.mark.asyncio
+async def test_location_name_prefers_active_but_reaches_archived_locations() -> None:
+    client = _summary_client()
+    client.list_locations = AsyncMock(
+        return_value=[
+            {"id": "old-garage", "name": "Garage", "archived": True},
+            {"id": "garage", "name": "Garage", "archived": False},
+            {"id": "attic", "name": "Attic", "archived": True},
+        ]
+    )
+    tool = ListItemsTool()
+
+    await tool.execute(client, "token", tool.Params(location_name="garage"))
+    assert client.list_items.await_args.kwargs["location_id"] == "garage"
+    await tool.execute(client, "token", tool.Params(location_name="attic"))
+    assert client.list_items.await_args.kwargs["location_id"] == "attic"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_type,params", [(ListItemsTool, {}), (SearchItemsTool, {"query": "saw"})])
+async def test_failed_location_fetch_leaves_parents_unclassified(tool_type: type, params: dict[str, str]) -> None:
+    client = _summary_client(DIRECT_SUMMARY)
+    client.list_locations = AsyncMock(side_effect=HomeboxTimeoutError("slow"))
+    tool = tool_type()
+
+    result = await tool.execute(client, "token", tool.Params(**params))
+
+    assert result.success is True
+    assert result.data["items"][0]["location"] is None
+    assert result.data["items"][0]["parent"] is None
+
+
+@pytest.mark.asyncio
+async def test_archived_location_parent_is_classified_as_location() -> None:
+    client = _summary_client({"id": "old", "name": "Old", "parent": {"id": "attic", "name": "Attic"}})
+    # Homebox omits archived locations unless includeArchived is requested.
+    client.list_locations = AsyncMock(
+        side_effect=lambda token, include_archived=False: (
+            [*LOCATIONS, {"id": "attic", "name": "Attic", "archived": True}] if include_archived else LOCATIONS
+        )
+    )
+    tool = SearchItemsTool()
+
+    result = await tool.execute(client, "token", tool.Params(query="old"))
+
+    summary = result.data["items"][0]
+    assert summary["location"]["name"] == "Attic"
+    assert summary["parent"] is None
+
+
+@pytest.mark.asyncio
+async def test_summaries_sort_by_location_then_container_then_name() -> None:
+    items = [
+        {"id": "b", "name": "B", "parent": {"id": "workshop", "name": "Workshop"}},
+        {"id": "c", "name": "C", "parent": {"id": "toolchest", "name": "Toolchest"}},
+        {"id": "a", "name": "A", "parent": {"id": "garage", "name": "Garage"}},
+        {"id": "d", "name": "D", "parent": {"id": "bin", "name": "Bin"}},
+    ]
+    client = _summary_client(*items)
+    tool = SearchItemsTool()
+
+    result = await tool.execute(client, "token", tool.Params(query="x"))
+
+    # Unknown locations sort first, grouped by container; then by location name.
+    assert [item["id"] for item in result.data["items"]] == ["d", "c", "a", "b"]
 
 
 @pytest.mark.asyncio
@@ -150,16 +291,32 @@ async def test_delete_confirmation_uses_physical_location_not_container() -> Non
 
 @pytest.mark.asyncio
 async def test_delete_confirmation_does_not_label_container_as_location() -> None:
+    """0.26 nested details, and 0.27 ones without a location ancestor, have a typed parent and no location."""
     client = MagicMock()
     client.get_item = AsyncMock(
         return_value={
             "id": "drill",
             "name": "Drill",
-            "parent": {"id": "toolchest", "name": "Toolchest"},
-            "location": None,
+            "parent": {"id": "toolchest", "name": "Toolchest", "entityType": {"isLocation": False}},
         }
     )
 
     info = await ToolExecutor(client).get_display_info("delete_item", {"item_id": "drill"}, "token")
 
     assert info.location is None
+
+
+@pytest.mark.asyncio
+async def test_delete_confirmation_uses_location_parent_on_026() -> None:
+    client = MagicMock()
+    client.get_item = AsyncMock(
+        return_value={
+            "id": "saw",
+            "name": "Saw",
+            "parent": {"id": "workshop", "name": "Workshop", "entityType": {"isLocation": True}},
+        }
+    )
+
+    info = await ToolExecutor(client).get_display_info("delete_item", {"item_id": "saw"}, "token")
+
+    assert info.location == "Workshop"

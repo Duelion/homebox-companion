@@ -71,6 +71,10 @@ class TestToolExecutor:
         read_names = {t.name for t in read_tools}
         write_names = {t.name for t in write_tools}
         assert len(read_names & write_names) == 0
+        # Anchor the filter so an empty result cannot pass vacuously
+        assert {"list_items", "search_items", "get_item"} <= read_names
+        assert {"create_item", "update_item"} <= write_names
+        assert "delete_item" not in read_names | write_names
 
     def test_get_tool_schemas_returns_valid_format(self, executor: ToolExecutor):
         """get_tool_schemas should return OpenAI-compatible format."""
@@ -94,6 +98,8 @@ class TestToolExecutor:
 
         # Verify all returned schemas are for READ tools
         read_schema_names = {s["function"]["name"] for s in read_schemas}
+        assert {"list_items", "get_item"} <= read_schema_names
+        assert not {"create_item", "update_item", "delete_item"} & read_schema_names
         for name in read_schema_names:
             tool = executor.get_tool(name)
             assert tool is not None

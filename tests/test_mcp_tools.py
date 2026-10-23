@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from conftest import HomeboxAuth
+from pydantic import ValidationError
 
 from homebox_companion import HomeboxClient, ItemCreate
 from homebox_companion.mcp.tools import (
@@ -33,7 +34,7 @@ def mock_client() -> MagicMock:
     """Create a mock HomeboxClient."""
     client = MagicMock()
     # Make all methods async mocks
-    client.list_locations = AsyncMock()
+    client.list_locations = AsyncMock(return_value=[])
     client.get_location = AsyncMock()
     client.list_tags = AsyncMock()
     client.list_items = AsyncMock()
@@ -380,11 +381,7 @@ class TestUpdateItem:
             ({"parent_id": "parent-new"}, "parent-new"),
             ({"clear_parent": True}, None),
             ({}, "parent-current"),
-            ({"location_id": "location-new", "parent_id": "parent-new"}, "parent-new"),
-            (
-                {"location_id": "location-new", "parent_id": "parent-new", "clear_parent": True},
-                None,
-            ),
+            ({"parent_id": "", "location_id": ""}, "parent-current"),
         ],
     )
     async def test_resolves_parent_once_with_documented_precedence(
@@ -404,6 +401,18 @@ class TestUpdateItem:
         assert result.success is True
         payload = mock_client.update_item.await_args.args[2]
         assert payload["parentId"] == expected_parent
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"location_id": "location-new", "parent_id": "parent-new"},
+            {"location_id": "location-new", "clear_parent": True},
+            {"parent_id": "parent-new", "clear_parent": True},
+        ],
+    )
+    def test_rejects_contradictory_placement_changes(self, params: dict[str, object]) -> None:
+        with pytest.raises(ValidationError, match="Pass only one of parent_id, location_id or clear_parent"):
+            UpdateItemTool.Params.model_validate({"item_id": "item-1", **params})
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("parent_fields", [{"parent": None}, {}])

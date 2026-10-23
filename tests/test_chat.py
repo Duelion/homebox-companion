@@ -607,8 +607,15 @@ class TestChatOrchestrator:
         executor = ToolExecutor(mock_client)
         orchestrator = ChatOrchestrator(session=session, executor=executor)
 
-        # Mock search_items tool
-        mock_client.search_items = AsyncMock(return_value=[{"id": "item-123", "name": "Picture Hanging Wire"}])
+        # search_items is served by the client's list_items query
+        mock_client.list_items = AsyncMock(
+            return_value={
+                "items": [{"id": "item-123", "name": "Picture Hanging Wire"}],
+                "page": 1,
+                "pageSize": 50,
+                "total": 1,
+            }
+        )
         # Mock get_item tool
         mock_client.get_item = AsyncMock(
             return_value={
@@ -713,7 +720,17 @@ class TestChatOrchestrator:
         assert len(tool_start_events) == 2, f"Should have 2 tool start events, got {len(tool_start_events)}"
         assert len(tool_result_events) == 2, f"Should have 2 tool result events, got {len(tool_result_events)}"
         assert len(text_events) == 1, f"Should have 1 text event, got {len(text_events)}"
-        assert "Picture Hanging Wire" in text_events[0].data["content"]
+
+        # Both tools really ran and found the item
+        for event in tool_result_events:
+            assert event.data["result"]["success"] is True, event.data
+            assert "item-123" in json.dumps(event.data["result"])
+        mock_client.list_items.assert_awaited_once()
+        mock_client.get_item.assert_awaited_once_with("token", "item-123")
+
+        # Each follow-up LLM call received the previous tool result
+        second_call_messages = mock_router.acompletion.await_args_list[1].kwargs["messages"]
+        assert any(m["role"] == "tool" and "item-123" in m["content"] for m in second_call_messages)
 
         # Verify message sequence in session is valid
         # Each tool message must be preceded by an assistant message whose tool_calls
@@ -818,8 +835,9 @@ class TestChatOrchestrator:
         # The tool call count should be limited by MAX_TOOL_RECURSION_DEPTH
         from homebox_companion.chat.orchestrator import MAX_TOOL_RECURSION_DEPTH
 
-        # We called the mock at least MAX_TOOL_RECURSION_DEPTH times
-        # (the limit triggers and then there's one more call for the explanation)
-        assert call_count >= MAX_TOOL_RECURSION_DEPTH, (
-            f"Should have called LLM at least {MAX_TOOL_RECURSION_DEPTH} times, got {call_count}"
+        # The first response, one continuation per allowed depth, then one tool-free call for
+        # the explanation. The mock keeps returning tool calls even then, which must stop.
+        assert call_count == MAX_TOOL_RECURSION_DEPTH + 2, (
+            f"Should have called LLM {MAX_TOOL_RECURSION_DEPTH + 2} times, got {call_count}"
         )
+        assert any(e.type == ChatEventType.ERROR and "Tool limit reached" in e.data["message"] for e in events)

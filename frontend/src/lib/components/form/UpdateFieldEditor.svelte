@@ -166,12 +166,12 @@
 
 	{#if fieldsBeingChanged.includes('parent_id')}
 		<div>
-			<label for="{idPrefix}-parent" class={labelClass}>New Parent Location</label>
+			<label for="{idPrefix}-parent" class={labelClass}>New Parent</label>
 			<input
 				type="text"
 				id="{idPrefix}-parent"
 				bind:value={parentId}
-				placeholder="Parent Location ID (optional)"
+				placeholder="Parent ID (leave blank to keep the current one)"
 				class={inputClass}
 				{disabled}
 			/>

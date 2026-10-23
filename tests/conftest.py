@@ -29,6 +29,24 @@ if TYPE_CHECKING:
     from homebox_companion import HomeboxClient
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Keep the default (non-live) run independent of the developer's environment.
+
+    Runs before test modules import the package, so modules that bind
+    ``settings`` at import time also get the clean instance. Live runs are
+    configured through ``HBC_*`` variables and keep them.
+    """
+    if config.getoption("markexpr") != "not live":
+        return
+    for name in [name for name in os.environ if name.startswith("HBC_")]:
+        del os.environ[name]
+    from homebox_companion.core import config as app_config
+
+    app_config.Settings.model_config["env_file"] = None
+    app_config.get_settings.cache_clear()
+    app_config.settings = app_config.get_settings()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _configure_loguru_for_tests():
     """Strip all loguru sinks and keep only stderr for test runs.
@@ -86,9 +104,10 @@ def _wait_for_demo_seed(
             timeout=15,
             check=False,
         )
-        last_logs = f"{logs.stdout}\n{logs.stderr}"[-6000:]
-        if "Demo setup complete" in last_logs:
+        full_logs = f"{logs.stdout}\n{logs.stderr}"
+        if "Demo setup complete" in full_logs:
             return
+        last_logs = full_logs[-6000:]
         state = subprocess.run(
             [
                 "docker",
@@ -342,6 +361,11 @@ def mock_label_printer() -> Generator[MockLabelPrinter]:
 # ---------------------------------------------------------------------------
 
 
+def homebox_at_least(version: str, minimum: str) -> bool:
+    """Compare dotted versions numerically so newer pinned images still run gated tests."""
+    return tuple(int(part) for part in version.split(".")) >= tuple(int(part) for part in minimum.split("."))
+
+
 @pytest.fixture(scope="session")
 def homebox_version() -> str:
     """Return the explicitly supported Homebox version selected for this run."""
@@ -363,6 +387,7 @@ def homebox_image(homebox_version: str) -> str:
 @pytest.fixture(scope="session")
 def homebox_container(
     mock_label_printer: MockLabelPrinter,
+    homebox_version: str,
     homebox_image: str,
 ) -> Generator[tuple[str, str]]:
     """Start a disposable Homebox Docker container for the test session.
@@ -400,6 +425,7 @@ def homebox_container(
         server.start()
         _wait_for_demo_seed(server.name)
         _wait_for_homebox(server.base_url)
+        _assert_homebox_version(server.base_url, homebox_version)
         yield server.base_url, container_name
     finally:
         server.remove() if "server" in locals() else subprocess.run(
@@ -502,6 +528,16 @@ def homebox_credentials() -> tuple[str, str]:
     return DEMO_USERNAME, DEMO_PASSWORD
 
 
+def _assert_homebox_version(base_url: str, expected: str) -> None:
+    """Fail when a pinned digest does not run the version the run claims to test."""
+    with httpx.Client(timeout=5.0, trust_env=False) as setup:
+        response = setup.get(f"{base_url}/api/v1/status")
+    _expect_status(response, 200, "Homebox version check")
+    reported = str((response.json().get("build") or {}).get("version", "")).removeprefix("v")
+    if reported != expected:
+        pytest.fail(f"Homebox image reports version {reported!r}, expected {expected!r}", pytrace=False)
+
+
 def _wait_for_status(server: HomeboxDockerServer, timeout: float = 60.0) -> None:
     """Wait for an unseeded Homebox server without authenticating the tested client."""
     deadline = time.monotonic() + timeout
@@ -540,7 +576,7 @@ class HomeboxKey:
 
 
 @pytest.fixture(scope="session")
-def isolated_homebox_server(homebox_image: str) -> Generator[HomeboxDockerServer]:
+def isolated_homebox_server(homebox_version: str, homebox_image: str) -> Generator[HomeboxDockerServer]:
     """Run production Homebox with persistent test-only storage for upstream contracts."""
     _require_docker()
     suffix = uuid.uuid4().hex[:10]
@@ -555,11 +591,15 @@ def isolated_homebox_server(homebox_image: str) -> Generator[HomeboxDockerServer
             "HBOX_OPTIONS_ALLOW_LOCAL_LOGIN": "true",
             "HBOX_OPTIONS_ALLOW_ANALYTICS": "false",
             "HBOX_AUTH_API_KEY_PEPPER": "homebox-companion-isolated-test-pepper-value-at-least-32-bytes",
+            # Each test registers its own account; 0.27 otherwise throttles
+            # registration to five per minute. No test exercises Homebox's limits.
+            "HBOX_AUTH_RATE_LIMIT_ENABLED": "false",
         },
     )
     try:
         server.start()
         _wait_for_status(server)
+        _assert_homebox_version(server.base_url, homebox_version)
         yield server
     finally:
         server.remove()

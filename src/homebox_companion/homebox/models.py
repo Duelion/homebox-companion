@@ -124,6 +124,8 @@ class Item(BaseModel):
     quantity: int = Field(default=1, ge=0)
     description: Annotated[str, Field(max_length=1000)] = ""
     parent_id: str | None = Field(default=None, alias="parentId")
+    # Homebox 0.27 explicit location override for an item nested in another item.
+    # None means inherited; this is never the resolved physical location.
     location_id: str | None = Field(default=None, alias="locationId")
     tag_ids: list[str] = Field(default_factory=list, alias="tagIds")
     # Extended fields
@@ -154,6 +156,9 @@ class ItemCreate(BaseModel):
     quantity: int = Field(default=1, ge=1)
     description: Annotated[str, Field(max_length=1000)] = ""
     parent_id: str | None = Field(default=None, alias="parentId")
+    # Homebox 0.27 location override; only set when parent_id is an item whose
+    # children would not otherwise inherit the selected location. 0.26 ignores it.
+    location_id: str | None = Field(default=None, alias="locationId")
     tag_ids: list[str] | None = Field(default=None, alias="tagIds")
 
 
@@ -170,6 +175,8 @@ class ItemUpdate(BaseModel):
     quantity: int | None = Field(default=None, ge=1)
     description: Annotated[str, Field(max_length=1000)] | None = None
     parent_id: str | None = Field(default=None, alias="parentId")
+    # Homebox 0.27 explicit location override for an item nested in another item.
+    # Omitting it on a full PUT clears an existing override.
     location_id: str | None = Field(default=None, alias="locationId")
     tag_ids: list[str] | None = Field(default=None, alias="tagIds")
     manufacturer: Annotated[str, Field(max_length=255)] | None = None

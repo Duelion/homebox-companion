@@ -66,7 +66,7 @@ Before you start, you'll need:
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
 - **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server
 
-> **Compatibility:** Integration tests default to Homebox v0.27.0 and also run against v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
+> **Compatibility:** Docker-based live tests default to Homebox v0.27.0 and also run against v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
 
 ## 🚀 Quick Start
 

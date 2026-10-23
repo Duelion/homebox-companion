@@ -11,10 +11,12 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+from pydantic import ValidationError
+
+from ..mcp.types import ToolResult
 
 if TYPE_CHECKING:
     from ..mcp.executor import ToolExecutor
-    from ..mcp.types import ToolResult
     from .session import ChatSession, PendingApproval
 
 
@@ -80,6 +82,16 @@ class ApprovalService:
         if modified_params:
             final_params.update(modified_params)
             logger.info(f"User modified parameters for {approval.tool_name}: {modified_params}")
+
+        # Validate before claiming, so an invalid edit leaves the approval pending
+        # for the user to correct instead of consuming it.
+        tool = self._executor.get_tool(approval.tool_name)
+        if tool is not None:
+            try:
+                tool.Params(**final_params)
+            except ValidationError as e:
+                logger.warning(f"Rejected edited parameters for {approval.tool_name}: {e}")
+                return ToolResult(success=False, error=f"Invalid parameters: {e}"), approval
 
         # No await occurs between validation and claim. Even if execution is
         # cancelled or its outcome is uncertain, this write cannot be retried.

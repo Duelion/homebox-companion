@@ -15,13 +15,36 @@ from homebox_companion import (
 from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.core import HomeboxAPIError
 from homebox_companion.homebox import ItemCreate
-from homebox_companion.homebox.relationships import item_relationship_payload
+from homebox_companion.homebox.relationships import item_update_payload, location_override_for_parent
 
 from ..dependencies import get_gateway, get_valid_tag_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
 from ..services.image_processing import run_image_processing
 
 router = APIRouter()
+
+
+async def _parent_location_override(
+    gateway: HomeboxGateway,
+    parent_id: str,
+    selected_location_id: str,
+    parents: dict[str, dict[str, Any] | None],
+) -> str | None:
+    """Return the location override a child of ``parent_id`` needs, caching parents per batch.
+
+    Lookup failures other than authentication only cost the override: the item
+    is still created under its parent and inherits that parent's location.
+    """
+    if parent_id not in parents:
+        try:
+            parents[parent_id] = await gateway.get_item(parent_id)
+        except HomeboxAuthError:
+            raise
+        except HomeboxCompanionError as e:
+            logger.warning(f"Could not read parent {parent_id} to resolve its location: {e}")
+            parents[parent_id] = None
+    parent = parents[parent_id]
+    return location_override_for_parent(parent, selected_location_id) if parent else None
 
 
 @router.get("/items")
@@ -73,11 +96,13 @@ async def create_items(
 
     # Fetch valid tag IDs once for the batch to validate against
     valid_tag_ids = await get_valid_tag_ids(gateway)
+    parents: dict[str, dict[str, Any] | None] = {}
 
     for index, item_input in enumerate(request.items):
         # Explicit container takes precedence over item/request location.
         # In 0.26, location_id and parent_id both map to the API's parentId field
         parent_id = item_input.parent_id or item_input.location_id or request.location_id
+        selected_location_id = item_input.location_id or request.location_id
 
         logger.debug(f"Creating item: {item_input.name}")
         logger.debug(f"  parent_id: {parent_id}")
@@ -114,6 +139,12 @@ async def create_items(
                 parent_id=detected_item.parent_id,
                 tag_ids=detected_item.tag_ids,
             )
+            if item_input.parent_id and selected_location_id and selected_location_id != item_input.parent_id:
+                location_override = await _parent_location_override(
+                    gateway, item_input.parent_id, selected_location_id, parents
+                )
+                if location_override:
+                    item_create.location_id = location_override
             result = await gateway.create_item(item_create)
             item_id = result.get("id")
             logger.info(f"Created item: {result.get('name')} (id: {item_id})")
@@ -128,14 +159,7 @@ async def create_items(
                         # Get the full item to merge with extended fields
                         full_item = await gateway.get_item(item_id)
                         # Merge extended fields into the full item data
-                        update_data = {
-                            "name": full_item.get("name"),
-                            "description": full_item.get("description"),
-                            "quantity": full_item.get("quantity"),
-                            **item_relationship_payload(full_item, parent_id=parent_id),
-                            "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
-                            **extended_payload,
-                        }
+                        update_data = {**item_update_payload(full_item, parent_id=parent_id), **extended_payload}
                         # Include custom fields as typed Homebox ItemField objects
                         if item_input.custom_fields:
                             from homebox_companion.tools.vision.models import HomeboxItemField
@@ -291,14 +315,8 @@ async def update_item(
     # Fetch current item to get required fields
     full_item = await gateway.get_item(item_id)
 
-    # Build update payload with current values + updates
-    update_data = {
-        "name": full_item.get("name"),
-        "description": full_item.get("description", ""),
-        "quantity": full_item.get("quantity", 1),
-        **item_relationship_payload(full_item),
-        "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
-    }
+    # Homebox replaces the whole item, so send back everything it already has
+    update_data = item_update_payload(full_item)
 
     # Apply requested updates (convert snake_case to camelCase for Homebox API)
     if "assetId" in request:

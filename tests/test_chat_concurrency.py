@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -16,9 +17,10 @@ from homebox_companion.chat.session import ChatSession, PendingApproval
 from homebox_companion.chat.stream import ChatEventType
 from homebox_companion.chat.types import ChatMessage, ToolCall
 from homebox_companion.core.config import Settings
+from homebox_companion.core.exceptions import HomeboxAuthError
 from homebox_companion.mcp.executor import ToolExecutor
 from homebox_companion.mcp.types import ToolResult
-from server.api.chat import _claim_session, _SessionEventSourceResponse, clear_history
+from server.api.chat import _claim_session, _SessionEventSourceResponse, approve_action, clear_history
 
 
 def _pending_session() -> ChatSession:
@@ -143,7 +145,7 @@ async def test_orchestrator_uses_injected_chat_setting() -> None:
 async def test_cancelled_read_stream_keeps_matching_tool_result(monkeypatch: pytest.MonkeyPatch) -> None:
     session = ChatSession()
     executor = ToolExecutor()
-    monkeypatch.setattr(executor, "get_tool", lambda _name: object())
+    monkeypatch.setattr(executor, "get_tool", lambda _name: SimpleNamespace(Params=lambda **_: None))
     monkeypatch.setattr(executor, "requires_approval", lambda _name: False)
     orchestrator = ChatOrchestrator(session=session, executor=executor)
     stream = orchestrator._handle_tool_calls("", [ToolCall(id="call-1", name="read_tool", arguments={})], "", [])
@@ -161,7 +163,7 @@ async def test_cancelled_read_stream_keeps_matching_tool_result(monkeypatch: pyt
 async def test_display_info_failure_keeps_matching_tool_result(monkeypatch: pytest.MonkeyPatch) -> None:
     session = ChatSession()
     executor = ToolExecutor()
-    monkeypatch.setattr(executor, "get_tool", lambda _name: object())
+    monkeypatch.setattr(executor, "get_tool", lambda _name: SimpleNamespace(Params=lambda **_: None))
     monkeypatch.setattr(executor, "requires_approval", lambda _name: True)
 
     async def fail_display_info(_name: str, _params: dict[str, object], _token: str) -> None:
@@ -182,6 +184,27 @@ async def test_display_info_failure_keeps_matching_tool_result(monkeypatch: pyte
 
 
 @pytest.mark.asyncio
+async def test_invalid_write_is_returned_to_model_instead_of_queued(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = ChatSession()
+    orchestrator = ChatOrchestrator(session=session, executor=ToolExecutor())
+    continued: list[int] = []
+
+    async def continue_with_results(_token: str, _tools: object, depth: int):
+        continued.append(depth)
+        return
+        yield
+
+    monkeypatch.setattr(orchestrator, "_continue_with_results", continue_with_results)
+    call = ToolCall(id="call-1", name="update_item", arguments={"item_id": "i", "parent_id": "p", "location_id": "l"})
+
+    _ = [event async for event in orchestrator._handle_tool_calls("", [call], "", [])]
+
+    assert session.pending_approvals == {}
+    assert "Pass only one of parent_id, location_id or clear_parent" in session.get_history()[1]["content"]
+    assert continued == [1]
+
+
+@pytest.mark.asyncio
 async def test_clear_rejects_busy_session_then_resets_same_session() -> None:
     app = FastAPI()
     app.state.settings = Settings(_env_file=None, chat_enabled=True, demo_mode=False)
@@ -198,3 +221,62 @@ async def test_clear_rejects_busy_session_then_resets_same_session() -> None:
     assert result.success
     assert session.session_id != old_id
     assert session.messages == [] and session.pending_approvals == {}
+
+
+def _chat_request() -> Request:
+    app = FastAPI()
+    app.state.settings = Settings(_env_file=None, chat_enabled=True, demo_mode=False)
+    return Request({"type": "http", "app": app})
+
+
+@pytest.mark.asyncio
+async def test_invalid_approval_edit_leaves_approval_pending(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = ChatSession()
+    session.add_pending_approval(
+        PendingApproval(id="approval-1", tool_name="update_item", parameters={"item_id": "i", "location_id": "l"})
+    )
+    executor = ToolExecutor()
+
+    async def execute(*_args: object) -> ToolResult:
+        raise AssertionError("invalid edits must not execute")
+
+    monkeypatch.setattr(executor, "execute", execute)
+
+    result, _ = await ApprovalService(session, executor).execute("approval-1", "", modified_params={"parent_id": "p"})
+
+    assert result.success is False
+    assert "Pass only one of parent_id, location_id or clear_parent" in (result.error or "")
+    assert "approval-1" in session.pending_approvals
+
+
+@pytest.mark.asyncio
+async def test_approval_domain_errors_reach_the_central_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = _pending_session()
+    executor = ToolExecutor()
+
+    async def execute(*_args: object) -> ToolResult:
+        raise HomeboxAuthError("token expired upstream")
+
+    monkeypatch.setattr(executor, "execute", execute)
+
+    # Re-raised so the app handler returns 401 AUTH_FAILED and the frontend can re-authenticate.
+    with pytest.raises(HomeboxAuthError):
+        await approve_action("approval-1", _chat_request(), session, executor)
+    assert session.pending_approvals == {}
+
+
+@pytest.mark.asyncio
+async def test_unexpected_approval_error_hides_its_details(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = _pending_session()
+    executor = ToolExecutor()
+
+    async def execute(*_args: object) -> ToolResult:
+        raise RuntimeError("upstream body with secret-token")
+
+    monkeypatch.setattr(executor, "execute", execute)
+
+    response = await approve_action("approval-1", _chat_request(), session, executor)
+
+    assert response.status_code == 500
+    assert b"secret-token" not in response.body
+    assert "interrupted" in json.loads(session.get_history()[0]["content"])["error"]

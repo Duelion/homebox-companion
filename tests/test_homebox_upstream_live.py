@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from conftest import HomeboxAuth, HomeboxDockerServer, HomeboxTestAccount, _register_test_account
+from conftest import HomeboxAuth, HomeboxDockerServer, HomeboxTestAccount, _register_test_account, homebox_at_least
 
 from homebox_companion import HomeboxClient, ItemCreate
 
@@ -121,16 +121,18 @@ def test_key_expiry_revocation_and_rotation(
         )
 
 
-def test_new_key_uses_homebox_027_default_expiry(
+def test_new_key_default_expiry_matches_homebox_version(
     homebox_version: str,
     homebox_key_factory,
 ) -> None:
-    if homebox_version != "0.27.0":
-        pytest.skip("Homebox added the default API-key expiry in 0.27.0")
     before = datetime.now(UTC)
     key = homebox_key_factory(use_homebox_default=True)
     after = datetime.now(UTC)
 
+    if not homebox_at_least(homebox_version, "0.27.0"):
+        # Homebox added the 30-day default in 0.27.0; older keys never expire by default.
+        assert key.expires_at is None
+        return
     assert key.expires_at is not None
     expires_at = datetime.fromisoformat(key.expires_at.replace("Z", "+00:00"))
     assert before + timedelta(days=29, hours=23) <= expires_at <= after + timedelta(days=30, hours=1)

@@ -292,15 +292,20 @@ async def approve_action(
         # Approval not found or expired
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    except Exception as e:
+    except HomeboxCompanionError:
+        # The central handler maps auth and upstream failures to safe status codes and messages.
+        logger.exception(f"Approved action execution failed: {approval_id}")
+        raise
+
+    except Exception:
         logger.exception(f"Approved action execution failed: {approval_id}")
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "error": str(e),
+                "error": "Action failed unexpectedly",
                 "tool": None,
-                "confirmation": f"✗ Action failed: {e}",
+                "confirmation": "✗ Action failed unexpectedly",
             },
         )
     finally:

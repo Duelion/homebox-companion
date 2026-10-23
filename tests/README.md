@@ -62,9 +62,11 @@ uv run pytest -m live `
 
 The default is digest-pinned Homebox 0.27.0. CI runs this same allowlist against
 both 0.27.0 and 0.26.2. To reproduce the compatibility job locally, set
-`TEST_HOMEBOX_VERSION=0.26.2`; unsupported versions fail before Docker starts.
-Homebox may throttle rapid account registration, so the fixture retries only
-HTTP 429 responses, honors `Retry-After`, and stops after four attempts or
+`TEST_HOMEBOX_VERSION=0.26.2`; unsupported versions fail before Docker starts,
+and each container's reported build version must match the selected version.
+The isolated server disables Homebox's authentication rate limits so per-test
+account registration is not throttled. As a fallback, the fixture retries only
+HTTP 429 responses, honors `Retry-After`, and makes at most four attempts within
 a three-minute retry budget. Demo-backed tests wait for the sample-data import
 to finish before authenticating.
 
@@ -202,7 +204,7 @@ appropriate Python suites.
 
 The validation workflow runs on pull requests and `dev` pushes. Python checks use
 the committed `uv.lock`; frontend checks use `npm ci`. Docker-backed Homebox tests
-run in a separate bounded job with a sentinel LLM key and the explicit six-file
+run in a separate bounded job with a sentinel LLM key and the explicit seven-file
 allowlist above. Do not broaden that job to all live tests: other live tests may
 require a real LLM account.
 
