@@ -114,6 +114,7 @@ for (const [layout, viewport] of [
 	}) => {
 		await page.setViewportSize(viewport);
 		await reviewItems(page);
+		await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 		await renderReady(page);
 		await expect(page).toHaveScreenshot(`review-${layout}.png`, { animations: 'disabled' });
 		if (layout === 'desktop') {
