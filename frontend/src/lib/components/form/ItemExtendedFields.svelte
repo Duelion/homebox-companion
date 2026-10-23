@@ -5,6 +5,7 @@
 	 * Displays manufacturer, model, serial number, purchase info, and notes.
 	 * Works with any object that implements the ItemExtended interface.
 	 */
+	import { itemPriceError } from '$lib/utils/itemValidation';
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { ChevronDown } from '@lucide/svelte';
@@ -38,6 +39,8 @@
 		idPrefix = 'extended',
 		onToggle,
 	}: Props = $props();
+
+	const priceError = $derived(itemPriceError(purchasePrice));
 
 	// Check if any extended field has data
 	const hasData = $derived(
@@ -118,10 +121,19 @@
 						step="0.01"
 						min="0"
 						bind:value={purchasePrice}
+						aria-invalid={!!priceError}
+						aria-describedby={priceError ? `${idPrefix}-price-error` : undefined}
 						placeholder="0.00"
 						class={inputClass}
 						{disabled}
 					/>
+					{#if priceError}<p
+							id="{idPrefix}-price-error"
+							class="mt-1 text-body-sm text-error-400"
+							aria-live="polite"
+						>
+							{priceError}
+						</p>{/if}
 				</div>
 				<div>
 					<label for="{idPrefix}-vendor" class={labelClass}>Purchased From</label>

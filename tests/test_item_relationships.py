@@ -412,3 +412,138 @@ async def test_update_location_tool_handles_top_level_location():
 
     assert result.success is True
     assert client.update_location.await_args.kwargs["parent_id"] is None
+
+
+@pytest.mark.parametrize(
+    ("changes", "parent", "override"),
+    [
+        ({"parent_id": "new-parent", "location_override_id": "room"}, "new-parent", "room"),
+        ({"location_override_id": "room"}, "box", "room"),
+        ({"clear_location_override": True}, "box", None),
+        ({"parent_id": "new-parent", "clear_location_override": True}, "new-parent", None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_explicit_override_update_preserves_full_item(changes, parent, override):
+    client = AsyncMock()
+    client.get_version.return_value = "v0.27.0"
+    client.update_item.return_value = {"name": "Item"}
+    client.get_item.side_effect = lambda token, entity_id: (
+        FULL_ITEM if entity_id == "item" else {"id": entity_id, "entityType": {"isLocation": entity_id == "room"}}
+    )
+    await UpdateItemTool().execute(client, "token", UpdateItemTool.Params(item_id="item", **changes))
+    payload = client.update_item.await_args.args[2]
+    assert payload["parentId"] == parent
+    assert payload.get("locationId") == override
+    assert {key: payload[key] for key in PRESERVED_KEYS} == PRESERVED
+    assert payload["tagIds"] == ["tag-1"]
+
+
+@pytest.mark.parametrize("version", [None, "", "unknown", "0.26.2"])
+@pytest.mark.asyncio
+async def test_explicit_override_requires_known_supported_version(version):
+    client = AsyncMock()
+    client.get_item.return_value = FULL_ITEM
+    client.get_version.return_value = version
+    client.update_item.return_value = {"name": "Item"}
+    with pytest.raises(ValueError, match="recognized Homebox version"):
+        await UpdateItemTool().execute(
+            client, "token", UpdateItemTool.Params(item_id="item", clear_location_override=True)
+        )
+    client.update_item.assert_not_awaited()
+    await UpdateItemTool().execute(client, "token", UpdateItemTool.Params(item_id="item", notes="ordinary"))
+    client.update_item.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"location_override_id": "room", "clear_location_override": True},
+        {"location_override_id": "room", "location_id": "location"},
+        {"location_override_id": "room", "clear_parent": True},
+        {"clear_location_override": True, "location_id": "location"},
+        {"clear_location_override": True, "clear_parent": True},
+    ],
+)
+def test_explicit_override_conflicts(changes):
+    with pytest.raises(ValueError):
+        UpdateItemTool.Params(item_id="item", **changes)
+
+
+@pytest.mark.parametrize(
+    ("parent", "location_is_location", "changes"),
+    [
+        (None, True, {"location_override_id": "room"}),
+        ({"id": "box", "entityType": {"isLocation": True}}, True, {"location_override_id": "room"}),
+        ({"id": "box", "entityType": ITEM_TYPE}, False, {"location_override_id": "room"}),
+        ({"id": "box", "entityType": ITEM_TYPE}, True, {"parent_id": "item", "location_override_id": "room"}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_explicit_override_rejects_invalid_targets_before_put(parent, location_is_location, changes):
+    client = AsyncMock()
+    client.get_version.return_value = "0.27.0"
+    current = {**FULL_ITEM, "parent": parent}
+    client.get_item.side_effect = lambda token, entity_id: (
+        current
+        if entity_id == "item"
+        else ({"entityType": {"isLocation": location_is_location}} if entity_id == "room" else parent)
+    )
+    with pytest.raises(ValueError):
+        await UpdateItemTool().execute(client, "token", UpdateItemTool.Params(item_id="item", **changes))
+    client.update_item.assert_not_awaited()
+
+
+def test_blank_override_cancels_request_and_normalizes_ids():
+    assert UpdateItemTool.Params(item_id="item", location_override_id="  ").location_override_id is None
+    assert UpdateItemTool.Params(item_id="item", location_override_id=" room ").location_override_id == "room"
+    with pytest.raises(ValueError):
+        UpdateItemTool.Params.model_validate({"item_id": "item", "clear_location_override": "true"})
+
+
+@pytest.mark.asyncio
+async def test_direct_update_uses_explicit_override_contract():
+    gateway = AsyncMock()
+    gateway.get_version.return_value = "0.27.0"
+    gateway.get_item.side_effect = lambda entity_id: (
+        FULL_ITEM if entity_id == "item" else {"entityType": {"isLocation": entity_id == "room"}}
+    )
+    gateway.update_item.return_value = {"id": "item"}
+    app = create_app(Settings(disable_update_check=True))
+    app.dependency_overrides[get_gateway] = lambda: gateway
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
+        response = await client.put("/api/items/item", json={"location_override_id": "room"})
+        assert response.status_code == 200
+        payload = gateway.update_item.await_args.args[1]
+        assert payload["parentId"] == "box"
+        assert payload["locationId"] == "room"
+        gateway.update_item.reset_mock()
+        response = await client.put("/api/items/item", json={"location_override_id": "room", "clear_parent": True})
+        assert response.status_code == 422
+        gateway.update_item.assert_not_awaited()
+
+
+@pytest.mark.parametrize("status", [None, "0.26.2", RuntimeError("status unavailable")])
+@pytest.mark.asyncio
+async def test_direct_override_unknown_status_blocks_but_ordinary_edit_passes(status):
+    gateway = AsyncMock()
+    gateway.get_item.return_value = FULL_ITEM
+    gateway.update_item.return_value = {"id": "item"}
+    if isinstance(status, Exception):
+        gateway.get_version.side_effect = status
+    else:
+        gateway.get_version.return_value = status
+    app = create_app(Settings(disable_update_check=True))
+    app.dependency_overrides[get_gateway] = lambda: gateway
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
+        response = await client.put("/api/items/item", json={"clear_location_override": True})
+        assert response.status_code == 422
+        gateway.update_item.assert_not_awaited()
+        response = await client.put("/api/items/item", json={"description": "ordinary"})
+        assert response.status_code == 200
+        payload = gateway.update_item.await_args.args[1]
+        assert payload["locationId"] == "garage"
+        assert payload["fields"] == FULL_ITEM["fields"]
+        assert payload["tagIds"] == ["tag-1"]
+        assert payload["warrantyExpires"] == FULL_ITEM["warrantyExpires"]
+        gateway.get_version.assert_awaited_once()

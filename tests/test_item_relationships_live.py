@@ -597,3 +597,38 @@ async def test_detail_custom_fields_survive_unrelated_edit(
     await _http_edit(homebox_client, homebox_auth, item["id"])
     fresh = await _fresh_item(homebox_test_account, homebox_auth, item["id"])
     assert fresh["fields"] == official["fields"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_override_controls_match_reported_homebox_version(
+    homebox_version: str,
+    homebox_test_account: HomeboxTestAccount,
+    homebox_client: HomeboxClient,
+    homebox_auth: HomeboxAuth,
+    cleanup_items: list[str],
+    cleanup_locations: list[str],
+) -> None:
+    token = homebox_auth.token
+    first = await homebox_client.create_location(token, "Explicit control chain location")
+    other = await homebox_client.create_location(token, "Explicit control physical location")
+    cleanup_locations.extend((first["id"], other["id"]))
+    parent = await _create_item(homebox_client, homebox_auth, cleanup_items, "Explicit control parent", first["id"])
+    child = await _create_item(homebox_client, homebox_auth, cleanup_items, "Explicit control child", parent["id"])
+    tool = UpdateItemTool()
+    params = tool.Params(item_id=child["id"], location_override_id=other["id"])
+    if not homebox_at_least(homebox_version, OVERRIDES):
+        with pytest.raises(ValueError, match="recognized Homebox version"):
+            await tool.execute(homebox_client, token, params)
+        await tool.execute(homebox_client, token, tool.Params(item_id=child["id"], notes="ordinary 0.26 update"))
+        unchanged = await _fresh_item(homebox_test_account, homebox_auth, child["id"])
+        assert unchanged["parent"]["id"] == parent["id"]
+        return
+    await tool.execute(homebox_client, token, params)
+    overridden = await _fresh_item(homebox_test_account, homebox_auth, child["id"])
+    assert overridden["parent"]["id"] == parent["id"]
+    assert overridden["locationId"] == other["id"]
+    await tool.execute(homebox_client, token, tool.Params(item_id=child["id"], clear_location_override=True))
+    cleared = await _fresh_item(homebox_test_account, homebox_auth, child["id"])
+    assert cleared["parent"]["id"] == parent["id"]
+    assert cleared.get("locationId") is None
+    assert cleared["location"]["id"] == first["id"]

@@ -403,18 +403,13 @@
 				</Button>
 
 				<!-- Assign to Container Item -->
-				<Button
-					variant="secondary"
-					full
-					onclick={openItemPicker}
-					disabled={(locationStore.selected?.itemCount ?? 0) === 0}
-				>
+				<Button variant="secondary" full onclick={openItemPicker}>
 					<Package size={20} strokeWidth={1.5} />
 					<span>
 						{#if scanWorkflow.state.parentItemName}
 							Inside: {scanWorkflow.state.parentItemName}
 						{:else}
-							Place Inside an Item ({locationStore.selected?.itemCount ?? 0})
+							Place Inside an Item
 						{/if}
 					</span>
 				</Button>

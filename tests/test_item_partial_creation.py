@@ -106,3 +106,29 @@ async def test_auth_failure_before_creation_does_not_claim_an_item_exists(gatewa
     assert response.status_code == 207
     assert response.json()["created"] == []
     gateway.delete_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"quantity": 0},
+        {"quantity": 1.5},
+        {"quantity": ""},
+        {"name": "   "},
+        {"name": "x" * 256},
+        {"purchase_price": -1},
+    ],
+)
+async def test_invalid_batch_rejected_before_any_creation(gateway, invalid):
+    response = await submit(gateway, [{"name": "Valid first"}, {"name": "Invalid second", **invalid}])
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"][:3] == ["body", "items", 1]
+    gateway.create_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_trimmed_name_and_zero_price_are_accepted(gateway):
+    response = await submit(gateway, [{"name": "  Lamp  ", "quantity": 1, "purchase_price": 0}])
+    assert response.status_code == 200
+    assert gateway.create_item.call_args.args[0].name == "Lamp"

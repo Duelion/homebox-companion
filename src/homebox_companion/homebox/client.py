@@ -1099,6 +1099,16 @@ class HomeboxClient:
         )
         return response.get("items", [])
 
+    async def get_version(self, token: str) -> str | None:
+        """Read Homebox's reported build version for explicit placement support."""
+        response = await self.client.get(
+            f"{self.base_url}/status",
+            headers=self._auth_headers(token),
+        )
+        self._ensure_success(response, "Get status")
+        build = response.json().get("build")
+        return build.get("version") if isinstance(build, dict) else None
+
     async def get_item(self, token: str, item_id: str) -> dict[str, Any]:
         """Get full item details by ID.
 

@@ -16,7 +16,11 @@ from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.core import HomeboxAPIError
 from homebox_companion.homebox import ItemCreate
 from homebox_companion.homebox.asset_id import normalize_asset_id
-from homebox_companion.homebox.relationships import item_update_payload, location_override_for_parent
+from homebox_companion.homebox.relationships import (
+    item_update_payload,
+    location_override_for_parent,
+    preflight_item_placement,
+)
 
 from ..dependencies import get_gateway, get_valid_tag_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
@@ -323,7 +327,36 @@ async def update_item(
     full_item = await gateway.get_item(item_id)
 
     # Homebox replaces the whole item, so send back everything it already has
-    update_data = item_update_payload(full_item)
+    from pydantic import ValidationError
+
+    from homebox_companion.mcp.tools import UpdateItemTool
+
+    try:
+        placement_keys = {"parent_id", "location_id", "clear_parent", "location_override_id", "clear_location_override"}
+        placement = UpdateItemTool.Params.model_validate(
+            {"item_id": item_id, **{key: value for key, value in request.items() if key in placement_keys}}
+        )
+        await preflight_item_placement(
+            full_item,
+            item_id=item_id,
+            get_entity=lambda entity_id: gateway.get_item(entity_id),
+            get_version=lambda: gateway.get_version(),
+            parent_id=placement.parent_id,
+            location_id=placement.location_id,
+            clear_parent=placement.clear_parent,
+            location_override_id=placement.location_override_id,
+            clear_location_override=placement.clear_location_override,
+        )
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    update_data = item_update_payload(
+        full_item,
+        parent_id=placement.parent_id,
+        location_id=placement.location_id,
+        clear_parent=placement.clear_parent,
+        location_override_id=placement.location_override_id,
+        clear_location_override=placement.clear_location_override,
+    )
 
     # Apply requested updates (convert snake_case to camelCase for Homebox API)
     if "assetId" in request:

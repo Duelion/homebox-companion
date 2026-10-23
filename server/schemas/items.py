@@ -1,6 +1,8 @@
 """Item-related request/response schemas."""
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class ItemInput(BaseModel):
@@ -14,8 +16,8 @@ class ItemInput(BaseModel):
     is sent as the new item's ``locationId``.
     """
 
-    name: str
-    quantity: int = 1
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
+    quantity: int = Field(default=1, strict=True, gt=0)
     description: str | None = None
     location_id: str | None = None  # Location to place the item in
     tag_ids: list[str] | None = None
@@ -24,7 +26,7 @@ class ItemInput(BaseModel):
     serial_number: str | None = None
     model_number: str | None = None
     manufacturer: str | None = None
-    purchase_price: float | None = Field(default=None, ge=0)
+    purchase_price: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     purchase_from: str | None = None
     notes: str | None = None
     insured: bool = False

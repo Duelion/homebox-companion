@@ -24,7 +24,7 @@ from loguru import logger
 from pydantic import Field, field_validator, model_validator
 
 from ..core.exceptions import HomeboxAPIError, HomeboxConnectionError, HomeboxTimeoutError
-from ..homebox.relationships import item_update_payload
+from ..homebox.relationships import item_update_payload, preflight_item_placement, validate_placement_changes
 from ..homebox.views import CompactItemView, ItemView, LocationView, add_tree_urls
 from .types import Tool, ToolParams, ToolPermission, ToolResult
 
@@ -774,8 +774,8 @@ class UpdateItemTool:
         parent_id: str | None = Field(
             default=None,
             description=(
-                "Parent item to nest under. A new parent clears any physical-location override, and the item takes "
-                "its location from the parent chain; the current parent changes nothing. "
+                "Parent item to nest under. A new parent uses the parent-chain location unless "
+                "location_override_id is also supplied; the current parent preserves the existing override. "
                 "Cannot be combined with location_id or clear_parent."
             ),
         )
@@ -787,27 +787,37 @@ class UpdateItemTool:
             ),
         )
 
-        @field_validator("location_id", "parent_id", mode="before")
+        location_override_id: str | None = Field(
+            default=None,
+            description=(
+                "Physical location override; keeps the parent item. May combine with parent_id to set both. "
+                "Conflicts with location_id, clear_parent and clear_location_override. Requires Homebox 0.27+."
+            ),
+        )
+        clear_location_override: bool = Field(
+            default=False,
+            strict=True,
+            description=(
+                "Use parent-chain location; clear only the physical location override. May combine with parent_id. "
+                "Conflicts with location_id, clear_parent and location_override_id. Requires Homebox 0.27+."
+            ),
+        )
+
+        @field_validator("location_id", "parent_id", "location_override_id", mode="before")
         @classmethod
         def _blank_means_unchanged(cls, value: object) -> object:
             # A cleared editor in the approval UI submits "" rather than omitting the field.
-            return None if value == "" else value
+            return (value.strip() or None) if isinstance(value, str) else value
 
         @model_validator(mode="after")
         def _one_placement_change(self) -> UpdateItemTool.Params:
-            requested = [
-                name
-                for name, value in (
-                    ("parent_id", self.parent_id),
-                    ("location_id", self.location_id),
-                    ("clear_parent", self.clear_parent or None),
-                )
-                if value is not None
-            ]
-            if len(requested) > 1:
-                raise ValueError(
-                    f"Pass only one of parent_id, location_id or clear_parent (got {', '.join(requested)})"
-                )
+            validate_placement_changes(
+                parent_id=self.parent_id,
+                location_id=self.location_id,
+                clear_parent=self.clear_parent,
+                location_override_id=self.location_override_id,
+                clear_location_override=self.clear_location_override,
+            )
             return self
 
     async def execute(
@@ -818,11 +828,24 @@ class UpdateItemTool:
     ) -> ToolResult:
         # Homebox replaces the whole item, so start from everything it already has
         current = await client.get_item(token, params.item_id)
+        await preflight_item_placement(
+            current,
+            item_id=params.item_id,
+            get_entity=lambda entity_id: client.get_item(token, entity_id),
+            get_version=lambda: client.get_version(token),
+            parent_id=params.parent_id,
+            location_id=params.location_id,
+            clear_parent=params.clear_parent,
+            location_override_id=params.location_override_id,
+            clear_location_override=params.clear_location_override,
+        )
         update_data = item_update_payload(
             current,
             parent_id=params.parent_id,
             location_id=params.location_id,
             clear_parent=params.clear_parent,
+            location_override_id=params.location_override_id,
+            clear_location_override=params.clear_location_override,
         )
         update_data["id"] = params.item_id
 

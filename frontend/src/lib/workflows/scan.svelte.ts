@@ -14,7 +14,7 @@
  * - SubmissionService: Homebox submission
  */
 
-import { assetIdError } from '$lib/utils/assetId';
+import { itemValidationError } from '$lib/utils/itemValidation';
 import { workflowLogger as log } from '$lib/utils/logger';
 import { CaptureService } from './capture.svelte';
 import { AnalysisService } from './analysis.svelte';
@@ -683,8 +683,9 @@ class ScanWorkflow {
 	/** Confirm current item and move to next */
 	async confirmItem(item: ReviewItem): Promise<void> {
 		if (this._status !== 'reviewing' || item.reviewId !== this.currentItem?.reviewId) return;
-		if (assetIdError(item.asset_id)) {
-			this._error = 'Fix the invalid asset ID before confirming.';
+		const validationError = itemValidationError(item);
+		if (validationError) {
+			this._error = validationError;
 			return;
 		}
 		if (this.failedItemEditIndex !== null) {
@@ -709,12 +710,10 @@ class ScanWorkflow {
 		const remaining = this.reviewService.detectedItems.slice(this.reviewService.currentReviewIndex);
 		if (
 			remaining.some((item, index) =>
-				assetIdError(
-					index === 0 && currentItemOverride ? currentItemOverride.asset_id : item.asset_id
-				)
+				itemValidationError(index === 0 && currentItemOverride ? currentItemOverride : item)
 			)
 		) {
-			this._error = 'Fix the invalid asset ID before confirming.';
+			this._error = 'Fix the invalid item fields before confirming.';
 			return 0;
 		}
 		const count = this.reviewService.confirmAllRemainingItems(currentItemOverride);
@@ -836,8 +835,8 @@ class ScanWorkflow {
 			};
 		}
 
-		if (items.some((item) => assetIdError(item.asset_id))) {
-			this._error = 'Fix the invalid asset ID before submitting.';
+		if (items.some((item) => itemValidationError(item))) {
+			this._error = 'Fix the invalid item fields before submitting.';
 			return {
 				success: false,
 				successCount: 0,

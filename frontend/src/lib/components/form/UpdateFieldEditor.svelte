@@ -5,9 +5,12 @@
 	 * Renders form fields based on which fields are being changed in an update action.
 	 * Reduces duplication in ApprovalItemPanel.svelte by centralizing update field rendering.
 	 */
+	import { untrack } from 'svelte';
+	import { locations } from '$lib/api/locations';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 	import LocationSelector from './LocationSelector.svelte';
+	import { locationStore } from '$lib/stores/locations.svelte';
 	import TagSelector from './TagSelector.svelte';
 
 	interface DisplayInfo {
@@ -33,6 +36,8 @@
 
 		// Location/Tags
 		locationId: string;
+		locationOverrideId?: string;
+		clearLocationOverride?: boolean;
 		tagIds: string[];
 
 		// Extended item fields
@@ -65,6 +70,8 @@
 		description = $bindable(),
 		notes = $bindable(),
 		locationId = $bindable(),
+		locationOverrideId = $bindable(''),
+		clearLocationOverride = $bindable(false),
 		tagIds = $bindable(),
 		// Extended fields (bindable)
 		manufacturer = $bindable(),
@@ -78,6 +85,37 @@
 		// Callbacks
 		onToggleTag,
 	}: Props = $props();
+
+	let loadingOverrideLocations = $state(false);
+	let overrideLocationsError = $state(false);
+	let overrideLocationsAttempt = $state(0);
+	const overrideProposalMissing = $derived(
+		locationOverrideId &&
+			!locationStore.flatList.some((loc) => loc.location.id === locationOverrideId)
+	);
+
+	$effect(() => {
+		const needsOverrideLocations = fieldsBeingChanged.includes('location_override_id');
+		void overrideLocationsAttempt;
+		if (!needsOverrideLocations || untrack(() => locationStore.flatList.length > 0)) return;
+		const controller = new AbortController();
+		loadingOverrideLocations = true;
+		overrideLocationsError = false;
+		void locations
+			.tree(controller.signal)
+			.then((tree) => {
+				if (controller.signal.aborted) return;
+				locationStore.setTree(tree);
+				locationStore.setFlatList(tree);
+			})
+			.catch(() => {
+				if (!controller.signal.aborted) overrideLocationsError = true;
+			})
+			.finally(() => {
+				if (!controller.signal.aborted) loadingOverrideLocations = false;
+			});
+		return () => controller.abort();
+	});
 
 	// Check if extended fields are being updated
 	const EXTENDED_FIELDS = [
@@ -179,6 +217,9 @@
 	{/if}
 
 	{#if fieldsBeingChanged.includes('location')}
+		<p class="text-caption text-neutral-400">
+			Move directly into a location, removing the parent item.
+		</p>
 		<LocationSelector
 			bind:value={locationId}
 			{size}
@@ -186,6 +227,47 @@
 			{idPrefix}
 			fallbackDisplay={displayInfo?.location ?? fallbackLocationId}
 		/>
+	{/if}
+
+	{#if fieldsBeingChanged.includes('location_override_id')}
+		<div>
+			<label for="{idPrefix}-location-override" class={labelClass}>Physical location override</label
+			>
+			<select
+				id="{idPrefix}-location-override"
+				bind:value={locationOverrideId}
+				class={inputClass}
+				{disabled}
+			>
+				<option value="">Cancel this override change</option>
+				{#if overrideProposalMissing}
+					<option value={locationOverrideId}>Proposed location ({locationOverrideId})</option>
+				{/if}
+				{#each locationStore.flatList as loc (loc.location.id)}
+					<option value={loc.location.id}>{loc.path}</option>
+				{/each}
+			</select>
+			<p class="text-caption text-neutral-400">
+				Keeps the parent item; changes this item’s physical location.
+			</p>
+			{#if loadingOverrideLocations}
+				<p role="status" class="text-caption text-neutral-400">Loading locations…</p>
+			{:else if overrideLocationsError}
+				<p role="alert" class="text-caption text-error-400">Could not load locations.</p>
+				<button
+					type="button"
+					class="min-h-touch text-body-sm text-accent"
+					onclick={() => overrideLocationsAttempt++}
+					{disabled}>Retry loading locations</button
+				>
+			{/if}
+		</div>
+	{/if}
+	{#if fieldsBeingChanged.includes('clear_location_override')}
+		<label class="flex min-h-touch items-center gap-2 text-body-sm text-neutral-300">
+			<input type="checkbox" bind:checked={clearLocationOverride} {disabled} />
+			Use parent-chain location
+		</label>
 	{/if}
 
 	{#if fieldsBeingChanged.includes('tags')}

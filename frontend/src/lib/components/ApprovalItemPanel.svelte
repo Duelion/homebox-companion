@@ -77,6 +77,8 @@
 	let editedDescription = $state<string | null>('');
 	let editedQuantity = $state(1);
 	let editedLocationId = $state('');
+	let editedLocationOverrideId = $state('');
+	let editedClearLocationOverride = $state(false);
 	let editedTagIds = $state<string[]>([]);
 	let editedNotes = $state<string | null>('');
 
@@ -103,6 +105,12 @@
 	const originalTagIds = $derived((approval.parameters.tag_ids as string[] | undefined) ?? []);
 	const originalLocationId = $derived(
 		(approval.parameters.location_id as string | undefined) ?? ''
+	);
+	const originalLocationOverrideId = $derived(
+		(approval.parameters.location_override_id as string | undefined) ?? ''
+	);
+	const originalClearLocationOverride = $derived(
+		approval.parameters.clear_location_override === true
 	);
 	const originalManufacturer = $derived(
 		(approval.parameters.manufacturer as string | undefined) ?? null
@@ -149,6 +157,8 @@
 			editedNotes = originalNotes;
 			editedTagIds = [...originalTagIds];
 			editedLocationId = originalLocationId;
+			editedLocationOverrideId = originalLocationOverrideId;
+			editedClearLocationOverride = originalClearLocationOverride;
 			// Extended fields
 			editedManufacturer = originalManufacturer;
 			editedModelNumber = originalModelNumber;
@@ -234,6 +244,11 @@
 		) {
 			fields.push('location');
 		}
+		if (approval.tool_name === 'update_item') {
+			if (approval.parameters.location_override_id != null) fields.push('location_override_id');
+			if (approval.parameters.clear_location_override === true)
+				fields.push('clear_location_override');
+		}
 		// Extended fields
 		if (approval.parameters.manufacturer !== undefined) fields.push('manufacturer');
 		if (approval.parameters.model_number !== undefined) fields.push('model_number');
@@ -283,6 +298,10 @@
 			(canModifyField('notes') && editedNotes !== originalNotes) ||
 			(canModifyField('tags') && !arraysEqual(editedTagIds, originalTagIds)) ||
 			(canModifyField('location') && editedLocationId !== originalLocationId) ||
+			(canModifyField('location_override_id') &&
+				editedLocationOverrideId !== originalLocationOverrideId) ||
+			(canModifyField('clear_location_override') &&
+				editedClearLocationOverride !== originalClearLocationOverride) ||
 			(canModifyField('manufacturer') && editedManufacturer !== originalManufacturer) ||
 			(canModifyField('model_number') && editedModelNumber !== originalModelNumber) ||
 			(canModifyField('serial_number') && editedSerialNumber !== originalSerialNumber) ||
@@ -298,6 +317,16 @@
 		if (!hasModifications) return undefined;
 
 		const mods: Record<string, unknown> = {};
+		if (
+			canModifyField('location_override_id') &&
+			editedLocationOverrideId !== originalLocationOverrideId
+		)
+			mods.location_override_id = editedLocationOverrideId.trim() || null;
+		if (
+			canModifyField('clear_location_override') &&
+			editedClearLocationOverride !== originalClearLocationOverride
+		)
+			mods.clear_location_override = editedClearLocationOverride;
 
 		if (editedName !== originalName && canModifyField('name')) mods.name = editedName;
 		if (editedDescription !== originalDescription && canModifyField('description'))
@@ -552,6 +581,8 @@
 					bind:description={editedDescription}
 					bind:notes={editedNotes}
 					bind:locationId={editedLocationId}
+					bind:locationOverrideId={editedLocationOverrideId}
+					bind:clearLocationOverride={editedClearLocationOverride}
 					bind:tagIds={editedTagIds}
 					bind:manufacturer={editedManufacturer}
 					bind:modelNumber={editedModelNumber}

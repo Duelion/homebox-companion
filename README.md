@@ -68,6 +68,8 @@ Before you start, you'll need:
 
 > **Compatibility:** Docker-based live tests default to Homebox v0.27.0 and also run against v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
 
+On Homebox 0.27+, AI Chat can keep an item's parent container while setting a separate physical location, or clear that override to follow the parent chain again. The update tool exposes `location_override_id` and `clear_location_override` for these operations; `location_id` still moves the item directly into a location. Explicit overrides require a recognized Homebox version of 0.27.0 or newer. For the upstream 0.27.0 issue where typed custom fields display blank, see the [separate Homebox display patch](docs/upstream/README.md).
+
 ## 🚀 Quick Start
 
 ### Docker (Recommended)

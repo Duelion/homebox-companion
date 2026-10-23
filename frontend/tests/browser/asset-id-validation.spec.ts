@@ -40,7 +40,8 @@ test('invalid capture and review asset IDs block analysis and confirmation befor
 		)
 	).toHaveLength(0);
 	const confirmError = page.getByRole('alert').filter({
-		hasText: 'Fix the invalid asset ID before confirming.',
+		hasText: 'Enter a numeric Homebox asset ID',
+		has: page.getByRole('button', { name: 'Dismiss notification' }),
 	});
 	await expect(confirmError).toBeVisible();
 	await confirmError.getByRole('button', { name: 'Dismiss notification' }).click();
