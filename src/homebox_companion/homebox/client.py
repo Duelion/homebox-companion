@@ -252,6 +252,11 @@ class HomeboxClient:
         elif not response_text:
             logger.warning("Login: Received empty response body from server")
 
+        if response.status_code == 401:
+            raise HomeboxAuthError(
+                "Credential login rejected by Homebox.",
+                user_message="Invalid email or password.",
+            )
         self._ensure_success(response, "Login")
 
         try:

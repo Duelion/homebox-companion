@@ -464,3 +464,53 @@ async def test_app_instances_and_env_override_keep_auth_configuration_isolated(
     assert key_connection.json()["context_id"] != legacy_connection.json()["context_id"]
     assert "hb_environment-secret" not in serialized
     assert "hb_instance-one" not in key_config.text + key_connection.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "username,password", [("unknown@example.com", "secret-password"), ("known@example.com", "wrong-secret")]
+)
+async def test_credential_login_rejection_is_safe_and_useful(username, password, monkeypatch):
+    from server.api import auth
+
+    settings = _settings(_env_file=None, homebox_api_key=None, demo_mode=False, auth_rate_limit_rpm=0)
+    app = create_app(settings)
+
+    def upstream(request):
+        assert request.url.path.endswith("/users/login")
+        return httpx.Response(401, json={"error": f"upstream-secret {username} {password}"})
+
+    async with HomeboxClient(base_url=settings.api_url, transport=httpx.MockTransport(upstream)) as homebox:
+        monkeypatch.setattr(auth, "get_client", lambda: homebox)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://companion.test") as client:
+            response = await client.post("/api/login", json={"username": username, "password": password})
+    assert response.status_code == 401
+    assert response.json()["code"] == "AUTH_FAILED"
+    assert response.json()["detail"] == "Invalid email or password."
+    for secret in (username, password, "upstream-secret"):
+        assert secret not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure,status,code", [(403, 403, "HOMEBOX_FORBIDDEN"), ("timeout", 503, "HOMEBOX_TIMEOUT")])
+async def test_login_preserves_other_failure_classifications(failure, status, code, monkeypatch):
+    from server.api import auth
+
+    settings = _settings(_env_file=None, homebox_api_key=None, demo_mode=False, auth_rate_limit_rpm=0)
+    app = create_app(settings)
+
+    def upstream(request):
+        if failure == "timeout":
+            raise httpx.ReadTimeout("secret-timeout", request=request)
+        return httpx.Response(failure, json={"error": "secret-body"})
+
+    async with HomeboxClient(base_url=settings.api_url, transport=httpx.MockTransport(upstream)) as homebox:
+        monkeypatch.setattr(auth, "get_client", lambda: homebox)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://companion.test") as client:
+            response = await client.post(
+                "/api/login", json={"username": "known@example.com", "password": "secret-password"}
+            )
+    assert response.status_code == status
+    assert response.json()["code"] == code
+    assert response.json()["detail"] != "Invalid email or password."
+    assert "secret" not in response.text
