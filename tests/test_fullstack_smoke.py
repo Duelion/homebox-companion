@@ -46,6 +46,9 @@ def test_reviewed_photo_reaches_homebox(homebox_test_account: HomeboxTestAccount
         location = control.post("entities", json={"name": "Smoke storage", "entityTypeId": location_type})
         location.raise_for_status()
         location_id = location.json()["id"]
+        tag = control.post("tags", json={"name": "Smoke verified", "description": "", "color": "#336699"})
+        tag.raise_for_status()
+        tag_id = tag.json()["id"]
         log_path = ROOT / "frontend/test-results/fullstack-server.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("w", encoding="utf-8") as log:
@@ -70,6 +73,14 @@ def test_reviewed_photo_reaches_homebox(homebox_test_account: HomeboxTestAccount
                     else:
                         pytest.fail(f"Companion did not become ready; see {log_path}")
                 browser_env = {**os.environ, "HBC_SMOKE_URL": url}
+                with httpx.Client(base_url=url, trust_env=False, timeout=15) as companion:
+                    preferences = companion.put("/api/settings/field-preferences", json={"default_tag_id": tag_id})
+                    preferences.raise_for_status()
+                    fields = companion.put(
+                        "/api/settings/custom-fields",
+                        json=[{"name": "Smoke Material", "ai_instruction": "Identify material"}],
+                    )
+                    fields.raise_for_status()
                 result = subprocess.run(
                     [node, str(cli), "test", "--config=tests/fullstack/playwright.config.ts"],
                     cwd=ROOT / "frontend",
@@ -87,6 +98,11 @@ def test_reviewed_photo_reaches_homebox(homebox_test_account: HomeboxTestAccount
                 item = response.json()
                 assert item["name"] == "Smoke desk lamp"
                 assert item["manufacturer"] == "Smoke Manufacturing"
+                assert {row["id"] for row in item["tags"]} == {tag_id}
+                assert any(
+                    field["name"] == "Smoke Material" and field["textValue"] == "Steel — verified"
+                    for field in item["fields"]
+                )
                 assert item["parent"]["id"] == location_id
                 assert item["attachments"], "The saved item must include its photo"
                 attachment = control.get(f"entities/{item['id']}/attachments/{item['attachments'][0]['id']}")
@@ -105,7 +121,7 @@ def test_reviewed_photo_reaches_homebox(homebox_test_account: HomeboxTestAccount
 if __name__ == "__main__":
     import uvicorn
 
-    from homebox_companion.tools.vision import detector
+    from homebox_companion.tools.vision import corrector, detector
     from server.app import create_app
 
     async def fixed_completion(**kwargs):
@@ -114,6 +130,7 @@ if __name__ == "__main__":
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(detector, "vision_completion", fixed_completion)
+        monkeypatch.setattr(corrector, "vision_completion", fixed_completion)
         uvicorn.run(
             create_app(static_directory=sys.argv[2]), host="127.0.0.1", port=int(sys.argv[1]), log_level="warning"
         )

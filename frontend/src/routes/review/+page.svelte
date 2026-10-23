@@ -252,7 +252,8 @@
 			() => workflow.currentItem === reviewedItem,
 			(updates) => {
 				if (editedItem) editedItem = { ...editedItem, ...updates };
-			}
+			},
+			() => editedItem?.tag_ids
 		);
 		if (corrected) showAiCorrection = false;
 	}

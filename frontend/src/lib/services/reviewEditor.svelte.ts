@@ -1,5 +1,6 @@
 import { vision } from '$lib/api/vision';
 import { authStore } from '$lib/stores/auth.svelte';
+import { tagStore } from '$lib/stores/tags.svelte';
 import { showToast } from '$lib/stores/ui.svelte';
 import { workflowLogger as log } from '$lib/utils/logger';
 import type { DeepReadonly, ReviewItem } from '$lib/types';
@@ -39,7 +40,8 @@ export class ReviewEditor {
 		image: File | undefined,
 		prompt: string,
 		isCurrent: () => boolean,
-		apply: (updates: Partial<ReviewItem>) => void
+		apply: (updates: Partial<ReviewItem>) => void,
+		currentTagIds: () => readonly string[] | null | undefined = () => item.tag_ids
 	): Promise<boolean> {
 		if (this._isProcessing) return false;
 		if (!image) {
@@ -77,11 +79,22 @@ export class ReviewEditor {
 			);
 			if (!valid() || !response.items.length) return false;
 			const corrected = response.items[0];
+			// Suggestions may add tags, but correction never removes an explicit selection.
+			// Only collection-verified metadata can authorize new suggested IDs.
+			try {
+				await tagStore.fetchTags();
+			} catch {
+				// Keep the draft intact when metadata is unavailable.
+			}
+			if (!valid()) return false;
+			const suggestions = tagStore.fetched ? tagStore.validateIds(corrected.tag_ids) : [];
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- One-shot normalization, not reactive state
+			const tagIds = [...new Set([...(currentTagIds() ?? []), ...suggestions])];
 			apply({
 				name: corrected.name,
 				quantity: corrected.quantity,
 				description: corrected.description ?? null,
-				tag_ids: corrected.tag_ids ?? null,
+				tag_ids: tagIds,
 				manufacturer: corrected.manufacturer ?? null,
 				model_number: corrected.model_number ?? null,
 				serial_number: corrected.serial_number ?? null,
