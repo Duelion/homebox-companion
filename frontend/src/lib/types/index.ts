@@ -115,6 +115,8 @@ export interface ThumbnailTransform {
 
 /** Item detected by AI, ready for review */
 export interface ReviewItem extends ItemCore, ItemExtended {
+	/** Internal stable identity; never included in inventory API payloads. */
+	reviewId?: string;
 	/** Index of the source image in capturedImages array */
 	sourceImageIndex: number;
 	/** Additional images for this specific item */
@@ -154,11 +156,7 @@ export type ScanStatus =
 
 /** Status of individual item submission */
 export type ItemSubmissionStatus =
-	| 'pending'
-	| 'creating'
-	| 'success'
-	| 'partial_success'
-	| 'failed';
+	'pending' | 'creating' | 'success' | 'partial_success' | 'failed';
 
 /** Status of individual image analysis */
 export type ImageAnalysisStatus = 'pending' | 'analyzing' | 'success' | 'failed';
@@ -182,7 +180,17 @@ export interface SubmissionResult {
 	createdItems: Array<{ id: string; name: string; thumbnail?: string; tag_ids?: string[] }>;
 }
 
-/** Complete scan workflow state */
+/** Recursively protect data views while preserving native binary objects. */
+export type DeepReadonly<T> = T extends Blob
+	? T
+	: T extends object
+		? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+		: T;
+
+/** Live workflow view. File/Blob objects remain usable without making draft data mutable. */
+export type ScanStateView = DeepReadonly<ScanState>;
+
+/** Complete mutable state used inside workflow services. */
 export interface ScanState {
 	status: ScanStatus;
 	// Location

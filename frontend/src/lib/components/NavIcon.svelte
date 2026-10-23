@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { NavItem } from '$lib/navigation/config';
-	import { ScanLine, Settings, MessageSquare } from 'lucide-svelte';
+	import { ScanLine, Settings, MessageSquare } from '@lucide/svelte';
 
 	interface Props {
 		icon: NavItem['icon'];

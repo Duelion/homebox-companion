@@ -31,7 +31,7 @@ export interface RouteRequirements {
 export interface GuardResult {
 	/** Whether access is allowed */
 	allowed: boolean;
-	/** Redirect path if not allowed (null if allowed) */
+	/** Redirect path when navigation is needed; null also preserves the route during auth recovery. */
 	redirectTo: string | null;
 }
 
@@ -61,7 +61,9 @@ export function checkRouteAccess(requirements: RouteRequirements): GuardResult {
 
 	// Check authentication
 	if (auth && !authStore.isAuthenticated) {
-		return { allowed: false, redirectTo: '/' };
+		// Keep the current route while startup or session recovery is in progress.
+		// A page's pending onMount may resume after the connection error hides it.
+		return { allowed: false, redirectTo: authStore.phase === 'signed_out' ? '/' : null };
 	}
 
 	const workflow = scanWorkflow;
@@ -88,10 +90,10 @@ export function checkRouteAccess(requirements: RouteRequirements): GuardResult {
  * Apply route guard and redirect if necessary
  *
  * Call this in onMount to protect a page. Returns true if access is allowed,
- * false if a redirect was triggered.
+ * false when access is denied, including while authentication is being recovered.
  *
  * @param requirements - The requirements for the route
- * @returns true if access is allowed, false if redirecting
+ * @returns true if access is allowed, false otherwise
  *
  * @example
  * ```ts
@@ -106,8 +108,8 @@ export function checkRouteAccess(requirements: RouteRequirements): GuardResult {
 export function applyRouteGuard(requirements: RouteRequirements): boolean {
 	const result = checkRouteAccess(requirements);
 
-	if (!result.allowed && result.redirectTo) {
-		goto(resolveNavHref(result.redirectTo));
+	if (!result.allowed) {
+		if (result.redirectTo) void goto(resolveNavHref(result.redirectTo), { replaceState: true });
 		return false;
 	}
 
@@ -125,8 +127,8 @@ export const routeGuards = {
 	 */
 	location: (): boolean => {
 		const result = checkRouteAccess({ auth: true });
-		if (!result.allowed && result.redirectTo) {
-			goto(resolveNavHref(result.redirectTo));
+		if (!result.allowed) {
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo), { replaceState: true });
 			return false;
 		}
 
@@ -136,19 +138,19 @@ export const routeGuards = {
 			const status = workflow.state.status;
 			// Block navigation to /location during any active workflow phase
 			if (status === 'capturing' || status === 'analyzing' || status === 'partial_analysis') {
-				goto(resolveNavHref('/capture'));
+				void goto(resolveNavHref('/capture'), { replaceState: true });
 				return false;
 			}
 			if (status === 'reviewing') {
-				goto(resolveNavHref('/review'));
+				void goto(resolveNavHref('/review'), { replaceState: true });
 				return false;
 			}
 			if (status === 'confirming' || status === 'submitting') {
-				goto(resolveNavHref('/summary'));
+				void goto(resolveNavHref('/summary'), { replaceState: true });
 				return false;
 			}
 			if (status === 'complete') {
-				goto(resolveNavHref('/success'));
+				void goto(resolveNavHref('/success'), { replaceState: true });
 				return false;
 			}
 		}
@@ -160,7 +162,7 @@ export const routeGuards = {
 	 * Guard for the capture page
 	 * - Requires authentication
 	 * - Requires location to be selected
-	 * - If in reviewing state (analysis finished), redirect to review
+	 * - An existing review remains available as a read-only source-photo preview
 	 */
 	capture: (): boolean => {
 		const result = checkRouteAccess({
@@ -168,15 +170,8 @@ export const routeGuards = {
 			requireLocation: true,
 		});
 
-		if (!result.allowed && result.redirectTo) {
-			goto(resolveNavHref(result.redirectTo));
-			return false;
-		}
-
-		// If we're in reviewing state (analysis finished while away), redirect to review
-		const workflow = scanWorkflow;
-		if (workflow.state.status === 'reviewing') {
-			goto(resolveNavHref('/review'));
+		if (!result.allowed) {
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo), { replaceState: true });
 			return false;
 		}
 
@@ -196,8 +191,8 @@ export const routeGuards = {
 			allowedStatuses: ['reviewing'],
 		});
 
-		if (!result.allowed && result.redirectTo) {
-			goto(resolveNavHref(result.redirectTo));
+		if (!result.allowed) {
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo), { replaceState: true });
 			return false;
 		}
 
@@ -217,8 +212,8 @@ export const routeGuards = {
 			allowedStatuses: ['confirming', 'submitting'],
 		});
 
-		if (!result.allowed && result.redirectTo) {
-			goto(resolveNavHref(result.redirectTo));
+		if (!result.allowed) {
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo), { replaceState: true });
 			return false;
 		}
 
@@ -232,8 +227,8 @@ export const routeGuards = {
 	success: (): boolean => {
 		const result = checkRouteAccess({ auth: true });
 
-		if (!result.allowed && result.redirectTo) {
-			goto(resolveNavHref(result.redirectTo));
+		if (!result.allowed) {
+			if (result.redirectTo) void goto(resolveNavHref(result.redirectTo), { replaceState: true });
 			return false;
 		}
 

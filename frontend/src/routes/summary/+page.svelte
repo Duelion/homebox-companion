@@ -26,7 +26,7 @@
 		AlertCircle,
 		Check,
 		RefreshCw,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
@@ -44,6 +44,8 @@
 
 	// Local UI state
 	let isSubmitting = $state(false);
+	let scrollTimeout: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(scrollTimeout));
 
 	// Calculate summary statistics
 	const totalPhotos = $derived(
@@ -99,7 +101,9 @@
 		goto(resolve('/review'));
 	}
 
-	function getThumbnail(item: ConfirmedItem): string | null {
+	function getThumbnail(
+		item: Pick<ConfirmedItem, 'customThumbnail' | 'originalFile'>
+	): string | null {
 		if (item.customThumbnail) return item.customThumbnail;
 		if (item.originalFile) return urlManager.getUrl(item.originalFile);
 		return null;
@@ -121,7 +125,8 @@
 
 		isSubmitting = true;
 		// Scroll to top of app
-		setTimeout(() => {
+		clearTimeout(scrollTimeout);
+		scrollTimeout = setTimeout(() => {
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}, 100);
 		const result = await workflow.submitAll();
@@ -239,13 +244,11 @@
 			>
 				<!-- Larger thumbnail -->
 				{#if thumbnail}
-					<div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-800">
-						<img src={thumbnail} alt={item.name} class="h-full w-full object-cover" />
+					<div class="shrink-0 overflow-hidden rounded-lg bg-neutral-800 size-20">
+						<img src={thumbnail} alt={item.name} class="object-cover size-full" />
 					</div>
 				{:else}
-					<div
-						class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800"
-					>
+					<div class="flex shrink-0 items-center justify-center rounded-lg bg-neutral-800 size-20">
 						<ImageIcon class="text-neutral-600" size={32} strokeWidth={1} />
 					</div>
 				{/if}
@@ -260,9 +263,7 @@
 								<DuplicateWarningIcon match={item.duplicate_match} />
 							{/if}
 						</div>
-						<span
-							class="flex-shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400"
-						>
+						<span class="shrink-0 rounded bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400">
 							×{item.quantity}
 						</span>
 					</div>
@@ -274,12 +275,12 @@
 					{#if item.tag_ids && item.tag_ids.length > 0}
 						<div class="flex flex-wrap gap-1.5">
 							{#each item.tag_ids.slice(0, 3) as tagId (tagId)}
-								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
+								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-caption text-neutral-400">
 									{getTagName(tagId)}
 								</span>
 							{/each}
 							{#if item.tag_ids.length > 3}
-								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-500">
+								<span class="rounded-md bg-neutral-800 px-2 py-0.5 text-caption text-neutral-500">
 									+{item.tag_ids.length - 3}
 								</span>
 							{/if}
@@ -288,12 +289,12 @@
 				</div>
 
 				<!-- Action buttons / status -->
-				<div class="flex min-w-11 flex-col items-center justify-start gap-1">
+				<div class="flex min-w-touch flex-col items-center justify-start gap-1">
 					{#if itemStatuses[index] === 'failed'}
 						<StatusIcon status="failed" />
 						<button
 							type="button"
-							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+							class="flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50 size-11"
 							aria-label={`Edit failed item ${item.name}`}
 							title="Edit failed item"
 							disabled={isSubmitting}
@@ -307,7 +308,7 @@
 					{:else}
 						<button
 							type="button"
-							class="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+							class="flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-primary-500/10 hover:text-primary-400 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50 size-11"
 							aria-label="Edit item"
 							title="Edit item"
 							disabled={isSubmitting}
@@ -317,7 +318,7 @@
 						</button>
 						<button
 							type="button"
-							class="hover:text-error-400 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-error-500/10 focus:outline-none focus:ring-2 focus:ring-error-500/50"
+							class="hover:text-error-400 flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-error-500/10 focus:outline-hidden focus:ring-2 focus:ring-error-500/50 size-11"
 							aria-label="Remove item"
 							title="Remove item"
 							disabled={isSubmitting}
@@ -362,8 +363,8 @@
 					<ul class="text-error-200/80 space-y-1.5 text-body-sm">
 						{#each submissionErrors as error, i (i)}
 							<li class="flex items-start gap-2">
-								<span class="text-error-400 flex-shrink-0">•</span>
-								<span class="break-words">{error}</span>
+								<span class="text-error-400 shrink-0">•</span>
+								<span class="wrap-break-word">{error}</span>
 							</li>
 						{/each}
 					</ul>
@@ -375,7 +376,7 @@
 
 <!-- Sticky Submit button at bottom - above navigation bar -->
 <div
-	class="bottom-nav-offset fixed left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg"
+	class="bottom-nav-offset fixed z-40 border-t border-neutral-800 bg-neutral-950/95 p-4 backdrop-blur-lg inset-x-0"
 >
 	<AppContainer class="space-y-3">
 		{#if !workflow.hasFailedItems() && !workflow.allItemsSuccessful()}

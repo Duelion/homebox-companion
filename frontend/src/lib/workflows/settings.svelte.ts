@@ -178,6 +178,10 @@ class SettingsService {
 
 	// Track cleanup timeouts
 	private _timeoutIds: number[] = [];
+	private _serverLogsRequest = 0;
+	private _llmDebugLogRequest = 0;
+	private _promptPreviewRequest = 0;
+	private _remoteLogsController = new AbortController();
 
 	// =========================================================================
 	// INITIALIZATION
@@ -224,45 +228,37 @@ class SettingsService {
 	// =========================================================================
 
 	async toggleServerLogs(): Promise<void> {
-		if (this.serverLogs) {
-			this.showServerLogs = !this.showServerLogs;
-			return;
-		}
-
-		this.isLoading.serverLogs = true;
-		this.errors.serverLogs = null;
-
-		try {
-			this.serverLogs = await getLogs(DEFAULT_LOG_LINES);
-			this.showServerLogs = true;
-		} catch (error) {
-			log.error('Failed to load logs:', error);
-			this.errors.serverLogs = getErrorMessage(error, 'Failed to load logs');
-		} finally {
-			this.isLoading.serverLogs = false;
-		}
+		this.showServerLogs = !this.showServerLogs;
+		if (this.showServerLogs && !this.serverLogs) await this.refreshServerLogs();
 	}
 
 	async refreshServerLogs(): Promise<void> {
+		if (this.isLoading.serverLogs) return;
+		const request = ++this._serverLogsRequest;
 		this.isLoading.serverLogs = true;
 		this.errors.serverLogs = null;
 
 		try {
-			this.serverLogs = await getLogs(DEFAULT_LOG_LINES);
+			const result = await getLogs(DEFAULT_LOG_LINES, this._remoteLogsController.signal);
+			if (request !== this._serverLogsRequest) return;
+			this.serverLogs = result;
 		} catch (error) {
+			if (request !== this._serverLogsRequest) return;
 			log.error('Failed to refresh logs:', error);
 			this.errors.serverLogs = getErrorMessage(error, 'Failed to load logs');
 		} finally {
-			this.isLoading.serverLogs = false;
+			if (request === this._serverLogsRequest) this.isLoading.serverLogs = false;
 		}
 	}
 
 	async downloadServerLogs(): Promise<void> {
 		if (!this.serverLogs?.filename) return;
+		const request = this._serverLogsRequest;
 
 		try {
-			await downloadLogs(this.serverLogs.filename);
+			await downloadLogs(this.serverLogs.filename, this._remoteLogsController.signal);
 		} catch (error) {
+			if (request !== this._serverLogsRequest) return;
 			log.error('Failed to download logs:', error);
 			this.errors.serverLogs = getErrorMessage(error, 'Failed to download logs');
 		}
@@ -304,45 +300,37 @@ class SettingsService {
 	// =========================================================================
 
 	async toggleLLMDebugLog(): Promise<void> {
-		if (this.llmDebugLog) {
-			this.showLLMDebugLog = !this.showLLMDebugLog;
-			return;
-		}
-
-		this.isLoading.llmDebugLog = true;
-		this.errors.llmDebugLog = null;
-
-		try {
-			this.llmDebugLog = await getLLMDebugLogs(DEFAULT_LOG_LINES);
-			this.showLLMDebugLog = true;
-		} catch (error) {
-			log.error('Failed to load LLM debug log:', error);
-			this.errors.llmDebugLog = getErrorMessage(error, 'Failed to load LLM debug log');
-		} finally {
-			this.isLoading.llmDebugLog = false;
-		}
+		this.showLLMDebugLog = !this.showLLMDebugLog;
+		if (this.showLLMDebugLog && !this.llmDebugLog) await this.refreshLLMDebugLog();
 	}
 
 	async refreshLLMDebugLog(): Promise<void> {
+		if (this.isLoading.llmDebugLog) return;
+		const request = ++this._llmDebugLogRequest;
 		this.isLoading.llmDebugLog = true;
 		this.errors.llmDebugLog = null;
 
 		try {
-			this.llmDebugLog = await getLLMDebugLogs(DEFAULT_LOG_LINES);
+			const result = await getLLMDebugLogs(DEFAULT_LOG_LINES, this._remoteLogsController.signal);
+			if (request !== this._llmDebugLogRequest) return;
+			this.llmDebugLog = result;
 		} catch (error) {
+			if (request !== this._llmDebugLogRequest) return;
 			log.error('Failed to refresh LLM debug log:', error);
 			this.errors.llmDebugLog = getErrorMessage(error, 'Failed to load LLM debug log');
 		} finally {
-			this.isLoading.llmDebugLog = false;
+			if (request === this._llmDebugLogRequest) this.isLoading.llmDebugLog = false;
 		}
 	}
 
 	async downloadLLMDebugLogs(): Promise<void> {
 		if (!this.llmDebugLog?.filename) return;
+		const request = this._llmDebugLogRequest;
 
 		try {
-			await downloadLLMDebugLogs(this.llmDebugLog.filename);
+			await downloadLLMDebugLogs(this.llmDebugLog.filename, this._remoteLogsController.signal);
 		} catch (error) {
+			if (request !== this._llmDebugLogRequest) return;
 			log.error('Failed to download LLM debug logs:', error);
 			this.errors.llmDebugLog = getErrorMessage(error, 'Failed to download LLM debug logs');
 		}
@@ -384,6 +372,9 @@ class SettingsService {
 		try {
 			await chatStore.clearHistory();
 			// Reset our local view of the LLM debug log (will reload from files on next toggle)
+			this._llmDebugLogRequest++;
+			this.isLoading.llmDebugLog = false;
+			this.errors.llmDebugLog = null;
 			this.llmDebugLog = null;
 			this.showLLMDebugLog = false;
 			log.success('All chat data cleared');
@@ -445,7 +436,7 @@ class SettingsService {
 
 			this.fieldPrefs = prefsResult;
 			this.customFieldDefs = customResult;
-			this.promptPreview = null; // Clear cached preview
+			this.invalidatePromptPreview();
 			this.saveState = 'success';
 
 			// Reset to idle after showing success (with cleanup)
@@ -469,7 +460,7 @@ class SettingsService {
 	 */
 	updateFieldPref(key: keyof FieldPreferences, value: string): void {
 		this.fieldPrefs[key] = value.trim() || null;
-		this.promptPreview = null; // Clear cached preview
+		this.invalidatePromptPreview();
 	}
 
 	/**
@@ -478,7 +469,7 @@ class SettingsService {
 	 */
 	resetSingleFieldPref(key: keyof FieldPreferences): void {
 		this.fieldPrefs[key] = null;
-		this.promptPreview = null;
+		this.invalidatePromptPreview();
 	}
 
 	toggleGeneralSettings(): void {
@@ -499,22 +490,32 @@ class SettingsService {
 
 	addCustomField(): void {
 		this.customFieldDefs = [...this.customFieldDefs, { name: '', ai_instruction: '' }];
+		this.invalidatePromptPreview();
 	}
 
 	updateCustomFieldProp(index: number, prop: keyof CustomFieldDefinition, value: string): void {
 		this.customFieldDefs[index][prop] = value;
-		this.promptPreview = null; // Clear cached preview
+		this.invalidatePromptPreview();
 	}
 
 	removeCustomField(index: number): void {
 		this.customFieldDefs = this.customFieldDefs.filter((_, i) => i !== index);
+		this.invalidatePromptPreview();
 	}
 
 	// =========================================================================
 	// PROMPT PREVIEW
 	// =========================================================================
 
+	private invalidatePromptPreview(): void {
+		this._promptPreviewRequest++;
+		this.promptPreview = null;
+		this.showPromptPreview = false;
+		this.isLoading.promptPreview = false;
+	}
+
 	async togglePromptPreview(): Promise<void> {
+		if (this.isLoading.promptPreview) return;
 		// If already showing, just toggle off
 		if (this.showPromptPreview) {
 			this.showPromptPreview = false;
@@ -528,6 +529,7 @@ class SettingsService {
 		}
 
 		// Otherwise fetch the preview
+		const request = ++this._promptPreviewRequest;
 		this.isLoading.promptPreview = true;
 
 		try {
@@ -535,13 +537,15 @@ class SettingsService {
 			const prefsForPreview = $state.snapshot(this.fieldPrefs);
 			const customFieldsSnapshot = $state.snapshot(this.customFieldDefs);
 			const result = await fieldPreferences.getPromptPreview(prefsForPreview, customFieldsSnapshot);
+			if (request !== this._promptPreviewRequest) return;
 			this.promptPreview = result.prompt;
 			this.showPromptPreview = true;
 		} catch (error) {
+			if (request !== this._promptPreviewRequest) return;
 			log.error('Failed to load prompt preview:', error);
 			this.errors.fieldPrefs = getErrorMessage(error, 'Failed to load preview');
 		} finally {
-			this.isLoading.promptPreview = false;
+			if (request === this._promptPreviewRequest) this.isLoading.promptPreview = false;
 		}
 	}
 
@@ -557,7 +561,9 @@ class SettingsService {
 		try {
 			const versionResult = await getVersion(true);
 
-			if (versionResult.update_available && versionResult.latest_version) {
+			if (!versionResult.latest_version) {
+				this.errors.updateCheck = 'Unable to check for updates. Please try again.';
+			} else if (versionResult.update_available) {
 				this.updateAvailable = true;
 				this.latestVersion = versionResult.latest_version;
 			} else {
@@ -581,6 +587,21 @@ class SettingsService {
 	// CLEANUP
 	// =========================================================================
 
+	clearRemoteLogs(): void {
+		this._remoteLogsController.abort();
+		this._remoteLogsController = new AbortController();
+		this._serverLogsRequest++;
+		this._llmDebugLogRequest++;
+		this.serverLogs = null;
+		this.llmDebugLog = null;
+		this.showServerLogs = false;
+		this.showLLMDebugLog = false;
+		this.errors.serverLogs = null;
+		this.errors.llmDebugLog = null;
+		this.isLoading.serverLogs = false;
+		this.isLoading.llmDebugLog = false;
+	}
+
 	/**
 	 * Schedule a timeout with cleanup tracking.
 	 */
@@ -601,6 +622,8 @@ class SettingsService {
 	 * Should be called when component unmounts.
 	 */
 	cleanup(): void {
+		this.clearRemoteLogs();
+		this.invalidatePromptPreview();
 		for (const id of this._timeoutIds) {
 			window.clearTimeout(id);
 		}

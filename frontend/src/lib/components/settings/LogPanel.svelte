@@ -9,7 +9,7 @@
 	 * - Fullscreen modal support
 	 */
 	import type { Snippet } from 'svelte';
-	import { RefreshCw, Download, Share, Trash2, Maximize2, ChevronDown } from 'lucide-svelte';
+	import { RefreshCw, Download, Share, Trash2, Maximize2, ChevronDown } from '@lucide/svelte';
 	import FullscreenPanel from '$lib/components/FullscreenPanel.svelte';
 
 	interface Props {
@@ -44,7 +44,7 @@
 		/** Content to render in fullscreen mode (defaults to children) */
 		fullscreenContent?: Snippet;
 
-		// Action callbacks - only shown when expanded and has content
+		// Refresh remains available for empty/error states; other actions require content.
 		onRefresh?: () => void;
 		refreshDisabled?: boolean;
 		refreshLoading?: boolean;
@@ -92,8 +92,8 @@
 
 	let isFullscreen = $state(false);
 
-	// Show action buttons when expanded and has content (not empty, no error)
-	const showActions = $derived(isExpanded && !isEmpty && !error);
+	const hasContent = $derived(!isEmpty);
+	const showActions = $derived(isExpanded && (onRefresh || hasContent));
 </script>
 
 <!-- Reusable action buttons snippet -->
@@ -104,13 +104,13 @@
 			class="btn-icon-touch"
 			onclick={onRefresh}
 			disabled={refreshDisabled || refreshLoading}
-			title="Refresh"
-			aria-label="Refresh"
+			title={error ? 'Retry' : 'Refresh'}
+			aria-label={error ? 'Retry' : 'Refresh'}
 		>
 			<RefreshCw class={refreshLoading ? 'animate-spin' : ''} size={20} strokeWidth={1.5} />
 		</button>
 	{/if}
-	{#if onDownload}
+	{#if onDownload && hasContent}
 		<button
 			type="button"
 			class="btn-icon-touch"
@@ -122,7 +122,7 @@
 			<Download size={20} strokeWidth={1.5} />
 		</button>
 	{/if}
-	{#if onExport}
+	{#if onExport && hasContent}
 		<button
 			type="button"
 			class="btn-icon-touch"
@@ -134,7 +134,7 @@
 			<Share size={20} strokeWidth={1.5} />
 		</button>
 	{/if}
-	{#if onClear}
+	{#if onClear && hasContent}
 		<button
 			type="button"
 			class="btn-icon-touch"
@@ -151,14 +151,14 @@
 <div class="space-y-3 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4">
 	<!-- Header row -->
 	<div class="flex items-center justify-between">
-		<h3 class="flex items-center gap-2 text-sm font-semibold text-neutral-200">
+		<h3 class="flex items-center gap-2 text-body-sm font-semibold text-neutral-200">
 			{@render icon()}
 			{title}
 		</h3>
 		{#if showActions}
 			<div class="flex items-center gap-1.5">
 				{@render actionButtons()}
-				{#if hasFullscreen}
+				{#if hasFullscreen && hasContent}
 					<button
 						type="button"
 						class="btn-icon-touch"
@@ -175,19 +175,20 @@
 
 	<!-- Description -->
 	{#if description}
-		<p class="text-xs text-neutral-500">{description}</p>
+		<p class="text-caption text-neutral-500">{description}</p>
 	{/if}
 
 	<!-- Toggle button -->
 	<button
 		type="button"
-		class="flex w-full items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-sm text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
+		class="flex w-full items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-body-sm text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 		onclick={onToggle}
 		disabled={isLoading}
+		aria-expanded={isExpanded}
 	>
 		{#if isLoading}
 			<div
-				class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+				class="animate-spin rounded-full border-2 border-current border-t-transparent size-4"
 			></div>
 			<span>Loading...</span>
 		{:else}
@@ -202,19 +203,23 @@
 	<!-- Content area (when expanded) -->
 	{#if isExpanded}
 		{#if error}
-			<div class="rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm text-error-500">
+			<div
+				class="rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-body-sm text-error-500"
+				role="alert"
+			>
 				{error}
 			</div>
-		{:else if isEmpty}
+		{/if}
+		{#if isEmpty && !error && !isLoading}
 			<div
-				class="rounded-lg border border-neutral-700 bg-neutral-800/50 p-3 text-center text-sm text-neutral-400"
+				class="rounded-lg border border-neutral-700 bg-neutral-800/50 p-3 text-center text-body-sm text-neutral-400"
 			>
 				{emptyMessage}
 			</div>
-		{:else}
+		{:else if hasContent}
 			<div class="space-y-2">
 				{#if subtitleLeft || subtitleRight}
-					<div class="flex items-center justify-between text-xs text-neutral-500">
+					<div class="flex items-center justify-between text-caption text-neutral-500">
 						<span>{subtitleLeft ?? ''}</span>
 						<span>{subtitleRight ?? ''}</span>
 					</div>

@@ -38,9 +38,7 @@ async def connection_status(
         raise
 
     user_id = user["id"]
-    credential_scope = hashlib.sha256(
-        gateway.access.credential.get_secret_value().encode()
-    ).hexdigest()
+    credential_scope = hashlib.sha256(gateway.access.credential.get_secret_value().encode()).hexdigest()
     app_settings = request.app.state.settings
     deployment = app_settings.api_url.casefold().rstrip("/")
     context_id = hashlib.sha256(f"{deployment}|{app_settings.auth_mode}|{user_id}".encode()).hexdigest()[:32]

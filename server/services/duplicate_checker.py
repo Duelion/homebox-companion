@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from loguru import logger
 
 from homebox_companion import HomeboxGateway
+from homebox_companion.homebox.views import resolve_item_relationship_views
 
 
 @dataclass
@@ -85,12 +86,12 @@ class DuplicateChecker:
                 item_serial = (full_item.get("serialNumber") or "").strip().upper()
 
                 if item_serial == normalized:
-                    location = full_item.get("parent", {})
+                    location, _ = resolve_item_relationship_views(full_item, untyped_parent_is_item=True)
                     match = DuplicateMatch(
                         item_id=full_item["id"],
                         item_name=full_item.get("name", "Unknown"),
                         serial_number=full_item.get("serialNumber", ""),
-                        location_name=location.get("name") if location else None,
+                        location_name=location.name if location else None,
                     )
                     logger.info(f"Duplicate found: '{match.item_name}' (ID: {match.item_id})")
                     return match

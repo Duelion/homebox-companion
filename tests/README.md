@@ -8,6 +8,43 @@ uv sync --locked
 uv run --no-sync pytest
 ```
 
+The development dependencies include HTTPX2, which Starlette automatically uses
+as its `TestClient` backend. Install them with `uv sync --locked` before testing.
+
+## Optional full-stack smoke test
+
+Before a release or after a substantial integration change, run one real
+browser → Companion → disposable Homebox journey. It uploads a photo, edits the
+name and manufacturer, saves the item, and independently verifies the stored
+fields, location, and downloadable image in Homebox. Only the AI completion is
+replaced with a deterministic result; no provider credentials or paid calls are
+needed. The test uses API-key mode and Chromium, with no screenshots to maintain.
+
+With Docker running and Node available on `PATH`, from the repository root:
+
+```powershell
+uv sync --locked
+cd frontend
+npm ci
+npm run build
+npx playwright install chromium
+cd ..
+uv run --no-sync pytest -m live tests/test_fullstack_smoke.py
+```
+
+Use Node 26.10.0 to match the frontend build environment. The runner reuses the
+existing isolated Homebox fixtures, starts Companion in a temporary working
+directory, and serves `frontend/build` through FastAPI. It cleans up its server,
+Homebox container, and volume. Diagnostics are in `frontend/test-results/`,
+including a server log and browser traces/screenshots on failure. Docker
+unavailability skips locally and fails in CI, matching the other live tests.
+
+This test is excluded from default pytest and the mocked browser suite, and is
+not a required CI job. It checks the successful save path; recovery and failure
+handling remain covered by the existing focused tests.
+
+## Live Homebox tests
+
 The shared Homebox business and authentication suites use disposable Docker
 servers and isolated accounts. No operator-provided Homebox credentials or paid
 LLM account is required:
@@ -19,8 +56,19 @@ uv run pytest -m live `
   tests/test_homebox_upstream_live.py `
   tests/test_companion_auth_live.py `
   tests/test_label_print_live.py `
-  tests/test_mcp_tools.py
+  tests/test_mcp_tools.py `
+  tests/test_item_relationships_live.py
 ```
+
+The default is digest-pinned Homebox 0.27.0. CI runs this same allowlist against
+both 0.27.0 and 0.26.2. To reproduce the compatibility job locally, set
+`TEST_HOMEBOX_VERSION=0.26.2`; unsupported versions fail before Docker starts,
+and each container's reported build version must match the selected version.
+The isolated server disables Homebox's authentication rate limits so per-test
+account registration is not throttled. As a fallback, the fixture retries only
+HTTP 429 responses, honors `Retry-After`, and makes at most four attempts within
+a three-minute retry budget. Demo-backed tests wait for the sample-data import
+to finish before authenticating.
 
 The Companion live tests use a sentinel LLM key and exercise the Homebox boundary
 without making an LLM request. Docker must be available on `PATH` with its daemon
@@ -47,29 +95,169 @@ refresh, and logout tests use `homebox_api_url` and `homebox_credentials` direct
 API-key-only classes can override `homebox_auth_mode`; see `TestAPIKeyLifecycle` in
 `test_homebox_auth_live.py`.
 
-The browser auth and failed-item recovery suites use mocked API responses and a
-local SvelteKit preview; they do not call Homebox or an LLM. From `frontend/`,
-install dependencies and run:
+The browser suite uses mocked API responses and a local SvelteKit preview; it
+does not call Homebox or an LLM. Use Node 26.10.0 to match frontend CI and the
+Docker frontend builder. From `frontend/`, install dependencies, build
+once, and run Playwright against that build:
 
 ```powershell
 npm ci
-npx playwright install chrome   # required when the Chrome channel is absent
-npm run test:browser
+npx playwright install --with-deps chromium webkit
+npm run build
+npm run test:browser:run
 ```
 
-`frontend/playwright.config.ts` builds the frontend and starts its preview server
-on `127.0.0.1:4173`. Local runs select the installed Google Chrome channel. CI
-selects bundled Chromium and installs it with
-`npx playwright install --with-deps chromium`. To use bundled Chromium locally,
-install it and set `CI=true` for the test command.
+The focused Node unit suite, including the local design-token ESLint rule
+contracts, runs without a browser or build:
+
+```powershell
+npm run test:unit
+```
+
+The browser `styling-contracts.spec.ts` also checks computed Tailwind utility
+values and saves diagnostic review screenshots. They are separate from the
+visual snapshot tests, whose canonical baselines use Linux Chromium. Update
+those baselines only on that platform after reviewing the rendered change.
+
+`frontend/playwright.config.ts` starts the preview server on
+`127.0.0.1:4173` with a strict port and does not build. Its `browser-test` mode
+disables Vite's backend proxy so late teardown requests cannot reach a real API.
+`npm run test:browser`
+is the convenience command that builds once and then runs the suite. The normal
+project is bundled Chromium. Linux runs include `@visual` tests; the short
+`@mobile` selection runs in mobile WebKit. `PLAYWRIGHT_SYSTEM_CHROME=1` opts into
+an additional installed Chrome project for local debugging. CI installs both
+browser engines, runs the build, then runs `test:browser:run`.
+
+For the canonical screenshot platform on Windows or macOS, Docker can run the
+same Linux/browser version used to create the baselines. From the repository
+root in PowerShell, run this in one session (the named volume retains Linux
+dependencies; source and build output remain in the checkout):
+
+```powershell
+$repo = (Get-Location).Path
+docker run --rm --init --ipc=host `
+  -v "${repo}:/work" `
+  -v homebox-browser-node-modules:/work/frontend/node_modules `
+  -w /work/frontend mcr.microsoft.com/playwright:v1.63.0-noble `
+  bash -lc "npm ci && npm run build && npm run test:browser:run"
+```
+
+Run `npm run build` only once before `npm run test:browser:run`; the Playwright
+web server serves that build. The container writes build output into the
+checkout, so avoid a simultaneous host build. The named `node_modules` volume
+keeps Linux dependencies separate from host dependencies. For subsequent runs
+using the same volume, omit `npm ci` unless dependencies changed, and rebuild
+only after frontend source changes.
+
+The Playwright image supplies its own Node runtime. For a Node migration,
+install the selected runtime into that environment and verify `node --version`
+before running the checks; the canonical browser image alone does not validate
+the application's selected Node version.
+
+To debug a test, narrow by file/title and use the HTML report or retained trace:
+
+```powershell
+npx playwright test tests/browser/scan.spec.ts --grep "submits a corrected item"
+npx playwright show-report
+$trace = Get-ChildItem test-results -Recurse -Filter trace.zip | Select-Object -First 1
+npx playwright show-trace $trace.FullName
+```
+
+Reports are written to `playwright-report/`; traces and failure screenshots go
+under `test-results/`. The shared fixture releases request gates and reports
+undeclared `/api/` calls, unexpected external requests, mock-handler errors, and
+unhandled page errors at teardown. Allow a page error only inside the specific
+test that deliberately exercises it (`api.allowPageError(...)`); investigate
+unknown API calls by adding an explicit method/path handler or correcting the
+request under test. Do not silence fixture diagnostics globally.
+
+Shared setup lives in `tests/browser/fixtures/`. Extend `fixtures/api.ts` with
+an explicit baseline only for stable startup behavior needed across workflows;
+otherwise, add a test-specific `api.on(method, path, handler)` in the test or a
+focused helper. Handlers are matched by HTTP method and path, with the latest
+registration taking precedence, so an override stays local and explicit. Put
+typed scenario builders in `fixtures/data.ts`; put reusable user actions in
+`helpers/` while leaving the main action and outcome assertion readable in each
+test. Add `@mobile` only to a small interaction case intended for the mobile
+WebKit project. Add `@visual` only for an intentional Linux screenshot baseline.
+
+The screenshot set has two visual tests and five PNG baselines. Update them only
+on the canonical Linux Chromium project after reviewing the rendered change:
+
+```powershell
+npx playwright test presentation.spec.ts --project chromium --grep '@visual' --update-snapshots
+git diff -- tests/browser
+```
+
+Do not update snapshots in a full-suite command or CI. Locally served font bytes
+are pinned under `tests/browser/assets/fonts/`; their adjacent files preserve
+the SIL Open Font License notices. Keep these files and source/version notes
+together when refreshing typography so screenshots do not depend on network font
+responses.
+
+These browser tests establish UI behavior against declared mock responses. They
+do not establish agreement with a running FastAPI/Homebox deployment or a real
+LLM/provider, nor do mobile emulation and screenshot comparisons replace
+real-device checks. Backend contract and live behavior remain covered by the
+appropriate Python suites.
 
 The validation workflow runs on pull requests and `dev` pushes. Python checks use
 the committed `uv.lock`; frontend checks use `npm ci`. Docker-backed Homebox tests
-run in a separate bounded job with a sentinel LLM key and the explicit six-file
+run in a separate bounded job with a sentinel LLM key and the explicit seven-file
 allowlist above. Do not broaden that job to all live tests: other live tests may
 require a real LLM account.
 
-CI runs `ty check --exit-zero-on-warning` to preserve the project's existing
-warning-level diagnostics as informational output. Type errors still fail the
-job. The recovery baseline currently has 51 warnings, primarily stale suppression
-comments and existing MCP typing diagnostics; this is not a warning-free result.
+CI runs `ty check --error-on-warning` so both type errors and warnings fail the
+job. Keep the type-check baseline free of diagnostics; validate dynamic inputs
+at model boundaries and preserve each tool's parameter type in its interface.
+
+## Keeping tests useful
+
+Prefer observable outcomes over implementation details. Parametrize repeated
+input/output cases with readable IDs. Combine assertions about one expensive
+operation (for example, a delivered print's acknowledgment, path, and image)
+rather than repeating its setup. Keep distinct failure and security scenarios
+separate.
+
+Rate-limiter tests cover our estimates and RPM/TPM wiring with deterministic
+fakes; they do not benchmark the scheduler or retest the dependency's token
+bucket. Client ownership tests check transport closure without starting Docker.
+Preference tests own temporary files and clear cached defaults before and after
+each case. Browser recovery tests share the IndexedDB reader.
+
+For focused development, use `uv run pytest --lf`, `uv run pytest -k <name>`,
+or `uv run pytest --durations=15`. Keep provider/AI tests and their explicit
+live-test selection separate from this maintenance workflow.
+
+
+### Production-image storage regression
+
+This targeted live check uses the actual production Dockerfile, a fresh named
+volume, an isolated official Homebox account and a sentinel provider key. It makes
+no paid AI requests. Build once, then run (PowerShell: use `$env:TEST_COMPANION_IMAGE`
+for the optional image override):
+
+```bash
+docker build -t homebox-companion:storage-test .
+uv run pytest -m live tests/test_companion_container_live.py
+```
+
+`TEST_COMPANION_IMAGE` selects an already-built image (default:
+`homebox-companion:storage-test`). The tests verify non-root execution, settings
+read/save/restart and container replacement persistence (profiles, custom fields,
+default tag, language and instructions), compatibility with existing config-directory
+mounts, and failure before readiness on an unwritable mount,
+without changing existing user volumes. Log checks cover viewing and downloading
+unchanged historical files through both Homebox authentication modes, including
+denial after credentials are invalidated. `TEST_HOMEBOX_VERSION` selects the supported
+upstream version through the existing isolated-server fixture. CI builds the image
+once in the production-container job and runs these tests against Homebox 0.27.0.
+
+
+Settings unit coverage is in `test_unified_settings.py` and
+`test_field_preferences.py`. It checks separate JSON preferences and YAML settings,
+safe corruption failures, sparse defaults, reset, atomic-write failure retention,
+effective prompt values, file-link preservation, and serialization of concurrent
+updates. The locks protect one server process; deployments should continue using
+a single worker.

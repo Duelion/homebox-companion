@@ -4,9 +4,7 @@ import svelte from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
 import tailwindcss from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
-import { fileURLToPath } from 'node:url';
-
-const tailwindConfig = fileURLToPath(new URL('./tailwind.config.js', import.meta.url));
+import homeboxRules from './eslint/design-tokens.js';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -19,8 +17,14 @@ export default [
 	// Svelte recommended rules
 	...svelte.configs['flat/recommended'],
 
+	// Require shared app tokens in markup and class-oriented script values.
+	{
+		plugins: { homebox: homeboxRules },
+		rules: { 'homebox/design-tokens': 'error' },
+	},
+
 	// Tailwind CSS plugin - flat config presets
-	...tailwindcss.configs['flat/recommended'],
+	tailwindcss.configs.recommended,
 
 	// Global config for JS/TS files
 	{
@@ -30,7 +34,6 @@ export default [
 			sourceType: 'module',
 			globals: {
 				...globals.browser,
-				...globals.node,
 			},
 			parser: tseslint.parser,
 			parserOptions: {
@@ -49,7 +52,6 @@ export default [
 			},
 			globals: {
 				...globals.browser,
-				...globals.node,
 				// DOM types used in TypeScript type annotations
 				HTMLInputElement: 'readonly',
 				HTMLTextAreaElement: 'readonly',
@@ -73,50 +75,101 @@ export default [
 		},
 	},
 
+	// Node globals belong to tooling and tests, not browser application code.
+	{
+		files: ['*.config.js', '*.config.ts', 'eslint/**/*.js', 'tests/**/*.{js,ts}'],
+		languageOptions: { globals: globals.node },
+	},
+	// Start typed linting with promise safety in application TypeScript.
+	{
+		files: ['src/**/*.ts'],
+		languageOptions: {
+			parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+		},
+		rules: {
+			'@typescript-eslint/no-floating-promises': 'error',
+			'@typescript-eslint/no-misused-promises': 'error',
+		},
+	},
 	// Tailwind-specific settings
 	{
 		settings: {
 			tailwindcss: {
-				// tailwind-api-utils resolves Tailwind relative to this config path.
-				config: tailwindConfig,
+				// Tailwind v4 configuration and custom utilities live in this stylesheet.
+				cssConfigPath: './src/app.css',
 				// Support class attributes in Svelte templates
-				callees: ['classnames', 'clsx', 'cn'],
+				functions: ['classnames', 'clsx', 'cn'],
 				// Validate classes in Svelte files
-				classRegex: '^class(Name)?$',
+				attributes: ['class', 'className'],
 			},
 		},
 		rules: {
 			// Catch invalid/non-existent Tailwind classes
-			'tailwindcss/no-custom-classname': ['warn', {
-				// Allow these custom utility classes from app.css
-				whitelist: [
-					'btn-icon',
-					'btn-icon-touch',
-					'input',
-					'input-error',
-					'input-expandable',
-					'label',
-					'label-chip',
-					'label-chip-selected',
-					'animate-in',
-					'glass',
-					'pb-safe',
-					'pt-safe',
-					'bottom-nav-offset',
-					'skeleton',
-					'stagger-\\d+',
-					'animate-stagger',
-					'checkmark-draw',
-					'success-scale',
-					'success-badge',
-					'page-content',
-					'fixed-bottom-panel',
-					'empty-state',
-					'complete-pop',
-					'vt-enabled',
-					'markdown-content',
-				],
-			}],
+			'tailwindcss/no-custom-classname': [
+				'warn',
+				{
+					// Allow these custom utility classes from app.css
+					whitelist: [
+						'card-surface',
+						'scanner-video',
+						'btn-icon',
+						'btn-icon-touch',
+						'input',
+						'input-error',
+						'input-sm',
+						'input-expandable',
+						'input-with-icon',
+						'label',
+						'label-sm',
+						'label-chip',
+						'label-chip-selected',
+						'selectable-item',
+						'selectable-item-selected',
+						'chat-bubble',
+						'chat-bubble-user',
+						'chat-meta',
+						'chat-tools-section',
+						'chat-tools-summary',
+						'chat-tools-grid',
+						'chat-tool-badge',
+						'chat-approval-badge',
+						'animate-in',
+						'glass',
+						'pb-safe',
+						'pt-safe',
+						'bottom-nav-offset',
+						'skeleton',
+						'checkmark-draw',
+						'success-scale',
+						'page-content',
+						'fixed-bottom-panel',
+						'chat-input-keyboard-aware',
+						'empty-state',
+						'slider-primary',
+						'complete-pop',
+						'animation-delay-0',
+						'animation-delay-100',
+						'animation-delay-150',
+						'animation-delay-160',
+						'animation-delay-200',
+						'animation-delay-300',
+						'animation-delay-320',
+						'animation-delay-400',
+						'loading-spinner',
+						'typing-ellipsis',
+						'typing-dot',
+						'tool-spinner',
+						'streaming-glow',
+						'tool-accordion',
+						'approval-badge',
+						'toast-enter',
+						'toast-exit',
+						'toast-progress',
+						'vt-enabled',
+						'markdown-content',
+					],
+				},
+			],
 			// Enforce consistent class ordering - handled by prettier-plugin-tailwindcss
 			'tailwindcss/classnames-order': 'off',
 			// Warn about conflicting classes like "p-2 p-4"
@@ -142,17 +195,13 @@ export default [
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts'],
 		rules: {
-			// Unused svelte-ignore comments are harmless noise
-			'svelte/no-unused-svelte-ignore': 'off',
+			// Keep suppressions tied to diagnostics that still exist.
+			'svelte/no-unused-svelte-ignore': 'error',
 		},
 	},
 
 	// Ignore build output and dependencies
 	{
-		ignores: [
-			'build/**',
-			'.svelte-kit/**',
-			'node_modules/**',
-		],
+		ignores: ['build/**', '.svelte-kit/**', 'node_modules/**'],
 	},
 ];

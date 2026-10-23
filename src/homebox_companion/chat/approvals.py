@@ -11,10 +11,12 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+from pydantic import ValidationError
+
+from ..mcp.types import ToolResult
 
 if TYPE_CHECKING:
     from ..mcp.executor import ToolExecutor
-    from ..mcp.types import ToolResult
     from .session import ChatSession, PendingApproval
 
 
@@ -52,9 +54,8 @@ class ApprovalService:
         This method encapsulates the full approval execution lifecycle:
         1. Validates the approval exists and is not expired
         2. Merges any user-modified parameters
-        3. Executes the tool via ToolExecutor
-        4. Updates the tool message in history with the result
-        5. Removes the approval from pending
+        3. Claims the approval before execution, so it cannot be retried
+        4. Executes the tool via ToolExecutor and updates history
 
         Args:
             approval_id: ID of the approval to execute.
@@ -82,9 +83,37 @@ class ApprovalService:
             final_params.update(modified_params)
             logger.info(f"User modified parameters for {approval.tool_name}: {modified_params}")
 
+        # Validate before claiming, so an invalid edit leaves the approval pending
+        # for the user to correct instead of consuming it.
+        tool = self._executor.get_tool(approval.tool_name)
+        if tool is not None:
+            try:
+                tool.Params(**final_params)
+            except ValidationError as e:
+                logger.warning(f"Rejected edited parameters for {approval.tool_name}: {e}")
+                return ToolResult(success=False, error=f"Invalid parameters: {e}"), approval
+
+        # No await occurs between validation and claim. Even if execution is
+        # cancelled or its outcome is uncertain, this write cannot be retried.
+        if self._session.claim_pending_approval(approval_id) is None:
+            raise ValueError(f"Approval not found or expired: {approval_id}")
+
         # 3. Execute the tool
         logger.info(f"Executing approved action: {approval.tool_name} with params {final_params}")
-        result = await self._executor.execute(approval.tool_name, final_params, token)
+        try:
+            result = await self._executor.execute(approval.tool_name, final_params, token)
+        except BaseException:
+            if approval.tool_call_id:
+                self._session.update_tool_message(
+                    approval.tool_call_id,
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": "Execution was interrupted; the result is unknown. Check Homebox before retrying.",
+                        }
+                    ),
+                )
+            raise
 
         # Log execution result for debugging
         logger.debug(f"Approved action result: {approval.tool_name} success={result.success}, error={result.error}")
@@ -102,9 +131,6 @@ class ApprovalService:
                 ),
             }
             self._session.update_tool_message(approval.tool_call_id, json.dumps(result_message))
-
-        # 5. Remove from pending
-        self._session.remove_approval(approval_id)
 
         return result, approval
 

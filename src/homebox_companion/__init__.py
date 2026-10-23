@@ -25,7 +25,7 @@ Environment Variables:
     HBC_LLM_MODEL: LLM model identifier (preferred)
     HBC_LLM_API_BASE: Optional custom API base URL
     HBC_OPENAI_API_KEY: Legacy fallback for API key
-    HBC_OPENAI_MODEL: Legacy fallback for model (default: gpt-5-mini)
+    HBC_OPENAI_MODEL: Legacy fallback for model (default: gpt-5.6-luna)
     HBC_SERVER_HOST: Server host (default: 0.0.0.0)
     HBC_SERVER_PORT: Server port (default: 8000)
     HBC_LOG_LEVEL: Logging level (default: INFO)

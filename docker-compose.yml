@@ -10,7 +10,10 @@ services:
       - HBC_HOMEBOX_URL=http://192.168.1.100:7745
       # Optional Homebox-issued key from .env; empty preserves legacy login.
       - HBC_HOMEBOX_API_KEY=${HBC_HOMEBOX_API_KEY:-}
-      - HBC_LLM_MODEL=gpt-5-mini
+      - HBC_LLM_MODEL=gpt-5.6-luna
+      - HBC_LLM_TIMEOUT=${HBC_LLM_TIMEOUT:-120}
+      # Blank uses the backend timeout plus 60 seconds for browser AI requests.
+      - HBC_AI_REQUEST_TIMEOUT=${HBC_AI_REQUEST_TIMEOUT:-}
       - HBC_LOG_LEVEL=INFO
     ports:
       - 8000:8000

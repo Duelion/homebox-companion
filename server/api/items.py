@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from loguru import logger
 
@@ -11,16 +11,45 @@ from homebox_companion import (
     HomeboxAuthError,
     HomeboxCompanionError,
     HomeboxGateway,
-    settings,
 )
 from homebox_companion.ai.images import compress_image_for_upload
 from homebox_companion.core import HomeboxAPIError
 from homebox_companion.homebox import ItemCreate
+from homebox_companion.homebox.asset_id import normalize_asset_id
+from homebox_companion.homebox.relationships import (
+    item_update_payload,
+    location_override_for_parent,
+    preflight_item_placement,
+)
 
 from ..dependencies import get_gateway, get_valid_tag_ids, validate_file_size
 from ..schemas.items import BatchCreateRequest
+from ..services.image_processing import run_image_processing
 
 router = APIRouter()
+
+
+async def _parent_location_override(
+    gateway: HomeboxGateway,
+    parent_id: str,
+    selected_location_id: str,
+    parents: dict[str, dict[str, Any] | None],
+) -> str | None:
+    """Return the location override a child of ``parent_id`` needs, caching parents per batch.
+
+    Lookup failures other than authentication only cost the override: the item
+    is still created under its parent and inherits that parent's location.
+    """
+    if parent_id not in parents:
+        try:
+            parents[parent_id] = await gateway.get_item(parent_id)
+        except HomeboxAuthError:
+            raise
+        except HomeboxCompanionError as e:
+            logger.warning(f"Could not read parent {parent_id} to resolve its location: {e}")
+            parents[parent_id] = None
+    parent = parents[parent_id]
+    return location_override_for_parent(parent, selected_location_id) if parent else None
 
 
 @router.get("/items")
@@ -72,11 +101,13 @@ async def create_items(
 
     # Fetch valid tag IDs once for the batch to validate against
     valid_tag_ids = await get_valid_tag_ids(gateway)
+    parents: dict[str, dict[str, Any] | None] = {}
 
     for index, item_input in enumerate(request.items):
-        # Resolve parent (container) ID: item-level → request-level fallback
+        # Explicit container takes precedence over item/request location.
         # In 0.26, location_id and parent_id both map to the API's parentId field
-        parent_id = item_input.location_id or request.location_id or item_input.parent_id
+        parent_id = item_input.parent_id or item_input.location_id or request.location_id
+        selected_location_id = item_input.location_id or request.location_id
 
         logger.debug(f"Creating item: {item_input.name}")
         logger.debug(f"  parent_id: {parent_id}")
@@ -95,13 +126,13 @@ async def create_items(
                 name=item_input.name,
                 quantity=item_input.quantity,
                 description=item_input.description,
-                parent_id=parent_id,  # ty: ignore[unknown-argument]
-                tag_ids=validated_tag_ids if validated_tag_ids else None,  # ty: ignore[unknown-argument]
+                parent_id=parent_id,
+                tag_ids=validated_tag_ids if validated_tag_ids else None,
                 manufacturer=item_input.manufacturer,
-                model_number=item_input.model_number,  # ty: ignore[unknown-argument]
-                serial_number=item_input.serial_number,  # ty: ignore[unknown-argument]
-                purchase_price=item_input.purchase_price,  # ty: ignore[unknown-argument]
-                purchase_from=item_input.purchase_from,  # ty: ignore[unknown-argument]
+                model_number=item_input.model_number,
+                serial_number=item_input.serial_number,
+                purchase_price=item_input.purchase_price,
+                purchase_from=item_input.purchase_from,
                 notes=item_input.notes,
             )
 
@@ -110,9 +141,15 @@ async def create_items(
                 name=detected_item.name,
                 quantity=detected_item.quantity,
                 description=detected_item.description or "",
-                parent_id=detected_item.parent_id,  # ty: ignore[unknown-argument]
-                tag_ids=detected_item.tag_ids,  # ty: ignore[unknown-argument]
+                parent_id=detected_item.parent_id,
+                tag_ids=detected_item.tag_ids,
             )
+            if item_input.parent_id and selected_location_id and selected_location_id != item_input.parent_id:
+                location_override = await _parent_location_override(
+                    gateway, item_input.parent_id, selected_location_id, parents
+                )
+                if location_override:
+                    item_create.location_id = location_override
             result = await gateway.create_item(item_create)
             item_id = result.get("id")
             logger.info(f"Created item: {result.get('name')} (id: {item_id})")
@@ -127,14 +164,7 @@ async def create_items(
                         # Get the full item to merge with extended fields
                         full_item = await gateway.get_item(item_id)
                         # Merge extended fields into the full item data
-                        update_data = {
-                            "name": full_item.get("name"),
-                            "description": full_item.get("description"),
-                            "quantity": full_item.get("quantity"),
-                            "parentId": full_item.get("parent", {}).get("id"),
-                            "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
-                            **extended_payload,
-                        }
+                        update_data = {**item_update_payload(full_item, parent_id=parent_id), **extended_payload}
                         # Include custom fields as typed Homebox ItemField objects
                         if item_input.custom_fields:
                             from homebox_companion.tools.vision.models import HomeboxItemField
@@ -144,9 +174,6 @@ async def create_items(
                                 for name, value in item_input.custom_fields.items()
                                 if value  # skip empty/null values
                             ]
-                        # Preserve parentId if it was set
-                        if item_input.parent_id:
-                            update_data["parentId"] = item_input.parent_id
                         result = await gateway.update_item(item_id, update_data)
                         logger.info("  Updated item with extended fields")
                     except HomeboxAuthError:
@@ -215,6 +242,7 @@ async def create_items(
 
 @router.post("/items/{item_id}/attachments")
 async def upload_item_attachment(
+    request: Request,
     item_id: str,
     file: Annotated[UploadFile, File(description="Image file to upload")],
     gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
@@ -224,7 +252,7 @@ async def upload_item_attachment(
     logger.debug(f"File: {file.filename}, content_type: {file.content_type}")
 
     # Validate file size (raises HTTPException if too large)
-    file_bytes = await validate_file_size(file)
+    file_bytes = await validate_file_size(file, request.app.state.settings)
 
     # Log file size for diagnostics - helps identify empty/corrupted uploads
     file_size = len(file_bytes)
@@ -237,8 +265,10 @@ async def upload_item_attachment(
     filename = file.filename or "image.jpg"
     mime_type = file.content_type or "image/jpeg"
 
-    max_dimension, jpeg_quality = settings.image_quality_params
-    file_bytes, mime_type = compress_image_for_upload(file_bytes, max_dimension, jpeg_quality)
+    max_dimension, jpeg_quality = request.app.state.settings.image_quality_params
+    file_bytes, mime_type = await run_image_processing(
+        compress_image_for_upload, file_bytes, max_dimension, jpeg_quality
+    )
 
     result = await gateway.upload_attachment(
         item_id=item_id,
@@ -287,17 +317,46 @@ async def update_item(
     logger.info(f"Updating item: {item_id}")
     logger.debug(f"Update data: {request}")
 
+    if "assetId" in request:
+        try:
+            request["assetId"] = normalize_asset_id(request["assetId"])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     # Fetch current item to get required fields
     full_item = await gateway.get_item(item_id)
 
-    # Build update payload with current values + updates
-    update_data = {
-        "name": full_item.get("name"),
-        "description": full_item.get("description", ""),
-        "quantity": full_item.get("quantity", 1),
-        "parentId": full_item.get("parent", {}).get("id"),
-        "tagIds": [tag.get("id") for tag in full_item.get("tags", []) if tag.get("id")],
-    }
+    # Homebox replaces the whole item, so send back everything it already has
+    from pydantic import ValidationError
+
+    from homebox_companion.mcp.tools import UpdateItemTool
+
+    try:
+        placement_keys = {"parent_id", "location_id", "clear_parent", "location_override_id", "clear_location_override"}
+        placement = UpdateItemTool.Params.model_validate(
+            {"item_id": item_id, **{key: value for key, value in request.items() if key in placement_keys}}
+        )
+        await preflight_item_placement(
+            full_item,
+            item_id=item_id,
+            get_entity=lambda entity_id: gateway.get_item(entity_id),
+            get_version=lambda: gateway.get_version(),
+            parent_id=placement.parent_id,
+            location_id=placement.location_id,
+            clear_parent=placement.clear_parent,
+            location_override_id=placement.location_override_id,
+            clear_location_override=placement.clear_location_override,
+        )
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    update_data = item_update_payload(
+        full_item,
+        parent_id=placement.parent_id,
+        location_id=placement.location_id,
+        clear_parent=placement.clear_parent,
+        location_override_id=placement.location_override_id,
+        clear_location_override=placement.clear_location_override,
+    )
 
     # Apply requested updates (convert snake_case to camelCase for Homebox API)
     if "assetId" in request:
@@ -330,6 +389,7 @@ async def delete_item(
 
 @router.post("/items/{item_id}/print-label")
 async def print_item_label(
+    request: Request,
     item_id: str,
     gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
 ) -> dict[str, str]:
@@ -339,7 +399,7 @@ async def print_item_label(
     its entity UUID. Requires HBOX_LABEL_MAKER_PRINT_COMMAND to be configured
     on the Homebox server.
     """
-    if not settings.print_enabled:
+    if not request.app.state.settings.print_enabled:
         raise HTTPException(
             status_code=403,
             detail="Label printing is not enabled on this server (HBC_PRINT_ENABLED=false).",
@@ -356,18 +416,15 @@ async def print_item_label(
             )
 
         result = await gateway.print_label(item.asset_id)
-        logger.info(
-            f"Label printed for item {item_id} (asset {item.asset_id}): {result}"
-        )
+        logger.info(f"Label printed for item {item_id} (asset {item.asset_id}): {result}")
         return {"message": result}
-    except (HomeboxCompanionError, HTTPException):
+    except HomeboxCompanionError, HTTPException:
         raise
     except Exception as e:
         raise HomeboxAPIError(
             message=f"Unexpected error while printing label for item {item_id}",
             user_message=(
-                "Failed to print label. Ensure HBOX_LABEL_MAKER_PRINT_COMMAND "
-                "is configured on the Homebox server."
+                "Failed to print label. Ensure HBOX_LABEL_MAKER_PRINT_COMMAND is configured on the Homebox server."
             ),
             context={"item_id": item_id},
         ) from e

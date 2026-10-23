@@ -23,30 +23,27 @@ def _names(nodes: list[dict]) -> list[str]:
     return [node["name"] for node in nodes]
 
 
-class TestNaturalSortKey:
-    def test_numbers_sort_numerically(self) -> None:
-        names = ["1", "10", "11", "2", "21", "3"]
-        assert sorted(names, key=natural_sort_key) == ["1", "2", "3", "10", "11", "21"]
-
-    def test_mixed_text_and_numbers(self) -> None:
-        names = ["Box 10", "Box 2", "Box 1", "Box 21"]
-        assert sorted(names, key=natural_sort_key) == ["Box 1", "Box 2", "Box 10", "Box 21"]
-
-    def test_case_insensitive(self) -> None:
-        names = ["banana", "Apple", "cherry"]
-        assert sorted(names, key=natural_sort_key) == ["Apple", "banana", "cherry"]
-
-    def test_plain_text_stays_alphabetical(self) -> None:
-        names = ["Garage", "Attic", "Basement"]
-        assert sorted(names, key=natural_sort_key) == ["Attic", "Basement", "Garage"]
-
-    def test_numeric_prefix_before_text(self) -> None:
-        names = ["Shelf", "2 Shelf", "10 Shelf"]
-        assert sorted(names, key=natural_sort_key) == ["2 Shelf", "10 Shelf", "Shelf"]
-
-    def test_multiple_digit_runs(self) -> None:
-        names = ["A2-B10", "A2-B2", "A10-B1"]
-        assert sorted(names, key=natural_sort_key) == ["A2-B2", "A2-B10", "A10-B1"]
+@pytest.mark.parametrize(
+    "names,expected",
+    [
+        pytest.param(
+            ["1", "10", "11", "2", "21", "3"], ["1", "2", "3", "10", "11", "21"], id="numbers_sort_numerically"
+        ),
+        pytest.param(
+            ["Box 10", "Box 2", "Box 1", "Box 21"], ["Box 1", "Box 2", "Box 10", "Box 21"], id="mixed_text_and_numbers"
+        ),
+        pytest.param(["banana", "Apple", "cherry"], ["Apple", "banana", "cherry"], id="case_insensitive"),
+        pytest.param(
+            ["Garage", "Attic", "Basement"], ["Attic", "Basement", "Garage"], id="plain_text_stays_alphabetical"
+        ),
+        pytest.param(
+            ["Shelf", "2 Shelf", "10 Shelf"], ["2 Shelf", "10 Shelf", "Shelf"], id="numeric_prefix_before_text"
+        ),
+        pytest.param(["A2-B10", "A2-B2", "A10-B1"], ["A2-B2", "A2-B10", "A10-B1"], id="multiple_digit_runs"),
+    ],
+)
+def test_natural_sort_key(names: list[str], expected: list[str]) -> None:
+    assert sorted(names, key=natural_sort_key) == expected
 
 
 class TestSortTreeNaturally:
@@ -129,9 +126,7 @@ class _LocationClient:
             raise RuntimeError("simulated child lookup failure")
         return self.locations[location_id]
 
-    async def list_locations(
-        self, token: str, *, filter_children: bool | None = None
-    ) -> list[dict[str, Any]]:
+    async def list_locations(self, token: str, *, filter_children: bool | None = None) -> list[dict[str, Any]]:
         return self.all_locations
 
 

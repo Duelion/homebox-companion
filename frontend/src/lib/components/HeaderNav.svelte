@@ -35,7 +35,7 @@
 				aria-disabled="true"
 				title={item.disabledTooltip}
 				onclick={() => handleDisabledNavClick(item)}
-				class="flex cursor-not-allowed items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-neutral-600"
+				class="flex cursor-not-allowed items-center gap-1.5 rounded-lg px-3 py-1.5 text-body-sm text-neutral-600"
 			>
 				<NavIcon icon={item.icon} size="sm" />
 				<span>{item.label}</span>
@@ -45,7 +45,7 @@
 			<a
 				href={resolveNavHref(item.href)}
 				aria-current={active ? 'page' : undefined}
-				class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all duration-200
+				class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-body-sm transition-all duration-200
 					{active
 					? 'bg-primary-500/10 text-primary-500'
 					: 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'}"

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronDown, Layers } from 'lucide-svelte';
+	import { ChevronDown, Layers } from '@lucide/svelte';
 	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { locationStore } from '$lib/stores/locations.svelte';
 	import { clearTagsCache, fetchTags } from '$lib/stores/tags.svelte';
@@ -44,6 +44,7 @@
 		const changed = collectionStore.selectGroup(groupId);
 		if (changed) {
 			// Clear dependent state and re-fetch for the new collection
+			locationNavigator.reset();
 			locationStore.clear();
 			clearTagsCache();
 			// Reload data for the new collection
@@ -64,7 +65,7 @@
 		<button
 			type="button"
 			onclick={() => (open = !open)}
-			class="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-1.5 text-sm text-neutral-300 transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100"
+			class="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-1.5 text-body-sm text-neutral-300 transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100"
 			aria-haspopup="listbox"
 			aria-expanded={open}
 			id="collection-selector"
@@ -90,7 +91,7 @@
 						type="button"
 						role="option"
 						aria-selected={isSelected}
-						class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors
+						class="flex w-full items-center gap-2 px-3 py-2 text-left text-body-sm transition-colors
 							{isSelected
 							? 'bg-primary-500/10 text-primary-400'
 							: 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100'}"

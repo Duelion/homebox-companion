@@ -37,7 +37,7 @@
 		ChevronRight,
 		FolderOpen,
 		Plus,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	const log = createLogger({ prefix: 'LocationPage' });
 
@@ -177,57 +177,7 @@
 		description: string;
 		parentId: string | null;
 	}) {
-		try {
-			if (locationModalMode === 'create') {
-				const newLocation = await locationsApi.create({
-					name: data.name,
-					description: data.description,
-					parent_id: data.parentId,
-				});
-
-				log.debug('Created location:', newLocation.name, 'under parent:', data.parentId);
-
-				// Refresh current level by fetching parent's children directly
-				// This avoids tree traversal and works at any depth
-				await locationNavigator.refreshCurrentLevel(data.parentId);
-
-				showToast(`Location "${newLocation.name}" created`, 'success');
-			} else if (locationModalMode === 'edit' && locationStore.selected) {
-				const updatedLocation = await locationsApi.update(locationStore.selected.id, {
-					name: data.name,
-					description: data.description,
-				});
-
-				log.debug('Updated location:', updatedLocation.name);
-
-				// Update selected location with new data
-				const locationData: Location = {
-					id: updatedLocation.id,
-					name: updatedLocation.name,
-					description: updatedLocation.description,
-					children: locationStore.selected.children || [],
-				};
-				locationStore.setSelected(locationData);
-
-				// Update workflow with new name
-				scanWorkflow.setLocation(locationData.id, locationData.name, locationStore.selectedPath);
-
-				// Refresh flat list for search - fetch tree to preserve hierarchy for disambiguation
-				try {
-					const tree = await locationsApi.tree();
-					locationStore.setTree(tree);
-					locationStore.setFlatList(tree);
-				} catch (error) {
-					log.warn('Failed to refresh search list after edit', error);
-				}
-
-				showToast(`Location "${updatedLocation.name}" updated`, 'success');
-			}
-		} catch (error) {
-			log.error('Failed to save location', error);
-			// Re-throw to let LocationModal handle the error display
-			throw error;
-		}
+		await locationNavigator.saveLocation(locationModalMode, data);
 	}
 
 	// QR Scanner handlers
@@ -453,18 +403,13 @@
 				</Button>
 
 				<!-- Assign to Container Item -->
-				<Button
-					variant="secondary"
-					full
-					onclick={openItemPicker}
-					disabled={(locationStore.selected?.itemCount ?? 0) === 0}
-				>
+				<Button variant="secondary" full onclick={openItemPicker}>
 					<Package size={20} strokeWidth={1.5} />
 					<span>
 						{#if scanWorkflow.state.parentItemName}
 							Inside: {scanWorkflow.state.parentItemName}
 						{:else}
-							Place Inside an Item ({locationStore.selected?.itemCount ?? 0})
+							Place Inside an Item
 						{/if}
 					</span>
 				</Button>
@@ -482,7 +427,7 @@
 						type="text"
 						placeholder="Search all locations..."
 						bind:value={searchQuery}
-						class="h-12 w-full rounded-xl border border-neutral-600 bg-neutral-800 pl-11 pr-10 text-neutral-100 transition-all placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+						class="h-12 w-full rounded-xl border border-neutral-600 bg-neutral-800 pl-11 pr-10 text-neutral-100 transition-all placeholder:text-neutral-500 focus:border-primary-500 focus:outline-hidden focus:ring-2 focus:ring-primary-500/50"
 					/>
 					{#if searchQuery}
 						<button
@@ -501,12 +446,12 @@
 					type="button"
 					onclick={openQrScanner}
 					disabled={isProcessingQr}
-					class="flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-600 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/5 hover:text-primary-400 disabled:opacity-50"
+					class="flex items-center justify-center rounded-xl border border-neutral-600 bg-neutral-800 text-neutral-400 transition-all hover:border-primary-500/50 hover:bg-primary-500/5 hover:text-primary-400 disabled:opacity-50 size-12"
 					title="Scan QR Code"
 				>
 					{#if isProcessingQr}
 						<div
-							class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+							class="animate-spin rounded-full border-2 border-current border-t-transparent size-5"
 						></div>
 					{:else}
 						<QrCode size={20} strokeWidth={1.5} />
@@ -562,7 +507,7 @@
 				<!-- BROWSE MODE -->
 
 				{#if locationStore.path.length > 0}
-					<div class="mb-4 flex items-center gap-1 overflow-x-auto pb-2 text-sm">
+					<div class="mb-4 flex items-center gap-1 overflow-x-auto pb-2 text-body-sm">
 						<button
 							type="button"
 							class="flex items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
@@ -620,7 +565,7 @@
 
 				<!-- Sublocations section -->
 				{#if locationStore.currentLevel.length > 0 && locationStore.path.length > 0}
-					<div class="mb-2 mt-2 flex items-center gap-2">
+					<div class="flex items-center gap-2 my-2">
 						<div class="flex items-center gap-1.5 text-neutral-500">
 							<FolderOpen size={16} strokeWidth={1.5} />
 							<span class="text-body-sm font-medium"

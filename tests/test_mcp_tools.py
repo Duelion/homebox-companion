@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from conftest import HomeboxAuth
+from pydantic import ValidationError
 
 from homebox_companion import HomeboxClient, ItemCreate
 from homebox_companion.mcp.tools import (
@@ -33,7 +34,7 @@ def mock_client() -> MagicMock:
     """Create a mock HomeboxClient."""
     client = MagicMock()
     # Make all methods async mocks
-    client.list_locations = AsyncMock()
+    client.list_locations = AsyncMock(return_value=[])
     client.get_location = AsyncMock()
     client.list_tags = AsyncMock()
     client.list_items = AsyncMock()
@@ -380,11 +381,7 @@ class TestUpdateItem:
             ({"parent_id": "parent-new"}, "parent-new"),
             ({"clear_parent": True}, None),
             ({}, "parent-current"),
-            ({"location_id": "location-new", "parent_id": "parent-new"}, "parent-new"),
-            (
-                {"location_id": "location-new", "parent_id": "parent-new", "clear_parent": True},
-                None,
-            ),
+            ({"parent_id": "", "location_id": ""}, "parent-current"),
         ],
     )
     async def test_resolves_parent_once_with_documented_precedence(
@@ -398,11 +395,24 @@ class TestUpdateItem:
         mock_client.update_item.return_value = {"id": "item-1", "name": "Existing item"}
 
         tool = UpdateItemTool()
-        result = await tool.execute(mock_client, "test-token", tool.Params(item_id="item-1", **params))
+        validated_params = tool.Params.model_validate({"item_id": "item-1", **params})
+        result = await tool.execute(mock_client, "test-token", validated_params)
 
         assert result.success is True
         payload = mock_client.update_item.await_args.args[2]
         assert payload["parentId"] == expected_parent
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"location_id": "location-new", "parent_id": "parent-new"},
+            {"location_id": "location-new", "clear_parent": True},
+            {"parent_id": "parent-new", "clear_parent": True},
+        ],
+    )
+    def test_rejects_contradictory_placement_changes(self, params: dict[str, object]) -> None:
+        with pytest.raises(ValidationError, match="Pass only one of parent_id, location_id or clear_parent"):
+            UpdateItemTool.Params.model_validate({"item_id": "item-1", **params})
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("parent_fields", [{"parent": None}, {}])
@@ -432,7 +442,7 @@ class TestGetItem:
             "id": "item1",
             "name": "Smart TV",
             "description": "65 inch OLED",
-            "parent": {"id": "loc1", "name": "Living Room"},
+            "parent": {"id": "loc1", "name": "Living Room", "entityType": {"isLocation": True}},
             "tags": [{"id": "tag1", "name": "Electronics"}],
         }
         mock_client.get_item.return_value = mock_item
@@ -479,9 +489,7 @@ class TestMCPToolsLive:
     """Live integration tests for MCP tools against Docker Homebox container."""
 
     @pytest.mark.asyncio
-    async def test_list_locations_live(
-        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-    ) -> None:
+    async def test_list_locations_live(self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
         """List locations should return data from the Docker test server."""
         tool = ListLocationsTool()
         params = tool.Params()
@@ -493,9 +501,7 @@ class TestMCPToolsLive:
         assert len(result.data) > 0
 
     @pytest.mark.asyncio
-    async def test_list_tags_live(
-        self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth
-    ) -> None:
+    async def test_list_tags_live(self, homebox_client: HomeboxClient, homebox_auth: HomeboxAuth) -> None:
         """List tags should return data from the Docker test server."""
         tool = ListTagsTool()
         params = tool.Params()
@@ -533,3 +539,24 @@ class TestMCPToolsLive:
         assert result.success is True
         fresh = await homebox_client.get_item(token, item["id"])
         assert fresh["parent"]["id"] == target_location["id"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_name,params", [("get_item", {"item_id": "drill"}), ("get_item_by_asset_id", {"asset_id": "000-001"})]
+)
+async def test_chat_executor_keeps_custom_fields_in_model_result(mock_client, tool_name, params):
+    from homebox_companion.mcp.executor import ToolExecutor
+
+    mock_client.get_item_by_asset_id = AsyncMock(return_value={"id": "drill"})
+    mock_client.get_item.return_value = {
+        "id": "drill",
+        "name": "Drill",
+        "fields": [{"name": "QA Material", "type": "text", "textValue": "Steel"}],
+    }
+    executor = ToolExecutor(mock_client)
+    result = await executor.execute(tool_name, params, token="session-token")
+    assert result.success
+    assert result.model_dump()["data"]["fields"][0]["textValue"] == "Steel"
+    schema = next(schema for schema in executor.get_tool_schemas() if schema["function"]["name"] == "search_items")
+    assert "fetch get_item" in schema["function"]["parameters"]["properties"]["compact"]["description"]

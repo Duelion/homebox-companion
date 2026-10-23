@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { Search, Package, Check, X } from 'lucide-svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { Search, Package, Check, X } from '@lucide/svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { items as itemsApi, type BlobUrlResult } from '$lib/api';
 	import { showToast } from '$lib/stores/ui.svelte';
@@ -23,19 +22,11 @@
 
 	let isLoading = $state(true);
 	let items = $state<ItemSummary[]>([]);
-	// Track user's selection - starts with current parent, user can change independently
-	// We intentionally capture the initial prop value here; the effect below syncs on prop changes
-	// eslint-disable-next-line svelte/prefer-writable-derived -- Local state synced from prop, modifiable by user
-	let selectedItemId = $state<string | null | undefined>(undefined);
+	// Local selection can override the parent until the parent prop changes.
+	let selectedItemId = $derived(currentItemId);
 	let searchQuery = $state('');
 	// Store fetched thumbnail results with their revoke functions (itemId -> BlobUrlResult)
 	let thumbnailResults = new SvelteMap<string, BlobUrlResult>();
-
-	// Sync selectedItemId when currentItemId prop changes (including initial mount)
-	$effect(() => {
-		// This effect ensures we track prop changes while allowing local modification
-		selectedItemId = currentItemId;
-	});
 
 	// Helper to get thumbnail URL for an item
 	function getThumbnailUrl(item: ItemSummary): string | null {
@@ -49,72 +40,84 @@
 			: items.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
 	);
 
-	onMount(async () => {
-		log.debug('Loading items for location:', locationId);
-		await loadItems();
+	// Each location load owns its requests and thumbnail URLs. Effect cleanup runs
+	// synchronously when the location changes and when the modal is destroyed.
+	$effect(() => {
+		const requestedLocationId = locationId;
+		const controller = new AbortController();
+		log.debug('Loading items for location:', requestedLocationId);
+		void loadItems(requestedLocationId, controller);
+
+		return () => {
+			controller.abort();
+			for (const result of thumbnailResults.values()) {
+				result.revoke();
+			}
+			thumbnailResults.clear();
+			items = [];
+		};
 	});
 
-	// Clean up blob URLs when component is destroyed
-	onDestroy(() => {
-		for (const result of thumbnailResults.values()) {
-			result.revoke();
-		}
-	});
+	function isCurrentRequest(controller: AbortController): boolean {
+		return !controller.signal.aborted;
+	}
 
-	async function loadItems() {
+	async function loadItems(requestedLocationId: string, controller: AbortController) {
 		isLoading = true;
+		items = [];
 		try {
-			items = await itemsApi.list(locationId);
+			const loadedItems = await itemsApi.list(requestedLocationId, controller.signal);
+			if (!isCurrentRequest(controller)) return;
+			items = loadedItems;
 			log.debug(`Loaded ${items.length} items`);
 			// Fetch thumbnails for items that have them
-			await loadThumbnails(items);
+			await loadThumbnails(loadedItems, controller);
 		} catch (error) {
+			if (
+				!isCurrentRequest(controller) ||
+				(error instanceof Error && error.name === 'AbortError')
+			) {
+				return;
+			}
 			log.error('Failed to load items', error);
 			showToast('Failed to load items', 'error');
 			items = [];
 		} finally {
-			isLoading = false;
+			if (isCurrentRequest(controller)) isLoading = false;
 		}
 	}
 
-	async function loadThumbnails(itemsList: ItemSummary[]) {
+	async function loadThumbnails(itemsList: ItemSummary[], controller: AbortController) {
 		const itemsWithThumbnails = itemsList.filter((item) => item.thumbnailId);
 		if (itemsWithThumbnails.length === 0) return;
 
 		log.debug(`Fetching ${itemsWithThumbnails.length} thumbnails`);
 
-		// Fetch all thumbnails in parallel, catching errors individually
-		const results = await Promise.all(
+		// Register each result as soon as it completes so cleanup always owns it.
+		await Promise.all(
 			itemsWithThumbnails.map(async (item) => {
 				try {
-					const result = await itemsApi.getThumbnail(item.id, item.thumbnailId!);
-					return { itemId: item.id, result };
+					const result = await itemsApi.getThumbnail(item.id, item.thumbnailId!, controller.signal);
+					if (!isCurrentRequest(controller)) {
+						result.revoke();
+						return;
+					}
+					const existing = thumbnailResults.get(item.id);
+					if (existing) existing.revoke();
+					thumbnailResults.set(item.id, result);
 				} catch (error) {
-					// Ignore aborted requests silently
-					if (error instanceof Error && error.name === 'AbortError') {
-						return { itemId: item.id, result: null };
+					if (
+						!isCurrentRequest(controller) ||
+						(error instanceof Error && error.name === 'AbortError')
+					) {
+						return;
 					}
 					// Log other errors but continue - missing thumbnails are not critical
 					log.debug(`Failed to load thumbnail for item ${item.id}:`, error);
-					return { itemId: item.id, result: null };
 				}
 			})
 		);
-
-		// Store successful results (with their revoke functions for cleanup)
-		const newResults = new SvelteMap(thumbnailResults);
-		for (const { itemId, result } of results) {
-			if (result) {
-				// Revoke any existing URL for this item before replacing
-				const existing = newResults.get(itemId);
-				if (existing) {
-					existing.revoke();
-				}
-				newResults.set(itemId, result);
-			}
-		}
-		thumbnailResults = newResults;
-		log.debug(`Loaded ${newResults.size} thumbnails`);
+		if (isCurrentRequest(controller)) log.debug(`Loaded ${thumbnailResults.size} thumbnails`);
 	}
 
 	function selectItem(item: ItemSummary) {
@@ -169,11 +172,11 @@
 					onclick={() => selectItem(item)}
 				>
 					<!-- Thumbnail -->
-					<div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-700">
+					<div class="shrink-0 overflow-hidden rounded-lg bg-neutral-700 size-14">
 						{#if thumbnailUrl}
-							<img src={thumbnailUrl} alt="" class="h-full w-full object-cover" />
+							<img src={thumbnailUrl} alt="" class="object-cover size-full" />
 						{:else}
-							<div class="flex h-full w-full items-center justify-center">
+							<div class="flex items-center justify-center size-full">
 								<Package class="text-neutral-500" size={28} strokeWidth={1} />
 							</div>
 						{/if}
@@ -189,7 +192,7 @@
 					</div>
 
 					{#if selectedItemId === item.id}
-						<div class="flex h-6 w-6 items-center justify-center text-primary-400">
+						<div class="flex items-center justify-center text-primary-400 size-6">
 							<Check class="text-primary-400" size={20} strokeWidth={2.5} />
 						</div>
 					{/if}

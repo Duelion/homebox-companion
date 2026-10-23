@@ -35,6 +35,21 @@ async def submit(gateway, items):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("extended", [False, True])
+async def test_explicit_container_wins_over_location_with_or_without_enrichment(gateway, extended):
+    item = {"name": "Lamp", "parent_id": "container", "location_id": "item-location"}
+    if extended:
+        item["manufacturer"] = "Example"
+    response = await submit(gateway, [item])
+    assert response.status_code == 200
+    assert gateway.create_item.call_args.args[0].parent_id == "container"
+    if extended:
+        assert gateway.update_item.call_args.args[1]["parentId"] == "container"
+    else:
+        gateway.update_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("stage", ["get_item", "update_item"])
 async def test_post_create_auth_failure_returns_created_id_and_stops_batch(gateway, stage):
     getattr(gateway, stage).side_effect = HomeboxAuthError("Expired")
@@ -91,3 +106,29 @@ async def test_auth_failure_before_creation_does_not_claim_an_item_exists(gatewa
     assert response.status_code == 207
     assert response.json()["created"] == []
     gateway.delete_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"quantity": 0},
+        {"quantity": 1.5},
+        {"quantity": ""},
+        {"name": "   "},
+        {"name": "x" * 256},
+        {"purchase_price": -1},
+    ],
+)
+async def test_invalid_batch_rejected_before_any_creation(gateway, invalid):
+    response = await submit(gateway, [{"name": "Valid first"}, {"name": "Invalid second", **invalid}])
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"][:3] == ["body", "items", 1]
+    gateway.create_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_trimmed_name_and_zero_price_are_accepted(gateway):
+    response = await submit(gateway, [{"name": "  Lamp  ", "quantity": 1, "purchase_price": 0}])
+    assert response.status_code == 200
+    assert gateway.create_item.call_args.args[0].name == "Lamp"

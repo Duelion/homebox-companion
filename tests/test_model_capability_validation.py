@@ -12,7 +12,7 @@ Test Coverage:
    - Vision models without JSON schema support still work (fallback to prompt-based JSON)
 
 2. Error Messages (TestErrorMessages):
-   - Error messages suggest officially supported models (gpt-5-mini, gpt-5-nano)
+   - Error messages suggest officially supported models (gpt-5.6-luna, gpt-5-nano)
    - Error messages explain the bypass flag (HBC_LLM_ALLOW_UNSAFE_MODELS=true)
 
 3. Unsafe Flag Behavior (TestUnsafeFlagBehavior):
@@ -214,7 +214,7 @@ class TestErrorMessages:
 
         error_msg = str(exc_info.value)
         # Should mention officially supported models
-        assert "gpt-5-mini" in error_msg or "gpt-5-nano" in error_msg
+        assert "gpt-5.6-luna" in error_msg or "gpt-5-nano" in error_msg
         assert "Officially supported" in error_msg
 
     @pytest.mark.asyncio

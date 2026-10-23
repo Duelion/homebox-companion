@@ -22,35 +22,18 @@ pytestmark = pytest.mark.unit
 class TestHomeboxClientErrorHandling:
     """Test HTTP error handling in HomeboxClient."""
 
-    def test_401_response_raises_authentication_error(self) -> None:
-        """401 responses should raise HomeboxAuthError."""
-        response = httpx.Response(
-            401,
-            json={"error": "Token expired"},
-        )
-
-        with pytest.raises(HomeboxAuthError, match="Token expired"):
+    @pytest.mark.parametrize(
+        "status,message,error,match",
+        [
+            pytest.param(401, "Token expired", HomeboxAuthError, "Token expired", id="authentication"),
+            pytest.param(404, "Not found", HomeboxAPIError, "404", id="not-found"),
+            pytest.param(500, "Internal server error", HomeboxAPIError, "500", id="server-error"),
+        ],
+    )
+    def test_http_error_classification(self, status, message, error, match) -> None:
+        response = httpx.Response(status, json={"error": message})
+        with pytest.raises(error, match=match):
             HomeboxClient._ensure_success(response, "Test operation")
-
-    def test_404_response_raises_homebox_api_error(self) -> None:
-        """404 responses should raise HomeboxAPIError with status code."""
-        response = httpx.Response(
-            404,
-            json={"error": "Not found"},
-        )
-
-        with pytest.raises(HomeboxAPIError, match="404"):
-            HomeboxClient._ensure_success(response, "Fetch item")
-
-    def test_500_response_raises_homebox_api_error(self) -> None:
-        """500 responses should raise HomeboxAPIError with status code."""
-        response = httpx.Response(
-            500,
-            json={"error": "Internal server error"},
-        )
-
-        with pytest.raises(HomeboxAPIError, match="500"):
-            HomeboxClient._ensure_success(response, "Create item")
 
     def test_malformed_json_response_raises_with_text(self) -> None:
         """Non-JSON responses should raise HomeboxAPIError with text content."""
@@ -62,30 +45,17 @@ class TestHomeboxClientErrorHandling:
         with pytest.raises(HomeboxAPIError, match="Bad request"):
             HomeboxClient._ensure_success(response, "Update item")
 
-    def test_success_response_does_not_raise(self) -> None:
-        """2xx responses should not raise any errors."""
-        response = httpx.Response(
-            200,
-            json={"id": "123", "name": "Test"},
-        )
-
-        # Should not raise
-        HomeboxClient._ensure_success(response, "Successful operation")
-
-    def test_204_no_content_does_not_raise(self) -> None:
-        """204 No Content responses should not raise errors."""
-        response = httpx.Response(204)
-
-        # Should not raise
-        HomeboxClient._ensure_success(response, "Delete operation")
+    @pytest.mark.parametrize("status", [200, 204], ids=["success", "no-content"])
+    def test_success_response_does_not_raise(self, status) -> None:
+        HomeboxClient._ensure_success(httpx.Response(status), "Successful operation")
 
 
 class TestFieldPreferencesFileCorruption:
     """Test field preferences handling of corrupted/invalid files."""
 
-    def test_corrupted_json_falls_back_to_defaults(self, monkeypatch, tmp_path) -> None:
-        """Corrupted JSON file should fall back to defaults with warning."""
-        from homebox_companion.core import field_preferences
+    def test_corrupted_json_fails_closed(self, monkeypatch, tmp_path) -> None:
+        """Corrupt JSON must not be replaced with defaults."""
+        from homebox_companion.core import field_preferences, persistent_settings
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -96,18 +66,18 @@ class TestFieldPreferencesFileCorruption:
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
         monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
+        monkeypatch.setattr(persistent_settings, "SETTINGS_FILE", tmp_path / "data" / "settings.yaml")
+        persistent_settings.clear_settings_cache()
         field_preferences.get_defaults.cache_clear()
 
-        # Should not crash - corrupted file triggers warning + defaults
-        prefs = field_preferences.load_field_preferences()
+        with pytest.raises(field_preferences.FieldPreferencesLoadError, match="Failed to load field preferences"):
+            field_preferences.load_field_preferences()
+        assert prefs_file.read_text() == "{ invalid json }"
+        assert not persistent_settings.SETTINGS_FILE.exists()
 
-        # Returns defaults (no env vars set in this test)
-        assert isinstance(prefs, field_preferences.FieldPreferences)
-        assert prefs.output_language == "English"
-
-    def test_invalid_data_types_falls_back_to_defaults(self, monkeypatch, tmp_path) -> None:
-        """Invalid data types in JSON should trigger warning and fallback."""
-        from homebox_companion.core import field_preferences
+    def test_invalid_data_types_fail_closed(self, monkeypatch, tmp_path) -> None:
+        """Invalid JSON values must not be replaced with defaults."""
+        from homebox_companion.core import field_preferences, persistent_settings
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -123,9 +93,11 @@ class TestFieldPreferencesFileCorruption:
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
         monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
+        monkeypatch.setattr(persistent_settings, "SETTINGS_FILE", tmp_path / "data" / "settings.yaml")
+        persistent_settings.clear_settings_cache()
         field_preferences.get_defaults.cache_clear()
 
-        # Should not crash - returns defaults with warning
-        prefs = field_preferences.load_field_preferences()
-        assert isinstance(prefs, field_preferences.FieldPreferences)
-        assert prefs.output_language == "English"
+        with pytest.raises(field_preferences.FieldPreferencesLoadError, match="Failed to load field preferences"):
+            field_preferences.load_field_preferences()
+        assert json.loads(prefs_file.read_text()) == invalid_prefs
+        assert not persistent_settings.SETTINGS_FILE.exists()

@@ -13,7 +13,7 @@
 	let { width = '100%', height = '1rem', rounded = 'lg', class: className = '' }: Props = $props();
 
 	const roundedClasses = {
-		sm: 'rounded-sm',
+		sm: 'rounded-xs',
 		md: 'rounded-md',
 		lg: 'rounded-lg',
 		xl: 'rounded-xl',

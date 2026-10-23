@@ -1,0 +1,91 @@
+diff --git a/frontend/lib/field-display.test.ts b/frontend/lib/field-display.test.ts
+new file mode 100644
+index 0000000..27e1315
+--- /dev/null
++++ b/frontend/lib/field-display.test.ts
+@@ -0,0 +1,30 @@
++import { describe, expect, it } from "vitest";
++import { fieldDisplayText } from "./field-display";
++
++describe("fieldDisplayText", () => {
++  it.each([
++    [{ type: "number", numberValue: 0 }, "0"],
++    [{ type: "number", numberValue: 42 }, "42"],
++    [{ type: "boolean", booleanValue: false }, "Non"],
++    [{ type: "boolean", booleanValue: true }, "Oui"],
++    [{ type: "text", textValue: "木材 & optics" }, "木材 & optics"],
++    [{ type: "text", textValue: "[Link](https://example.com)" }, "[Link](https://example.com)"],
++    [{ type: "text", textValue: "" }, ""],
++    [{ type: "text", textValue: null }, ""],
++    [{ type: "number", numberValue: null }, ""],
++    [{ type: "boolean", booleanValue: null }, ""],
++    [{ type: "boolean" }, ""],
++  ])("formats %j as %j", (field, expected) => {
++    expect(fieldDisplayText(field, "Oui", "Non")).toBe(expected);
++  });
++
++  it("does not mutate stored typed values", () => {
++    const field = Object.freeze({
++      type: "number",
++      numberValue: 0,
++      textValue: "inactive",
++    });
++    expect(fieldDisplayText(field, "Yes", "No")).toBe("0");
++    expect(field.textValue).toBe("inactive");
++  });
++});
+diff --git a/frontend/lib/field-display.ts b/frontend/lib/field-display.ts
+new file mode 100644
+index 0000000..639919a
+--- /dev/null
++++ b/frontend/lib/field-display.ts
+@@ -0,0 +1,19 @@
++import type { EntityFieldData } from "./api/types/data-contracts";
++
++type DisplayField = Pick<EntityFieldData, "type"> & {
++  textValue?: string | null;
++  numberValue?: number | null;
++  booleanValue?: boolean | null;
++};
++
++/** Format only the field's active value, preserving zero and false. */
++export function fieldDisplayText(field: DisplayField, yes: string, no: string): string {
++  switch (field.type) {
++    case "number":
++      return field.numberValue == null ? "" : String(field.numberValue);
++    case "boolean":
++      return field.booleanValue == null ? "" : field.booleanValue ? yes : no;
++    default:
++      return field.textValue ?? "";
++  }
++}
+diff --git a/frontend/pages/item/[id]/index.vue b/frontend/pages/item/[id]/index.vue
+index b540eaa..9d04d40 100644
+--- a/frontend/pages/item/[id]/index.vue
++++ b/frontend/pages/item/[id]/index.vue
+@@ -1,5 +1,6 @@
+ <script setup lang="ts">
+   import { useI18n } from "vue-i18n";
++  import { fieldDisplayText } from "~~/lib/field-display";
+   import { toast } from "@/components/ui/sonner";
+   import type { AnyDetail, Detail, Details } from "~~/components/global/DetailsSection/types";
+   import { filterZeroValues } from "~~/components/global/DetailsSection/types";
+@@ -257,7 +258,8 @@
+         /**
+          * Support Special URL Syntax
+          */
+-        const url = maybeUrl(field.textValue);
++        const text = fieldDisplayText(field, t("global.yes"), t("global.no"));
++        const url = maybeUrl(text);
+         if (url.isUrl) {
+           return {
+             type: "link",
+@@ -269,7 +271,7 @@
+ 
+         return {
+           name: field.name,
+-          text: field.textValue,
++          text,
+         };
+       }),
+     ];

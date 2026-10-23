@@ -43,22 +43,29 @@ flowchart LR
 5. **Review & Edit** – Adjust AI suggestions or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
-> *LiteLLM is a Python adaptor library we use to call OpenAI directly, no Local AI model required (unless you want to), just your API key.
+> *LiteLLM is the Python library we use to connect to AI providers. With the default OpenAI setup, you only need an API key; no local AI model is required.
 
 ## 💰 OpenAI Cost Estimates
 
-**GPT-5 mini** (default) offers the best accuracy. **GPT-5 nano** is 3x cheaper but may need more corrections. Typical cost: **~$0.30 per 100 items** (mini) or **~$0.10 per 100 items** (nano).
+| Model | Input/1M | Output/1M | Cost per 100 items | Avg Latency | Notes |
+|-------|----------|-----------|---------------------|-------------|-------|
+| **GPT-5.6 Luna** | $0.20 | $1.20 | **$0.019** 🏆 | ~3.4s | Cheapest in this benchmark. Measured with `reasoning_effort=none` |
+| GPT-5.4 Nano | $0.20 | $1.25 | $0.024 | ~1.9s | Fastest. Good budget option |
+| GPT-5.4 Mini | $0.75 | $4.50 | $0.076 | ~2.0s | Higher cost |
 
-*Prices as of **2025-12-10**, using OpenAI’s published pricing for GPT-5 mini and GPT-5 nano.*
+**GPT-5.6 Luna** is the recommended model — cheapest at $0.019/100 items with `reasoning_effort=none` in this benchmark. All three models achieved zero errors and comparable detection on the inventory classification tasks tested.
+
+> **Benchmark methodology:** 100 API calls per model using 3 test images with extended field extraction. Costs include OpenAI automatic prompt caching (54–66% of input tokens cached). Real-world costs depend on image complexity and item count per photo.
+>
+> *Prices as of **2026-09-21**, measured against OpenAI's live API.*
 
 ## 📋 Requirements
 
 Before you start, you'll need:
 
-- **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
-- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server
-
-> **Compatibility:** Integration tests use Homebox v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
+- **An OpenAI API key for the default setup** – Get one at [platform.openai.com](https://platform.openai.com/api-keys); other providers are experimental
+- **A compatible Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server; see [compatibility notes](docs/homebox-compatibility.md)
+- **A modern browser** – Safari 16.4+, Chrome/Edge 111+, or Firefox 128+
 
 ## 🚀 Quick Start
 
@@ -75,8 +82,14 @@ services:
       - HBC_LLM_API_KEY=sk-your-api-key-here
       - HBC_HOMEBOX_URL=http://your-homebox-ip:7745
       - HBC_HOMEBOX_API_KEY=${HBC_HOMEBOX_API_KEY:-}
+      - HBC_LLM_TIMEOUT=${HBC_LLM_TIMEOUT:-120}
+      - HBC_AI_REQUEST_TIMEOUT=${HBC_AI_REQUEST_TIMEOUT:-}
     ports:
       - 8000:8000
+    volumes:
+      - companion-data:/app/data
+volumes:
+  companion-data:
 ```
 
 ```bash
@@ -85,7 +98,7 @@ docker compose up -d
 
 Open `http://localhost:8000` in your browser.
 
-> **Tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
+> **Tip:** On Docker Desktop, use `http://host.docker.internal:PORT` to reach Homebox running on the host. Native Linux Docker needs an [extra host mapping](docs/deployment.md#connecting-to-host-services).
 
 If Homebox runs in another Compose service, put both services on the same Docker
 network and use the Homebox service name, for example `http://homebox:7745`.
@@ -93,6 +106,14 @@ network and use the Homebox service name, for example `http://homebox:7745`.
 container itself.
 
 > **ARM64/Raspberry Pi:** Docker images are built for both `linux/amd64` and `linux/arm64` architectures.
+
+### Persistent Docker settings
+
+Mount `/app/data` to retain AI model profiles, custom fields and field preferences
+across container replacement.
+
+For file locations, backups and Docker storage repair instructions, see the
+[deployment guide](docs/deployment.md#persistent-settings).
 
 ### Homebox API key or legacy login
 
@@ -107,13 +128,19 @@ Restart Companion after changing these values. With Docker Compose, keep the exp
 
 A configured key is used only by the server. The browser receives no Homebox key and has no login, session refresh or Homebox logout action. Missing, empty or whitespace-only keys preserve the username/password flow. An invalid, expired or revoked key shows a connection error with Retry; it never falls back to a password prompt. Removing the key and restarting restores legacy login.
 
-All people who can reach a key-mode deployment act as the key's Homebox owner. Use a dedicated Homebox user with the intended collection permissions and control access through your network or reverse proxy. Browser chat contexts separate conversation history and pending approvals; they are not accounts or access credentials. Existing contextless chats and scan drafts remain stored, but are not loaded automatically into a newly verified context. Clearing browser data creates a new chat context. Server chat state remains in memory with its existing TTL and requires a single worker for consistent conversations.
-
-To rotate a key, create a replacement in Homebox, update the server environment, restart Companion and verify its connection, then revoke the old key in Homebox. Companion does not refresh or revoke API keys. Homebox v0.26.x requires its own stable `HBOX_AUTH_API_KEY_PEPPER` of at least 32 bytes; configure that on **Homebox**, never on Companion. See [Homebox configuration](https://github.com/sysadminsmedia/homebox/blob/e01dd737238a3fa7e1a6454b37de6c6fc88c86e4/docs/src/content/docs/en/quick-start/configure/index.mdx).
+All people who can reach a key-mode deployment act as the key's Homebox owner.
+Use a dedicated Homebox user with the intended collection permissions and control
+access through your network or reverse proxy. See the
+[deployment guide](docs/deployment.md#homebox-api-keys-and-access) for key rotation
+and chat server requirements.
 
 ### Shared settings
 
 Authenticated Homebox users can manage shared settings, AI model profiles, custom fields and server logs without additional account configuration. In API-key mode, access uses the configured key's Homebox identity. Homebox credentials are revalidated when accessing Companion's local settings and logs.
+
+View and download server and LLM debug logs from Settings. Logs can contain
+inventory details, so share exports carefully. See the
+[deployment guide](docs/deployment.md#logs) for log handling details.
 
 When editing an AI profile, leave the API key blank to keep its saved key, including when changing the model or API base URL. A primary profile without a key uses the configured environment default; a fallback without a key inherits the primary key. Set a profile's own key when it needs different credentials.
 
@@ -136,6 +163,7 @@ When editing an AI profile, leave the API key blank to keep its saved key, inclu
 - Search locations by name
 - Scan Homebox QR codes
 - Create new locations on the fly
+- Keep parent containers and physical locations separate on Homebox 0.27+
 
 ### Customization
 - Configure how AI formats each field (name style, description format, etc.)
@@ -195,27 +223,29 @@ The chat assistant has access to 24 tools for interacting with your Homebox inve
 
 Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library to call AI providers. **You don't need to self-host anything** – just get an OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys) and you're ready to go. We officially support and test with OpenAI GPT models only.
 
-> **Fallback Support:** You can configure a secondary LLM profile in Settings that automatically activates if your primary provider fails.
+> **Fallback Support:** Configure a secondary LLM profile in Settings to try when the primary provider fails. A chat response interrupted after streaming starts may still need a retry.
 
 <details>
 <summary>Officially Supported Models</summary>
 
-- **GPT-5 mini** (default) – Recommended for best balance of speed and accuracy
-- **GPT-5 nano**
+- **GPT-5.6 Luna** – Default model
+- **GPT-5 nano** – Supported alternative
 
 </details>
 
 <details>
 <summary>Using Other Providers (Experimental)</summary>
 
-You can try other LiteLLM-compatible providers at your own risk. The app checks if your chosen model supports the required capabilities using LiteLLM's API:
+You can try other LiteLLM-compatible providers at your own risk.
 
-**Required capabilities (photo scanning):**
-- **Vision** – Checked via `litellm.supports_vision(model)`
-- **Structured outputs** – Checked via `litellm.supports_response_schema(model)`
+**Photo scanning** requires a vision-capable model. Structured outputs are
+preferred; when LiteLLM reports no schema support, the app requests JSON through
+the prompt instead.
 
-**Required for Chat assistant (in addition to the above):**
-- **Function calling** – Checked via `litellm.supports_function_calling(model)`. Models without native tool calling (e.g., `llava`, `moondream`) will work for photo scanning but **not** for the Chat assistant, which relies on tool calls to query your inventory.
+**AI Chat** needs reliable tool-call responses to query and change inventory.
+Native tool calling is recommended. Companion passes tools through LiteLLM
+without a separate capability precheck, and compatibility varies by model and
+provider. A model working for photo scanning does not guarantee it works for chat.
 
 **Finding model names:**
 
@@ -223,7 +253,7 @@ Model names are passed directly to LiteLLM. Use the exact names from LiteLLM's d
 - [LiteLLM Supported Models](https://docs.litellm.ai/docs/providers)
 
 Common examples:
-- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5-mini`
+- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-5.6-luna`
 - Anthropic: `claude-sonnet-4-5`, `claude-3-5-sonnet-20241022`
 
 > **Note:** Model names must exactly match LiteLLM's expected format. Typos or incorrect formats will cause errors. Check [LiteLLM's provider documentation](https://docs.litellm.ai/docs/providers) for the correct model names.
@@ -236,12 +266,15 @@ Once your local server is running, configure the app:
 
 ```bash
 HBC_LLM_API_KEY=any-value-works-for-local  # Just needs to be non-empty
-HBC_LLM_API_BASE=http://localhost:11434     # Your local server URL
+HBC_LLM_API_BASE=http://localhost:11434     # Ollama address reachable from Companion
 HBC_LLM_MODEL=ollama/llava:34b              # Your local model name
-HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
+HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Only if capability detection blocks your model
 ```
 
-**Note:** Local models must support vision for photo scanning (e.g., llava, bakllava, moondream). For the **Chat assistant**, the model must also support **function calling** — most vision-only models do not. Check your model's capabilities with `litellm.supports_function_calling("ollama/your-model")`. Performance and accuracy vary widely.
+**Note:** This example assumes an unauthenticated local Ollama server. If
+Companion runs in Docker, use a reachable host address or service name instead of
+`localhost`. Local models need vision for scanning and reliable tool calls for
+chat. Performance and accuracy vary widely.
 
 **⚠️ Important:** Other providers (Anthropic, Google, OpenRouter, local models, etc.) are **not officially supported**. If you encounter errors, we may not be able to help. Use at your own risk.
 
@@ -250,6 +283,16 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 ## ⚙️ Configuration
 
 > **📝 Full reference:** See [`.env.example`](.env.example) for all available environment variables with detailed explanations and examples.
+
+Local runs read `.env` directly. With Docker Compose, add optional settings to
+the service's `environment` list or configure `env_file`. A Compose `.env` file
+supplies `${VARIABLE}` substitutions; it does not automatically pass every value
+into the container. Explicit `environment` entries take priority over `env_file`.
+
+Saved LLM profiles take priority over their initial environment bootstrap. Update
+existing profiles in Settings; changing `HBC_LLM_MODEL` alone does not replace a
+saved model. AI field preferences use current `HBC_AI_*` values after restart,
+unless overridden by values saved through Settings.
 
 ### Essential Settings
 
@@ -267,20 +310,40 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HBC_LLM_MODEL` | `gpt-5-mini` | Model to use. Supported: `gpt-5-mini`, `gpt-5-nano`. |
+| `HBC_LLM_MODEL` | `gpt-5.6-luna` | Model to use. Supported: `gpt-5.6-luna` (recommended), `gpt-5-nano`. |
 | `HBC_LLM_API_BASE` | – | Custom API base URL (for proxies or experimental providers) |
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
-| `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
-| `HBC_LLM_STREAM_TIMEOUT` | `300` | Streaming timeout for large responses (e.g., hierarchical views) |
+| `HBC_LLM_TIMEOUT` | `120` | How long the backend waits for one AI model call, in seconds |
+| `HBC_AI_REQUEST_TIMEOUT` | Automatic | How long the browser waits for the whole detection, analysis, merge or correction operation, in seconds (1–86400). Unset/blank uses `HBC_LLM_TIMEOUT + 60`, bounded to 60–86400 seconds. |
+| `HBC_LLM_STREAM_TIMEOUT` | `300` | Timeout for streaming AI Chat model calls, in seconds |
 | `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum bytes per file, expressed in MiB; must be positive. |
-| `HBC_MAX_REQUEST_SIZE_MB` | `100` | Maximum aggregate API request body in MiB, including all files and multipart overhead; enforced while streaming, before parsing can exceed the limit. Must be positive. |
+| `HBC_MAX_REQUEST_SIZE_MB` | `100` | Maximum total API request size in MiB, including all files and multipart overhead; must be positive. |
 | `HBC_IMAGE_QUALITY` | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
 
 </details>
 
 ### Advanced Settings
 
-Requests exceeding the body limit return HTTP 413, including chunked uploads. Missing or malformed legacy bearer credentials are rejected before multipart files are read. Configure matching body and concurrency limits on your reverse proxy to bound simultaneous uploads as well. If legitimate multi-image requests exceed 100 MiB, raise `HBC_MAX_REQUEST_SIZE_MB` deliberately; the per-file limit still applies.
+The browser calls Companion's API, and Companion then calls the AI model.
+`HBC_LLM_TIMEOUT` controls how long the backend waits for one model call.
+`HBC_AI_REQUEST_TIMEOUT` controls how long the browser waits for the whole AI
+operation, including processing, queues, retries and fallback model calls.
+
+Usually, leave `HBC_AI_REQUEST_TIMEOUT` unset: the browser automatically allows
+`HBC_LLM_TIMEOUT + 60` seconds, bounded to 60–86400 seconds. For example,
+`HBC_LLM_TIMEOUT=1800` allows 1860 seconds (31 minutes), with no extra configuration.
+Override it only when the whole operation needs more time: setting
+`HBC_AI_REQUEST_TIMEOUT=2400` allows the browser to wait 40 minutes, without
+changing the backend's timeout for each model call.
+
+Ordinary API requests retain their 60-second timeout. Cancellation still works,
+and streaming chat keeps its existing timeout behavior. Restart Companion and
+reload the browser after changing these values. The supplied Compose file passes
+both variables from its `.env` file.
+
+Requests exceeding the total size limit return HTTP 413. If multi-image uploads
+exceed 100 MiB, increase `HBC_MAX_REQUEST_SIZE_MB`; the per-file limit still applies.
+Configure matching upload limits on your reverse proxy.
 
 <details>
 <summary>Image Quality</summary>
@@ -320,16 +383,14 @@ HBC_IMAGE_QUALITY=high
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HBC_RATE_LIMIT_ENABLED` | `true` | Enable/disable API rate limiting |
-| `HBC_RATE_LIMIT_RPM` | `400` | Requests per minute (80% of Tier 1 limit) |
-| `HBC_RATE_LIMIT_TPM` | `400000` | Tokens per minute (80% of Tier 1 limit) |
+| `HBC_RATE_LIMIT_ENABLED` | `true` | Enable throttling for photo analysis and related JSON AI requests |
+| `HBC_RATE_LIMIT_RPM` | `400` | JSON AI requests per minute |
+| `HBC_RATE_LIMIT_TPM` | `400000` | Estimated input tokens per minute |
 | `HBC_RATE_LIMIT_BURST_MULTIPLIER` | `1.5` | Burst capacity multiplier |
 
-**Note:** Default settings are conservative (80% of OpenAI Tier 1 limits). Only configure if you have a higher-tier account or need to adjust limits.
-
-**Examples for different OpenAI tiers:**
-- Tier 2: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=1600000`
-- Tier 3: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=3200000`
+These controls apply to photo analysis and related JSON AI requests. Chat and
+login use separate rate limits. Match the application limits to your provider,
+model and account limits; increasing them does not raise the provider's limits.
 
 </details>
 
@@ -342,8 +403,26 @@ HBC_IMAGE_QUALITY=high
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
 | `HBC_DISABLE_UPDATE_CHECK` | `false` | Disable update notifications |
-| `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MB |
+| `HBC_GITHUB_REPO` | `Duelion/homebox-companion` | Repository used for update checks |
+| `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MiB |
 | `HBC_CORS_ORIGINS` | `*` | Explicit allowed origins, comma-separated. Wildcard applies only in legacy mode; key mode defaults to same-origin. |
+
+</details>
+
+<details>
+<summary>Chat Assistant & Self-Hosted Demo Mode</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_CHAT_ENABLED` | `true` | Enable AI Chat and MCP endpoints |
+| `HBC_CHAT_MAX_HISTORY` | `20` | Maximum recent messages included in model context |
+| `HBC_CHAT_APPROVAL_TIMEOUT` | `300` | Seconds before pending inventory-change approvals expire |
+| `HBC_CHAT_MAX_RESPONSE_TOKENS` | `0` | Maximum model response tokens for chat; `0` sets no explicit limit |
+| `HBC_DEMO_MODE` | `false` | Prefill demo login, use browser-session field preferences and disable chat |
+
+Self-hosted demo mode prefills the legacy login with `demo@example.com` / `demo`.
+It does not create that account in Homebox or make inventory changes read-only.
+Field preference changes stay in the browser session instead of the shared JSON.
 
 </details>
 
@@ -378,7 +457,9 @@ HBC_CORS_ORIGINS=https://inventory.example.com,https://admin.example.com
 |----------|---------|-------------|
 | `HBC_PRINT_ENABLED` | `false` | Show a "Print Label" button after items are created |
 
-When enabled, a print button appears on the post-creation screen for each item. Pressing it triggers Homebox's built-in labelmaker, which generates and prints a label via the command configured on your **Homebox server**.
+When enabled, open **See Items** after creation to find each item's **Print Label**
+button. It triggers Homebox's built-in labelmaker, which generates and prints a
+label via the command configured on your **Homebox server**.
 
 **Homebox server prerequisite:** Set the `HBOX_LABEL_MAKER_PRINT_COMMAND` environment variable on your Homebox instance (e.g., `lp -d MyPrinter %s`). Without it, print requests will fail. See [Homebox documentation](https://github.com/sysadminsmedia/homebox) for details.
 
@@ -408,37 +489,64 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 ## 💡 Tips
 
-- **Batch more items for faster uploads** – Images are analyzed by AI in parallel (up to 30 simultaneously), so adding more items actually feels faster than one at a time.
-- **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
+- **Analyze batches in parallel** – The app processes up to 30 detection requests concurrently; speed depends on your server and AI provider.
+- **Include receipts in your photos** – AI can extract purchase price and retailer from receipt images.
 - **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
+- **Asset IDs** – Enter or scan a numeric Homebox ID, such as `032-303`; leave it blank for automatic assignment. Hyphens and leading zeros are accepted. See [Homebox compatibility](docs/homebox-compatibility.md#asset-ids) for ID limits.
 - **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
 - **Use the Settings page** – Customize AI behavior, define custom fields, and manage LLM profiles without restarting.
-- **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.
+- **Long press to confirm all** – On the review screen, long-press the confirm button, then choose **Confirm All** to accept the remaining valid items.
 
 ## Development
 
-Target recovery contributions at `dev`. Changes on `dev` are not yet a release;
-promotion to `main` and publishing are separate steps.
+Open pull requests against `dev`.
 
-Use Python 3.14+, Node 22, uv 0.9.17+ (CI and Docker use 0.12.5), and locked installs:
+Use Python 3.14+, Node 26.10.0 (matching CI and the Docker frontend builder),
+uv 0.9.17+ (CI and Docker use 0.12.5), and locked installs:
 
 ```bash
 uv sync --locked
 cd frontend
 npm ci
+cd ..
+uv run prek install
 ```
+
+The pre-commit hook checks staged Python files with Ruff and checks frontend lint
+and formatting when frontend files change. It does not modify or stage files.
+Use `uv run prek run --all-files` to check the whole repository. Local frontend
+verification is `npm --prefix frontend run verify`. Python checks matching CI are:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check --error-on-warning
+uv run deptry .
+uv run pytest
+```
+
+Python uses Ruff formatting and ty for type checking. Vulture remains an occasional manual dead-code review tool:
+`uv run vulture --sort-by-size`. Dependency audits run weekly and on dependency PRs, outside local hooks.
 
 The PR and `dev` CI workflow runs Python checks, frontend checks, mocked browser
 tests, and disposable Homebox integration tests. See [tests/README.md](tests/README.md)
 for local commands and Docker/browser prerequisites. These suites require no paid
 LLM calls.
 
-For a deliberate Python dependency refresh, run
-`uv sync --upgrade --exclude-newer "30 days"` with a uv version that supports
-relative durations (0.9.17+). This applies the cooldown only to that refresh;
+Frontend design tokens and reusable utilities live in `frontend/src/app.css`.
+Use the semantic color, typography, spacing, and touch-target tokens when styling
+components. Svelte style blocks that use Tailwind directives reference this
+stylesheet with `@reference`; ordinary CSS can use its theme variables, such as
+`var(--color-primary-500)`. Keep canvas drawing colors in
+`frontend/src/lib/utils/canvas-colors.ts` synchronized with these tokens.
+Tailwind 4's CSS browser baseline is Safari 16.4+, Chrome 111+, and Firefox 128+.
+For workflow ownership, Svelte state, authentication transport, and frontend
+styling conventions, see [the frontend architecture guide](docs/frontend-architecture.md).
+
+For a deliberate Python dependency refresh, run `uv sync --upgrade`;
 routine installs use the committed lockfile with `uv sync --locked`.
-For frontend updates, verify selected releases and transitive dependencies are
-at least 30 days old, update the lockfile, and rerun the checks and `npm audit`.
+For frontend updates, verify compatibility, update the lockfile, and rerun the
+checks and `npm audit`. Dependency updates have no minimum release-age requirement.
 
 ## 📄 License
 

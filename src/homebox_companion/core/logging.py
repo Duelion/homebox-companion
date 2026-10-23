@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import traceback
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
     import loguru
 
 from .config import settings
+from .redaction import redact_sensitive
 
 # LLM debug log directory
 LLM_DEBUG_LOG_DIR = "logs"
@@ -37,6 +39,14 @@ def _patcher(record: dict) -> None:
     """
     if "request_id" not in record["extra"]:
         record["extra"]["request_id"] = "-"
+    record["extra"]["request_id"] = redact_sensitive(str(record["extra"]["request_id"]))
+    record["message"] = redact_sensitive(record["message"])
+    if record["exception"]:
+        exc = record["exception"]
+        # Format without locals, then redact the entire chain before any sink sees it.
+        detail = "".join(traceback.format_exception(exc.type, exc.value, exc.traceback))
+        record["message"] += "\n" + redact_sensitive(detail)
+        record["exception"] = None
 
 
 def _llm_debug_filter(record: loguru.Record) -> bool:
@@ -76,6 +86,8 @@ def setup_logging() -> None:
         ),
         level=settings.log_level,
         colorize=True,
+        diagnose=False,
+        backtrace=False,
     )
 
     # File handler with rotation by size OR time (whichever comes first)
@@ -89,11 +101,13 @@ def setup_logging() -> None:
         ),
         level=settings.log_level,
         filter=_exclude_llm_debug_filter,
+        diagnose=False,
+        backtrace=False,
     )
 
     # LLM debug log handler - separate file for raw LLM interactions
     # Uses JSON lines format for easy parsing by the API
-    # Detail level varies based on configured log level (see llm_client.py)
+    # Detail level varies based on configured log level (see llm_logging.py)
     logger.add(
         f"{LLM_DEBUG_LOG_DIR}/llm_debug_{{time:YYYY-MM-DD}}.log",
         rotation="10 MB",  # Smaller rotation for debug data
@@ -101,6 +115,8 @@ def setup_logging() -> None:
         format="{message}",  # Pure JSON, no metadata prefix
         filter=_llm_debug_filter,
         level="TRACE",  # Always capture (detail controlled by entry content)
+        diagnose=False,
+        backtrace=False,
     )
 
 

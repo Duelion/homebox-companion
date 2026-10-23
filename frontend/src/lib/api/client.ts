@@ -5,7 +5,7 @@
 import { authStore } from '../stores/auth.svelte';
 import { abortSignalAny, abortSignalTimeout } from '../utils/abortSignal';
 import { apiLogger as log } from '../utils/logger';
-import { refreshToken } from '../services/tokenRefresh';
+import { refreshToken, registerRefreshTransport } from '../services/tokenRefresh';
 
 const BASE_URL = '/api';
 
@@ -19,12 +19,14 @@ const BASE_URL = '/api';
 // =============================================================================
 
 let _activeGroupId: string | null = null;
+let collectionGeneration = 0;
 
 /**
  * Set the active group ID for X-Group-Id header injection.
  * Called from collectionStore whenever the selection changes.
  */
 export function setActiveGroupId(id: string | null): void {
+	if (_activeGroupId !== id) collectionGeneration++;
 	_activeGroupId = id;
 }
 
@@ -33,7 +35,7 @@ function getActiveGroupId(): string | null {
 }
 
 function requestScope(): string {
-	return `${authStore.mode ?? 'unknown'}:${authStore.contextId ?? 'unverified'}:${_activeGroupId ?? 'none'}`;
+	return `${authStore.sessionGeneration}:${collectionGeneration}:${authStore.mode ?? 'unknown'}:${authStore.contextId ?? 'unverified'}:${_activeGroupId ?? 'none'}`;
 }
 
 function assertCurrentScope(scope: string): void {
@@ -67,16 +69,16 @@ function isUnsafeMethod(method?: string): boolean {
 
 /**
  * Default request timeout in milliseconds.
- * Applies when no AbortSignal is provided by the caller.
+ * Combines with caller cancellation unless a request overrides the timeout.
  */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 /**
- * WeakSet to track AbortSignals created for timeout purposes.
+ * Map request signals to their timeout source.
  * This allows us to reliably distinguish timeout aborts from user-initiated cancellations
  * without relying on browser-specific error messages.
  */
-const timeoutSignals = new WeakSet<AbortSignal>();
+const timeoutSignals = new WeakMap<AbortSignal, AbortSignal>();
 
 /**
  * Create a combined AbortSignal that aborts when either:
@@ -93,7 +95,7 @@ function createTimeoutSignal(
 ): AbortSignal {
 	const timeoutSignal = abortSignalTimeout(timeoutMs);
 	// Track this signal as a timeout signal for reliable detection later
-	timeoutSignals.add(timeoutSignal);
+	timeoutSignals.set(timeoutSignal, timeoutSignal);
 
 	if (!callerSignal) {
 		return timeoutSignal;
@@ -103,7 +105,7 @@ function createTimeoutSignal(
 	// Uses abortSignalAny for browser compatibility (AbortSignal.any not in older Safari/Chrome)
 	const combinedSignal = abortSignalAny([callerSignal, timeoutSignal]);
 	// Mark the combined signal as timeout-capable
-	timeoutSignals.add(combinedSignal);
+	timeoutSignals.set(combinedSignal, timeoutSignal);
 	return combinedSignal;
 }
 
@@ -194,7 +196,7 @@ async function attemptRefreshOnce(): Promise<boolean> {
  * @param response - The 401 response
  * @returns true if request should be retried with new token, false otherwise
  */
-async function handleUnauthorized(response: Response): Promise<boolean> {
+async function handleUnauthorized(response: Response, scope: string): Promise<boolean> {
 	if (response.status !== 401) {
 		return false;
 	}
@@ -212,6 +214,7 @@ async function handleUnauthorized(response: Response): Promise<boolean> {
 
 	// Token exists but was rejected - try to refresh
 	const refreshSucceeded = await attemptRefreshOnce();
+	assertCurrentScope(scope);
 	if (!refreshSucceeded) {
 		// Refresh failed - show re-auth modal
 		log.warn('[AUTH 401] Refresh failed after 401, marking session expired');
@@ -242,9 +245,9 @@ function wrapFetchError(error: unknown, endpoint: string, signal?: AbortSignal):
 	if (error instanceof Error) {
 		// Check for abort errors (user cancellation or timeout)
 		if (error.name === 'AbortError') {
-			// Check if this was a timeout abort by seeing if the signal is tracked
-			// in our timeoutSignals WeakSet (more reliable than checking error message)
-			const isTimeout = signal ? timeoutSignals.has(signal) : false;
+			// Check which source won the race so caller cancellation stays an AbortError.
+			const timeoutSignal = signal ? timeoutSignals.get(signal) : undefined;
+			const isTimeout = timeoutSignal?.aborted && signal?.reason === timeoutSignal.reason;
 			if (isTimeout) {
 				return new NetworkError(`Request to ${endpoint} timed out`, error, { isTimeout: true });
 			}
@@ -399,7 +402,8 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	// Handle 401 with automatic retry after refresh
 	// Skip for refresh endpoint itself to avoid circular retry loops
 	if (!response.ok && response.status === 401 && !options.skipAuthRetry) {
-		const shouldRetry = await handleUnauthorized(response);
+		const shouldRetry = await handleUnauthorized(response, scope);
+		assertCurrentScope(scope);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
@@ -429,6 +433,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 		// Read body as text first, then try to parse as JSON.
 		// This prevents "Body has already been consumed" errors when json() fails.
 		const text = await response.text();
+		assertCurrentScope(scope);
 		let errorData: unknown;
 		try {
 			errorData = text ? JSON.parse(text) : undefined;
@@ -450,7 +455,9 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 	}
 	assertCurrentScope(scope);
 
-	return parseResponseBody<T>(response);
+	const body = await parseResponseBody<T>(response);
+	assertCurrentScope(scope);
+	return body;
 }
 
 export interface FormDataRequestOptions {
@@ -481,6 +488,8 @@ export interface BlobUrlResult {
 
 export interface BlobUrlRequestOptions {
 	signal?: AbortSignal;
+	/** Request-scoped headers; never persisted or reused for other requests. */
+	headers?: Record<string, string>;
 	/**
 	 * Request timeout in milliseconds.
 	 * Defaults to DEFAULT_REQUEST_TIMEOUT_MS (60 seconds).
@@ -536,8 +545,7 @@ export async function requestBlobUrl(
 		options instanceof AbortSignal ? { signal: options } : (options ?? {});
 	const timeoutMs = opts.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
-	// Build headers using shared builder (no extra headers for blob requests)
-	const getHeaders = (): HeadersInit => buildApiHeaders();
+	const getHeaders = (): HeadersInit => buildApiHeaders(opts.headers);
 
 	// Create signal with default timeout, combining with caller's signal if provided
 	const signal =
@@ -561,7 +569,8 @@ export async function requestBlobUrl(
 
 	// Handle 401 with automatic retry after refresh
 	if (!response.ok && response.status === 401) {
-		const shouldRetry = await handleUnauthorized(response);
+		const shouldRetry = await handleUnauthorized(response, scope);
+		assertCurrentScope(scope);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
@@ -598,6 +607,7 @@ export async function requestBlobUrl(
 	assertCurrentScope(scope);
 
 	const blob = await response.blob();
+	assertCurrentScope(scope);
 	const url = URL.createObjectURL(blob);
 
 	return {
@@ -657,7 +667,8 @@ export async function requestFormData<T>(
 
 	// Handle 401 with automatic retry after refresh
 	if (!response.ok && response.status === 401) {
-		const shouldRetry = await handleUnauthorized(response);
+		const shouldRetry = await handleUnauthorized(response, scope);
+		assertCurrentScope(scope);
 		if (shouldRetry) {
 			// Token was refreshed - retry the request with new token
 			// Create a fresh timeout signal for the retry (don't reuse the original)
@@ -689,6 +700,7 @@ export async function requestFormData<T>(
 		// Read body as text first, then try to parse as JSON.
 		// This prevents "Body has already been consumed" errors when json() fails.
 		const text = await response.text();
+		assertCurrentScope(scope);
 		let errorData: unknown;
 		try {
 			errorData = text ? JSON.parse(text) : undefined;
@@ -706,5 +718,15 @@ export async function requestFormData<T>(
 	}
 	assertCurrentScope(scope);
 
-	return parseResponseBody<T>(response);
+	const body = await parseResponseBody<T>(response);
+	assertCurrentScope(scope);
+	return body;
 }
+
+// Refresh uses this same transport (headers, timeout, context checks) without an API import cycle.
+registerRefreshTransport(() =>
+	request<{ token: string; expires_at: string }>('/refresh', {
+		method: 'POST',
+		skipAuthRetry: true,
+	})
+);

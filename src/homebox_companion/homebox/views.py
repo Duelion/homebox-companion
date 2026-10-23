@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Container
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -31,6 +32,7 @@ __all__ = [
     "CompactItemView",
     "ParentItemView",
     "ItemView",
+    "resolve_item_relationship_views",
     "add_tree_urls",
 ]
 
@@ -116,6 +118,7 @@ class CompactItemView(BaseModel):
     quantity: int = 1
     asset_id: str | None = Field(default=None, serialization_alias="assetId")
     location: LocationView | None = None
+    parent: ParentItemView | None = None
     tags: list[CompactTagView] = Field(default_factory=list)
 
     @computed_field
@@ -125,7 +128,12 @@ class CompactItemView(BaseModel):
         return f"{settings.effective_link_base_url}/item/{self.id}"
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> CompactItemView:
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        *,
+        location_ids: Container[str] | None = None,
+    ) -> CompactItemView:
         """Create a CompactItemView from an API response dictionary.
 
         Uses custom parsing instead of model_validate() to:
@@ -133,17 +141,13 @@ class CompactItemView(BaseModel):
         - Build nested LocationView for URL generation
         - Build compact tag views (id + name only)
         - Filter out unnecessary fields from the compact representation
+
+        ``location_ids`` classifies untyped summary parents; see
+        :func:`resolve_item_relationship_views`.
         """
-        # Build location view if present (0.26: field renamed from 'location' to 'parent')
-        location_data = data.get("parent") or data.get("location")
-        location_view = None
-        if location_data and location_data.get("id"):
-            location_view = LocationView(
-                id=location_data.get("id", ""),
-                name=location_data.get("name", ""),
-                description="",  # Don't include description in compact view
-                item_count=0,
-            )
+        location_view, parent_view = resolve_item_relationship_views(data, location_ids=location_ids)
+        if location_view is not None:
+            location_view = LocationView(id=location_view.id, name=location_view.name)
 
         # Build compact tag views
         tags_data = data.get("tags", [])
@@ -167,6 +171,7 @@ class CompactItemView(BaseModel):
             quantity=data.get("quantity", 1),
             asset_id=data.get("assetId"),
             location=location_view,
+            parent=parent_view,
             tags=tags,
         )
 
@@ -198,6 +203,69 @@ class ParentItemView(BaseModel):
         )
 
 
+def resolve_item_relationship_views(
+    data: dict[str, Any],
+    *,
+    location_ids: Container[str] | None = None,
+    untyped_parent_is_item: bool = False,
+) -> tuple[LocationView | None, ParentItemView | None]:
+    """Resolve an item's physical location and immediate containing item.
+
+    Homebox 0.27 detail responses include a resolved ``location`` whenever one
+    exists and omit the key otherwise; a resolved location wins. Without one
+    (0.26 details, or 0.27 items with no location ancestor), ``parent`` is
+    classified by its entity type metadata.
+
+    List and search summaries carry neither ``location`` nor the parent's entity
+    type in any supported version. Pass the IDs of all known locations as
+    ``location_ids`` to classify those parents; without it they are left
+    unclassified rather than guessing whether they are items or locations.
+
+    Detail responses always load the parent's entity type, so an untyped parent
+    there has none at all, which Homebox treats as an item. Detail callers pass
+    ``untyped_parent_is_item=True`` so such a parent is still reported.
+    """
+    location_view: LocationView | None = None
+    parent_view: ParentItemView | None = None
+
+    location_data = data.get("location")
+    if isinstance(location_data, dict) and location_data.get("id"):
+        location_view = LocationView.from_dict(location_data)
+
+    parent_data = data.get("parent")
+    if isinstance(parent_data, dict) and parent_data.get("id"):
+        entity_type = parent_data.get("entityType")
+        if isinstance(entity_type, dict) and isinstance(entity_type.get("isLocation"), bool):
+            is_known_location = entity_type["isLocation"]
+            is_known_item = not is_known_location
+        elif location_ids is not None:
+            is_known_location = parent_data["id"] in location_ids
+            is_known_item = not is_known_location
+        else:
+            is_known_location = False
+            is_known_item = untyped_parent_is_item
+
+        if is_known_location:
+            if location_view is None:
+                location_view = LocationView.from_dict(parent_data)
+        elif is_known_item:
+            parent_view = ParentItemView.from_dict(parent_data)
+
+    return location_view, parent_view
+
+
+class ItemFieldView(BaseModel):
+    """Bounded projection of an upstream custom field, preserving typed values."""
+
+    model_config = ConfigDict(strict=True)
+
+    name: str
+    type: str
+    textValue: str | None = None
+    numberValue: int | float | None = None
+    booleanValue: bool | None = None
+
+
 class ItemView(BaseModel):
     """Full item view for detailed responses with computed URL.
 
@@ -214,6 +282,7 @@ class ItemView(BaseModel):
     location: LocationView | None = None
     parent: ParentItemView | None = None
     tags: list[dict[str, Any]] = Field(default_factory=list)
+    fields: list[ItemFieldView] = Field(default_factory=list)
     manufacturer: str | None = None
     model_number: str | None = Field(default=None, serialization_alias="modelNumber")
     serial_number: str | None = Field(default=None, serialization_alias="serialNumber")
@@ -229,28 +298,27 @@ class ItemView(BaseModel):
         return f"{settings.effective_link_base_url}/item/{self.id}"
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ItemView:
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        *,
+        location_ids: Container[str] | None = None,
+        untyped_parent_is_item: bool = False,
+    ) -> ItemView:
         """Create an ItemView from an API response dictionary.
 
         Uses custom parsing instead of model_validate() to:
         - Build nested LocationView for URL generation
         - Build nested ParentItemView for parent item relationships
         - Ensure all optional fields have safe defaults
+
+        ``location_ids`` classifies untyped summary parents and
+        ``untyped_parent_is_item`` untyped detail parents; see
+        :func:`resolve_item_relationship_views`.
         """
-        # Build location and parent views from the 'parent' field (0.26: replaces 'location')
-        # In 0.26, an item's parent can be either a location (entityType.isLocation=true)
-        # or another item (entityType.isLocation=false). We split into separate views.
-        parent_data = data.get("parent") or data.get("location")
-        location_view = None
-        parent_view = None
-        if parent_data and parent_data.get("id"):
-            parent_entity_type = parent_data.get("entityType", {})
-            if parent_entity_type.get("isLocation", True):
-                # Parent is a location → populate location view
-                location_view = LocationView.from_dict(parent_data)
-            else:
-                # Parent is another item → populate parent item view
-                parent_view = ParentItemView.from_dict(parent_data)
+        location_view, parent_view = resolve_item_relationship_views(
+            data, location_ids=location_ids, untyped_parent_is_item=untyped_parent_is_item
+        )
 
         # Validate required fields - log warnings but don't fail
         item_id = data.get("id") or ""
@@ -268,6 +336,7 @@ class ItemView(BaseModel):
             location=location_view,
             parent=parent_view,
             tags=data.get("tags", []),
+            fields=[ItemFieldView.model_validate(field) for field in data.get("fields") or []],
             manufacturer=data.get("manufacturer"),
             model_number=data.get("modelNumber"),
             serial_number=data.get("serialNumber"),

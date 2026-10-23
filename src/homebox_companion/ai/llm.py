@@ -67,9 +67,7 @@ async def chat_completion(
         if resolved_model:
             caps = get_model_capabilities(resolved_model)
             if not caps.structured_output:
-                logger.debug(
-                    f"Model {resolved_model} doesn't support structured output, using prompt-only JSON"
-                )
+                logger.debug(f"Model {resolved_model} doesn't support structured output, using prompt-only JSON")
                 effective_response_format = None
 
     return await json_completion(
@@ -119,10 +117,7 @@ async def vision_completion(
         # Attempt structured output — works with LM Studio and most
         # OpenAI-compatible providers that support json_schema.
         response_format = response_model
-        logger.debug(
-            f"Skipping capability validation for model '{resolved_model}' "
-            f"(HBC_LLM_ALLOW_UNSAFE_MODELS=true)"
-        )
+        logger.debug(f"Skipping capability validation for model '{resolved_model}' (HBC_LLM_ALLOW_UNSAFE_MODELS=true)")
     else:
         # Validate model capabilities
         if not resolved_model:
@@ -149,7 +144,7 @@ async def vision_completion(
                 f"  • The model doesn't support image inputs (text-only model)\n"
                 f"  • The provider prefix is missing (e.g., 'openai/' or 'openrouter/')\n\n"
                 f"Officially supported models:\n"
-                f"  • gpt-5-mini (default, recommended)\n"
+                f"  • gpt-5.6-luna (default, recommended)\n"
                 f"  • gpt-5-nano (lower cost per token, but generates more tokens)\n\n"
                 f"Note: While LiteLLM supports many vision models "
                 f"(GPT-4o, Claude 3, Gemini, etc.), "
@@ -170,7 +165,7 @@ async def vision_completion(
                 f"but LiteLLM reports "
                 f"that '{resolved_model}' only supports single-image inputs.\n\n"
                 f"Officially supported multi-image models:\n"
-                f"  • gpt-5-mini (default, recommended)\n"
+                f"  • gpt-5.6-luna (default, recommended)\n"
                 f"  • gpt-5-nano\n\n"
                 f"These models can analyze multiple images simultaneously "
                 f"for better context and accuracy.\n\n"
@@ -186,10 +181,7 @@ async def vision_completion(
         if caps.structured_output and response_model:
             response_format = response_model
         elif not caps.structured_output:
-            logger.debug(
-                f"Model {resolved_model} doesn't support structured output, "
-                f"using prompt-only JSON"
-            )
+            logger.debug(f"Model {resolved_model} doesn't support structured output, using prompt-only JSON")
 
     # Build content list with text and images
     content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]

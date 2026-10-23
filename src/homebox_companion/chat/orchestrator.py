@@ -20,10 +20,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
+from pydantic import ValidationError
 
-from ..core.config import settings
+from homebox_companion.core.llm_logging import log_interaction
+
+from ..core.config import Settings, settings
 from ..mcp.executor import ToolExecutor
-from .llm_client import LLMClient, TokenUsage, log_streaming_interaction
+from .llm_client import LLMClient, TokenUsage
 from .session import ApprovalOutcome, ChatSession, PendingApproval, create_approval_id
 from .stream import ChatEvent, StreamEmitter
 from .types import ChatMessage, ToolCall
@@ -233,6 +236,7 @@ class ChatOrchestrator:
         executor: ToolExecutor,
         llm: LLMClient | None = None,
         emitter: StreamEmitter | None = None,
+        app_settings: Settings | None = None,
     ):
         """Initialize the orchestrator with required components.
 
@@ -241,11 +245,13 @@ class ChatOrchestrator:
             executor: ToolExecutor for tool discovery and execution.
             llm: LLMClient for LLM calls. Created if not provided.
             emitter: StreamEmitter for event generation. Created if not provided.
+            app_settings: App configuration. Defaults to library settings.
         """
         self._session = session
         self._executor = executor
         self._llm = llm or LLMClient()
         self._emitter = emitter or StreamEmitter()
+        self._settings = app_settings or settings
 
     # =========================================================================
     # HELPER METHODS
@@ -333,7 +339,7 @@ class ChatOrchestrator:
         Yields:
             ChatEvent objects for SSE streaming.
         """
-        if not settings.chat_enabled:
+        if not self._settings.chat_enabled:
             yield self._emitter.error("Chat feature is disabled")
             return
 
@@ -411,8 +417,8 @@ class ChatOrchestrator:
             async for event in self._handle_stream(stream, token, tools, messages):
                 yield event
         except Exception as e:
-            logger.exception("LLM call failed")
-            yield self._emitter.error(f"LLM error: {str(e)}")
+            logger.error("LLM call failed ({})", type(e).__name__)
+            yield self._emitter.error("The LLM provider request failed. Please try again.")
             yield self._emitter.done()
             return
 
@@ -503,8 +509,8 @@ class ChatOrchestrator:
                     )
 
         except Exception as e:
-            logger.exception("[CHAT] Error during streaming")
-            yield self._emitter.error(f"Streaming error: {str(e)}")
+            logger.error("[CHAT] LLM streaming failed ({})", type(e).__name__)
+            yield self._emitter.error("The LLM provider stream failed. Please try again.")
             return
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
@@ -525,7 +531,7 @@ class ChatOrchestrator:
         response_tool_calls = None
         if tool_calls:
             response_tool_calls = [{"name": tc.name, "arguments": tc.arguments} for tc in tool_calls]
-        log_streaming_interaction(
+        log_interaction(
             messages=messages,
             tools=tools,
             response_content=full_content,
@@ -565,6 +571,11 @@ class ChatOrchestrator:
     # TOOL HANDLING
     # =========================================================================
 
+    def _record_tool_result(self, tool_call_id: str, content: str) -> None:
+        """Replace an interruption placeholder, or add a result if none exists."""
+        if not self._session.update_tool_message(tool_call_id, content):
+            self._session.add_message(ChatMessage(role="tool", content=content, tool_call_id=tool_call_id))
+
     async def _handle_tool_calls(
         self,
         content: str,
@@ -585,6 +596,13 @@ class ChatOrchestrator:
         Yields:
             ChatEvent objects.
         """
+        # The recovery response below must not call tools; stop rather than recover again
+        if depth > MAX_TOOL_RECURSION_DEPTH:
+            logger.warning("[CHAT] Ignoring tool calls in the recursion-limit recovery response")
+            self._session.add_message(ChatMessage(role="assistant", content=content, tool_calls=None))
+            yield self._emitter.error("Tool limit reached. Please try a simpler request.")
+            return
+
         # Safety check: prevent infinite recursion
         if depth >= MAX_TOOL_RECURSION_DEPTH:
             logger.warning(f"[CHAT] Max tool recursion depth ({MAX_TOOL_RECURSION_DEPTH}) reached")
@@ -620,11 +638,25 @@ class ChatOrchestrator:
 
         # Add assistant message with tool_calls BEFORE executing
         self._session.add_message(ChatMessage(role="assistant", content=content, tool_calls=tool_calls))
+        # Every call needs a result in LLM history, even if the response is
+        # cancelled while a tool is running or approval details are loading.
+        for tc in tool_calls:
+            self._session.add_message(
+                ChatMessage(
+                    role="tool",
+                    content=json.dumps(
+                        {"success": False, "error": "Tool handling was interrupted before a result was available."}
+                    ),
+                    tool_call_id=tc.id,
+                )
+            )
 
         # Categorize tools: READ (parallel), WRITE (approval), unknown (error)
         read_calls: list[ToolCall] = []
         write_calls: list[ToolCall] = []
         unknown_calls: list[ToolCall] = []
+
+        invalid_writes: list[tuple[ToolCall, ValidationError]] = []
 
         for tc in tool_calls:
             tool = self._executor.get_tool(tc.name)
@@ -633,19 +665,25 @@ class ChatOrchestrator:
             elif not self._executor.requires_approval(tc.name):
                 read_calls.append(tc)
             else:
-                write_calls.append(tc)
+                # Reject invalid writes before showing an approval card the
+                # user could approve only for execution to fail.
+                try:
+                    tool.Params(**tc.arguments)
+                except ValidationError as e:
+                    invalid_writes.append((tc, e))
+                else:
+                    write_calls.append(tc)
 
         # Handle unknown tools first (add error messages to history)
         for tc in unknown_calls:
             error_dict = {"success": False, "error": f"Unknown tool: {tc.name}"}
-            self._session.add_message(
-                ChatMessage(
-                    role="tool",
-                    content=json.dumps(error_dict),
-                    tool_call_id=tc.id,
-                )
-            )
+            self._record_tool_result(tc.id, json.dumps(error_dict))
             yield self._emitter.error(f"Unknown tool: {tc.name}")
+
+        # Invalid writes go back to the model so it can correct the call
+        for tc, error in invalid_writes:
+            logger.warning(f"Rejected {tc.name} before approval: {error}")
+            self._record_tool_result(tc.id, json.dumps({"success": False, "error": f"Invalid parameters: {error}"}))
 
         # Execute READ tools in parallel, preserving message order
         if read_calls:
@@ -714,13 +752,7 @@ class ChatOrchestrator:
                     "success": False,
                     "error": f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT}s",
                 }
-                self._session.add_message(
-                    ChatMessage(
-                        role="tool",
-                        content=json.dumps(error_dict),
-                        tool_call_id=tc.id,
-                    )
-                )
+                self._record_tool_result(tc.id, json.dumps(error_dict))
                 # Emit tool_result for timeout case so frontend can show error state
                 yield self._emitter.tool_result(tc.name, error_dict, tc.id)
             yield self._emitter.error(f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT:.0f} seconds")
@@ -735,13 +767,7 @@ class ChatOrchestrator:
             logger.trace(f"[CHAT] Tool '{tc.name}' completed in {execution.elapsed_ms:.0f}ms with args: {tc.arguments}")
 
             # Add tool result to history (in order)
-            self._session.add_message(
-                ChatMessage(
-                    role="tool",
-                    content=json.dumps(result_dict),
-                    tool_call_id=tc.id,
-                )
-            )
+            self._record_tool_result(tc.id, json.dumps(result_dict))
 
             # Yield tool_result event (tool_start was already emitted before execution)
             yield self._emitter.tool_result(tc.name, result_dict, tc.id)
@@ -794,19 +820,16 @@ class ChatOrchestrator:
         self._session.add_pending_approval(approval)
 
         # Add placeholder tool result (OpenAI API requirement)
-        self._session.add_message(
-            ChatMessage(
-                role="tool",
-                content=json.dumps(
-                    {
-                        "status": "awaiting_approval",
-                        "approval_id": approval_id,
-                        "message": f"Action '{tool_name}' queued for user approval. "
-                        f"An approval badge is now visible to the user.",
-                    }
-                ),
-                tool_call_id=tool_call_id,
-            )
+        self._record_tool_result(
+            tool_call_id,
+            json.dumps(
+                {
+                    "status": "awaiting_approval",
+                    "approval_id": approval_id,
+                    "message": f"Action '{tool_name}' queued for user approval. "
+                    f"An approval badge is now visible to the user.",
+                }
+            ),
         )
 
         yield self._emitter.approval_required(approval)
@@ -836,5 +859,5 @@ class ChatOrchestrator:
             async for event in self._handle_stream(stream, token, tools, messages, depth):
                 yield event
         except Exception as e:
-            logger.exception("LLM continuation failed")
-            yield self._emitter.error(f"LLM error: {str(e)}")
+            logger.error("LLM continuation failed ({})", type(e).__name__)
+            yield self._emitter.error("The LLM provider request failed. Please try again.")

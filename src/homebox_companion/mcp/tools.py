@@ -14,14 +14,17 @@ Tools are registered using the @register_tool decorator for explicit discovery.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 
+from ..core.exceptions import HomeboxAPIError, HomeboxConnectionError, HomeboxTimeoutError
+from ..homebox.relationships import item_update_payload, preflight_item_placement, validate_placement_changes
 from ..homebox.views import CompactItemView, ItemView, LocationView, add_tree_urls
 from .types import Tool, ToolParams, ToolPermission, ToolResult
 
@@ -33,10 +36,12 @@ if TYPE_CHECKING:
 # TOOL REGISTRY
 # =============================================================================
 
-_TOOL_REGISTRY: list[type[Tool]] = []
+# The registry contains tools with different Params models, so its type parameter
+# is erased at this boundary. A concrete Tool[ParamsT] retains the relationship.
+_TOOL_REGISTRY: list[type[Tool[Any]]] = []
 
 
-def register_tool[T: type[Tool]](cls: T) -> T:
+def register_tool[T: Tool[Any]](cls: type[T]) -> type[T]:
     """Decorator to register a tool class for discovery.
 
     This provides explicit tool registration rather than fragile
@@ -53,7 +58,7 @@ def register_tool[T: type[Tool]](cls: T) -> T:
     return cls
 
 
-def get_tools() -> list[Tool]:
+def get_tools() -> list[Tool[Any]]:
     """Get all registered tool instances.
 
     Returns:
@@ -67,14 +72,59 @@ def get_tools() -> list[Tool]:
 # =============================================================================
 
 
+def _index_locations(locations: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {loc["id"]: loc for loc in locations if loc.get("id")}
+
+
+async def _location_index(client: HomeboxClient, token: str) -> dict[str, dict[str, Any]] | None:
+    """Index all locations, archived ones included, by ID.
+
+    Item summaries from list and search omit the parent's entity type, so these
+    IDs are what tells a parent location apart from a containing item. Archived
+    locations still parent items, so they must be classified too. The index only
+    enriches results, so a failed fetch leaves parents unclassified instead of
+    failing the read.
+    """
+    try:
+        return _index_locations(await client.list_locations(token, include_archived=True))
+    except (HomeboxAPIError, HomeboxConnectionError, HomeboxTimeoutError) as e:
+        logger.warning(f"Could not load locations to classify item parents: {e}")
+        return None
+
+
+def _build_item_views(
+    items: list[dict[str, Any]],
+    *,
+    compact: bool,
+    location_index: dict[str, dict[str, Any]] | None,
+    filter_location_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Convert item summaries to LLM views with classified relationships.
+
+    A location filter matches items placed directly in that location and, on
+    Homebox 0.27, items whose own location override names it; both live there,
+    including override matches nested in a container stored elsewhere.
+    """
+    view_type = CompactItemView if compact else ItemView
+    views = [view_type.from_dict(item, location_ids=location_index) for item in items]
+
+    filter_location = location_index.get(filter_location_id) if location_index and filter_location_id else None
+    if filter_location is not None:
+        for view in views:
+            if view.location is None:
+                view.location = LocationView(id=filter_location["id"], name=filter_location.get("name") or "")
+
+    return [view.model_dump(by_alias=True) for view in views]
+
+
 def _sort_items_by_location_and_name(items: list[dict]) -> list[dict]:
-    """Sort items by location name, then by item name.
+    """Sort items by location name, then containing item, then item name.
 
     This helps the AI parse results more efficiently by grouping items
     by location and maintaining alphabetical order within each location.
 
     Args:
-        items: List of item dicts with 'name' and 'location' fields.
+        items: List of item view dicts with 'name', 'location' and 'parent' fields.
 
     Returns:
         Sorted list of items.
@@ -82,7 +132,8 @@ def _sort_items_by_location_and_name(items: list[dict]) -> list[dict]:
     return sorted(
         items,
         key=lambda item: (
-            (item.get("parent", {}) or {}).get("name", "").lower(),
+            (item.get("location") or {}).get("name", "").lower(),
+            (item.get("parent") or {}).get("name", "").lower(),
             item.get("name", "").lower(),
         ),
     )
@@ -196,7 +247,10 @@ class ListItemsTool:
     description: str = (
         "List items in the inventory with optional filtering. "
         "Set page_size to the user's requested count (e.g., 'list 100 items' -> page_size=100). "
-        "For text-based searches, prefer using search_items instead."
+        "For text-based searches, prefer using search_items instead. A location filter returns only items placed "
+        "directly in that location (and items whose own location is set there), not items inside containers there; "
+        "use get_location_tree with with_items=true for everything in a location. Items nested in a parent item may "
+        "have an unknown location; use get_item when physical whereabouts matter."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -228,7 +282,9 @@ class ListItemsTool:
             default=True,
             description=(
                 "If true, return only essential fields (id, name, location, quantity, tags) "
-                "to reduce payload size. Set to false for full item details."
+                "to reduce payload size. Set to false for expanded summaries. "
+                "Custom fields may be absent from summaries; "
+                "fetch get_item or get_item_by_asset_id for authoritative custom field values."
             ),
         )
 
@@ -240,10 +296,15 @@ class ListItemsTool:
     ) -> ToolResult:
         # Resolve location_name to location_id if provided
         resolved_location_id = params.location_id
+        location_index: dict[str, dict[str, Any]] | None = None
         if params.location_name and not params.location_id:
-            locations = await client.list_locations(token)
-            # Find ALL matching locations (case-insensitive)
-            matches = [loc for loc in locations if loc.get("name", "").lower() == params.location_name.lower()]
+            # One fetch serves both name resolution and parent classification
+            locations = await client.list_locations(token, include_archived=True)
+            location_index = _index_locations(locations)
+            # Find ALL matching locations (case-insensitive), preferring active ones
+            name = params.location_name.lower()
+            matches = [loc for loc in locations if (loc.get("name") or "").lower() == name]
+            matches = [loc for loc in matches if not loc.get("archived")] or matches
 
             if not matches:
                 return ToolResult(
@@ -270,22 +331,25 @@ class ListItemsTool:
             resolved_location_id = matches[0].get("id")
             logger.debug(f"list_items: resolved location_name '{params.location_name}' to id '{resolved_location_id}'")
 
-        response = await client.list_items(
+        list_request = client.list_items(
             token,
             location_id=resolved_location_id,
             tag_ids=params.tag_ids,
             page=params.page,
             page_size=params.page_size,
         )
+        if location_index is None:
+            response, location_index = await asyncio.gather(list_request, _location_index(client, token))
+        else:
+            response = await list_request
 
         # Extract items from pagination response
-        items = response.get("items", [])
-
-        if params.compact:
-            items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
-        else:
-            # Use ItemView for consistent URL generation
-            items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
+        items = _build_item_views(
+            response.get("items", []),
+            compact=params.compact,
+            location_index=location_index,
+            filter_location_id=resolved_location_id,
+        )
 
         # Sort by location name, then item name for easier AI parsing
         items = _sort_items_by_location_and_name(items)
@@ -314,7 +378,8 @@ class SearchItemsTool:
     name: str = "search_items"
     description: str = (
         "Search items by text query. Use for semantic searches like 'find rope'. "
-        "Set page_size to the user's requested count if specified."
+        "Set page_size to the user's requested count if specified. Items nested in a parent item may "
+        "have an unknown location; use get_item when physical whereabouts matter."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -332,7 +397,8 @@ class SearchItemsTool:
             default=True,
             description=(
                 "If true, return only essential fields (id, name, location, quantity, tags). "
-                "Set to false for full item details."
+                "Set to false for expanded summaries. Custom fields may be absent from summaries; "
+                "fetch get_item or get_item_by_asset_id for authoritative custom field values."
             ),
         )
 
@@ -342,21 +408,22 @@ class SearchItemsTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        response = await client.list_items(
-            token,
-            query=params.query,
-            page=params.page,
-            page_size=params.page_size,
+        response, location_index = await asyncio.gather(
+            client.list_items(
+                token,
+                query=params.query,
+                page=params.page,
+                page_size=params.page_size,
+            ),
+            _location_index(client, token),
         )
 
         # Extract items from pagination response
-        items = response.get("items", [])
-
-        if params.compact:
-            items = [CompactItemView.from_dict(item).model_dump(by_alias=True) for item in items]
-        else:
-            # Use ItemView for consistent URL generation
-            items = [ItemView.from_dict(item).model_dump(by_alias=True) for item in items]
+        items = _build_item_views(
+            response.get("items", []),
+            compact=params.compact,
+            location_index=location_index,
+        )
 
         # Sort by location name, then item name for easier AI parsing
         items = _sort_items_by_location_and_name(items)
@@ -383,7 +450,10 @@ class GetItemTool:
     """Get full item details by ID."""
 
     name: str = "get_item"
-    description: str = "Get full item details by ID"
+    description: str = (
+        "Get full item details by ID, including typed custom fields, its immediate parent item "
+        "and resolved physical location."
+    )
     permission: ToolPermission = ToolPermission.READ
 
     class Params(ToolParams):
@@ -397,7 +467,7 @@ class GetItemTool:
     ) -> ToolResult:
         item = await client.get_item(token, params.item_id)
         # Use ItemView for consistent URL generation
-        item_view = ItemView.from_dict(item).model_dump(by_alias=True)
+        item_view = ItemView.from_dict(item, untyped_parent_is_item=True).model_dump(by_alias=True)
         logger.debug(f"get_item returned item: {item.get('name', 'unknown')}")
         return ToolResult(success=True, data=item_view)
 
@@ -436,7 +506,8 @@ class GetItemByAssetIdTool:
     name: str = "get_item_by_asset_id"
     description: str = (
         "Get item by its asset ID. Look up an item using its printed asset ID "
-        "(e.g., '000-085'). Useful for barcode scanning or when user provides an asset ID."
+        "(e.g., '000-085'). Returns full details including typed custom fields. "
+        "Useful for barcode scanning or when user provides an asset ID."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -449,9 +520,12 @@ class GetItemByAssetIdTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        item = await client.get_item_by_asset_id(token, params.asset_id)
+        # The asset endpoint returns a summary without the parent's entity type or
+        # resolved location; fetch the details to report both relationships.
+        summary = await client.get_item_by_asset_id(token, params.asset_id)
+        item = await client.get_item(token, summary["id"])
         # Use ItemView for consistent URL generation
-        item_view = ItemView.from_dict(item).model_dump(by_alias=True)
+        item_view = ItemView.from_dict(item, untyped_parent_is_item=True).model_dump(by_alias=True)
         logger.debug(f"get_item_by_asset_id({params.asset_id}) returned: {item.get('name', 'unknown')}")
         return ToolResult(success=True, data=item_view)
 
@@ -545,8 +619,8 @@ class GetItemPathTool:
 
     name: str = "get_item_path"
     description: str = (
-        "Get the full hierarchical path of an item. Returns the location chain "
-        "from root to the item's location. Useful for telling users exactly where to find an item."
+        "Get the full containment path of an item from the root. Path elements may be locations "
+        "or containing items; use get_item for the item's resolved physical location."
     )
     permission: ToolPermission = ToolPermission.READ
 
@@ -639,10 +713,10 @@ class CreateItemTool:
 
         item_data = ItemCreate(
             name=params.name,
-            parent_id=params.location_id,  # ty: ignore[unknown-argument]
+            parent_id=params.location_id,
             description=params.description,
             quantity=params.quantity,
-            tag_ids=params.tag_ids or [],  # ty: ignore[unknown-argument]
+            tag_ids=params.tag_ids or [],
         )
         result = await client.create_item(token, item_data)
         logger.info(f"create_item created item: {result.get('name', 'unknown')}")
@@ -668,7 +742,14 @@ class UpdateItemTool:
         item_id: str = Field(description="ID of the item to update")
         name: str | None = Field(default=None, description="Optional new name")
         description: str | None = Field(default=None, description="Optional new description")
-        location_id: str | None = Field(default=None, description="Optional new location ID")
+        location_id: str | None = Field(
+            default=None,
+            description=(
+                "Move the item directly into this location, taking it out of any parent item, even when it is "
+                "already in that location. Omit unless the item should move. "
+                "Cannot be combined with parent_id or clear_parent."
+            ),
+        )
         quantity: int | None = Field(default=None, ge=1, description="Optional new quantity")
         purchase_price: float | None = Field(
             default=None, ge=0, alias="purchasePrice", description="Optional new purchase price"
@@ -692,12 +773,52 @@ class UpdateItemTool:
         )
         parent_id: str | None = Field(
             default=None,
-            description="New parent item ID to nest this item under (use with clear_parent=False)",
+            description=(
+                "Parent item to nest under. A new parent uses the parent-chain location unless "
+                "location_override_id is also supplied; the current parent preserves the existing override. "
+                "Cannot be combined with location_id or clear_parent."
+            ),
         )
         clear_parent: bool = Field(
             default=False,
-            description="If true, remove parent to make this a top-level item",
+            description=(
+                "Remove the parent and any physical-location override, leaving a top-level item with no location. "
+                "Cannot be combined with parent_id or location_id."
+            ),
         )
+
+        location_override_id: str | None = Field(
+            default=None,
+            description=(
+                "Physical location override; keeps the parent item. May combine with parent_id to set both. "
+                "Conflicts with location_id, clear_parent and clear_location_override. Requires Homebox 0.27+."
+            ),
+        )
+        clear_location_override: bool = Field(
+            default=False,
+            strict=True,
+            description=(
+                "Use parent-chain location; clear only the physical location override. May combine with parent_id. "
+                "Conflicts with location_id, clear_parent and location_override_id. Requires Homebox 0.27+."
+            ),
+        )
+
+        @field_validator("location_id", "parent_id", "location_override_id", mode="before")
+        @classmethod
+        def _blank_means_unchanged(cls, value: object) -> object:
+            # A cleared editor in the approval UI submits "" rather than omitting the field.
+            return (value.strip() or None) if isinstance(value, str) else value
+
+        @model_validator(mode="after")
+        def _one_placement_change(self) -> UpdateItemTool.Params:
+            validate_placement_changes(
+                parent_id=self.parent_id,
+                location_id=self.location_id,
+                clear_parent=self.clear_parent,
+                location_override_id=self.location_override_id,
+                clear_location_override=self.clear_location_override,
+            )
+            return self
 
     async def execute(
         self,
@@ -705,53 +826,44 @@ class UpdateItemTool:
         token: str,
         params: Params,
     ) -> ToolResult:
-        # First get the current item to preserve unchanged fields
+        # Homebox replaces the whole item, so start from everything it already has
         current = await client.get_item(token, params.item_id)
+        await preflight_item_placement(
+            current,
+            item_id=params.item_id,
+            get_entity=lambda entity_id: client.get_item(token, entity_id),
+            get_version=lambda: client.get_version(token),
+            parent_id=params.parent_id,
+            location_id=params.location_id,
+            clear_parent=params.clear_parent,
+            location_override_id=params.location_override_id,
+            clear_location_override=params.clear_location_override,
+        )
+        update_data = item_update_payload(
+            current,
+            parent_id=params.parent_id,
+            location_id=params.location_id,
+            clear_parent=params.clear_parent,
+            location_override_id=params.location_override_id,
+            clear_location_override=params.clear_location_override,
+        )
+        update_data["id"] = params.item_id
 
-        # Build update payload preserving unchanged fields from current item
-        update_data = {
-            "id": params.item_id,
-            "name": params.name if params.name is not None else current.get("name"),
-            "description": (params.description if params.description is not None else current.get("description", "")),
-            "quantity": params.quantity if params.quantity is not None else current.get("quantity", 1),
-            "insured": params.insured if params.insured is not None else current.get("insured", False),
-            "archived": params.archived if params.archived is not None else current.get("archived", False),
-            "assetId": current.get("assetId", ""),
-            "notes": params.notes if params.notes is not None else current.get("notes", ""),
-            "manufacturer": params.manufacturer if params.manufacturer is not None else current.get("manufacturer", ""),
-            "modelNumber": params.model_number if params.model_number is not None else current.get("modelNumber", ""),
-            "serialNumber": (
-                params.serial_number if params.serial_number is not None else current.get("serialNumber", "")
-            ),
-            "purchaseFrom": (
-                params.purchase_from if params.purchase_from is not None else current.get("purchaseFrom", "")
-            ),
+        changes = {
+            "name": params.name,
+            "description": params.description,
+            "quantity": params.quantity,
+            "insured": params.insured,
+            "archived": params.archived,
+            "notes": params.notes,
+            "manufacturer": params.manufacturer,
+            "modelNumber": params.model_number,
+            "serialNumber": params.serial_number,
+            "purchaseFrom": params.purchase_from,
+            "purchasePrice": params.purchase_price,
+            "tagIds": params.tag_ids,
         }
-
-        # Handle purchasePrice - use new value if provided, else preserve current
-        if params.purchase_price is not None:
-            update_data["purchasePrice"] = params.purchase_price
-        elif current.get("purchasePrice") is not None:
-            update_data["purchasePrice"] = current.get("purchasePrice")
-
-        # Resolve parent once. Explicitly clearing a parent takes precedence over
-        # parent_id, which takes precedence over location_id for compatibility.
-        # When no parent change was requested, retain the current parent.
-        if params.clear_parent:
-            update_data["parentId"] = None
-        elif params.parent_id is not None:
-            update_data["parentId"] = params.parent_id
-        elif params.location_id is not None:
-            update_data["parentId"] = params.location_id
-        else:
-            update_data["parentId"] = (current.get("parent") or {}).get("id")
-
-        # Handle tags - use correct API field name "tagIds" with flat string array
-        if params.tag_ids is not None:
-            update_data["tagIds"] = params.tag_ids
-        elif current.get("tags"):
-            # Preserve existing tags using correct format
-            update_data["tagIds"] = [tag.get("id") for tag in current["tags"] if tag.get("id")]
+        update_data.update({key: value for key, value in changes.items() if value is not None})
 
         result = await client.update_item(token, params.item_id, update_data)
         logger.info(f"update_item updated item: {result.get('name', 'unknown')}")
@@ -843,6 +955,12 @@ class UpdateLocationTool:
             description="If true, remove parent to make this a top-level location",
         )
 
+        @field_validator("parent_id", mode="before")
+        @classmethod
+        def _blank_means_unchanged(cls, value: object) -> object:
+            # A cleared editor in the approval UI submits "" rather than omitting the field.
+            return None if value == "" else value
+
     async def execute(
         self,
         client: HomeboxClient,
@@ -858,7 +976,7 @@ class UpdateLocationTool:
         elif params.parent_id is not None:
             resolved_parent_id = params.parent_id
         else:
-            resolved_parent_id = current.get("parent", {}).get("id")
+            resolved_parent_id = (current.get("parent") or {}).get("id")
 
         result = await client.update_location(
             token,

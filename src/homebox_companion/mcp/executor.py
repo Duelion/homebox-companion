@@ -125,14 +125,14 @@ class ToolExecutor:
         return BoundToolExecutor(self, gateway)
 
     @cached_property
-    def _tools_by_name(self) -> dict[str, Tool]:
+    def _tools_by_name(self) -> dict[str, Tool[Any]]:
         """Lazy-loaded tool lookup table."""
         tools = get_tools()
         result = {t.name: t for t in tools}
         logger.trace(f"ToolExecutor discovered {len(result)} tools")
         return result
 
-    def get_tool(self, name: str) -> Tool | None:
+    def get_tool(self, name: str) -> Tool[Any] | None:
         """Get a tool by name.
 
         Args:
@@ -146,7 +146,7 @@ class ToolExecutor:
     def list_tools(
         self,
         permission_filter: ToolPermission | None = None,
-    ) -> list[Tool]:
+    ) -> list[Tool[Any]]:
         """List all available tools, optionally filtered by permission.
 
         Args:
@@ -181,6 +181,7 @@ class ToolExecutor:
         """
         import copy
 
+        all_schemas: list[dict[str, Any]]
         # Check instance-level cache
         if self._schema_cache and (time.time() - self._schema_cache[1]) < _SCHEMA_CACHE_TTL:
             all_schemas = self._schema_cache[0]
@@ -266,8 +267,12 @@ class ToolExecutor:
                 target_name = item_name
                 if item.get("assetId"):
                     asset_id = item.get("assetId")
-                if tool_name == "delete_item" and item.get("parent"):
-                    location = item["parent"].get("name")
+                if tool_name == "delete_item":
+                    from ..homebox.views import resolve_item_relationship_views
+
+                    location_view, _ = resolve_item_relationship_views(item, untyped_parent_is_item=True)
+                    if location_view is not None:
+                        location = location_view.name
 
             elif tool_name == "create_item":
                 if "name" in tool_args:
@@ -392,10 +397,10 @@ class BoundToolExecutor(ToolExecutor):
         self._shared = shared
         self._context = ToolExecutionContext.for_gateway(gateway)
 
-    def get_tool(self, name: str) -> Tool | None:
+    def get_tool(self, name: str) -> Tool[Any] | None:
         return self._shared.get_tool(name)
 
-    def list_tools(self, permission_filter: ToolPermission | None = None) -> list[Tool]:
+    def list_tools(self, permission_filter: ToolPermission | None = None) -> list[Tool[Any]]:
         return self._shared.list_tools(permission_filter)
 
     def get_tool_schemas(

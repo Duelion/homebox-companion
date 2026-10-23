@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { WifiOff, Download, CircleAlert, RefreshCw } from 'lucide-svelte';
+	import { WifiOff, Download, CircleAlert, RefreshCw } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import '../app.css';
 	import Toast from '$lib/components/Toast.svelte';
@@ -12,6 +12,7 @@
 	import { collectionStore } from '$lib/stores/collection.svelte';
 	import { uiStore, showToast } from '$lib/stores/ui.svelte';
 	import { getVersion } from '$lib/api';
+	import { startNavigationTransition } from '$lib/utils/viewTransition';
 
 	import { initializeApp, retryConnection } from '$lib/services/bootstrap';
 	import Button from '$lib/components/Button.svelte';
@@ -78,22 +79,14 @@
 	// Uses the native View Transitions API when available.
 	onNavigate((navigation) => {
 		if (!browser) return;
-		const doc = document as Document & {
-			startViewTransition?: (cb: () => void | Promise<void>) => unknown;
-		};
 		// IMPORTANT: bind to `document` — some browsers throw if the method is called unbound
 		// (e.g. "called on an object that does not implement interface Document").
-		const startViewTransition = doc.startViewTransition?.bind(doc);
+		const startViewTransition = document.startViewTransition?.bind(document);
 		if (!startViewTransition) return;
 
 		// Wrap the navigation in a view transition.
 		// SvelteKit will wait for the returned promise before completing the navigation.
-		return new Promise<void>((resolve) => {
-			startViewTransition(async () => {
-				resolve();
-				await navigation.complete;
-			});
-		});
+		return startNavigationTransition(startViewTransition, navigation.complete);
 	});
 
 	// Fetch version on mount and register event listeners
@@ -134,11 +127,11 @@
 	});
 </script>
 
-<div class="flex min-h-dvh min-h-screen flex-col bg-neutral-950">
+<div class="flex min-h-dvh flex-col bg-neutral-950">
 	<!-- Header with safe area background - fixed to ensure consistent z-index with pull-to-refresh -->
 	<!-- view-transition-name: header excludes this element from the root page transition, preventing jitter -->
 	<div
-		class="glass fixed left-0 right-0 top-0 z-40 border-b border-neutral-700"
+		class="glass fixed top-0 z-40 border-b border-neutral-700 inset-x-0"
 		style="view-transition-name: header;"
 	>
 		<div class="pt-safe">
@@ -149,7 +142,7 @@
 					class="flex items-center gap-2 overflow-visible font-semibold text-neutral-200"
 				>
 					<svg
-						class="h-7 w-7 shrink-0 text-primary"
+						class="shrink-0 text-primary size-7"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -211,7 +204,7 @@
 	<!-- Offline banner - positioned above bottom nav when authenticated -->
 	{#if !isOnline}
 		<div
-			class="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-sm text-warning-500 {isAuthenticated
+			class="fixed z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning/20 px-4 py-3 text-body-sm text-warning-500 inset-x-0 {isAuthenticated
 				? 'bottom-nav-offset'
 				: 'bottom-0'}"
 		>
@@ -223,7 +216,7 @@
 	<!-- Footer with version - only shown on login page (not authenticated) -->
 	{#if !isAuthenticated}
 		<footer
-			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-neutral-950 py-3 text-center text-xs text-neutral-500"
+			class="sticky bottom-0 mt-auto flex items-center justify-center gap-3 bg-neutral-950 py-3 text-center text-caption text-neutral-500"
 		>
 			{#if appVersion}
 				<span>v{appVersion}</span>
@@ -233,7 +226,7 @@
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300 transition-colors hover:bg-amber-500/30"
+					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-caption text-warning-300 transition-colors hover:bg-warning-500/30"
 					title="Click to view release"
 				>
 					<Download size={12} strokeWidth={2} />
@@ -247,13 +240,13 @@
 				class="inline-flex items-center gap-1 transition-colors hover:text-neutral-400"
 				title="Star on GitHub"
 			>
-				<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 16 16">
+				<svg class="size-3.5" fill="currentColor" viewBox="0 0 16 16">
 					<path
 						d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
 					/>
 				</svg>
 				<span>Star</span>
-				<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 16 16">
+				<svg class="size-3" fill="currentColor" viewBox="0 0 16 16">
 					<path
 						d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"
 					/>

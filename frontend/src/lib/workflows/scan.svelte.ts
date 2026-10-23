@@ -14,30 +14,26 @@
  * - SubmissionService: Homebox submission
  */
 
+import { itemValidationError } from '$lib/utils/itemValidation';
 import { workflowLogger as log } from '$lib/utils/logger';
 import { CaptureService } from './capture.svelte';
 import { AnalysisService } from './analysis.svelte';
 import { ReviewService } from './review.svelte';
 import { SubmissionService } from './submission.svelte';
 import type {
-	ScanState,
+	ScanStateView,
+	DeepReadonly,
 	ScanStatus,
 	CapturedImage,
 	ReviewItem,
-	ConfirmedItem,
-	Progress,
 	SubmissionResult,
+	ImageAnalysisStatus,
 } from '$lib/types';
 import {
-	type StoredSession,
-	serializeImage,
-	serializeReviewItem,
-	serializeConfirmedItem,
-	deserializeImage,
-	deserializeReviewItem,
-	deserializeConfirmedItem,
-} from '$lib/services/serialize';
-import * as sessionPersistence from '$lib/services/sessionPersistence';
+	ScanPersistence,
+	captureSessionScope,
+	type SessionSummary,
+} from '$lib/services/scanPersistence';
 
 // =============================================================================
 // CONSTANTS
@@ -59,6 +55,7 @@ class ScanWorkflow {
 	private analysisService = new AnalysisService();
 	private reviewService = new ReviewService();
 	private submissionService = new SubmissionService();
+	private persistence = new ScanPersistence();
 
 	// =========================================================================
 	// WORKFLOW STATE
@@ -85,21 +82,25 @@ class ScanWorkflow {
 	/** Current error message */
 	private _error = $state<string | null>(null);
 
-	/** Cached createdAt from persisted session (avoids loading full session on each persist) */
-	private _persistedCreatedAt: number | null = null;
-
-	/** Cached session ID (stable across saves) */
-	private _persistedSessionId: string | null = null;
-
 	/** Debounce timer for auto-persist */
 	private _persistTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	/** Flag to skip the initial effect run (avoids persist on construction) */
 	private _isFirstEffectRun = true;
 	private contextGeneration = 0;
+	/** Changes synchronously whenever an analysis is started or invalidated. */
+	private _analysisAttemptId = 0;
+	private retryStartStatuses: Record<number, ImageAnalysisStatus> | null = null;
 
 	/** Confirmed-item index currently being edited after a failed submission. */
 	private failedItemEditIndex = $state<number | null>(null);
+	private _saveState = $state<'saving' | 'saved' | 'error'>('saved');
+	private saveRevision = 0;
+	private persistAttempt = 0;
+
+	get saveState(): 'saving' | 'saved' | 'error' {
+		return this._saveState;
+	}
 
 	// =========================================================================
 	// CONSTRUCTOR (auto-persist setup)
@@ -174,23 +175,32 @@ class ScanWorkflow {
 				// Schedule debounced persist
 				this.schedulePersist();
 			});
+			const flush = () => this.flushPendingPersist();
+			window.addEventListener('beforeunload', flush);
+			window.addEventListener('pagehide', flush);
+			return () => {
+				window.removeEventListener('beforeunload', flush);
+				window.removeEventListener('pagehide', flush);
+				if (this._persistTimeout) clearTimeout(this._persistTimeout);
+			};
 		});
 
 		// Flush pending persist on tab close.
 		// NOTE: beforeunload has very limited time for async operations.
 		// Modern browsers may not wait for IndexedDB writes to complete.
 		// This is a best-effort attempt - critical persists should use persistAsync().
-		window.addEventListener('beforeunload', () => this.flushPendingPersist());
 	}
 
 	/** Schedule a debounced persist (1 second delay) */
 	private schedulePersist(): void {
+		this._saveState = 'saving';
+		this.saveRevision++;
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);
 		}
 		this._persistTimeout = setTimeout(() => {
 			this._persistTimeout = null;
-			this._doPersist();
+			void this._doPersist();
 		}, AUTO_PERSIST_DEBOUNCE_MS);
 	}
 
@@ -209,209 +219,72 @@ class ScanWorkflow {
 			clearTimeout(this._persistTimeout);
 			this._persistTimeout = null;
 			// Fire-and-forget: browser may not wait for this to complete
-			this._doPersist();
+			void this._doPersist();
 		}
 	}
 
-	// =========================================================================
-	// UNIFIED STATE ACCESSOR (for backward compatibility)
-	// =========================================================================
+	/** Stable state view; mutations go through workflow methods. */
+	private _stateView: ScanStateView | null = null;
 
-	/**
-	 * State proxy that allows both reading and direct property assignment.
-	 * This maintains backward compatibility with code like:
-	 *   workflow.state.status = 'confirming'
-	 *   workflow.state.analysisProgress = null
-	 */
-	private _stateProxy: ScanState | null = null;
-
-	/** Valid readable state properties */
-	private static readonly READABLE_PROPS = new Set<keyof ScanState>([
-		'status',
-		'locationId',
-		'locationName',
-		'locationPath',
-		'parentItemId',
-		'parentItemName',
-		'images',
-		'analysisProgress',
-		'imageStatuses',
-		'detectedItems',
-		'currentReviewIndex',
-		'confirmedItems',
-		'submissionProgress',
-		'itemStatuses',
-		'lastSubmissionResult',
-		'submissionErrors',
-		'error',
-	]);
-
-	/** Writable state properties */
-	private static readonly WRITABLE_PROPS = new Set<keyof ScanState>([
-		'status',
-		'locationId',
-		'locationName',
-		'locationPath',
-		'parentItemId',
-		'parentItemName',
-		'error',
-		'analysisProgress',
-	]);
-
-	/**
-	 * Unified state object for backward compatibility with existing pages.
-	 * Returns a Proxy that intercepts property assignments.
-	 *
-	 * IMPORTANT: This proxy throws errors for unknown property access to surface bugs.
-	 * - Reading unknown properties throws TypeError
-	 * - Writing to read-only properties throws TypeError
-	 * - Writing to unknown properties throws TypeError
-	 */
-	get state(): ScanState {
-		// Create proxy once and reuse (the proxy handlers access live service state)
-		if (!this._stateProxy) {
-			// eslint-disable-next-line @typescript-eslint/no-this-alias -- Required for closure in Proxy handlers
+	get state(): ScanStateView {
+		if (!this._stateView) {
+			// eslint-disable-next-line @typescript-eslint/no-this-alias -- Getters read live workflow state
 			const workflow = this;
-			this._stateProxy = new Proxy({} as ScanState, {
-				get(_target, prop: string | symbol) {
-					// Allow Symbol access (for iteration, etc.)
-					if (typeof prop === 'symbol') {
-						return undefined;
-					}
-
-					const propName = prop as keyof ScanState;
-
-					// Check if property is valid
-					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
-						throw new TypeError(
-							`Cannot read unknown workflow state property: '${prop}'. ` +
-								`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
-						);
-					}
-
-					switch (propName) {
-						case 'status':
-							return workflow._status;
-						case 'locationId':
-							return workflow._locationId;
-						case 'locationName':
-							return workflow._locationName;
-						case 'locationPath':
-							return workflow._locationPath;
-						case 'parentItemId':
-							return workflow._parentItemId;
-						case 'parentItemName':
-							return workflow._parentItemName;
-						case 'images':
-							return workflow.captureService.images;
-						case 'analysisProgress':
-							return workflow.analysisService.progress;
-						case 'imageStatuses':
-							return workflow.analysisService.imageStatuses;
-						case 'detectedItems':
-							return workflow.reviewService.detectedItems;
-						case 'currentReviewIndex':
-							return workflow.reviewService.currentReviewIndex;
-						case 'confirmedItems':
-							return workflow.reviewService.confirmedItems;
-						case 'submissionProgress':
-							return workflow.submissionService.progress;
-						case 'itemStatuses':
-							return workflow.submissionService.itemStatuses;
-						case 'lastSubmissionResult':
-							return workflow.submissionService.lastResult;
-						case 'submissionErrors':
-							return workflow.submissionService.lastErrors;
-						case 'error':
-							return workflow._error;
-						default: {
-							// TypeScript exhaustiveness check - should never reach here
-							const _exhaustive: never = propName;
-							throw new TypeError(`Unhandled property: ${_exhaustive}`);
-						}
-					}
+			this._stateView = Object.freeze({
+				get status() {
+					return workflow._status;
 				},
-				set(_target, prop: string | symbol, value) {
-					// Reject Symbol writes
-					if (typeof prop === 'symbol') {
-						throw new TypeError(`Cannot set Symbol property on workflow state`);
-					}
-
-					const propName = prop as keyof ScanState;
-
-					// Check if property exists at all
-					if (!ScanWorkflow.READABLE_PROPS.has(propName)) {
-						throw new TypeError(
-							`Cannot set unknown workflow state property: '${prop}'. ` +
-								`Valid properties are: ${[...ScanWorkflow.READABLE_PROPS].join(', ')}`
-						);
-					}
-
-					// Check if property is writable
-					if (!ScanWorkflow.WRITABLE_PROPS.has(propName)) {
-						throw new TypeError(
-							`Cannot set read-only workflow state property: '${prop}'. ` +
-								`This property can only be modified through workflow methods. ` +
-								`Writable properties are: ${[...ScanWorkflow.WRITABLE_PROPS].join(', ')}`
-						);
-					}
-
-					switch (propName) {
-						case 'status':
-							workflow._status = value as ScanStatus;
-							return true;
-						case 'locationId':
-							workflow._locationId = value as string | null;
-							return true;
-						case 'locationName':
-							workflow._locationName = value as string | null;
-							return true;
-						case 'locationPath':
-							workflow._locationPath = value as string | null;
-							return true;
-						case 'parentItemId':
-							workflow._parentItemId = value as string | null;
-							return true;
-						case 'parentItemName':
-							workflow._parentItemName = value as string | null;
-							return true;
-						case 'error':
-							workflow._error = value as string | null;
-							return true;
-						case 'analysisProgress':
-							workflow.analysisService.progress = value as Progress | null;
-							return true;
-						default:
-							// TypeScript exhaustiveness check - should never reach here
-							// since we validated against WRITABLE_PROPS above
-							throw new TypeError(`Unhandled writable property: ${prop}`);
-					}
+				get locationId() {
+					return workflow._locationId;
 				},
-				has(_target, prop: string | symbol) {
-					if (typeof prop === 'symbol') {
-						return false;
-					}
-					return ScanWorkflow.READABLE_PROPS.has(prop as keyof ScanState);
+				get locationName() {
+					return workflow._locationName;
 				},
-				ownKeys() {
-					return [...ScanWorkflow.READABLE_PROPS];
+				get locationPath() {
+					return workflow._locationPath;
 				},
-				getOwnPropertyDescriptor(_target, prop: string | symbol) {
-					if (
-						typeof prop === 'symbol' ||
-						!ScanWorkflow.READABLE_PROPS.has(prop as keyof ScanState)
-					) {
-						return undefined;
-					}
-					return {
-						enumerable: true,
-						configurable: true,
-						writable: ScanWorkflow.WRITABLE_PROPS.has(prop as keyof ScanState),
-					};
+				get parentItemId() {
+					return workflow._parentItemId;
+				},
+				get parentItemName() {
+					return workflow._parentItemName;
+				},
+				get images() {
+					return workflow.captureService.images;
+				},
+				get analysisProgress() {
+					return workflow.analysisService.progress;
+				},
+				get imageStatuses() {
+					return workflow.analysisService.imageStatuses;
+				},
+				get detectedItems() {
+					return workflow.reviewService.detectedItems;
+				},
+				get currentReviewIndex() {
+					return workflow.reviewService.currentReviewIndex;
+				},
+				get confirmedItems() {
+					return workflow.reviewService.confirmedItems;
+				},
+				get submissionProgress() {
+					return workflow.submissionService.progress;
+				},
+				get itemStatuses() {
+					return workflow.submissionService.itemStatuses;
+				},
+				get lastSubmissionResult() {
+					return workflow.submissionService.lastResult;
+				},
+				get submissionErrors() {
+					return workflow.submissionService.lastErrors;
+				},
+				get error() {
+					return workflow._error;
 				},
 			});
 		}
-		return this._stateProxy;
+		return this._stateView;
 	}
 
 	// =========================================================================
@@ -513,6 +386,9 @@ class ScanWorkflow {
 		}
 
 		log.info(`Starting analysis for ${this.captureService.count} image(s)`);
+		const attemptId = ++this._analysisAttemptId;
+		const generation = this.contextGeneration;
+		this.retryStartStatuses = null;
 
 		// Set status BEFORE any async operations to prevent duplicate triggers
 		this._status = 'analyzing';
@@ -522,7 +398,12 @@ class ScanWorkflow {
 		const result = await this.analysisService.analyze(this.captureService.images);
 
 		// Check if cancelled (status may have changed)
-		if (this._status !== 'analyzing') {
+		if (
+			attemptId !== this._analysisAttemptId ||
+			generation !== this.contextGeneration ||
+			this._status !== 'analyzing' ||
+			result.cancelled
+		) {
 			log.debug('Analysis was cancelled or status changed during processing');
 			return;
 		}
@@ -571,6 +452,9 @@ class ScanWorkflow {
 		}
 
 		log.info(`Retrying ${this.analysisService.failedCount} failed image(s)`);
+		const attemptId = ++this._analysisAttemptId;
+		const generation = this.contextGeneration;
+		this.retryStartStatuses = { ...this.analysisService.imageStatuses };
 
 		// Set status to analyzing
 		this._status = 'analyzing';
@@ -586,7 +470,12 @@ class ScanWorkflow {
 		);
 
 		// Check if cancelled (status may have changed)
-		if (this._status !== 'analyzing') {
+		if (
+			attemptId !== this._analysisAttemptId ||
+			generation !== this.contextGeneration ||
+			this._status !== 'analyzing' ||
+			result.cancelled
+		) {
 			log.debug('Retry was cancelled or status changed during processing');
 			return;
 		}
@@ -613,6 +502,7 @@ class ScanWorkflow {
 			log.error(`Retry failed: ${this._error}`);
 		}
 
+		this.retryStartStatuses = null;
 		// Persist after retry completes
 		// IMPORTANT: Await persist to ensure data is saved before user can close tab
 		await this.persistAsync();
@@ -700,8 +590,14 @@ class ScanWorkflow {
 
 	/** Cancel ongoing analysis */
 	async cancelAnalysis(): Promise<void> {
+		this._analysisAttemptId++;
 		this.analysisService.cancel();
 		if (this._status === 'analyzing') {
+			const wasRetry = this.retryStartStatuses !== null;
+			if (this.retryStartStatuses) {
+				this.analysisService.imageStatuses = this.retryStartStatuses;
+			}
+			this.retryStartStatuses = null;
 			// If we had some successful items before cancellation, go to partial_analysis
 			// Otherwise go back to capturing
 			if (this.reviewService.detectedItems.length > 0) {
@@ -709,7 +605,7 @@ class ScanWorkflow {
 			} else {
 				this._status = 'capturing';
 			}
-			this.analysisService.clearProgress();
+			this.analysisService.clearProgress(wasRetry);
 
 			// Persist after cancellation to save the current state
 			await this.persistAsync();
@@ -717,8 +613,13 @@ class ScanWorkflow {
 	}
 
 	/** Clear analysis progress (called when animation completes) */
-	clearAnalysisProgress(): void {
+	clearAnalysisProgress(expectedAttemptId?: number): void {
+		if (expectedAttemptId !== undefined && expectedAttemptId !== this._analysisAttemptId) return;
 		this.analysisService.clearProgress();
+	}
+
+	get analysisAttemptId(): number {
+		return this._analysisAttemptId;
 	}
 
 	/** Check if analysis is in progress */
@@ -731,8 +632,27 @@ class ScanWorkflow {
 	// =========================================================================
 
 	/** Get current item being reviewed */
-	get currentItem(): ReviewItem | null {
+	get currentItem(): DeepReadonly<ReviewItem> | null {
 		return this.reviewService.currentItem;
+	}
+
+	get activeReviewDraft(): DeepReadonly<ReviewItem> | null {
+		return this.reviewService.activeDraft;
+	}
+
+	beginReviewDraft(): void {
+		this.reviewService.beginDraft();
+		if (!this.isEditingFailedItem) this.schedulePersist();
+	}
+
+	updateReviewDraft(updates: Partial<ReviewItem>, identity = this.currentItem?.reviewId): void {
+		if (this.reviewService.updateDraft(updates, identity) && !this.isEditingFailedItem)
+			this.schedulePersist();
+	}
+
+	discardReviewDraft(): void {
+		this.reviewService.discardDraft();
+		if (!this.isEditingFailedItem) this.schedulePersist();
 	}
 
 	/** Update the current item being reviewed */
@@ -757,14 +677,21 @@ class ScanWorkflow {
 			await this.backToCapture();
 		} else if (result === 'complete') {
 			await this.finishReview();
-		}
+		} else await this.persistAsync();
 	}
 
 	/** Confirm current item and move to next */
 	async confirmItem(item: ReviewItem): Promise<void> {
+		if (this._status !== 'reviewing' || item.reviewId !== this.currentItem?.reviewId) return;
+		const validationError = itemValidationError(item);
+		if (validationError) {
+			this._error = validationError;
+			return;
+		}
 		if (this.failedItemEditIndex !== null) {
 			const editIndex = this.failedItemEditIndex;
 			if (this.reviewService.replaceConfirmedItem(editIndex, item)) {
+				this.reviewService.discardDraft();
 				this.failedItemEditIndex = null;
 				this._status = 'confirming';
 				await this.persistAsync();
@@ -775,11 +702,20 @@ class ScanWorkflow {
 		const hasMore = this.reviewService.confirmCurrentItem(item);
 		if (!hasMore) {
 			await this.finishReview();
-		}
+		} else await this.persistAsync();
 	}
 
 	/** Confirm all remaining items from current index onwards */
 	async confirmAllRemainingItems(currentItemOverride?: ReviewItem): Promise<number> {
+		const remaining = this.reviewService.detectedItems.slice(this.reviewService.currentReviewIndex);
+		if (
+			remaining.some((item, index) =>
+				itemValidationError(index === 0 && currentItemOverride ? currentItemOverride : item)
+			)
+		) {
+			this._error = 'Fix the invalid item fields before confirming.';
+			return 0;
+		}
 		const count = this.reviewService.confirmAllRemainingItems(currentItemOverride);
 		await this.finishReview();
 		return count;
@@ -856,6 +792,7 @@ class ScanWorkflow {
 		if (this.failedItemEditIndex === null) return;
 
 		this.failedItemEditIndex = null;
+		this.reviewService.discardDraft();
 		this._status = 'confirming';
 		await this.persistAsync();
 	}
@@ -882,7 +819,7 @@ class ScanWorkflow {
 		sessionExpired: boolean;
 	}> {
 		const generation = this.contextGeneration;
-		if (!sessionPersistence.captureSessionScope()) {
+		if (!captureSessionScope()) {
 			throw new Error('Cannot submit without a verified Homebox context and collection');
 		}
 		const items = this.reviewService.confirmedItems;
@@ -894,6 +831,17 @@ class ScanWorkflow {
 				successCount: 0,
 				partialSuccessCount: 0,
 				failCount: 0,
+				sessionExpired: false,
+			};
+		}
+
+		if (items.some((item) => itemValidationError(item))) {
+			this._error = 'Fix the invalid item fields before submitting.';
+			return {
+				success: false,
+				successCount: 0,
+				partialSuccessCount: 0,
+				failCount: items.length,
 				sessionExpired: false,
 			};
 		}
@@ -948,7 +896,7 @@ class ScanWorkflow {
 		sessionExpired: boolean;
 	}> {
 		const generation = this.contextGeneration;
-		if (!sessionPersistence.captureSessionScope()) {
+		if (!captureSessionScope()) {
 			throw new Error('Cannot submit without a verified Homebox context and collection');
 		}
 		const items = this.reviewService.confirmedItems;
@@ -1011,6 +959,11 @@ class ScanWorkflow {
 	 * (e.g., after analysis completes before navigation can occur).
 	 */
 	async persistAsync(): Promise<void> {
+		if (this.isEditingFailedItem) return;
+		if (this._persistTimeout) {
+			clearTimeout(this._persistTimeout);
+			this._persistTimeout = null;
+		}
 		// Don't persist terminal states
 		if (this._status === 'idle' || this._status === 'complete') {
 			return;
@@ -1023,88 +976,35 @@ class ScanWorkflow {
 	 * Internal persist implementation - serializes and saves to IndexedDB.
 	 */
 	private async _doPersist(): Promise<void> {
-		log.debug('_doPersist: Starting session persistence...');
-		const scope = sessionPersistence.captureSessionScope();
+		if (this.isEditingFailedItem) return;
+		const attempt = ++this.persistAttempt;
 		const generation = this.contextGeneration;
-		if (!scope) return;
-
-		try {
-			// Step 1: Serialize images (convert File objects to base64)
-			log.debug(`_doPersist: Serializing ${this.captureService.images.length} image(s)...`);
-			const images = await Promise.all(this.captureService.images.map(serializeImage));
-			log.debug(`_doPersist: Images serialized successfully`);
-
-			// Step 2: Serialize review items (strip File references)
-			// Use JSON.parse/stringify to deep-unwrap any Svelte 5 $state proxies
-			// that might remain after serialization (proxies are not cloneable by IndexedDB)
-			log.debug(
-				`_doPersist: Serializing ${this.reviewService.detectedItems.length} detected, ${this.reviewService.confirmedItems.length} confirmed items...`
-			);
-			const detectedItems = JSON.parse(
-				JSON.stringify(this.reviewService.detectedItems.map(serializeReviewItem))
-			);
-			const confirmedItems = JSON.parse(
-				JSON.stringify(this.reviewService.confirmedItems.map(serializeConfirmedItem))
-			);
-			log.debug('_doPersist: Review items serialized successfully');
-
-			// Step 3: Generate or reuse session metadata
-			const now = Date.now();
-			if (this._persistedCreatedAt === null) {
-				this._persistedCreatedAt = now;
-			}
-			if (this._persistedSessionId === null) {
-				this._persistedSessionId = crypto.randomUUID();
-				log.info(`New session created: ${this._persistedSessionId}`);
-			}
-
-			// Step 4: Deep-unwrap imageStatuses to ensure no proxies remain
-			log.debug(
-				`_doPersist: Unwrapping imageStatuses with ${Object.keys(this.analysisService.imageStatuses).length} entries...`
-			);
-			const imageStatuses = JSON.parse(JSON.stringify(this.analysisService.imageStatuses));
-			log.debug('_doPersist: imageStatuses unwrapped successfully');
-
-			// Step 5: Build session object
-			const session: StoredSession = {
-				id: this._persistedSessionId,
-				createdAt: this._persistedCreatedAt,
-				updatedAt: now,
+		const revision = this.saveRevision;
+		this._saveState = 'saving';
+		const saved = await this.persistence.save(
+			() => ({
 				status: this._status,
 				locationId: this._locationId,
 				locationName: this._locationName,
 				locationPath: this._locationPath,
 				parentItemId: this._parentItemId,
 				parentItemName: this._parentItemName,
-				images,
-				detectedItems,
-				confirmedItems,
+				images: this.captureService.images,
+				detectedItems: this.reviewService.detectedItems,
+				confirmedItems: this.reviewService.confirmedItems,
+				activeReviewDraft: this.reviewService.activeDraft ?? undefined,
 				currentReviewIndex: this.reviewService.currentReviewIndex,
-				imageStatuses,
+				imageStatuses: this.analysisService.imageStatuses,
 				submission: this.submissionService.snapshot(),
-			};
-			log.debug('_doPersist: Session object built, saving to IndexedDB...');
-
-			// Step 6: Save to IndexedDB
-			if (generation !== this.contextGeneration) {
-				log.debug('_doPersist: Context changed during serialization, discarding stale write');
-				return;
-			}
-			await sessionPersistence.save(session, scope);
-			log.debug(
-				`_doPersist: SUCCESS - status=${this._status}, images=${images.length}, detected=${detectedItems.length}, confirmed=${confirmedItems.length}`
-			);
-		} catch (error) {
-			// Non-critical - log but don't disrupt workflow
-			// Extract meaningful error info for logging (avoids minified stack traces)
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			const errorName = error instanceof Error ? error.name : 'Unknown';
-			const errorStack = error instanceof Error ? error.stack : undefined;
-			log.error(`_doPersist: FAILED - [${errorName}] ${errorMessage}`);
-			if (errorStack) {
-				log.debug(`_doPersist: Stack trace: ${errorStack}`);
-			}
-		}
+			}),
+			() => generation === this.contextGeneration
+		);
+		if (
+			generation === this.contextGeneration &&
+			revision === this.saveRevision &&
+			attempt === this.persistAttempt
+		)
+			this._saveState = saved ? 'saved' : 'error';
 	}
 
 	/**
@@ -1112,11 +1012,14 @@ class ScanWorkflow {
 	 * Returns true if recovery was successful.
 	 */
 	async recover(): Promise<boolean> {
-		const scope = sessionPersistence.captureSessionScope();
+		const scope = captureSessionScope();
 		const generation = this.contextGeneration;
 		if (!scope) return false;
 		try {
-			const session = await sessionPersistence.load(scope);
+			const session = await this.persistence.recover(
+				scope,
+				() => generation === this.contextGeneration
+			);
 			if (!session) {
 				return false;
 			}
@@ -1131,31 +1034,22 @@ class ScanWorkflow {
 			this._parentItemId = session.parentItemId;
 			this._parentItemName = session.parentItemName;
 
-			// Deserialize images (convert base64 back to File objects)
-			const images = await Promise.all(session.images.map(deserializeImage));
-			if (generation !== this.contextGeneration) return false;
-			this.captureService.images = images;
-
-			// Deserialize review items
+			// Apply the adapter's fully hydrated image and review data.
+			this.captureService.images = session.images;
 			if (session.detectedItems.length > 0) {
-				const detectedItems = await Promise.all(session.detectedItems.map(deserializeReviewItem));
-				if (generation !== this.contextGeneration) return false;
-				this.reviewService.setDetectedItems(detectedItems);
+				this.reviewService.setDetectedItems(session.detectedItems);
 			}
-
 			if (session.confirmedItems.length > 0) {
-				const confirmedItems = await Promise.all(
-					session.confirmedItems.map(deserializeConfirmedItem)
-				);
-				if (generation !== this.contextGeneration) return false;
-				// Restore confirmed items directly (not via confirmCurrentItem which affects navigation)
-				this.reviewService.setConfirmedItems(confirmedItems);
+				// Restore directly without changing review navigation.
+				this.reviewService.setConfirmedItems(session.confirmedItems);
 			}
 
 			// Restore review index
 			if (session.currentReviewIndex > 0) {
 				this.reviewService.setCurrentReviewIndex(session.currentReviewIndex);
 			}
+			this.reviewService.restoreDraft(session.activeReviewDraft);
+			this._saveState = 'saved';
 
 			// Restore image statuses (for partial_analysis recovery)
 			if (session.imageStatuses) {
@@ -1177,10 +1071,6 @@ class ScanWorkflow {
 
 			this._error = null;
 
-			// Cache timestamps and ID for future persist() calls
-			this._persistedCreatedAt = session.createdAt;
-			this._persistedSessionId = session.id;
-
 			log.info('Session recovered successfully');
 			return true;
 		} catch (error) {
@@ -1189,7 +1079,7 @@ class ScanWorkflow {
 			const errorName = error instanceof Error ? error.name : 'Unknown';
 			log.error(`Failed to recover session: [${errorName}] ${errorMessage}`);
 			// Clear corrupted session
-			await this.clearPersistedSession();
+			if (generation === this.contextGeneration) await this.persistence.clear(scope);
 			return false;
 		}
 	}
@@ -1198,22 +1088,22 @@ class ScanWorkflow {
 	 * Check if a recoverable session exists.
 	 */
 	async hasRecoverableSession(): Promise<boolean> {
-		return sessionPersistence.hasRecoverableSession();
+		return this.persistence.hasRecoverableSession();
 	}
 
 	/**
 	 * Get summary of recoverable session for UI display.
 	 */
-	async getRecoverySummary(): Promise<sessionPersistence.SessionSummary | null> {
-		return sessionPersistence.getSessionSummary();
+	async getRecoverySummary(): Promise<SessionSummary | null> {
+		return this.persistence.getRecoverySummary();
 	}
 
 	/**
 	 * Clear the persisted session from IndexedDB.
 	 */
 	async clearPersistedSession(): Promise<void> {
-		const scope = sessionPersistence.captureSessionScope();
-		if (scope) await sessionPersistence.clear(scope);
+		const scope = captureSessionScope();
+		if (scope) await this.persistence.clear(scope);
 	}
 
 	// =========================================================================
@@ -1222,14 +1112,19 @@ class ScanWorkflow {
 
 	/** Reset workflow to initial state */
 	reset(clearPersisted = true): void {
-		const scope = sessionPersistence.captureSessionScope();
+		const scope = captureSessionScope();
 		this.contextGeneration++;
+		this.saveRevision++;
+		this._saveState = 'saved';
 		// Cancel any pending debounced persist to prevent stale writes after reset
 		if (this._persistTimeout) {
 			clearTimeout(this._persistTimeout);
 			this._persistTimeout = null;
 		}
-		this.cancelAnalysis();
+		this._analysisAttemptId++;
+		this.analysisService.invalidateContext();
+		this.retryStartStatuses = null;
+		this.analysisService.clearProgress();
 		this.captureService.clear();
 		this.reviewService.reset();
 		this.submissionService.reset();
@@ -1241,9 +1136,8 @@ class ScanWorkflow {
 		this._parentItemId = null;
 		this._parentItemName = null;
 		this._error = null;
-		this._persistedCreatedAt = null; // Reset for next session
-		this._persistedSessionId = null; // Reset for next session
-		if (clearPersisted && scope) void sessionPersistence.clear(scope);
+		this.persistence.resetMetadata();
+		if (clearPersisted && scope) void this.persistence.clear(scope);
 	}
 
 	/** Drop in-memory work when changing collection while preserving the old scoped draft. */
@@ -1283,12 +1177,12 @@ class ScanWorkflow {
 	}
 
 	/** Get source image for a review/confirmed item */
-	getSourceImage(item: ReviewItem | ConfirmedItem): CapturedImage | null {
+	getSourceImage(item: Pick<ReviewItem, 'sourceImageIndex'>): DeepReadonly<CapturedImage> | null {
 		return this.captureService.getImage(item.sourceImageIndex);
 	}
 
 	/** Get last submission result (preserved after workflow completion) */
-	get submissionResult(): SubmissionResult | null {
+	get submissionResult(): DeepReadonly<SubmissionResult> | null {
 		return this.submissionService.lastResult;
 	}
 }

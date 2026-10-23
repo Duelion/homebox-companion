@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from homebox_companion import HomeboxAuthError, HomeboxClient, HomeboxCompanionError
 from homebox_companion.core import HomeboxAPIError
+from homebox_companion.core.config import Settings
 from homebox_companion.homebox.models import Item
 from server.app import create_app
 
@@ -84,11 +85,12 @@ class _RouteClient:
         return "Printed!"
 
 
-def _route_app(route_client: _RouteClient) -> FastAPI:
+def _route_app(route_client: _RouteClient, *, print_enabled: bool = True) -> FastAPI:
     from server.api import items as items_module
     from server.dependencies import get_client, get_token
 
     app = FastAPI()
+    app.state.settings = Settings(print_enabled=print_enabled)
     production_app = create_app()
     app.exception_handlers[HomeboxCompanionError] = production_app.exception_handlers[HomeboxCompanionError]
     app.include_router(items_module.router)
@@ -98,9 +100,6 @@ def _route_app(route_client: _RouteClient) -> FastAPI:
 
 
 def test_print_route_resolves_entity_uuid_to_asset_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    from server.api import items as items_module
-
-    monkeypatch.setattr(items_module.settings, "print_enabled", True)
     route_client = _RouteClient(Item.model_validate({"id": ENTITY_ID, "name": "Widget", "assetId": ASSET_ID}))
 
     with TestClient(_route_app(route_client)) as client:
@@ -113,9 +112,6 @@ def test_print_route_resolves_entity_uuid_to_asset_id(monkeypatch: pytest.Monkey
 
 
 def test_print_route_returns_409_when_asset_id_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    from server.api import items as items_module
-
-    monkeypatch.setattr(items_module.settings, "print_enabled", True)
     route_client = _RouteClient(Item.model_validate({"id": ENTITY_ID, "name": "Widget"}))
 
     with TestClient(_route_app(route_client)) as client:
@@ -128,12 +124,9 @@ def test_print_route_returns_409_when_asset_id_is_missing(monkeypatch: pytest.Mo
 
 
 def test_print_route_returns_403_when_printing_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    from server.api import items as items_module
-
-    monkeypatch.setattr(items_module.settings, "print_enabled", False)
     route_client = _RouteClient(Item.model_validate({"id": ENTITY_ID, "name": "Widget"}))
 
-    with TestClient(_route_app(route_client)) as client:
+    with TestClient(_route_app(route_client, print_enabled=False)) as client:
         response = client.post(f"/items/{ENTITY_ID}/print-label")
 
     assert response.status_code == 403
@@ -166,9 +159,6 @@ def test_print_route_preserves_structured_domain_errors(
     error_code: str,
     detail: str,
 ) -> None:
-    from server.api import items as items_module
-
-    monkeypatch.setattr(items_module.settings, "print_enabled", True)
     route_client = _RouteClient(
         Item.model_validate({"id": ENTITY_ID, "name": "Widget", "assetId": ASSET_ID}),
         print_error=error,
@@ -184,9 +174,6 @@ def test_print_route_preserves_structured_domain_errors(
 def test_print_route_wraps_unexpected_errors_without_leaking_details(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from server.api import items as items_module
-
-    monkeypatch.setattr(items_module.settings, "print_enabled", True)
     route_client = _RouteClient(
         Item.model_validate({"id": ENTITY_ID, "name": "Widget", "assetId": ASSET_ID}),
         print_error=RuntimeError("private upstream failure detail"),

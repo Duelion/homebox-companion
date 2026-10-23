@@ -1,6 +1,6 @@
 """Unified settings management with YAML persistence.
 
-Consolidates LLM profiles and field preferences into a single settings.yaml file.
+Persists LLM profiles and custom fields in settings.yaml. Field preferences use JSON.
 Bootstraps from environment variables on first run, then uses the file exclusively.
 
 Settings flow:
@@ -11,8 +11,12 @@ Settings flow:
 
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 import threading
+from collections.abc import Callable
+from contextlib import suppress
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
@@ -22,8 +26,6 @@ import yaml
 from loguru import logger
 from pydantic import BaseModel, Field, SecretStr, model_validator
 
-from .field_preferences import FieldPreferences
-
 # Data directory for persistent storage (mounted volume in Docker).
 # This is relative to the working directory, which should be the project root
 # when running via `uv run` or from Docker (where WORKDIR is set appropriately).
@@ -31,7 +33,54 @@ DATA_DIR = Path("data")
 SETTINGS_FILE = DATA_DIR / "settings.yaml"
 
 # Current schema version for migrations
-CURRENT_VERSION = 2
+CURRENT_VERSION = 3
+
+# Serialize reads and writes within the process. An RLock is required because a
+# first load or migration persists settings while the load lock is held.
+_settings_lock = threading.RLock()
+
+
+class SettingsLoadError(RuntimeError):
+    """Raised when an existing settings file cannot be loaded safely."""
+
+
+class SettingsStorageError(RuntimeError):
+    """Raised when the settings directory cannot support durable writes."""
+
+
+def check_settings_storage(directory: Path | None = None) -> None:
+    """Probe the actual destination directory without touching saved settings."""
+    directory = (directory if directory is not None else SETTINGS_FILE.parent).resolve()
+    probes: list[Path] = []
+    failure = False
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        for _ in range(2):
+            descriptor, name = tempfile.mkstemp(dir=directory, prefix=".settings-storage-", suffix=".tmp")
+            probes.append(Path(name))
+            os.close(descriptor)
+        # Replacing an existing sibling tests the operation used by settings saves.
+        os.replace(probes[0], probes[1])
+    except OSError:
+        failure = True
+    finally:
+        for probe in probes:
+            try:
+                probe.unlink(missing_ok=True)
+            except OSError:
+                failure = True
+    if failure:
+        identity = (
+            f"UID {os.geteuid()} / GID {os.getegid()}"
+            if hasattr(os, "geteuid") and hasattr(os, "getegid")
+            else "the current runtime user"
+        )
+        raise SettingsStorageError(
+            f"Settings storage is not writable at '{directory}'. "
+            f"Grant {identity} create, replace and delete access to this directory. "
+            "Check the selected data mount ownership and filesystem permissions; "
+            "see README Docker storage repair instructions."
+        )
 
 
 class ProfileStatus(StrEnum):
@@ -117,19 +166,19 @@ class PersistentSettings(BaseModel):
 
     Contains all persistent configuration:
     - LLM profiles (multi-provider support)
-    - Field preferences (AI output customization)
+    - Inactive field preference snapshots (preserved for compatibility)
     - Custom fields (user-defined Homebox fields with AI instructions)
 
     Attributes:
         version: Schema version for migrations
         llm_profiles: List of configured LLM providers
-        field_preferences: AI output field customizations
+        field_preferences: Inactive historical snapshot, never used at runtime
         custom_fields: User-defined Homebox custom fields
     """
 
     version: int = CURRENT_VERSION
     llm_profiles: list[ModelProfile] = Field(default_factory=list)
-    field_preferences: FieldPreferences = Field(default_factory=FieldPreferences)
+    field_preferences: dict[str, str | None] = Field(default_factory=dict)
     custom_fields: list[CustomFieldDefinition] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -167,7 +216,7 @@ def _settings_to_yaml_dict(settings: PersistentSettings) -> dict:
     return {
         "version": settings.version,
         "llm_profiles": profiles,
-        "field_preferences": settings.field_preferences.model_dump(),
+        "field_preferences": settings.field_preferences,
         "custom_fields": [{"name": cf.name, "ai_instruction": cf.ai_instruction} for cf in settings.custom_fields],
     }
 
@@ -193,10 +242,14 @@ def _yaml_dict_to_settings(data: dict) -> PersistentSettings:
         for cf in data.get("custom_fields", [])
     ]
 
+    from .redaction import register_secrets
+
+    register_secrets(*(profile.api_key for profile in profiles))
+
     return PersistentSettings(
         version=data.get("version", CURRENT_VERSION),
         llm_profiles=profiles,
-        field_preferences=FieldPreferences.model_validate(field_prefs),
+        field_preferences=field_prefs,
         custom_fields=custom_fields,
     )
 
@@ -228,18 +281,9 @@ def bootstrap_from_env() -> PersistentSettings:
         )
         logger.info(f"Bootstrapped default LLM profile from env: {model}")
 
-    # Migrate existing field_preferences.json if it exists
-    from .field_preferences import PREFERENCES_FILE, load_field_preferences
-
-    field_prefs = FieldPreferences()
-    if PREFERENCES_FILE.exists():
-        field_prefs = load_field_preferences()
-        logger.info("Migrated existing field_preferences.json to settings.yaml")
-
     return PersistentSettings(
         version=CURRENT_VERSION,
         llm_profiles=profiles,
-        field_preferences=field_prefs,
     )
 
 
@@ -272,56 +316,100 @@ def load_settings() -> PersistentSettings:
     Returns:
         PersistentSettings instance with all configuration
     """
-    if not SETTINGS_FILE.exists():
-        logger.info("No settings.yaml found, bootstrapping from environment")
-        settings = bootstrap_from_env()
-        save_settings(settings)
-        return settings
-
-    try:
-        raw_data = yaml.safe_load(SETTINGS_FILE.read_text(encoding="utf-8"))
-        if raw_data is None:
-            raw_data = {}
-
-        # Apply any needed migrations
-        migrated_data = migrate_settings(raw_data)
-
-        settings = _yaml_dict_to_settings(migrated_data)
-
-        # Save if migration occurred
-        if raw_data.get("version", 1) < CURRENT_VERSION:
+    with _settings_lock:
+        if not SETTINGS_FILE.exists():
+            logger.info("No settings.yaml found, bootstrapping from environment")
+            settings = bootstrap_from_env()
             save_settings(settings)
+            return settings
 
-        return settings
+        try:
+            raw_data = yaml.safe_load(SETTINGS_FILE.read_text(encoding="utf-8"))
+            if raw_data is None:
+                raise SettingsLoadError("settings file is empty")
+            if not isinstance(raw_data, dict):
+                raise ValueError("settings root must be a mapping")
 
-    except Exception as e:
-        logger.error(f"Failed to load settings.yaml: {e}")
-        logger.warning("Using bootstrapped settings as fallback")
-        return bootstrap_from_env()
+            original_version = raw_data.get("version", 1)
+            migrated_data = migrate_settings(raw_data)
+            settings = _yaml_dict_to_settings(migrated_data)
+
+            if original_version < CURRENT_VERSION:
+                save_settings(settings)
+
+            return settings
+        except SettingsLoadError:
+            raise
+        except Exception:
+            # YAML parser diagnostics can include the complete source line,
+            # including saved API keys. Leave the exception handler before
+            # raising so no raw exception remains in the exception context.
+            pass
+
+        logger.error("Failed to load existing settings file")
+        raise SettingsLoadError("Failed to load existing settings file")
 
 
-# Lock for thread-safe settings file access
-_settings_lock = threading.Lock()
+def _atomic_write_settings(yaml_content: str) -> None:
+    """Write settings beside the destination and atomically replace it."""
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        dir=SETTINGS_FILE.parent,
+        prefix=f".{SETTINGS_FILE.name}.",
+        suffix=".tmp",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        temporary_file = os.fdopen(file_descriptor, "w", encoding="utf-8")
+        file_descriptor = -1  # The file object now owns the descriptor.
+        with temporary_file:
+            temporary_file.write(yaml_content)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, SETTINGS_FILE)
+    except BaseException:
+        if file_descriptor != -1:
+            with suppress(OSError):
+                os.close(file_descriptor)
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+
+def mutate_settings(mutate: Callable[[PersistentSettings], None]) -> PersistentSettings:
+    """Read fresh, mutate, validate and persist under one process-wide lock.
+
+    Mutators must be synchronous and perform no network work. A returned snapshot
+    is safe for response rendering; later transactions cannot mutate it.
+    """
+    with _settings_lock:
+        candidate = load_settings()
+        mutate(candidate)
+        candidate = PersistentSettings.model_validate(candidate.model_dump())
+        save_settings(candidate)
+        return candidate.model_copy(deep=True)
 
 
 def save_settings(settings: PersistentSettings) -> None:
     """Save settings to YAML file.
 
-    Thread-safe with file locking to prevent race conditions.
+    Thread-safe within this process to prevent concurrent reads and writes.
     Automatically clears the settings cache to ensure fresh data on next access.
 
     Args:
         settings: PersistentSettings instance to persist
     """
     with _settings_lock:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-        yaml_dict = _settings_to_yaml_dict(settings)
+        validated = PersistentSettings.model_validate(settings.model_dump())
+        from .redaction import register_secrets
+
+        register_secrets(*(profile.api_key for profile in validated.llm_profiles))
+        yaml_dict = _settings_to_yaml_dict(validated)
 
         # Use default_flow_style=False for readable multi-line output
         yaml_content = yaml.dump(yaml_dict, default_flow_style=False, allow_unicode=True)
 
-        SETTINGS_FILE.write_text(yaml_content, encoding="utf-8")
+        _atomic_write_settings(yaml_content)
         logger.debug("Settings saved to settings.yaml")
 
         # Clear cache inside lock to prevent race conditions
@@ -345,7 +433,12 @@ def get_settings() -> PersistentSettings:
     Returns a copy to prevent mutation of cached data.
     Use clear_settings_cache() after modifications to refresh.
     """
-    return _get_settings_cached().model_copy(deep=True)
+    with _settings_lock:
+        result = _get_settings_cached().model_copy(deep=True)
+    from .redaction import register_secrets
+
+    register_secrets(*(profile.api_key for profile in result.llm_profiles))
+    return result
 
 
 def clear_settings_cache() -> None:

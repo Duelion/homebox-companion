@@ -155,7 +155,7 @@ class ToolResult(BaseModel):
 
 
 @runtime_checkable
-class Tool(Protocol):
+class Tool[ParamsT: ToolParams](Protocol):
     """Protocol defining the tool contract.
 
     All tool implementations must satisfy this protocol by providing:
@@ -166,16 +166,25 @@ class Tool(Protocol):
     - execute: Async method to perform the tool's action
     """
 
-    name: str
-    description: str
-    permission: ToolPermission
-    Params: type[BaseModel]
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def description(self) -> str: ...
+
+    @property
+    def permission(self) -> ToolPermission: ...
+
+    @property
+    def Params(self) -> type[ParamsT]:
+        """Model used to validate this tool's arguments."""
+        ...
 
     async def execute(
         self,
         client: HomeboxClient,
         token: str,
-        params: BaseModel,
+        params: ParamsT,
     ) -> ToolResult:
         """Execute the tool with validated parameters.
 

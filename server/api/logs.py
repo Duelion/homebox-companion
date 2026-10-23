@@ -86,7 +86,7 @@ async def get_logs(
     Reads from the most recent log file (or a specific date if provided).
     Returns the last N lines for display in the Settings page.
 
-    Requires authentication to prevent exposure of sensitive log data.
+    Requires valid Homebox authorization.
     """
     _validate_date_format(date)
     log_files = _get_log_files(date)
@@ -124,7 +124,7 @@ async def get_logs(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error reading log file: {e}",
+            detail="Unable to read the log file.",
         ) from e
 
 
@@ -136,7 +136,7 @@ async def download_logs(
 
     Returns the complete log file for the most recent date (or a specific date if provided).
 
-    Requires authentication to prevent exposure of sensitive log data.
+    Requires valid Homebox authorization.
     """
     _validate_date_format(date)
     log_files = _get_log_files(date)
@@ -167,7 +167,7 @@ async def get_llm_debug_logs(
     Reads from the most recent LLM debug log file (or a specific date if provided).
     Returns the last N lines for display in the Settings page.
 
-    Requires authentication to prevent exposure of sensitive log data.
+    Requires valid Homebox authorization.
     """
     _validate_date_format(date)
     log_files = _get_llm_debug_log_files(date)
@@ -205,7 +205,7 @@ async def get_llm_debug_logs(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error reading LLM debug log file: {e}",
+            detail="Unable to read the LLM debug log file.",
         ) from e
 
 
@@ -217,7 +217,7 @@ async def download_llm_debug_logs(
 
     Returns the complete LLM debug log file for the most recent date (or a specific date if provided).
 
-    Requires authentication to prevent exposure of sensitive log data.
+    Requires valid Homebox authorization.
     """
     _validate_date_format(date)
     log_files = _get_llm_debug_log_files(date)

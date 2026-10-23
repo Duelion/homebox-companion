@@ -186,6 +186,52 @@ async def test_key_mode_transport_never_sends_cookie_jar() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("api_key,expected", [(None, 401), ("hb_invalid", 502)])
+async def test_lifespan_shared_transport_cannot_authenticate_with_previous_login_cookie(
+    api_key, expected, monkeypatch
+) -> None:
+    import importlib
+
+    app_module = importlib.import_module("server.app")
+    from homebox_companion.core import persistent_settings
+
+    cookies: list[str | None] = []
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/users/login"):
+            return httpx.Response(
+                200,
+                json={"token": "valid-session"},
+                headers={"Set-Cookie": "session=valid-session; Path=/"},
+            )
+        assert request.url.path.endswith("/users/self")
+        cookie = request.headers.get("Cookie")
+        cookies.append(cookie)
+        # Model Homebox accepting a retained cookie even with an invalid bearer.
+        accepted = cookie == "session=valid-session" or request.headers.get("Authorization") == "Bearer valid-session"
+        return httpx.Response(200 if accepted else 401, json={"id": "previous-user"})
+
+    def shared_client(**kwargs):
+        return HomeboxClient(**kwargs, transport=httpx.MockTransport(upstream))
+
+    monkeypatch.setattr(app_module, "HomeboxClient", shared_client)
+    monkeypatch.setattr(app_module, "setup_logging", lambda: None)
+    monkeypatch.setattr(app_module, "_test_homebox_connectivity", AsyncMock())
+    monkeypatch.setattr(persistent_settings, "check_settings_storage", lambda *args: None)
+    app = create_app(Settings(_env_file=None, homebox_url="http://homebox.test", homebox_api_key=api_key))
+    async with app.router.lifespan_context(app):
+        shared = app.state.homebox_client
+        await shared.login("previous-user", "password")
+        assert shared.client.cookies.get("session") == "valid-session"
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://companion.test"
+        ) as client:
+            response = await client.get("/api/logs", headers={"Authorization": "Bearer invalid-session"})
+        assert response.status_code == expected
+    assert cookies == [None]
+
+
+@pytest.mark.asyncio
 async def test_entity_type_cache_is_scoped_by_verified_identity_and_group() -> None:
     calls: list[str] = []
 
@@ -336,8 +382,7 @@ async def test_sse_domain_error_uses_safe_structured_contract() -> None:
             )
 
     events = [
-        event
-        async for event in _event_generator(cast(ChatOrchestrator, FailingOrchestrator()), "hello", "unused")
+        event async for event in _event_generator(cast(ChatOrchestrator, FailingOrchestrator()), "hello", "unused")
     ]
     payload = json.loads(events[0]["data"])
     assert payload == {"message": "Homebox is unavailable. Please retry.", "code": "HOMEBOX_UNAVAILABLE"}

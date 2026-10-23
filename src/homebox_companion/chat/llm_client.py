@@ -21,128 +21,15 @@ Router Integration:
 
 from __future__ import annotations
 
-import json
 import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 
 from loguru import logger
 
 from homebox_companion.core import config
 from homebox_companion.core.llm_router import get_primary_model_name, get_router
-from homebox_companion.core.logging import get_log_level_value
-
-
-def _build_log_entry(
-    messages: list[dict[str, Any]],
-    tools: list[dict[str, Any]] | None,
-    response_content: str,
-    response_tool_calls: list[dict[str, Any]] | None,
-    latency_ms: int,
-    model: str,
-) -> dict[str, Any]:
-    """Build a log entry with detail level based on configured log level.
-
-    Detail levels:
-    - TRACE: Full detail (all messages, complete tool schemas, full response)
-    - DEBUG: Moderate detail (all messages, tool names only, full response)
-    - INFO+: Minimal (timestamp, model, latency, counts/summaries)
-
-    Args:
-        messages: The messages sent to the LLM.
-        tools: The tool definitions sent to the LLM.
-        response_content: The response content from the LLM.
-        response_tool_calls: The tool calls from the response.
-        latency_ms: Time taken for the request in milliseconds.
-        model: The model identifier used for this request.
-
-    Returns:
-        Dict containing the log entry with appropriate detail level.
-    """
-    level_value = get_log_level_value()
-    timestamp = datetime.now(UTC).isoformat()
-
-    # Base entry (always included)
-    entry: dict[str, Any] = {
-        "timestamp": timestamp,
-        "latency_ms": latency_ms,
-        "model": model,
-    }
-
-    if level_value <= logger.level("TRACE").no:
-        # TRACE: Full detail
-        entry["request"] = {
-            "messages": messages,
-            "tools": tools,
-        }
-        entry["response"] = {
-            "content": response_content,
-            "tool_calls": response_tool_calls,
-        }
-    elif level_value <= logger.level("DEBUG").no:
-        # DEBUG: Moderate detail - tool names only, no full schemas
-        entry["request"] = {
-            "messages": messages,
-            "tool_names": [t["function"]["name"] for t in tools] if tools else None,
-        }
-        entry["response"] = {
-            "content": response_content,
-            "tool_calls": response_tool_calls,
-        }
-    else:
-        # INFO+: Minimal - just summaries
-        entry["request"] = {
-            "message_count": len(messages),
-            "tool_count": len(tools) if tools else 0,
-            "tool_names": [t["function"]["name"] for t in tools] if tools else None,
-        }
-        entry["response"] = {
-            "content_length": len(response_content),
-            "tool_call_count": len(response_tool_calls) if response_tool_calls else 0,
-            "tool_calls_summary": ([tc.get("name") for tc in response_tool_calls] if response_tool_calls else None),
-        }
-
-    return entry
-
-
-def log_streaming_interaction(
-    messages: list[dict[str, Any]],
-    tools: list[dict[str, Any]] | None,
-    response_content: str,
-    response_tool_calls: list[dict[str, Any]] | None,
-    latency_ms: int,
-    model: str,
-) -> None:
-    """Log a streaming LLM interaction to the debug log file.
-
-    Called by the orchestrator after streaming completes to capture
-    the exact messages sent to the LLM and the reconstructed response.
-
-    The detail level varies based on the configured log level:
-    - TRACE: Full messages, full tool schemas, full response
-    - DEBUG: Full messages, tool names only, full response
-    - INFO+: Counts and summaries only
-
-    Args:
-        messages: The exact messages sent to the LLM.
-        tools: The tool definitions sent to the LLM.
-        response_content: The accumulated response content.
-        response_tool_calls: The parsed tool calls from the response.
-        latency_ms: Time taken for the streaming request in milliseconds.
-        model: The model identifier used for this request.
-    """
-    try:
-        entry = _build_log_entry(messages, tools, response_content, response_tool_calls, latency_ms, model)
-
-        # Log with llm_debug=True so it's captured by the dedicated handler
-        logger.bind(llm_debug=True).info(json.dumps(entry))
-        logger.trace("[LLM_LOG] Logged streaming interaction")
-
-    except Exception as e:
-        logger.warning(f"[LLM_LOG] Failed to log streaming interaction: {e}")
-
 
 # System prompt for the assistant
 # Note: Tool definitions are passed dynamically via the tools parameter,

@@ -22,7 +22,7 @@ const HOMEBOX_PATTERNS = [/\/location\/[a-f0-9-]+/i, /\/a\/[^\s/]+/];
  * - If it looks like a URL, calls the server to follow redirects.
  * - Otherwise, returns the raw text unchanged.
  */
-export async function resolveQrUrl(rawText: string): Promise<string> {
+export async function resolveQrUrl(rawText: string, signal?: AbortSignal): Promise<string> {
 	const trimmed = rawText.trim();
 
 	// Already a Homebox URL — no resolution needed
@@ -42,6 +42,7 @@ export async function resolveQrUrl(rawText: string): Promise<string> {
 	try {
 		const result = await request<{ resolved_url: string }>('/qr/resolve', {
 			method: 'POST',
+			signal,
 			body: JSON.stringify({ url: trimmed }),
 		});
 		log.info(`Resolved to: ${result.resolved_url}`);

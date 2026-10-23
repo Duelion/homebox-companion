@@ -19,10 +19,10 @@ class TestGetExtendedFieldsPayload:
             name="Tool",
             quantity=1,
             manufacturer="DeWalt",
-            model_number="DCD771",  # ty: ignore[unknown-argument]
-            serial_number="SN12345",  # ty: ignore[unknown-argument]
-            purchase_price=99.99,  # ty: ignore[unknown-argument]
-            purchase_from="Home Depot",  # ty: ignore[unknown-argument]
+            model_number="DCD771",
+            serial_number="SN12345",
+            purchase_price=99.99,
+            purchase_from="Home Depot",
             notes="Good condition",
         )
 

@@ -11,12 +11,16 @@ from typing import Protocol, cast
 
 import httpx
 import pytest
+from fastapi import HTTPException, Request
 from pydantic import SecretStr
 
 from homebox_companion.chat.llm_client import LLMClient
 from homebox_companion.chat.store import MemorySessionStore
 from homebox_companion.core.config import Settings
 from homebox_companion.homebox.client import HomeboxClient
+from homebox_companion.mcp.executor import ToolExecutor
+from homebox_companion.mcp.types import ToolPermission
+from server.api.auth import RateLimiter
 from server.app import create_app
 from server.dependencies import get_client
 
@@ -36,6 +40,27 @@ class _SettingsConstructor(Protocol):
 
 
 _settings = cast(_SettingsConstructor, Settings)
+
+
+def test_rate_limit_ignores_untrusted_forwarded_ip() -> None:
+    limiter = RateLimiter()
+
+    def request(forwarded_ip: str) -> Request:
+        return Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/api/login",
+                "headers": [(b"x-forwarded-for", forwarded_ip.encode())],
+                "client": ("192.0.2.10", 12345),
+            }
+        )
+
+    limiter.check(request("198.51.100.1"), limit=1)
+    with pytest.raises(HTTPException) as caught:
+        limiter.check(request("198.51.100.2"), limit=1)
+
+    assert caught.value.status_code == 429
 
 
 @asynccontextmanager
@@ -97,7 +122,7 @@ async def test_chat_message_and_approval_use_bound_executor(api_key, monkeypatch
 
     monkeypatch.setattr("homebox_companion.chat.orchestrator.settings.chat_enabled", True)
     monkeypatch.setattr(LLMClient, "complete_stream", complete_stream)
-    monkeypatch.setattr(LLMClient, "get_resolved_model", staticmethod(lambda: "gpt-5-mini"))
+    monkeypatch.setattr(LLMClient, "get_resolved_model", staticmethod(lambda: "gpt-5.6-luna"))
     headers = {
         "Authorization": "Bearer browser-session",
         "X-Companion-Request": "1",
@@ -191,12 +216,29 @@ async def test_legacy_mcp_executes_with_body_token_and_selected_collection(heade
     if header_token:
         headers["Authorization"] = f"Bearer {header_token}"
     async with _contract_client(settings, upstream) as client:
-        response = await client.post(
-            "/api/mcp/v1/tools/list_tags", headers=headers, json={"token": "body-token"}
-        )
+        response = await client.post("/api/mcp/v1/tools/list_tags", headers=headers, json={"token": "body-token"})
     assert response.status_code == 200
     assert response.json()["success"]
     assert seen == [("Bearer body-token", "selected-group")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_name",
+    sorted(tool.name for tool in ToolExecutor().list_tools() if tool.permission != ToolPermission.READ),
+)
+async def test_mcp_http_refuses_every_write_tool_without_calling_homebox(tool_name):
+    seen = []
+
+    def upstream(request):
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    settings = _settings(_env_file=None, homebox_api_key=None, chat_enabled=True)
+    async with _contract_client(settings, upstream) as client:
+        response = await client.post(f"/api/mcp/v1/tools/{tool_name}", json={"token": "body-token"})
+    assert response.status_code == 403
+    assert not seen
 
 
 @pytest.mark.asyncio
@@ -422,3 +464,53 @@ async def test_app_instances_and_env_override_keep_auth_configuration_isolated(
     assert key_connection.json()["context_id"] != legacy_connection.json()["context_id"]
     assert "hb_environment-secret" not in serialized
     assert "hb_instance-one" not in key_config.text + key_connection.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "username,password", [("unknown@example.com", "secret-password"), ("known@example.com", "wrong-secret")]
+)
+async def test_credential_login_rejection_is_safe_and_useful(username, password, monkeypatch):
+    from server.api import auth
+
+    settings = _settings(_env_file=None, homebox_api_key=None, demo_mode=False, auth_rate_limit_rpm=0)
+    app = create_app(settings)
+
+    def upstream(request):
+        assert request.url.path.endswith("/users/login")
+        return httpx.Response(401, json={"error": f"upstream-secret {username} {password}"})
+
+    async with HomeboxClient(base_url=settings.api_url, transport=httpx.MockTransport(upstream)) as homebox:
+        monkeypatch.setattr(auth, "get_client", lambda: homebox)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://companion.test") as client:
+            response = await client.post("/api/login", json={"username": username, "password": password})
+    assert response.status_code == 401
+    assert response.json()["code"] == "AUTH_FAILED"
+    assert response.json()["detail"] == "Invalid email or password."
+    for secret in (username, password, "upstream-secret"):
+        assert secret not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure,status,code", [(403, 403, "HOMEBOX_FORBIDDEN"), ("timeout", 503, "HOMEBOX_TIMEOUT")])
+async def test_login_preserves_other_failure_classifications(failure, status, code, monkeypatch):
+    from server.api import auth
+
+    settings = _settings(_env_file=None, homebox_api_key=None, demo_mode=False, auth_rate_limit_rpm=0)
+    app = create_app(settings)
+
+    def upstream(request):
+        if failure == "timeout":
+            raise httpx.ReadTimeout("secret-timeout", request=request)
+        return httpx.Response(failure, json={"error": "secret-body"})
+
+    async with HomeboxClient(base_url=settings.api_url, transport=httpx.MockTransport(upstream)) as homebox:
+        monkeypatch.setattr(auth, "get_client", lambda: homebox)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://companion.test") as client:
+            response = await client.post(
+                "/api/login", json={"username": "known@example.com", "password": "secret-password"}
+            )
+    assert response.status_code == status
+    assert response.json()["code"] == code
+    assert response.json()["detail"] != "Invalid email or password."
+    assert "secret" not in response.text

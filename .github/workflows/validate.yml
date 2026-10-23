@@ -5,6 +5,10 @@ on:
   push:
     branches: [dev]
 
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -14,67 +18,81 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.5"
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked --all-groups
-      - name: Run pytest
-        run: uv run --no-sync pytest
       - name: Run Ruff
         run: uv run --no-sync ruff check .
       - name: Run ty
-        run: uv run --no-sync ty check --exit-zero-on-warning
-      - name: Run Vulture
-        run: uv run --no-sync vulture --min-confidence 70 --sort-by-size
+        run: uv run --no-sync ty check --error-on-warning
+      - name: Check Python formatting
+        run: uv run --no-sync ruff format --check .
+      - name: Check Python dependencies
+        run: uv run --no-sync deptry .
+      - name: Run pytest
+        run: uv run --no-sync pytest
 
   frontend:
     name: Frontend checks
-    runs-on: ubuntu-latest
+    # Match the noble environment used for reviewed Playwright screenshot baselines.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
-          node-version: "22"
+          node-version: "26.10.0"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install locked dependencies
         run: npm ci
-      - name: Run Svelte checks
-        run: npm run check
-      - name: Run ESLint
-        run: npm run lint
-      - name: Check formatting
-        run: npm run format:check
+      - name: Verify frontend
+        run: npm run verify
       - name: Build frontend
         run: npm run build
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
       - name: Run mocked browser tests
-        run: npm run test:browser
+        run: npm run test:browser:run
+      - name: Upload browser test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-test-reports
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: warn
+          retention-days: 7
 
   homebox-live:
-    name: Homebox live checks
+    name: Homebox ${{ matrix.homebox-version }} live checks
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        homebox-version: ["0.27.0", "0.26.2"]
     env:
       HBC_LLM_API_KEY: ci-sentinel-no-network
       HBC_LLM_MODEL: gpt-5-mini
+      TEST_HOMEBOX_VERSION: ${{ matrix.homebox-version }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.5"
           enable-cache: true
@@ -89,3 +107,28 @@ jobs:
           tests/test_companion_auth_live.py
           tests/test_label_print_live.py
           tests/test_mcp_tools.py
+          tests/test_item_relationships_live.py
+
+  production-container:
+    name: Production container storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TEST_COMPANION_IMAGE: homebox-companion:storage-test
+      HBC_LLM_API_KEY: ci-sentinel-no-network
+      HBC_LLM_MODEL: gpt-5.6-luna
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Build production image once
+        run: docker build -t "$TEST_COMPANION_IMAGE" .
+      - name: Verify fresh and unwritable settings volumes
+        run: uv run --no-sync pytest -m live tests/test_companion_container_live.py

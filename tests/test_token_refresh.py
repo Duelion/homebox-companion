@@ -41,10 +41,18 @@ async def _client_with_response(
         )
 
 
+def _expect_refresh(request: httpx.Request) -> None:
+    """Fail when the client calls anything but Homebox's refresh endpoint."""
+    assert request.method == "GET"
+    assert request.url.path == "/api/v1/users/refresh"
+
+
 @asynccontextmanager
 async def _client_returning(payload: Any, status_code: int = 200) -> AsyncIterator[HomeboxClient]:
     """Yield a client returning a JSON payload with the requested status."""
-    def handler(_: httpx.Request) -> httpx.Response:
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        _expect_refresh(request)
         return httpx.Response(status_code, json=payload)
 
     async with _client_with_response(handler) as client:
@@ -80,9 +88,7 @@ async def test_refresh_token_prefers_valid_raw_when_legacy_token_is_empty() -> N
 @pytest.mark.asyncio
 async def test_refresh_token_keeps_legacy_token_field_and_strips_bearer() -> None:
     """Legacy refresh responses with a ``token`` field keep working."""
-    async with _client_returning(
-        {"token": "Bearer legacy-token", "expiresAt": "2026-08-25T00:00:00Z"}
-    ) as client:
+    async with _client_returning({"token": "Bearer legacy-token", "expiresAt": "2026-08-25T00:00:00Z"}) as client:
         data = await client.refresh_token("old-token")
 
     assert data["token"] == "legacy-token"
@@ -145,6 +151,7 @@ async def test_refresh_token_does_not_send_tenant_header() -> None:
     seen_headers: dict[str, str] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
+        _expect_refresh(request)
         seen_headers.update({key.lower(): value for key, value in request.headers.items()})
         return httpx.Response(200, json={"raw": "new-token"})
 
@@ -163,7 +170,8 @@ async def test_refresh_route_returns_canonical_token(monkeypatch: pytest.MonkeyP
     from server.api import auth as auth_api
     from server.app import create_app
 
-    def handler(_: httpx.Request) -> httpx.Response:
+    def handler(request: httpx.Request) -> httpx.Response:
+        _expect_refresh(request)
         return httpx.Response(
             200,
             json={"raw": "Bearer refreshed-token", "expiresAt": "2026-08-25T00:00:00Z"},
@@ -176,9 +184,7 @@ async def test_refresh_route_returns_canonical_token(monkeypatch: pytest.MonkeyP
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=create_app()), base_url="http://testserver"
         ) as api_client:
-            response = await api_client.post(
-                "/api/refresh", headers={"Authorization": "Bearer old-token"}
-            )
+            response = await api_client.post("/api/refresh", headers={"Authorization": "Bearer old-token"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -195,7 +201,8 @@ async def test_refresh_route_returns_safe_502_for_malformed_upstream_success(
     from server.api import auth as auth_api
     from server.app import create_app
 
-    def handler(_: httpx.Request) -> httpx.Response:
+    def handler(request: httpx.Request) -> httpx.Response:
+        _expect_refresh(request)
         return httpx.Response(200, json={})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as upstream_http:
@@ -205,9 +212,7 @@ async def test_refresh_route_returns_safe_502_for_malformed_upstream_success(
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=create_app()), base_url="http://testserver"
         ) as api_client:
-            response = await api_client.post(
-                "/api/refresh", headers={"Authorization": "Bearer old-token"}
-            )
+            response = await api_client.post("/api/refresh", headers={"Authorization": "Bearer old-token"})
 
     assert response.status_code == 502
     assert response.json() == {

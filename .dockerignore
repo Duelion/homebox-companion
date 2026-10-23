@@ -30,6 +30,11 @@ frontend/node_modules
 logs/
 *.log
 
+# Local configuration, user data and manual QA artifacts
+data/
+config/
+ux-review-screenshots/
+
 # Environment files (secrets)
 .env
 .env.*
@@ -47,6 +52,11 @@ Thumbs.db
 
 # Build artifacts (we rebuild in Docker)
 frontend/build
+frontend/.svelte-kit/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/stats.html
 server/static
 
 # Documentation

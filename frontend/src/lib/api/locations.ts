@@ -16,7 +16,7 @@ export const locations = {
 		return request<Location[]>(`/locations${params}`);
 	},
 
-	tree: () => request<LocationTreeNode[]>('/locations/tree'),
+	tree: (signal?: AbortSignal) => request<LocationTreeNode[]>('/locations/tree', { signal }),
 
 	get: (id: string) => request<Location>(`/locations/${id}`),
 

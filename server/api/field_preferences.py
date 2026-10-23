@@ -40,7 +40,7 @@ async def update_field_preferences(
 ) -> dict[str, str | None]:
     """Update field preferences.
 
-    Saves the user-defined instructions for AI output fields.
+    Saves sparse user-defined overrides in config/field_preferences.json.
     Returns only the user overrides (sparse data).
     Authentication is enforced at router level.
     """
@@ -64,7 +64,7 @@ async def update_field_preferences(
 async def delete_field_preferences() -> dict[str, str | None]:
     """Reset field preferences to defaults.
 
-    Clears all custom field instructions and restores default behavior.
+    Removes JSON field preference overrides and restores defaults.
     Returns empty overrides (all None values).
     Authentication is enforced at router level.
     """

@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM --platform=$BUILDPLATFORM node:22.23.2-alpine3.23@sha256:72c5815a06aed9a2273aea5628d74d348af57843a7b547af2fe53dd3e4b95261 AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:26.10.0-alpine3.23@sha256:c3c6e314fd42e41962360b2482fc18d150beb47976c3aa7b8b9689d7ef42a5c2 AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci --no-progress
@@ -20,7 +20,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48a
 # Create the runtime user before copying application files so dependency and
 # application layers are owned without a recursive ownership pass.
 RUN useradd --create-home --shell /bin/bash appuser \
-    && chown appuser:appuser /app
+    && mkdir -p /app/data/config /app/config \
+    && ln -s /app/data/config/field_preferences.json /app/config/field_preferences.json \
+    && chown appuser:appuser /app /app/data /app/data/config /app/config
 ENV HOME=/home/appuser
 ENV UV_CACHE_DIR=/home/appuser/.cache/uv
 USER appuser

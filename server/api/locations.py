@@ -25,10 +25,7 @@ def natural_sort_key(name: str) -> tuple[tuple[int, int | str], ...]:
     are compared case-insensitively. Numeric parts sort before text parts so
     mixed-type comparisons stay well-defined.
     """
-    return tuple(
-        (0, int(part)) if part.isdigit() else (1, part.casefold())
-        for part in _DIGIT_RUN.split(name)
-    )
+    return tuple((0, int(part)) if part.isdigit() else (1, part.casefold()) for part in _DIGIT_RUN.split(name))
 
 
 def sort_tree_naturally(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -5,32 +5,40 @@ that modify how the AI generates item data.
 
 Two-tier preference model:
 1. Defaults = hardcoded values + environment variables (immutable after init)
-2. User overrides = settings page config (stored in JSON, can be reset)
+2. User overrides = settings page config (stored in config/field_preferences.json, can be reset)
 
 The defaults are resolved once at import time and cached. User overrides from
-the settings UI are stored in a sparse JSON file and overlaid on top.
+the settings UI are stored as a sparse mapping in config/field_preferences.json and overlaid on top.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import threading
+from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
 
-from loguru import logger
-from pydantic import AliasChoices, Field, ValidationError
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Default storage location
+# Logical location; the Docker image links this file into its data volume.
 CONFIG_DIR = Path("config")
 PREFERENCES_FILE = CONFIG_DIR / "field_preferences.json"
+_preferences_lock = threading.RLock()
+
+
+class FieldPreferencesLoadError(RuntimeError):
+    """Saved preferences cannot be read safely; the original file is preserved."""
 
 
 class FieldPreferences(BaseSettings):
     """Field preferences with built-in defaults and env var support.
 
     Defaults are resolved once at import time (hardcoded → env vars).
-    User overrides from settings UI are stored in JSON and overlaid on top.
+    User overrides from settings UI are stored in config/field_preferences.json and overlaid on top.
 
     All fields have hardcoded defaults. Environment variables (HBC_AI_*)
     automatically override these via pydantic-settings.
@@ -51,7 +59,9 @@ class FieldPreferences(BaseSettings):
     # Backward compatibility: Also accepts HBC_AI_DEFAULT_LABEL_ID (pre-v0.23 name)
     default_tag_id: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("default_tag_id", "default_label_id"),
+        validation_alias=AliasChoices(
+            "default_tag_id", "default_label_id", "HBC_AI_DEFAULT_TAG_ID", "HBC_AI_DEFAULT_LABEL_ID"
+        ),
     )
 
     # Item naming instructions - env var: HBC_AI_NAME
@@ -124,91 +134,83 @@ def get_defaults() -> FieldPreferences:
     return FieldPreferences()
 
 
-def load_field_preferences() -> FieldPreferences:
-    """Load preferences: defaults + user overrides from file.
+def normalize_field_overrides(value: object) -> dict[str, str]:
+    """Validate sparse saved values, canonicalizing the pre-v0.23 tag alias.
 
-    Priority (highest first):
-    1. File-based user overrides (config/field_preferences.json)
-    2. Defaults (hardcoded + environment variables)
-
-    Returns:
-        FieldPreferences instance with merged values.
+    Null means no override. Validation does not resolve environment defaults.
     """
-    defaults = get_defaults()
+    if not isinstance(value, dict):
+        raise ValueError("Field preferences must be a mapping")
+    canonical = dict(value)
+    if "default_label_id" in canonical:
+        canonical.setdefault("default_tag_id", canonical["default_label_id"])
+        del canonical["default_label_id"]
+    result = {}
+    for key, item in canonical.items():
+        if key not in FieldPreferences.model_fields or (item is not None and not isinstance(item, str)):
+            raise ValueError("Invalid field preference")
+        if item is not None:
+            result[key] = item
+    return result
 
-    if not PREFERENCES_FILE.exists():
-        return defaults
 
-    try:
-        file_data = json.loads(PREFERENCES_FILE.read_text(encoding="utf-8"))
-        # User overrides on top of defaults
-        merged = defaults.model_dump() | {k: v for k, v in file_data.items() if v is not None}
-        return FieldPreferences.model_validate(merged)
-    except (json.JSONDecodeError, ValidationError) as e:
-        logger.warning(f"Invalid field preferences config file, using defaults: {e}")
-        return defaults
+def _load_overrides() -> dict[str, str]:
+    """Read JSON without rewriting it or exposing parser diagnostics."""
+    with _preferences_lock:
+        try:
+            return normalize_field_overrides(json.loads(PREFERENCES_FILE.read_text(encoding="utf-8")))
+        except FileNotFoundError:
+            return {}
+        except OSError, ValueError:
+            pass
+        raise FieldPreferencesLoadError("Failed to load field preferences; original file was preserved")
+
+
+def load_field_preferences() -> FieldPreferences:
+    """Resolve hardcoded defaults, process environment and saved JSON overrides."""
+    return FieldPreferences.model_validate(get_defaults().model_dump() | _load_overrides())
 
 
 def save_field_preferences(preferences: FieldPreferences) -> None:
-    """Save only user overrides (fields that differ from defaults).
-
-    This creates a sparse JSON file containing only customized fields,
-    making it clear what the user actually changed.
-
-    Args:
-        preferences: The preferences to save.
-    """
+    """Atomically save only non-null differences from current defaults."""
     defaults = get_defaults()
-    overrides = {}
-
-    for field in FieldPreferences.model_fields:
-        user_val = getattr(preferences, field)
-        default_val = getattr(defaults, field)
-        if user_val != default_val:
-            overrides[field] = user_val
-
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    PREFERENCES_FILE.write_text(json.dumps(overrides, indent=2), encoding="utf-8")
+    overrides = normalize_field_overrides(
+        {
+            field: value
+            for field in FieldPreferences.model_fields
+            if (value := getattr(preferences, field)) is not None and value != getattr(defaults, field)
+        }
+    )
+    with _preferences_lock:
+        destination = PREFERENCES_FILE.resolve(strict=False)
+        directory = destination.parent
+        directory.mkdir(parents=True, exist_ok=True)
+        descriptor, name = tempfile.mkstemp(dir=directory, prefix=f".{PREFERENCES_FILE.name}.", suffix=".tmp")
+        temporary_path = Path(name)
+        try:
+            temporary_file = os.fdopen(descriptor, "w", encoding="utf-8")
+            descriptor = -1
+            with temporary_file:
+                json.dump(overrides, temporary_file, ensure_ascii=False, indent=2)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            os.replace(temporary_path, destination)
+        except BaseException:
+            if descriptor != -1:
+                with suppress(OSError):
+                    os.close(descriptor)
+            with suppress(OSError):
+                temporary_path.unlink(missing_ok=True)
+            raise
 
 
 def load_user_overrides() -> dict[str, str | None]:
-    """Load only user overrides from file (sparse data for settings UI).
-
-    Returns a dict where:
-    - Fields the user has explicitly overridden have their saved value
-    - Fields with no override are None
-
-    This is used by the settings UI to show empty inputs with placeholder
-    text for defaults, and only populate inputs with text when the user
-    has explicitly saved an override.
-
-    Returns:
-        Dict with all preference fields, None for non-overridden fields.
-    """
-    # Start with all fields as None (no override)
-    result: dict[str, str | None] = {field: None for field in FieldPreferences.model_fields}
-
-    if not PREFERENCES_FILE.exists():
-        return result
-
-    try:
-        file_data = json.loads(PREFERENCES_FILE.read_text(encoding="utf-8"))
-        # Only include non-null values from the file
-        for key, value in file_data.items():
-            if key in result and value is not None:
-                result[key] = value
-        return result
-    except (json.JSONDecodeError, ValidationError) as e:
-        logger.warning(f"Invalid field preferences config file: {e}")
-        return result
+    """Return all UI fields, with None wherever no override was saved."""
+    return dict.fromkeys(FieldPreferences.model_fields) | _load_overrides()
 
 
 def reset_field_preferences() -> FieldPreferences:
-    """Reset to defaults by deleting the overrides file.
-
-    Returns:
-        FieldPreferences with defaults (user overrides cleared).
-    """
-    if PREFERENCES_FILE.exists():
-        PREFERENCES_FILE.unlink()
+    """Remove JSON overrides and return the current environment defaults."""
+    with _preferences_lock:
+        PREFERENCES_FILE.resolve(strict=False).unlink(missing_ok=True)
     return get_defaults()

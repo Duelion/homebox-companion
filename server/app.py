@@ -71,7 +71,7 @@ def _is_newer_version(latest: str, current: str) -> bool:
         latest_parts = _parse_version(latest)
         current_parts = _parse_version(current)
         return latest_parts > current_parts
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         return False
 
 
@@ -264,7 +264,7 @@ async def lifespan(app: FastAPI):
         )
 
     # Check for legacy label env var (renamed to tag in Homebox v0.23)
-    from homebox_companion.core.field_preferences import get_defaults
+    from homebox_companion.core.field_preferences import PREFERENCES_FILE, get_defaults
 
     field_prefs = get_defaults()
     if field_prefs.using_legacy_label_env:
@@ -278,6 +278,11 @@ async def lifespan(app: FastAPI):
     if app_settings.demo_mode:
         logger.info("Demo mode enabled (HBC_DEMO_MODE=true)")
 
+    from homebox_companion.core.persistent_settings import check_settings_storage
+
+    check_settings_storage()
+    check_settings_storage(PREFERENCES_FILE.resolve().parent)
+
     # Validate settings on startup
     for issue in app_settings.validate_config():
         logger.warning(issue)
@@ -289,7 +294,7 @@ async def lifespan(app: FastAPI):
     # group-bound gateways without mutable global tenant state.
     client = HomeboxClient(
         base_url=app_settings.api_url,
-        allow_cookies=app_settings.auth_mode == "legacy",
+        allow_cookies=False,
     )
     app.state.homebox_client = client
     client_holder.set(client)
@@ -312,7 +317,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown complete")
 
 
-def create_app(app_settings: Settings | None = None) -> FastAPI:
+def create_app(app_settings: Settings | None = None, *, static_directory: str | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Homebox Companion",
@@ -326,6 +331,13 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     app.state.settings = app_settings or settings
     app.state.homebox_identities = {}
     resolved_settings = app.state.settings
+    from homebox_companion.core.redaction import register_secrets
+
+    register_secrets(
+        resolved_settings.llm_api_key,
+        resolved_settings.openai_api_key,
+        resolved_settings.homebox_api_key,
+    )
 
     app.add_middleware(RequestBodyLimitMiddleware, settings=resolved_settings)  # type: ignore[arg-type]
 
@@ -407,7 +419,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         return result
 
     # Serve static frontend files (SvelteKit SPA)
-    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    static_dir = static_directory if static_directory is not None else os.path.join(os.path.dirname(__file__), "static")
 
     if os.path.isdir(static_dir):
         # Mount static files at root to serve _app/, favicon, etc.

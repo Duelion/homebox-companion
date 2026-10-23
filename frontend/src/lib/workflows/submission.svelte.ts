@@ -9,6 +9,8 @@
  * - Submission result tracking
  */
 
+import { itemValidationError } from '$lib/utils/itemValidation';
+import { normalizeAssetId } from '$lib/utils/assetId';
 import { items as itemsApi } from '$lib/api/index';
 import { ApiError } from '$lib/api/client';
 import { withRetry } from '$lib/utils/retry';
@@ -212,6 +214,8 @@ export class SubmissionService {
 		parentId: string | null,
 		signal?: AbortSignal
 	): Promise<{ status: ItemSubmissionStatus; error?: string; createdId?: string }> {
+		const validationError = itemValidationError(confirmedItem);
+		if (validationError) return { status: 'failed', error: validationError };
 		this.itemStatuses = { ...this.itemStatuses, [index]: 'creating' };
 
 		try {
@@ -400,6 +404,13 @@ export class SubmissionService {
 		if (items.length === 0) {
 			return result;
 		}
+
+		if (items.some((item) => itemValidationError(item))) {
+			result.failCount = items.length;
+			result.errors = [items.map(itemValidationError).find((error) => error !== null)!];
+			return result;
+		}
+		items = items.map((item) => ({ ...item, asset_id: normalizeAssetId(item.asset_id) }));
 
 		// Validate auth token if requested (default: true)
 		if (options?.validateAuth !== false) {

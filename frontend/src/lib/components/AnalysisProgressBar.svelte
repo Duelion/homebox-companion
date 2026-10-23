@@ -1,24 +1,34 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	// Props
 	interface Props {
 		current: number;
 		total: number;
+		runId?: number;
+		ready?: boolean;
 		message?: string;
 		onComplete?: () => void;
 	}
 
-	let { current, total, message = 'Analyzing...', onComplete }: Props = $props();
+	let {
+		current,
+		total,
+		runId = 0,
+		ready = true,
+		message = 'Analyzing...',
+		onComplete,
+	}: Props = $props();
 
 	// Internal state for animated progress
 	let displayProgress = $state(0);
-	let animationInterval: number | null = null;
-	let hasCalledComplete = $state(false);
 	let isComplete = $state(false);
+	let lastRunId: number | undefined;
+	let completedRunId: number | null = null;
 
 	// Calculate the target for fake progress (90% toward the next milestone)
 	let targetProgress = $derived(() => {
+		if (total <= 0) return 0;
 		if (current >= total) return 100;
 		const nextMilestone = ((current + 1) / total) * 100;
 		const currentMilestone = (current / total) * 100;
@@ -33,87 +43,108 @@
 		}))
 	);
 
-	// Animation logic
-	function startAnimation() {
-		if (animationInterval !== null) return;
-
-		animationInterval = window.setInterval(() => {
-			const target = targetProgress();
-			const distance = target - displayProgress;
-
-			// If we're very close to the target, stop animating
-			if (Math.abs(distance) < 0.1) {
-				displayProgress = target;
-				return;
-			}
-
-			// Asymptotic approach with random variance for organic feel
-			// Move 2-4% of remaining distance per tick (slower for 5-15s LLM response time)
-			const moveRate = 0.02 + Math.random() * 0.02;
-			displayProgress += distance * moveRate;
-		}, 250); // Tick every 250ms for slower, more deliberate movement
-	}
-
-	function stopAnimation() {
-		if (animationInterval !== null) {
-			clearInterval(animationInterval);
-			animationInterval = null;
-		}
-	}
-
-	// Watch for changes in current to snap to milestone
+	// Each effect run owns every timer it creates. A changed run, readiness, or
+	// progress milestone tears down old work before starting the next animation.
 	$effect(() => {
-		// When current changes, immediately snap to the milestone
-		if (current > 0) {
-			const milestone = (current / total) * 100;
-			displayProgress = milestone;
+		const effectRunId = runId;
+		const effectCurrent = current;
+		const effectTotal = total;
+		const canComplete = ready && effectTotal > 0 && effectCurrent >= effectTotal;
+		const complete = onComplete;
+		const reduceMotion = prefersReducedMotion.current;
+
+		if (lastRunId !== effectRunId) {
+			lastRunId = effectRunId;
+			completedRunId = null;
+			displayProgress = 0;
+			isComplete = false;
 		}
 
-		// Start animating toward the next target if not complete
-		if (current < total) {
-			hasCalledComplete = false;
-			isComplete = false;
-			startAnimation();
-		} else {
-			// All items complete - animate to 100% then call onComplete
-			stopAnimation();
+		let animationInterval: number | null = null;
+		let finalAnimationInterval: number | null = null;
+		let completionTimeout: number | null = null;
 
-			// Smoothly animate to 100%
-			const finalAnimationInterval = window.setInterval(() => {
+		const clearTimers = () => {
+			if (animationInterval !== null) window.clearInterval(animationInterval);
+			if (finalAnimationInterval !== null) window.clearInterval(finalAnimationInterval);
+			if (completionTimeout !== null) window.clearTimeout(completionTimeout);
+		};
+
+		if (effectCurrent > 0 && effectTotal > 0) {
+			const milestone = (effectCurrent / effectTotal) * 100;
+			displayProgress = !canComplete && effectCurrent >= effectTotal ? 95 : milestone;
+		}
+
+		if (reduceMotion) {
+			displayProgress = canComplete
+				? 100
+				: !ready && effectCurrent >= effectTotal
+					? 95
+					: targetProgress();
+			isComplete = canComplete;
+			if (canComplete && completedRunId !== effectRunId) {
+				// A zero-delay task keeps completion cancellable when the user leaves this run.
+				completionTimeout = window.setTimeout(() => {
+					completionTimeout = null;
+					if (completedRunId === effectRunId) return;
+					completedRunId = effectRunId;
+					complete?.();
+				}, 0);
+			}
+		} else if (!canComplete || completedRunId === effectRunId) {
+			if (canComplete && completedRunId === effectRunId) {
+				displayProgress = 100;
+				isComplete = true;
+			} else {
+				isComplete = false;
+				animationInterval = window.setInterval(() => {
+					const target = !ready && current >= total ? 95 : targetProgress();
+					const distance = target - displayProgress;
+
+					if (Math.abs(distance) < 0.1) {
+						displayProgress = target;
+						return;
+					}
+
+					// Move 2-4% of remaining distance per tick for a deliberate feel.
+					const moveRate = 0.02 + Math.random() * 0.02;
+					displayProgress += distance * moveRate;
+				}, 250);
+			}
+		} else {
+			finalAnimationInterval = window.setInterval(() => {
 				if (displayProgress >= 99.9) {
 					displayProgress = 100;
-					clearInterval(finalAnimationInterval);
-
-					// Trigger completion effect
+					if (finalAnimationInterval !== null) {
+						window.clearInterval(finalAnimationInterval);
+						finalAnimationInterval = null;
+					}
 					isComplete = true;
 
-					// Wait for the pop animation + brief hold before signaling completion
-					if (!hasCalledComplete && onComplete) {
-						setTimeout(() => {
-							hasCalledComplete = true;
-							onComplete();
-						}, 600); // 300ms pop + 300ms hold
+					if (complete) {
+						completionTimeout = window.setTimeout(() => {
+							completionTimeout = null;
+							if (completedRunId === effectRunId) return;
+							completedRunId = effectRunId;
+							complete();
+						}, 600);
 					}
 				} else {
-					// Quick smooth movement to 100%
 					const distance = 100 - displayProgress;
 					displayProgress += distance * 0.15;
 				}
 			}, 50);
 		}
-	});
 
-	// Cleanup on unmount
-	onDestroy(() => {
-		stopAnimation();
+		return clearTimers;
 	});
 </script>
 
 <div class="mb-6 rounded-xl border border-neutral-700 bg-neutral-800 p-4">
 	<!-- Header with message and count -->
 	<div class="mb-2 flex items-center justify-between">
-		<span class="text-sm font-medium text-neutral-200">{message}</span>
-		<span class="text-sm text-neutral-400">{current} / {total}</span>
+		<span class="text-body-sm font-medium text-neutral-200">{message}</span>
+		<span class="text-body-sm text-neutral-400">{current} / {total}</span>
 	</div>
 
 	<!-- Progress bar with notches -->
@@ -148,6 +179,8 @@
 </div>
 
 <style>
+	@reference "../../app.css";
+
 	.complete-pop {
 		@apply animate-pop shadow-success-glow;
 	}

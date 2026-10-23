@@ -11,7 +11,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from homebox_companion.core import config, field_preferences, llm_utils
+from homebox_companion.core import config, field_preferences, llm_utils, persistent_settings
 from homebox_companion.core.config import Settings
 from homebox_companion.core.persistent_settings import (
     CustomFieldDefinition,
@@ -56,7 +56,7 @@ def profile_store(monkeypatch):
         llm_profiles=[
             ModelProfile(
                 name="primary",
-                model="gpt-5-mini",
+                model="gpt-5.6-luna",
                 api_key=SecretStr("synthetic-saved-key"),
                 api_base="https://provider.test/v1",
                 status=ProfileStatus.PRIMARY,
@@ -64,10 +64,12 @@ def profile_store(monkeypatch):
         ]
     )
     save = Mock()
-    completion = AsyncMock(return_value=SimpleNamespace(model="gpt-5-mini"))
+    completion = AsyncMock(return_value=SimpleNamespace(model="gpt-5.6-luna"))
     monkeypatch.setattr(llm_profiles, "load_settings", lambda: store)
     monkeypatch.setattr(llm_profiles, "clear_settings_cache", lambda: None)
-    monkeypatch.setattr(llm_profiles, "save_settings", save)
+    monkeypatch.setattr(persistent_settings, "save_settings", save)
+    monkeypatch.setattr(persistent_settings, "load_settings", lambda: store)
+    monkeypatch.setattr(persistent_settings, "get_settings", lambda: store)
     monkeypatch.setattr(llm_profiles.litellm, "acompletion", completion)
     return store, save, completion
 
@@ -103,7 +105,7 @@ async def test_invalid_token_cannot_access_local_resources(path, profile_store):
     ("method", "path", "body", "status"),
     [
         ("GET", "/api/llm/profiles", None, 200),
-        ("POST", "/api/llm/profiles", {"name": "new", "model": "gpt-5-mini"}, 201),
+        ("POST", "/api/llm/profiles", {"name": "new", "model": "gpt-5.6-luna"}, 201),
         ("GET", "/api/logs", None, 200),
         ("GET", "/api/logs/download", None, 200),
         ("GET", "/api/logs/llm-debug", None, 200),
@@ -121,19 +123,33 @@ async def test_invalid_token_cannot_access_local_resources(path, profile_store):
 async def test_authenticated_user_can_manage_shared_resources(
     method, path, body, status, api_key, profile_store, monkeypatch, tmp_path
 ):
-    store, save, _ = profile_store
+    store, _, _ = profile_store
     store.custom_fields = [CustomFieldDefinition(name="example", ai_instruction="Example field")]
     monkeypatch.setattr(custom_fields, "get_settings", lambda: store)
-    monkeypatch.setattr(custom_fields, "save_settings", save)
     monkeypatch.setattr(field_preferences, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", tmp_path / "field_preferences.json")
     monkeypatch.setattr(logs, "_LOGS_DIR", str(tmp_path))
-    (tmp_path / "homebox_companion_2026-09-20.log").write_text("Test log\n")
-    (tmp_path / "llm_debug_2026-09-20.log").write_text("Test LLM log\n")
+    (tmp_path / "homebox_companion_2026-09-20.log").write_bytes(b"Test log\n")
+    (tmp_path / "llm_debug_2026-09-20.log").write_bytes(b"Test LLM log\n")
     async with security_client(api_key=api_key) as (client, _, requests):
         response = await client.request(method, path, json=body)
     assert response.status_code == status, response.text
     assert len(requests) == 1
+    if path.startswith("/api/logs"):
+        expected = b"Test LLM log\n" if "/llm-debug" in path else b"Test log\n"
+        prefix = "llm_debug" if "/llm-debug" in path else "homebox_companion"
+        filename = f"{prefix}_2026-09-20.log"
+        if path.endswith("/download"):
+            assert response.content == expected
+            assert filename in response.headers["content-disposition"]
+        else:
+            assert response.json() == {
+                "logs": expected.decode(),
+                "filename": filename,
+                "total_lines": 1,
+                "truncated": False,
+            }
+        assert (tmp_path / filename).read_bytes() == expected
 
 
 @pytest.mark.asyncio
@@ -213,7 +229,7 @@ def test_primary_inherits_environment_key_for_different_destination(monkeypatch)
         "settings",
         Settings(
             _env_file=None,
-            llm_model="gpt-5-mini",
+            llm_model="gpt-5.6-luna",
             llm_api_key="synthetic-env-key",
             llm_api_base="https://provider.test/v1",
         ),
@@ -223,7 +239,7 @@ def test_primary_inherits_environment_key_for_different_destination(monkeypatch)
         "get_primary_profile",
         lambda: ModelProfile(
             name="new",
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_base="https://different.test/v1",
         ),
     )
@@ -237,7 +253,7 @@ def test_fallback_inherits_primary_key_for_different_destination(monkeypatch):
         llm_utils,
         "resolve_llm_credentials",
         lambda: llm_utils.LLMCredentials(
-            model="gpt-5-mini",
+            model="gpt-5.6-luna",
             api_key="synthetic-primary-key",
             api_base="https://provider.test/v1",
         ),
@@ -264,7 +280,7 @@ def test_fallback_inherits_primary_key_for_different_destination(monkeypatch):
 async def test_profile_requests_accept_environment_references(field, operation, profile_store):
     body = {field: "os.environ/HBC_SYNTHETIC_KEY"}
     if operation == "create":
-        body = {"name": "new", "model": "gpt-5-mini", **body}
+        body = {"name": "new", "model": "gpt-5.6-luna", **body}
     path = "/api/llm/profiles" + ("" if operation == "create" else "/primary")
     if operation == "test":
         path += "/test"

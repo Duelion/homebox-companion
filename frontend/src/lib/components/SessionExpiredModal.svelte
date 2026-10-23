@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { CircleAlert, Lock } from 'lucide-svelte';
+	import { CircleAlert, Lock } from '@lucide/svelte';
 	import { auth } from '$lib/api';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
@@ -55,14 +55,9 @@
 		authStore.logout();
 		goto(resolve('/'));
 	}
-
-	// Prevent closing the modal (session expired is non-dismissable)
-	function preventClose() {
-		// Do nothing - modal should not be closable
-	}
 </script>
 
-<Modal open={sessionExpired} onclose={preventClose}>
+<Modal open={sessionExpired} dismissible={false} ariaLabel="Session Expired">
 	<!-- Header -->
 	<div class="-mx-6 -mt-6 mb-6 border-b border-neutral-700 bg-warning-500/10 px-6 py-4">
 		<div class="flex items-center gap-3">
@@ -71,7 +66,7 @@
 			</div>
 			<div>
 				<h3 class="text-lg font-semibold text-neutral-200">Session Expired</h3>
-				<p class="text-sm text-neutral-400">Please log in again to continue</p>
+				<p class="text-body-sm text-neutral-400">Please log in again to continue</p>
 			</div>
 		</div>
 	</div>
@@ -79,7 +74,9 @@
 	<!-- Form -->
 	<form class="space-y-4" onsubmit={handleSubmit}>
 		{#if errorMessage}
-			<div class="rounded-lg border border-error-500/20 bg-error-500/10 p-3 text-sm text-error-500">
+			<div
+				class="rounded-lg border border-error-500/20 bg-error-500/10 p-3 text-body-sm text-error-500"
+			>
 				{errorMessage}
 			</div>
 		{/if}
@@ -120,7 +117,7 @@
 
 			<button
 				type="button"
-				class="py-2 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+				class="py-2 text-body-sm text-neutral-400 transition-colors hover:text-neutral-200"
 				onclick={handleLogout}
 				disabled={isSubmitting}
 			>

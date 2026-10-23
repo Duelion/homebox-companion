@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
@@ -62,9 +62,7 @@ class TestCompressImageForUpload:
         ("max_dim", "jpeg_q"),
         [(2560, 85), (1920, 75), (1280, 60)],
     )
-    def test_resizes_when_larger_than_max(
-        self, large_jpeg: bytes, max_dim: int, jpeg_q: int
-    ) -> None:
+    def test_resizes_when_larger_than_max(self, large_jpeg: bytes, max_dim: int, jpeg_q: int) -> None:
         out_bytes, mime = compress_image_for_upload(large_jpeg, max_dimension=max_dim, quality=jpeg_q)
         w, h = _image_dimensions(out_bytes)
         assert max(w, h) == max_dim, f"expected longest side {max_dim}, got {(w, h)}"
@@ -78,6 +76,7 @@ class TestCompressImageForUpload:
         out_bytes, _ = compress_image_for_upload(original, max_dimension=1920, quality=75)
         w, h = _image_dimensions(out_bytes)
         assert (w, h) == (800, 600), "compression should not upscale smaller images"
+
 
 class _CapturingHomeboxClient:
     """Minimal stand-in for HomeboxClient that records upload_attachment calls."""
@@ -110,10 +109,22 @@ def upload_test_client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, _Ca
 
     capture = _CapturingHomeboxClient()
     app = FastAPI()
+    app.state.settings = Settings()
     app.include_router(items_module.router)
     app.dependency_overrides[get_client] = lambda: capture
     app.dependency_overrides[get_token] = lambda: "fake-token"
     return TestClient(app), capture
+
+
+def test_upload_limit_uses_app_settings(upload_test_client):
+    client, capture = upload_test_client
+    cast(FastAPI, client.app).state.settings = Settings(max_upload_size_mb=1)
+    response = client.post(
+        "/items/some-item-id/attachments",
+        files={"file": ("photo.jpg", b"x" * (1024 * 1024 + 1), "image/jpeg")},
+    )
+    assert response.status_code == 413
+    assert capture.last_file_bytes is None
 
 
 @pytest.mark.parametrize(
@@ -131,11 +142,8 @@ def test_upload_endpoint_compresses_per_image_quality(
     max_dim: int,
 ) -> None:
     """Posting a 4032x3024 image with HBC_IMAGE_QUALITY=X must forward a resized image."""
-    from server.api import items as items_module
-
-    monkeypatch.setattr(items_module.settings, "image_quality", quality)
-
     client, capture = upload_test_client
+    cast(FastAPI, client.app).state.settings = Settings(image_quality=quality)
     original = LARGE_ASSET.read_bytes()
 
     response = client.post(
@@ -148,14 +156,11 @@ def test_upload_endpoint_compresses_per_image_quality(
 
     forwarded = capture.last_file_bytes
     assert forwarded != original, (
-        "Endpoint forwarded the original bytes — HBC_IMAGE_QUALITY was ignored. "
-        "See issue #135."
+        "Endpoint forwarded the original bytes — HBC_IMAGE_QUALITY was ignored. See issue #135."
     )
 
     w, h = _image_dimensions(forwarded)
-    assert max(w, h) == max_dim, (
-        f"Forwarded image longest side is {max(w, h)} but {quality} requires {max_dim}."
-    )
+    assert max(w, h) == max_dim, f"Forwarded image longest side is {max(w, h)} but {quality} requires {max_dim}."
     assert len(forwarded) < len(original)
 
 
@@ -164,11 +169,8 @@ def test_upload_endpoint_raw_passes_through(
     upload_test_client: tuple[TestClient, _CapturingHomeboxClient],
 ) -> None:
     """HBC_IMAGE_QUALITY=raw must forward bytes unchanged."""
-    from server.api import items as items_module
-
-    monkeypatch.setattr(items_module.settings, "image_quality", ImageQuality.RAW)
-
     client, capture = upload_test_client
+    cast(FastAPI, client.app).state.settings = Settings(image_quality=ImageQuality.RAW)
     original = LARGE_ASSET.read_bytes()
 
     response = client.post(

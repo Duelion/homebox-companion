@@ -1,28 +1,32 @@
 """Item-related request/response schemas."""
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class ItemInput(BaseModel):
     """Item data for creation with all Homebox fields.
 
     Note: In Homebox 0.26+, both ``location_id`` and ``parent_id`` map to the
-    API's ``parentId`` field. ``location_id`` is the primary field (container
-    selection from the UI), while ``parent_id`` is a legacy alias kept for
-    backward compatibility.
+    API's ``parentId`` field. ``parent_id`` (a parent item picked in the UI)
+    takes precedence over ``location_id``. The new item inherits its location
+    from that parent, except on Homebox 0.27 when the parent has its own
+    location override: Homebox does not pass that on, so the selected location
+    is sent as the new item's ``locationId``.
     """
 
-    name: str
-    quantity: int = 1
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
+    quantity: int = Field(default=1, strict=True, gt=0)
     description: str | None = None
-    location_id: str | None = None  # Container (location) to place the item in
+    location_id: str | None = None  # Location to place the item in
     tag_ids: list[str] | None = None
-    parent_id: str | None = None  # Legacy alias for location_id (both map to parentId)
+    parent_id: str | None = None  # Parent item to nest under; takes precedence (both map to parentId)
     # Advanced fields
     serial_number: str | None = None
     model_number: str | None = None
     manufacturer: str | None = None
-    purchase_price: float | None = Field(default=None, ge=0)
+    purchase_price: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     purchase_from: str | None = None
     notes: str | None = None
     insured: bool = False

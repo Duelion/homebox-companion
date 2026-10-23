@@ -4,8 +4,8 @@
 	 *
 	 * Allows users to configure multiple LLM providers and switch between them.
 	 */
-	import { onMount, onDestroy } from 'svelte';
-	import { FlaskConical, Plus, Check, Zap, Pencil, Trash2 } from 'lucide-svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
+	import { FlaskConical, Plus, Check, Zap, Pencil, Trash2 } from '@lucide/svelte';
 	import { llmProfiles, type LLMProfile, type ProfileStatus } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -13,7 +13,9 @@
 	// State
 	let profiles = $state<LLMProfile[]>([]);
 	let loading = $state(true);
-	let error = $state<string | null>(null);
+	let sectionError = $state<string | null>(null);
+	let formError = $state<string | null>(null);
+	let formErrorElement = $state<HTMLDivElement>();
 	let testingProfile = $state<string | null>(null);
 	let testResult = $state<{ success: boolean; message: string } | null>(null);
 
@@ -27,6 +29,9 @@
 	let formStatus = $state<ProfileStatus>('off');
 
 	let saving = $state(false);
+	let disposed = false;
+	let editorGeneration = 0;
+	let loadGeneration = 0;
 	let testTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	onMount(async () => {
@@ -34,25 +39,37 @@
 	});
 
 	onDestroy(() => {
+		disposed = true;
+		editorGeneration++;
+		loadGeneration++;
 		if (testTimeoutId) {
 			clearTimeout(testTimeoutId);
 		}
 	});
 
-	async function loadProfiles() {
+	async function loadProfiles(errorPrefix = '') {
+		if (disposed) return;
+		const operation = ++loadGeneration;
+		const isCurrent = () => !disposed && operation === loadGeneration;
 		loading = true;
-		error = null;
+		sectionError = null;
 		try {
 			const result = await llmProfiles.list();
-			profiles = result.profiles;
+			if (isCurrent()) profiles = result.profiles;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load profiles';
+			if (isCurrent()) {
+				const message = e instanceof Error ? e.message : 'Failed to load profiles';
+				sectionError = errorPrefix + message;
+			}
 		} finally {
-			loading = false;
+			if (isCurrent()) loading = false;
 		}
 	}
 
 	function openCreateModal() {
+		editorGeneration++;
+		formError = null;
+		saving = false;
 		editingProfile = null;
 		formName = '';
 		formModel = '';
@@ -63,6 +80,9 @@
 	}
 
 	function openEditModal(profile: LLMProfile) {
+		editorGeneration++;
+		formError = null;
+		saving = false;
 		editingProfile = profile;
 		formName = profile.name;
 		formModel = profile.model;
@@ -73,13 +93,19 @@
 	}
 
 	function closeModal() {
+		editorGeneration++;
+		formError = null;
+		saving = false;
 		showModal = false;
 		editingProfile = null;
 	}
 
 	async function handleSave() {
+		if (saving || !showModal) return;
+		const operation = editorGeneration;
+		const isCurrent = () => !disposed && showModal && operation === editorGeneration;
 		saving = true;
-		error = null;
+		formError = null;
 		try {
 			if (editingProfile) {
 				// Update existing
@@ -100,41 +126,51 @@
 					status: formStatus,
 				});
 			}
-			await loadProfiles();
+			if (!isCurrent()) return;
+			// The mutation is complete. Close before refreshing so a failed list
+			// request cannot invite a duplicate create.
 			closeModal();
+			await loadProfiles('Profile saved, but the list could not be refreshed: ');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to save profile';
+			if (isCurrent()) {
+				formError = e instanceof Error ? e.message : 'Failed to save profile';
+				await tick();
+				if (isCurrent()) formErrorElement?.focus();
+			}
 		} finally {
-			saving = false;
+			if (isCurrent()) saving = false;
 		}
 	}
 
 	async function handleDelete(name: string) {
 		if (!confirm(`Delete profile "${name}"?`)) return;
-		error = null;
+		sectionError = null;
 		try {
 			await llmProfiles.delete(name);
 			await loadProfiles();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete profile';
+			sectionError = e instanceof Error ? e.message : 'Failed to delete profile';
 		}
 	}
 
 	async function handleActivate(name: string) {
-		error = null;
+		sectionError = null;
 		try {
 			await llmProfiles.activate(name);
 			await loadProfiles();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to activate profile';
+			sectionError = e instanceof Error ? e.message : 'Failed to activate profile';
 		}
 	}
 
 	async function handleTest(name: string) {
+		if (disposed || testingProfile !== null) return;
+		if (testTimeoutId) clearTimeout(testTimeoutId);
 		testingProfile = name;
 		testResult = null;
 		try {
 			const result = await llmProfiles.test(name);
+			if (disposed) return;
 			testResult = result;
 			// Auto-clear after 5 seconds
 			if (testTimeoutId) clearTimeout(testTimeoutId);
@@ -143,9 +179,10 @@
 				testTimeoutId = null;
 			}, 5000);
 		} catch (e) {
+			if (disposed) return;
 			testResult = { success: false, message: e instanceof Error ? e.message : 'Test failed' };
 		} finally {
-			testingProfile = null;
+			if (!disposed) testingProfile = null;
 		}
 	}
 
@@ -173,15 +210,18 @@
 		</Button>
 	</div>
 
-	{#if error}
-		<div class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-sm">
-			{error}
+	{#if sectionError}
+		<div
+			role="alert"
+			class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-body-sm"
+		>
+			{sectionError}
 		</div>
 	{/if}
 
 	{#if testResult}
 		<div
-			class="rounded-lg border p-3 text-sm {testResult.success
+			class="rounded-lg border p-3 text-body-sm {testResult.success
 				? 'text-success-400 border-success-500/30 bg-success-500/10'
 				: 'text-error-400 border-error-500/30 bg-error-500/10'}"
 		>
@@ -192,13 +232,13 @@
 	{#if loading}
 		<div class="flex items-center justify-center py-8">
 			<div
-				class="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+				class="animate-spin rounded-full border-2 border-primary-500 border-t-transparent size-6"
 			></div>
 		</div>
 	{:else if profiles.length === 0}
 		<div class="rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-6 text-center">
 			<p class="text-neutral-400">No AI models configured</p>
-			<p class="mt-1 text-sm text-neutral-500">Add a model to enable AI features</p>
+			<p class="mt-1 text-body-sm text-neutral-500">Add a model to enable AI features</p>
 		</div>
 	{:else}
 		<div class="space-y-2">
@@ -210,16 +250,16 @@
 						<div class="flex items-center gap-2">
 							<span class="font-medium text-neutral-100">{profile.name}</span>
 							<span
-								class="rounded-full border px-2 py-0.5 text-xs capitalize {getStatusBadgeClass(
+								class="rounded-full border px-2 py-0.5 text-caption capitalize {getStatusBadgeClass(
 									profile.status
 								)}"
 							>
 								{profile.status}
 							</span>
 						</div>
-						<p class="mt-0.5 truncate text-sm text-neutral-400">{profile.model}</p>
+						<p class="mt-0.5 truncate text-body-sm text-neutral-400">{profile.model}</p>
 						{#if profile.api_base}
-							<p class="truncate text-xs text-neutral-500">{profile.api_base}</p>
+							<p class="truncate text-caption text-neutral-500">{profile.api_base}</p>
 						{/if}
 					</div>
 					<div class="flex items-center gap-1">
@@ -239,12 +279,12 @@
 							class="btn-icon-touch hover:text-primary-400"
 							title="Test connection"
 							aria-label="Test connection"
-							disabled={testingProfile === profile.name}
+							disabled={testingProfile !== null}
 							onclick={() => handleTest(profile.name)}
 						>
 							{#if testingProfile === profile.name}
 								<div
-									class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+									class="animate-spin rounded-full border-2 border-primary-500 border-t-transparent size-4"
 								></div>
 							{:else}
 								<Zap size={16} strokeWidth={2} />
@@ -283,13 +323,25 @@
 >
 	<form
 		class="space-y-4"
+		aria-describedby={formError ? 'profile-form-error' : undefined}
 		onsubmit={(e) => {
 			e.preventDefault();
 			handleSave();
 		}}
 	>
+		{#if formError}
+			<div
+				id="profile-form-error"
+				bind:this={formErrorElement}
+				role="alert"
+				tabindex="-1"
+				class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-body-sm"
+			>
+				{formError}
+			</div>
+		{/if}
 		<div>
-			<label for="profile-name" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-name" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				Name
 			</label>
 			<input
@@ -303,7 +355,7 @@
 		</div>
 
 		<div>
-			<label for="profile-model" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-model" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				Model
 			</label>
 			<input
@@ -314,13 +366,13 @@
 				placeholder="e.g., gpt-4o, ollama/mistral"
 				class="input-sm"
 			/>
-			<p class="mt-1 text-xs text-neutral-500">
+			<p class="mt-1 text-caption text-neutral-500">
 				LiteLLM model format: gpt-4o, claude-3-opus, ollama/mistral
 			</p>
 		</div>
 
 		<div>
-			<label for="profile-api-key" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-api-key" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				API Key
 			</label>
 			<input
@@ -331,12 +383,12 @@
 				class="input-sm"
 			/>
 			{#if editingProfile}
-				<p class="mt-1 text-xs text-neutral-500">Leave blank to keep existing key</p>
+				<p class="mt-1 text-caption text-neutral-500">Leave blank to keep existing key</p>
 			{/if}
 		</div>
 
 		<div>
-			<label for="profile-api-base" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-api-base" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				API Base URL <span class="text-neutral-500">(optional)</span>
 			</label>
 			<input
@@ -349,7 +401,7 @@
 		</div>
 
 		<div>
-			<label for="profile-status" class="mb-1 block text-sm font-medium text-neutral-300">
+			<label for="profile-status" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				Status
 			</label>
 			<select id="profile-status" bind:value={formStatus} class="input-sm">
@@ -357,7 +409,7 @@
 				<option value="fallback">Fallback</option>
 				<option value="off">Off</option>
 			</select>
-			<p class="mt-1 text-xs text-neutral-500">
+			<p class="mt-1 text-caption text-neutral-500">
 				{#if formStatus === 'primary'}
 					Primary model used for all AI features
 				{:else if formStatus === 'fallback'}

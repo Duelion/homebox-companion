@@ -32,8 +32,8 @@ server/static/
 
 # Environment files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # OS files
 .DS_Store
@@ -48,6 +48,7 @@ docs/contributor_analysis/**
 # Local agent instructions and working files
 /AGENTS.md
 /scratch_pad/
+/ux-review-screenshots/
 
 # Bundle analyzer output
 frontend/stats.html

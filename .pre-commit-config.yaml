@@ -1,0 +1,26 @@
+# Use the same locked tools as CI. Full type checks/tests remain in CI.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: Ruff
+        entry: uv run --locked ruff check
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: Python formatting
+        entry: uv run --locked ruff format --check
+        language: system
+        types: [python]
+      - id: frontend-lint
+        name: Frontend lint and CSS tokens
+        entry: npm --prefix frontend run lint
+        language: system
+        files: ^frontend/.*\.(svelte|js|ts|css|json)$
+        pass_filenames: false
+      - id: frontend-format
+        name: Frontend formatting
+        entry: npm --prefix frontend run format:check
+        language: system
+        files: ^frontend/
+        pass_filenames: false

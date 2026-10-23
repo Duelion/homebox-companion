@@ -5,8 +5,10 @@
 	 * Displays manufacturer, model, serial number, purchase info, and notes.
 	 * Works with any object that implements the ItemExtended interface.
 	 */
+	import { itemPriceError } from '$lib/utils/itemValidation';
 	import { slide } from 'svelte/transition';
-	import { ChevronDown } from 'lucide-svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
+	import { ChevronDown } from '@lucide/svelte';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 
@@ -38,6 +40,8 @@
 		onToggle,
 	}: Props = $props();
 
+	const priceError = $derived(itemPriceError(purchasePrice));
+
 	// Check if any extended field has data
 	const hasData = $derived(
 		!!(manufacturer || modelNumber || serialNumber || purchasePrice || purchaseFrom || notes)
@@ -53,19 +57,24 @@
 <div class="border-t border-neutral-700 pt-4">
 	<button
 		type="button"
-		class="flex w-full items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200"
+		class="flex w-full items-center gap-2 text-body-sm text-neutral-400 hover:text-neutral-200"
 		onclick={onToggle}
 		aria-expanded={expanded}
 	>
 		<ChevronDown class="transition-transform {expanded ? 'rotate-180' : ''}" size={16} />
 		<span>Extended Fields</span>
 		{#if hasData}
-			<span class="rounded bg-primary-500/20 px-1.5 py-0.5 text-xs text-primary-300">Has data</span>
+			<span class="rounded bg-primary-500/20 px-1.5 py-0.5 text-caption text-primary-300"
+				>Has data</span
+			>
 		{/if}
 	</button>
 
 	{#if expanded}
-		<div class="mt-4 {spacing}" transition:slide={{ duration: 200 }}>
+		<div
+			class="mt-4 {spacing}"
+			transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+		>
 			<div class="grid grid-cols-2 {gridGap}">
 				<div>
 					<label for="{idPrefix}-manufacturer" class={labelClass}>Manufacturer</label>
@@ -112,10 +121,19 @@
 						step="0.01"
 						min="0"
 						bind:value={purchasePrice}
+						aria-invalid={!!priceError}
+						aria-describedby={priceError ? `${idPrefix}-price-error` : undefined}
 						placeholder="0.00"
 						class={inputClass}
 						{disabled}
 					/>
+					{#if priceError}<p
+							id="{idPrefix}-price-error"
+							class="mt-1 text-body-sm text-error-400"
+							aria-live="polite"
+						>
+							{priceError}
+						</p>{/if}
 				</div>
 				<div>
 					<label for="{idPrefix}-vendor" class={labelClass}>Purchased From</label>
@@ -138,8 +156,7 @@
 					rows="2"
 					placeholder="e.g., Good condition, minor scratches on left side"
 					class="{inputClass} resize-none"
-					{disabled}
-				></textarea>
+					{disabled}></textarea>
 			</div>
 		</div>
 	{/if}

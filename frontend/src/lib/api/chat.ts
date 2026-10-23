@@ -19,13 +19,7 @@ const BASE_URL = '/api';
 // =============================================================================
 
 export type ChatEventType =
-	| 'text'
-	| 'tool_start'
-	| 'tool_result'
-	| 'approval_required'
-	| 'error'
-	| 'usage'
-	| 'done';
+	'text' | 'tool_start' | 'tool_result' | 'approval_required' | 'error' | 'usage' | 'done';
 
 export interface ChatTextEvent {
 	type: 'text';
@@ -131,6 +125,8 @@ export interface ApprovalOutcomeContext {
 // =============================================================================
 
 export interface SendMessageOptions {
+	/** Called after the server accepts the message, before stream events. */
+	onAccepted?: () => void;
 	onEvent?: (event: ChatEvent) => void;
 	onError?: (error: Error) => void;
 	onComplete?: () => void;
@@ -160,7 +156,7 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 		: controller.signal;
 
 	// Run async operation
-	(async () => {
+	void (async () => {
 		// TRACE: Log request start with timing
 		const startTime = performance.now();
 		log.trace(
@@ -204,6 +200,9 @@ export function sendMessage(message: string, options: SendMessageOptions = {}): 
 			if (!response.body) {
 				throw new Error('No response body');
 			}
+
+			if (signal.aborted) return;
+			options.onAccepted?.();
 
 			// Parse SSE stream
 			const reader = response.body.getReader();

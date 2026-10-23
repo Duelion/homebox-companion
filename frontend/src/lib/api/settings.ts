@@ -2,7 +2,7 @@
  * Settings and configuration API endpoints
  */
 
-import { request } from './client';
+import { requestBlobUrl, request } from './client';
 
 // =============================================================================
 // DEMO MODE STORAGE
@@ -18,7 +18,7 @@ export function setDemoMode(demoMode: boolean, explicitDemoMode: boolean = false
 	isDemoModeExplicit = explicitDemoMode;
 }
 
-/** Get current demo mode status (includes URL-based detection) */
+/** Get demo mode status configured by HBC_DEMO_MODE. */
 export function getIsDemoMode(): boolean {
 	return isDemoMode;
 }
@@ -118,6 +118,7 @@ export interface ConfigResponse {
 	demo_mode_explicit: boolean;
 	homebox_url: string;
 	llm_model: string;
+	ai_request_timeout_seconds: number;
 	update_check_enabled: boolean;
 	image_quality: string;
 	log_level: string;
@@ -139,12 +140,17 @@ export interface LogsResponse {
 	truncated: boolean;
 }
 
-export const getLogs = (lines: number = 200) => request<LogsResponse>(`/logs?lines=${lines}`);
+export const getLogs = (lines: number = 200, signal?: AbortSignal) =>
+	request<LogsResponse>(`/logs?lines=${lines}`, { signal });
 
-export const downloadLogs = async (filename: string) => {
-	const { requestBlobUrl } = await import('./client');
-
-	const result = await requestBlobUrl('/logs/download');
+export const downloadLogs = async (filename: string, signal?: AbortSignal) => {
+	const result = await requestBlobUrl('/logs/download', {
+		signal,
+	});
+	if (signal?.aborted) {
+		result.revoke();
+		signal.throwIfAborted();
+	}
 
 	// Create a temporary link and trigger download
 	const a = document.createElement('a');
@@ -158,13 +164,19 @@ export const downloadLogs = async (filename: string) => {
 	document.body.removeChild(a);
 };
 
-export const getLLMDebugLogs = (lines: number = 200) =>
-	request<LogsResponse>(`/logs/llm-debug?lines=${lines}`);
+export const getLLMDebugLogs = (lines: number = 200, signal?: AbortSignal) =>
+	request<LogsResponse>(`/logs/llm-debug?lines=${lines}`, {
+		signal,
+	});
 
-export const downloadLLMDebugLogs = async (filename: string) => {
-	const { requestBlobUrl } = await import('./client');
-
-	const result = await requestBlobUrl('/logs/llm-debug/download');
+export const downloadLLMDebugLogs = async (filename: string, signal?: AbortSignal) => {
+	const result = await requestBlobUrl('/logs/llm-debug/download', {
+		signal,
+	});
+	if (signal?.aborted) {
+		result.revoke();
+		signal.throwIfAborted();
+	}
 
 	// Create a temporary link and trigger download
 	const a = document.createElement('a');
@@ -214,12 +226,13 @@ export interface EffectiveDefaults {
 }
 
 export const fieldPreferences = {
-	get: async (): Promise<FieldPreferences> => {
+	get: async (signal?: AbortSignal): Promise<FieldPreferences> => {
+		signal?.throwIfAborted();
 		// In demo mode, use sessionStorage instead of server
 		if (isDemoMode) {
 			return loadDemoPreferences();
 		}
-		return request<FieldPreferences>('/settings/field-preferences');
+		return request<FieldPreferences>('/settings/field-preferences', { signal });
 	},
 
 	/** Get effective defaults (env var if set, otherwise hardcoded fallback) */

@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { Check, Camera, MapPin, Eye } from 'lucide-svelte';
+	import { Check, Camera, MapPin, Eye } from '@lucide/svelte';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';
@@ -26,17 +26,27 @@
 	let showItemsModal = $state(false);
 
 	// Apply route guard: requires authentication only
-	onMount(async () => {
-		// Wait for auth initialization to complete to avoid race conditions
-		// where we check isAuthenticated before initializeAuth clears expired tokens
-		await getInitPromise();
+	onMount(() => {
+		let disposed = false;
+		let pingTimeout: ReturnType<typeof setTimeout> | undefined;
+		void initialize();
+		return () => {
+			disposed = true;
+			clearTimeout(pingTimeout);
+		};
 
-		if (!routeGuards.success()) return;
+		async function initialize() {
+			// Wait for auth initialization to complete to avoid race conditions
+			// where we check isAuthenticated before initializeAuth clears expired tokens
+			await getInitPromise();
 
-		// Stop the ping animation after 3 seconds
-		setTimeout(() => {
-			showPing = false;
-		}, 3000);
+			if (disposed || !routeGuards.success()) return;
+
+			// Stop the ping animation after 3 seconds
+			pingTimeout = setTimeout(() => {
+				showPing = false;
+			}, 3000);
+		}
 	});
 
 	function scanMore() {
@@ -67,7 +77,7 @@
 
 <div class="animate-in flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
 	<!-- Success animation with animated checkmark -->
-	<div class="relative mb-8 h-28 w-28">
+	<div class="relative mb-8 size-28">
 		<!-- Ping animation (stops after 3 seconds) -->
 		{#if showPing}
 			<div class="absolute inset-0 animate-ping rounded-full bg-success-500/20"></div>
@@ -75,10 +85,14 @@
 		<!-- Outer glow ring - scales in -->
 		<div class="success-scale absolute inset-0 rounded-full bg-success-500/10"></div>
 		<!-- Inner circle - scales in with slight delay -->
-		<div class="success-scale absolute inset-2 rounded-full bg-success-500/20 delay-100"></div>
+		<div
+			class="success-scale absolute inset-2 rounded-full bg-success-500/20 animation-delay-100"
+		></div>
 		<!-- Checkmark icon with draw animation -->
-		<div class="success-scale absolute inset-0 flex items-center justify-center delay-150">
-			<Check class="checkmark-draw h-14 w-14 text-success-500" strokeWidth={2.5} />
+		<div
+			class="success-scale absolute inset-0 flex items-center justify-center animation-delay-150"
+		>
+			<Check class="checkmark-draw text-success-500 size-14" strokeWidth={2.5} />
 		</div>
 	</div>
 

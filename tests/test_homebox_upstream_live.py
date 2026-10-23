@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from conftest import HomeboxAuth, HomeboxDockerServer, HomeboxTestAccount, _register_test_account
+from conftest import HomeboxAuth, HomeboxDockerServer, HomeboxTestAccount, _register_test_account, homebox_at_least
 
 from homebox_companion import HomeboxClient, ItemCreate
 
@@ -43,7 +43,7 @@ async def test_extended_fields_and_attachment_round_trip_for_both_auth_modes(
     cleanup_locations.append(location["id"])
     item = await homebox_client.create_item(
         token,
-        ItemCreate(name="Isolated upstream item", quantity=1, parent_id=location["id"]),  # ty: ignore[unknown-argument]
+        ItemCreate(name="Isolated upstream item", quantity=1, parent_id=location["id"]),
     )
     cleanup_items.append(item["id"])
     updated = await homebox_client.update_item(
@@ -119,6 +119,23 @@ def test_key_expiry_revocation_and_rotation(
         assert (
             client.get(f"{homebox_test_account.api_url}/users/self", headers=_bearer(second.token)).status_code == 200
         )
+
+
+def test_new_key_default_expiry_matches_homebox_version(
+    homebox_version: str,
+    homebox_key_factory,
+) -> None:
+    before = datetime.now(UTC)
+    key = homebox_key_factory(use_homebox_default=True)
+    after = datetime.now(UTC)
+
+    if not homebox_at_least(homebox_version, "0.27.0"):
+        # Homebox added the 30-day default in 0.27.0; older keys never expire by default.
+        assert key.expires_at is None
+        return
+    assert key.expires_at is not None
+    expires_at = datetime.fromisoformat(key.expires_at.replace("Z", "+00:00"))
+    assert before + timedelta(days=29, hours=23) <= expires_at <= after + timedelta(days=30, hours=1)
 
 
 def test_key_survives_container_recreation_and_port_rediscovery(

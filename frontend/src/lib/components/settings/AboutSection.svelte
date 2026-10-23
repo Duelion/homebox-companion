@@ -9,13 +9,14 @@
 		Download,
 		Check,
 		RefreshCw,
-		Github,
+		Code,
 		Star,
 		ChevronDown,
 		ExternalLink,
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	const service = settingsService;
+	const detailsId = $props.id();
 </script>
 
 <section class="card space-y-4">
@@ -34,7 +35,7 @@
 					href="https://github.com/Duelion/homebox-companion/releases/latest"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500 transition-colors hover:bg-warning-500/30"
+					class="inline-flex items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-caption text-warning-500 transition-colors hover:bg-warning-500/30"
 					title="Click to view release"
 				>
 					<Download size={12} strokeWidth={2} />
@@ -42,7 +43,7 @@
 				</a>
 			{:else if service.updateCheckDone}
 				<span
-					class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-xs text-success-500"
+					class="inline-flex items-center gap-1 rounded-full bg-success-500/20 px-2 py-0.5 text-caption text-success-500"
 				>
 					<Check size={12} strokeWidth={2} />
 					<span>Up to date</span>
@@ -50,14 +51,14 @@
 			{/if}
 			<button
 				type="button"
-				class="inline-flex items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800/50 px-2 py-0.5 text-xs text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800/50 px-2 py-0.5 text-caption text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
 				onclick={() => service.checkForUpdates()}
 				disabled={service.isLoading.updateCheck}
 				title="Check for updates"
 			>
 				{#if service.isLoading.updateCheck}
 					<div
-						class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+						class="animate-spin rounded-full border-2 border-current border-t-transparent size-3"
 					></div>
 				{:else}
 					<RefreshCw size={12} strokeWidth={2} />
@@ -67,7 +68,7 @@
 		</div>
 	</div>
 	{#if service.errors.updateCheck}
-		<p class="text-xs text-error-500">{service.errors.updateCheck}</p>
+		<p class="text-caption text-error-500">{service.errors.updateCheck}</p>
 	{/if}
 
 	<!-- GitHub Link -->
@@ -79,13 +80,17 @@
 			class="group flex items-center justify-between py-2 text-neutral-400 transition-colors hover:text-neutral-100"
 		>
 			<span class="flex items-center gap-2">
-				<Github size={20} />
+				<Code size={20} aria-hidden="true" />
 				<span>View on GitHub</span>
 			</span>
-			<ExternalLink class="opacity-50 transition-opacity group-hover:opacity-100" size={16} />
+			<ExternalLink
+				class="opacity-50 transition-opacity group-hover:opacity-100"
+				size={16}
+				aria-hidden="true"
+			/>
 		</a>
-		<p class="flex items-start gap-1.5 text-xs text-neutral-500">
-			<Star class="mt-0.5 flex-shrink-0 text-warning-500" size={14} fill="currentColor" />
+		<p class="flex items-start gap-1.5 text-caption text-neutral-500">
+			<Star class="mt-0.5 shrink-0 text-warning-500" size={14} fill="currentColor" />
 			<span>Enjoying the app? Consider giving us a star on GitHub!</span>
 		</p>
 	</div>
@@ -95,38 +100,40 @@
 		type="button"
 		class="flex w-full items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-neutral-400 transition-all hover:bg-neutral-700 hover:text-neutral-100"
 		onclick={() => (service.showAboutDetails = !service.showAboutDetails)}
+		aria-expanded={service.showAboutDetails}
+		aria-controls={detailsId}
 	>
 		<Info class="text-primary-400" size={20} strokeWidth={1.5} />
-		<span>Show Details</span>
+		<span>{service.showAboutDetails ? 'Hide Details' : 'Show Details'}</span>
 		<ChevronDown
 			class="ml-auto transition-transform {service.showAboutDetails ? 'rotate-180' : ''}"
 			size={16}
 		/>
 	</button>
 
-	{#if service.showAboutDetails}
-		<div class="space-y-3">
+	<div id={detailsId} hidden={!service.showAboutDetails} class="space-y-3">
+		{#if service.showAboutDetails}
 			<!-- Configuration Info -->
 			{#if service.config}
 				<!-- Homebox URL -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
-					<span class="flex-shrink-0 text-neutral-400">Homebox URL</span>
+					<span class="shrink-0 text-neutral-400">Homebox URL</span>
 					<div class="flex min-w-0 items-center gap-2">
 						<!-- eslint-disable svelte/no-navigation-without-resolve -- External URL, not an app route -->
 						<a
 							href={service.config.homebox_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="flex max-w-[200px] items-center gap-1 truncate font-mono text-sm text-neutral-100 transition-colors hover:text-primary-400"
+							class="flex max-w-50 items-center gap-1 truncate font-mono text-body-sm text-neutral-100 transition-colors hover:text-primary-400"
 							title={service.config.homebox_url}
 						>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 							<span class="truncate">{service.config.homebox_url}</span>
-							<ExternalLink class="flex-shrink-0 opacity-70" size={12} />
+							<ExternalLink class="shrink-0 opacity-70" size={12} />
 						</a>
 						{#if service.config.is_demo_mode}
 							<span
-								class="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-xs text-warning-500"
+								class="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-500/20 px-2 py-0.5 text-caption text-warning-500"
 							>
 								Demo
 							</span>
@@ -137,23 +144,23 @@
 				<!-- AI Model -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">AI Model</span>
-					<span class="font-mono text-sm text-neutral-100">{service.config.llm_model}</span>
+					<span class="font-mono text-body-sm text-neutral-100">{service.config.llm_model}</span>
 				</div>
 
 				<!-- Image Quality -->
 				<div class="flex items-center justify-between border-t border-neutral-800 py-2">
 					<span class="text-neutral-400">Image Quality</span>
-					<span class="font-mono text-sm capitalize text-neutral-100"
+					<span class="font-mono text-body-sm capitalize text-neutral-100"
 						>{service.config.image_quality}</span
 					>
 				</div>
 			{:else if service.isLoading.config}
 				<div class="flex items-center justify-center py-4">
 					<div
-						class="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+						class="animate-spin rounded-full border-2 border-primary-500 border-t-transparent size-5"
 					></div>
 				</div>
 			{/if}
-		</div>
-	{/if}
+		{/if}
+	</div>
 </section>
