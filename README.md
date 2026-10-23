@@ -65,6 +65,7 @@ Before you start, you'll need:
 
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
 - **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server
+- **A modern browser** – Safari 16.4+, Chrome/Edge 111+, or Firefox 128+
 
 > **Compatibility:** Docker-based live tests default to Homebox v0.27.0 and also run against v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
 
@@ -85,6 +86,8 @@ services:
       - HBC_LLM_API_KEY=sk-your-api-key-here
       - HBC_HOMEBOX_URL=http://your-homebox-ip:7745
       - HBC_HOMEBOX_API_KEY=${HBC_HOMEBOX_API_KEY:-}
+      - HBC_LLM_TIMEOUT=${HBC_LLM_TIMEOUT:-120}
+      - HBC_AI_REQUEST_TIMEOUT=${HBC_AI_REQUEST_TIMEOUT:-}
     ports:
       - 8000:8000
     volumes:
@@ -126,20 +129,23 @@ docker run --rm --entrypoint id ghcr.io/duelion/homebox-companion:latest -g
 
 For an existing named volume, replace `YOUR_COMPANION_VOLUME` and `UID:GID` below
 with the explicitly verified volume name and numeric identity from those commands.
-This one-time administrative operation changes only the data directory and its
-settings file, preserving contents; the application continues to run non-root:
+This one-time administrative operation changes only the data directory, its
+settings file, and the JSON preferences directory/file when present, preserving
+contents; the application continues to run non-root:
 
 ```bash
 docker run --rm --user 0:0 --entrypoint sh \
   -v YOUR_COMPANION_VOLUME:/repair \
   ghcr.io/duelion/homebox-companion:latest \
-  -c 'chown UID:GID /repair && if [ -f /repair/settings.yaml ]; then chown UID:GID /repair/settings.yaml; fi'
+  -c 'for path in /repair /repair/settings.yaml /repair/config /repair/config/field_preferences.json; do if [ -e "$path" ]; then chown UID:GID "$path" || exit; fi; done'
 ```
 
 For a Linux host bind mount, verify the absolute host directory and use
-`sudo chown UID:GID /absolute/companion-data` and, if present,
-`sudo chown UID:GID /absolute/companion-data/settings.yaml`. Ensure the owner has
-write and directory traversal permissions. For Docker Desktop bind mounts, grant
+`sudo chown UID:GID /absolute/companion-data`. Apply the same ownership to
+`settings.yaml`, `config/`, and `config/field_preferences.json` inside that
+directory when present. If `/app/config` is mounted separately, verify and repair
+that mount's directory and JSON file too. Ensure the owner has write and directory
+traversal permissions. For Docker Desktop bind mounts, grant
 the runtime account access using the host filesystem's sharing/ACL controls.
 Read-only mounts must be made writable. Do not delete settings, recursively change
 ownership of unrelated directories, or grant world-write permissions as a repair.
@@ -276,9 +282,8 @@ Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library t
 <details>
 <summary>Officially Supported Models</summary>
 
-- **GPT-5.6 Luna** (recommended) – Cheapest and most efficient (use with `reasoning_effort=none`)
-- **GPT-5 mini** – Previous default
-- **GPT-5 nano** – Fastest response times
+- **GPT-5.6 Luna** – Default model
+- **GPT-5 nano** – Supported alternative
 
 </details>
 
@@ -328,6 +333,16 @@ HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
 
 > **📝 Full reference:** See [`.env.example`](.env.example) for all available environment variables with detailed explanations and examples.
 
+Local runs read `.env` directly. With Docker Compose, add optional settings to
+the service's `environment` list or configure `env_file`. A Compose `.env` file
+supplies `${VARIABLE}` substitutions; it does not automatically pass every value
+into the container. Explicit `environment` entries take priority over `env_file`.
+
+Saved LLM profiles take priority over their initial environment bootstrap. Update
+existing profiles in Settings; changing `HBC_LLM_MODEL` alone does not replace a
+saved model. AI field preferences use current `HBC_AI_*` values after restart,
+unless overridden by values saved through Settings.
+
 ### Essential Settings
 
 For a quick setup, you only need to provide your OpenAI API key. All other settings have sensible defaults.
@@ -349,7 +364,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 | `HBC_LLM_ALLOW_UNSAFE_MODELS` | `false` | Skip capability validation for unrecognized models |
 | `HBC_LLM_TIMEOUT` | `120` | LLM request timeout in seconds |
 | `HBC_AI_REQUEST_TIMEOUT` | Automatic | Browser deadline for detection, analysis, merge and correction, in seconds (1–86400). Unset/blank uses `HBC_LLM_TIMEOUT + 60`, bounded to 60–86400 seconds. |
-| `HBC_LLM_STREAM_TIMEOUT` | `300` | Streaming timeout for large responses (e.g., hierarchical views) |
+| `HBC_LLM_STREAM_TIMEOUT` | `300` | Timeout for streaming AI Chat model calls, in seconds |
 | `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum bytes per file, expressed in MiB; must be positive. |
 | `HBC_MAX_REQUEST_SIZE_MB` | `100` | Maximum aggregate API request body in MiB, including all files and multipart overhead; enforced while streaming, before parsing can exceed the limit. Must be positive. |
 | `HBC_IMAGE_QUALITY` | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
@@ -408,15 +423,12 @@ HBC_IMAGE_QUALITY=high
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HBC_RATE_LIMIT_ENABLED` | `true` | Enable/disable API rate limiting |
-| `HBC_RATE_LIMIT_RPM` | `400` | Requests per minute (80% of Tier 1 limit) |
-| `HBC_RATE_LIMIT_TPM` | `400000` | Tokens per minute (80% of Tier 1 limit) |
+| `HBC_RATE_LIMIT_RPM` | `400` | LLM requests per minute |
+| `HBC_RATE_LIMIT_TPM` | `400000` | LLM tokens per minute |
 | `HBC_RATE_LIMIT_BURST_MULTIPLIER` | `1.5` | Burst capacity multiplier |
 
-**Note:** Default settings are conservative (80% of OpenAI Tier 1 limits). Only configure if you have a higher-tier account or need to adjust limits.
-
-**Examples for different OpenAI tiers:**
-- Tier 2: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=1600000`
-- Tier 3: `HBC_RATE_LIMIT_RPM=4000` `HBC_RATE_LIMIT_TPM=3200000`
+Match these application limits to your provider, model and account limits.
+Increasing them does not raise the provider's limits.
 
 </details>
 
@@ -429,8 +441,26 @@ HBC_IMAGE_QUALITY=high
 | `HBC_SERVER_PORT` | `8000` | Server port |
 | `HBC_LOG_LEVEL` | `INFO` | Logging level |
 | `HBC_DISABLE_UPDATE_CHECK` | `false` | Disable update notifications |
-| `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MB |
+| `HBC_GITHUB_REPO` | `Duelion/homebox-companion` | Repository used for update checks |
+| `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum file upload size in MiB |
 | `HBC_CORS_ORIGINS` | `*` | Explicit allowed origins, comma-separated. Wildcard applies only in legacy mode; key mode defaults to same-origin. |
+
+</details>
+
+<details>
+<summary>Chat Assistant & Self-Hosted Demo Mode</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HBC_CHAT_ENABLED` | `true` | Enable AI Chat and MCP endpoints |
+| `HBC_CHAT_MAX_HISTORY` | `20` | Maximum recent messages included in model context |
+| `HBC_CHAT_APPROVAL_TIMEOUT` | `300` | Seconds before pending inventory-change approvals expire |
+| `HBC_CHAT_MAX_RESPONSE_TOKENS` | `0` | Maximum model response tokens for chat; `0` sets no explicit limit |
+| `HBC_DEMO_MODE` | `false` | Prefill demo login, use browser-session field preferences and disable chat |
+
+Self-hosted demo mode prefills the legacy login with `demo@example.com` / `demo`.
+It does not create that account in Homebox or make inventory changes read-only.
+Field preference changes stay in the browser session instead of the shared JSON.
 
 </details>
 
@@ -505,7 +535,7 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 ## Development
 
-Target recovery contributions at `dev`. Changes on `dev` are not yet a release;
+Target contributions at `dev`. Changes on `dev` are not yet a release;
 promotion to `main` and publishing are separate steps.
 
 Use Python 3.14+, Node 26.10.0 (matching CI and the Docker frontend builder),
