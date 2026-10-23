@@ -3,6 +3,22 @@
 See the [Quick Start](../README.md#-quick-start) for a basic Docker deployment and
 [`.env.example`](../.env.example) for configuration variables.
 
+## Connecting to host services
+
+Docker Desktop provides `host.docker.internal` to reach a service running on the
+host. On native Linux Docker, add this mapping to the Companion Compose service:
+
+```yaml
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+Then set `HBC_HOMEBOX_URL=http://host.docker.internal:7745`, using the port where
+Homebox listens. The host service must listen on an address reachable from Docker,
+rather than only host loopback. The same networking rule applies to a local model
+server. For another Compose service, use its service name on a shared Docker
+network instead.
+
 ## Persistent settings
 
 Mount `/app/data` to retain settings across container replacement:

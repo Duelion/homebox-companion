@@ -43,19 +43,19 @@ flowchart LR
 5. **Review & Edit** – Adjust AI suggestions or ask AI to correct mistakes
 6. **Submit** – Items are created in your Homebox inventory with photos attached
 
-> *LiteLLM is a Python adaptor library we use to call OpenAI directly, no Local AI model required (unless you want to), just your API key.
+> *LiteLLM is the Python library we use to connect to AI providers. With the default OpenAI setup, you only need an API key; no local AI model is required.
 
 ## 💰 OpenAI Cost Estimates
 
 | Model | Input/1M | Output/1M | Cost per 100 items | Avg Latency | Notes |
 |-------|----------|-----------|---------------------|-------------|-------|
-| **GPT-5.6 Luna** | $0.20 | $1.20 | **$0.019** 🏆 | ~3.4s | Cheapest. Requires `reasoning_effort=none` |
+| **GPT-5.6 Luna** | $0.20 | $1.20 | **$0.019** 🏆 | ~3.4s | Cheapest in this benchmark. Measured with `reasoning_effort=none` |
 | GPT-5.4 Nano | $0.20 | $1.25 | $0.024 | ~1.9s | Fastest. Good budget option |
-| GPT-5.4 Mini | $0.75 | $4.50 | $0.076 | ~2.0s | 3× more expensive |
+| GPT-5.4 Mini | $0.75 | $4.50 | $0.076 | ~2.0s | Higher cost |
 
-**GPT-5.6 Luna** is the recommended model — cheapest at $0.019/100 items with `reasoning_effort=none`. All three models achieved zero errors and comparable detection on inventory classification tasks.
+**GPT-5.6 Luna** is the recommended model — cheapest at $0.019/100 items with `reasoning_effort=none` in this benchmark. All three models achieved zero errors and comparable detection on the inventory classification tasks tested.
 
-> **Benchmark methodology:** 100 API calls per model using 3 test images with extended field extraction. Costs include OpenAI automatic prompt caching (54–66% of input tokens cached at $0.02/1M). Real-world costs depend on image complexity and item count per photo.
+> **Benchmark methodology:** 100 API calls per model using 3 test images with extended field extraction. Costs include OpenAI automatic prompt caching (54–66% of input tokens cached). Real-world costs depend on image complexity and item count per photo.
 >
 > *Prices as of **2026-09-21**, measured against OpenAI's live API.*
 
@@ -63,7 +63,7 @@ flowchart LR
 
 Before you start, you'll need:
 
-- **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
+- **An OpenAI API key for the default setup** – Get one at [platform.openai.com](https://platform.openai.com/api-keys); other providers are experimental
 - **A compatible Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server; see [compatibility notes](docs/homebox-compatibility.md)
 - **A modern browser** – Safari 16.4+, Chrome/Edge 111+, or Firefox 128+
 
@@ -98,7 +98,7 @@ docker compose up -d
 
 Open `http://localhost:8000` in your browser.
 
-> **Tip:** If Homebox runs on the same machine but outside Docker, use `http://host.docker.internal:PORT` as the URL.
+> **Tip:** On Docker Desktop, use `http://host.docker.internal:PORT` to reach Homebox running on the host. Native Linux Docker needs an [extra host mapping](docs/deployment.md#connecting-to-host-services).
 
 If Homebox runs in another Compose service, put both services on the same Docker
 network and use the Homebox service name, for example `http://homebox:7745`.
@@ -223,7 +223,7 @@ The chat assistant has access to 24 tools for interacting with your Homebox inve
 
 Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library to call AI providers. **You don't need to self-host anything** – just get an OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys) and you're ready to go. We officially support and test with OpenAI GPT models only.
 
-> **Fallback Support:** You can configure a secondary LLM profile in Settings that automatically activates if your primary provider fails.
+> **Fallback Support:** Configure a secondary LLM profile in Settings to try when the primary provider fails. A chat response interrupted after streaming starts may still need a retry.
 
 <details>
 <summary>Officially Supported Models</summary>
@@ -236,14 +236,16 @@ Homebox Companion uses [LiteLLM](https://docs.litellm.ai/) as a Python library t
 <details>
 <summary>Using Other Providers (Experimental)</summary>
 
-You can try other LiteLLM-compatible providers at your own risk. The app checks if your chosen model supports the required capabilities using LiteLLM's API:
+You can try other LiteLLM-compatible providers at your own risk.
 
-**Required capabilities (photo scanning):**
-- **Vision** – Checked via `litellm.supports_vision(model)`
-- **Structured outputs** – Checked via `litellm.supports_response_schema(model)`
+**Photo scanning** requires a vision-capable model. Structured outputs are
+preferred; when LiteLLM reports no schema support, the app requests JSON through
+the prompt instead.
 
-**Required for Chat assistant (in addition to the above):**
-- **Function calling** – Checked via `litellm.supports_function_calling(model)`. Models without native tool calling (e.g., `llava`, `moondream`) will work for photo scanning but **not** for the Chat assistant, which relies on tool calls to query your inventory.
+**AI Chat** needs reliable tool-call responses to query and change inventory.
+Native tool calling is recommended. Companion passes tools through LiteLLM
+without a separate capability precheck, and compatibility varies by model and
+provider. A model working for photo scanning does not guarantee it works for chat.
 
 **Finding model names:**
 
@@ -264,12 +266,15 @@ Once your local server is running, configure the app:
 
 ```bash
 HBC_LLM_API_KEY=any-value-works-for-local  # Just needs to be non-empty
-HBC_LLM_API_BASE=http://localhost:11434     # Your local server URL
+HBC_LLM_API_BASE=http://localhost:11434     # Ollama address reachable from Companion
 HBC_LLM_MODEL=ollama/llava:34b              # Your local model name
-HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Required for most local models
+HBC_LLM_ALLOW_UNSAFE_MODELS=true            # Only if capability detection blocks your model
 ```
 
-**Note:** Local models must support vision for photo scanning (e.g., llava, bakllava, moondream). For the **Chat assistant**, the model must also support **function calling** — most vision-only models do not. Check your model's capabilities with `litellm.supports_function_calling("ollama/your-model")`. Performance and accuracy vary widely.
+**Note:** This example assumes an unauthenticated local Ollama server. If
+Companion runs in Docker, use a reachable host address or service name instead of
+`localhost`. Local models need vision for scanning and reliable tool calls for
+chat. Performance and accuracy vary widely.
 
 **⚠️ Important:** Other providers (Anthropic, Google, OpenRouter, local models, etc.) are **not officially supported**. If you encounter errors, we may not be able to help. Use at your own risk.
 
@@ -378,13 +383,14 @@ HBC_IMAGE_QUALITY=high
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HBC_RATE_LIMIT_ENABLED` | `true` | Enable/disable API rate limiting |
-| `HBC_RATE_LIMIT_RPM` | `400` | LLM requests per minute |
-| `HBC_RATE_LIMIT_TPM` | `400000` | LLM tokens per minute |
+| `HBC_RATE_LIMIT_ENABLED` | `true` | Enable throttling for photo analysis and related JSON AI requests |
+| `HBC_RATE_LIMIT_RPM` | `400` | JSON AI requests per minute |
+| `HBC_RATE_LIMIT_TPM` | `400000` | Estimated input tokens per minute |
 | `HBC_RATE_LIMIT_BURST_MULTIPLIER` | `1.5` | Burst capacity multiplier |
 
-Match these application limits to your provider, model and account limits.
-Increasing them does not raise the provider's limits.
+These controls apply to photo analysis and related JSON AI requests. Chat and
+login use separate rate limits. Match the application limits to your provider,
+model and account limits; increasing them does not raise the provider's limits.
 
 </details>
 
@@ -451,7 +457,9 @@ HBC_CORS_ORIGINS=https://inventory.example.com,https://admin.example.com
 |----------|---------|-------------|
 | `HBC_PRINT_ENABLED` | `false` | Show a "Print Label" button after items are created |
 
-When enabled, a print button appears on the post-creation screen for each item. Pressing it triggers Homebox's built-in labelmaker, which generates and prints a label via the command configured on your **Homebox server**.
+When enabled, open **See Items** after creation to find each item's **Print Label**
+button. It triggers Homebox's built-in labelmaker, which generates and prints a
+label via the command configured on your **Homebox server**.
 
 **Homebox server prerequisite:** Set the `HBOX_LABEL_MAKER_PRINT_COMMAND` environment variable on your Homebox instance (e.g., `lp -d MyPrinter %s`). Without it, print requests will fail. See [Homebox documentation](https://github.com/sysadminsmedia/homebox) for details.
 
@@ -481,13 +489,13 @@ Customize how AI formats detected item fields. Set via environment variables or 
 
 ## 💡 Tips
 
-- **Batch more items for faster uploads** – Images are analyzed by AI in parallel (up to 30 simultaneously), so adding more items actually feels faster than one at a time.
-- **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
+- **Analyze batches in parallel** – The app processes up to 30 detection requests concurrently; speed depends on your server and AI provider.
+- **Include receipts in your photos** – AI can extract purchase price and retailer from receipt images.
 - **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
 - **Asset IDs** – Enter or scan a numeric Homebox ID, such as `032-303`; leave it blank for automatic assignment. Hyphens and leading zeros are accepted. See [Homebox compatibility](docs/homebox-compatibility.md#asset-ids) for ID limits.
 - **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
 - **Use the Settings page** – Customize AI behavior, define custom fields, and manage LLM profiles without restarting.
-- **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.
+- **Long press to confirm all** – On the review screen, long-press the confirm button, then choose **Confirm All** to accept the remaining valid items.
 
 ## Development
 
@@ -506,8 +514,8 @@ uv run prek install
 
 The pre-commit hook checks staged Python files with Ruff and checks frontend lint
 and formatting when frontend files change. It does not modify or stage files.
-Use `uv run prek run --all-files` to check the whole repository. Full frontend
-validation is `npm --prefix frontend run verify`. Python checks matching CI are:
+Use `uv run prek run --all-files` to check the whole repository. Local frontend
+verification is `npm --prefix frontend run verify`. Python checks matching CI are:
 
 ```bash
 uv run ruff check .
