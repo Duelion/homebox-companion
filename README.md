@@ -64,12 +64,8 @@ flowchart LR
 Before you start, you'll need:
 
 - **An OpenAI API key** – Get one at [platform.openai.com](https://platform.openai.com/api-keys)
-- **A Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server
+- **A compatible Homebox instance** – Your own [Homebox](https://github.com/sysadminsmedia/homebox) server; see [compatibility notes](docs/homebox-compatibility.md)
 - **A modern browser** – Safari 16.4+, Chrome/Edge 111+, or Firefox 128+
-
-> **Compatibility:** Docker-based live tests default to Homebox v0.27.0 and also run against v0.26.2. Homebox API keys require v0.26.0 or newer; retaining legacy login does not add support for older inventory APIs.
-
-On Homebox 0.27+, AI Chat can keep an item's parent container while setting a separate physical location, or clear that override to follow the parent chain again. The update tool exposes `location_override_id` and `clear_location_override` for these operations; `location_id` still moves the item directly into a location. Explicit overrides require a recognized Homebox version of 0.27.0 or newer. For the upstream 0.27.0 issue where typed custom fields display blank, see the [separate Homebox display patch](docs/upstream/README.md).
 
 ## 🚀 Quick Start
 
@@ -113,57 +109,11 @@ container itself.
 
 ### Persistent Docker settings
 
-Mount `/app/data` to retain settings across container replacement. Fresh named
-volumes inherit the image directory's ownership and work with the non-root
-`appuser`. Startup checks creation, atomic replacement and removal in both settings
-directories before serving requests. Existing volumes and host bind mounts retain
-their existing permissions; the image cannot override host filesystem permissions.
+Mount `/app/data` to retain AI model profiles, custom fields and field preferences
+across container replacement.
 
-If startup reports unwritable storage, stop Companion and back up the selected
-mount first. Obtain the actual UID and GID from the exact image you deploy:
-
-```bash
-docker run --rm --entrypoint id ghcr.io/duelion/homebox-companion:latest -u
-docker run --rm --entrypoint id ghcr.io/duelion/homebox-companion:latest -g
-```
-
-For an existing named volume, replace `YOUR_COMPANION_VOLUME` and `UID:GID` below
-with the explicitly verified volume name and numeric identity from those commands.
-This one-time administrative operation changes only the data directory, its
-settings file, and the JSON preferences directory/file when present, preserving
-contents; the application continues to run non-root:
-
-```bash
-docker run --rm --user 0:0 --entrypoint sh \
-  -v YOUR_COMPANION_VOLUME:/repair \
-  ghcr.io/duelion/homebox-companion:latest \
-  -c 'for path in /repair /repair/settings.yaml /repair/config /repair/config/field_preferences.json; do if [ -e "$path" ]; then chown UID:GID "$path" || exit; fi; done'
-```
-
-For a Linux host bind mount, verify the absolute host directory and use
-`sudo chown UID:GID /absolute/companion-data`. Apply the same ownership to
-`settings.yaml`, `config/`, and `config/field_preferences.json` inside that
-directory when present. If `/app/config` is mounted separately, verify and repair
-that mount's directory and JSON file too. Ensure the owner has write and directory
-traversal permissions. For Docker Desktop bind mounts, grant
-the runtime account access using the host filesystem's sharing/ACL controls.
-Read-only mounts must be made writable. Do not delete settings, recursively change
-ownership of unrelated directories, or grant world-write permissions as a repair.
-Restart Companion after correcting the selected mount.
-
-### Saved field preferences
-
-Field preferences keep their existing JSON format and
-`/app/config/field_preferences.json` path. In the Docker image, this file points
-to `/app/data/config/field_preferences.json`, so the existing `/app/data` mount
-also persists default tags, output language and AI field instructions. Existing
-`/app/config` directory mounts continue to use their own JSON file. No format
-conversion or additional mount is required.
-
-Profiles and custom fields remain in `/app/data/settings.yaml`. Field preferences
-are sparse overrides: hardcoded defaults → current `HBC_AI_*` environment → saved
-JSON values. Reset clears only the JSON overrides, retaining profiles and custom
-fields. Invalid settings files are preserved rather than replaced with defaults.
+For file locations, backups and Docker storage repair instructions, see the
+[deployment guide](docs/deployment.md#persistent-settings).
 
 ### Homebox API key or legacy login
 
@@ -178,24 +128,19 @@ Restart Companion after changing these values. With Docker Compose, keep the exp
 
 A configured key is used only by the server. The browser receives no Homebox key and has no login, session refresh or Homebox logout action. Missing, empty or whitespace-only keys preserve the username/password flow. An invalid, expired or revoked key shows a connection error with Retry; it never falls back to a password prompt. Removing the key and restarting restores legacy login.
 
-All people who can reach a key-mode deployment act as the key's Homebox owner. Use a dedicated Homebox user with the intended collection permissions and control access through your network or reverse proxy. Browser chat contexts separate conversation history and pending approvals; they are not accounts or access credentials. Existing contextless chats and scan drafts remain stored, but are not loaded automatically into a newly verified context. Clearing browser data creates a new chat context. Server chat state remains in memory with its existing TTL and requires a single worker for consistent conversations.
-
-New API keys created by Homebox v0.27 expire after 30 days when no expiry is
-chosen. An upgrade does not retroactively expire existing non-expiring keys.
-Check the chosen expiry when creating a key and rotate it before that date.
-Companion does not renew keys automatically, so keep the rotation procedure:
-create a replacement, update the server environment, restart Companion and
-verify its connection, then revoke the old key in Homebox.
-
-Homebox requires its own stable `HBOX_AUTH_API_KEY_PEPPER` of at least 32 bytes;
-changing it invalidates issued keys. Configure it on **Homebox**, never on
-Companion. See the [Homebox v0.27 configuration documentation](https://github.com/sysadminsmedia/homebox/blob/v0.27.0/docs/src/content/docs/en/quick-start/configure/index.mdx).
+All people who can reach a key-mode deployment act as the key's Homebox owner.
+Use a dedicated Homebox user with the intended collection permissions and control
+access through your network or reverse proxy. See the
+[deployment guide](docs/deployment.md#homebox-api-keys-and-access) for key rotation
+and chat server requirements.
 
 ### Shared settings
 
 Authenticated Homebox users can manage shared settings, AI model profiles, custom fields and server logs without additional account configuration. In API-key mode, access uses the configured key's Homebox identity. Homebox credentials are revalidated when accessing Companion's local settings and logs.
 
-New log entries disable diagnostic locals and redact configured credentials and common credential fields before emission. Existing historical log files remain unchanged and are available to authenticated users. LLM debug logs can contain inventory prompts and responses, so share exports carefully.
+View and download server and LLM debug logs from Settings. Logs can contain
+inventory details, so share exports carefully. See the
+[deployment guide](docs/deployment.md#logs) for log handling details.
 
 When editing an AI profile, leave the API key blank to keep its saved key, including when changing the model or API base URL. A primary profile without a key uses the configured environment default; a fallback without a key inherits the primary key. Set a profile's own key when it needs different credentials.
 
@@ -218,6 +163,7 @@ When editing an AI profile, leave the API key blank to keep its saved key, inclu
 - Search locations by name
 - Scan Homebox QR codes
 - Create new locations on the fly
+- Keep parent containers and physical locations separate on Homebox 0.27+
 
 ### Customization
 - Configure how AI formats each field (name style, description format, etc.)
@@ -366,7 +312,7 @@ For a quick setup, you only need to provide your OpenAI API key. All other setti
 | `HBC_AI_REQUEST_TIMEOUT` | Automatic | How long the browser waits for the whole detection, analysis, merge or correction operation, in seconds (1–86400). Unset/blank uses `HBC_LLM_TIMEOUT + 60`, bounded to 60–86400 seconds. |
 | `HBC_LLM_STREAM_TIMEOUT` | `300` | Timeout for streaming AI Chat model calls, in seconds |
 | `HBC_MAX_UPLOAD_SIZE_MB` | `20` | Maximum bytes per file, expressed in MiB; must be positive. |
-| `HBC_MAX_REQUEST_SIZE_MB` | `100` | Maximum aggregate API request body in MiB, including all files and multipart overhead; enforced while streaming, before parsing can exceed the limit. Must be positive. |
+| `HBC_MAX_REQUEST_SIZE_MB` | `100` | Maximum total API request size in MiB, including all files and multipart overhead; must be positive. |
 | `HBC_IMAGE_QUALITY` | `medium` | Image quality for Homebox uploads: `raw`, `high`, `medium`, `low` |
 
 </details>
@@ -390,7 +336,9 @@ and streaming chat keeps its existing timeout behavior. Restart Companion and
 reload the browser after changing these values. The supplied Compose file passes
 both variables from its `.env` file.
 
-Requests exceeding the body limit return HTTP 413, including chunked uploads. Missing or malformed legacy bearer credentials are rejected before multipart files are read. Configure matching body and concurrency limits on your reverse proxy to bound simultaneous uploads as well. If legitimate multi-image requests exceed 100 MiB, raise `HBC_MAX_REQUEST_SIZE_MB` deliberately; the per-file limit still applies.
+Requests exceeding the total size limit return HTTP 413. If multi-image uploads
+exceed 100 MiB, increase `HBC_MAX_REQUEST_SIZE_MB`; the per-file limit still applies.
+Configure matching upload limits on your reverse proxy.
 
 <details>
 <summary>Image Quality</summary>
@@ -536,15 +484,14 @@ Customize how AI formats detected item fields. Set via environment variables or 
 - **Batch more items for faster uploads** – Images are analyzed by AI in parallel (up to 30 simultaneously), so adding more items actually feels faster than one at a time.
 - **Include receipts in your photos** – AI can extract purchase price, retailer, and date from receipt images.
 - **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
-- **Asset IDs** – Enter or scan a numeric Homebox ID, such as `032-303`; leave it blank for automatic assignment. Hyphens and leading zeros are accepted. IDs must fit Homebox’s signed 64-bit integer range. Zero is accepted by Homebox but represents an unassigned ID. Invalid IDs must be corrected before analysis, confirmation, or submission.
+- **Asset IDs** – Enter or scan a numeric Homebox ID, such as `032-303`; leave it blank for automatic assignment. Hyphens and leading zeros are accepted. See [Homebox compatibility](docs/homebox-compatibility.md#asset-ids) for ID limits.
 - **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
 - **Use the Settings page** – Customize AI behavior, define custom fields, and manage LLM profiles without restarting.
 - **Long press to confirm all** – On the review screen, long-press the confirm button to accept all remaining items at once.
 
 ## Development
 
-Target contributions at `dev`. Changes on `dev` are not yet a release;
-promotion to `main` and publishing are separate steps.
+Open pull requests against `dev`.
 
 Use Python 3.14+, Node 26.10.0 (matching CI and the Docker frontend builder),
 uv 0.9.17+ (CI and Docker use 0.12.5), and locked installs:
