@@ -53,9 +53,9 @@ class TestHomeboxClientErrorHandling:
 class TestFieldPreferencesFileCorruption:
     """Test field preferences handling of corrupted/invalid files."""
 
-    def test_corrupted_json_falls_back_to_defaults(self, monkeypatch, tmp_path) -> None:
-        """Corrupted JSON file should fall back to defaults with warning."""
-        from homebox_companion.core import field_preferences
+    def test_corrupted_json_fails_closed(self, monkeypatch, tmp_path) -> None:
+        """Corrupt legacy JSON must not be replaced with defaults."""
+        from homebox_companion.core import field_preferences, persistent_settings
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -66,18 +66,18 @@ class TestFieldPreferencesFileCorruption:
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
         monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
+        monkeypatch.setattr(persistent_settings, "SETTINGS_FILE", tmp_path / "data" / "settings.yaml")
+        persistent_settings.clear_settings_cache()
         field_preferences.get_defaults.cache_clear()
 
-        # Should not crash - corrupted file triggers warning + defaults
-        prefs = field_preferences.load_field_preferences()
+        with pytest.raises(persistent_settings.SettingsLoadError, match="legacy field preferences"):
+            field_preferences.load_field_preferences()
+        assert prefs_file.read_text() == "{ invalid json }"
+        assert not persistent_settings.SETTINGS_FILE.exists()
 
-        # Returns defaults (no env vars set in this test)
-        assert isinstance(prefs, field_preferences.FieldPreferences)
-        assert prefs.output_language == "English"
-
-    def test_invalid_data_types_falls_back_to_defaults(self, monkeypatch, tmp_path) -> None:
-        """Invalid data types in JSON should trigger warning and fallback."""
-        from homebox_companion.core import field_preferences
+    def test_invalid_data_types_fail_closed(self, monkeypatch, tmp_path) -> None:
+        """Invalid legacy values must not be replaced with defaults."""
+        from homebox_companion.core import field_preferences, persistent_settings
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -93,9 +93,11 @@ class TestFieldPreferencesFileCorruption:
 
         monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
         monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
+        monkeypatch.setattr(persistent_settings, "SETTINGS_FILE", tmp_path / "data" / "settings.yaml")
+        persistent_settings.clear_settings_cache()
         field_preferences.get_defaults.cache_clear()
 
-        # Should not crash - returns defaults with warning
-        prefs = field_preferences.load_field_preferences()
-        assert isinstance(prefs, field_preferences.FieldPreferences)
-        assert prefs.output_language == "English"
+        with pytest.raises(persistent_settings.SettingsLoadError, match="legacy field preferences"):
+            field_preferences.load_field_preferences()
+        assert json.loads(prefs_file.read_text()) == invalid_prefs
+        assert not persistent_settings.SETTINGS_FILE.exists()

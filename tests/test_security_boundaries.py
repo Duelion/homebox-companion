@@ -11,7 +11,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from homebox_companion.core import config, field_preferences, llm_utils
+from homebox_companion.core import config, field_preferences, llm_utils, persistent_settings
 from homebox_companion.core.config import Settings
 from homebox_companion.core.persistent_settings import (
     CustomFieldDefinition,
@@ -67,7 +67,9 @@ def profile_store(monkeypatch):
     completion = AsyncMock(return_value=SimpleNamespace(model="gpt-5.6-luna"))
     monkeypatch.setattr(llm_profiles, "load_settings", lambda: store)
     monkeypatch.setattr(llm_profiles, "clear_settings_cache", lambda: None)
-    monkeypatch.setattr(llm_profiles, "save_settings", save)
+    monkeypatch.setattr(persistent_settings, "save_settings", save)
+    monkeypatch.setattr(persistent_settings, "load_settings", lambda: store)
+    monkeypatch.setattr(persistent_settings, "get_settings", lambda: store)
     monkeypatch.setattr(llm_profiles.litellm, "acompletion", completion)
     return store, save, completion
 
@@ -121,10 +123,9 @@ async def test_invalid_token_cannot_access_local_resources(path, profile_store):
 async def test_authenticated_user_can_manage_shared_resources(
     method, path, body, status, api_key, profile_store, monkeypatch, tmp_path
 ):
-    store, save, _ = profile_store
+    store, _, _ = profile_store
     store.custom_fields = [CustomFieldDefinition(name="example", ai_instruction="Example field")]
     monkeypatch.setattr(custom_fields, "get_settings", lambda: store)
-    monkeypatch.setattr(custom_fields, "save_settings", save)
     monkeypatch.setattr(field_preferences, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", tmp_path / "field_preferences.json")
     monkeypatch.setattr(logs, "_LOGS_DIR", str(tmp_path))

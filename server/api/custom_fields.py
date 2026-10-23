@@ -6,8 +6,9 @@ from pydantic import BaseModel
 
 from homebox_companion.core.persistent_settings import (
     CustomFieldDefinition,
+    PersistentSettings,
     get_settings,
-    save_settings,
+    mutate_settings,
 )
 from homebox_companion.tools.vision.models import DetectedItem
 
@@ -51,9 +52,10 @@ async def update_custom_fields(
     ):
         raise HTTPException(status_code=400, detail="Custom field name conflicts with an item field")
 
-    persistent = get_settings()
-    persistent.custom_fields = fields
-    save_settings(persistent)
+    def update(persistent: PersistentSettings) -> None:
+        persistent.custom_fields = fields
+
+    persistent = mutate_settings(update)
 
     logger.info(f"Custom fields updated: {len(fields)} definitions")
     for f in fields:
@@ -65,14 +67,15 @@ async def update_custom_fields(
 @router.delete("/settings/custom-fields/{field_name}")
 async def delete_custom_field(field_name: str) -> list[CustomFieldDefinition]:
     """Delete a single custom field definition by name."""
-    persistent = get_settings()
-    original_count = len(persistent.custom_fields)
-    persistent.custom_fields = [f for f in persistent.custom_fields if f.name != field_name]
 
-    if len(persistent.custom_fields) == original_count:
-        raise HTTPException(status_code=404, detail=f"Custom field '{field_name}' not found")
+    def delete(persistent: PersistentSettings) -> None:
+        original_count = len(persistent.custom_fields)
+        persistent.custom_fields = [f for f in persistent.custom_fields if f.name != field_name]
 
-    save_settings(persistent)
+        if len(persistent.custom_fields) == original_count:
+            raise HTTPException(status_code=404, detail=f"Custom field '{field_name}' not found")
+
+    persistent = mutate_settings(delete)
     logger.info(f"Custom field '{field_name}' deleted")
 
     return persistent.custom_fields

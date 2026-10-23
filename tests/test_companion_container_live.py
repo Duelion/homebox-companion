@@ -5,6 +5,7 @@ Build once with docker build -t homebox-companion:storage-test . before running.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import time
@@ -61,7 +62,7 @@ def wait_ready(name: str) -> str:
     pytest.fail(f"Production container did not become ready:\n{docker('logs', name)}", pytrace=False)
 
 
-def test_fresh_volume_settings_survive_restart(
+def test_fresh_volume_settings_survive_restart_and_replacement(
     companion_image: str, storage_volume: str, homebox_test_account: HomeboxTestAccount
 ) -> None:
     name = f"companion-storage-{uuid.uuid4().hex}"
@@ -73,11 +74,7 @@ def test_fresh_volume_settings_survive_restart(
         "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
         homebox_test_account.server.name,
     )
-    docker(
-        "run",
-        "-d",
-        "--name",
-        name,
+    run_args = (
         "-p",
         "127.0.0.1::8000",
         "-v",
@@ -92,12 +89,25 @@ def test_fresh_volume_settings_survive_restart(
         "HBC_DISABLE_UPDATE_CHECK=true",
         companion_image,
     )
+    docker("run", "-d", "--name", name, *run_args)
     expected = [{"name": "Storage material", "ai_instruction": "Preserve Unicode: acero — 鋼"}]
+    expected_preferences = {
+        "default_tag_id": "storage-tag-id",
+        "output_language": "Spanish",
+        "name": "Storage naming instruction — retained",
+    }
     try:
         assert docker("exec", name, "id", "-u") != "0"
-        for restart in (False, True):
-            if restart:
+        original_container = docker("inspect", "--format", "{{.Id}}", name)
+        for phase in ("initial", "restart", "replacement"):
+            if phase == "restart":
                 docker("restart", name)
+            if phase == "replacement":
+                docker("rm", "--force", name)
+                name = f"companion-replacement-{uuid.uuid4().hex}"
+                docker("run", "-d", "--name", name, *run_args)
+                assert docker("inspect", "--format", "{{.Id}}", name) != original_container
+                assert docker("exec", name, "id", "-u") != "0"
             url = wait_ready(name)
             with httpx.Client(base_url=url, timeout=15, trust_env=False) as client:
                 login = client.post(
@@ -113,13 +123,44 @@ def test_fresh_volume_settings_survive_restart(
                 assert profiles.status_code == 200
                 fields = client.get("/api/settings/custom-fields", headers=headers)
                 assert fields.status_code == 200
-                if restart:
+                preferences = client.get("/api/settings/field-preferences", headers=headers)
+                assert preferences.status_code == 200
+                if phase != "initial":
                     assert fields.json() == expected
+                    assert profiles.json()["profiles"][0]["name"] == "Storage profile"
+                    for key, value in expected_preferences.items():
+                        assert preferences.json()[key] == value
+                    effective = json.loads(
+                        docker(
+                            "exec",
+                            name,
+                            "uv",
+                            "run",
+                            "--no-sync",
+                            "python",
+                            "-c",
+                            "import json; from homebox_companion.core.field_preferences import load_field_preferences; "
+                            "print(json.dumps(load_field_preferences().model_dump()))",
+                        )
+                    )
+                    for key, value in expected_preferences.items():
+                        assert effective[key] == value
                 else:
                     assert fields.json() == []
                     saved = client.put("/api/settings/custom-fields", headers=headers, json=expected)
                     assert saved.status_code == 200
                     assert saved.json() == expected
+                    saved_preferences = client.put(
+                        "/api/settings/field-preferences", headers=headers, json=expected_preferences
+                    )
+                    assert saved_preferences.status_code == 200
+                    profile_name = profiles.json()["profiles"][0]["name"]
+                    saved_profile = client.put(
+                        f"/api/llm/profiles/{profile_name}",
+                        headers=headers,
+                        json={"new_name": "Storage profile"},
+                    )
+                    assert saved_profile.status_code == 200
         assert "PermissionError" not in docker("logs", name)
         assert docker("exec", name, "find", "/app/data", "-name", ".settings-storage-*") == ""
     finally:

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from loguru import logger
 
-from homebox_companion.core import persistent_settings
+from homebox_companion.core import field_preferences, persistent_settings
 from homebox_companion.core.persistent_settings import (
     PersistentSettings,
     SettingsLoadError,
@@ -20,6 +20,7 @@ def settings_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "settings.yaml"
     monkeypatch.setattr(persistent_settings, "DATA_DIR", tmp_path)
     monkeypatch.setattr(persistent_settings, "SETTINGS_FILE", path)
+    monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", tmp_path / "legacy.json")
     return path
 
 

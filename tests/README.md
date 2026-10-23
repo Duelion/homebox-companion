@@ -245,7 +245,16 @@ uv run pytest -m live tests/test_companion_container_live.py
 
 `TEST_COMPANION_IMAGE` selects an already-built image (default:
 `homebox-companion:storage-test`). The tests verify non-root execution, settings
-read/save/restart persistence and failure before readiness on an unwritable mount,
+read/save/restart and container replacement persistence (profiles, custom fields,
+default tag, language and instructions), plus failure before readiness on an unwritable mount,
 without changing existing user volumes. `TEST_HOMEBOX_VERSION` selects the supported
 upstream version through the existing isolated-server fixture. CI builds the image
 once in the production-container job and runs these tests against Homebox 0.27.0.
+
+
+Unified settings unit coverage is in `test_unified_settings.py` and
+`test_field_preferences.py`. It checks schema v3 migration from authoritative
+legacy JSON, safe corruption failures, sparse defaults, reset, atomic-write
+failure retention, effective prompt values, and serialization of concurrent
+preference/profile/custom-field transactions. The transaction lock protects one
+server process; deployments should continue using a single worker.

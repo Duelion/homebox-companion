@@ -11,10 +11,12 @@ Settings flow:
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import tempfile
 import threading
+from collections.abc import Callable
 from contextlib import suppress
 from enum import StrEnum
 from functools import lru_cache
@@ -23,9 +25,9 @@ from typing import Self
 
 import yaml
 from loguru import logger
-from pydantic import BaseModel, Field, SecretStr, model_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 
-from .field_preferences import FieldPreferences
+from .field_preferences import normalize_field_overrides
 
 # Data directory for persistent storage (mounted volume in Docker).
 # This is relative to the working directory, which should be the project root
@@ -34,7 +36,7 @@ DATA_DIR = Path("data")
 SETTINGS_FILE = DATA_DIR / "settings.yaml"
 
 # Current schema version for migrations
-CURRENT_VERSION = 2
+CURRENT_VERSION = 3
 
 # Serialize reads and writes within the process. An RLock is required because a
 # first load or migration persists settings while the load lock is held.
@@ -179,8 +181,13 @@ class PersistentSettings(BaseModel):
 
     version: int = CURRENT_VERSION
     llm_profiles: list[ModelProfile] = Field(default_factory=list)
-    field_preferences: FieldPreferences = Field(default_factory=FieldPreferences)
+    field_preferences: dict[str, str] = Field(default_factory=dict)
     custom_fields: list[CustomFieldDefinition] = Field(default_factory=list)
+
+    @field_validator("field_preferences", mode="before")
+    @classmethod
+    def validate_field_overrides(cls, value: object) -> dict[str, str]:
+        return normalize_field_overrides(value)
 
     @model_validator(mode="after")
     def validate_profile_constraints(self) -> Self:
@@ -217,7 +224,7 @@ def _settings_to_yaml_dict(settings: PersistentSettings) -> dict:
     return {
         "version": settings.version,
         "llm_profiles": profiles,
-        "field_preferences": settings.field_preferences.model_dump(),
+        "field_preferences": settings.field_preferences,
         "custom_fields": [{"name": cf.name, "ai_instruction": cf.ai_instruction} for cf in settings.custom_fields],
     }
 
@@ -246,7 +253,7 @@ def _yaml_dict_to_settings(data: dict) -> PersistentSettings:
     return PersistentSettings(
         version=data.get("version", CURRENT_VERSION),
         llm_profiles=profiles,
-        field_preferences=FieldPreferences.model_validate(field_prefs),
+        field_preferences=field_prefs,
         custom_fields=custom_fields,
     )
 
@@ -278,19 +285,25 @@ def bootstrap_from_env() -> PersistentSettings:
         )
         logger.info(f"Bootstrapped default LLM profile from env: {model}")
 
-    # Migrate existing field_preferences.json if it exists
-    from .field_preferences import PREFERENCES_FILE, load_field_preferences
-
-    field_prefs = FieldPreferences()
-    if PREFERENCES_FILE.exists():
-        field_prefs = load_field_preferences()
-        logger.info("Migrated existing field_preferences.json to settings.yaml")
-
     return PersistentSettings(
         version=CURRENT_VERSION,
         llm_profiles=profiles,
-        field_preferences=field_prefs,
+        field_preferences=_load_legacy_field_overrides(),
     )
+
+
+def _load_legacy_field_overrides() -> dict[str, str]:
+    """Import legacy JSON independently; never recurse through the runtime loader."""
+    from .field_preferences import PREFERENCES_FILE
+
+    try:
+        if not PREFERENCES_FILE.exists():
+            return {}
+        return normalize_field_overrides(json.loads(PREFERENCES_FILE.read_text(encoding="utf-8")))
+    except OSError, ValueError:
+        pass
+    # Parser errors can contain user instructions or secrets; do not retain them.
+    raise SettingsLoadError("Failed to load legacy field preferences; original file was preserved")
 
 
 def migrate_settings(data: dict) -> dict:
@@ -311,6 +324,11 @@ def migrate_settings(data: dict) -> dict:
     if version < 2:
         data.setdefault("custom_fields", [])
         version = 2
+
+    if version < 3:
+        # Old YAML contained an inactive bootstrap snapshot, not live overrides.
+        # Only the legacy JSON was authoritative. Absence means defaults/reset.
+        data["field_preferences"] = _load_legacy_field_overrides()
 
     data["version"] = CURRENT_VERSION
     return data
@@ -380,6 +398,20 @@ def _atomic_write_settings(yaml_content: str) -> None:
         raise
 
 
+def mutate_settings(mutate: Callable[[PersistentSettings], None]) -> PersistentSettings:
+    """Read fresh, mutate, validate and persist under one process-wide lock.
+
+    Mutators must be synchronous and perform no network work. A returned snapshot
+    is safe for response rendering; later transactions cannot mutate it.
+    """
+    with _settings_lock:
+        candidate = load_settings()
+        mutate(candidate)
+        candidate = PersistentSettings.model_validate(candidate.model_dump())
+        save_settings(candidate)
+        return candidate.model_copy(deep=True)
+
+
 def save_settings(settings: PersistentSettings) -> None:
     """Save settings to YAML file.
 
@@ -392,7 +424,8 @@ def save_settings(settings: PersistentSettings) -> None:
     with _settings_lock:
         SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-        yaml_dict = _settings_to_yaml_dict(settings)
+        validated = PersistentSettings.model_validate(settings.model_dump())
+        yaml_dict = _settings_to_yaml_dict(validated)
 
         # Use default_flow_style=False for readable multi-line output
         yaml_content = yaml.dump(yaml_dict, default_flow_style=False, allow_unicode=True)

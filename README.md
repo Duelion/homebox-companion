@@ -143,6 +143,36 @@ Read-only mounts must be made writable. Do not delete settings, recursively chan
 ownership of unrelated directories, or grant world-write permissions as a repair.
 Restart Companion after correcting the selected mount.
 
+### Upgrading persistent field preferences
+
+Profiles, custom fields, default tags, output language and AI field instructions
+now share `/app/data/settings.yaml`. Field preferences are saved as sparse
+overrides: hardcoded defaults → current `HBC_AI_*` environment → saved values.
+Reset clears only these overrides, retaining profiles and custom fields.
+
+Older versions wrote live field preferences to
+`/app/config/field_preferences.json`, outside the data mount. Before replacing an
+old container, stop it and back up that file while the container still exists:
+
+```bash
+docker cp YOUR_OLD_CONTAINER:/app/config/field_preferences.json ./field_preferences.json
+```
+
+For the first upgraded start, make that recovered JSON available at the same
+legacy path (for example, a read-only bind mount of the backed-up file to
+`/app/config/field_preferences.json`) alongside your existing `/app/data` mount.
+The internal settings schema migrates to v3 once, using the legacy JSON as the
+authoritative preference source, and preserves both profiles and custom fields.
+An absent JSON file means no saved preference overrides; the old YAML preference
+snapshot was inactive and is deliberately ignored. Invalid YAML or legacy JSON
+stops settings loading without replacing either file with defaults.
+
+The legacy JSON is left untouched for recovery. After v3 is saved, it is never
+imported again, including after Reset. Preserve backups until you have verified
+Settings and replaced the container successfully. If the old container has
+already been removed and its JSON was never mounted or backed up, those values
+cannot be recovered from the data volume; enter them again in Settings.
+
 ### Homebox API key or legacy login
 
 To enter Companion without a login screen, create a key in **Homebox → Profile → API Keys** and copy its one-time token. Set it on the Companion server:

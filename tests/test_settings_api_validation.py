@@ -9,6 +9,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
+from homebox_companion.core import persistent_settings
 from homebox_companion.core.persistent_settings import ModelProfile, PersistentSettings, ProfileStatus
 from server.api import custom_fields, llm_profiles
 from server.dependencies import require_auth
@@ -45,7 +46,8 @@ def profile_disk(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
         disk["writes"] = writes + 1
 
     monkeypatch.setattr(llm_profiles, "load_settings", load)
-    monkeypatch.setattr(llm_profiles, "save_settings", save)
+    monkeypatch.setattr(persistent_settings, "save_settings", save)
+    monkeypatch.setattr(persistent_settings, "load_settings", load)
     monkeypatch.setattr(llm_profiles, "clear_settings_cache", lambda: None)
     return disk
 
@@ -119,7 +121,7 @@ async def test_custom_field_conflicts_are_rejected_without_writing(
     settings = PersistentSettings()
     writes: list[PersistentSettings] = []
     monkeypatch.setattr(custom_fields, "get_settings", lambda: settings)
-    monkeypatch.setattr(custom_fields, "save_settings", writes.append)
+    monkeypatch.setattr(custom_fields, "mutate_settings", lambda mutate: writes.append(settings))
     async with settings_client() as client:
         response = await client.put(
             "/api/settings/custom-fields",

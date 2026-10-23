@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from homebox_companion.core import field_preferences
+from homebox_companion.core import field_preferences, persistent_settings
 
 # All tests in this module are unit tests (use tmp_path, no external services)
 pytestmark = pytest.mark.unit
@@ -25,11 +25,15 @@ def isolated_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Ite
     config_dir.mkdir()
     monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
     monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", config_dir / "field_preferences.json")
+    monkeypatch.setattr(persistent_settings, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(persistent_settings, "SETTINGS_FILE", tmp_path / "data" / "settings.yaml")
+    persistent_settings.clear_settings_cache()
     field_preferences.get_defaults.cache_clear()
     try:
         yield
     finally:
         field_preferences.get_defaults.cache_clear()
+        persistent_settings.clear_settings_cache()
 
 
 class TestConfigurationPriority:
@@ -127,8 +131,8 @@ class TestGetEffectiveCustomizations:
 class TestResetPreferences:
     """Test resetting preferences to defaults."""
 
-    def test_reset_deletes_file_and_returns_defaults(self, monkeypatch) -> None:
-        """Reset should delete file and return defaults (not None values)."""
+    def test_reset_preserves_legacy_file_and_returns_defaults(self, monkeypatch) -> None:
+        """Reset should clear unified overrides and retain the legacy recovery copy."""
         monkeypatch.setenv("HBC_AI_OUTPUT_LANGUAGE", "Italian")
         monkeypatch.setenv("HBC_AI_NAME", "Env name")
 
@@ -141,8 +145,10 @@ class TestResetPreferences:
 
         prefs = field_preferences.reset_field_preferences()
 
-        # File should be deleted
-        assert not prefs_file.exists()
+        # The old recovery copy remains, but v3 never imports it again.
+        assert prefs_file.exists()
+        persistent_settings.clear_settings_cache()
+        assert field_preferences.load_field_preferences().output_language == "Italian"
 
         # Should return defaults (env vars applied)
         assert prefs.output_language == "Italian"  # From env
@@ -170,8 +176,6 @@ class TestSaveAndLoad:
         """Saved preferences should load correctly."""
         from homebox_companion.core.field_preferences import FieldPreferences
 
-        prefs_file = field_preferences.PREFERENCES_FILE
-
         # Save preferences
         prefs = FieldPreferences(
             output_language="Portuguese",
@@ -180,7 +184,7 @@ class TestSaveAndLoad:
         )
         field_preferences.save_field_preferences(prefs)
 
-        assert prefs_file.exists()
+        assert persistent_settings.SETTINGS_FILE.exists()
 
         # Load them back
         loaded = field_preferences.load_field_preferences()
@@ -189,29 +193,16 @@ class TestSaveAndLoad:
         assert loaded.name == "Custom name instruction"
         assert loaded.description == "Custom description"
 
-    def test_save_creates_config_dir(self, monkeypatch, tmp_path) -> None:
-        """Save should create config directory if it doesn't exist."""
-        from homebox_companion.core.field_preferences import FieldPreferences
-
-        config_dir = tmp_path / "nonexistent" / "config"
-        prefs_file = config_dir / "field_preferences.json"
-
-        monkeypatch.setattr(field_preferences, "CONFIG_DIR", config_dir)
-        monkeypatch.setattr(field_preferences, "PREFERENCES_FILE", prefs_file)
-
-        assert not config_dir.exists()
-
-        prefs = FieldPreferences(name="Test")
-        field_preferences.save_field_preferences(prefs)
-
-        assert config_dir.exists()
-        assert prefs_file.exists()
+    def test_save_creates_settings_dir(self) -> None:
+        """Save creates the actual unified settings directory."""
+        assert not persistent_settings.SETTINGS_FILE.parent.exists()
+        field_preferences.save_field_preferences(field_preferences.FieldPreferences(name="Test"))
+        assert persistent_settings.SETTINGS_FILE.exists()
+        assert not field_preferences.PREFERENCES_FILE.exists()
 
     def test_save_sparse_format(self) -> None:
         """Save should only write fields that differ from defaults (sparse)."""
         from homebox_companion.core.field_preferences import FieldPreferences
-
-        prefs_file = field_preferences.PREFERENCES_FILE
 
         # Create preferences with only name customized
         defaults = field_preferences.get_defaults()
@@ -222,8 +213,8 @@ class TestSaveAndLoad:
         )
         field_preferences.save_field_preferences(prefs)
 
-        # Load the JSON and verify sparse format
-        saved_data = json.loads(prefs_file.read_text())
+        # Unified YAML retains only sparse overrides.
+        saved_data = persistent_settings.load_settings().field_preferences
         assert "name" in saved_data
         assert saved_data["name"] == "Custom name"
         # Fields matching defaults should NOT be in the file

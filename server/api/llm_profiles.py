@@ -4,6 +4,8 @@ CRUD operations for LLM model profiles with connection testing.
 API keys are never sent to the frontend - only `has_api_key: bool` is exposed.
 """
 
+from collections.abc import Callable
+
 import litellm
 from fastapi import APIRouter, Depends, HTTPException
 from litellm.exceptions import APIConnectionError, AuthenticationError, NotFoundError
@@ -16,7 +18,7 @@ from homebox_companion.core.persistent_settings import (
     ProfileStatus,
     clear_settings_cache,
     load_settings,
-    save_settings,
+    mutate_settings,
 )
 
 from ..dependencies import require_auth
@@ -111,15 +113,14 @@ def _find_profile(settings: PersistentSettings, name: str) -> tuple[int, ModelPr
     raise HTTPException(status_code=404, detail=f"Profile '{name}' not found")
 
 
-def _save_validated_settings(settings: PersistentSettings) -> None:
-    """Check the full profile invariant before writing the candidate settings."""
+def _mutate_profiles(mutate: Callable[[PersistentSettings], None]) -> PersistentSettings:
+    """Preserve the public validation error while committing one transaction."""
     try:
-        PersistentSettings.model_validate(settings.model_dump())
+        return mutate_settings(mutate)
     except ValidationError:
         raise HTTPException(
             status_code=400, detail="Profiles must have exactly one primary and at most one fallback"
         ) from None
-    save_settings(settings)
 
 
 # ============================================================================
@@ -140,134 +141,129 @@ async def list_profiles() -> ProfileListResponse:
 @router.post("/llm/profiles", response_model=ProfileResponse, status_code=201)
 async def create_profile(request: ProfileCreateRequest) -> ProfileResponse:
     """Create a new LLM profile."""
-    clear_settings_cache()
-    settings = load_settings()
 
-    # Check for duplicate name
-    for p in settings.llm_profiles:
-        if p.name == request.name:
-            raise HTTPException(status_code=409, detail=f"Profile '{request.name}' already exists")
+    def mutate(settings: PersistentSettings) -> None:
+        # Check for duplicate name
+        for p in settings.llm_profiles:
+            if p.name == request.name:
+                raise HTTPException(status_code=409, detail=f"Profile '{request.name}' already exists")
 
-    # If this is the first profile, make it active
-    status = request.status
-    if not settings.llm_profiles:
-        status = ProfileStatus.PRIMARY
-        logger.info("First profile created, setting as primary")
+        # If this is the first profile, make it active
+        status = request.status
+        if not settings.llm_profiles:
+            status = ProfileStatus.PRIMARY
+            logger.info("First profile created, setting as primary")
 
-    new_profile = ModelProfile(
-        name=request.name,
-        model=request.model,
-        api_key=SecretStr(request.api_key) if request.api_key else None,
-        api_base=request.api_base,
-        status=status,
-    )
+        new_profile = ModelProfile(
+            name=request.name,
+            model=request.model,
+            api_key=SecretStr(request.api_key) if request.api_key else None,
+            api_base=request.api_base,
+            status=status,
+        )
 
-    if status in (ProfileStatus.PRIMARY, ProfileStatus.FALLBACK):
-        for profile in settings.llm_profiles:
-            if profile.status == status:
-                profile.status = ProfileStatus.OFF
+        if status in (ProfileStatus.PRIMARY, ProfileStatus.FALLBACK):
+            for profile in settings.llm_profiles:
+                if profile.status == status:
+                    profile.status = ProfileStatus.OFF
 
-    settings.llm_profiles.append(new_profile)
-    _save_validated_settings(settings)
-    logger.info(f"Created LLM profile: {request.name}")
+        settings.llm_profiles.append(new_profile)
 
-    return _profile_to_response(new_profile)
+    settings = _mutate_profiles(mutate)
+    logger.info("LLM profile mutation saved: create_profile")
+    return _profile_to_response(_find_profile(settings, request.name)[1])
 
 
 @router.put("/llm/profiles/{name}", response_model=ProfileResponse)
 async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileResponse:
     """Update an existing LLM profile."""
-    clear_settings_cache()
-    settings = load_settings()
 
-    _, profile = _find_profile(settings, name)
+    def mutate(settings: PersistentSettings) -> None:
+        _, profile = _find_profile(settings, name)
 
-    # Handle renaming
-    if request.new_name is not None and request.new_name != name:
-        # Check for duplicate name
-        for p in settings.llm_profiles:
-            if p.name == request.new_name:
-                raise HTTPException(status_code=409, detail=f"Profile '{request.new_name}' already exists")
-        profile.name = request.new_name
-        logger.info(f"Renamed LLM profile: {name} -> {request.new_name}")
-
-    # Update fields if provided
-    if request.model is not None:
-        profile.model = request.model
-
-    if request.api_base is not None:
-        profile.api_base = request.api_base if request.api_base else None
-
-    # Handle api_key specially
-    if request.api_key is not None:
-        if request.api_key == "":
-            profile.api_key = None  # Clear the key
-        else:
-            profile.api_key = SecretStr(request.api_key)
-
-    if request.status is not None:
-        new_status = request.status
-
-        # If setting to active, deactivate others
-        if new_status == ProfileStatus.PRIMARY:
+        # Handle renaming
+        if request.new_name is not None and request.new_name != name:
+            # Check for duplicate name
             for p in settings.llm_profiles:
-                if p.status == ProfileStatus.PRIMARY:
-                    p.status = ProfileStatus.OFF
+                if p.name == request.new_name:
+                    raise HTTPException(status_code=409, detail=f"Profile '{request.new_name}' already exists")
+            profile.name = request.new_name
+            logger.info(f"Renamed LLM profile: {name} -> {request.new_name}")
 
-        # If setting to fallback, remove other fallbacks
-        if new_status == ProfileStatus.FALLBACK:
-            for p in settings.llm_profiles:
-                if p.status == ProfileStatus.FALLBACK:
-                    p.status = ProfileStatus.OFF
+        # Update fields if provided
+        if request.model is not None:
+            profile.model = request.model
 
-        profile.status = new_status
+        if request.api_base is not None:
+            profile.api_base = request.api_base if request.api_base else None
 
-    _save_validated_settings(settings)
-    logger.info(f"Updated LLM profile: {profile.name}")
+        # Handle api_key specially
+        if request.api_key is not None:
+            if request.api_key == "":
+                profile.api_key = None  # Clear the key
+            else:
+                profile.api_key = SecretStr(request.api_key)
 
-    return _profile_to_response(profile)
+        if request.status is not None:
+            new_status = request.status
+
+            # If setting to active, deactivate others
+            if new_status == ProfileStatus.PRIMARY:
+                for p in settings.llm_profiles:
+                    if p.status == ProfileStatus.PRIMARY:
+                        p.status = ProfileStatus.OFF
+
+            # If setting to fallback, remove other fallbacks
+            if new_status == ProfileStatus.FALLBACK:
+                for p in settings.llm_profiles:
+                    if p.status == ProfileStatus.FALLBACK:
+                        p.status = ProfileStatus.OFF
+
+            profile.status = new_status
+
+    settings = _mutate_profiles(mutate)
+    logger.info("LLM profile mutation saved: update_profile")
+    return _profile_to_response(_find_profile(settings, request.new_name if request.new_name is not None else name)[1])
 
 
 @router.delete("/llm/profiles/{name}", status_code=204)
 async def delete_profile(name: str) -> None:
     """Delete an LLM profile."""
-    clear_settings_cache()
-    settings = load_settings()
 
-    idx, profile = _find_profile(settings, name)
-    was_active = profile.status == ProfileStatus.PRIMARY
+    def mutate(settings: PersistentSettings) -> None:
+        idx, profile = _find_profile(settings, name)
+        was_active = profile.status == ProfileStatus.PRIMARY
 
-    # Remove the profile by index
-    del settings.llm_profiles[idx]
+        # Remove the profile by index
+        del settings.llm_profiles[idx]
 
-    # If deleted the active profile, activate the first remaining one
-    if was_active and settings.llm_profiles:
-        settings.llm_profiles[0].status = ProfileStatus.PRIMARY
-        logger.info(f"Activated '{settings.llm_profiles[0].name}' after deleting primary profile")
+        # If deleted the active profile, activate the first remaining one
+        if was_active and settings.llm_profiles:
+            settings.llm_profiles[0].status = ProfileStatus.PRIMARY
+            logger.info(f"Activated '{settings.llm_profiles[0].name}' after deleting primary profile")
 
-    _save_validated_settings(settings)
-    logger.info(f"Deleted LLM profile: {name}")
+    _mutate_profiles(mutate)
+    logger.info("LLM profile mutation saved: delete_profile")
 
 
 @router.post("/llm/profiles/{name}/activate", response_model=ProfileResponse)
 async def activate_profile(name: str) -> ProfileResponse:
     """Set a profile as the active one."""
-    clear_settings_cache()
-    settings = load_settings()
 
-    _, profile = _find_profile(settings, name)
+    def mutate(settings: PersistentSettings) -> None:
+        _, profile = _find_profile(settings, name)
 
-    # Deactivate current primary
-    for p in settings.llm_profiles:
-        if p.status == ProfileStatus.PRIMARY:
-            p.status = ProfileStatus.OFF
+        # Deactivate current primary
+        for p in settings.llm_profiles:
+            if p.status == ProfileStatus.PRIMARY:
+                p.status = ProfileStatus.OFF
 
-    # Activate the target profile (already in the list, mutated in-place)
-    profile.status = ProfileStatus.PRIMARY
-    _save_validated_settings(settings)
-    logger.info(f"Activated LLM profile: {name}")
+        # Activate the target profile (already in the list, mutated in-place)
+        profile.status = ProfileStatus.PRIMARY
 
-    return _profile_to_response(profile)
+    settings = _mutate_profiles(mutate)
+    logger.info("LLM profile mutation saved: activate_profile")
+    return _profile_to_response(_find_profile(settings, name)[1])
 
 
 @router.post("/llm/profiles/{name}/test", response_model=TestConnectionResponse)
