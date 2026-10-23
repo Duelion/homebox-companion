@@ -278,6 +278,10 @@ async def lifespan(app: FastAPI):
     if app_settings.demo_mode:
         logger.info("Demo mode enabled (HBC_DEMO_MODE=true)")
 
+    from homebox_companion.core.persistent_settings import check_settings_storage
+
+    check_settings_storage()
+
     # Validate settings on startup
     for issue in app_settings.validate_config():
         logger.warning(issue)

@@ -131,3 +131,54 @@ def test_migration_is_persisted(settings_path: Path) -> None:
     persisted = persistent_settings.yaml.safe_load(settings_path.read_text(encoding="utf-8"))
     assert persisted["version"] == persistent_settings.CURRENT_VERSION
     assert persisted["custom_fields"] == []
+
+
+def test_storage_probe_preserves_settings_and_cleans_up(settings_path: Path) -> None:
+    settings_path.write_text("existing settings", encoding="utf-8")
+    persistent_settings.check_settings_storage()
+    assert settings_path.read_text(encoding="utf-8") == "existing settings"
+    assert list(settings_path.parent.iterdir()) == [settings_path]
+
+
+@pytest.mark.parametrize("operation", ["mkstemp", "replace"])
+def test_storage_probe_failure_is_safe_and_cleans_up(
+    settings_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    settings_path.write_text("existing settings", encoding="utf-8")
+
+    def deny(*args: object, **kwargs: object) -> None:
+        raise PermissionError("secret upstream diagnostic")
+
+    target = persistent_settings.tempfile if operation == "mkstemp" else persistent_settings.os
+    monkeypatch.setattr(target, operation, deny)
+    with pytest.raises(persistent_settings.SettingsStorageError) as caught:
+        persistent_settings.check_settings_storage()
+    assert str(settings_path.parent.resolve()) in str(caught.value)
+    assert "ownership" in str(caught.value)
+    assert "secret upstream" not in str(caught.value)
+    assert caught.value.__context__ is None
+    assert list(settings_path.parent.iterdir()) == [settings_path]
+
+
+def test_storage_probe_uses_actual_settings_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    directory = tmp_path / "nested" / "settings"
+    monkeypatch.setattr(persistent_settings, "SETTINGS_FILE", directory / "settings.yaml")
+    persistent_settings.check_settings_storage()
+    assert directory.is_dir()
+    assert list(directory.iterdir()) == []
+
+
+@pytest.mark.asyncio
+async def test_unwritable_storage_prevents_startup(monkeypatch: pytest.MonkeyPatch) -> None:
+    from homebox_companion.core.config import Settings
+    from server.app import create_app
+
+    def deny() -> None:
+        raise persistent_settings.SettingsStorageError("storage unavailable")
+
+    monkeypatch.setattr(persistent_settings, "check_settings_storage", deny)
+    app = create_app(Settings(llm_api_key="test-sentinel"))
+    with pytest.raises(persistent_settings.SettingsStorageError, match="storage unavailable"):
+        async with app.router.lifespan_context(app):
+            pytest.fail("Application must not become ready with unwritable storage")
+    assert not hasattr(app.state, "homebox_client")

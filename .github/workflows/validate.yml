@@ -108,3 +108,27 @@ jobs:
           tests/test_label_print_live.py
           tests/test_mcp_tools.py
           tests/test_item_relationships_live.py
+
+  production-container:
+    name: Production container storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TEST_COMPANION_IMAGE: homebox-companion:storage-test
+      HBC_LLM_API_KEY: ci-sentinel-no-network
+      HBC_LLM_MODEL: gpt-5.6-luna
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Build production image once
+        run: docker build -t "$TEST_COMPANION_IMAGE" .
+      - name: Verify fresh and unwritable settings volumes
+        run: uv run --no-sync pytest -m live tests/test_companion_container_live.py

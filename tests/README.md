@@ -229,3 +229,23 @@ each case. Browser recovery tests share the IndexedDB reader.
 For focused development, use `uv run pytest --lf`, `uv run pytest -k <name>`,
 or `uv run pytest --durations=15`. Keep provider/AI tests and their explicit
 live-test selection separate from this maintenance workflow.
+
+
+### Production-image storage regression
+
+This targeted live check uses the actual production Dockerfile, a fresh named
+volume, an isolated official Homebox account and a sentinel provider key. It makes
+no paid AI requests. Build once, then run (PowerShell: use `$env:TEST_COMPANION_IMAGE`
+for the optional image override):
+
+```bash
+docker build -t homebox-companion:storage-test .
+uv run pytest -m live tests/test_companion_container_live.py
+```
+
+`TEST_COMPANION_IMAGE` selects an already-built image (default:
+`homebox-companion:storage-test`). The tests verify non-root execution, settings
+read/save/restart persistence and failure before readiness on an unwritable mount,
+without changing existing user volumes. `TEST_HOMEBOX_VERSION` selects the supported
+upstream version through the existing isolated-server fixture. CI builds the image
+once in the production-container job and runs these tests against Homebox 0.27.0.

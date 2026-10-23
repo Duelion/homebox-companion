@@ -45,6 +45,45 @@ class SettingsLoadError(RuntimeError):
     """Raised when an existing settings file cannot be loaded safely."""
 
 
+class SettingsStorageError(RuntimeError):
+    """Raised when the settings directory cannot support durable writes."""
+
+
+def check_settings_storage() -> None:
+    """Probe the actual destination directory without touching saved settings."""
+    directory = SETTINGS_FILE.parent.resolve()
+    probes: list[Path] = []
+    failure = False
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        for _ in range(2):
+            descriptor, name = tempfile.mkstemp(dir=directory, prefix=".settings-storage-", suffix=".tmp")
+            probes.append(Path(name))
+            os.close(descriptor)
+        # Replacing an existing sibling tests the operation used by settings saves.
+        os.replace(probes[0], probes[1])
+    except OSError:
+        failure = True
+    finally:
+        for probe in probes:
+            try:
+                probe.unlink(missing_ok=True)
+            except OSError:
+                failure = True
+    if failure:
+        identity = (
+            f"UID {os.geteuid()} / GID {os.getegid()}"
+            if hasattr(os, "geteuid") and hasattr(os, "getegid")
+            else "the current runtime user"
+        )
+        raise SettingsStorageError(
+            f"Settings storage is not writable at '{directory}'. "
+            f"Grant {identity} create, replace and delete access to this directory. "
+            "Check the selected data mount ownership and filesystem permissions; "
+            "see README Docker storage repair instructions."
+        )
+
+
 class ProfileStatus(StrEnum):
     """Status of an LLM profile.
 
@@ -351,7 +390,7 @@ def save_settings(settings: PersistentSettings) -> None:
         settings: PersistentSettings instance to persist
     """
     with _settings_lock:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
         yaml_dict = _settings_to_yaml_dict(settings)
 

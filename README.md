@@ -85,6 +85,10 @@ services:
       - HBC_HOMEBOX_API_KEY=${HBC_HOMEBOX_API_KEY:-}
     ports:
       - 8000:8000
+    volumes:
+      - companion-data:/app/data
+volumes:
+  companion-data:
 ```
 
 ```bash
@@ -101,6 +105,43 @@ network and use the Homebox service name, for example `http://homebox:7745`.
 container itself.
 
 > **ARM64/Raspberry Pi:** Docker images are built for both `linux/amd64` and `linux/arm64` architectures.
+
+### Persistent Docker settings
+
+Mount `/app/data` to retain settings across container replacement. Fresh named
+volumes inherit the image directory's ownership and work with the non-root
+`appuser`. Startup checks creation, atomic replacement and removal in the settings
+directory before serving requests. Existing volumes and host bind mounts retain
+their existing permissions; the image cannot override host filesystem permissions.
+
+If startup reports unwritable storage, stop Companion and back up the selected
+mount first. Obtain the actual UID and GID from the exact image you deploy:
+
+```bash
+docker run --rm --entrypoint id ghcr.io/duelion/homebox-companion:latest -u
+docker run --rm --entrypoint id ghcr.io/duelion/homebox-companion:latest -g
+```
+
+For an existing named volume, replace `YOUR_COMPANION_VOLUME` and `UID:GID` below
+with the explicitly verified volume name and numeric identity from those commands.
+This one-time administrative operation changes only the data directory and its
+settings file, preserving contents; the application continues to run non-root:
+
+```bash
+docker run --rm --user 0:0 --entrypoint sh \
+  -v YOUR_COMPANION_VOLUME:/repair \
+  ghcr.io/duelion/homebox-companion:latest \
+  -c 'chown UID:GID /repair && if [ -f /repair/settings.yaml ]; then chown UID:GID /repair/settings.yaml; fi'
+```
+
+For a Linux host bind mount, verify the absolute host directory and use
+`sudo chown UID:GID /absolute/companion-data` and, if present,
+`sudo chown UID:GID /absolute/companion-data/settings.yaml`. Ensure the owner has
+write and directory traversal permissions. For Docker Desktop bind mounts, grant
+the runtime account access using the host filesystem's sharing/ACL controls.
+Read-only mounts must be made writable. Do not delete settings, recursively change
+ownership of unrelated directories, or grant world-write permissions as a repair.
+Restart Companion after correcting the selected mount.
 
 ### Homebox API key or legacy login
 
