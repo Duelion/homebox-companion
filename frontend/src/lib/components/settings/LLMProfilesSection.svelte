@@ -4,7 +4,7 @@
 	 *
 	 * Allows users to configure multiple LLM providers and switch between them.
 	 */
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { FlaskConical, Plus, Check, Zap, Pencil, Trash2 } from '@lucide/svelte';
 	import { llmProfiles, type LLMProfile, type ProfileStatus } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';
@@ -13,7 +13,9 @@
 	// State
 	let profiles = $state<LLMProfile[]>([]);
 	let loading = $state(true);
-	let error = $state<string | null>(null);
+	let sectionError = $state<string | null>(null);
+	let formError = $state<string | null>(null);
+	let formErrorElement = $state<HTMLDivElement>();
 	let testingProfile = $state<string | null>(null);
 	let testResult = $state<{ success: boolean; message: string } | null>(null);
 
@@ -45,17 +47,20 @@
 		}
 	});
 
-	async function loadProfiles() {
+	async function loadProfiles(errorPrefix = '') {
 		if (disposed) return;
 		const operation = ++loadGeneration;
 		const isCurrent = () => !disposed && operation === loadGeneration;
 		loading = true;
-		error = null;
+		sectionError = null;
 		try {
 			const result = await llmProfiles.list();
 			if (isCurrent()) profiles = result.profiles;
 		} catch (e) {
-			if (isCurrent()) error = e instanceof Error ? e.message : 'Failed to load profiles';
+			if (isCurrent()) {
+				const message = e instanceof Error ? e.message : 'Failed to load profiles';
+				sectionError = errorPrefix + message;
+			}
 		} finally {
 			if (isCurrent()) loading = false;
 		}
@@ -63,6 +68,7 @@
 
 	function openCreateModal() {
 		editorGeneration++;
+		formError = null;
 		saving = false;
 		editingProfile = null;
 		formName = '';
@@ -75,6 +81,7 @@
 
 	function openEditModal(profile: LLMProfile) {
 		editorGeneration++;
+		formError = null;
 		saving = false;
 		editingProfile = profile;
 		formName = profile.name;
@@ -87,6 +94,7 @@
 
 	function closeModal() {
 		editorGeneration++;
+		formError = null;
 		saving = false;
 		showModal = false;
 		editingProfile = null;
@@ -97,7 +105,7 @@
 		const operation = editorGeneration;
 		const isCurrent = () => !disposed && showModal && operation === editorGeneration;
 		saving = true;
-		error = null;
+		formError = null;
 		try {
 			if (editingProfile) {
 				// Update existing
@@ -119,10 +127,16 @@
 				});
 			}
 			if (!isCurrent()) return;
-			await loadProfiles();
-			if (isCurrent()) closeModal();
+			// The mutation is complete. Close before refreshing so a failed list
+			// request cannot invite a duplicate create.
+			closeModal();
+			await loadProfiles('Profile saved, but the list could not be refreshed: ');
 		} catch (e) {
-			if (isCurrent()) error = e instanceof Error ? e.message : 'Failed to save profile';
+			if (isCurrent()) {
+				formError = e instanceof Error ? e.message : 'Failed to save profile';
+				await tick();
+				if (isCurrent()) formErrorElement?.focus();
+			}
 		} finally {
 			if (isCurrent()) saving = false;
 		}
@@ -130,22 +144,22 @@
 
 	async function handleDelete(name: string) {
 		if (!confirm(`Delete profile "${name}"?`)) return;
-		error = null;
+		sectionError = null;
 		try {
 			await llmProfiles.delete(name);
 			await loadProfiles();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete profile';
+			sectionError = e instanceof Error ? e.message : 'Failed to delete profile';
 		}
 	}
 
 	async function handleActivate(name: string) {
-		error = null;
+		sectionError = null;
 		try {
 			await llmProfiles.activate(name);
 			await loadProfiles();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to activate profile';
+			sectionError = e instanceof Error ? e.message : 'Failed to activate profile';
 		}
 	}
 
@@ -196,11 +210,12 @@
 		</Button>
 	</div>
 
-	{#if error}
+	{#if sectionError}
 		<div
+			role="alert"
 			class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-body-sm"
 		>
-			{error}
+			{sectionError}
 		</div>
 	{/if}
 
@@ -308,11 +323,23 @@
 >
 	<form
 		class="space-y-4"
+		aria-describedby={formError ? 'profile-form-error' : undefined}
 		onsubmit={(e) => {
 			e.preventDefault();
 			handleSave();
 		}}
 	>
+		{#if formError}
+			<div
+				id="profile-form-error"
+				bind:this={formErrorElement}
+				role="alert"
+				tabindex="-1"
+				class="text-error-400 rounded-lg border border-error-500/30 bg-error-500/10 p-3 text-body-sm"
+			>
+				{formError}
+			</div>
+		{/if}
 		<div>
 			<label for="profile-name" class="mb-1 block text-body-sm font-medium text-neutral-300">
 				Name
