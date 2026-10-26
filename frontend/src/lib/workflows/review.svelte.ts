@@ -7,6 +7,7 @@
  * - Item confirmation and confirmation list management
  * - Editing confirmed items
  */
+import { createUuidV4 } from '$lib/utils/uuid';
 
 import type { ReviewItem, ConfirmedItem } from '$lib/types';
 import { copyReviewItem } from '$lib/services/reviewEditor.svelte';
@@ -81,7 +82,7 @@ export class ReviewService {
 		this._activeDraft = null;
 		this._detectedItems = items.map((item) => ({
 			...item,
-			reviewId: item.reviewId ?? crypto.randomUUID(),
+			reviewId: item.reviewId ?? createUuidV4(),
 		}));
 		this._currentReviewIndex = 0;
 	}
@@ -90,7 +91,7 @@ export class ReviewService {
 	setConfirmedItems(items: ConfirmedItem[]): void {
 		this._confirmedItems = items.map((item) => ({
 			...item,
-			reviewId: item.reviewId ?? crypto.randomUUID(),
+			reviewId: item.reviewId ?? createUuidV4(),
 		}));
 	}
 

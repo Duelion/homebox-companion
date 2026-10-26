@@ -1,3 +1,4 @@
+import { createUuidV4 } from '$lib/utils/uuid';
 import type { CapturedImage, ReviewItem, ConfirmedItem } from '$lib/types';
 import {
 	type StoredSession,
@@ -105,7 +106,7 @@ export class ScanPersistence {
 				}
 				const now = Date.now();
 				this.createdAt ??= now;
-				this.sessionId ??= crypto.randomUUID();
+				this.sessionId ??= createUuidV4();
 				const session: StoredSession = {
 					...snapshot,
 					id: this.sessionId,
@@ -151,7 +152,7 @@ export class ScanPersistence {
 			// Old sessions did not store raw selected files. Reuse captured source photos
 			// only when no explicit photo list exists (including an intentional empty list).
 			const hydrateLegacy = (item: ReviewItem, stored: { photos?: unknown; reviewId?: string }) => {
-				item.reviewId ??= crypto.randomUUID();
+				item.reviewId ??= createUuidV4();
 				if (stored.photos === undefined && !item.originalFile) {
 					item.originalFile = images[item.sourceImageIndex]?.file;
 					item.additionalImages ??= images[item.sourceImageIndex]?.additionalFiles;

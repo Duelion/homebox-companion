@@ -15,13 +15,14 @@ function load(filename, imports = {}, globals = {}) {
 	const exports = {};
 	runInNewContext(outputText, {
 		exports,
-		require: (name) => imports[name],
+		require: (name) => (name === '$lib/utils/uuid' ? uuid : imports[name]),
 		crypto: globalThis.crypto,
 		...globals,
 	});
 	return exports;
 }
-const serialize = load('serialize.ts');
+const uuid = load('../utils/uuid.ts');
+const serialize = load('serialize.ts', { '$lib/utils/uuid': uuid });
 function draft(name = 'Original') {
 	return {
 		status: 'reviewing',

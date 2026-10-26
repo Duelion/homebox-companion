@@ -9,6 +9,7 @@
  * - Object URLs (blob:...) are session-scoped and become invalid after page reload
  * - Base64 data URLs preserve image bytes across reloads
  */
+import { createUuidV4 } from '$lib/utils/uuid';
 
 import type {
 	CapturedImage,
@@ -236,7 +237,7 @@ export async function serializeImage(img: CapturedImage): Promise<StoredImage> {
 	}
 
 	return {
-		id: crypto.randomUUID(),
+		id: createUuidV4(),
 		filename: img.file.name,
 		mimeType: img.file.type || 'image/jpeg',
 		dataUrl,
