@@ -67,6 +67,26 @@ for (const suffix of ['', ' @mobile']) {
 	});
 }
 
+test('AI analysis reaches Review when crypto.randomUUID is unavailable on HTTP LAN', async ({
+	page,
+	api,
+}) => {
+	// Secure localhost hides the real LAN-HTTP browser restriction. Simulate the
+	// missing secure-context-only API before the frontend modules initialise.
+	await page.addInitScript(() => {
+		Object.defineProperty(Crypto.prototype, 'randomUUID', {
+			configurable: true,
+			value: undefined,
+		});
+	});
+	api.on('POST', '/api/tools/vision/detect', () => json(detectedItems(['Storage box'])));
+	await selectLocation(page);
+	await uploadPhoto(page);
+	await page.getByRole('button', { name: /Analyze with AI/ }).click();
+	await expect(page).toHaveURL(/\/review$/);
+	await expect(page.getByLabel('Name')).toHaveValue('Storage box');
+});
+
 test('full image progress waits for tag processing before completion is ready', async ({
 	page,
 	api,
