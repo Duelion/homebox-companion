@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { ChevronDown, RefreshCcw } from '@lucide/svelte';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 	import Button from './Button.svelte';
 	import AnalysisProgressBar from './AnalysisProgressBar.svelte';
 

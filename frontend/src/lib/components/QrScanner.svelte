@@ -3,7 +3,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import QrScanner from 'qr-scanner';
 	// heic2any is lazy-loaded in convertHeicIfNeeded() to save ~350KB initial bundle
-	import { X, TriangleAlert, Camera } from '@lucide/svelte';
+	import X from '@lucide/svelte/icons/x';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import Camera from '@lucide/svelte/icons/camera';
 	import { qrLogger as log } from '$lib/utils/logger';
 
 	interface Props {

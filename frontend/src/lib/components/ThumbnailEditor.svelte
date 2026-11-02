@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { modalDialog } from '$lib/actions/dialog';
-	import { X, Search, RotateCcw, RotateCw, Check } from '@lucide/svelte';
+	import X from '@lucide/svelte/icons/x';
+	import Search from '@lucide/svelte/icons/search';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import RotateCw from '@lucide/svelte/icons/rotate-cw';
+	import Check from '@lucide/svelte/icons/check';
 	import Button from './Button.svelte';
 	import type { ThumbnailTransform } from '$lib/types';
 	import { CANVAS_COLORS } from '$lib/utils/canvas-colors';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronLeft } from '@lucide/svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import { resolveNavHref } from '$lib/navigation/config';
 
 	interface Props {

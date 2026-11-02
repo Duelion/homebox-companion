@@ -9,7 +9,7 @@
 	 */
 	import { assetIdError } from '$lib/utils/assetId';
 	import { onDestroy } from 'svelte';
-	import { QrCode } from '@lucide/svelte';
+	import QrCode from '@lucide/svelte/icons/qr-code';
 	import QrScanner from '$lib/components/QrScanner.svelte';
 	import { resolveQrUrl } from '$lib/utils/qrUrl';
 

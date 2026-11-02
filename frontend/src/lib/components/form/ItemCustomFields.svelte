@@ -8,7 +8,8 @@
 	 */
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { ChevronDown, Layers } from '@lucide/svelte';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Layers from '@lucide/svelte/icons/layers';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 

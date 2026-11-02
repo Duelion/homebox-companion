@@ -7,23 +7,21 @@
 	 *   3. Custom Fields (user-defined Homebox fields)
 	 */
 
-	import {
-		SlidersHorizontal,
-		Check,
-		Languages,
-		TriangleAlert,
-		Tag,
-		ChevronDown,
-		RotateCcw,
-		Eye,
-		Maximize2,
-		Plus,
-		Trash2,
-		Layers,
-		Pencil,
-		Settings2,
-		FileText,
-	} from '@lucide/svelte';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import Check from '@lucide/svelte/icons/check';
+	import Languages from '@lucide/svelte/icons/languages';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import Tag from '@lucide/svelte/icons/tag';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Eye from '@lucide/svelte/icons/eye';
+	import Maximize2 from '@lucide/svelte/icons/maximize-2';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Layers from '@lucide/svelte/icons/layers';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Settings2 from '@lucide/svelte/icons/settings-2';
+	import FileText from '@lucide/svelte/icons/file-text';
 	import { settingsService, FIELD_META } from '$lib/workflows/settings.svelte';
 
 	import Button from '$lib/components/Button.svelte';

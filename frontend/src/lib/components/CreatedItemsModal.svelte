@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { Package, ExternalLink, ScanLine, Printer, Check, LoaderCircle } from '@lucide/svelte';
+	import Package from '@lucide/svelte/icons/package';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import ScanLine from '@lucide/svelte/icons/scan-line';
+	import Printer from '@lucide/svelte/icons/printer';
+	import Check from '@lucide/svelte/icons/check';
+	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onMount, onDestroy } from 'svelte';
 	import Modal from './Modal.svelte';

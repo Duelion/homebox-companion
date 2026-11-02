@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Eye, EyeOff, ArrowRight } from '@lucide/svelte';
+	import Eye from '@lucide/svelte/icons/eye';
+	import EyeOff from '@lucide/svelte/icons/eye-off';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { auth, getConfig, setDemoMode } from '$lib/api';

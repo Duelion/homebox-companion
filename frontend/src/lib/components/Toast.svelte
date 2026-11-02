@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { uiStore, dismissToast, TOAST_DURATION_MS } from '$lib/stores/ui.svelte';
-	import { Info, CheckCircle, TriangleAlert, XCircle, Download, X } from '@lucide/svelte';
+	import Info from '@lucide/svelte/icons/info';
+	import CheckCircle from '@lucide/svelte/icons/check-circle';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import XCircle from '@lucide/svelte/icons/x-circle';
+	import Download from '@lucide/svelte/icons/download';
+	import X from '@lucide/svelte/icons/x';
 
 	// Derive toasts from store for reactive template usage
 	let toasts = $derived(uiStore.toasts);

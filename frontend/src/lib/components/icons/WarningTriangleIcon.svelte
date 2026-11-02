@@ -5,7 +5,7 @@
 	 * Provides a consistent warning triangle icon across the app.
 	 * Uses @lucide/svelte for high-quality, well-rendered SVG icons.
 	 */
-	import { TriangleAlert } from '@lucide/svelte';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	interface Props {
 		class?: string;

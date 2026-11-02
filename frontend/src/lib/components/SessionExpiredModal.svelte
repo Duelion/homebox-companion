@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { CircleAlert, Lock } from '@lucide/svelte';
+	import CircleAlert from '@lucide/svelte/icons/circle-alert';
+	import Lock from '@lucide/svelte/icons/lock';
 	import { auth } from '$lib/api';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';

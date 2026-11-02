@@ -5,7 +5,10 @@
 	 * Shown when a recoverable session is detected (e.g., after page reload mid-workflow).
 	 * Provides options to resume the session or start fresh.
 	 */
-	import { RefreshCw, ImageIcon, CheckSquare, Play } from '@lucide/svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import ImageIcon from '@lucide/svelte/icons/image';
+	import CheckSquare from '@lucide/svelte/icons/check-square';
+	import Play from '@lucide/svelte/icons/play';
 	import type { SessionSummary } from '$lib/services/sessionPersistence';
 	import Button from './Button.svelte';
 

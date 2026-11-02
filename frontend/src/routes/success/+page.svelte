@@ -2,7 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { Check, Camera, MapPin, Eye } from '@lucide/svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import Camera from '@lucide/svelte/icons/camera';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import Eye from '@lucide/svelte/icons/eye';
 	import { resetLocationState } from '$lib/stores/locations.svelte';
 	import { scanWorkflow } from '$lib/workflows/scan.svelte';
 	import { routeGuards } from '$lib/utils/routeGuard';

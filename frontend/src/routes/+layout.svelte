@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { WifiOff, Download, CircleAlert, RefreshCw } from '@lucide/svelte';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
+	import Download from '@lucide/svelte/icons/download';
+	import CircleAlert from '@lucide/svelte/icons/circle-alert';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import type { Snippet } from 'svelte';
 	import '../app.css';
 	import Toast from '$lib/components/Toast.svelte';

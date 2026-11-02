@@ -9,7 +9,7 @@ See issue #160.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -31,7 +31,7 @@ async def _client_with_response(
     handler: ResponseFactory,
     *,
     extra_headers_factory: Callable[[], dict[str, str]] | None = None,
-) -> AsyncIterator[HomeboxClient]:
+) -> AsyncGenerator[HomeboxClient]:
     """Yield a client while explicitly owning its injected HTTP client."""
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
         yield HomeboxClient(
@@ -48,7 +48,7 @@ def _expect_refresh(request: httpx.Request) -> None:
 
 
 @asynccontextmanager
-async def _client_returning(payload: Any, status_code: int = 200) -> AsyncIterator[HomeboxClient]:
+async def _client_returning(payload: Any, status_code: int = 200) -> AsyncGenerator[HomeboxClient]:
     """Yield a client returning a JSON payload with the requested status."""
 
     def handler(request: httpx.Request) -> httpx.Response:

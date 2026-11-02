@@ -15,7 +15,12 @@
 	import { getInitPromise } from '$lib/services/bootstrap';
 	import { getIsDemoModeExplicit, setDemoMode, getConfig } from '$lib/api/settings';
 	import { createLogger } from '$lib/utils/logger';
-	import { CircleAlert, Ban, MessageSquare, MapPin, Tag, Archive } from '@lucide/svelte';
+	import CircleAlert from '@lucide/svelte/icons/circle-alert';
+	import Ban from '@lucide/svelte/icons/ban';
+	import MessageSquare from '@lucide/svelte/icons/message-square';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import Tag from '@lucide/svelte/icons/tag';
+	import Archive from '@lucide/svelte/icons/archive';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import ApprovalModal from '$lib/components/ApprovalModal.svelte';

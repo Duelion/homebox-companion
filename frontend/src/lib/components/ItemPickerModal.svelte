@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { Search, Package, Check, X } from '@lucide/svelte';
+	import Search from '@lucide/svelte/icons/search';
+	import Package from '@lucide/svelte/icons/package';
+	import Check from '@lucide/svelte/icons/check';
+	import X from '@lucide/svelte/icons/x';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { items as itemsApi, type BlobUrlResult } from '$lib/api';
 	import { showToast } from '$lib/stores/ui.svelte';

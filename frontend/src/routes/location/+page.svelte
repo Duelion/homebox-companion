@@ -25,19 +25,17 @@
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 	import RecoveryBanner from '$lib/components/RecoveryBanner.svelte';
 	import type { SessionSummary } from '$lib/services/sessionPersistence';
-	import {
-		MapPin,
-		SquarePen,
-		ArrowRight,
-		Package,
-		Search,
-		X,
-		QrCode,
-		Home,
-		ChevronRight,
-		FolderOpen,
-		Plus,
-	} from '@lucide/svelte';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import SquarePen from '@lucide/svelte/icons/square-pen';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Package from '@lucide/svelte/icons/package';
+	import Search from '@lucide/svelte/icons/search';
+	import X from '@lucide/svelte/icons/x';
+	import QrCode from '@lucide/svelte/icons/qr-code';
+	import Home from '@lucide/svelte/icons/home';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import FolderOpen from '@lucide/svelte/icons/folder-open';
+	import Plus from '@lucide/svelte/icons/plus';
 
 	const log = createLogger({ prefix: 'LocationPage' });
 

@@ -4,7 +4,11 @@
 	 *
 	 * Uses the reusable LogPanel component for consistent UI across all sections.
 	 */
-	import { FileText, Monitor, MessageSquare, Code, ChevronDown } from '@lucide/svelte';
+	import FileText from '@lucide/svelte/icons/file-text';
+	import Monitor from '@lucide/svelte/icons/monitor';
+	import MessageSquare from '@lucide/svelte/icons/message-square';
+	import Code from '@lucide/svelte/icons/code';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { settingsService } from '$lib/workflows/settings.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import LogViewer from '$lib/components/LogViewer.svelte';

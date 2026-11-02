@@ -9,7 +9,12 @@
 	 */
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { Trash2, Plus, Pencil, Eye, X, Check } from '@lucide/svelte';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Eye from '@lucide/svelte/icons/eye';
+	import X from '@lucide/svelte/icons/x';
+	import Check from '@lucide/svelte/icons/check';
 	import type { PendingApproval } from '../api/chat';
 	import {
 		ItemCoreFields,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import httpx
@@ -16,7 +16,7 @@ from server.dependencies import require_auth
 
 
 @asynccontextmanager
-async def settings_client() -> AsyncIterator[httpx.AsyncClient]:
+async def settings_client() -> AsyncGenerator[httpx.AsyncClient]:
     app = FastAPI()
     app.include_router(llm_profiles.router, prefix="/api")
     app.include_router(custom_fields.router, prefix="/api")

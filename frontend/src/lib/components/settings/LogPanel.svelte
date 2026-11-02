@@ -9,7 +9,12 @@
 	 * - Fullscreen modal support
 	 */
 	import type { Snippet } from 'svelte';
-	import { RefreshCw, Download, Share, Trash2, Maximize2, ChevronDown } from '@lucide/svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Download from '@lucide/svelte/icons/download';
+	import Share from '@lucide/svelte/icons/share';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Maximize2 from '@lucide/svelte/icons/maximize-2';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import FullscreenPanel from '$lib/components/FullscreenPanel.svelte';
 
 	interface Props {

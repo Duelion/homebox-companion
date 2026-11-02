@@ -60,6 +60,7 @@
 	"overrides": {
 		"cookie": "^0.7.0",
 		"brace-expansion": "^5.0.12",
-		"devalue": "^5.9.4"
+		"devalue": "^5.9.4",
+		"minimatch": "^11.0.1"
 	}
 }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -77,7 +77,7 @@ async def _assert_physical_location(
 
 
 @asynccontextmanager
-async def _companion(homebox_client: HomeboxClient, auth: HomeboxAuth) -> AsyncIterator[httpx.AsyncClient]:
+async def _companion(homebox_client: HomeboxClient, auth: HomeboxAuth) -> AsyncGenerator[httpx.AsyncClient]:
     """Serve the companion item routes through a gateway backed by the real upstream client."""
     token = auth.token
 

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
-	import { MapPin, Home, Check } from '@lucide/svelte';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import Home from '@lucide/svelte/icons/home';
+	import Check from '@lucide/svelte/icons/check';
 	import type { Location } from '$lib/types';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';

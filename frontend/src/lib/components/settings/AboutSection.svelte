@@ -4,16 +4,14 @@
 	 */
 	import { uiStore } from '$lib/stores/ui.svelte';
 	import { settingsService } from '$lib/workflows/settings.svelte';
-	import {
-		Info,
-		Download,
-		Check,
-		RefreshCw,
-		Code,
-		Star,
-		ChevronDown,
-		ExternalLink,
-	} from '@lucide/svelte';
+	import Info from '@lucide/svelte/icons/info';
+	import Download from '@lucide/svelte/icons/download';
+	import Check from '@lucide/svelte/icons/check';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Code from '@lucide/svelte/icons/code';
+	import Star from '@lucide/svelte/icons/star';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
 
 	const service = settingsService;
 	const detailsId = $props.id();

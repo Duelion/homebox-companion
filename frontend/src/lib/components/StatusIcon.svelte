@@ -5,7 +5,9 @@
 	 * Shows spinner, checkmark, warning, or error based on status.
 	 * Used for both AI analysis progress and submission progress.
 	 */
-	import { Check, TriangleAlert, X } from '@lucide/svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import X from '@lucide/svelte/icons/x';
 
 	type Status =
 		'pending' | 'processing' | 'creating' | 'analyzing' | 'success' | 'partial_success' | 'failed';

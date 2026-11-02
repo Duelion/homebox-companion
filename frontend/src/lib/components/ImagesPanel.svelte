@@ -4,7 +4,12 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
-	import { Camera, Upload, ChevronDown, ImageIcon, X, SquarePen } from '@lucide/svelte';
+	import Camera from '@lucide/svelte/icons/camera';
+	import Upload from '@lucide/svelte/icons/upload';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ImageIcon from '@lucide/svelte/icons/image';
+	import X from '@lucide/svelte/icons/x';
+	import SquarePen from '@lucide/svelte/icons/square-pen';
 
 	interface Props {
 		images: File[];

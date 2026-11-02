@@ -8,7 +8,7 @@
 	import { itemPriceError } from '$lib/utils/itemValidation';
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { ChevronDown } from '@lucide/svelte';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import type { FormSize } from './types';
 	import { getInputClass, getLabelClass } from './types';
 

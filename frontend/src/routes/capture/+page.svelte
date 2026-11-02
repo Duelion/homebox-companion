@@ -23,20 +23,18 @@
 	import StatusIcon from '$lib/components/StatusIcon.svelte';
 	import { AssetIdInput } from '$lib/components/form';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
-	import {
-		TriangleAlert,
-		RefreshCw,
-		ChevronRight,
-		ChevronLeft,
-		Trash2,
-		ChevronDown,
-		X,
-		Camera,
-		Upload,
-		Image,
-		MapPin,
-		Lightbulb,
-	} from '@lucide/svelte';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import X from '@lucide/svelte/icons/x';
+	import Camera from '@lucide/svelte/icons/camera';
+	import Upload from '@lucide/svelte/icons/upload';
+	import Image from '@lucide/svelte/icons/image';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import Lightbulb from '@lucide/svelte/icons/lightbulb';
 
 	const log = createLogger({ prefix: 'Capture' });
 

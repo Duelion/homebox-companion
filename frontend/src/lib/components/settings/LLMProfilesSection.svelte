@@ -5,7 +5,12 @@
 	 * Allows users to configure multiple LLM providers and switch between them.
 	 */
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { FlaskConical, Plus, Check, Zap, Pencil, Trash2 } from '@lucide/svelte';
+	import FlaskConical from '@lucide/svelte/icons/flask-conical';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Check from '@lucide/svelte/icons/check';
+	import Zap from '@lucide/svelte/icons/zap';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { llmProfiles, type LLMProfile, type ProfileStatus } from '$lib/api/settings';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -64,7 +64,7 @@ def test_rate_limit_ignores_untrusted_forwarded_ip() -> None:
 
 
 @asynccontextmanager
-async def _contract_client(app_settings: Settings, handler: UpstreamHandler) -> AsyncIterator[httpx.AsyncClient]:
+async def _contract_client(app_settings: Settings, handler: UpstreamHandler) -> AsyncGenerator[httpx.AsyncClient]:
     """Serve a real app while its Homebox dependency uses an in-memory transport."""
     app = create_app(app_settings)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as upstream:

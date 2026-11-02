@@ -16,17 +16,15 @@
 	import AnalysisProgressBar from '$lib/components/AnalysisProgressBar.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import DuplicateWarningIcon from '$lib/components/DuplicateWarningIcon.svelte';
-	import {
-		MapPin,
-		ImageIcon,
-		Pencil,
-		Trash2,
-		BarChart3,
-		Package,
-		AlertCircle,
-		Check,
-		RefreshCw,
-	} from '@lucide/svelte';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import ImageIcon from '@lucide/svelte/icons/image';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
+	import Package from '@lucide/svelte/icons/package';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
+	import Check from '@lucide/svelte/icons/check';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 
 	// Get workflow reference
 	const workflow = scanWorkflow;
