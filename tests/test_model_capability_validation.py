@@ -25,13 +25,21 @@ Test Coverage:
 
 Run with:
     uv run pytest tests/test_model_capability_validation.py -v
+
+Prompt-only JSON and schema fallback use a simulated provider response so they
+remain testable when old models are retired. The remaining provider checks are
+marked live; include them with -m "" and TEST_OPENAI_API_KEY configured.
 """
 
 from __future__ import annotations
 
+import importlib
 import os
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import BaseModel
 
 from homebox_companion.ai.llm import CapabilityNotSupportedError, LLMServiceError, vision_completion
 
@@ -162,39 +170,6 @@ class TestVisionValidation:
         # Key assertion: bypassed OUR validation (got LLMError, not our custom error)
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
 
-    @pytest.mark.asyncio
-    async def test_old_vision_model_without_json_schema(self, openai_api_key, monkeypatch):
-        """Test vision model without JSON schema support still works.
-
-        The app should work with vision models that don't support structured
-        outputs by falling back to prompt-based JSON.
-        """
-        _configure_llm(openai_api_key, "gpt-4-turbo", monkeypatch)
-
-        try:
-            result = await vision_completion(
-                system_prompt='Respond with valid JSON only: {"description": "..."}',
-                user_prompt="Describe this tiny 1x1 pixel image briefly.",
-                image_data_uris=[TINY_IMAGE_DATA_URI],
-                expected_keys=["description"],
-            )
-
-            # Should succeed and return a dict
-            assert isinstance(result, dict)
-            # May have description key if parsing worked
-            # (but this is a tiny image so results may vary)
-
-        except Exception as e:
-            # If we get auth or access errors, that's fine - the important
-            # part is that we didn't get CapabilityNotSupportedError
-            if isinstance(e, CapabilityNotSupportedError):
-                pytest.fail(
-                    f"Should not raise CapabilityNotSupportedError for vision models "
-                    f"without JSON schema support. Got: {e}"
-                )
-            # Other errors (auth, rate limit, etc.) are acceptable for this test
-            pytest.skip(f"Cannot test gpt-4-turbo: {e}")
-
 
 @pytest.mark.live
 class TestErrorMessages:
@@ -310,61 +285,71 @@ class TestUnsafeFlagBehavior:
         assert not isinstance(exc_info.value, CapabilityNotSupportedError)
         # Note: We don't assert on error message content - third-party messages can change
 
-    @pytest.mark.asyncio
-    async def test_vision_model_without_schema_works_with_unsafe_flag(self, openai_api_key, monkeypatch):
-        """Test that vision models without JSON schema still work.
 
-        Models with vision but without JSON schema support should work fine
-        (they'll use prompt-based JSON instead of structured outputs).
-        """
-        _configure_llm(openai_api_key, "gpt-4-turbo", monkeypatch)
-        monkeypatch.setenv("HBC_LLM_ALLOW_UNSAFE_MODELS", "true")
+class VisionDescription(BaseModel):
+    description: str
 
-        # Force reload config
-        from homebox_companion.core import config
-        from homebox_companion.core.llm_router import invalidate_router
 
-        config.settings = config.Settings()
-        invalidate_router()
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("unsafe", "request_schema"),
+    [(False, False), (False, True), (True, False)],
+    ids=["prompt-only", "unsupported-schema-fallback", "unsafe-prompt-only"],
+)
+async def test_vision_without_schema_parses_prompt_json(unsafe, request_schema, monkeypatch):
+    """Exercise prompt-only vision without depending on a retired provider model."""
+    from homebox_companion.ai import llm
+    from homebox_companion.ai.model_capabilities import ModelCapabilities
+    from homebox_companion.core import config
 
-        try:
-            result = await vision_completion(
-                system_prompt=('Respond with valid JSON only: {"color": "...", "description": "..."}'),
-                user_prompt="What color is this 1x1 pixel image? Respond with JSON.",
-                image_data_uris=[TINY_IMAGE_DATA_URI],
-                expected_keys=["color", "description"],
-            )
+    monkeypatch.setattr(
+        config,
+        "settings",
+        config.Settings(_env_file=None, llm_allow_unsafe_models=unsafe),
+    )
+    monkeypatch.setattr(llm, "_resolve_model_for_capabilities", lambda: "test-vision-without-schema")
 
-            # Should succeed and return a dict
-            assert isinstance(result, dict)
-            # Should have the expected structure (if parsing worked)
-            assert "color" in result or "description" in result or len(result) > 0
+    def capabilities(model):
+        assert not unsafe, "Unsafe mode should bypass capability validation"
+        return ModelCapabilities(model=model, vision=True, multi_image=True, structured_output=False)
 
-        except Exception as e:
-            # If we get auth/access errors, that's acceptable
-            # The important part is we didn't get CapabilityNotSupportedError
-            if isinstance(e, CapabilityNotSupportedError):
-                pytest.fail(f"Should not raise CapabilityNotSupportedError for vision models. Got: {e}")
+    monkeypatch.setattr(llm, "get_model_capabilities", capabilities)
+    completion = AsyncMock(
+        return_value=SimpleNamespace(
+            model="test-vision-without-schema",
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"description": "A green pixel"}'))],
+            usage=None,
+        )
+    )
+    json_module = importlib.import_module("homebox_companion.ai.json_completion")
+    monkeypatch.setattr(json_module, "get_router", lambda: SimpleNamespace(acompletion=completion))
+    monkeypatch.setattr(json_module, "is_rate_limiting_enabled", lambda: False)
 
-            # Check if it's an auth/access error (acceptable) or something else
-            error_msg = str(e).lower()
-            if any(
-                keyword in error_msg
-                for keyword in [
-                    "auth",
-                    "permission",
-                    "access",
-                    "api key",
-                    "not found",
-                    "rate limit",
-                    "image_url",  # Model doesn't support vision
-                    "invalid content",  # Model doesn't accept image content type
-                ]
-            ):
-                pytest.skip(f"Cannot test gpt-4-turbo due to auth/access: {e}")
-            else:
-                # Re-raise if it's an unexpected error
-                raise
+    system_prompt = 'Respond with valid JSON only: {"description": "..."}'
+    user_prompt = "Describe this tiny pixel image."
+    result = await vision_completion(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        image_data_uris=[TINY_IMAGE_DATA_URI],
+        expected_keys=["description"],
+        response_model=VisionDescription if request_schema else None,
+    )
+
+    assert result == {"description": "A green pixel"}
+    completion.assert_awaited_once()
+    request = completion.call_args.kwargs
+    assert "response_format" not in request
+    assert request["messages"] == [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_prompt},
+                {"type": "image_url", "image_url": {"url": TINY_IMAGE_DATA_URI}},
+            ],
+        },
+    ]
 
 
 @pytest.mark.unit
