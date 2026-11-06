@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import http.server
+import json
 import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -17,7 +20,73 @@ pytestmark = pytest.mark.live
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_reviewed_photo_reaches_homebox(homebox_test_account: HomeboxTestAccount, homebox_key_factory, tmp_path):
+@pytest.fixture
+def chat_provider():
+    """Replace only the provider's HTTP boundary, leaving LiteLLM and tools real."""
+    requests = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            requests.append(body)
+            assert self.path == "/v1/chat/completions"
+            assert body["stream"] is True
+            assert any(tool["function"]["name"] == "list_locations" for tool in body["tools"])
+            results = [message for message in body["messages"] if message["role"] == "tool"]
+            if results:
+                result = json.loads(results[-1]["content"])
+                assert result["success"] is True
+                assert any(location["name"] == "Smoke storage" for location in result["data"])
+                delta = {"content": "Your inventory includes Smoke storage."}
+                finish_reason = "stop"
+            else:
+                delta = {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "call_smoke_locations",
+                            "type": "function",
+                            "function": {"name": "list_locations", "arguments": "{}"},
+                        }
+                    ]
+                }
+                finish_reason = "tool_calls"
+            chunks = [
+                {
+                    "id": "chatcmpl-smoke",
+                    "object": "chat.completion.chunk",
+                    "created": 1,
+                    "model": "gpt-5.6-luna",
+                    "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+                },
+                {
+                    "id": "chatcmpl-smoke",
+                    "object": "chat.completion.chunk",
+                    "created": 1,
+                    "model": "gpt-5.6-luna",
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}],
+                },
+            ]
+            content = ("".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks) + "data: [DONE]\n\n").encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+
+    with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield f"http://127.0.0.1:{server.server_port}/v1", requests
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+
+
+def test_reviewed_photo_reaches_homebox(
+    homebox_test_account: HomeboxTestAccount, homebox_key_factory, chat_provider, tmp_path
+):
     """Drive the real UI, then verify persisted data with an independent control credential."""
     node = shutil.which("node")
     cli = ROOT / "frontend/node_modules/@playwright/test/cli.js"
@@ -35,7 +104,9 @@ def test_reviewed_photo_reaches_homebox(homebox_test_account: HomeboxTestAccount
         HBC_HOMEBOX_API_KEY=key.token,
         HBC_LLM_API_KEY="smoke-only-no-provider-call",
         HBC_LLM_MODEL="gpt-5.6-luna",
+        HBC_LLM_API_BASE=chat_provider[0],
         HBC_DISABLE_UPDATE_CHECK="true",
+        LITELLM_LOCAL_MODEL_COST_MAP="True",
         PYTHONPATH=os.pathsep.join([str(ROOT), str(ROOT / "src")]),
     )
     headers = {"Authorization": f"Bearer {account.control_token}"}
@@ -91,6 +162,7 @@ def test_reviewed_photo_reaches_homebox(homebox_test_account: HomeboxTestAccount
                     check=False,
                 )
                 assert result.returncode == 0, f"Browser smoke failed; see frontend/test-results and {log_path}"
+                assert len(chat_provider[1]) == 2, "Chat must complete the provider/tool/provider round trip"
                 listing = control.get("entities", params={"isLocation": "false", "parentIds": location_id})
                 listing.raise_for_status()
                 items = listing.json()["items"]

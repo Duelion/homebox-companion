@@ -16,9 +16,12 @@ as its `TestClient` backend. Install them with `uv sync --locked` before testing
 Before a release or after a substantial integration change, run one real
 browser → Companion → disposable Homebox journey. It uploads a photo, edits the
 name and manufacturer, saves the item, and independently verifies the stored
-fields, location, and downloadable image in Homebox. Only the AI completion is
-replaced with a deterministic result; no provider credentials or paid calls are
-needed. The test uses API-key mode and Chromium, with no screenshots to maintain.
+fields, location, and downloadable image in Homebox. It also sends a chat message
+through the real LiteLLM SDK, executes a location-listing tool against Homebox,
+and displays the assistant's response. Vision completions are deterministic;
+chat replaces only the provider HTTP endpoint with a local streaming fixture.
+No provider credentials or paid calls are needed. The test uses API-key mode and
+Chromium, with no screenshots to maintain.
 
 With Docker running and Node available on `PATH`, from the repository root:
 
@@ -40,8 +43,8 @@ including a server log and browser traces/screenshots on failure. Docker
 unavailability skips locally and fails in CI, matching the other live tests.
 
 This test is excluded from default pytest and the mocked browser suite, and is
-not a required CI job. It checks the successful save path; recovery and failure
-handling remain covered by the existing focused tests.
+not a required CI job. It checks successful saving and chat tool execution;
+recovery and failure handling remain covered by the existing focused tests.
 
 ## Live Homebox tests
 

@@ -1,5 +1,6 @@
 """Untrusted image uploads are decoded before any AI call."""
 
+import base64
 import io
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -28,6 +29,46 @@ def test_actual_decoded_format_is_authoritative(fmt, mime):
     contents = photo(fmt)
     assert validate_image_bytes(contents) == mime
     assert encode_image_bytes_to_data_uri(contents, "text/plain", optimize=False).startswith(f"data:{mime};")
+
+
+@pytest.fixture
+def mpo_photo():
+    output = io.BytesIO()
+    Image.new("RGB", (64, 32), "red").save(
+        output,
+        format="MPO",
+        save_all=True,
+        append_images=[Image.new("RGB", (16, 8), "blue")],
+    )
+    return output.getvalue()
+
+
+def test_mpo_primary_image_is_encoded_as_standard_jpeg_for_vision(mpo_photo):
+    """JPEGs with auxiliary images must use the primary photo for vision (#200)."""
+    contents = mpo_photo
+    with Image.open(io.BytesIO(contents)) as source:
+        assert source.format == "MPO"
+        assert getattr(source, "n_frames", 1) == 2
+
+    data_uri = encode_image_bytes_to_data_uri(contents)
+
+    header, payload = data_uri.split(",", 1)
+    assert header == "data:image/jpeg;base64"
+    with Image.open(io.BytesIO(base64.b64decode(payload, validate=True))) as encoded:
+        encoded.load()
+        assert encoded.format == "JPEG"
+        assert getattr(encoded, "n_frames", 1) == 1
+        assert encoded.size == (64, 32)
+        assert encoded.convert("RGB").getpixel((0, 0)) == pytest.approx((255, 0, 0), abs=5)
+
+
+def test_mpo_conversion_failure_cannot_fall_back_to_original_bytes(mpo_photo, monkeypatch):
+    def fail_save(*args, **kwargs):
+        raise OSError("JPEG encoding failed")
+
+    monkeypatch.setattr(Image.Image, "save", fail_save)
+    with pytest.raises(ValueError, match="Invalid or unsupported image"):
+        encode_image_bytes_to_data_uri(mpo_photo)
 
 
 @pytest.mark.parametrize(

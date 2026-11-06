@@ -17,6 +17,8 @@ DEFAULT_JPEG_QUALITY = 85
 # PIL format to MIME type mapping
 _FORMAT_TO_MIME = {
     "JPEG": "image/jpeg",
+    # MPO stores JPEG pictures; vision and compressed uploads use the primary one.
+    "MPO": "image/jpeg",
     "PNG": "image/png",
     "WEBP": "image/webp",
     "GIF": "image/gif",
@@ -25,7 +27,7 @@ _FORMAT_TO_MIME = {
 }
 
 
-SUPPORTED_VISION_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
+SUPPORTED_VISION_FORMATS = {"JPEG", "MPO", "PNG", "WEBP", "GIF"}
 INVALID_IMAGE_MESSAGE = "Invalid or unsupported image. Choose a valid JPEG, PNG, WebP or GIF photo."
 
 
@@ -41,6 +43,7 @@ def validate_image_bytes(image_bytes: bytes) -> str:
             with Image.open(io.BytesIO(image_bytes)) as image:
                 fmt = image.format
                 if fmt not in SUPPORTED_VISION_FORMATS:
+                    logger.warning("Rejected image: unsupported decoded format {!r}", fmt)
                     raise ValueError(INVALID_IMAGE_MESSAGE)
                 image.verify()
             with Image.open(io.BytesIO(image_bytes)) as image:
@@ -140,9 +143,11 @@ def optimize_image_for_vision(
     """
     validate_image_bytes(image_bytes)
     original_size = len(image_bytes)
+    original_format = None
 
     try:
         img = Image.open(io.BytesIO(image_bytes))
+        original_format = img.format
         original_dimensions = img.size
 
         # Normalize image (EXIF orientation + RGB conversion)
@@ -168,6 +173,10 @@ def optimize_image_for_vision(
         return optimized_bytes, "image/jpeg"
 
     except Exception as e:
+        if original_format == "MPO":
+            # Providers must receive a single JPEG, never the auxiliary pictures.
+            logger.warning("MPO image conversion failed: {}", e)
+            raise ValueError(INVALID_IMAGE_MESSAGE) from e
         logger.warning(f"Image optimization failed, using original: {e}")
         # Return original bytes with their actual MIME type, not hardcoded JPEG
         return image_bytes, _detect_mime_type(image_bytes)

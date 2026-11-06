@@ -8,7 +8,7 @@ if (!process.env.HBC_SMOKE_URL) {
 
 export default defineConfig({
 	testDir: '.',
-	testMatch: 'scan.spec.ts',
+	testMatch: '*.spec.ts',
 	workers: 1,
 	retries: 0,
 	forbidOnly: true,
