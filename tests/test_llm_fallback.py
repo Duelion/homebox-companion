@@ -61,11 +61,11 @@ class TestRouterConstruction:
         ):
             router = _build_router_from_profiles()
 
-            # Router should have one deployment
-            assert len(router.model_list) == 1
-            assert router.model_list[0]["model_name"] == "primary"
-            assert router.model_list[0]["litellm_params"]["model"] == "gpt-5.6-luna"
-            assert router.model_list[0]["litellm_params"]["api_key"] == "primary-key"
+            deployments = router.registry().deployments()
+            assert deployments is not None and len(deployments) == 1
+            assert deployments[0]["model_name"] == "primary"
+            assert deployments[0]["litellm_params"]["model"] == "gpt-5.6-luna"
+            assert deployments[0]["litellm_params"]["api_key"] == "primary-key"
 
     def test_router_includes_fallback_deployment(self) -> None:
         """Router should include fallback deployment when configured."""
@@ -97,11 +97,11 @@ class TestRouterConstruction:
         ):
             router = _build_router_from_profiles()
 
-            # Router should have two deployments
-            assert len(router.model_list) == 2
-            assert router.model_list[0]["model_name"] == "primary"
-            assert router.model_list[1]["model_name"] == "fallback"
-            assert router.model_list[1]["litellm_params"]["model"] == "claude-sonnet-4-20250514"
+            deployments = router.registry().deployments()
+            assert deployments is not None and len(deployments) == 2
+            assert deployments[0]["model_name"] == "primary"
+            assert deployments[1]["model_name"] == "fallback"
+            assert deployments[1]["litellm_params"]["model"] == "claude-sonnet-4-20250514"
 
     def test_router_fallback_inherits_api_key(self) -> None:
         """Fallback should inherit primary's API key if not specified."""
@@ -132,8 +132,9 @@ class TestRouterConstruction:
         ):
             router = _build_router_from_profiles()
 
-            # Fallback should inherit primary's key
-            assert router.model_list[1]["litellm_params"]["api_key"] == "primary-key"
+            deployments = router.registry().deployments("fallback")
+            assert deployments is not None and len(deployments) == 1
+            assert deployments[0]["litellm_params"]["api_key"] == "primary-key"
 
 
 class TestRouterSingleton:
@@ -216,12 +217,6 @@ class TestRouterFallbackBehavior:
         mock_fallback.api_key.get_secret_value.return_value = "fallback-key"
         mock_fallback.api_base = "https://api.anthropic.com"
 
-        # Mock a successful response
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "Success from fallback"
-        mock_response.usage = None
-
         with (
             patch(
                 "homebox_companion.core.llm_utils.resolve_llm_credentials",
@@ -234,10 +229,9 @@ class TestRouterFallbackBehavior:
         ):
             router = get_router()
 
-            # Patch the router's acompletion to verify it was configured correctly
-            # The Router's fallback configuration is what we're testing
-            assert router.fallbacks is not None
-            assert {"primary": ["fallback"]} in router.fallbacks
+            fallbacks = router.settings().fallbacks
+            assert fallbacks is not None
+            assert {"primary": ["fallback"]} in fallbacks
 
 
 class TestLLMClientWithRouter:
