@@ -238,6 +238,8 @@
 				continue;
 			}
 			if (!isCurrent()) return;
+			if (discardedCameraPhotos.has(file)) continue;
+			acceptedPhotos.set(file, validated);
 			const current = workflow.state.images;
 			const count = current.reduce(
 				(total, image) => total + 1 + (image.additionalFiles?.length ?? 0),
@@ -305,6 +307,29 @@
 			cameraInput?.click();
 		} else {
 			additionalCameraInputs[imageIndex]?.click();
+		}
+	}
+
+	// Validation stores a normalized copy of each file. These let a photo deleted in the camera view be
+	// found in the workflow, or skipped when it is deleted while still being validated.
+	const acceptedPhotos = new WeakMap<File, File>();
+	const discardedCameraPhotos = new WeakSet<File>();
+
+	function removeCameraPhoto(file: File) {
+		discardedCameraPhotos.add(file);
+		const stored = acceptedPhotos.get(file);
+		if (!stored) return;
+		const index = images.findIndex((image) => image.file === stored);
+		if (index !== -1) {
+			removeImage(index);
+			return;
+		}
+		for (const [imageIndex, image] of images.entries()) {
+			const additionalIndex = image.additionalFiles?.indexOf(stored) ?? -1;
+			if (additionalIndex !== -1) {
+				removeAdditionalImage(imageIndex, additionalIndex);
+				return;
+			}
 		}
 	}
 
@@ -1012,6 +1037,7 @@
 	<CameraCapture
 		remaining={maxImages - totalImageCount}
 		onCapture={(file) => void acceptFiles([file], cameraTarget?.imageIndex)}
+		onRemove={removeCameraPhoto}
 		onClose={() => (cameraTarget = null)}
 		onUseFilePicker={chooseFileInsteadOfCamera}
 	/>

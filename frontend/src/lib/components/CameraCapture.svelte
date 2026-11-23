@@ -14,6 +14,8 @@
 		/** Called with each photo as it is taken; the dialog stays open for more. */
 		onCapture: (file: File) => void;
 		onClose: () => void;
+		/** Called when a photo taken in this dialog is deleted from its thumbnail; omit to hide delete. */
+		onRemove?: (file: File) => void;
 		/** Called when the user chooses an existing photo instead; the caller closes the dialog. */
 		onUseFilePicker: () => void;
 		/** How many photos may still be added; the dialog closes after the last one. */
@@ -21,7 +23,14 @@
 		title?: string;
 	}
 
-	let { onCapture, onClose, onUseFilePicker, remaining, title = 'Take a photo' }: Props = $props();
+	let {
+		onCapture,
+		onRemove,
+		onClose,
+		onUseFilePicker,
+		remaining,
+		title = 'Take a photo',
+	}: Props = $props();
 
 	// The limit as it was when the dialog opened: the caller adds photos asynchronously.
 	const limit = untrack(() => remaining);
@@ -36,7 +45,7 @@
 	let error = $state<{ message: string; code: string } | null>(null);
 	// Thumbnails of the photos taken while the dialog is open. These URLs belong to the dialog: the
 	// shared object-URL cache is keyed by File, and the caller may be showing the same files.
-	let shots = $state<string[]>([]);
+	let shots = $state<{ file: File; url: string }[]>([]);
 	let shotStrip = $state<HTMLUListElement>();
 	let active = true;
 
@@ -95,7 +104,7 @@
 		return () => {
 			active = false;
 			stopCamera();
-			shots.forEach((url) => URL.revokeObjectURL(url));
+			shots.forEach((shot) => URL.revokeObjectURL(shot.url));
 		};
 	});
 
@@ -105,13 +114,23 @@
 		void startCamera(cameras[(index + 1) % cameras.length].deviceId);
 	}
 
+	function removeShot(shot: { file: File; url: string }) {
+		shots = shots.filter((other) => other !== shot);
+		URL.revokeObjectURL(shot.url);
+		onRemove?.(shot.file);
+		// The button that had focus is gone.
+		shutterButton?.focus();
+	}
+
+	// The shutter is never disabled while a frame is being saved: a disabled button drops keyboard
+	// focus, and Space or Enter would stop taking photos after the first one.
 	async function takePhoto() {
 		if (!videoElement || isStarting || isCapturing) return;
 		isCapturing = true;
 		try {
 			const file = await captureVideoFrame(videoElement);
 			if (!active) return;
-			shots = [...shots, URL.createObjectURL(file)];
+			shots = [...shots, { file, url: URL.createObjectURL(file) }];
 			onCapture(file);
 			if (limit !== undefined && shots.length >= limit) {
 				onClose();
@@ -206,20 +225,32 @@
 					{/if}
 				</div>
 				<!-- A fixed height, so the preview does not move when the first photo replaces the hint -->
-				<div class="h-14 max-w-full">
+				<div class="h-20 max-w-full">
 					{#if shots.length > 0}
 						<ul
 							bind:this={shotStrip}
-							class="flex max-w-full gap-2 overflow-x-auto"
+							class="scrollbar-thin flex max-w-full gap-2 overflow-x-auto"
 							aria-label="Photos taken"
 						>
-							{#each shots as url, index (url)}
-								<li class="shrink-0">
+							{#each shots as shot, index (shot.url)}
+								<li
+									class="group relative shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700 size-20"
+								>
 									<img
-										src={url}
+										src={shot.url}
 										alt="Photo taken {index + 1}"
-										class="rounded-lg object-cover size-14"
+										class="object-cover size-full"
 									/>
+									{#if onRemove}
+										<button
+											type="button"
+											class="absolute right-1 top-1 flex items-center justify-center rounded-full bg-neutral-950/70 transition-all size-6 hover:bg-error-600 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:hover)]:opacity-0"
+											aria-label="Delete photo {index + 1}"
+											onclick={() => removeShot(shot)}
+										>
+											<X class="text-neutral-100" size={14} strokeWidth={2.5} />
+										</button>
+									{/if}
 								</li>
 							{/each}
 						</ul>
@@ -253,7 +284,7 @@
 					type="button"
 					bind:this={shutterButton}
 					onclick={takePhoto}
-					disabled={isStarting || isCapturing}
+					disabled={isStarting}
 					class="justify-self-center rounded-full border-4 border-neutral-100 bg-primary-600 transition-colors size-16 hover:bg-primary-500 disabled:opacity-50"
 					aria-label="Take photo"
 				></button>

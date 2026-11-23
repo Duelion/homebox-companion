@@ -86,11 +86,19 @@ test('a desktop Camera button opens the in-page camera and adds each photo taken
 		)
 	).toBe(true);
 	await expect(dialog.getByText('2 photos added', { exact: true })).toHaveCount(1);
+	// The keyboard keeps working after the first photo.
+	await expect(shutter).toBeFocused();
+	await page.keyboard.press('Space');
+	await expect(shots).toHaveCount(3);
+	await dialog.getByRole('button', { name: 'Delete photo 2', exact: true }).click();
+	await expect(shots).toHaveCount(2);
+	await expect(shutter).toBeFocused();
 	expect(await liveTracks(page)).toBe(1);
 	await dialog.getByRole('button', { name: 'Done' }).click();
 	await expect(dialog).toHaveCount(0);
 	await expect(page.getByAltText('Captured 1', { exact: true })).toBeVisible();
 	await expect(page.getByAltText('Captured 2', { exact: true })).toBeVisible();
+	await expect(page.getByAltText('Captured 3', { exact: true })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Analyze with AI' })).toBeEnabled();
 	expect(await liveTracks(page)).toBe(0);
 });
@@ -103,8 +111,13 @@ test('the in-page camera adds additional photos to the chosen image', async ({ p
 	await page.getByRole('button', { name: 'Expand options' }).click();
 	await cameraButton(page).nth(1).click();
 	const dialog = cameraDialog(page);
-	await dialog.getByRole('button', { name: 'Take photo' }).click();
+	const shutter = dialog.getByRole('button', { name: 'Take photo' });
+	await shutter.click();
 	await expect(dialog.getByRole('img', { name: 'Photo taken 1', exact: true })).toBeVisible();
+	await shutter.click();
+	await expect(dialog.getByRole('img', { name: 'Photo taken 2', exact: true })).toBeVisible();
+	await dialog.getByRole('button', { name: 'Delete photo 1', exact: true }).click();
+	await expect(dialog.getByRole('img', { name: 'Photo taken 2', exact: true })).toHaveCount(0);
 	await page.keyboard.press('Escape');
 	await expect(dialog).toHaveCount(0);
 	await expect(page.getByText('Image Count: 2', { exact: true })).toBeVisible();
@@ -173,7 +186,13 @@ test('the review page adds photos from the in-page camera', async ({ page, api }
 	const before = await thumbnails.count();
 	await cameraButton(page).click();
 	const dialog = cameraDialog(page);
+	const shots = dialog.getByRole('list', { name: 'Photos taken' }).getByRole('img');
 	await dialog.getByRole('button', { name: 'Take photo' }).click();
+	await expect(shots).toHaveCount(1);
+	await dialog.getByRole('button', { name: 'Take photo' }).click();
+	await expect(shots).toHaveCount(2);
+	await dialog.getByRole('button', { name: 'Delete photo 2', exact: true }).click();
+	await expect(shots).toHaveCount(1);
 	await dialog.getByRole('button', { name: 'Done' }).click();
 	await expect(dialog).toHaveCount(0);
 	await expect(thumbnails).toHaveCount(before + 1);

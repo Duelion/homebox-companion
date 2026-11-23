@@ -234,6 +234,10 @@
 	<CameraCapture
 		remaining={maxImages === undefined ? undefined : maxImages - images.length}
 		onCapture={(file) => addImages([file])}
+		onRemove={(file) => {
+			const index = images.indexOf(file);
+			if (index !== -1) removeImage(index);
+		}}
 		onClose={() => (showCamera = false)}
 		onUseFilePicker={() => {
 			showCamera = false;
