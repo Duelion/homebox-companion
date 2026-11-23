@@ -4,6 +4,8 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { showToast } from '$lib/stores/ui.svelte';
 	import { createObjectUrlManager } from '$lib/utils/objectUrl';
+	import { shouldUseInPageCamera } from '$lib/utils/cameraCapture';
+	import CameraCapture from '$lib/components/CameraCapture.svelte';
 	import Camera from '@lucide/svelte/icons/camera';
 	import Upload from '@lucide/svelte/icons/upload';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -55,25 +57,43 @@
 		return () => urlManager.cleanup();
 	});
 
+	// Desktop browsers have no camera app to hand off to, so they get the in-page camera.
+	let showCamera = $state(false);
+
+	function openCamera() {
+		if (!shouldUseInPageCamera()) cameraInput.click();
+		else if (maxImages !== undefined && images.length >= maxImages)
+			showToast(`Maximum ${maxImages} images allowed`, 'warning');
+		else showCamera = true;
+	}
+
 	function handleAddImages(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (!input.files) return;
+		addImages(Array.from(input.files));
+		input.value = '';
+	}
 
-		for (const file of Array.from(input.files)) {
+	/** Add the files that fit the limits; returns why the last one turned down was, if any. */
+	function addImages(files: File[]): string | undefined {
+		let rejection: string | undefined;
+		for (const file of files) {
 			// Check max images limit if provided
 			if (maxImages !== undefined && images.length >= maxImages) {
-				showToast(`Maximum ${maxImages} images allowed`, 'warning');
+				rejection = `Maximum ${maxImages} images allowed`;
+				showToast(rejection, 'warning');
 				break;
 			}
 
 			// Check file size
 			if (file.size > maxFileSizeMb * 1024 * 1024) {
-				showToast(`${file.name} is too large (max ${maxFileSizeMb}MB)`, 'warning');
+				rejection = `${file.name} is too large (max ${maxFileSizeMb}MB)`;
+				showToast(rejection, 'warning');
 				continue;
 			}
 			images = [...images, file];
 		}
-		input.value = '';
+		return rejection;
 	}
 
 	function removeImage(index: number) {
@@ -99,7 +119,7 @@
 		<button
 			type="button"
 			class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700/40 px-3 py-2.5 transition-all hover:border-primary-500/40 hover:bg-primary-500/5"
-			onclick={() => cameraInput.click()}
+			onclick={openCamera}
 		>
 			<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
 			<span class="text-caption font-medium text-neutral-400">Camera</span>
@@ -216,3 +236,19 @@
 		</div>
 	{/if}
 </div>
+
+{#if showCamera}
+	<CameraCapture
+		remaining={maxImages === undefined ? undefined : maxImages - images.length}
+		onCapture={(file) => addImages([file])}
+		onRemove={(file) => {
+			const index = images.indexOf(file);
+			if (index !== -1) removeImage(index);
+		}}
+		onClose={() => (showCamera = false)}
+		onUseFilePicker={() => {
+			showCamera = false;
+			fileInput.click();
+		}}
+	/>
+{/if}

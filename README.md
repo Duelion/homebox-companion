@@ -494,6 +494,7 @@ Customize how AI formats detected item fields. Set via environment variables or 
 - **Multiple angles = better results** – Include close-ups of labels, serial numbers, or barcodes for more accurate detection.
 - **Asset IDs** – Enter or scan a numeric Homebox ID, such as `032-303`; leave it blank for automatic assignment. Hyphens and leading zeros are accepted. See [Homebox compatibility](docs/homebox-compatibility.md#asset-ids) for ID limits.
 - **HTTPS required for QR scanning** – Native camera QR detection only works over HTTPS. On HTTP, a "Take Photo" fallback is available.
+- **Webcam on desktop browsers** – Desktop browsers have no camera app to hand off to, so the Camera buttons open a camera view in the page. It needs HTTPS (or `localhost`); on plain HTTP the buttons open the file chooser as before. If the camera is blocked or missing, the view offers the file chooser instead.
 - **Use the Settings page** – Customize AI behavior, define custom fields, and manage LLM profiles without restarting.
 - **Long press to confirm all** – On the review screen, long-press the confirm button, then choose **Confirm All** to accept the remaining valid items.
 

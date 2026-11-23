@@ -112,6 +112,7 @@ export default [
 					whitelist: [
 						'card-surface',
 						'scanner-video',
+						'camera-video',
 						'btn-icon',
 						'btn-icon-touch',
 						'input',
