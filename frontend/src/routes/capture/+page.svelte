@@ -16,6 +16,8 @@
 	import { getConfig } from '$lib/api/settings';
 	import { validateCaptureImage } from '$lib/utils/validateCaptureImage';
 	import { captureSessionScope } from '$lib/services/scanPersistence';
+	import { shouldUseInPageCamera } from '$lib/utils/cameraCapture';
+	import CameraCapture from '$lib/components/CameraCapture.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import AppContainer from '$lib/components/AppContainer.svelte';
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
@@ -284,6 +286,33 @@
 		if (!files.length) return;
 		e.preventDefault();
 		void acceptFiles(files, imageIndex);
+	}
+
+	// ==========================================================================
+	// CAMERA
+	// ==========================================================================
+
+	/**
+	 * The photo list the open in-page camera adds to: the main list, or the additional photos of
+	 * one image. Mobile browsers open their camera app from the capture inputs instead.
+	 */
+	let cameraTarget = $state<{ imageIndex?: number } | null>(null);
+
+	function openCamera(imageIndex?: number) {
+		if (shouldUseInPageCamera()) {
+			cameraTarget = { imageIndex };
+		} else if (imageIndex === undefined) {
+			cameraInput?.click();
+		} else {
+			additionalCameraInputs[imageIndex]?.click();
+		}
+	}
+
+	function chooseFileInsteadOfCamera() {
+		const imageIndex = cameraTarget?.imageIndex;
+		cameraTarget = null;
+		if (imageIndex === undefined) fileInput?.click();
+		else additionalImageInputs[imageIndex]?.click();
 	}
 
 	// ==========================================================================
@@ -597,7 +626,7 @@
 						<button
 							type="button"
 							class="group flex flex-1 items-center justify-center rounded-2xl bg-primary-500/10 py-6 transition-all hover:bg-primary-500/20"
-							onclick={() => cameraInput?.click()}
+							onclick={() => openCamera()}
 						>
 							<div class="flex flex-col items-center gap-2">
 								<Camera
@@ -808,7 +837,7 @@
 										<button
 											type="button"
 											class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2.5 transition-all hover:border-primary-500/50 hover:bg-primary-500/5"
-											onclick={() => additionalCameraInputs[index]?.click()}
+											onclick={() => openCamera(index)}
 											disabled={isAnalyzing}
 										>
 											<Camera class="text-neutral-400" size={16} strokeWidth={1.5} />
@@ -879,7 +908,7 @@
 					<button
 						type="button"
 						class="group flex aspect-square w-28 items-center justify-center rounded-2xl bg-primary-500/10 transition-all hover:bg-primary-500/20"
-						onclick={() => cameraInput?.click()}
+						onclick={() => openCamera()}
 					>
 						<div class="flex flex-col items-center gap-2">
 							<Camera
@@ -978,3 +1007,12 @@
 		{/if}
 	</AppContainer>
 </div>
+
+{#if cameraTarget}
+	<CameraCapture
+		remaining={maxImages - totalImageCount}
+		onCapture={(file) => void acceptFiles([file], cameraTarget?.imageIndex)}
+		onClose={() => (cameraTarget = null)}
+		onUseFilePicker={chooseFileInsteadOfCamera}
+	/>
+{/if}

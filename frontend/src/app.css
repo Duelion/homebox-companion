@@ -822,6 +822,13 @@
 		object-fit: cover;
 	}
 
+	/* In-page camera preview - the whole frame, as large as the dialog allows */
+	.camera-video {
+		max-width: 100%;
+		max-height: 70dvh;
+		object-fit: contain;
+	}
+
 	/* The bottom navigation is hidden from md upward. */
 	@media (width >= 48rem) {
 		.bottom-nav-offset,
