@@ -182,27 +182,53 @@
 				</div>
 			</div>
 		{:else}
-			<div class="relative">
-				<video
-					bind:this={videoElement}
-					class="camera-video rounded-xl bg-neutral-950"
-					playsinline
-					muted
-				>
-					<track kind="captions" label="No captions available" />
-				</video>
-				{#if isStarting}
-					<div
-						class="absolute inset-0 flex items-center justify-center rounded-xl bg-neutral-950/50"
+			<div class="flex max-w-full flex-col items-center gap-3">
+				<div class="relative">
+					<video
+						bind:this={videoElement}
+						class="camera-video rounded-xl bg-neutral-950"
+						playsinline
+						muted
 					>
-						<div class="text-center">
-							<div
-								class="mx-auto mb-2 animate-spin rounded-full border-2 border-neutral-100 border-t-transparent size-8"
-							></div>
-							<p class="text-body-sm text-neutral-300">Starting camera...</p>
+						<track kind="captions" label="No captions available" />
+					</video>
+					{#if isStarting}
+						<div
+							class="absolute inset-0 flex items-center justify-center rounded-xl bg-neutral-950/50"
+						>
+							<div class="text-center">
+								<div
+									class="mx-auto mb-2 animate-spin rounded-full border-2 border-neutral-100 border-t-transparent size-8"
+								></div>
+								<p class="text-body-sm text-neutral-300">Starting camera...</p>
+							</div>
 						</div>
-					</div>
-				{/if}
+					{/if}
+				</div>
+				<!-- A fixed height, so the preview does not move when the first photo replaces the hint -->
+				<div class="h-14 max-w-full">
+					{#if shots.length > 0}
+						<ul
+							bind:this={shotStrip}
+							class="flex max-w-full gap-2 overflow-x-auto"
+							aria-label="Photos taken"
+						>
+							{#each shots as url, index (url)}
+								<li class="shrink-0">
+									<img
+										src={url}
+										alt="Photo taken {index + 1}"
+										class="rounded-lg object-cover size-14"
+									/>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="flex h-full items-center text-body-sm text-neutral-500">
+							Point the camera at the item
+						</p>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -240,28 +266,13 @@
 				</button>
 			</div>
 		{/if}
-		{#if shots.length > 0}
-			<ul
-				bind:this={shotStrip}
-				class="mx-auto mt-3 flex w-fit max-w-full gap-2 overflow-x-auto"
-				aria-label="Photos taken"
-			>
-				{#each shots as url, index (url)}
-					<li class="shrink-0">
-						<img src={url} alt="Photo taken {index + 1}" class="rounded-lg object-cover size-14" />
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		<p
-			class={shots.length > 0 ? 'sr-only' : 'mt-3 text-center text-body-sm text-neutral-500'}
-			aria-live="polite"
-		>
-			{#if error}
+		{#if error}
+			<p class="text-center text-body-sm text-neutral-500">
 				Your browser could not open the camera
-			{:else if shots.length === 0}
-				Point the camera at the item
-			{:else}
+			</p>
+		{/if}
+		<p class="sr-only" aria-live="polite">
+			{#if shots.length > 0}
 				{shots.length} {shots.length === 1 ? 'photo' : 'photos'} added
 			{/if}
 		</p>
