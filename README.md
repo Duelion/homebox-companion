@@ -144,6 +144,12 @@ inventory details, so share exports carefully. See the
 
 When editing an AI profile, leave the API key blank to keep its saved key, including when changing the model or API base URL. A primary profile without a key uses the configured environment default; a fallback without a key inherits the primary key. Set a profile's own key when it needs different credentials.
 
+For a direct Cloudflare Workers AI profile using
+`openai/@cf/google/gemma-4-26b-a4b-it` and
+`https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/ai/v1`, enable
+**Disable Gemma thinking** to send `chat_template_kwargs.enable_thinking=false`.
+The option is off by default and does not affect other models or gateways.
+
 ## ✨ Features
 
 ### AI-Powered Detection

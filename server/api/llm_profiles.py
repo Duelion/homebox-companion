@@ -12,6 +12,7 @@ from litellm.exceptions import APIConnectionError, AuthenticationError, NotFound
 from loguru import logger
 from pydantic import BaseModel, SecretStr, ValidationError
 
+from homebox_companion.core.llm_utils import workers_ai_gemma_options
 from homebox_companion.core.persistent_settings import (
     ModelProfile,
     PersistentSettings,
@@ -39,6 +40,7 @@ class ProfileResponse(BaseModel):
     has_api_key: bool
     api_base: str | None
     status: str
+    disable_workers_ai_gemma_thinking: bool
 
 
 class ProfileListResponse(BaseModel):
@@ -55,6 +57,7 @@ class ProfileCreateRequest(BaseModel):
     api_key: str | None = None
     api_base: str | None = None
     status: ProfileStatus = ProfileStatus.OFF
+    disable_workers_ai_gemma_thinking: bool = False
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -70,6 +73,7 @@ class ProfileUpdateRequest(BaseModel):
     api_key: str | None = None
     api_base: str | None = None
     status: ProfileStatus | None = None
+    disable_workers_ai_gemma_thinking: bool | None = None
 
 
 class TestConnectionRequest(BaseModel):
@@ -102,6 +106,7 @@ def _profile_to_response(profile: ModelProfile) -> ProfileResponse:
         has_api_key=profile.api_key is not None,
         api_base=profile.api_base,
         status=profile.status.value,
+        disable_workers_ai_gemma_thinking=profile.disable_workers_ai_gemma_thinking,
     )
 
 
@@ -160,6 +165,7 @@ async def create_profile(request: ProfileCreateRequest) -> ProfileResponse:
             api_key=SecretStr(request.api_key) if request.api_key else None,
             api_base=request.api_base,
             status=status,
+            disable_workers_ai_gemma_thinking=request.disable_workers_ai_gemma_thinking,
         )
 
         if status in (ProfileStatus.PRIMARY, ProfileStatus.FALLBACK):
@@ -196,6 +202,9 @@ async def update_profile(name: str, request: ProfileUpdateRequest) -> ProfileRes
 
         if request.api_base is not None:
             profile.api_base = request.api_base if request.api_base else None
+
+        if request.disable_workers_ai_gemma_thinking is not None:
+            profile.disable_workers_ai_gemma_thinking = request.disable_workers_ai_gemma_thinking
 
         # Handle api_key specially
         if request.api_key is not None:
@@ -296,6 +305,7 @@ async def test_profile_connection(name: str, request: TestConnectionRequest | No
             api_base=api_base,
             max_tokens=10,
             timeout=15,
+            **workers_ai_gemma_options(model, api_base, profile.disable_workers_ai_gemma_thinking),
         )
 
         model_info = {

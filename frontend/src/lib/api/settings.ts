@@ -297,6 +297,7 @@ export interface LLMProfile {
 	model: string;
 	has_api_key: boolean;
 	api_base: string | null;
+	disable_workers_ai_gemma_thinking?: boolean;
 	status: ProfileStatus;
 }
 
@@ -305,6 +306,7 @@ export interface LLMProfileCreate {
 	model: string;
 	api_key?: string | null;
 	api_base?: string | null;
+	disable_workers_ai_gemma_thinking?: boolean;
 	status?: ProfileStatus;
 }
 
@@ -313,6 +315,7 @@ export interface LLMProfileUpdate {
 	model?: string | null;
 	api_key?: string | null;
 	api_base?: string | null;
+	disable_workers_ai_gemma_thinking?: boolean;
 	status?: ProfileStatus | null;
 }
 
