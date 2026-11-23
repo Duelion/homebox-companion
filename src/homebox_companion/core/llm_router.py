@@ -154,7 +154,7 @@ def _build_router_from_profiles() -> Router:
     Returns:
         Configured Router with retry and cooldown settings.
     """
-    from .llm_utils import resolve_llm_credentials
+    from .llm_utils import resolve_llm_credentials, workers_ai_gemma_options
 
     # Register our fallback logger with litellm (idempotent check)
     if _fallback_logger not in litellm.callbacks:
@@ -179,6 +179,11 @@ def _build_router_from_profiles() -> Router:
         primary_params["api_key"] = primary_creds.api_key
     if primary_creds.api_base:
         primary_params["api_base"] = primary_creds.api_base
+    primary_params.update(
+        workers_ai_gemma_options(
+            primary_creds.model, primary_creds.api_base, primary_creds.disable_workers_ai_gemma_thinking
+        )
+    )
 
     model_list.append(
         {
@@ -195,6 +200,9 @@ def _build_router_from_profiles() -> Router:
     fallback = get_fallback_profile()
     if fallback:
         fallback_params = _profile_to_params(fallback, inherit_key=primary_creds.api_key)
+        fallback_params.update(
+            workers_ai_gemma_options(fallback.model, fallback.api_base, fallback.disable_workers_ai_gemma_thinking)
+        )
         model_list.append(
             {
                 "model_name": "fallback",

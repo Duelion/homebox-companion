@@ -112,6 +112,7 @@ class ModelProfile(BaseModel):
     api_key: SecretStr | None = None
     api_base: str | None = None
     status: ProfileStatus = ProfileStatus.OFF
+    disable_workers_ai_gemma_thinking: bool = False
 
 
 class CustomFieldDefinition(BaseModel):
@@ -211,6 +212,8 @@ def _settings_to_yaml_dict(settings: PersistentSettings) -> dict:
             profile_dict["api_key"] = p.api_key.get_secret_value()
         if p.api_base:
             profile_dict["api_base"] = p.api_base
+        if p.disable_workers_ai_gemma_thinking:
+            profile_dict["disable_workers_ai_gemma_thinking"] = True
         profiles.append(profile_dict)
 
     return {
@@ -232,6 +235,7 @@ def _yaml_dict_to_settings(data: dict) -> PersistentSettings:
                 api_key=SecretStr(p["api_key"]) if p.get("api_key") else None,
                 api_base=p.get("api_base"),
                 status=ProfileStatus(p.get("status", "off")),
+                disable_workers_ai_gemma_thinking=p.get("disable_workers_ai_gemma_thinking", False),
             )
         )
 

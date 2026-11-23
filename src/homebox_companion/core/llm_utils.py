@@ -10,7 +10,9 @@ ai/llm.py and chat/llm_client.py.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from typing import Any
 
 from loguru import logger
 
@@ -33,6 +35,18 @@ class LLMCredentials:
     api_key: str | None
     api_base: str | None
     profile_name: str | None = None
+    disable_workers_ai_gemma_thinking: bool = False
+
+
+def workers_ai_gemma_options(model: str, api_base: str | None, disable_thinking: bool) -> dict[str, Any]:
+    """Map the profile option to the Workers AI OpenAI-compatible request."""
+    if (
+        disable_thinking
+        and model == "openai/@cf/google/gemma-4-26b-a4b-it"
+        and re.fullmatch(r"https://api\.cloudflare\.com/client/v4/accounts/[0-9a-fA-F]{32}/ai/v1/?", api_base or "")
+    ):
+        return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
+    return {}
 
 
 def resolve_llm_credentials() -> LLMCredentials:
@@ -71,4 +85,5 @@ def resolve_llm_credentials() -> LLMCredentials:
         api_key=api_key,
         api_base=api_base,
         profile_name=profile_name,
+        disable_workers_ai_gemma_thinking=primary.disable_workers_ai_gemma_thinking if primary else False,
     )

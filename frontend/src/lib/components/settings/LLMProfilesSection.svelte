@@ -31,6 +31,7 @@
 	let formModel = $state('');
 	let formApiKey = $state('');
 	let formApiBase = $state('');
+	let formDisableGemmaThinking = $state(false);
 	let formStatus = $state<ProfileStatus>('off');
 
 	let saving = $state(false);
@@ -80,6 +81,7 @@
 		formModel = '';
 		formApiKey = '';
 		formApiBase = '';
+		formDisableGemmaThinking = false;
 		formStatus = 'off';
 		showModal = true;
 	}
@@ -93,6 +95,7 @@
 		formModel = profile.model;
 		formApiKey = ''; // Don't pre-fill - user must re-enter
 		formApiBase = profile.api_base || '';
+		formDisableGemmaThinking = profile.disable_workers_ai_gemma_thinking ?? false;
 		formStatus = profile.status;
 		showModal = true;
 	}
@@ -119,6 +122,7 @@
 					model: formModel,
 					api_key: formApiKey || undefined, // undefined = keep existing, value = set new
 					api_base: formApiBase || null,
+					disable_workers_ai_gemma_thinking: formDisableGemmaThinking,
 					status: formStatus,
 				});
 			} else {
@@ -128,6 +132,7 @@
 					model: formModel,
 					api_key: formApiKey || undefined,
 					api_base: formApiBase || undefined,
+					disable_workers_ai_gemma_thinking: formDisableGemmaThinking,
 					status: formStatus,
 				});
 			}
@@ -404,6 +409,19 @@
 				class="input-sm"
 			/>
 		</div>
+
+		{#if formModel === 'openai/@cf/google/gemma-4-26b-a4b-it'}
+			<label class="flex items-start gap-3">
+				<input type="checkbox" bind:checked={formDisableGemmaThinking} />
+				<span>
+					<span class="block text-body-sm font-medium text-neutral-300">Disable Gemma thinking</span
+					>
+					<span class="block text-caption text-neutral-500">
+						Applies to requests sent directly to Cloudflare Workers AI.
+					</span>
+				</span>
+			</label>
+		{/if}
 
 		<div>
 			<label for="profile-status" class="mb-1 block text-body-sm font-medium text-neutral-300">
