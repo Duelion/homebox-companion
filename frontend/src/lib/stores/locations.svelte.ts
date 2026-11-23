@@ -80,6 +80,20 @@ class LocationStore {
 		return this._flatList;
 	}
 
+	getPathTo(locationId: string): PathItem[] {
+		function findPath(locations: Location[]): PathItem[] {
+			for (const location of locations) {
+				const item = { id: location.id, name: location.name };
+				if (location.id === locationId) return [item];
+				const descendants = findPath(location.children ?? []);
+				if (descendants.length) return [item, ...descendants];
+			}
+			return [];
+		}
+
+		return findPath(this._tree);
+	}
+
 	/** Compute the full path string for the selected location */
 	get selectedPath(): string {
 		if (!this._selected) return '';

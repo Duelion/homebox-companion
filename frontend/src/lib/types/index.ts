@@ -24,8 +24,10 @@ export interface Group {
 export interface Location {
 	id: string;
 	name: string;
+	type?: 'location' | 'item';
 	description?: string;
 	itemCount?: number;
+	totalItemQuantity?: number;
 	children?: Location[];
 }
 

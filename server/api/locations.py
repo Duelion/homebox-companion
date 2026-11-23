@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from loguru import logger
 
 from homebox_companion import HomeboxGateway
+from homebox_companion.core.exceptions import HomeboxCompanionError
 
 from ..dependencies import get_gateway
 from ..schemas.locations import LocationCreate, LocationUpdate
@@ -44,6 +45,38 @@ def sort_tree_naturally(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted_nodes
 
 
+async def _item_quantities(gateway: HomeboxGateway) -> dict[str, int | float]:
+    quantities: dict[str, int | float] = {}
+    page = 1
+    page_size = 100
+    while True:
+        result = await gateway.list_items(page=page, page_size=page_size)
+        items = result["items"]
+        quantities.update((item["id"], item["quantity"]) for item in items if not item.get("archived"))
+        if not items or page * result.get("pageSize", page_size) >= result["total"]:
+            return quantities
+        page += 1
+
+
+def _location_totals(nodes: list[dict[str, Any]], quantities: dict[str, int | float]) -> list[dict[str, Any]]:
+    """Use Homebox's physical placement tree and keep only location rows."""
+
+    def summarize(node: dict[str, Any]) -> tuple[dict[str, Any] | None, int | float]:
+        is_item = node.get("type") == "item"
+        total = quantities.get(node["id"], 0) if is_item else 0
+        locations = []
+        for child in node.get("children") or []:
+            location, child_total = summarize(child)
+            total += child_total
+            if location is not None:
+                locations.append(location)
+        if is_item:
+            return None, total
+        return {**node, "children": locations, "totalItemQuantity": total}, total
+
+    return [location for node in nodes if (location := summarize(node)[0]) is not None]
+
+
 @router.get("/locations")
 async def get_locations(
     gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
@@ -60,12 +93,22 @@ async def get_locations(
 @router.get("/locations/tree")
 async def get_locations_tree(
     gateway: Annotated[HomeboxGateway, Depends(get_gateway)],
+    include_item_totals: bool = False,
 ) -> list[dict[str, Any]]:
     """Fetch the full recursive location tree for hierarchical navigation and search.
 
     Uses the native Homebox tree endpoint which returns all nesting levels,
     ensuring deeply nested locations are visible in search results.
+    Totals are opt-in because they also require reading the item inventory.
     """
+    if include_item_totals:
+        try:
+            tree, quantities = await asyncio.gather(
+                gateway.get_location_tree(with_items=True), _item_quantities(gateway)
+            )
+            return sort_tree_naturally(_location_totals(tree, quantities))
+        except HomeboxCompanionError as exc:
+            logger.warning("Location totals unavailable ({})", type(exc).__name__)
     return sort_tree_naturally(await gateway.get_location_tree())
 
 
