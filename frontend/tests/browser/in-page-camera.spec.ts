@@ -139,6 +139,24 @@ test('the in-page camera closes when the image limit is reached', async ({ page,
 	expect(await liveTracks(page)).toBe(0);
 });
 
+test('a photo the page turns down is reported in the camera view, without a thumbnail', async ({
+	page,
+	api,
+}) => {
+	api.on('GET', '/api/config', () => json({ ...config(), capture_max_file_size_mb: 0.0001 }));
+	await fakeCamera(page);
+	await selectLocation(page);
+	await cameraButton(page).click();
+	const dialog = cameraDialog(page);
+	await dialog.getByRole('button', { name: 'Take photo' }).click();
+	await expect(dialog.getByRole('alert')).toHaveText(
+		'Photo not added: Image is too large (max 0.0001MB).'
+	);
+	await expect(dialog.getByRole('list', { name: 'Photos taken' })).toHaveCount(0);
+	await dialog.getByRole('button', { name: 'Done' }).click();
+	await expect(page.getByAltText('Captured 1', { exact: true })).toHaveCount(0);
+});
+
 test('switching cameras requests the next device and releases the previous one', async ({
 	page,
 }) => {

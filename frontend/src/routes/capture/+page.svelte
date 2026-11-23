@@ -209,14 +209,18 @@
 	// FILE HANDLING
 	// ==========================================================================
 
-	/** Validate before mutating workflow state; recheck scope, identity and limits after every await. */
-	async function acceptFiles(files: File[], imageIndex?: number) {
+	/**
+	 * Validate before mutating workflow state; recheck scope, identity and limits after every await.
+	 * Resolves to why the last file turned down was, if any.
+	 */
+	async function acceptFiles(files: File[], imageIndex?: number): Promise<string | undefined> {
+		let rejection: string | undefined;
 		const scope = JSON.stringify(captureSessionScope());
 		const locationId = workflow.state.locationId;
 		const attemptId = workflow.analysisAttemptId;
 		const targetFile =
 			imageIndex === undefined ? undefined : workflow.state.images[imageIndex]?.file;
-		if (imageIndex !== undefined && !targetFile) return;
+		if (imageIndex !== undefined && !targetFile) return 'That photo is no longer in the list.';
 		const isCurrent = () =>
 			!disposed &&
 			scope !== 'null' &&
@@ -230,25 +234,22 @@
 			try {
 				validated = await validateCaptureImage(file, maxFileSizeMb);
 			} catch (error) {
-				if (isCurrent())
-					showToast(
-						error instanceof Error ? error.message : 'Unable to read this image.',
-						'warning'
-					);
+				rejection = error instanceof Error ? error.message : 'Unable to read this image.';
+				if (isCurrent()) showToast(rejection, 'warning');
 				continue;
 			}
-			if (!isCurrent()) return;
-			if (discardedCameraPhotos.has(file)) continue;
-			acceptedPhotos.set(file, validated);
+			if (!isCurrent()) return 'The scan has changed.';
 			const current = workflow.state.images;
 			const count = current.reduce(
 				(total, image) => total + 1 + (image.additionalFiles?.length ?? 0),
 				0
 			);
 			if (count >= maxImages) {
-				showToast(`Maximum ${maxImages} images allowed`, 'warning');
-				return;
+				rejection = `Maximum ${maxImages} images allowed`;
+				showToast(rejection, 'warning');
+				return rejection;
 			}
+			acceptedPhotos.set(file, validated);
 			const previewUrl = createTrackedObjectUrl(validated);
 			if (targetFile) {
 				const currentIndex = current.findIndex((image) => image.file === targetFile);
@@ -263,6 +264,7 @@
 				expandedImages.clear();
 			}
 		}
+		return rejection;
 	}
 
 	function handleFileSelect(e: Event) {
@@ -302,7 +304,8 @@
 
 	function openCamera(imageIndex?: number) {
 		if (shouldUseInPageCamera()) {
-			cameraTarget = { imageIndex };
+			if (totalImageCount >= maxImages) showToast(`Maximum ${maxImages} images allowed`, 'warning');
+			else cameraTarget = { imageIndex };
 		} else if (imageIndex === undefined) {
 			cameraInput?.click();
 		} else {
@@ -310,13 +313,11 @@
 		}
 	}
 
-	// Validation stores a normalized copy of each file. These let a photo deleted in the camera view be
-	// found in the workflow, or skipped when it is deleted while still being validated.
+	// Validation stores a normalized copy of each file. This lets a photo deleted in the camera view be
+	// found in the workflow.
 	const acceptedPhotos = new WeakMap<File, File>();
-	const discardedCameraPhotos = new WeakSet<File>();
 
 	function removeCameraPhoto(file: File) {
-		discardedCameraPhotos.add(file);
 		const stored = acceptedPhotos.get(file);
 		if (!stored) return;
 		const index = images.findIndex((image) => image.file === stored);
@@ -1036,7 +1037,7 @@
 {#if cameraTarget}
 	<CameraCapture
 		remaining={maxImages - totalImageCount}
-		onCapture={(file) => void acceptFiles([file], cameraTarget?.imageIndex)}
+		onCapture={(file) => acceptFiles([file], cameraTarget?.imageIndex)}
 		onRemove={removeCameraPhoto}
 		onClose={() => (cameraTarget = null)}
 		onUseFilePicker={chooseFileInsteadOfCamera}

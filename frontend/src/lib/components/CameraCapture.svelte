@@ -11,8 +11,11 @@
 	const log = createLogger({ prefix: 'Camera' });
 
 	interface Props {
-		/** Called with each photo as it is taken; the dialog stays open for more. */
-		onCapture: (file: File) => void;
+		/**
+		 * Called with each photo as it is taken; the dialog stays open for more. Resolves to the reason
+		 * when the photo is turned down (too large, over the limit): toasts are hidden behind the dialog.
+		 */
+		onCapture: (file: File) => string | undefined | Promise<string | undefined>;
 		onClose: () => void;
 		/** Called when a photo taken in this dialog is deleted from its thumbnail; omit to hide delete. */
 		onRemove?: (file: File) => void;
@@ -43,11 +46,15 @@
 	let isStarting = $state(true);
 	let isCapturing = $state(false);
 	let error = $state<{ message: string; code: string } | null>(null);
+	// Why the last photo was not added, until the next one is.
+	let rejection = $state<string>();
 	// Thumbnails of the photos taken while the dialog is open. These URLs belong to the dialog: the
 	// shared object-URL cache is keyed by File, and the caller may be showing the same files.
 	let shots = $state<{ file: File; url: string }[]>([]);
 	let shotStrip = $state<HTMLUListElement>();
 	let active = true;
+	// Only the latest start may touch the dialog: a second one can begin before the first settles.
+	let startId = 0;
 
 	function stopCamera() {
 		stream?.getTracks().forEach((track) => track.stop());
@@ -56,6 +63,8 @@
 	}
 
 	async function startCamera(deviceId?: string) {
+		const id = ++startId;
+		const isCurrent = () => active && id === startId;
 		stopCamera();
 		error = null;
 		isStarting = true;
@@ -73,25 +82,34 @@
 				},
 			});
 			// The dialog may have been closed while the permission prompt was open.
-			if (!active || !videoElement) {
+			if (!isCurrent() || !videoElement) {
 				started.getTracks().forEach((track) => track.stop());
 				return;
 			}
 			stream = started;
+			const [track] = started.getVideoTracks();
+			// The camera was unplugged, or the browser took it away; stopping it here fires no event.
+			track?.addEventListener('ended', () => {
+				if (!active || stream !== started) return;
+				startId++;
+				stopCamera();
+				error = { message: 'The camera was disconnected.', code: 'ENDED' };
+				isStarting = false;
+			});
 			videoElement.srcObject = started;
 			await videoElement.play();
-			if (!active) return;
-			currentDeviceId = started.getVideoTracks()[0]?.getSettings().deviceId;
+			if (!isCurrent()) return;
+			currentDeviceId = track?.getSettings().deviceId;
 			// Device labels and ids are only complete once permission has been granted.
 			const devices = await navigator.mediaDevices.enumerateDevices();
-			if (!active) return;
+			if (!isCurrent()) return;
 			cameras = devices.filter((device) => device.kind === 'videoinput');
 			isStarting = false;
 			// Space or Enter takes the photo as soon as the picture is live.
 			await tick();
 			if (active) shutterButton?.focus();
 		} catch (err) {
-			if (!active) return;
+			if (!isCurrent()) return;
 			stopCamera();
 			error = describeCameraError(err);
 			isStarting = false;
@@ -130,8 +148,10 @@
 		try {
 			const file = await captureVideoFrame(videoElement);
 			if (!active) return;
+			// Wait for the caller's answer, so a thumbnail is only shown for a photo that was added.
+			rejection = await onCapture(file);
+			if (!active || rejection) return;
 			shots = [...shots, { file, url: URL.createObjectURL(file) }];
-			onCapture(file);
 			if (limit !== undefined && shots.length >= limit) {
 				onClose();
 				return;
@@ -265,6 +285,11 @@
 	</div>
 
 	<div class="bg-neutral-950/80 p-4">
+		{#if rejection && !error}
+			<p class="mb-3 text-center text-body-sm text-warning-400" role="alert">
+				Photo not added: {rejection}
+			</p>
+		{/if}
 		{#if !error}
 			<div class="mx-auto grid max-w-sm grid-cols-3 items-center">
 				<div class="justify-self-start">
@@ -284,6 +309,10 @@
 					type="button"
 					bind:this={shutterButton}
 					onclick={takePhoto}
+					onkeydown={(event) => {
+						// A held Enter key repeats the click; one press is one photo.
+						if (event.key === 'Enter' && event.repeat) event.preventDefault();
+					}}
 					disabled={isStarting}
 					class="justify-self-center rounded-full border-4 border-neutral-100 bg-primary-600 transition-colors size-16 hover:bg-primary-500 disabled:opacity-50"
 					aria-label="Take photo"

@@ -61,8 +61,10 @@
 	let showCamera = $state(false);
 
 	function openCamera() {
-		if (shouldUseInPageCamera()) showCamera = true;
-		else cameraInput.click();
+		if (!shouldUseInPageCamera()) cameraInput.click();
+		else if (maxImages !== undefined && images.length >= maxImages)
+			showToast(`Maximum ${maxImages} images allowed`, 'warning');
+		else showCamera = true;
 	}
 
 	function handleAddImages(e: Event) {
@@ -72,21 +74,26 @@
 		input.value = '';
 	}
 
-	function addImages(files: File[]) {
+	/** Add the files that fit the limits; returns why the last one turned down was, if any. */
+	function addImages(files: File[]): string | undefined {
+		let rejection: string | undefined;
 		for (const file of files) {
 			// Check max images limit if provided
 			if (maxImages !== undefined && images.length >= maxImages) {
-				showToast(`Maximum ${maxImages} images allowed`, 'warning');
+				rejection = `Maximum ${maxImages} images allowed`;
+				showToast(rejection, 'warning');
 				break;
 			}
 
 			// Check file size
 			if (file.size > maxFileSizeMb * 1024 * 1024) {
-				showToast(`${file.name} is too large (max ${maxFileSizeMb}MB)`, 'warning');
+				rejection = `${file.name} is too large (max ${maxFileSizeMb}MB)`;
+				showToast(rejection, 'warning');
 				continue;
 			}
 			images = [...images, file];
 		}
+		return rejection;
 	}
 
 	function removeImage(index: number) {

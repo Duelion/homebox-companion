@@ -80,6 +80,12 @@ test('camera errors get a readable message and a short code', () => {
 		{ ...camera.describeCameraError(named('TypeError', 'boom')) },
 		{ message: 'Camera error: boom.', code: 'TYPE' }
 	);
+	// Older browsers throw an OverconstrainedError that is not an Error.
+	assert.equal(
+		camera.describeCameraError({ name: 'OverconstrainedError', constraint: 'deviceId' }).message,
+		'No camera detected.'
+	);
+	assert.equal(camera.describeCameraError(null).code, 'UNKNOWN');
 	assert.deepEqual(
 		{ ...camera.describeCameraError('nope') },
 		{ message: 'Camera error: unknown error.', code: 'UNKNOWN' }

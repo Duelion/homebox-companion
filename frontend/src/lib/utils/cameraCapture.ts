@@ -38,7 +38,9 @@ export function shouldUseInPageCamera(win: WindowLike = window): boolean {
 
 /** A message for a failed getUserMedia call, and a short code for support. */
 export function describeCameraError(err: unknown): { message: string; code: string } {
-	const name = err instanceof Error ? err.name : '';
+	// Older browsers throw an OverconstrainedError that is not an Error.
+	const named = err as { name?: unknown; message?: unknown } | null | undefined;
+	const name = typeof named?.name === 'string' ? named.name : '';
 	const code =
 		name
 			.replace(/Error$/, '')
@@ -56,7 +58,7 @@ export function describeCameraError(err: unknown): { message: string; code: stri
 			return { message: 'The camera is in use by another app, or could not be started.', code };
 		default:
 			return {
-				message: `Camera error: ${(err instanceof Error && err.message) || 'unknown error'}.`,
+				message: `Camera error: ${(typeof named?.message === 'string' && named.message) || 'unknown error'}.`,
 				code,
 			};
 	}
