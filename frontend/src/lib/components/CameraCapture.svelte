@@ -34,7 +34,10 @@
 	let isStarting = $state(true);
 	let isCapturing = $state(false);
 	let error = $state<{ message: string; code: string } | null>(null);
-	let taken = $state(0);
+	// Thumbnails of the photos taken while the dialog is open. These URLs belong to the dialog: the
+	// shared object-URL cache is keyed by File, and the caller may be showing the same files.
+	let shots = $state<string[]>([]);
+	let shotStrip = $state<HTMLUListElement>();
 	let active = true;
 
 	function stopCamera() {
@@ -92,6 +95,7 @@
 		return () => {
 			active = false;
 			stopCamera();
+			shots.forEach((url) => URL.revokeObjectURL(url));
 		};
 	});
 
@@ -107,9 +111,15 @@
 		try {
 			const file = await captureVideoFrame(videoElement);
 			if (!active) return;
-			taken += 1;
+			shots = [...shots, URL.createObjectURL(file)];
 			onCapture(file);
-			if (limit !== undefined && taken >= limit) onClose();
+			if (limit !== undefined && shots.length >= limit) {
+				onClose();
+				return;
+			}
+			// Keep the newest thumbnail in view.
+			await tick();
+			shotStrip?.scrollTo({ left: shotStrip.scrollWidth });
 		} catch (err) {
 			log.error('Could not take the photo:', err);
 			if (active) {
@@ -230,13 +240,29 @@
 				</button>
 			</div>
 		{/if}
-		<p class="mt-3 text-center text-body-sm text-neutral-500" aria-live="polite">
+		{#if shots.length > 0}
+			<ul
+				bind:this={shotStrip}
+				class="mx-auto mt-3 flex w-fit max-w-full gap-2 overflow-x-auto"
+				aria-label="Photos taken"
+			>
+				{#each shots as url, index (url)}
+					<li class="shrink-0">
+						<img src={url} alt="Photo taken {index + 1}" class="rounded-lg object-cover size-14" />
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		<p
+			class={shots.length > 0 ? 'sr-only' : 'mt-3 text-center text-body-sm text-neutral-500'}
+			aria-live="polite"
+		>
 			{#if error}
 				Your browser could not open the camera
-			{:else if taken === 0}
+			{:else if shots.length === 0}
 				Point the camera at the item
 			{:else}
-				{taken} {taken === 1 ? 'photo' : 'photos'} added
+				{shots.length} {shots.length === 1 ? 'photo' : 'photos'} added
 			{/if}
 		</p>
 	</div>
