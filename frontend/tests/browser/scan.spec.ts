@@ -144,3 +144,32 @@ test('Start Fresh clears the persisted scan created through the UI', async ({ pa
 	await expect(page).toHaveURL(/\/location$/);
 	await expect(page.getByRole('button', { name: 'Resume Session' })).toHaveCount(0);
 });
+
+test('uses the quantity entered before analysis when submitting identical items', async ({
+	page,
+	api,
+}) => {
+	const creations: unknown[] = [];
+	api.on('POST', '/api/tools/vision/detect', () => json(detectedItems(['Coffee'])));
+	api.on('POST', '/api/items', (request) => {
+		creations.push(request.postDataJSON());
+		return json(createdItem('coffee-1'));
+	});
+	api.on('POST', '/api/items/coffee-1/attachments', () => json({}));
+
+	await selectLocation(page);
+	await uploadPhoto(page);
+	const count = page.getByLabel('Quantity of identical items');
+	await expect(count).toBeVisible();
+	await count.fill('0');
+	await expect(count).toHaveValue('');
+	await count.fill('2');
+	await analyzePhotos(page);
+	await expect(page.getByRole('spinbutton', { name: 'Quantity', exact: true })).toHaveValue('2');
+	await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+	await page.getByRole('button', { name: /Submit All Items/ }).click();
+	await expect(page).toHaveURL(/\/success$/);
+	expect(creations).toEqual([
+		expect.objectContaining({ items: [expect.objectContaining({ name: 'Coffee', quantity: 2 })] }),
+	]);
+});

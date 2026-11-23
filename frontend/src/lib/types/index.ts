@@ -95,6 +95,8 @@ export interface CapturedImage {
 	separateItems: boolean;
 	/** Optional instructions for AI about this image */
 	extraInstructions: string;
+	/** Explicit quantity for photos of the same item */
+	quantityOverride?: number;
 	/** Additional images showing the same item from different angles */
 	additionalFiles?: File[];
 	/** Object URLs for displaying additional image previews in UI */

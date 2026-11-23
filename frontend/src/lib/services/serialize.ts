@@ -37,6 +37,7 @@ export interface StoredImage {
 	dataUrl: string;
 	separateItems: boolean;
 	extraInstructions: string;
+	quantityOverride?: number;
 	/** base64 data URLs for additional images */
 	additionalDataUrls?: string[];
 	additionalFilenames?: string[];
@@ -243,6 +244,7 @@ export async function serializeImage(img: CapturedImage): Promise<StoredImage> {
 		dataUrl,
 		separateItems: img.separateItems,
 		extraInstructions: img.extraInstructions,
+		quantityOverride: img.quantityOverride,
 		additionalDataUrls,
 		additionalFilenames,
 		additionalMimeTypes,
@@ -327,6 +329,7 @@ export async function deserializeImage(stored: StoredImage): Promise<CapturedIma
 		dataUrl: URL.createObjectURL(file),
 		separateItems: stored.separateItems,
 		extraInstructions: stored.extraInstructions,
+		quantityOverride: stored.quantityOverride,
 		additionalFiles,
 		additionalDataUrls,
 		assetId: stored.assetId,
