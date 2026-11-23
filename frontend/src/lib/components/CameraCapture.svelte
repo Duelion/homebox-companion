@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { modalDialog } from '$lib/actions/dialog';
-	import { onMount, tick, untrack } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import X from '@lucide/svelte/icons/x';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import SwitchCamera from '@lucide/svelte/icons/switch-camera';
@@ -15,7 +15,10 @@
 		 * Called with each photo as it is taken; the dialog stays open for more. Resolves to the reason
 		 * when the photo is turned down (too large, over the limit): toasts are hidden behind the dialog.
 		 */
-		onCapture: (file: File) => string | undefined | Promise<string | undefined>;
+		onCapture: (
+			file: File,
+			signal: AbortSignal
+		) => string | undefined | Promise<string | undefined>;
 		onClose: () => void;
 		/** Called when a photo taken in this dialog is deleted from its thumbnail; omit to hide delete. */
 		onRemove?: (file: File) => void;
@@ -35,8 +38,7 @@
 		title = 'Take a photo',
 	}: Props = $props();
 
-	// The limit as it was when the dialog opened: the caller adds photos asynchronously.
-	const limit = untrack(() => remaining);
+	const session = new AbortController();
 
 	let videoElement = $state<HTMLVideoElement>();
 	let shutterButton = $state<HTMLButtonElement>();
@@ -52,7 +54,6 @@
 	// shared object-URL cache is keyed by File, and the caller may be showing the same files.
 	let shots = $state<{ file: File; url: string }[]>([]);
 	let shotStrip = $state<HTMLUListElement>();
-	let active = true;
 	// Only the latest start may touch the dialog: a second one can begin before the first settles.
 	let startId = 0;
 
@@ -62,14 +63,29 @@
 		if (videoElement) videoElement.srcObject = null;
 	}
 
+	function endSession() {
+		session.abort();
+		stopCamera();
+	}
+
+	function closeCamera() {
+		endSession();
+		onClose();
+	}
+
+	$effect(() => {
+		if (remaining !== undefined && remaining <= 0) closeCamera();
+	});
+
 	async function startCamera(deviceId?: string) {
 		const id = ++startId;
-		const isCurrent = () => active && id === startId;
+		const isCurrent = () => !session.signal.aborted && id === startId;
 		stopCamera();
 		error = null;
 		isStarting = true;
 		// The video element is not rendered while an error is shown.
 		await tick();
+		if (!isCurrent()) return;
 		try {
 			const started = await navigator.mediaDevices.getUserMedia({
 				audio: false,
@@ -90,7 +106,7 @@
 			const [track] = started.getVideoTracks();
 			// The camera was unplugged, or the browser took it away; stopping it here fires no event.
 			track?.addEventListener('ended', () => {
-				if (!active || stream !== started) return;
+				if (!isCurrent() || stream !== started) return;
 				startId++;
 				stopCamera();
 				error = { message: 'The camera was disconnected.', code: 'ENDED' };
@@ -100,14 +116,17 @@
 			await videoElement.play();
 			if (!isCurrent()) return;
 			currentDeviceId = track?.getSettings().deviceId;
-			// Device labels and ids are only complete once permission has been granted.
-			const devices = await navigator.mediaDevices.enumerateDevices();
-			if (!isCurrent()) return;
-			cameras = devices.filter((device) => device.kind === 'videoinput');
+			cameras = [];
 			isStarting = false;
 			// Space or Enter takes the photo as soon as the picture is live.
 			await tick();
-			if (active) shutterButton?.focus();
+			if (!isCurrent()) return;
+			shutterButton?.focus();
+			// A failure to list other cameras does not affect the active preview.
+			const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+			if (isCurrent()) {
+				cameras = devices.filter((device) => device.kind === 'videoinput' && device.deviceId);
+			}
 		} catch (err) {
 			if (!isCurrent()) return;
 			stopCamera();
@@ -120,14 +139,13 @@
 	onMount(() => {
 		void startCamera();
 		return () => {
-			active = false;
-			stopCamera();
+			endSession();
 			shots.forEach((shot) => URL.revokeObjectURL(shot.url));
 		};
 	});
 
 	function switchCamera() {
-		if (cameras.length < 2) return;
+		if (cameras.length < 2 || isCapturing) return;
 		const index = cameras.findIndex((camera) => camera.deviceId === currentDeviceId);
 		void startCamera(cameras[(index + 1) % cameras.length].deviceId);
 	}
@@ -143,27 +161,25 @@
 	// The shutter is never disabled while a frame is being saved: a disabled button drops keyboard
 	// focus, and Space or Enter would stop taking photos after the first one.
 	async function takePhoto() {
-		if (!videoElement || isStarting || isCapturing) return;
+		if (!videoElement || isStarting || isCapturing || session.signal.aborted) return;
 		isCapturing = true;
+		rejection = undefined;
 		try {
 			const file = await captureVideoFrame(videoElement);
-			if (!active) return;
+			if (session.signal.aborted) return;
 			// Wait for the caller's answer, so a thumbnail is only shown for a photo that was added.
-			rejection = await onCapture(file);
-			if (!active || rejection) return;
+			const reason = await onCapture(file, session.signal);
+			if (session.signal.aborted) return;
+			rejection = reason;
+			if (rejection) return;
 			shots = [...shots, { file, url: URL.createObjectURL(file) }];
-			if (limit !== undefined && shots.length >= limit) {
-				onClose();
-				return;
-			}
 			// Keep the newest thumbnail in view.
 			await tick();
 			shotStrip?.scrollTo({ left: shotStrip.scrollWidth });
 		} catch (err) {
-			log.error('Could not take the photo:', err);
-			if (active) {
-				stopCamera();
-				error = describeCameraError(err);
+			if (!session.signal.aborted) {
+				log.error('Could not take the photo:', err);
+				rejection = 'Unable to take this photo. Try again.';
 			}
 		} finally {
 			isCapturing = false;
@@ -176,7 +192,7 @@
 	aria-label={title}
 	oncancel={(event) => {
 		event.preventDefault();
-		onClose();
+		closeCamera();
 	}}
 	class="fixed inset-0 z-overlay m-0 flex max-h-none max-w-none flex-col overflow-y-auto bg-neutral-950 p-0 size-full"
 >
@@ -184,7 +200,7 @@
 		<h2 class="font-semibold text-neutral-100">{title}</h2>
 		<button
 			type="button"
-			onclick={onClose}
+			onclick={closeCamera}
 			class="min-h-touch min-w-touch p-2 text-neutral-400 transition-colors hover:text-neutral-100"
 			aria-label="Close camera"
 		>
@@ -205,7 +221,10 @@
 				<div class="flex flex-col gap-3">
 					<button
 						type="button"
-						onclick={onUseFilePicker}
+						onclick={() => {
+							endSession();
+							onUseFilePicker();
+						}}
 						class="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-neutral-100 transition-colors hover:bg-primary-500"
 					>
 						<Upload size={20} />
@@ -297,7 +316,7 @@
 						<button
 							type="button"
 							onclick={switchCamera}
-							disabled={isStarting}
+							disabled={isStarting || isCapturing}
 							class="min-h-touch min-w-touch p-2 text-neutral-400 transition-colors hover:text-neutral-100 disabled:opacity-50"
 							aria-label="Switch camera"
 						>
@@ -319,7 +338,7 @@
 				></button>
 				<button
 					type="button"
-					onclick={onClose}
+					onclick={closeCamera}
 					class="min-h-touch justify-self-end px-4 py-2 font-medium text-primary-400 transition-colors hover:text-primary-300"
 				>
 					Done

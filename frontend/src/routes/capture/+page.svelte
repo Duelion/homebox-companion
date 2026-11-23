@@ -213,16 +213,18 @@
 	 * Validate before mutating workflow state; recheck scope, identity and limits after every await.
 	 * Resolves to why the last file turned down was, if any.
 	 */
-	async function acceptFiles(files: File[], imageIndex?: number): Promise<string | undefined> {
+	async function acceptFiles(
+		files: File[],
+		targetFile?: File,
+		cameraSignal?: AbortSignal
+	): Promise<string | undefined> {
 		let rejection: string | undefined;
 		const scope = JSON.stringify(captureSessionScope());
 		const locationId = workflow.state.locationId;
 		const attemptId = workflow.analysisAttemptId;
-		const targetFile =
-			imageIndex === undefined ? undefined : workflow.state.images[imageIndex]?.file;
-		if (imageIndex !== undefined && !targetFile) return 'That photo is no longer in the list.';
 		const isCurrent = () =>
 			!disposed &&
+			!cameraSignal?.aborted &&
 			scope !== 'null' &&
 			JSON.stringify(captureSessionScope()) === scope &&
 			workflow.state.locationId === locationId &&
@@ -249,7 +251,7 @@
 				showToast(rejection, 'warning');
 				return rejection;
 			}
-			acceptedPhotos.set(file, validated);
+			if (cameraSignal) acceptedPhotos.set(file, validated);
 			const previewUrl = createTrackedObjectUrl(validated);
 			if (targetFile) {
 				const currentIndex = current.findIndex((image) => image.file === targetFile);
@@ -278,7 +280,8 @@
 		const input = e.target as HTMLInputElement;
 		const files = Array.from(input.files ?? []);
 		input.value = '';
-		void acceptFiles(files, imageIndex);
+		const targetFile = images[imageIndex]?.file;
+		if (targetFile) void acceptFiles(files, targetFile);
 	}
 
 	/** Keep ordinary text paste intact; validate clipboard photos through the same path. */
@@ -289,7 +292,8 @@
 			.filter((file): file is File => file !== null);
 		if (!files.length) return;
 		e.preventDefault();
-		void acceptFiles(files, imageIndex);
+		const targetFile = images[imageIndex]?.file;
+		if (targetFile) void acceptFiles(files, targetFile);
 	}
 
 	// ==========================================================================
@@ -300,12 +304,14 @@
 	 * The photo list the open in-page camera adds to: the main list, or the additional photos of
 	 * one image. Mobile browsers open their camera app from the capture inputs instead.
 	 */
-	let cameraTarget = $state<{ imageIndex?: number } | null>(null);
+	let cameraTarget = $state<{ file?: File } | null>(null);
 
 	function openCamera(imageIndex?: number) {
 		if (shouldUseInPageCamera()) {
+			const file = imageIndex === undefined ? undefined : images[imageIndex]?.file;
+			if (imageIndex !== undefined && !file) return;
 			if (totalImageCount >= maxImages) showToast(`Maximum ${maxImages} images allowed`, 'warning');
-			else cameraTarget = { imageIndex };
+			else cameraTarget = { file };
 		} else if (imageIndex === undefined) {
 			cameraInput?.click();
 		} else {
@@ -335,10 +341,10 @@
 	}
 
 	function chooseFileInsteadOfCamera() {
-		const imageIndex = cameraTarget?.imageIndex;
+		const file = cameraTarget?.file;
 		cameraTarget = null;
-		if (imageIndex === undefined) fileInput?.click();
-		else additionalImageInputs[imageIndex]?.click();
+		if (!file) fileInput?.click();
+		else additionalImageInputs[images.findIndex((image) => image.file === file)]?.click();
 	}
 
 	// ==========================================================================
@@ -1037,7 +1043,7 @@
 {#if cameraTarget}
 	<CameraCapture
 		remaining={maxImages - totalImageCount}
-		onCapture={(file) => acceptFiles([file], cameraTarget?.imageIndex)}
+		onCapture={(file, signal) => acceptFiles([file], cameraTarget?.file, signal)}
 		onRemove={removeCameraPhoto}
 		onClose={() => (cameraTarget = null)}
 		onUseFilePicker={chooseFileInsteadOfCamera}

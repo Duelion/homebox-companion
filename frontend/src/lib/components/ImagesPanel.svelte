@@ -74,7 +74,7 @@
 		input.value = '';
 	}
 
-	/** Add the files that fit the limits; returns why the last one turned down was, if any. */
+	/** Add the files within the limits and return the last rejection, if any. */
 	function addImages(files: File[]): string | undefined {
 		let rejection: string | undefined;
 		for (const file of files) {

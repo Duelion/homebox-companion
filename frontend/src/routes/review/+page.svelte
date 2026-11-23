@@ -491,19 +491,21 @@
 				{/if}
 
 				<!-- Images panel -->
-				<ImagesPanel
-					bind:images={() => allImages, setReviewImages}
-					customThumbnail={editedItem.customThumbnail}
-					onCustomThumbnailClear={() => {
-						if (editedItem) {
-							workflow.updateReviewDraft({ customThumbnail: undefined });
-						}
-					}}
-					expanded={showImagesPanel}
-					onToggle={toggleImagesPanel}
-					{maxFileSizeMb}
-					{maxImages}
-				/>
+				{#key currentItem?.reviewId}
+					<ImagesPanel
+						bind:images={() => allImages, setReviewImages}
+						customThumbnail={editedItem.customThumbnail}
+						onCustomThumbnailClear={() => {
+							if (editedItem) {
+								workflow.updateReviewDraft({ customThumbnail: undefined });
+							}
+						}}
+						expanded={showImagesPanel}
+						onToggle={toggleImagesPanel}
+						{maxFileSizeMb}
+						{maxImages}
+					/>
+				{/key}
 
 				<!-- AI Correction panel -->
 				<AiCorrectionPanel

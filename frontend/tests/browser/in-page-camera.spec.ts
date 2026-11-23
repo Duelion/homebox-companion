@@ -7,6 +7,7 @@ import { analyzePhotos, selectLocation, uploadPhoto } from './helpers/scan';
 type CameraWindow = Window & {
 	cameraRequests: MediaStreamConstraints[];
 	cameraTracks: MediaStreamTrack[];
+	finishPhotoValidation?: () => void;
 };
 
 /** Replace the webcam with a repainted canvas, recording each request and the tracks handed out. */
@@ -17,6 +18,9 @@ async function fakeCamera(page: Page, options: { deny?: boolean; cameras?: numbe
 				cameraRequests: [] as MediaStreamConstraints[],
 				cameraTracks: [] as MediaStreamTrack[],
 			});
+			if (!navigator.mediaDevices) {
+				Object.defineProperty(navigator, 'mediaDevices', { value: {} });
+			}
 			navigator.mediaDevices.getUserMedia = async (constraints) => {
 				state.cameraRequests.push(constraints ?? {});
 				if (deny) throw new DOMException('Permission denied', 'NotAllowedError');
@@ -168,9 +172,54 @@ test('switching cameras requests the next device and releases the previous one',
 	await expect(dialog.getByRole('button', { name: 'Take photo' })).toBeEnabled();
 	const requests = await page.evaluate(() => (window as unknown as CameraWindow).cameraRequests);
 	expect(requests).toHaveLength(2);
+	expect(requests.every((request) => request.audio === false)).toBe(true);
 	expect(requests[0].video).toMatchObject({ facingMode: { ideal: 'environment' } });
 	expect(requests[1].video).toMatchObject({ deviceId: { exact: 'camera-0' } });
 	expect(await liveTracks(page)).toBe(1);
+});
+
+test('closing the camera discards a photo still being validated', async ({ page }) => {
+	await fakeCamera(page);
+	await page.addInitScript(() => {
+		window.createImageBitmap = new Proxy(window.createImageBitmap, {
+			async apply(decode, receiver, args) {
+				const bitmap: ImageBitmap = await Reflect.apply(decode, receiver, args);
+				await new Promise<void>((resolve) => {
+					(window as unknown as CameraWindow).finishPhotoValidation = resolve;
+				});
+				return bitmap;
+			},
+		});
+	});
+	await selectLocation(page);
+	await cameraButton(page).click();
+	const dialog = cameraDialog(page);
+	await dialog.getByRole('button', { name: 'Take photo' }).click();
+	await page.waitForFunction(() => !!(window as unknown as CameraWindow).finishPhotoValidation);
+	await dialog.getByRole('button', { name: 'Done' }).click();
+	await expect(dialog).toHaveCount(0);
+	expect(await liveTracks(page)).toBe(0);
+	await page.evaluate(async () => {
+		(window as unknown as CameraWindow).finishPhotoValidation?.();
+		await new Promise(requestAnimationFrame);
+	});
+	await expect(page.getByAltText('Captured 1', { exact: true })).toHaveCount(0);
+});
+
+test('an active preview can take photos when listing cameras fails', async ({ page }) => {
+	await fakeCamera(page);
+	await selectLocation(page);
+	await page.evaluate(() => {
+		navigator.mediaDevices.enumerateDevices = () =>
+			Promise.reject(new DOMException('Device list unavailable', 'NotReadableError'));
+	});
+	await cameraButton(page).click();
+	const dialog = cameraDialog(page);
+	await dialog.getByRole('button', { name: 'Take photo' }).click();
+	await expect(dialog.getByRole('img', { name: 'Photo taken 1', exact: true })).toBeVisible();
+	await dialog.getByRole('button', { name: 'Done' }).click();
+	await expect(page.getByAltText('Captured 1', { exact: true })).toBeVisible();
+	expect(await liveTracks(page)).toBe(0);
 });
 
 test('a blocked camera explains why and offers the file chooser', async ({ page }) => {
