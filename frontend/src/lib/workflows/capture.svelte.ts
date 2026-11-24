@@ -42,10 +42,12 @@ export class CaptureService {
 		log.info(`Image removed. Total images: ${this.images.length}`);
 	}
 
-	/** Update image options (separateItems, extraInstructions, assetId) */
+	/** Update options for a captured photo group */
 	updateImageOptions(
 		index: number,
-		options: Partial<Pick<CapturedImage, 'separateItems' | 'extraInstructions' | 'assetId'>>
+		options: Partial<
+			Pick<CapturedImage, 'separateItems' | 'extraInstructions' | 'assetId' | 'quantityOverride'>
+		>
 	): void {
 		log.debug(`Updating options for image ${index}:`, options);
 		this.images = this.images.map((img, i) => (i === index ? { ...img, ...options } : img));

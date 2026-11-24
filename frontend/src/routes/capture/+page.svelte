@@ -762,6 +762,42 @@
 							</div>
 						</div>
 
+						{#if !image.separateItems && !reviewPreview}
+							<label class="flex items-center justify-between gap-3 px-3 pb-3 text-body-sm">
+								<span>Quantity of identical items</span>
+								<input
+									type="number"
+									min="1"
+									step="1"
+									placeholder="Auto"
+									class="input w-24 text-body-sm"
+									value={image.quantityOverride}
+									disabled={isAnalyzing ||
+										status === 'reviewing' ||
+										(status === 'partial_analysis' && imageStatuses[index] === 'success')}
+									oninput={(event) => {
+										const input = event.currentTarget;
+										const quantity = input.valueAsNumber;
+										if (
+											!input.validity.valid ||
+											(input.value !== '' && !Number.isSafeInteger(quantity))
+										) {
+											input.value = String(image.quantityOverride ?? '');
+											return;
+										}
+										workflow.updateImageOptions(index, {
+											quantityOverride: input.value === '' ? undefined : quantity,
+										});
+									}}
+								/>
+							</label>
+							{#if status === 'partial_analysis' && imageStatuses[index] === 'success'}
+								<p class="px-3 pb-3 text-caption text-neutral-400">
+									Already analyzed. You can change the quantity during review.
+								</p>
+							{/if}
+						{/if}
+
 						<!-- Expandable options -->
 						{#if expandedImages.has(index)}
 							<div

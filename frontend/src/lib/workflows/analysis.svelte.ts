@@ -264,6 +264,8 @@ export class AnalysisService {
 				const primaryCompressed = compressedImages[0];
 				const additionalCompressed = compressedImages.slice(1);
 
+				const isSingleItem = !result.image.separateItems && result.items.length === 1;
+
 				for (const item of result.items) {
 					// Add default tag if configured and valid
 					let tagIds = item.tag_ids ?? [];
@@ -282,6 +284,9 @@ export class AnalysisService {
 
 					allDetectedItems.push({
 						...item,
+						quantity: isSingleItem
+							? (result.image.quantityOverride ?? item.quantity)
+							: item.quantity,
 						tag_ids: tagIds,
 						sourceImageIndex: result.imageIndex,
 						originalFile: result.image.file,
@@ -290,10 +295,7 @@ export class AnalysisService {
 						compressedAdditionalDataUrls:
 							compressedAdditionalDataUrls.length > 0 ? compressedAdditionalDataUrls : undefined,
 						// Copy asset_id from source image (only for single-item mode)
-						asset_id:
-							!result.image.separateItems && result.items.length === 1
-								? (result.image.assetId ?? undefined)
-								: undefined,
+						asset_id: isSingleItem ? (result.image.assetId ?? undefined) : undefined,
 					});
 				}
 			}
