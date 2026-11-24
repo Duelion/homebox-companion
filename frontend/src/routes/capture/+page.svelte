@@ -772,7 +772,9 @@
 									placeholder="Auto"
 									class="input w-24 text-body-sm"
 									value={image.quantityOverride}
-									disabled={isAnalyzing}
+									disabled={isAnalyzing ||
+										status === 'reviewing' ||
+										(status === 'partial_analysis' && imageStatuses[index] === 'success')}
 									oninput={(event) => {
 										const input = event.currentTarget;
 										const quantity = input.valueAsNumber;
@@ -789,6 +791,11 @@
 									}}
 								/>
 							</label>
+							{#if status === 'partial_analysis' && imageStatuses[index] === 'success'}
+								<p class="px-3 pb-3 text-caption text-neutral-400">
+									Already analyzed. You can change the quantity during review.
+								</p>
+							{/if}
 						{/if}
 
 						<!-- Expandable options -->
