@@ -106,7 +106,6 @@
 			.then((tree) => {
 				if (controller.signal.aborted) return;
 				locationStore.setTree(tree);
-				locationStore.setFlatList(tree);
 			})
 			.catch(() => {
 				if (!controller.signal.aborted) overrideLocationsError = true;

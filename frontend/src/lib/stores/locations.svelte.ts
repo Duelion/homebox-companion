@@ -80,6 +80,20 @@ class LocationStore {
 		return this._flatList;
 	}
 
+	getPathTo(locationId: string): PathItem[] {
+		function findPath(locations: Location[]): PathItem[] {
+			for (const location of locations) {
+				const item = { id: location.id, name: location.name };
+				if (location.id === locationId) return [item];
+				const descendants = findPath(location.children ?? []);
+				if (descendants.length) return [item, ...descendants];
+			}
+			return [];
+		}
+
+		return findPath(this._tree);
+	}
+
 	/** Compute the full path string for the selected location */
 	get selectedPath(): string {
 		if (!this._selected) return '';
@@ -96,9 +110,10 @@ class LocationStore {
 	// SETTERS (controlled mutations)
 	// =========================================================================
 
-	/** Set the location tree */
+	/** Replace the tree and its search/quantity index together. */
 	setTree(tree: LocationTreeNode[]): void {
 		this._tree = tree;
+		this.setFlatList(tree);
 	}
 
 	/** Set the current navigation path */
@@ -131,7 +146,7 @@ class LocationStore {
 	}
 
 	/** Build the flat search list from the hierarchical tree */
-	setFlatList(tree: LocationTreeNode[]): void {
+	private setFlatList(tree: LocationTreeNode[]): void {
 		const flat = this.flattenLocations(tree, '');
 		this._flatList = this.computeDisambiguatedNames(flat);
 	}

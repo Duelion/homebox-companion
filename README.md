@@ -161,6 +161,7 @@ When editing an AI profile, leave the API key blank to keep its saved key, inclu
 ### Location Management
 - Browse hierarchical location tree
 - Search locations by name
+- Optionally show total item quantities and limit the container picker to Homebox container locations in Settings → Location Selection. These preferences are saved in the current browser.
 - Scan Homebox QR codes
 - Create new locations on the fly
 - Keep parent containers and physical locations separate on Homebox 0.27+

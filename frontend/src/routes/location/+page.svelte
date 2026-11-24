@@ -6,6 +6,7 @@
 	import { ApiError } from '$lib/api/client';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { locationStore } from '$lib/stores/locations.svelte';
+	import { locationPreferences } from '$lib/stores/locationPreferences.svelte';
 	import { locationNavigator } from '$lib/services/locationNavigator.svelte';
 	import { fetchTags } from '$lib/stores/tags.svelte';
 	import { showToast } from '$lib/stores/ui.svelte';
@@ -20,6 +21,7 @@
 	import StepIndicator from '$lib/components/StepIndicator.svelte';
 	import LocationModal from '$lib/components/LocationModal.svelte';
 	import ItemPickerModal from '$lib/components/ItemPickerModal.svelte';
+	import ContainerPickerModal from '$lib/components/ContainerPickerModal.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import QrScanner from '$lib/components/QrScanner.svelte';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
@@ -49,6 +51,12 @@
 
 	// Item picker modal state
 	let showItemPicker = $state(false);
+	let availableContainers = $derived(
+		(
+			locationStore.flatList.find(({ location }) => location.id === locationStore.selected?.id)
+				?.location.children ?? []
+		).filter((child) => child.type === 'location')
+	);
 
 	// QR Scanner state
 	let showQrScanner = $state(false);
@@ -71,6 +79,10 @@
 	);
 
 	let isSearching = $derived(searchQuery.trim().length > 0);
+	const quantityFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+	let totalsByLocation = $derived(
+		new Map(locationStore.flatList.map(({ location }) => [location.id, location.totalItemQuantity]))
+	);
 
 	// Reload locations when session is restored after expiry
 	// Use a simple variable to track previous state (not reactive, just storage)
@@ -156,6 +168,7 @@
 			showToast('Please select a location', 'warning');
 			return;
 		}
+		if (locationPreferences.containerLocationsOnly) scanWorkflow.clearParentItem();
 		goto(resolve('/capture'));
 	}
 
@@ -263,6 +276,13 @@
 		} else {
 			scanWorkflow.clearParentItem();
 		}
+	}
+
+	function selectContainer(container: Location) {
+		const path = locationStore.getPathTo(container.id);
+		locationStore.setPath(path);
+		locationNavigator.selectLocation(container, path.map((item) => item.name).join(' / '));
+		showItemPicker = false;
 	}
 
 	// Session recovery handlers
@@ -404,7 +424,9 @@
 				<Button variant="secondary" full onclick={openItemPicker}>
 					<Package size={20} strokeWidth={1.5} />
 					<span>
-						{#if scanWorkflow.state.parentItemName}
+						{#if locationPreferences.containerLocationsOnly}
+							Place Inside a Container
+						{:else if scanWorkflow.state.parentItemName}
 							Inside: {scanWorkflow.state.parentItemName}
 						{:else}
 							Place Inside an Item
@@ -470,6 +492,9 @@
 							{filteredLocations.length} location{filteredLocations.length !== 1 ? 's' : ''} found
 						</p>
 						{#each filteredLocations as item (item.location.id)}
+							{@const quantity = locationPreferences.showItemQuantities
+								? item.location.totalItemQuantity
+								: undefined}
 							<button
 								type="button"
 								class="group flex w-full items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-900 p-4 text-left shadow-sm transition-all hover:border-neutral-600 hover:shadow-md"
@@ -494,7 +519,12 @@
 										</p>
 									{/if}
 								</div>
-								{#if item.location.itemCount !== undefined}
+								{#if quantity !== undefined}
+									<span class="shrink-0 text-body-sm text-neutral-500">
+										{quantityFormatter.format(quantity)}
+										{quantity === 1 ? 'item' : 'items'}
+									</span>
+								{:else if item.location.itemCount !== undefined}
 									<span class="text-body-sm text-neutral-500">{item.location.itemCount} items</span>
 								{/if}
 							</button>
@@ -577,6 +607,9 @@
 				<!-- Location list with improved cards -->
 				<div class="space-y-2">
 					{#each locationStore.currentLevel as location (location.id)}
+						{@const quantity = locationPreferences.showItemQuantities
+							? totalsByLocation.get(location.id)
+							: undefined}
 						<button
 							type="button"
 							class="group flex w-full items-center gap-3 rounded-xl border border-neutral-700/70 bg-neutral-900/60 p-4 text-left shadow-sm transition-all hover:border-neutral-600 hover:bg-neutral-900 hover:shadow-md {locationStore
@@ -604,7 +637,16 @@
 									</p>
 								{/if}
 							</div>
-							{#if location.children && location.children.length > 0}
+							{#if quantity !== undefined}
+								<div class="flex shrink-0 items-center gap-1 text-body-sm text-neutral-500">
+									<span
+										>{quantityFormatter.format(quantity)} {quantity === 1 ? 'item' : 'items'}</span
+									>
+									{#if location.children && location.children.length > 0}
+										<ChevronRight size={16} strokeWidth={1.5} />
+									{/if}
+								</div>
+							{:else if location.children && location.children.length > 0}
 								<div class="flex items-center gap-1 text-body-sm text-neutral-500">
 									<span>{location.children.length}</span>
 									<ChevronRight size={16} strokeWidth={1.5} />
@@ -647,12 +689,20 @@
 
 <!-- Item Picker Modal -->
 {#if showItemPicker && locationStore.selected}
-	<ItemPickerModal
-		locationId={locationStore.selected.id}
-		currentItemId={scanWorkflow.state.parentItemId}
-		onSelect={handleParentItemSelect}
-		onClose={() => (showItemPicker = false)}
-	/>
+	{#if locationPreferences.containerLocationsOnly}
+		<ContainerPickerModal
+			containers={availableContainers}
+			onSelect={selectContainer}
+			onClose={() => (showItemPicker = false)}
+		/>
+	{:else}
+		<ItemPickerModal
+			locationId={locationStore.selected.id}
+			currentItemId={scanWorkflow.state.parentItemId}
+			onSelect={handleParentItemSelect}
+			onClose={() => (showItemPicker = false)}
+		/>
+	{/if}
 {/if}
 
 <!-- QR Scanner Modal -->

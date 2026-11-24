@@ -129,7 +129,6 @@ class LocationNavigator {
 			const tree = await locationsApi.tree();
 			if (!valid()) return;
 			locationStore.setTree(tree);
-			locationStore.setFlatList(tree);
 			if (sameView() && locationStore.path.length === 0) locationStore.setCurrentLevel(tree);
 			const parentId = locationStore.path.at(-1)?.id;
 			if (sameView() && parentId) {
@@ -164,9 +163,6 @@ class LocationNavigator {
 			log.debug('Loaded location tree, top-level count:', tree.length);
 			locationStore.setTree(tree);
 			locationStore.setCurrentLevel(tree);
-
-			// Build flat list for search from the tree (preserves hierarchy for disambiguation)
-			locationStore.setFlatList(tree);
 		} catch (error) {
 			if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 			log.error('Failed to load locations', error);
@@ -212,9 +208,6 @@ class LocationNavigator {
 				locationStore.setCurrentLevel(tree);
 				this._currentLocation = null;
 			}
-
-			// Also refresh flat list for search from the refreshed tree
-			locationStore.setFlatList(locationStore.tree);
 		} catch (error) {
 			if (!valid() || (error instanceof Error && error.name === 'AbortError')) return;
 			log.error('Failed to refresh current level', error);
@@ -443,8 +436,14 @@ class LocationNavigator {
 
 		this._isLoading = true;
 		try {
-			const details = await locationsApi.get(locationStore.selected.id);
+			// The picker and destination paths come from the tree, not the details response.
+			// Refresh both before publishing either so they describe the same refresh.
+			const [details, tree] = await Promise.all([
+				locationsApi.get(locationStore.selected.id),
+				locationsApi.tree(),
+			]);
 			if (!valid()) return;
+			locationStore.setTree(tree);
 			locationStore.setSelected({
 				id: details.id,
 				name: details.name,

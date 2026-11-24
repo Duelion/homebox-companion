@@ -3,6 +3,7 @@
  */
 
 import { request } from './client';
+import { locationPreferences } from '$lib/stores/locationPreferences.svelte';
 import type {
 	Location,
 	LocationTreeNode,
@@ -16,7 +17,13 @@ export const locations = {
 		return request<Location[]>(`/locations${params}`);
 	},
 
-	tree: (signal?: AbortSignal) => request<LocationTreeNode[]>('/locations/tree', { signal }),
+	tree: (signal?: AbortSignal) =>
+		request<LocationTreeNode[]>(
+			locationPreferences.showItemQuantities
+				? '/locations/tree?include_item_totals=true'
+				: '/locations/tree',
+			{ signal }
+		),
 
 	get: (id: string) => request<Location>(`/locations/${id}`),
 

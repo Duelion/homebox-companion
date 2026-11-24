@@ -116,10 +116,20 @@ class _LocationClient:
         self.tree = tree or []
         self.locations: dict[str, dict[str, Any]] = {}
         self.all_locations: list[dict[str, Any]] = []
+        self.item_pages: list[list[dict[str, Any]]] = []
+        self.requested_item_pages: list[int] = []
         self.fail_ids: set[str] = set()
 
-    async def get_location_tree(self, token: str) -> list[dict[str, Any]]:
+    async def get_location_tree(self, token: str, *, with_items: bool = False) -> list[dict[str, Any]]:
         return self.tree
+
+    async def list_items(self, token: str, *, page: int, page_size: int) -> dict[str, Any]:
+        self.requested_item_pages.append(page)
+        return {
+            "items": self.item_pages[page - 1],
+            "pageSize": len(self.item_pages[0]),
+            "total": sum(map(len, self.item_pages)),
+        }
 
     async def get_location(self, token: str, location_id: str) -> dict[str, Any]:
         if location_id in self.fail_ids:
@@ -154,6 +164,46 @@ def test_tree_route_sorts_without_mutating_client_payload() -> None:
     assert [node["name"] for node in response.json()] == ["2", "10"]
     assert tree[0]["name"] == "10"
     assert tree[0]["children"][0]["name"] == "2"
+
+
+def test_tree_totals_include_nested_locations_and_items_and_skip_archived() -> None:
+    root = {
+        "id": "room",
+        "name": "Room",
+        "type": "location",
+        "children": [
+            {
+                "id": "shelf",
+                "name": "Shelf",
+                "type": "location",
+                "children": [
+                    {
+                        "id": "box",
+                        "type": "item",
+                        "children": [{"id": "screws", "type": "item"}],
+                    },
+                    {"id": "archived", "type": "item"},
+                ],
+            },
+            {"id": "lamp", "type": "item"},
+        ],
+    }
+    client = _LocationClient([root])
+    client.item_pages = [
+        [{"id": "box", "quantity": 1}, {"id": "screws", "quantity": 12}],
+        [{"id": "archived", "quantity": 50, "archived": True}, {"id": "lamp", "quantity": 2}],
+    ]
+
+    with _http_client(client) as http_client:
+        response = http_client.get("/locations/tree?include_item_totals=true")
+
+    assert response.status_code == 200
+    assert client.requested_item_pages == [1, 2]
+    room = response.json()[0]
+    assert room["totalItemQuantity"] == 15
+    assert [(child["id"], child["totalItemQuantity"]) for child in room["children"]] == [("shelf", 13)]
+    assert room["children"][0]["children"] == []
+    assert "totalItemQuantity" not in root
 
 
 def test_location_route_sorts_nested_children_and_preserves_fallback_data() -> None:
