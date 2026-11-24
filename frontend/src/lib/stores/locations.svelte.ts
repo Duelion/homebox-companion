@@ -110,9 +110,10 @@ class LocationStore {
 	// SETTERS (controlled mutations)
 	// =========================================================================
 
-	/** Set the location tree */
+	/** Replace the tree and its search/quantity index together. */
 	setTree(tree: LocationTreeNode[]): void {
 		this._tree = tree;
+		this.setFlatList(tree);
 	}
 
 	/** Set the current navigation path */
@@ -145,7 +146,7 @@ class LocationStore {
 	}
 
 	/** Build the flat search list from the hierarchical tree */
-	setFlatList(tree: LocationTreeNode[]): void {
+	private setFlatList(tree: LocationTreeNode[]): void {
 		const flat = this.flattenLocations(tree, '');
 		this._flatList = this.computeDisambiguatedNames(flat);
 	}
